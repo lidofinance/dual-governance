@@ -2,7 +2,6 @@
 pragma solidity 0.8.23;
 
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {Configuration} from "./Configuration.sol";
@@ -12,9 +11,17 @@ import {IVotingSystem} from "./voting-systems/IVotingSystem.sol";
 
 
 contract ConfigProxy is TransparentUpgradeableProxy {
-    function proxyAdmin() external view returns (address) {
+    constructor(address impl, address owner) TransparentUpgradeableProxy(impl, owner, new bytes(0)) {}
+
+    // FIXME add view modifier after OZ releases this fix: github.com/OpenZeppelin/openzeppelin-contracts/pull/4688
+    function proxyAdmin() external returns (address) {
         return _proxyAdmin();
     }
+}
+
+
+interface IProxyAdmin {
+    function upgradeAndCall(address proxy, address impl, bytes memory data) external;
 }
 
 
@@ -22,7 +29,7 @@ contract DualGovernance {
     using SafeCast for uint256;
 
     event NewProposal(uint256 indexed votingSystemId, uint256 indexed id);
-    event GovernanceReplaced(address governance);
+    event GovernanceReplaced(address governance, uint256 timelockDuration);
     event ConfigSet(address config);
     event VotingSystemRegistered(address indexed facade, uint256 indexed id);
     event VotingSystemUnregistered(address indexed facade, uint256 indexed id);
@@ -66,23 +73,23 @@ contract DualGovernance {
     ProposalExecutionContext internal _propExecution;
 
 
-    constructor(address initialConfig, address escrowImpl) {
-        CONFIG = Configuration(new ConfigProxy(initialConfig, address(this), new bytes(0)));
-        AGENT = new Agent(address(this));
-        GOV_STATE = new GovernanceState(CONFIG, address(this), escrowImpl);
+    constructor(address agent, address initialConfig, address escrowImpl) {
+        AGENT = Agent(agent);
+        CONFIG = Configuration(address(new ConfigProxy(initialConfig, address(this))));
+        GOV_STATE = new GovernanceState(address(CONFIG), address(this), escrowImpl);
         emit ConfigSet(initialConfig);
     }
 
-    function replaceDualGovernance(address newGovernance) external {
+    function replaceDualGovernance(address newGovernance, uint256 timelockDuration) external {
         _assertExecutionByAdminVotingSystem(msg.sender);
-        AGENT.setGovernance(newGovernance);
-        emit GovernanceReplaced(newGovernance);
+        AGENT.setGovernance(newGovernance, timelockDuration);
+        emit GovernanceReplaced(newGovernance, timelockDuration);
     }
 
     function updateConfig(address newConfig) external {
         _assertExecutionByAdminVotingSystem(msg.sender);
-        ProxyAdmin admin = ProxyAdmin(ConfigProxy(CONFIG).proxyAdmin());
-        admin.upgradeAndCall(CONFIG, newConfig, new bytes(0));
+        IProxyAdmin admin = IProxyAdmin(ConfigProxy(payable(address(CONFIG))).proxyAdmin());
+        admin.upgradeAndCall(address(CONFIG), newConfig, new bytes(0));
         emit ConfigSet(newConfig);
     }
 
@@ -98,7 +105,7 @@ contract DualGovernance {
         return _votingSystemIds;
     }
 
-    function registerVotingSystem(address votingSystemFacade) external returns (uint256 id) {
+    function registerVotingSystem(address votingSystemFacade) external returns (uint256) {
         _assertExecutionByAdminVotingSystem(msg.sender);
 
         uint256 totalVotingSystems = _votingSystemIds.length;
@@ -116,6 +123,8 @@ contract DualGovernance {
         _votingSystemIds.push(votingSystemId);
 
         emit VotingSystemRegistered(votingSystemFacade, votingSystemId);
+
+        return votingSystemId;
     }
 
     function unregisterVotingSystem(uint256 votingSystemId) external {
@@ -166,7 +175,7 @@ contract DualGovernance {
             votingSystemId: votingSystemId.toUint16(),
             submittedAt: _getTime().toUint64(),
             decidedAt: decidedAt.toUint64(),
-            isExecuted: false,
+            isExecuted: false
         }));
     }
 
@@ -187,7 +196,7 @@ contract DualGovernance {
             isExecuting: true,
             isForwarding: false,
             votingSystemId: votingSystemId.toUint16(),
-            proposalId: proposalId.toUint64(),
+            proposalId: proposalId.toUint64()
         });
         proposal.isExecuted = true;
         _saveProposal(proposalKey, proposal);
@@ -208,7 +217,7 @@ contract DualGovernance {
         _propExecution.isForwarding = false;
     }
 
-    function _assertExecutionByAdminVotingSystem(address caller) internal {
+    function _assertExecutionByAdminVotingSystem(address caller) internal view {
         ProposalExecutionContext memory execution = _propExecution;
         _assertValidCallerForExecution(execution, caller);
         if (execution.votingSystemId != CONFIG.adminVotingSystemId()) {
@@ -216,7 +225,7 @@ contract DualGovernance {
         }
     }
 
-    function _assertValidCallerForExecution(ProposalExecutionContext memory execution, address caller) internal {
+    function _assertValidCallerForExecution(ProposalExecutionContext memory execution, address caller) internal view {
         if (!execution.isExecuting) {
             revert CannotCallOutsideExecution();
         }
@@ -226,7 +235,7 @@ contract DualGovernance {
         }
     }
 
-    function _getVotingSystem(uint256 id) internal returns (IVotingSystem) {
+    function _getVotingSystem(uint256 id) internal view returns (IVotingSystem) {
         address votingSystem = _votingSystems[id];
         if (votingSystem == address(0)) {
             revert InvalidVotingSystem();
@@ -256,7 +265,7 @@ contract DualGovernance {
         return (votingSystemId << 64) | proposalId;
     }
 
-    function _getTime() internal vitrual view returns (uint256) {
+    function _getTime() internal virtual view returns (uint256) {
         return block.timestamp;
     }
 }

@@ -19,7 +19,7 @@ contract GovernanceState {
         VetoSignallingDeactivation,
         VetoCooldown,
         RageQuitAccumulation,
-        RageQuit,
+        RageQuit
     }
 
     Configuration internal immutable CONFIG;
@@ -62,7 +62,7 @@ contract GovernanceState {
         return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
     }
 
-    function _isExecutionEnabled() internal returns (bool) {
+    function _isExecutionEnabled() internal view returns (bool) {
         State state = _state;
         return state == State.Normal || state == State.VetoCooldown;
     }
@@ -86,12 +86,12 @@ contract GovernanceState {
         }
     }
 
-    function _setState(uint256 newState) internal {
+    function _setState(State newState) internal {
         State state = _state;
         assert(newState != state);
         _state = newState;
         _stateEnteredAt = _getTime();
-        emit StateTransition(state, newState);
+        emit StateTransition(uint256(state), uint256(newState));
     }
 
     function _deployNewSignallingEscrow() internal {
@@ -171,16 +171,16 @@ contract GovernanceState {
     }
 
     function _activateNextStateFromVetoSignallingDeactivation() internal {
-        uint256 now = _getTime();
+        uint256 timestamp = _getTime();
 
-        uint256 currentDeactivationDuration = now - _stateEnteredAt;
+        uint256 currentDeactivationDuration = timestamp - _stateEnteredAt;
         if (currentDeactivationDuration >= CONFIG.signallingDeactivationDuration()) {
             _transitionVetoSignallingToVetoCooldown();
             return;
         }
 
         (uint256 totalSupport, uint256 rageQuitSupport) = _signallingEscrow.getSignallingState();
-        uint256 currentSignallingDuration = now - _signallingActivatedAt;
+        uint256 currentSignallingDuration = timestamp - _signallingActivatedAt;
         uint256 targetSignallingDuration = _calcVetoSignallingTargetDuration(totalSupport);
 
         if (currentSignallingDuration >= targetSignallingDuration) {
@@ -192,7 +192,7 @@ contract GovernanceState {
         }
     }
 
-    function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal returns (uint256) {
+    function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256) {
         // TODO
         return 0;
     }
@@ -263,7 +263,7 @@ contract GovernanceState {
     // Utils
     //
 
-    function _getTime() internal vitrual view returns (uint256) {
+    function _getTime() internal virtual view returns (uint256) {
         return block.timestamp;
     }
 }

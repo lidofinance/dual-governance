@@ -28,18 +28,12 @@ contract Agent {
     address internal _emergencyMultisig;
     uint256 internal _emergencyMultisigActiveTill;
 
-    constructor(
-        address daoAgent,
-        address governance,
-        uint256 timelockDuration,
-        address emergencyMultisig,
-        uint256 emergencyMultisigActiveFor
-    ) {
+    constructor(address daoAgent, address governance) {
         DAO_AGENT = daoAgent;
-        _configure(governance, timelockDuration, emergencyMultisig, emergencyMultisigActiveFor);
+        _setGovernance(governance, 0);
     }
 
-    function getGovernance() external returns (address) {
+    function getGovernance() external view returns (address) {
         return _governance;
     }
 
@@ -47,20 +41,25 @@ contract Agent {
         return (_emergencyMultisig, _emergencyMultisigActiveTill);
     }
 
-    function configure(
-        address governance,
-        uint256 timelockDuration,
-        address emergencyMultisig,
-        uint256 emergencyMultisigActiveFor
-    ) external {
-        _assertCalledByGovernance();
-        _configure(governance, timelockDuration, emergencyMultisig, emergencyMultisigActiveFor);
+    function setGovernance(address governance, uint256 timelockDuration) external {
+        if (msg.sender != address(this)) {
+            revert Unauthorized();
+        }
+        _setGovernance(governance, timelockDuration);
+    }
+
+    function setEmergencyMultisig(address emergencyMultisig, uint256 emergencyMultisigActiveFor) external {
+        if (msg.sender != address(this)) {
+            revert Unauthorized();
+        }
+        _setEmergencyMultisig(emergencyMultisig, emergencyMultisigActiveFor);
     }
 
     function emergencyResetGovernanceToDAO() external {
         _assertCalledByEmergencyMultisig();
         _cancelScheduledCalls();
-        _setGovernance(DAO_AGENT, address(0), 0);
+        _setGovernance(DAO_AGENT, 0);
+        _setEmergencyMultisig(address(0), 0);
         emit GovernanceEmergencyResetToDAO();
     }
 
@@ -70,14 +69,16 @@ contract Agent {
     }
 
     function forwardCall(address target, bytes calldata data) external {
-        _assertCalledByGovernance();
+        if (msg.sender != _governance) {
+            revert Unauthorized();
+        }
         uint256 timelockDuration = _timelockDuration;
         if (timelockDuration == 0) {
             _call(target, data);
         } else {
-            uint256 now = _getTime()
-            uint256 lockedTill = now + timelockDuration;
-            uint256 callId = _timelockCallSet.add(now, lockedTill, target, data);
+            uint256 timestamp = _getTime();
+            uint256 lockedTill = timestamp + timelockDuration;
+            uint256 callId = _timelockCallSet.add(timestamp, lockedTill, target, data);
             emit CallScheduled(callId, lockedTill, target, data);
         }
     }
@@ -111,13 +112,7 @@ contract Agent {
         emit ScheduledCallsCancelled();
     }
 
-    function _assertCalledByGovernance() internal {
-        if (msg.sender != _governance) {
-            revert Unauthorized();
-        }
-    }
-
-    function _assertCalledByEmergencyMultisig() internal {
+    function _assertCalledByEmergencyMultisig() internal view {
         if (msg.sender != _emergencyMultisig) {
             revert Unauthorized();
         }
@@ -126,12 +121,7 @@ contract Agent {
         }
     }
 
-    function _configure(
-        address governance,
-        uint256 timelockDuration,
-        address emergencyMultisig,
-        uint256 emergencyMultisigActiveFor
-    ) internal {
+    function _setGovernance(address governance, uint256 timelockDuration) internal {
         if (governance != _governance) {
             _governance = governance;
             emit GovernanceSet(governance);
@@ -140,6 +130,9 @@ contract Agent {
             _timelockDuration = timelockDuration;
             emit TimelockDurationSet(timelockDuration);
         }
+    }
+
+    function _setEmergencyMultisig(address emergencyMultisig, uint256 emergencyMultisigActiveFor) internal {
         if (_emergencyMultisig != emergencyMultisig) {
             _emergencyMultisig = emergencyMultisig;
             emit EmergencyMultisigSet(emergencyMultisig);
@@ -151,7 +144,7 @@ contract Agent {
         }
     }
 
-    function _getTime() internal vitrual view returns (uint256) {
+    function _getTime() internal virtual view returns (uint256) {
         return block.timestamp;
     }
 }

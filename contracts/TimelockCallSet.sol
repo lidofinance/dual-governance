@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {EnumerableSet} from "@openzeppelin/contracts/structs/EnumerableSet.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 
 using EnumerableSet for EnumerableSet.UintSet;
@@ -13,6 +14,8 @@ error IdNotFound();
 
 
 library TimelockCallSet {
+    using SafeCast for uint256;
+
     struct Call {
         uint64 scheduledAt;
         uint64 lockedTill;
@@ -28,7 +31,7 @@ library TimelockCallSet {
     }
 
     function get(Set storage self, uint256 id) internal view returns (Call memory) {
-        Call memory call = self._calls[callId];
+        Call memory call = self._calls[id];
         if (call.target == address(0)) {
             revert IdNotFound();
         }
@@ -46,7 +49,7 @@ library TimelockCallSet {
             revert TargetCannotBeZero();
         }
         uint256 callId = ++self._maxId;
-        self._calls[callId] = Call(lockedTill, lockedTill, target, data);
+        self._calls[callId] = Call(scheduledAt.toUint64(), lockedTill.toUint64(), target, data);
         assert(self._ids.add(callId));
         return callId;
     }
@@ -64,9 +67,9 @@ library TimelockCallSet {
         return call;
     }
 
-    function cancelCallsTill(uint256 timestamp) internal {
-        require(timestamp >= _cancelledTill);
-        _cancelledTill = timestamp;
+    function cancelCallsTill(Set storage self, uint256 timestamp) internal {
+        require(timestamp >= self._cancelledTill);
+        self._cancelledTill = timestamp;
     }
 
     function getIds(Set storage self) internal view returns (uint256[] memory) {

@@ -2,7 +2,6 @@
 pragma solidity 0.8.23;
 
 import {Configuration} from "./Configuration.sol";
-import {GovernanceState} from "./GovernanceState.sol";
 
 
 interface IERC20 {
@@ -11,7 +10,7 @@ interface IERC20 {
 }
 
 interface IStETH {
-    function getSharesByPooledEth(uint256 ethAmount) public view returns (uint256);
+    function getSharesByPooledEth(uint256 ethAmount) external view returns (uint256);
 }
 
 interface IWstETH {
@@ -21,7 +20,7 @@ interface IWstETH {
 interface IWithdrawalQueue {
     function MAX_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
     function requestWithdrawalsWstETH(uint256[] calldata amounts, address owner) external returns (uint256[] memory);
-    function claimWithdrawalsTo(uint256[] calldata requestIds, uint256[] calldata hints, address recipient);
+    function claimWithdrawalsTo(uint256[] calldata requestIds, uint256[] calldata hints, address recipient) external;
     function getLastFinalizedRequestId() external view returns (uint256);
 }
 
@@ -29,7 +28,7 @@ interface IWithdrawalQueue {
 /**
  * A contract serving as a veto signalling and rage quit escrow.
  */
-contract VetoSignallingEscrow {
+contract Escrow {
     error Unauthorized();
     error InvalidState();
     error NoUnrequestedWithdrawalsLeft();
@@ -45,7 +44,7 @@ contract VetoSignallingEscrow {
     enum State {
         Signalling,
         RageQuitAccumulation,
-        RageQuit,
+        RageQuit
     }
 
     address internal immutable ST_ETH;
@@ -67,10 +66,10 @@ contract VetoSignallingEscrow {
         address governanceState,
         address stEth,
         address wstEth,
-        address withdrawalQueue,
+        address withdrawalQueue
     ) {
         CONFIG = Configuration(config);
-        GOV_STATE = GovernanceState(governanceState);
+        GOV_STATE = governanceState;
         ST_ETH = stEth;
         WST_ETH = wstEth;
         WITHDRAWAL_QUEUE = withdrawalQueue;
@@ -120,7 +119,7 @@ contract VetoSignallingEscrow {
     /// State transitions
     ///
 
-    function getSignallingState() external returns (uint256 totalSupport, uint256 rageQuitSupport) {
+    function getSignallingState() external view returns (uint256 totalSupport, uint256 rageQuitSupport) {
         // TODO
         // totalSupport = percentage of stETH total supply locked in the escrow
         // rageQuitSupport = the same but not counting withdrawal NFTs

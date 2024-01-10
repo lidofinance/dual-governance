@@ -1,8 +1,17 @@
-node_modules
+node_modules/
 .env
-coverage
+coverage/
 coverage.json
 
 # Hardhat files
-cache
-artifacts
+cache/
+artifacts/
+
+# Foundry: compiler files
+cache_forge/
+out/
+
+# Foundry: development broadcast logs
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/

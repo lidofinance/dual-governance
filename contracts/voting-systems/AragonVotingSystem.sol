@@ -31,7 +31,7 @@ contract AragonVotingSystem is IVotingSystem {
         return (voteId, _getTime() + voteDuration);
     }
 
-    function _isAllowedToSubmitProposal(address submitter) internal returns (bool) {
+    function _isAllowedToSubmitProposal(address submitter) internal view returns (bool) {
         // TODO: check submitter is allowed to start a vote (check min LDO balance)
         return true;
     }
@@ -45,7 +45,7 @@ contract AragonVotingSystem is IVotingSystem {
         return addr == VOTING;
     }
 
-    function _getTime() internal vitrual view returns (uint256) {
+    function _getTime() internal virtual view returns (uint256) {
         return block.timestamp;
     }
 }
