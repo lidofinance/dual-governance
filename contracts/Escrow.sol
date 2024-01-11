@@ -47,32 +47,30 @@ contract Escrow {
         RageQuit
     }
 
+    Configuration internal immutable CONFIG;
     address internal immutable ST_ETH;
     address internal immutable WST_ETH;
     address internal immutable WITHDRAWAL_QUEUE;
-    uint256 internal immutable MAX_STETH_WITHDRAWAL_REQUEST_AMOUNT;
 
-    Configuration internal immutable CONFIG;
-
-    address internal GOV_STATE;
+    address internal _govState;
     State internal _state;
 
     uint256 _rageQuitWstEthAmountTotal;
     uint256 _rageQuitWstEthAmountRequested;
     uint256 _lastWithdrawalRequestId;
 
-    constructor(
-        address config,
-        address governanceState,
-        address stEth,
-        address wstEth,
-        address withdrawalQueue
-    ) {
+    constructor(address config, address stEth, address wstEth, address withdrawalQueue) {
         CONFIG = Configuration(config);
-        GOV_STATE = governanceState;
         ST_ETH = stEth;
         WST_ETH = wstEth;
         WITHDRAWAL_QUEUE = withdrawalQueue;
+    }
+
+    function initialize(address governanceState) external {
+        if (_govState != address(0)) {
+            revert Unauthorized();
+        }
+        _govState = governanceState;
     }
 
     ///
@@ -127,7 +125,7 @@ contract Escrow {
     }
 
     function startRageQuitAccumulation() external {
-        if (msg.sender != GOV_STATE) {
+        if (msg.sender != _govState) {
             revert Unauthorized();
         }
         if (_state != State.Signalling) {
@@ -138,7 +136,7 @@ contract Escrow {
     }
 
     function startRageQuit() external {
-        if (msg.sender != GOV_STATE) {
+        if (msg.sender != _govState) {
             revert Unauthorized();
         }
         if (_state != State.RageQuitAccumulation) {

@@ -96,9 +96,10 @@ contract GovernanceState {
 
     function _deployNewSignallingEscrow() internal {
         uint256 escrowIndex = _escrowIndex++;
-        address escrow = Clones.cloneDeterministic(ESCROW_IMPL, bytes32(escrowIndex));
-        _signallingEscrow = Escrow(escrow);
-        emit NewSignallingEscrowDeployed(escrow, escrowIndex);
+        Escrow escrow = Escrow(Clones.cloneDeterministic(ESCROW_IMPL, bytes32(escrowIndex)));
+        escrow.initialize(address(this));
+        _signallingEscrow = escrow;
+        emit NewSignallingEscrowDeployed(address(escrow), escrowIndex);
     }
 
     //
@@ -123,7 +124,7 @@ contract GovernanceState {
         }
     }
 
-    function _isFirstThresholdReached() internal returns (bool) {
+    function _isFirstThresholdReached() internal view returns (bool) {
         (uint256 totalSupport, ) = _signallingEscrow.getSignallingState();
         return totalSupport >= CONFIG.firstSealThreshold();
     }

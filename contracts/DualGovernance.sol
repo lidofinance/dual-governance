@@ -1,23 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {Configuration} from "./Configuration.sol";
-import {GovernanceState} from "./GovernanceState.sol";
 import {Agent} from "./Agent.sol";
+import {Escrow} from "./Escrow.sol";
+import {GovernanceState} from "./GovernanceState.sol";
 import {IVotingSystem} from "./voting-systems/IVotingSystem.sol";
-
-
-contract ConfigProxy is TransparentUpgradeableProxy {
-    constructor(address impl, address owner) TransparentUpgradeableProxy(impl, owner, new bytes(0)) {}
-
-    // FIXME add view modifier after OZ releases this fix: github.com/OpenZeppelin/openzeppelin-contracts/pull/4688
-    function proxyAdmin() external returns (address) {
-        return _proxyAdmin();
-    }
-}
 
 
 interface IProxyAdmin {
@@ -62,6 +52,7 @@ contract DualGovernance {
     }
 
     Configuration internal immutable CONFIG;
+    IProxyAdmin internal immutable CONFIG_ADMIN;
     Agent internal immutable AGENT;
     GovernanceState internal immutable GOV_STATE;
 
@@ -73,11 +64,12 @@ contract DualGovernance {
     ProposalExecutionContext internal _propExecution;
 
 
-    constructor(address agent, address initialConfig, address escrowImpl) {
+    constructor(address agent, address config, address initialConfigImpl, address configAdmin, address escrowImpl) {
         AGENT = Agent(agent);
-        CONFIG = Configuration(address(new ConfigProxy(initialConfig, address(this))));
+        CONFIG = Configuration(config);
+        CONFIG_ADMIN = IProxyAdmin(configAdmin);
         GOV_STATE = new GovernanceState(address(CONFIG), address(this), escrowImpl);
-        emit ConfigSet(initialConfig);
+        emit ConfigSet(initialConfigImpl);
     }
 
     function replaceDualGovernance(address newGovernance, uint256 timelockDuration) external {
@@ -88,8 +80,7 @@ contract DualGovernance {
 
     function updateConfig(address newConfig) external {
         _assertExecutionByAdminVotingSystem(msg.sender);
-        IProxyAdmin admin = IProxyAdmin(ConfigProxy(payable(address(CONFIG))).proxyAdmin());
-        admin.upgradeAndCall(address(CONFIG), newConfig, new bytes(0));
+        CONFIG_ADMIN.upgradeAndCall(address(CONFIG), newConfig, new bytes(0));
         emit ConfigSet(newConfig);
     }
 
@@ -177,6 +168,7 @@ contract DualGovernance {
             decidedAt: decidedAt.toUint64(),
             isExecuted: false
         }));
+        return proposalId;
     }
 
     function executeProposal(uint256 votingSystemId, uint256 proposalId) external {

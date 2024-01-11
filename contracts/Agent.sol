@@ -37,7 +37,7 @@ contract Agent {
         return _governance;
     }
 
-    function getEmergencyMultisig() external returns (address emergencyMultisig, uint256 activeTill) {
+    function getEmergencyMultisig() external view returns (address emergencyMultisig, uint256 activeTill) {
         return (_emergencyMultisig, _emergencyMultisigActiveTill);
     }
 
