@@ -34,13 +34,13 @@ library Utils {
         vm.rollFork(18984396);
     }
 
-    function encodeEvmCallScript(address target, bytes memory data) internal returns (bytes memory) {
+    function encodeEvmCallScript(address target, bytes memory data) internal pure returns (bytes memory) {
         Utils.EvmScriptCall[] memory calls = new Utils.EvmScriptCall[](1);
         calls[0] = Utils.EvmScriptCall(target, data);
         return encodeEvmCallScript(calls);
     }
 
-    function encodeEvmCallScript(EvmScriptCall[] memory calls) internal returns (bytes memory) {
+    function encodeEvmCallScript(EvmScriptCall[] memory calls) internal pure returns (bytes memory) {
         bytes memory script = new bytes(4);
         script[3] = 0x01;
 
@@ -86,9 +86,8 @@ library Utils {
     }
 
     function vote(uint256 voteId, address voter, bool support) internal {
-        IAragonVoting voting = IAragonVoting(DAO_VOTING);
         console.log("voting from %x at block %d", voter, block.number);
         vm.prank(voter);
-        voting.vote(voteId, support, false);
+        IAragonVoting(DAO_VOTING).vote(voteId, support, false);
     }
 }
