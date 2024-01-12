@@ -116,6 +116,7 @@ contract DualGovernance {
     }
 
     function killAllPendingProposals() external {
+        GOV_STATE.activateNextState();
         IVotingSystem votingSystem = _getVotingSystem(CONFIG.adminVotingSystemId());
         if (!votingSystem.isValidExecutionForwarder(msg.sender)) {
             revert Unauthorized();
@@ -128,6 +129,7 @@ contract DualGovernance {
     }
 
     function submitProposal(uint256 votingSystemId, bytes calldata data) external returns (uint256 id) {
+        GOV_STATE.activateNextState();
         if (!GOV_STATE.isProposalSubmissionAllowed()) {
             revert ProposalSubmissionNotAllowed();
         }
@@ -144,6 +146,7 @@ contract DualGovernance {
     }
 
     function executeProposal(uint256 votingSystemId, uint256 proposalId, bytes calldata data) external {
+        GOV_STATE.activateNextState();
         if (_propExecution.isExecuting) {
             revert NestedExecutionProhibited();
         }
