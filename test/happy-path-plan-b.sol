@@ -78,14 +78,18 @@ contract HappyPathPlanBTest is PlanBSetup {
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
-
         daoVoting.executeVote(voteId);
-        uint256[] memory callIds = agent.getExecutableCallIds();
-        assertEq(callIds.length, 1);
 
-        vm.warp(block.timestamp + agentTimelock);
+        uint256[] memory callIds = agent.getScheduledCallIds();
+        assertEq(callIds.length, 1);
+        assertEq(agent.getExecutableCallIds().length, 0);
+
+        vm.warp(block.timestamp + agentTimelock + 1);
+        uint256[] memory execCallIds = agent.getExecutableCallIds();
+        assertEq(execCallIds.length, 1);
+        assertEq(execCallIds, callIds);
 
         vm.expectCall(address(target), targetCalldata);
-        agent.executeScheduledCall(callIds[0]);
+        agent.executeScheduledCall(execCallIds[0]);
     }
 }

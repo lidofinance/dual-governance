@@ -89,6 +89,10 @@ contract Agent {
         emit ScheduledCallExecuted(callId);
     }
 
+    function getScheduledCallIds() external view returns (uint256[] memory) {
+        return _timelockCallSet.getIds();
+    }
+
     function getExecutableCallIds() external view returns (uint256[] memory) {
         return _timelockCallSet.getExecutableIds(_getTime());
     }
