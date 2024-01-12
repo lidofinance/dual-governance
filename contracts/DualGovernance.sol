@@ -143,7 +143,7 @@ contract DualGovernance {
         return proposalId;
     }
 
-    function executeProposal(uint256 votingSystemId, uint256 proposalId) external {
+    function executeProposal(uint256 votingSystemId, uint256 proposalId, bytes calldata data) external {
         if (_propExecution.isExecuting) {
             revert NestedExecutionProhibited();
         }
@@ -164,8 +164,8 @@ contract DualGovernance {
         });
         proposal.isExecuted = true;
         _saveProposal(proposalKey, proposal);
-        (address target, bytes memory data) = votingSystem.getProposalExecData(proposalId);
-        AGENT.forwardCall(target, data);
+        (address target, bytes memory execData) = votingSystem.getProposalExecData(proposalId, data);
+        AGENT.forwardCall(target, execData);
         assert(!_propExecution.isForwarding);
         _propExecution.isExecuting = false;
     }

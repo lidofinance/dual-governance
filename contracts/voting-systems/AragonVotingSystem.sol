@@ -43,9 +43,13 @@ contract AragonVotingSystem is IVotingSystem {
         return true;
     }
 
-    function getProposalExecData(uint256 id) external view returns (address target, bytes memory data) {
+    function getProposalExecData(uint256 id, bytes calldata /* data */)
+        external
+        view
+        returns (address target, bytes memory execData)
+    {
         target = VOTING;
-        data = abi.encodeWithSelector(IAragonVoting.executeVote.selector, id);
+        execData = abi.encodeWithSelector(IAragonVoting.executeVote.selector, id);
     }
 
     function isValidExecutionForwarder(address addr) external view returns (bool) {

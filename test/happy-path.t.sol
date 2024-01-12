@@ -142,10 +142,10 @@ contract HappyPathTest is Test, DualGovernanceSetup {
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
 
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId);
+        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
 
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
         vm.expectCall(address(target), targetCalldata);
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId);
+        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
     }
 }
