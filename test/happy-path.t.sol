@@ -1,6 +1,5 @@
 pragma solidity 0.8.23;
 
-import "forge-std/Test.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 import {Agent} from "contracts/Agent.sol";
@@ -8,18 +7,30 @@ import {Escrow} from "contracts/Escrow.sol";
 import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
 import {Configuration} from "contracts/Configuration.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
+import {AragonVotingSystem} from "contracts/voting-systems/AragonVotingSystem.sol";
+
+import "forge-std/Test.sol";
+
+import "./utils/mainnet-addresses.sol";
+import "./utils/interfaces.sol";
+import "./utils/utils.sol";
 
 
 abstract contract DualGovernanceSetup {
     struct Deployed {
         Agent agent;
+        AragonVotingSystem aragonVotingSystem;
         DualGovernance dualGov;
         TransparentUpgradeableProxy config;
         ProxyAdmin configAdmin;
     }
 
+    uint256 internal constant ARAGON_VOTING_SYSTEM_ID = 1;
+
     function deployDG(
         address daoAgent,
+        address daoVoting,
+        address ldoToken,
         address stEth,
         address wstEth,
         address withdrawalQueue,
@@ -39,31 +50,40 @@ abstract contract DualGovernanceSetup {
 
         // deploy agent and set its emergency multisig
         d.agent = new Agent(daoAgent, address(this));
-        d.agent.forwardCall(
-            address(d.agent),
-            abi.encodeWithSelector(
-                d.agent.setEmergencyMultisig.selector,
+        d.agent.forwardCall(address(d.agent), abi.encodeCall(
+            d.agent.setEmergencyMultisig, (
                 agentEmergencyMultisig,
                 agentEmergencyMultisigActiveFor
             )
-        );
+        ));
+
+        // deploy aragon voting system facade
+        d.aragonVotingSystem = new AragonVotingSystem(daoVoting, ldoToken);
 
         // deploy DG
         address escrowImpl = address(new Escrow(address(d.config), stEth, wstEth, withdrawalQueue));
-        d.dualGov = new DualGovernance(address(d.agent), address(d.config), configImpl, address(d.configAdmin), escrowImpl);
+        d.dualGov = new DualGovernance(
+            address(d.agent),
+            address(d.config),
+            configImpl,
+            address(d.configAdmin),
+            escrowImpl,
+            address(d.aragonVotingSystem)
+        );
 
         // point Agent to the DG
-        d.agent.forwardCall(
-            address(d.agent),
-            abi.encodeWithSelector(
-                d.agent.setGovernance.selector,
+        d.agent.forwardCall(address(d.agent), abi.encodeCall(
+            d.agent.setGovernance, (
                 address(d.dualGov),
                 agentTimelockDuration
             )
-        );
+        ));
 
         // pass config proxy ownership to the DG
         d.configAdmin.transferOwnership(address(d.dualGov));
+
+        // grant the aragon voting adapter the permission to create aragon votes
+        Utils.grantPermission(DAO_VOTING, IAragonVoting(DAO_VOTING).CREATE_VOTES_ROLE(), address(d.aragonVotingSystem));
     }
 
     function getAddress(bytes memory bytecode, uint256 salt) public view returns (address) {
@@ -74,30 +94,58 @@ abstract contract DualGovernanceSetup {
 }
 
 contract HappyPathTest is Test, DualGovernanceSetup {
-    address constant DAO_AGENT = 0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c;
-    address constant ST_ETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
-    address constant WST_ETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
-    address constant WITHDRAWAL_QUEUE = 0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1;
-
     Agent internal agent;
     DualGovernance internal dualGov;
+    Target internal target;
+
+    address internal ldoWhale;
 
     function setUp() external {
+        Utils.selectFork();
+
+        ldoWhale = makeAddr("ldo_whale");
+        Utils.setupLdoWhale(ldoWhale);
+
+        uint256 agentTimelock = 0;
+        address emergencyMultisig = address(0);
+        uint256 agentEmergencyMultisigActiveFor = 0;
+
         DualGovernanceSetup.Deployed memory deployed = deployDG(
             DAO_AGENT,
+            DAO_VOTING,
+            LDO_TOKEN,
             ST_ETH,
             WST_ETH,
             WITHDRAWAL_QUEUE,
-            0,
-            address(0),
-            0
+            agentTimelock,
+            emergencyMultisig,
+            agentEmergencyMultisigActiveFor
         );
+
         agent = deployed.agent;
         dualGov = deployed.dualGov;
+        target = new Target(address(agent));
     }
 
-    function test_getGovernance() external {
+    function test_setup() external {
         assertEq(agent.getGovernance(), address(dualGov));
     }
 
+    function test_proposal() external {
+        bytes memory targetCalldata = abi.encodeCall(target.doSmth, (42));
+        bytes memory forwardCalldata = abi.encodeCall(dualGov.forwardCall, (address(target), targetCalldata));
+        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), forwardCalldata);
+
+        uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
+        Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
+
+        assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
+
+        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
+        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId);
+
+        vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
+        vm.expectCall(address(target), targetCalldata);
+        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId);
+    }
 }
