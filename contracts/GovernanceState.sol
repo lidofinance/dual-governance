@@ -54,7 +54,7 @@ contract GovernanceState {
     function isProposalExecutable(uint256 submittedAt, uint256 decidedAt) external view returns (bool) {
         return _isExecutionEnabled()
             && submittedAt > _proposalsKilledUntil
-            && _getTime() > decidedAt + CONFIG.minProposalExecutionTimelock();
+            && _getTime() >= decidedAt + CONFIG.minProposalExecutionTimelock();
     }
 
     function isProposalSubmissionAllowed() public view returns (bool) {

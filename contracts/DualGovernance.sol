@@ -51,9 +51,10 @@ contract DualGovernance {
         uint64 proposalId;
     }
 
-    Configuration internal immutable CONFIG;
+    Configuration public immutable CONFIG;
+    Agent public immutable AGENT;
+
     IProxyAdmin internal immutable CONFIG_ADMIN;
-    Agent internal immutable AGENT;
     GovernanceState internal immutable GOV_STATE;
 
     mapping(uint256 => address) internal _votingSystems;
@@ -64,12 +65,20 @@ contract DualGovernance {
     ProposalExecutionContext internal _propExecution;
 
 
-    constructor(address agent, address config, address initialConfigImpl, address configAdmin, address escrowImpl) {
+    constructor(
+        address agent,
+        address config,
+        address initialConfigImpl,
+        address configAdmin,
+        address escrowImpl,
+        address adminVotingSystemFacade
+    ) {
         AGENT = Agent(agent);
         CONFIG = Configuration(config);
         CONFIG_ADMIN = IProxyAdmin(configAdmin);
         GOV_STATE = new GovernanceState(address(CONFIG), address(this), escrowImpl);
         emit ConfigSet(initialConfigImpl);
+        _registerVotingSystem(adminVotingSystemFacade);
     }
 
     function replaceDualGovernance(address newGovernance, uint256 timelockDuration) external {
@@ -98,49 +107,12 @@ contract DualGovernance {
 
     function registerVotingSystem(address votingSystemFacade) external returns (uint256) {
         _assertExecutionByAdminVotingSystem(msg.sender);
-
-        uint256 totalVotingSystems = _votingSystemIds.length;
-        for (uint256 i = 0; i < totalVotingSystems; ++i) {
-            uint256 id = _votingSystemIds[i];
-            if (_votingSystems[id] == votingSystemFacade) {
-                revert VotingSystemAlreadyRegistered();
-            }
-        }
-
-        uint256 votingSystemId = ++_lastVotingSystemId;
-        assert(_votingSystems[votingSystemId] == address(0));
-
-        _votingSystems[votingSystemId] = votingSystemFacade;
-        _votingSystemIds.push(votingSystemId);
-
-        emit VotingSystemRegistered(votingSystemFacade, votingSystemId);
-
-        return votingSystemId;
+        return _registerVotingSystem(votingSystemFacade);
     }
 
     function unregisterVotingSystem(uint256 votingSystemId) external {
         _assertExecutionByAdminVotingSystem(msg.sender);
-
-        address votingSystemFacade = _votingSystems[votingSystemId];
-        if (votingSystemFacade == address(0)) {
-            revert InvalidVotingSystem();
-        }
-
-        _votingSystems[votingSystemId] = address(0);
-
-        uint256 totalVotingSystems = _votingSystemIds.length;
-        uint256 i = 0;
-
-        for (; i < totalVotingSystems; ++i) {
-            if (_votingSystemIds[i] == votingSystemId) {
-                break;
-            }
-        }
-        for (++i; i < totalVotingSystems; ++i) {
-            _votingSystemIds[i - 1] = _votingSystemIds[i];
-        }
-
-        emit VotingSystemUnregistered(votingSystemFacade, votingSystemId);
+        _unregisterVotingSystem(votingSystemId);
     }
 
     function killAllPendingProposals() external {
@@ -207,6 +179,49 @@ contract DualGovernance {
         _propExecution.isForwarding = true;
         AGENT.forwardCall(target, data);
         _propExecution.isForwarding = false;
+    }
+
+    function _registerVotingSystem(address votingSystemFacade) internal returns (uint256) {
+        uint256 totalVotingSystems = _votingSystemIds.length;
+        for (uint256 i = 0; i < totalVotingSystems; ++i) {
+            uint256 id = _votingSystemIds[i];
+            if (_votingSystems[id] == votingSystemFacade) {
+                revert VotingSystemAlreadyRegistered();
+            }
+        }
+
+        uint256 votingSystemId = ++_lastVotingSystemId;
+        assert(_votingSystems[votingSystemId] == address(0));
+
+        _votingSystems[votingSystemId] = votingSystemFacade;
+        _votingSystemIds.push(votingSystemId);
+
+        emit VotingSystemRegistered(votingSystemFacade, votingSystemId);
+
+        return votingSystemId;
+    }
+
+    function _unregisterVotingSystem(uint256 votingSystemId) internal {
+        address votingSystemFacade = _votingSystems[votingSystemId];
+        if (votingSystemFacade == address(0)) {
+            revert InvalidVotingSystem();
+        }
+
+        _votingSystems[votingSystemId] = address(0);
+
+        uint256 totalVotingSystems = _votingSystemIds.length;
+        uint256 i = 0;
+
+        for (; i < totalVotingSystems; ++i) {
+            if (_votingSystemIds[i] == votingSystemId) {
+                break;
+            }
+        }
+        for (++i; i < totalVotingSystems; ++i) {
+            _votingSystemIds[i - 1] = _votingSystemIds[i];
+        }
+
+        emit VotingSystemUnregistered(votingSystemFacade, votingSystemId);
     }
 
     function _assertExecutionByAdminVotingSystem(address caller) internal view {

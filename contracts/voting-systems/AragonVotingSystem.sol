@@ -6,7 +6,14 @@ import {IVotingSystem} from "./IVotingSystem.sol";
 
 interface IAragonVoting {
     function voteTime() external view returns (uint64);
-    function newVote(bytes calldata executionScript, string calldata metadata) external returns (uint256);
+
+    function newVote(
+        bytes calldata script,
+        string calldata metadata,
+        bool castVote,
+        bool executesIfDecided_deprecated
+    ) external returns (uint256 voteId);
+
     function executeVote(uint256 voteId) external;
 }
 
@@ -26,7 +33,7 @@ contract AragonVotingSystem is IVotingSystem {
         if (!_isAllowedToSubmitProposal(submitter)) {
             revert InsufficientLdoBalanceToSubmitProposal();
         }
-        uint256 voteId = IAragonVoting(VOTING).newVote(data, "");
+        uint256 voteId = IAragonVoting(VOTING).newVote(data, "", false, false);
         uint256 voteDuration = IAragonVoting(VOTING).voteTime();
         return (voteId, _getTime() + voteDuration);
     }
