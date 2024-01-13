@@ -11,12 +11,15 @@ import "./interfaces.sol";
 contract Target is Test {
     address internal _expectedCaller;
 
-    constructor(address expectedCaller) {
+    function expectCalledBy(address expectedCaller) external {
         _expectedCaller = expectedCaller;
     }
 
     function doSmth(uint256 /* value */) external {
-        assertEq(msg.sender, _expectedCaller, "unexpected caller");
+        if (_expectedCaller != address(0)) {
+            assertEq(msg.sender, _expectedCaller, "unexpected caller");
+            _expectedCaller = address(0);
+        }
     }
 }
 
@@ -35,8 +38,8 @@ library Utils {
     }
 
     function encodeEvmCallScript(address target, bytes memory data) internal pure returns (bytes memory) {
-        Utils.EvmScriptCall[] memory calls = new Utils.EvmScriptCall[](1);
-        calls[0] = Utils.EvmScriptCall(target, data);
+        EvmScriptCall[] memory calls = new EvmScriptCall[](1);
+        calls[0] = EvmScriptCall(target, data);
         return encodeEvmCallScript(calls);
     }
 

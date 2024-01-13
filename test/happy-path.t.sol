@@ -96,7 +96,6 @@ abstract contract DualGovernanceSetup {
 contract HappyPathTest is Test, DualGovernanceSetup {
     Agent internal agent;
     DualGovernance internal dualGov;
-    Target internal target;
 
     address internal ldoWhale;
 
@@ -124,14 +123,15 @@ contract HappyPathTest is Test, DualGovernanceSetup {
 
         agent = deployed.agent;
         dualGov = deployed.dualGov;
-        target = new Target(address(agent));
     }
 
     function test_setup() external {
         assertEq(agent.getGovernance(), address(dualGov));
     }
 
-    function test_proposal() external {
+    function test_happy_path() external {
+        Target target = new Target();
+
         bytes memory targetCalldata = abi.encodeCall(target.doSmth, (42));
         bytes memory forwardCalldata = abi.encodeCall(dualGov.forwardCall, (address(target), targetCalldata));
         bytes memory script = Utils.encodeEvmCallScript(address(dualGov), forwardCalldata);
@@ -146,6 +146,39 @@ contract HappyPathTest is Test, DualGovernanceSetup {
 
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
         vm.expectCall(address(target), targetCalldata);
+        target.expectCalledBy(address(agent));
+
+        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
+    }
+
+    function test_happy_path_with_multiple_items() external {
+        Target targetAragon = new Target();
+        IAragonForwarder aragonAgent = IAragonForwarder(DAO_AGENT);
+        bytes memory aragonTargetCalldata = abi.encodeCall(targetAragon.doSmth, (84));
+        bytes memory aragonForwardScript = Utils.encodeEvmCallScript(address(targetAragon), aragonTargetCalldata);
+        bytes memory aragonForwardCalldata = abi.encodeCall(aragonAgent.forward, aragonForwardScript);
+
+        Target targetDualGov = new Target();
+        bytes memory dgTargetCalldata = abi.encodeCall(targetDualGov.doSmth, (42));
+        bytes memory dgForwardCalldata = abi.encodeCall(dualGov.forwardCall, (address(targetDualGov), dgTargetCalldata));
+
+        Utils.EvmScriptCall[] memory voteCalls = new Utils.EvmScriptCall[](2);
+        voteCalls[0] = Utils.EvmScriptCall(DAO_AGENT, aragonForwardCalldata);
+        voteCalls[1] = Utils.EvmScriptCall(address(dualGov), dgForwardCalldata);
+        bytes memory voteScript = Utils.encodeEvmCallScript(voteCalls);
+
+        uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, voteScript);
+        Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
+
+        assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
+
+        vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
+
+        vm.expectCall(address(targetAragon), aragonTargetCalldata);
+        vm.expectCall(address(targetDualGov), dgTargetCalldata);
+        targetAragon.expectCalledBy(DAO_AGENT);
+        targetDualGov.expectCalledBy(address(agent));
+
         dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
     }
 }

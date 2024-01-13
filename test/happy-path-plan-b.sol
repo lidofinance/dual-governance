@@ -57,7 +57,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         vetoMultisigActiveFor = 90 days;
 
         agent = deployPlanB(DAO_VOTING, agentTimelock, vetoMultisig, vetoMultisigActiveFor);
-        target = new Target(address(agent));
+        target = new Target();
         daoVoting = IAragonVoting(DAO_VOTING);
     }
 
@@ -90,6 +90,8 @@ contract HappyPathPlanBTest is PlanBSetup {
         assertEq(execCallIds, callIds);
 
         vm.expectCall(address(target), targetCalldata);
+        target.expectCalledBy(address(agent));
+
         agent.executeScheduledCall(execCallIds[0]);
     }
 }
