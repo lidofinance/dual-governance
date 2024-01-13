@@ -139,12 +139,20 @@ contract HappyPathTest is Test, DualGovernanceSetup {
         uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
+        // from the Aragon's POV, the proposal is executable
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
 
+        // however, proposals containing DG-related calls cannot be executed directly
+        vm.expectRevert(DualGovernance.CannotCallOutsideExecution.selector);
+        IAragonVoting(DAO_VOTING).executeVote(voteId);
+
+        // min execution timelock enforced by DG hasn't elapsed yet
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
         dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
 
+        // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
+
         vm.expectCall(address(target), targetCalldata);
         target.expectCalledBy(address(agent));
 
@@ -170,8 +178,18 @@ contract HappyPathTest is Test, DualGovernanceSetup {
         uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, voteScript);
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
+        // from the Aragon's POV, the proposal is executable
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
 
+        // however, proposals containing DG-related calls cannot be executed directly
+        vm.expectRevert(DualGovernance.CannotCallOutsideExecution.selector);
+        IAragonVoting(DAO_VOTING).executeVote(voteId);
+
+        // min execution timelock enforced by DG hasn't elapsed yet
+        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
+        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
+
+        // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
 
         vm.expectCall(address(targetAragon), aragonTargetCalldata);
