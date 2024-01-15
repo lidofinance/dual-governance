@@ -5,12 +5,14 @@ import {Configuration} from "./Configuration.sol";
 
 
 interface IERC20 {
+    function totalSupply() external view returns (uint256);
     function balanceOf(address owner) external view returns (uint256);
     function approve(address spender, uint256 value) external returns (bool);
 }
 
 interface IStETH {
     function getSharesByPooledEth(uint256 ethAmount) external view returns (uint256);
+    function getPooledEthByShares(uint256 sharesAmount) external view returns (uint256);
 }
 
 interface IWstETH {
@@ -55,9 +57,12 @@ contract Escrow {
     address internal _govState;
     State internal _state;
 
-    uint256 _rageQuitWstEthAmountTotal;
-    uint256 _rageQuitWstEthAmountRequested;
-    uint256 _lastWithdrawalRequestId;
+    uint256 internal _totalStEthLocked;
+    uint256 internal _totalWstEthLocked;
+
+    uint256 internal _rageQuitWstEthAmountTotal;
+    uint256 internal _rageQuitWstEthAmountRequested;
+    uint256 internal _lastWithdrawalRequestId;
 
     constructor(address config, address stEth, address wstEth, address withdrawalQueue) {
         CONFIG = Configuration(config);
@@ -117,11 +122,23 @@ contract Escrow {
     /// State transitions
     ///
 
+    function totalStEthLocked() external returns (uint256) {
+        return _totalStEthLocked;
+    }
+
+    function totalWstEthLocked() external returns (uint256) {
+        return _totalWstEthLocked;
+    }
+
     function getSignallingState() external view returns (uint256 totalSupport, uint256 rageQuitSupport) {
-        // TODO
-        // totalSupport = percentage of stETH total supply locked in the escrow
-        // rageQuitSupport = the same but not counting withdrawal NFTs
-        return (0, 0);
+        uint256 stEthTotalSupply = IERC20(ST_ETH).totalSupply();
+        uint256 wstEthLockedAsStEth = IStETH(ST_ETH).getPooledEthByShares(_totalWstEthLocked);
+        // TODO: include locked NFTs underlying stETH balance
+        uint256 totalStakedEthLocked = _totalStEthLocked + wstEthLockedAsStEth;
+        totalSupport = totalStakedEthLocked * 10**18 / stEthTotalSupply;
+        // TODO: rageQuitSupport = totalSupport but not not counting withdrawal NFTs
+        rageQuitSupport = totalSupport;
+        return (totalSupport, rageQuitSupport);
     }
 
     function startRageQuitAccumulation() external {
