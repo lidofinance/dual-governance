@@ -16,7 +16,7 @@ import "./utils/interfaces.sol";
 import "./utils/utils.sol";
 
 
-abstract contract DualGovernanceSetup {
+abstract contract DualGovernanceSetup is TestAssertions {
     struct Deployed {
         Agent agent;
         AragonVotingSystem aragonVotingSystem;

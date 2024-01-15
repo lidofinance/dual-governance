@@ -29,3 +29,9 @@ interface IAragonACL {
 interface IAragonForwarder {
     function forward(bytes memory evmScript) external;
 }
+
+interface IStEth {
+    function STAKING_CONTROL_ROLE() external view returns (bytes32);
+    function submit(address referral) external payable returns (uint256);
+    function removeStakingLimit() external;
+}
