@@ -215,6 +215,10 @@ contract GovernanceState {
     }
 
     function _activateNextStateFromVetoCooldown() internal {
+        uint256 stateDuration = _getTime() - _stateEnteredAt;
+        if (stateDuration < CONFIG.signallingCooldownDuration()) {
+            return;
+        }
         if (_isFirstThresholdReached()) {
             _transitionVetoCooldownToVetoSignalling();
         } else {
