@@ -81,6 +81,22 @@ contract DualGovernance {
         _registerVotingSystem(adminVotingSystemFacade);
     }
 
+    function signallingEscrow() external returns (address) {
+        return GOV_STATE.signallingEscrow();
+    }
+
+    function rageQuitEscrow() external returns (address) {
+        return GOV_STATE.rageQuitEscrow();
+    }
+
+    function currentState() external returns (GovernanceState.State) {
+        return GOV_STATE.currentState();
+    }
+
+    function activateNextState() external returns (GovernanceState.State) {
+        return GOV_STATE.activateNextState();
+    }
+
     function replaceDualGovernance(address newGovernance, uint256 timelockDuration) external {
         _assertExecutionByAdminVotingSystem(msg.sender);
         AGENT.setGovernance(newGovernance, timelockDuration);

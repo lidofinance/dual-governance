@@ -44,6 +44,18 @@ contract GovernanceState {
         _stateEnteredAt = _getTime();
     }
 
+    function currentState() external returns (State) {
+        return _state;
+    }
+
+    function signallingEscrow() external returns (address) {
+        return address(_signallingEscrow);
+    }
+
+    function rageQuitEscrow() external returns (address) {
+        return address(_rageQuitEscrow);
+    }
+
     function killAllPendingProposals() external {
         if (msg.sender != GOVERNANCE) {
             revert Unauthorized();
@@ -67,7 +79,7 @@ contract GovernanceState {
         return state == State.Normal || state == State.VetoCooldown;
     }
 
-    function activateNextState() public {
+    function activateNextState() public returns (State) {
         State state = _state;
         if (state == State.Normal) {
             _activateNextStateFromNormal();
@@ -84,6 +96,7 @@ contract GovernanceState {
         } else {
             assert(false);
         }
+        return _state;
     }
 
     function _setState(State newState) internal {
@@ -194,8 +207,8 @@ contract GovernanceState {
     }
 
     function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256) {
-        // TODO
-        return 0;
+        // TODO: use the formula from the design overview
+        return 1 days;
     }
 
     function _enterVetoSignallingDeactivationSubState() internal {
