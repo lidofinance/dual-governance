@@ -20,13 +20,23 @@ abstract contract TestAssertions is Test {
 
 
 contract Target is TestAssertions {
+    bool internal _expectNoCalls;
     address internal _expectedCaller;
 
     function expectCalledBy(address expectedCaller) external {
+        _expectNoCalls = false;
         _expectedCaller = expectedCaller;
     }
 
+    function expectNoCalls() external {
+        _expectNoCalls = true;
+    }
+
     function doSmth(uint256 /* value */) external {
+        if (_expectNoCalls) {
+            console.log("unexpected call to %x by %x", address(this), msg.sender);
+            fail("expected no calls but got a call");
+        }
         if (_expectedCaller != address(0)) {
             assertEq(msg.sender, _expectedCaller, "unexpected caller");
             _expectedCaller = address(0);
