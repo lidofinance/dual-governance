@@ -4,9 +4,9 @@ import {Agent} from "contracts/Agent.sol";
 
 import "forge-std/Test.sol";
 
-import "./utils/mainnet-addresses.sol";
-import "./utils/interfaces.sol";
-import "./utils/utils.sol";
+import "../utils/mainnet-addresses.sol";
+import "../utils/interfaces.sol";
+import "../utils/utils.sol";
 
 
 abstract contract PlanBSetup is Test {

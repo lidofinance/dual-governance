@@ -11,9 +11,9 @@ import {AragonVotingSystem} from "contracts/voting-systems/AragonVotingSystem.so
 
 import "forge-std/Test.sol";
 
-import "./utils/mainnet-addresses.sol";
-import "./utils/interfaces.sol";
-import "./utils/utils.sol";
+import "../utils/mainnet-addresses.sol";
+import "../utils/interfaces.sol";
+import "../utils/utils.sol";
 
 
 abstract contract DualGovernanceSetup is TestAssertions {
@@ -93,7 +93,27 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
 }
 
-contract HappyPathTest is DualGovernanceSetup {
+
+abstract contract DualGovernanceUtils is TestAssertions {
+    function updateVetoSupport(DualGovernance dualGov, uint256 supportPercentage) internal {
+        Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
+
+        uint256 newVetoSupport = supportPercentage * IERC20(ST_ETH).totalSupply() / 10**18;
+        uint256 currentVetoSupport = signallingEscrow.totalStEthLocked();
+
+        if (newVetoSupport > currentVetoSupport) {
+            signallingEscrow.mock__lockStEth(newVetoSupport - currentVetoSupport);
+        } else if (newVetoSupport < currentVetoSupport) {
+            signallingEscrow.mock__unlockStEth(currentVetoSupport - newVetoSupport);
+        }
+
+        (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
+        console.log("veto totalSupport %d, rageQuitSupport %d", totalSupport, rageQuitSupport);
+    }
+}
+
+
+contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
     using stdStorage for StdStorage;
 
     Agent internal agent;
@@ -230,7 +250,7 @@ contract HappyPathTest is DualGovernanceSetup {
         assertEq(dualGov.currentState(), GovernanceState.State.Normal);
 
         // escalate with 3% of stETH total supply
-        updateVetoSupport(3 * 10**16 + 1);
+        updateVetoSupport(dualGov, 3 * 10**16 + 1);
 
         // gov state is now Veto Signalling
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
@@ -249,7 +269,7 @@ contract HappyPathTest is DualGovernanceSetup {
         dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
 
         // de-escalate down to 2% of stETH total supply
-        updateVetoSupport(2 * 10**16 + 1);
+        updateVetoSupport(dualGov, 2 * 10**16 + 1);
 
         // Gov state is now Veto Signalling Deactivation
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
@@ -287,21 +307,5 @@ contract HappyPathTest is DualGovernanceSetup {
 
         // now, new proposals can be submitted again
         dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
-    }
-
-    function updateVetoSupport(uint256 supportPercentage) internal {
-        Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
-
-        uint256 newVetoSupport = supportPercentage * IERC20(ST_ETH).totalSupply() / 10**18;
-        uint256 currentVetoSupport = signallingEscrow.totalStEthLocked();
-
-        if (newVetoSupport > currentVetoSupport) {
-            signallingEscrow.mock__lockStEth(newVetoSupport - currentVetoSupport);
-        } else if (newVetoSupport < currentVetoSupport) {
-            signallingEscrow.mock__unlockStEth(currentVetoSupport - newVetoSupport);
-        }
-
-        (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
-        console.log("veto totalSupport %d, rageQuitSupport %d", totalSupport, rageQuitSupport);
     }
 }
