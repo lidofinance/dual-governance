@@ -2,6 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Configuration} from "./Configuration.sol";
+import {GovernanceState} from "./GovernanceState.sol";
 
 
 interface IERC20 {
@@ -82,35 +83,54 @@ contract Escrow {
     /// Staker interface
     ///
 
+    // FIXME remove after locking/unlocking is implemented
+    function mock__lockStEth(uint256 amount) external {
+        _totalStEthLocked += amount;
+        _activateNextGovernanceState();
+    }
+
+    // FIXME remove after locking/unlocking is implemented
+    function mock__unlockStEth(uint256 amount) external {
+        _totalStEthLocked -= amount;
+        _activateNextGovernanceState();
+    }
+
     function lockStEth() external {
         // TODO: transferFrom caller, record caller's new total amount
         // TODO: only allow in Signalling and RageQuitAccumulation
+        _activateNextGovernanceState();
     }
 
     function lockWstEth() external {
         // TODO: transferFrom caller, record caller's new total amount
         // TODO: only allow in Signalling and RageQuitAccumulation
+        _activateNextGovernanceState();
     }
 
     function initiateStEthWithdrawal() external {
         // TODO: convert locked stETH to locked withdrawal NFTs
         // TODO: only allow in Signalling
+        _activateNextGovernanceState();
     }
 
     function unlockStEth() external {
         // TODO: only allow in Signalling
+        _activateNextGovernanceState();
     }
 
     function unlockWstEth() external {
         // TODO: only allow in Signalling
+        _activateNextGovernanceState();
     }
 
     function lockWithdrawalNFT() external {
         // TODO: only allow in Signalling and RageQuitAccumulation
+        _activateNextGovernanceState();
     }
 
     function unlockWithdrawalNFT() external {
         // TODO: only allow in Signalling
+        _activateNextGovernanceState();
     }
 
     function claimETH() external {
@@ -242,5 +262,9 @@ contract Escrow {
     function claimNextETHBatch(uint256[] calldata requestIds, uint256[] calldata hints) external {
         // TODO: check that all requests are claimed
         IWithdrawalQueue(WITHDRAWAL_QUEUE).claimWithdrawalsTo(requestIds, hints, address(this));
+    }
+
+    function _activateNextGovernanceState() internal {
+        GovernanceState(_govState).activateNextState();
     }
 }
