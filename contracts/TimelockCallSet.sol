@@ -9,6 +9,7 @@ using EnumerableSet for EnumerableSet.UintSet;
 
 error TimelockNotExpired();
 error CallCancelled();
+error CallIdNotCancelled(uint256 id);
 error TargetCannotBeZero();
 error IdNotFound();
 
@@ -30,8 +31,8 @@ library TimelockCallSet {
         EnumerableSet.UintSet _ids;
     }
 
-    function get(Set storage self, uint256 id) internal view returns (Call memory) {
-        Call memory call = self._calls[id];
+    function get(Set storage self, uint256 id) internal view returns (Call storage) {
+        Call storage call = self._calls[id];
         if (call.target == address(0)) {
             revert IdNotFound();
         }
@@ -56,15 +57,19 @@ library TimelockCallSet {
 
     function removeForExecution(Set storage self, uint256 callId, uint256 timestamp) internal returns (Call memory) {
         Call memory call = get(self, callId);
-        if (timestamp <= self._cancelledTill) {
+        if (call.scheduledAt <= self._cancelledTill) {
             revert CallCancelled();
         }
-        if (timestamp <= call.lockedTill) {
+        if (call.lockedTill >= timestamp) {
             revert TimelockNotExpired();
         }
+        _remove(self, callId);
+        return call;
+    }
+
+    function _remove(Set storage self, uint256 callId) internal {
         delete self._calls[callId];
         assert(self._ids.remove(callId));
-        return call;
     }
 
     function cancelCallsTill(Set storage self, uint256 timestamp) internal {
@@ -84,7 +89,7 @@ library TimelockCallSet {
         for (uint256 iCall = 0; iCall < ids.length; ++iCall) {
             uint256 callId = ids[iCall];
             Call storage _op = self._calls[callId];
-            if (timestamp > _op.lockedTill) {
+            if (timestamp > _op.lockedTill && _op.scheduledAt > self._cancelledTill) {
                 execIds[iExecCall++] = callId;
             }
         }
@@ -97,5 +102,18 @@ library TimelockCallSet {
         }
 
         return execIds;
+    }
+
+    function removeCancelledCalls(Set storage self, uint256[] calldata ids) internal {
+        uint256 cancelledTill = self._cancelledTill;
+
+        for (uint256 i = 0; i < ids.length; ++i) {
+            uint256 id = ids[i];
+            Call storage _call = get(self, id);
+            if (_call.scheduledAt > cancelledTill) {
+                revert CallIdNotCancelled(id);
+            }
+            _remove(self, id);
+        }
     }
 }

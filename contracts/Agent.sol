@@ -10,6 +10,12 @@ contract Agent {
     error Unauthorized();
     error EmergencyMultisigExpired();
 
+    // copied from TimelockCallSet
+    error TimelockNotExpired();
+    error CallCancelled();
+    error CallIdNotCancelled(uint256 id);
+    error IdNotFound();
+
     event GovernanceSet(address indexed governance);
     event TimelockDurationSet(uint256 duration);
     event EmergencyMultisigSet(address indexed emergencyMultisig);
@@ -99,6 +105,10 @@ contract Agent {
 
     function getScheduledCall(uint256 callId) external view returns (TimelockCallSet.Call memory) {
         return _timelockCallSet.get(callId);
+    }
+
+    function unscheduleCancelledCalls(uint256[] calldata callIds) external {
+        _timelockCallSet.removeCancelledCalls(callIds);
     }
 
     function _call(address target, bytes memory data) internal {
