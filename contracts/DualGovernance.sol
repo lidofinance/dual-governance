@@ -183,8 +183,7 @@ contract DualGovernance {
         });
         proposal.isExecuted = true;
         _saveProposal(proposalKey, proposal);
-        (address target, bytes memory execData) = votingSystem.getProposalExecData(proposalId, data);
-        AGENT.forwardCall(target, execData);
+        votingSystem.executeProposal(proposalId, data);
         assert(!_propExecution.isForwarding);
         _propExecution.isExecuting = false;
     }
