@@ -1,101 +1,38 @@
 pragma solidity 0.8.23;
 
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-
 import {Agent} from "contracts/Agent.sol";
 import {Escrow} from "contracts/Escrow.sol";
-import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
-import {Configuration} from "contracts/Configuration.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
-import {AragonVotingSystem} from "contracts/voting-systems/AragonVotingSystem.sol";
 
 import "forge-std/Test.sol";
 
-import "./utils/mainnet-addresses.sol";
-import "./utils/interfaces.sol";
-import "./utils/utils.sol";
+import "../utils/mainnet-addresses.sol";
+import "../utils/interfaces.sol";
+import "../utils/utils.sol";
+
+import {DualGovernanceSetup} from "./setup.sol";
 
 
-abstract contract DualGovernanceSetup is TestAssertions {
-    struct Deployed {
-        Agent agent;
-        AragonVotingSystem aragonVotingSystem;
-        DualGovernance dualGov;
-        TransparentUpgradeableProxy config;
-        ProxyAdmin configAdmin;
+abstract contract DualGovernanceUtils is TestAssertions {
+    function updateVetoSupport(DualGovernance dualGov, uint256 supportPercentage) internal {
+        Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
+
+        uint256 newVetoSupport = supportPercentage * IERC20(ST_ETH).totalSupply() / 10**18;
+        uint256 currentVetoSupport = signallingEscrow.totalStEthLocked();
+
+        if (newVetoSupport > currentVetoSupport) {
+            signallingEscrow.mock__lockStEth(newVetoSupport - currentVetoSupport);
+        } else if (newVetoSupport < currentVetoSupport) {
+            signallingEscrow.mock__unlockStEth(currentVetoSupport - newVetoSupport);
+        }
+
+        (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
+        console.log("veto totalSupport %d, rageQuitSupport %d", totalSupport, rageQuitSupport);
     }
-
-    uint256 internal constant ARAGON_VOTING_SYSTEM_ID = 1;
-
-    function deployDG(
-        address daoAgent,
-        address daoVoting,
-        address ldoToken,
-        address stEth,
-        address wstEth,
-        address withdrawalQueue,
-        uint256 agentTimelockDuration,
-        address agentEmergencyMultisig,
-        uint256 agentEmergencyMultisigActiveFor
-    )
-        public
-        returns (Deployed memory d)
-    {
-        // deploy initial config impl
-        address configImpl = address(new Configuration());
-
-        // deploy config proxy
-        d.configAdmin = new ProxyAdmin(address(this));
-        d.config = new TransparentUpgradeableProxy(configImpl, address(d.configAdmin), new bytes(0));
-
-        // deploy agent and set its emergency multisig
-        d.agent = new Agent(daoAgent, address(this));
-        d.agent.forwardCall(address(d.agent), abi.encodeCall(
-            d.agent.setEmergencyMultisig, (
-                agentEmergencyMultisig,
-                agentEmergencyMultisigActiveFor
-            )
-        ));
-
-        // deploy aragon voting system facade
-        d.aragonVotingSystem = new AragonVotingSystem(daoVoting, ldoToken);
-
-        // deploy DG
-        address escrowImpl = address(new Escrow(address(d.config), stEth, wstEth, withdrawalQueue));
-        d.dualGov = new DualGovernance(
-            address(d.agent),
-            address(d.config),
-            configImpl,
-            address(d.configAdmin),
-            escrowImpl,
-            address(d.aragonVotingSystem)
-        );
-
-        // point Agent to the DG
-        d.agent.forwardCall(address(d.agent), abi.encodeCall(
-            d.agent.setGovernance, (
-                address(d.dualGov),
-                agentTimelockDuration
-            )
-        ));
-
-        // pass config proxy ownership to the DG
-        d.configAdmin.transferOwnership(address(d.dualGov));
-
-        // grant the aragon voting adapter the permission to create aragon votes
-        Utils.grantPermission(DAO_VOTING, IAragonVoting(DAO_VOTING).CREATE_VOTES_ROLE(), address(d.aragonVotingSystem));
-    }
-
-    function getAddress(bytes memory bytecode, uint256 salt) public view returns (address) {
-        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(bytecode)));
-        return address(uint160(uint256(hash)));
-    }
-
 }
 
-contract HappyPathTest is DualGovernanceSetup {
-    using stdStorage for StdStorage;
 
+contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
     Agent internal agent;
     DualGovernance internal dualGov;
 
@@ -230,7 +167,7 @@ contract HappyPathTest is DualGovernanceSetup {
         assertEq(dualGov.currentState(), GovernanceState.State.Normal);
 
         // escalate with 3% of stETH total supply
-        updateVetoSupport(3 * 10**16 + 1);
+        updateVetoSupport(dualGov, 3 * 10**16 + 1);
 
         // gov state is now Veto Signalling
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
@@ -249,7 +186,7 @@ contract HappyPathTest is DualGovernanceSetup {
         dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
 
         // de-escalate down to 2% of stETH total supply
-        updateVetoSupport(2 * 10**16 + 1);
+        updateVetoSupport(dualGov, 2 * 10**16 + 1);
 
         // Gov state is now Veto Signalling Deactivation
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
@@ -287,21 +224,5 @@ contract HappyPathTest is DualGovernanceSetup {
 
         // now, new proposals can be submitted again
         dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
-    }
-
-    function updateVetoSupport(uint256 supportPercentage) internal {
-        Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
-
-        uint256 newVetoSupport = supportPercentage * IERC20(ST_ETH).totalSupply() / 10**18;
-        uint256 currentVetoSupport = signallingEscrow.totalStEthLocked();
-
-        if (newVetoSupport > currentVetoSupport) {
-            signallingEscrow.mock__lockStEth(newVetoSupport - currentVetoSupport);
-        } else if (newVetoSupport < currentVetoSupport) {
-            signallingEscrow.mock__unlockStEth(currentVetoSupport - newVetoSupport);
-        }
-
-        (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
-        console.log("veto totalSupport %d, rageQuitSupport %d", totalSupport, rageQuitSupport);
     }
 }
