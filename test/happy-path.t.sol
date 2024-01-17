@@ -226,14 +226,13 @@ contract HappyPathTest is DualGovernanceSetup {
         // Aragon voting is still not decided
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), false);
 
-        // Initial gov state is Normal
+        // initial gov state is Normal
         assertEq(dualGov.currentState(), GovernanceState.State.Normal);
 
         // escalate with 3% of stETH total supply
         updateVetoSupport(3 * 10**16 + 1);
 
-        // Gov state is now Veto Signalling
-        dualGov.activateNextState();
+        // gov state is now Veto Signalling
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
 
         // wait till voting finishes
@@ -253,7 +252,6 @@ contract HappyPathTest is DualGovernanceSetup {
         updateVetoSupport(2 * 10**16 + 1);
 
         // Gov state is now Veto Signalling Deactivation
-        dualGov.activateNextState();
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
 
         // proposal is still blocked
@@ -263,8 +261,10 @@ contract HappyPathTest is DualGovernanceSetup {
         // wait till the Veto Signalling Deactivation timeout elapses
         vm.warp(block.timestamp + dualGov.CONFIG().signallingDeactivationDuration() + 1);
 
-        // Gov state is now Veto Cooldown
+        // the activateNextState is required to trigger a state transition resulting from a timeout passing
         dualGov.activateNextState();
+
+        // gov state is now Veto Cooldown
         assertEq(dualGov.currentState(), GovernanceState.State.VetoCooldown);
 
         // proposal is finally executable
@@ -279,73 +279,27 @@ contract HappyPathTest is DualGovernanceSetup {
         // wait till the Veto Cooldown timeout elapses
         vm.warp(block.timestamp + dualGov.CONFIG().signallingCooldownDuration() + 1);
 
-        // Gov state is now Normal
+        // the activateNextState is required to trigger a state transition resulting from a timeout passing
         dualGov.activateNextState();
+
+        // gov state is now Normal
         assertEq(dualGov.currentState(), GovernanceState.State.Normal);
 
         // now, new proposals can be submitted again
         dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
     }
 
-    function test_escalation_and_one_sided_de_escalation_no_activate_next_state_calls() external {
-        Target target = new Target();
-
-        bytes memory targetCalldata = abi.encodeCall(target.doSmth, (42));
-        bytes memory forwardCalldata = abi.encodeCall(dualGov.forwardCall, (address(target), targetCalldata));
-        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), forwardCalldata);
-
-        // submit and support a proposal
-        uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
-        Utils.supportVote(voteId, ldoWhale);
-
-        // wait half vote time
-        uint256 voteTime = IAragonVoting(DAO_VOTING).voteTime();
-        vm.warp(block.timestamp + voteTime / 2);
-
-        // Aragon voting is still not decided
-        assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), false);
-
-        // Initial gov state is Normal
-        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
-
-        // escalate with 3% of stETH total supply
-        updateVetoSupport(3 * 10**16 + 1);
-
-        // wait till voting finishes
-        vm.warp(block.timestamp + voteTime / 2 + 1);
-
-        // Aragon voting has passed
-        assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
-
-        // wait till the DG-enforced timelock elapses
-        vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
-
-        // proposal is blocked due to stakers' opposition
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
-
-        // de-escalate down to 2% of stETH total supply
-        updateVetoSupport(2 * 10**16 + 1);
-
-        // Gov state is still Normal
-        dualGov.activateNextState();
-        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
-
-        // proposal is now executable
-        vm.expectCall(address(target), targetCalldata);
-        target.expectCalledBy(address(agent));
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
-    }
-
     function updateVetoSupport(uint256 supportPercentage) internal {
-        uint256 vetoSupport = supportPercentage * IERC20(ST_ETH).totalSupply() / 10**18;
-
-        // TODO: faking it till locking is implemented in the Escrow contract
         Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
-        stdstore
-            .target(address(signallingEscrow))
-            .sig("totalStEthLocked()")
-            .checked_write(vetoSupport);
+
+        uint256 newVetoSupport = supportPercentage * IERC20(ST_ETH).totalSupply() / 10**18;
+        uint256 currentVetoSupport = signallingEscrow.totalStEthLocked();
+
+        if (newVetoSupport > currentVetoSupport) {
+            signallingEscrow.mock__lockStEth(newVetoSupport - currentVetoSupport);
+        } else if (newVetoSupport < currentVetoSupport) {
+            signallingEscrow.mock__unlockStEth(currentVetoSupport - newVetoSupport);
+        }
 
         (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
         console.log("veto totalSupport %d, rageQuitSupport %d", totalSupport, rageQuitSupport);
