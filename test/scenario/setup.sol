@@ -7,7 +7,6 @@ import {Escrow} from "contracts/Escrow.sol";
 import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
 import {Configuration} from "contracts/Configuration.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
-import {AragonVotingSystem} from "contracts/voting-systems/AragonVotingSystem.sol";
 
 import "../utils/mainnet-addresses.sol";
 import "../utils/interfaces.sol";
@@ -17,7 +16,6 @@ import "../utils/utils.sol";
 abstract contract DualGovernanceSetup is TestAssertions {
     struct Deployed {
         Agent agent;
-        AragonVotingSystem aragonVotingSystem;
         DualGovernance dualGov;
         TransparentUpgradeableProxy config;
         ProxyAdmin configAdmin;
@@ -27,8 +25,6 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
     function deployDG(
         address daoAgent,
-        address daoVoting,
-        address ldoToken,
         address stEth,
         address wstEth,
         address withdrawalQueue,
@@ -40,7 +36,7 @@ abstract contract DualGovernanceSetup is TestAssertions {
         returns (Deployed memory d)
     {
         // deploy initial config impl
-        address configImpl = address(new Configuration());
+        address configImpl = address(new Configuration(DAO_VOTING));
 
         // deploy config proxy
         d.configAdmin = new ProxyAdmin(address(this));
@@ -57,20 +53,15 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
         console.log("Agent deployed to %x", address(d.agent));
 
-        // deploy aragon voting system facade
-        d.aragonVotingSystem = new AragonVotingSystem(daoVoting, ldoToken);
-
-        console.log("AragonVotingSystem deployed to %x", address(d.aragonVotingSystem));
-
         // deploy DG
         address escrowImpl = address(new Escrow(address(d.config), stEth, wstEth, withdrawalQueue));
         d.dualGov = new DualGovernance(
-            address(d.agent),
             address(d.config),
             configImpl,
             address(d.configAdmin),
             escrowImpl,
-            address(d.aragonVotingSystem)
+            DAO_VOTING,
+            address(d.agent)
         );
 
         console.log("DG deployed to %x", address(d.dualGov));
@@ -85,9 +76,6 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
         // pass config proxy ownership to the DG
         d.configAdmin.transferOwnership(address(d.dualGov));
-
-        // grant the aragon voting adapter the permission to create aragon votes
-        Utils.grantPermission(DAO_VOTING, IAragonVoting(DAO_VOTING).CREATE_VOTES_ROLE(), address(d.aragonVotingSystem));
     }
 
     function getAddress(bytes memory bytecode, uint256 salt) public view returns (address) {

@@ -7,26 +7,25 @@ import {Configuration} from "./Configuration.sol";
 import {Agent} from "./Agent.sol";
 import {Escrow} from "./Escrow.sol";
 import {GovernanceState} from "./GovernanceState.sol";
-import {IVotingSystem} from "./voting-systems/IVotingSystem.sol";
-
 
 interface IProxyAdmin {
     function upgradeAndCall(address proxy, address impl, bytes memory data) external;
 }
 
-
 contract DualGovernance {
     using SafeCast for uint256;
 
-    event NewProposal(uint256 indexed votingSystemId, uint256 indexed id);
+    event NewProposal(uint256 indexed proposerId, uint256 indexed id);
     event GovernanceReplaced(address governance, uint256 timelockDuration);
     event ConfigSet(address config);
-    event VotingSystemRegistered(address indexed facade, uint256 indexed id);
-    event VotingSystemUnregistered(address indexed facade, uint256 indexed id);
+    event ProposerRegistered(address indexed proposer, address indexed executor);
+    event ProposerUnregistered(address indexed proposer, address indexed executor);
 
     error ProposalSubmissionNotAllowed();
-    error InvalidVotingSystem();
-    error VotingSystemAlreadyRegistered();
+    error InvalidProposer(address proposer);
+    error InvalidExecutor(address executor);
+    error ProposerIsNotRegistered(address proposer);
+    error ProposerAlreadyRegistered(address proposer);
     error InvalidProposalId();
     error UnknownProposalId();
     error ProposalIsNotExecutable();
@@ -35,50 +34,47 @@ contract DualGovernance {
     error NestedExecutionProhibited();
     error NestedForwardingProhibited();
     error Unauthorized();
+    error ProposalItemsLengthMismatch(
+        uint256 targetsLength,
+        uint256 valuesLength,
+        uint256 payloadsLength
+    );
+    error UnregisteredProposer(address sender);
 
     struct Proposal {
-        uint64 id;
-        uint16 votingSystemId;
-        uint64 submittedAt;
-        uint64 decidedAt;
+        uint24 id;
+        address proposer;
+        uint40 submittedAt;
         bool isExecuted;
-    }
-
-    struct ProposalExecutionContext {
-        bool isExecuting;
-        bool isForwarding;
-        uint16 votingSystemId;
-        uint64 proposalId;
+        address[] targets;
+        uint256[] values;
+        bytes[] payloads;
     }
 
     Configuration public immutable CONFIG;
-    Agent public immutable AGENT;
 
     IProxyAdmin internal immutable CONFIG_ADMIN;
     GovernanceState internal immutable GOV_STATE;
 
-    mapping(uint256 => address) internal _votingSystems;
-    uint256[] internal _votingSystemIds;
-    uint256 internal _lastVotingSystemId;
+    address[] internal _proposers;
+    mapping(address proposer => address executor) internal _executors;
 
+    uint256 public proposalsCount;
     mapping(uint256 => Proposal) internal _proposals;
-    ProposalExecutionContext internal _propExecution;
-
 
     constructor(
-        address agent,
         address config,
         address initialConfigImpl,
         address configAdmin,
         address escrowImpl,
-        address adminVotingSystemFacade
+        address adminProposer,
+        address adminExecutor
     ) {
-        AGENT = Agent(agent);
         CONFIG = Configuration(config);
         CONFIG_ADMIN = IProxyAdmin(configAdmin);
         GOV_STATE = new GovernanceState(address(CONFIG), address(this), escrowImpl);
         emit ConfigSet(initialConfigImpl);
-        _registerVotingSystem(adminVotingSystemFacade);
+        _registerProposer(adminProposer, adminExecutor);
     }
 
     function signallingEscrow() external returns (address) {
@@ -98,199 +94,175 @@ contract DualGovernance {
     }
 
     function replaceDualGovernance(address newGovernance, uint256 timelockDuration) external {
-        _assertExecutionByAdminVotingSystem(msg.sender);
-        AGENT.setGovernance(newGovernance, timelockDuration);
+        _assertExecutionByAdminExecutor();
+        // TODO: implement governance replacement
+        // AGENT.setGovernance(newGovernance, timelockDuration);
         emit GovernanceReplaced(newGovernance, timelockDuration);
     }
 
     function updateConfig(address newConfig) external {
-        _assertExecutionByAdminVotingSystem(msg.sender);
+        _assertExecutionByAdminExecutor();
         CONFIG_ADMIN.upgradeAndCall(address(CONFIG), newConfig, new bytes(0));
         emit ConfigSet(newConfig);
     }
 
-    function hasVotingSystem(uint256 id) external view returns (bool) {
-        return _votingSystems[id] != address(0);
+    function hasProposer(address proposer) external view returns (bool) {
+        return _executors[proposer] != address(0);
     }
 
-    function getVotingSystem(uint256 id) external view returns (IVotingSystem) {
-        return _getVotingSystem(id);
+    function getProposers()
+        external
+        view
+        returns (address[] memory proposers, address[] memory executors)
+    {
+        proposers = new address[](_proposers.length);
+        executors = new address[](proposers.length);
+        for (uint256 i = 0; i < proposers.length; ++i) {
+            proposers[i] = _proposers[i];
+            executors[i] = _executors[proposers[i]];
+        }
     }
 
-    function getVotingSystemIds() external view returns (uint256[] memory) {
-        return _votingSystemIds;
+    function registerProposer(address proposer, address executor) external {
+        _assertExecutionByAdminExecutor();
+        return _registerProposer(proposer, executor);
     }
 
-    function registerVotingSystem(address votingSystemFacade) external returns (uint256) {
-        _assertExecutionByAdminVotingSystem(msg.sender);
-        return _registerVotingSystem(votingSystemFacade);
-    }
-
-    function unregisterVotingSystem(uint256 votingSystemId) external {
-        _assertExecutionByAdminVotingSystem(msg.sender);
-        _unregisterVotingSystem(votingSystemId);
+    function unregisterProposer(address proposer) external {
+        _assertExecutionByAdminExecutor();
+        _unregisterProposer(proposer);
     }
 
     function killAllPendingProposals() external {
         GOV_STATE.activateNextState();
-        IVotingSystem votingSystem = _getVotingSystem(CONFIG.adminVotingSystemId());
-        if (!votingSystem.isValidExecutionForwarder(msg.sender)) {
+        if (CONFIG.adminProposer() != msg.sender) {
             revert Unauthorized();
         }
         GOV_STATE.killAllPendingProposals();
     }
 
-    function getProposal(uint256 votingSystemId, uint256 proposalId) external view returns (Proposal memory) {
-        return _loadProposal(_getProposalKey(votingSystemId, proposalId));
+    function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
+        (proposal, ) = _loadProposal(proposalId);
     }
 
-    function submitProposal(uint256 votingSystemId, bytes calldata data) external returns (uint256 id) {
+    function submitProposal(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory payloads
+    ) external returns (uint256 newProposalId) {
         GOV_STATE.activateNextState();
         if (!GOV_STATE.isProposalSubmissionAllowed()) {
             revert ProposalSubmissionNotAllowed();
         }
-        IVotingSystem votingSystem = _getVotingSystem(votingSystemId);
-        (uint256 proposalId, uint256 decidedAt) = votingSystem.submitProposal(data, msg.sender);
-        _saveProposal(_getProposalKey(votingSystemId, proposalId), Proposal({
-            id: proposalId.toUint64(),
-            votingSystemId: votingSystemId.toUint16(),
-            submittedAt: _getTime().toUint64(),
-            decidedAt: decidedAt.toUint64(),
-            isExecuted: false
-        }));
-        return proposalId;
+
+        if (targets.length != values.length || targets.length != payloads.length) {
+            revert ProposalItemsLengthMismatch(targets.length, values.length, payloads.length);
+        }
+
+        address executor = _executors[msg.sender];
+        if (executor == address(0)) {
+            revert UnregisteredProposer(msg.sender);
+        }
+
+        newProposalId = proposalsCount++;
+        Proposal storage newProposal = _proposals[newProposalId];
+
+        newProposal.id = newProposalId.toUint24();
+        newProposal.isExecuted = false;
+        newProposal.proposer = msg.sender;
+        newProposal.submittedAt = block.timestamp.toUint40();
+        newProposal.targets = targets;
+        newProposal.payloads = payloads;
+        newProposal.values = values;
     }
 
-    function executeProposal(uint256 votingSystemId, uint256 proposalId, bytes calldata data) external {
+    // TODO: reentrance protection
+    function executeProposal(uint256 proposalId) external {
         GOV_STATE.activateNextState();
-        if (_propExecution.isExecuting) {
-            revert NestedExecutionProhibited();
-        }
-        IVotingSystem votingSystem = _getVotingSystem(votingSystemId);
-        uint256 proposalKey = _getProposalKey(votingSystemId, proposalId);
-        Proposal memory proposal = _loadProposal(proposalKey);
+
+        (Proposal storage proposal, uint256 submittedAt) = _loadProposal(proposalId);
+
         if (proposal.isExecuted) {
             revert ProposalAlreadyExecuted();
         }
-        if (!GOV_STATE.isProposalExecutable(proposal.submittedAt, proposal.decidedAt)) {
+
+        if (!GOV_STATE.isProposalExecutable(submittedAt, submittedAt)) {
             revert ProposalIsNotExecutable();
         }
-        _propExecution = ProposalExecutionContext({
-            isExecuting: true,
-            isForwarding: false,
-            votingSystemId: votingSystemId.toUint16(),
-            proposalId: proposalId.toUint64()
-        });
+
+        address proposer = proposal.proposer;
+        if (!_isRegisteredProposer(proposer)) {
+            revert InvalidProposer(proposer);
+        }
+
         proposal.isExecuted = true;
-        _saveProposal(proposalKey, proposal);
-        votingSystem.executeProposal(proposalId, data);
-        assert(!_propExecution.isForwarding);
-        _propExecution.isExecuting = false;
+
+        address executor = _executors[proposer];
+        assert(executor != address(0));
+
+        address[] memory targets = proposal.targets;
+        bytes[] memory payloads = proposal.payloads;
+        assert(targets.length == payloads.length);
+
+        for (uint256 i = 0; i < targets.length; ++i) {
+            Agent(executor).forwardCall(targets[i], payloads[i]);
+        }
     }
 
-    function forwardCall(address target, bytes calldata data) external {
-        ProposalExecutionContext memory execution = _propExecution;
-        _assertValidCallerForExecution(execution, msg.sender);
-        if (execution.isForwarding) {
-            revert NestedForwardingProhibited();
+    function _registerProposer(address proposer, address executor) internal {
+        if (_isRegisteredProposer(proposer)) {
+            revert ProposerAlreadyRegistered(proposer);
         }
-        _propExecution.isForwarding = true;
-        AGENT.forwardCall(target, data);
-        _propExecution.isForwarding = false;
+        _proposers.push(proposer);
+        _executors[proposer] = executor;
+
+        emit ProposerRegistered(proposer, executor);
     }
 
-    function _registerVotingSystem(address votingSystemFacade) internal returns (uint256) {
-        uint256 totalVotingSystems = _votingSystemIds.length;
-        for (uint256 i = 0; i < totalVotingSystems; ++i) {
-            uint256 id = _votingSystemIds[i];
-            if (_votingSystems[id] == votingSystemFacade) {
-                revert VotingSystemAlreadyRegistered();
-            }
+    function _unregisterProposer(address proposer) internal {
+        if (!_isRegisteredProposer(proposer)) {
+            revert ProposerIsNotRegistered(proposer);
         }
 
-        uint256 votingSystemId = ++_lastVotingSystemId;
-        assert(_votingSystems[votingSystemId] == address(0));
-
-        _votingSystems[votingSystemId] = votingSystemFacade;
-        _votingSystemIds.push(votingSystemId);
-
-        emit VotingSystemRegistered(votingSystemFacade, votingSystemId);
-
-        return votingSystemId;
-    }
-
-    function _unregisterVotingSystem(uint256 votingSystemId) internal {
-        address votingSystemFacade = _votingSystems[votingSystemId];
-        if (votingSystemFacade == address(0)) {
-            revert InvalidVotingSystem();
-        }
-
-        _votingSystems[votingSystemId] = address(0);
-
-        uint256 totalVotingSystems = _votingSystemIds.length;
+        uint256 totalVotingSystems = _proposers.length;
         uint256 i = 0;
 
-        for (; i < totalVotingSystems; ++i) {
-            if (_votingSystemIds[i] == votingSystemId) {
+        for (; i < _proposers.length; ++i) {
+            if (_proposers[i] == proposer) {
                 break;
             }
         }
         for (++i; i < totalVotingSystems; ++i) {
-            _votingSystemIds[i - 1] = _votingSystemIds[i];
+            _proposers[i - 1] = _proposers[i];
         }
 
-        emit VotingSystemUnregistered(votingSystemFacade, votingSystemId);
+        address executor = _executors[proposer];
+        _executors[proposer] = address(0);
+        emit ProposerUnregistered(proposer, executor);
     }
 
-    function _assertExecutionByAdminVotingSystem(address caller) internal view {
-        ProposalExecutionContext memory execution = _propExecution;
-        _assertValidCallerForExecution(execution, caller);
-        if (execution.votingSystemId != CONFIG.adminVotingSystemId()) {
+    function _assertExecutionByAdminExecutor() internal view {
+        address adminExecutor = _executors[CONFIG.adminProposer()];
+        if (msg.sender != adminExecutor) {
             revert Unauthorized();
         }
     }
 
-    function _assertValidCallerForExecution(ProposalExecutionContext memory execution, address caller) internal view {
-        if (!execution.isExecuting) {
-            revert CannotCallOutsideExecution();
-        }
-        IVotingSystem votingSystem = _getVotingSystem(execution.votingSystemId);
-        if (!votingSystem.isValidExecutionForwarder(caller)) {
-            revert Unauthorized();
-        }
-    }
-
-    function _getVotingSystem(uint256 id) internal view returns (IVotingSystem) {
-        address votingSystem = _votingSystems[id];
-        if (votingSystem == address(0)) {
-            revert InvalidVotingSystem();
-        }
-        return IVotingSystem(votingSystem);
-    }
-
-    function _loadProposal(uint256 proposalKey) internal view returns (Proposal memory) {
-        Proposal memory proposal = _proposals[proposalKey];
+    function _loadProposal(
+        uint256 proposalKey
+    ) internal view returns (Proposal storage proposal, uint256 submittedAt) {
+        proposal = _proposals[proposalKey];
+        submittedAt = proposal.submittedAt;
         if (proposal.submittedAt == 0) {
             revert UnknownProposalId();
         }
-        return proposal;
     }
 
-    function _saveProposal(uint256 proposalKey, Proposal memory proposal) internal {
-        _proposals[proposalKey] = proposal;
+    function _isRegisteredProposer(address proposer) internal view returns (bool isProposer) {
+        isProposer = _executors[proposer] != address(0);
     }
 
-    function _getProposalKey(uint256 votingSystemId, uint256 proposalId) internal pure returns (uint256) {
-        if (votingSystemId > type(uint16).max) {
-            revert InvalidVotingSystem();
-        }
-        if (proposalId > type(uint64).max) {
-            revert InvalidProposalId();
-        }
-        return (votingSystemId << 64) | proposalId;
-    }
-
-    function _getTime() internal virtual view returns (uint256) {
+    function _getTime() internal view virtual returns (uint256) {
         return block.timestamp;
     }
 }

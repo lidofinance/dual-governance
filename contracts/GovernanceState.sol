@@ -208,7 +208,7 @@ contract GovernanceState {
 
     function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256) {
         // TODO: use the formula from the design overview
-        return 1 days;
+        return 4 days;
     }
 
     function _enterVetoSignallingDeactivationSubState() internal {

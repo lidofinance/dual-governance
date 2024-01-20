@@ -31,8 +31,6 @@ contract AgentTimelockTest is DualGovernanceSetup {
 
         DualGovernanceSetup.Deployed memory deployed = deployDG(
             DAO_AGENT,
-            DAO_VOTING,
-            LDO_TOKEN,
             ST_ETH,
             WST_ETH,
             WITHDRAWAL_QUEUE,
@@ -48,23 +46,49 @@ contract AgentTimelockTest is DualGovernanceSetup {
     function test_agent_timelock_happy_path() external {
         Target target = new Target();
 
-        bytes memory targetCalldata = abi.encodeCall(target.doSmth, (42));
-        bytes memory forwardCalldata = abi.encodeCall(dualGov.forwardCall, (address(target), targetCalldata));
-        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), forwardCalldata);
+        address[] memory targets = new address[](1);
+        targets[0] = address(target);
 
-        uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
+        uint256[] memory values = new uint256[](1);
+
+        bytes[] memory payloads = new bytes[](1);
+        payloads[0] = abi.encodeCall(target.doSmth, (42));
+
+        bytes memory script = Utils.encodeEvmCallScript(
+            address(dualGov),
+            abi.encodeCall(dualGov.submitProposal, (targets, values, payloads))
+        );
+
+        // create vote
+        vm.prank(ldoWhale);
+        IAragonVoting voting = IAragonVoting(DAO_VOTING);
+        IAragonForwarder(DAO_TOKEN_MANAGER).forward(
+            Utils.encodeEvmCallScript(
+                DAO_VOTING,
+                abi.encodeCall(
+                    voting.newVote,
+                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                )
+            )
+        );
+
+        uint256 voteId = voting.votesLength() - 1;
+
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
         // from the Aragon's POV, the proposal is executable
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
 
-        // however, proposals containing DG-related calls cannot be executed directly
-        vm.expectRevert(DualGovernance.CannotCallOutsideExecution.selector);
+        // Execute the vote to submit the proposal to dual governance
         IAragonVoting(DAO_VOTING).executeVote(voteId);
+
+        assertEq(dualGov.proposalsCount(), 1);
+
+        uint256 proposalId = 0;
 
         // min execution timelock enforced by DG hasn't elapsed yet
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
+        dualGov.executeProposal(proposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
@@ -77,14 +101,14 @@ contract AgentTimelockTest is DualGovernanceSetup {
         target.expectNoCalls();
 
         // executing the proposal schedules one call from the Agent
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
+        dualGov.executeProposal(proposalId);
 
         uint256[] memory scheduledCallIds = agent.getScheduledCallIds();
         assertEq(scheduledCallIds.length, 1);
 
         TimelockCallSet.Call memory call = agent.getScheduledCall(scheduledCallIds[0]);
         assertEq(call.target, address(target));
-        assertEq(call.data, targetCalldata);
+        assertEq(call.data, payloads[0]);
 
         // the call isn't executable yet
         assertEq(agent.getExecutableCallIds().length, 0);
@@ -96,7 +120,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         assertEq(agent.getExecutableCallIds(), scheduledCallIds);
 
         // executing the call invokes the target
-        vm.expectCall(address(target), targetCalldata);
+        vm.expectCall(address(target), payloads[0]);
         target.expectCalledBy(address(agent));
         agent.executeScheduledCall(scheduledCallIds[0]);
 
@@ -112,12 +136,38 @@ contract AgentTimelockTest is DualGovernanceSetup {
     function test_agent_timelock_emergency_dg_deactivation() external {
         Target target = new Target();
 
-        bytes memory targetCalldata = abi.encodeCall(target.doSmth, (42));
-        bytes memory forwardCalldata = abi.encodeCall(dualGov.forwardCall, (address(target), targetCalldata));
-        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), forwardCalldata);
+        address[] memory targets = new address[](1);
+        targets[0] = address(target);
 
-        uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
+        uint256[] memory values = new uint256[](1);
+
+        bytes[] memory payloads = new bytes[](1);
+        payloads[0] = abi.encodeCall(target.doSmth, (42));
+
+        bytes memory script = Utils.encodeEvmCallScript(
+            address(dualGov),
+            abi.encodeCall(dualGov.submitProposal, (targets, values, payloads))
+        );
+
+        // create vote
+        vm.prank(ldoWhale);
+        IAragonVoting voting = IAragonVoting(DAO_VOTING);
+        IAragonForwarder(DAO_TOKEN_MANAGER).forward(
+            Utils.encodeEvmCallScript(
+                DAO_VOTING,
+                abi.encodeCall(
+                    voting.newVote,
+                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                )
+            )
+        );
+
+        uint256 voteId = voting.votesLength() - 1;
+
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
+
+        // Execute the vote to submit the proposal to dual governance
+        IAragonVoting(DAO_VOTING).executeVote(voteId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
@@ -125,15 +175,18 @@ contract AgentTimelockTest is DualGovernanceSetup {
         // target won't be called in this test
         target.expectNoCalls();
 
+        assertEq(dualGov.proposalsCount(), 1);
+
+        uint256 proposalId = 0;
         // executing the proposal schedules one call from the Agent
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
+        dualGov.executeProposal(proposalId);
 
         uint256[] memory scheduledCallIds = agent.getScheduledCallIds();
         assertEq(scheduledCallIds.length, 1);
 
         TimelockCallSet.Call memory call = agent.getScheduledCall(scheduledCallIds[0]);
         assertEq(call.target, address(target));
-        assertEq(call.data, targetCalldata);
+        assertEq(call.data, payloads[0]);
 
         // some time passes (but less than the Agent-enforced timelock)
         vm.warp(block.timestamp + AGENT_TIMELOCK_DURATION / 2);
