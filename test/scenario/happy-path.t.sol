@@ -1,8 +1,8 @@
 pragma solidity 0.8.23;
 
-import {Agent} from "contracts/Agent.sol";
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
+import {Timelock, Proposals} from "contracts/timelock/Timelock.sol";
 
 import "forge-std/Test.sol";
 
@@ -31,7 +31,7 @@ abstract contract DualGovernanceUtils is TestAssertions {
 }
 
 contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
-    Agent internal agent;
+    Timelock internal timelock;
     DualGovernance internal dualGov;
 
     address internal ldoWhale;
@@ -48,26 +48,25 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         stEthWhale = makeAddr("steth_whale");
         Utils.setupStEthWhale(stEthWhale);
 
-        uint256 agentTimelock = 0;
-        address emergencyMultisig = address(0);
-        uint256 agentEmergencyMultisigActiveFor = 0;
+        uint256 timelockDuration = 0;
+        address timelockEmergencyMultisig = address(0);
+        uint256 timelockEmergencyMultisigActiveFor = 0;
 
         DualGovernanceSetup.Deployed memory deployed = deployDG(
-            DAO_AGENT,
             ST_ETH,
             WST_ETH,
             WITHDRAWAL_QUEUE,
-            agentTimelock,
-            emergencyMultisig,
-            agentEmergencyMultisigActiveFor
+            timelockDuration,
+            timelockEmergencyMultisig,
+            timelockEmergencyMultisigActiveFor
         );
 
-        agent = deployed.agent;
+        timelock = deployed.timelock;
         dualGov = deployed.dualGov;
     }
 
     function test_setup() external {
-        assertEq(agent.getGovernance(), address(dualGov));
+        assertEq(timelock.admin(), address(dualGov));
     }
 
     function test_happy_path() external {
@@ -83,7 +82,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         bytes memory script = Utils.encodeEvmCallScript(
             address(dualGov),
-            abi.encodeCall(dualGov.submitProposal, (targets, values, payloads))
+            abi.encodeCall(dualGov.propose, (targets, values, payloads))
         );
 
         // create vote
@@ -101,37 +100,46 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         uint256 voteId = voting.votesLength() - 1;
 
-        // uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
         // from the Aragon's POV, the proposal is executable
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
 
+        uint256 proposalsCountBefore = timelock.getProposalsCount();
+
         // Execute the vote to submit the proposal to dual governance
         IAragonVoting(DAO_VOTING).executeVote(voteId);
 
-        assertEq(dualGov.proposalsCount(), 1);
+        assertEq(timelock.getProposalsCount(), proposalsCountBefore + 1);
 
-        uint256 proposalId = 0;
+        uint256 newProposalId = timelock.getProposalsCount();
 
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.executeProposal(proposalId);
+        vm.expectRevert(Proposals.ProposalIsNotReady.selector);
+        dualGov.enqueue(newProposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
 
-        vm.expectCall(address(target), payloads[0]);
-        target.expectCalledBy(address(agent));
+        // enqueue doesn't execute the call
+        dualGov.enqueue(newProposalId);
 
-        dualGov.executeProposal(proposalId);
+        vm.expectCall(address(target), payloads[0]);
+        target.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
+
+        // execute the enqueued call
+        timelock.execute(newProposalId);
     }
 
     function test_happy_path_with_multiple_items() external {
-        // additional phase required here, grant rights to call DAO Agent to the DualGovernance Agent
-        Utils.grantPermission(DAO_AGENT, IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE(), address(agent));
+        // additional phase required here, grant rights to call DAO Agent to the admin executor
+        Utils.grantPermission(
+            DAO_AGENT,
+            IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE(),
+            address(timelock.ADMIN_EXECUTOR())
+        );
 
-        // prepare target to be called by the DAO agent using DG Agent
+        // prepare target to be called by the DAO agent using DG Executor
         Target targetAragon = new Target();
         IAragonForwarder aragonAgent = IAragonForwarder(DAO_AGENT);
         bytes memory aragonTargetCalldata = abi.encodeCall(targetAragon.doSmth, (84));
@@ -140,7 +148,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
             aragonTargetCalldata
         );
 
-        // prepare target to be called by the DG Agent
+        // prepare target to be called by the executor
         Target targetDualGov = new Target();
 
         address[] memory targets = new address[](2);
@@ -155,7 +163,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         bytes memory script = Utils.encodeEvmCallScript(
             address(dualGov),
-            abi.encodeCall(dualGov.submitProposal, (targets, values, payloads))
+            abi.encodeCall(dualGov.propose, (targets, values, payloads))
         );
 
         // create vote
@@ -178,25 +186,31 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         // from the Aragon's POV, the proposal is executable
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
 
+        uint256 proposalsCountBefore = timelock.getProposalsCount();
+
         // Execute the vote to submit the proposal to dual governance
         IAragonVoting(DAO_VOTING).executeVote(voteId);
 
-        assertEq(dualGov.proposalsCount(), 1);
-        uint256 proposalId = 0;
+        assertEq(timelock.getProposalsCount(), proposalsCountBefore + 1);
+
+        uint256 newProposalId = proposalsCountBefore + 1;
 
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.executeProposal(proposalId);
+        vm.expectRevert(Proposals.ProposalIsNotReady.selector);
+        dualGov.enqueue(newProposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
 
+        // enqueue doesn't execute the call
+        dualGov.enqueue(newProposalId);
         vm.expectCall(address(targetAragon), aragonTargetCalldata);
         vm.expectCall(address(targetDualGov), payloads[1]);
         targetAragon.expectCalledBy(DAO_AGENT);
-        targetDualGov.expectCalledBy(address(agent));
+        targetDualGov.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
 
-        dualGov.executeProposal(proposalId);
+        // execute the enqueued call
+        timelock.execute(newProposalId);
     }
 
     function test_escalation_and_one_sided_de_escalation() external {
@@ -212,7 +226,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         bytes memory script = Utils.encodeEvmCallScript(
             address(dualGov),
-            abi.encodeCall(dualGov.submitProposal, (targets, values, payloads))
+            abi.encodeCall(dualGov.propose, (targets, values, payloads))
         );
 
         // create vote
@@ -258,19 +272,21 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         // gov state is now Veto Signalling
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
 
+        uint256 proposalsCountBefore = timelock.getProposalsCount();
+
         // execute the DAO voting
         IAragonVoting(DAO_VOTING).executeVote(voteId);
 
-        assertEq(dualGov.proposalsCount(), 1);
+        assertEq(timelock.getProposalsCount(), proposalsCountBefore + 1);
 
-        uint256 proposalId = 0;
+        uint256 proposalId = timelock.getProposalsCount();
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
 
         // proposal is blocked due to stakers' opposition
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.executeProposal(proposalId);
+        dualGov.enqueue(proposalId);
 
         // de-escalate down to 2% of stETH total supply
         updateVetoSupport(dualGov, 2 * 10 ** 16 + 1);
@@ -280,7 +296,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         // proposal is still blocked
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.executeProposal(proposalId);
+        dualGov.enqueue(proposalId);
 
         // wait till the Veto Signalling Deactivation timeout elapses
         vm.warp(block.timestamp + dualGov.CONFIG().signallingDeactivationDuration() + 1);
@@ -291,12 +307,17 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         // gov state is now Veto Cooldown
         assertEq(dualGov.currentState(), GovernanceState.State.VetoCooldown);
 
+        // proposal is finally executable, put it into the queue
+        dualGov.enqueue(proposalId);
+
         // proposal is finally executable
         vm.expectCall(address(target), payloads[0]);
-        target.expectCalledBy(address(agent));
-        dualGov.executeProposal(proposalId);
+        target.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
 
-        // but new proposals cannot be submitted
+        // execute the enqueued call
+        timelock.execute(proposalId);
+
+        // // but new proposals cannot be submitted
         vm.prank(ldoWhale);
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(
             Utils.encodeEvmCallScript(

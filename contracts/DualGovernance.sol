@@ -1,80 +1,51 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
 import {Configuration} from "./Configuration.sol";
-import {Agent} from "./Agent.sol";
 import {Escrow} from "./Escrow.sol";
 import {GovernanceState} from "./GovernanceState.sol";
+import {Timelock, Proposals, Proposal} from "./timelock/Timelock.sol";
 
 interface IProxyAdmin {
     function upgradeAndCall(address proxy, address impl, bytes memory data) external;
 }
 
 contract DualGovernance {
-    using SafeCast for uint256;
-
-    event NewProposal(uint256 indexed proposerId, uint256 indexed id);
-    event GovernanceReplaced(address governance, uint256 timelockDuration);
     event ConfigSet(address config);
     event ProposerRegistered(address indexed proposer, address indexed executor);
     event ProposerUnregistered(address indexed proposer, address indexed executor);
 
     error ProposalSubmissionNotAllowed();
-    error InvalidProposer(address proposer);
-    error InvalidExecutor(address executor);
     error ProposerIsNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
-    error InvalidProposalId();
-    error UnknownProposalId();
     error ProposalIsNotExecutable();
-    error ProposalAlreadyExecuted();
-    error CannotCallOutsideExecution();
-    error NestedExecutionProhibited();
-    error NestedForwardingProhibited();
     error Unauthorized();
-    error ProposalItemsLengthMismatch(
-        uint256 targetsLength,
-        uint256 valuesLength,
-        uint256 payloadsLength
-    );
-    error UnregisteredProposer(address sender);
 
-    struct Proposal {
-        uint24 id;
-        address proposer;
-        uint40 submittedAt;
-        bool isExecuted;
-        address[] targets;
-        uint256[] values;
-        bytes[] payloads;
-    }
+    error UnregisteredProposer(address sender);
 
     Configuration public immutable CONFIG;
 
     IProxyAdmin internal immutable CONFIG_ADMIN;
     GovernanceState internal immutable GOV_STATE;
 
+    Timelock public immutable TIMELOCK;
+
     address[] internal _proposers;
     mapping(address proposer => address executor) internal _executors;
-
-    uint256 public proposalsCount;
-    mapping(uint256 => Proposal) internal _proposals;
 
     constructor(
         address config,
         address initialConfigImpl,
         address configAdmin,
         address escrowImpl,
-        address adminProposer,
-        address adminExecutor
+        address timelock
     ) {
         CONFIG = Configuration(config);
         CONFIG_ADMIN = IProxyAdmin(configAdmin);
+        TIMELOCK = Timelock(timelock);
         GOV_STATE = new GovernanceState(address(CONFIG), address(this), escrowImpl);
         emit ConfigSet(initialConfigImpl);
-        _registerProposer(adminProposer, adminExecutor);
+        _registerProposer(CONFIG.adminProposer(), TIMELOCK.ADMIN_EXECUTOR());
     }
 
     function signallingEscrow() external returns (address) {
@@ -91,13 +62,6 @@ contract DualGovernance {
 
     function activateNextState() external returns (GovernanceState.State) {
         return GOV_STATE.activateNextState();
-    }
-
-    function replaceDualGovernance(address newGovernance, uint256 timelockDuration) external {
-        _assertExecutionByAdminExecutor();
-        // TODO: implement governance replacement
-        // AGENT.setGovernance(newGovernance, timelockDuration);
-        emit GovernanceReplaced(newGovernance, timelockDuration);
     }
 
     function updateConfig(address newConfig) external {
@@ -138,14 +102,14 @@ contract DualGovernance {
         if (CONFIG.adminProposer() != msg.sender) {
             revert Unauthorized();
         }
-        GOV_STATE.killAllPendingProposals();
+        TIMELOCK.cancelAllProposals();
     }
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
-        (proposal, ) = _loadProposal(proposalId);
+        return TIMELOCK.getProposal(proposalId);
     }
 
-    function submitProposal(
+    function propose(
         address[] memory targets,
         uint256[] memory values,
         bytes[] memory payloads
@@ -155,58 +119,25 @@ contract DualGovernance {
             revert ProposalSubmissionNotAllowed();
         }
 
-        if (targets.length != values.length || targets.length != payloads.length) {
-            revert ProposalItemsLengthMismatch(targets.length, values.length, payloads.length);
-        }
-
-        address executor = _executors[msg.sender];
-        if (executor == address(0)) {
+        if (!_isRegisteredProposer(msg.sender)) {
             revert UnregisteredProposer(msg.sender);
         }
 
-        newProposalId = proposalsCount++;
-        Proposal storage newProposal = _proposals[newProposalId];
-
-        newProposal.id = newProposalId.toUint24();
-        newProposal.isExecuted = false;
-        newProposal.proposer = msg.sender;
-        newProposal.submittedAt = block.timestamp.toUint40();
-        newProposal.targets = targets;
-        newProposal.payloads = payloads;
-        newProposal.values = values;
+        address executor = _executors[msg.sender];
+        return TIMELOCK.propose(executor, targets, values, payloads);
     }
 
     // TODO: reentrance protection
-    function executeProposal(uint256 proposalId) external {
+    function enqueue(uint256 proposalId) external {
         GOV_STATE.activateNextState();
 
-        (Proposal storage proposal, uint256 submittedAt) = _loadProposal(proposalId);
-
-        if (proposal.isExecuted) {
-            revert ProposalAlreadyExecuted();
-        }
-
-        if (!GOV_STATE.isProposalExecutable(submittedAt, submittedAt)) {
+        if (!GOV_STATE.isExecutionEnabled()) {
             revert ProposalIsNotExecutable();
         }
 
-        address proposer = proposal.proposer;
-        if (!_isRegisteredProposer(proposer)) {
-            revert InvalidProposer(proposer);
-        }
-
-        proposal.isExecuted = true;
-
-        address executor = _executors[proposer];
-        assert(executor != address(0));
-
-        address[] memory targets = proposal.targets;
-        bytes[] memory payloads = proposal.payloads;
-        assert(targets.length == payloads.length);
-
-        for (uint256 i = 0; i < targets.length; ++i) {
-            Agent(executor).forwardCall(targets[i], payloads[i]);
-        }
+        // TODO: the time must pass before enqueueing the proposal
+        // must be computed dynamicly?
+        TIMELOCK.enqueue(proposalId, CONFIG.minProposalExecutionTimelock());
     }
 
     function _registerProposer(address proposer, address executor) internal {
@@ -245,16 +176,6 @@ contract DualGovernance {
         address adminExecutor = _executors[CONFIG.adminProposer()];
         if (msg.sender != adminExecutor) {
             revert Unauthorized();
-        }
-    }
-
-    function _loadProposal(
-        uint256 proposalKey
-    ) internal view returns (Proposal storage proposal, uint256 submittedAt) {
-        proposal = _proposals[proposalKey];
-        submittedAt = proposal.submittedAt;
-        if (proposal.submittedAt == 0) {
-            revert UnknownProposalId();
         }
     }
 

@@ -1,6 +1,6 @@
 pragma solidity 0.8.23;
 
-import {Agent} from "contracts/Agent.sol";
+import {Timelock} from "contracts/timelock/Timelock.sol";
 
 import "forge-std/Test.sol";
 
@@ -8,41 +8,33 @@ import "../utils/mainnet-addresses.sol";
 import "../utils/interfaces.sol";
 import "../utils/utils.sol";
 
-
 abstract contract PlanBSetup is Test {
     function deployPlanB(
         address daoVoting,
-        uint256 agentTimelock,
+        uint256 timelockDuration,
         address vetoMultisig,
         uint256 vetoMultisigActiveFor
-    ) public returns (
-        Agent agent
-    ) {
-        agent = new Agent(daoVoting, address(this));
-        agent.forwardCall(address(agent), abi.encodeCall(
-            agent.setEmergencyMultisig, (
-                vetoMultisig,
-                vetoMultisigActiveFor
-            )
-        ));
-        agent.forwardCall(address(agent), abi.encodeCall(
-            agent.setGovernance, (
-                daoVoting,
-                agentTimelock
-            )
-        ));
+    ) public returns (Timelock timelock) {
+        timelock = new Timelock(
+            daoVoting,
+            DAO_AGENT,
+            0 days, // MUST NOT be used in production. TODO: create better deployment process
+            14 days,
+            timelockDuration,
+            vetoMultisig,
+            block.timestamp + vetoMultisigActiveFor
+        );
     }
 }
 
-
 contract HappyPathPlanBTest is PlanBSetup {
     IAragonVoting internal daoVoting;
-    Agent internal agent;
+    Timelock internal timelock;
     address internal vetoMultisig;
     address internal ldoWhale;
     Target internal target;
 
-    uint256 internal agentTimelock;
+    uint256 internal timelockDuration;
     uint256 internal vetoMultisigActiveFor;
 
     function setUp() external {
@@ -53,18 +45,37 @@ contract HappyPathPlanBTest is PlanBSetup {
 
         vetoMultisig = makeAddr("vetoMultisig");
 
-        agentTimelock = 1 days;
+        timelockDuration = 1 days;
         vetoMultisigActiveFor = 90 days;
 
-        agent = deployPlanB(DAO_VOTING, agentTimelock, vetoMultisig, vetoMultisigActiveFor);
+        timelock = deployPlanB(DAO_VOTING, timelockDuration, vetoMultisig, vetoMultisigActiveFor);
         target = new Target();
         daoVoting = IAragonVoting(DAO_VOTING);
     }
 
     function test_proposal() external {
         bytes memory targetCalldata = abi.encodeCall(target.doSmth, (42));
-        bytes memory forwardCalldata = abi.encodeCall(agent.forwardCall, (address(target), targetCalldata));
-        bytes memory script = Utils.encodeEvmCallScript(address(agent), forwardCalldata);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(target);
+
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory payloads = new bytes[](1);
+        payloads[0] = abi.encodeCall(target.doSmth, (42));
+
+        uint256 expectedProposalId = timelock.getProposalsCount() + 1;
+
+        bytes memory proposeCalldata = abi.encodeCall(
+            timelock.propose,
+            (timelock.ADMIN_EXECUTOR(), targets, values, payloads)
+        );
+        bytes memory enqueueCalldata = abi.encodeCall(timelock.enqueue, (expectedProposalId, 0));
+
+        Utils.EvmScriptCall[] memory evmScriptCalls = new Utils.EvmScriptCall[](2);
+        evmScriptCalls[0] = Utils.EvmScriptCall({target: address(timelock), data: proposeCalldata});
+        evmScriptCalls[1] = Utils.EvmScriptCall({target: address(timelock), data: enqueueCalldata});
+
+        bytes memory script = Utils.encodeEvmCallScript(evmScriptCalls);
 
         bytes memory newVoteScript = Utils.encodeEvmCallScript(
             address(daoVoting),
@@ -80,18 +91,16 @@ contract HappyPathPlanBTest is PlanBSetup {
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
         daoVoting.executeVote(voteId);
 
-        uint256[] memory callIds = agent.getScheduledCallIds();
-        assertEq(callIds.length, 1);
-        assertEq(agent.getExecutableCallIds().length, 0);
+        assertEq(timelock.getProposalsCount(), expectedProposalId);
+        assertTrue(timelock.isEnqueued(expectedProposalId));
+        assertFalse(timelock.isExecutable(expectedProposalId));
 
-        vm.warp(block.timestamp + agentTimelock + 1);
-        uint256[] memory execCallIds = agent.getExecutableCallIds();
-        assertEq(execCallIds.length, 1);
-        assertEq(execCallIds, callIds);
+        vm.warp(block.timestamp + timelockDuration + 1);
+        assertTrue(timelock.isExecutable(expectedProposalId));
 
         vm.expectCall(address(target), targetCalldata);
-        target.expectCalledBy(address(agent));
+        target.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
 
-        agent.executeScheduledCall(execCallIds[0]);
+        timelock.execute(expectedProposalId);
     }
 }
