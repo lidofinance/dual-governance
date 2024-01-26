@@ -115,9 +115,6 @@ contract EmergencyProtectedTimelock {
         if (msg.sender != _emergencyCommittee) {
             revert NotEmergencyCommittee(msg.sender);
         }
-        if (block.timestamp >= _emergencyCommitteeActiveTill) {
-            revert EmergencyCommitteeExpired();
-        }
         if (block.timestamp > emergencyModeEnteredAt + _emergencyModeDuration) {
             revert EmergencyPeriodFinished();
         }
