@@ -1,12 +1,14 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 import {Escrow} from "contracts/Escrow.sol";
+import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
 import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
 import {Configuration} from "contracts/Configuration.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
-import {Timelock} from "contracts/timelock/Timelock.sol";
+import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "../utils/mainnet-addresses.sol";
 import "../utils/interfaces.sol";
@@ -17,7 +19,8 @@ abstract contract DualGovernanceSetup is TestAssertions {
         DualGovernance dualGov;
         TransparentUpgradeableProxy config;
         ProxyAdmin configAdmin;
-        Timelock timelock;
+        EmergencyProtectedTimelock timelock;
+        OwnableExecutor adminExecutor;
     }
 
     uint256 internal constant ARAGON_VOTING_SYSTEM_ID = 1;
@@ -41,16 +44,16 @@ abstract contract DualGovernanceSetup is TestAssertions {
             new bytes(0)
         );
 
-        d.timelock = new Timelock(
-            address(this),
-            DAO_AGENT,
-            0, // MUST NOT be used in production. TODO: create better deployment process
-            14 days,
-            0,
-            timelockEmergencyMultisig,
-            block.timestamp + timelockEmergencyMultisigActiveFor
+        // initially owner of the admin is set to the deployer
+        // to configure setup
+        d.adminExecutor = new OwnableExecutor(address(this));
+
+        d.timelock = new EmergencyProtectedTimelock(
+            address(d.adminExecutor),
+            DAO_VOTING // maybe emergency governance should be Agent
         );
-        console.log("Agent deployed to %x", address(d.timelock));
+
+        console.log("Timelock deployed to %x", address(d.timelock));
 
         // deploy DG
         address escrowImpl = address(new Escrow(address(d.config), stEth, wstEth, withdrawalQueue));
@@ -64,21 +67,29 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
         console.log("DG deployed to %x", address(d.dualGov));
 
-        // point Timelock to the DG
-        address[] memory targets = new address[](1);
-        targets[0] = address(d.timelock);
-        uint256[] memory values = new uint256[](1);
-
-        bytes[] memory payloads = new bytes[](1);
-        payloads[0] = abi.encodeCall(
-            d.timelock.setAdmin,
-            (address(d.dualGov), timelockDuration)
+        // configure Timelock
+        d.adminExecutor.execute(
+            address(d.timelock),
+            0,
+            abi.encodeCall(d.timelock.setGovernance, (address(d.dualGov), timelockDuration))
         );
 
-        d.timelock.propose(d.timelock.ADMIN_EXECUTOR(), targets, values, payloads);
+        // TODO: pass this value via args
+        uint256 emergencyModeDuration = 0;
+        d.adminExecutor.execute(
+            address(d.timelock),
+            0,
+            abi.encodeCall(
+                d.timelock.setEmergencyCommittee,
+                (
+                    timelockEmergencyMultisig,
+                    timelockEmergencyMultisigActiveFor,
+                    emergencyModeDuration
+                )
+            )
+        );
 
-        d.timelock.enqueue(1, 0);
-        d.timelock.execute(1);
+        d.adminExecutor.transferOwnership(address(d.timelock));
 
         // pass config proxy ownership to the DG
         d.configAdmin.transferOwnership(address(d.dualGov));
