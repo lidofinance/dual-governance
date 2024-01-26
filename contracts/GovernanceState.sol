@@ -63,6 +63,10 @@ contract GovernanceState {
         _proposalsKilledUntil = _getTime();
     }
 
+    function isExecutionEnabled() external view returns (bool) {
+        return _isExecutionEnabled();
+    }
+
     function isProposalExecutable(uint256 submittedAt, uint256 decidedAt) external view returns (bool) {
         return _isExecutionEnabled()
             && submittedAt > _proposalsKilledUntil
