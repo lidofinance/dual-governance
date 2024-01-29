@@ -9,6 +9,8 @@ library EmergencyProtection {
     error EmergencyModeNotEntered();
     error EmergencyPeriodFinished();
     error EmergencyPeriodNotFinished();
+    error EmergencyModeIsActive();
+    error EmergencyModeWasActivatedPreviously();
 
     event EmergencyModeActivated();
     event EmergencyModeDeactivated();
@@ -24,6 +26,8 @@ library EmergencyProtection {
         uint40 protectedTill;
         uint40 emergencyModeEndsAfter;
         uint32 emergencyModeDuration;
+        // flag which allow to the committee activate the emergency mode only once
+        bool emergencyModeWasActivatedPreviously;
     }
 
     function setup(
@@ -51,6 +55,8 @@ library EmergencyProtection {
             self.emergencyModeDuration = SafeCast.toUint32(duration);
             emit EmergencyDurationSet(duration);
         }
+        // new committee has rights to trigger emergency mode again
+        self.emergencyModeWasActivatedPreviously = false;
     }
 
     function activate(State storage self) internal {
@@ -59,6 +65,12 @@ library EmergencyProtection {
         }
         if (block.timestamp >= self.protectedTill) {
             revert EmergencyCommitteeExpired();
+        }
+        if (self.emergencyModeEndsAfter != 0) {
+            revert EmergencyModeIsActive();
+        }
+        if (self.emergencyModeWasActivatedPreviously) {
+            revert EmergencyModeWasActivatedPreviously();
         }
         self.emergencyModeEndsAfter = SafeCast.toUint40(
             block.timestamp + self.emergencyModeDuration
@@ -116,5 +128,6 @@ library EmergencyProtection {
         self.protectedTill = 0;
         self.emergencyModeDuration = 0;
         self.emergencyModeEndsAfter = 0;
+        self.emergencyModeWasActivatedPreviously = false;
     }
 }

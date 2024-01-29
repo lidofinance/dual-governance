@@ -332,6 +332,7 @@ contract HappyPathPlanBTest is PlanBSetup {
 
         // now, all votings passes via dual governance
         _testDualGovernanceWorks(dualGov);
+        _testDualGovernanceRedeploy(dualGov);
     }
 
     function _testDualGovernanceWorks(DualGovernance dualGov) internal {
@@ -396,5 +397,100 @@ contract HappyPathPlanBTest is PlanBSetup {
 
         // executed calls were removed from the scheduled
         assertEq(timelock.getScheduledCallBatchesCount(), 0);
+    }
+
+    function _testDualGovernanceRedeploy(DualGovernance dualGov) internal {
+        // after some significant time dual governance update is prepared
+        vm.warp(block.timestamp + 365 days);
+        DualGovernanceDeployFactory newDgFactory = new DualGovernanceDeployFactory(
+            ST_ETH,
+            WST_ETH,
+            WITHDRAWAL_QUEUE
+        );
+        DualGovernance newDg = newDgFactory.deployDualGovernance(address(timelock));
+
+        // prepare vote to update the DG implementation and reset the emergency committee
+
+        ExecutorCall[] memory newDualGovActivationCalls = new ExecutorCall[](2);
+        // call timelock.setGovernance() with deployed instance of DG
+        newDualGovActivationCalls[0].target = address(timelock);
+        newDualGovActivationCalls[0].payload = abi.encodeCall(
+            timelock.setGovernance,
+            (address(newDg), 1 days)
+        );
+
+        // call timelock.setEmergencyProtection() to update the emergency protection settings
+        newDualGovActivationCalls[1].target = address(timelock);
+        newDualGovActivationCalls[1].payload = abi.encodeCall(
+            timelock.setEmergencyProtection,
+            (vetoMultisig, 90 days, 30 days)
+        );
+
+        uint256 newProposalId = 2;
+        bytes memory newProposeCalldata = abi.encodeCall(
+            dualGov.propose,
+            (newDualGovActivationCalls)
+        );
+
+        bytes memory newScript = Utils.encodeEvmCallScript(address(dualGov), newProposeCalldata);
+
+        uint256 voteId = daoVoting.votesLength();
+
+        // The quorum to activate the DG is reached among the honest LDO holders
+        vm.prank(ldoWhale);
+        IAragonForwarder(DAO_TOKEN_MANAGER).forward(
+            Utils.encodeEvmCallScript(
+                address(daoVoting),
+                abi.encodeCall(daoVoting.newVote, (newScript, "Redeploy DG", false, false))
+            )
+        );
+        Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
+
+        // The vote passed and may be enacted
+        assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
+        daoVoting.executeVote(voteId);
+
+        // new proposal was successfully created
+        assertEq(dualGov.getProposalsCount(), 2);
+
+        // wait till the proposal may be executed
+        vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock() + 1);
+
+        // execute the proposal
+        dualGov.execute(newProposalId);
+
+        // the call must be scheduled to the timelock now
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
+
+        // but it's not executable now
+        assertFalse(timelock.getIsExecutable(newProposalId));
+
+        // wait the timelock duration
+        vm.warp(block.timestamp + timelock.getDelay() + 1);
+
+        // now call must be executable
+        assertTrue(timelock.getIsExecutable(newProposalId));
+        timelock.execute(newProposalId);
+        uint256 dgDeployedTimestamp = block.timestamp;
+
+        // new dual gov instance must be attached to timelock now
+        assertEq(timelock.getGovernance(), address(newDg));
+
+        {
+            (
+                bool isEmergencyModeActive,
+                address committee,
+                uint256 protectedTill,
+                uint256 emergencyModeEndsAfter,
+                uint256 emergencyModeDuration
+            ) = timelock.getEmergencyState();
+
+            // after the emergency mode deactivation, all other emergency protection settings
+            // stays the same
+            assertFalse(isEmergencyModeActive);
+            assertEq(committee, vetoMultisig);
+            assertEq(protectedTill, dgDeployedTimestamp + 90 days);
+            assertEq(emergencyModeDuration, 30 days);
+        }
     }
 }
