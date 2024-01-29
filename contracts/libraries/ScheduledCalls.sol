@@ -5,6 +5,7 @@ import {IExecutor} from "../interfaces/IExecutor.sol";
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 struct ExecutorCall {
     address target;
@@ -13,6 +14,7 @@ struct ExecutorCall {
 }
 
 struct ScheduledExecutorCallsBatch {
+    uint24 id;
     address executor;
     uint40 scheduledAt;
     uint40 executableAfter;
@@ -21,16 +23,25 @@ struct ScheduledExecutorCallsBatch {
 
 library ScheduledCalls {
     using SafeCast for uint256;
+    using EnumerableSet for EnumerableSet.UintSet;
 
     struct State {
-        // TODO: add ability to list all batched call ids
-        // uint24[] batchIds;
         // all scheduled batch with executableAfter less or equal than given cannot be executed
         uint40 unscheduledBeforeTimestamp;
+        // TODO: add ability to list all batched call ids
+        // uint256[] batchIds;
+        EnumerableSet.UintSet batchIds;
         mapping(uint256 batchId => ScheduledExecutorCallsBatch) batches;
     }
 
     event Scheduled(uint256 indexed batchId, uint256 executableAfter, ExecutorCall[] calls);
+    event Forwarded(
+        uint256 indexed batchId,
+        address indexed executor,
+        uint256 executedAt,
+        ExecutorCall[] calls,
+        bytes[] results
+    );
     event Executed(uint256 indexed batchId, uint256 executedAt, bytes[] results);
     event UnscheduledAllBeforeTimestamp(uint256 timestamp);
     event CallsBatchRemoved(uint256 indexed batchId);
@@ -41,19 +52,9 @@ library ScheduledCalls {
     error BatchAlreadyScheduled(uint256 batchId);
     error CallsBatchNotCanceled(uint256 batchId);
     error TimelockNotExpired(uint256 batchId);
+    error CallsBatchNotFound(uint256 batchId);
 
-    function has(State storage self, uint256 batchId) internal view returns (bool) {
-        return self.batches[batchId].executableAfter > 0;
-    }
-
-    function get(
-        State storage self,
-        uint256 batchId
-    ) internal view returns (ScheduledExecutorCallsBatch storage batch) {
-        batch = self.batches[batchId];
-    }
-
-    function schedule(
+    function add(
         State storage self,
         uint256 batchId,
         address executor,
@@ -63,10 +64,11 @@ library ScheduledCalls {
         if (calls.length == 0) {
             revert EmptyCallsArray();
         }
-        if (has(self, batchId)) {
+        if (!self.batchIds.add(batchId)) {
             revert BatchAlreadyScheduled(batchId);
         }
         ScheduledExecutorCallsBatch storage batch = self.batches[batchId];
+        batch.id = batchId.toUint24();
         batch.executor = executor;
         batch.scheduledAt = block.timestamp.toUint40();
         batch.executableAfter = (block.timestamp + timelock).toUint40();
@@ -96,10 +98,10 @@ library ScheduledCalls {
         State storage self,
         uint256 batchId
     ) internal returns (ScheduledExecutorCallsBatch memory batch) {
-        batch = self.batches[batchId];
-        if (batch.executableAfter == 0) {
+        if (!self.batchIds.remove(batchId)) {
             revert BatchNotScheduled(batchId);
         }
+        batch = self.batches[batchId];
         uint256 callsCount = batch.calls.length;
         // remove every item in the batch
         for (uint256 i = 0; i < callsCount; ) {
@@ -114,6 +116,16 @@ library ScheduledCalls {
         delete self.batches[batchId];
     }
 
+    function forward(
+        State storage,
+        uint256 batchId,
+        address executor,
+        ExecutorCall[] calldata calls
+    ) internal returns (bytes[] memory results) {
+        results = _executeCalls(executor, calls);
+        emit Forwarded(batchId, executor, block.timestamp, calls, results);
+    }
+
     function execute(
         State storage self,
         uint256 batchId
@@ -126,11 +138,56 @@ library ScheduledCalls {
         if (batch.executableAfter <= self.unscheduledBeforeTimestamp) {
             revert CallsUnscheduled();
         }
-        results = _executeBatchCalls(batch.executor, batch.calls);
+        results = _executeCalls(batch.executor, batch.calls);
         emit Executed(batchId, block.timestamp, results);
     }
 
-    function _executeBatchCalls(
+    function has(State storage self, uint256 batchId) internal view returns (bool) {
+        return self.batches[batchId].executableAfter > 0;
+    }
+
+    function get(
+        State storage self,
+        uint256 batchId
+    ) internal view returns (ScheduledExecutorCallsBatch storage batch) {
+        batch = self.batches[batchId];
+    }
+
+    function all(
+        State storage self
+    ) internal view returns (ScheduledExecutorCallsBatch[] memory res) {
+        uint256 batchIdsCount = self.batchIds.length();
+        res = new ScheduledExecutorCallsBatch[](batchIdsCount);
+
+        for (uint256 i = 0; i < batchIdsCount; ) {
+            res[i] = self.batches[self.batchIds.at(i)];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function count(State storage self) internal view returns (uint256 count_) {
+        count_ = self.batchIds.length();
+    }
+
+    function isCanceled(State storage self, uint256 batchId) internal view returns (bool) {
+        if (!self.batchIds.contains(batchId)) {
+            revert CallsBatchNotFound(batchId);
+        }
+        return self.batches[batchId].scheduledAt <= self.unscheduledBeforeTimestamp;
+    }
+
+    function isExecutable(State storage self, uint256 batchId) internal view returns (bool) {
+        if (!self.batchIds.contains(batchId)) {
+            revert CallsBatchNotFound(batchId);
+        }
+        return
+            self.batches[batchId].scheduledAt > self.unscheduledBeforeTimestamp &&
+            block.timestamp > self.batches[batchId].executableAfter;
+    }
+
+    function _executeCalls(
         address executor,
         ExecutorCall[] memory calls
     ) private returns (bytes[] memory results) {
@@ -152,7 +209,7 @@ library ScheduledCalls {
         }
     }
 
-    function unscheduleAll(State storage self) internal {
+    function cancelAll(State storage self) internal {
         self.unscheduledBeforeTimestamp = block.timestamp.toUint40();
         emit UnscheduledAllBeforeTimestamp(block.timestamp);
     }

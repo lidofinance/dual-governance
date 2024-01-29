@@ -4,211 +4,154 @@ pragma solidity 0.8.23;
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {ScheduledCalls, ExecutorCall, ScheduledExecutorCallsBatch} from "./libraries/ScheduledCalls.sol";
 import {IOwnable} from "./interfaces/IOwnable.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
 
-contract EmergencyProtectedTimelock {
+import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
+import {ScheduledCalls, ExecutorCall, ScheduledExecutorCallsBatch} from "./libraries/ScheduledCalls.sol";
+
+contract EmergencyProtectedTimelock is ITimelock {
     using SafeCast for uint256;
     using ScheduledCalls for ScheduledCalls.State;
+    using EmergencyProtection for EmergencyProtection.State;
 
     error NotGovernance(address sender);
     error NotAdminExecutor(address sender);
-    error NotEmergencyCommittee(address sender);
-    error EmergencyCommitteeExpired();
-    error EmergencyModeNotEntered();
-    error EmergencyPeriodFinished();
-    error EmergencyPeriodNotFinished();
 
-    event TimelockSet(uint256 timelock);
-    event EmergencyCommitteeSet(address indexed guardian);
+    event DelaySet(uint256 timelock);
     event GovernanceSet(address indexed governance);
-    event EmergencyCommitteeActiveTillSet(uint256 guardedTill);
-    event EmergencyModeEntered();
-    event EmergencyModeExited();
-    event EmergencyDurationSet(uint256 emergencyModeDuration);
 
     address public immutable ADMIN_EXECUTOR;
     address public immutable EMERGENCY_GOVERNANCE;
 
+    uint40 internal _delay;
     address internal _governance;
-    uint40 internal _timelock;
-
-    // has rights to activate emergency mode
-    address internal _emergencyCommittee;
-    // during this period of time committee may activate the emergency mode
-    uint40 internal _emergencyCommitteeActiveTill;
-    // TODO: limit the range of this variable to some adequate values
-    uint40 internal _emergencyModeDuration;
-    // when the emergency mode activated, this is the start of the emergency mode
-    uint40 internal _emergencyModeEnteredAt;
 
     ScheduledCalls.State internal _scheduledCalls;
+    EmergencyProtection.State internal _emergencyProtection;
 
     constructor(address adminExecutor, address emergencyGovernance) {
         ADMIN_EXECUTOR = adminExecutor;
         EMERGENCY_GOVERNANCE = emergencyGovernance;
     }
 
-    function schedule(
-        uint256 batchId,
-        address executor,
-        ExecutorCall[] calldata calls
-    ) external onlyGovernance {
-        _scheduledCalls.schedule(batchId, executor, _timelock, calls);
+    function forward(uint256 batchId, address executor, ExecutorCall[] calldata calls) external {
+        if (msg.sender != _governance) {
+            revert NotGovernance(msg.sender);
+        }
+        if (_delay == 0) {
+            _scheduledCalls.forward(batchId, executor, calls);
+        } else {
+            _scheduledCalls.add(batchId, executor, _delay, calls);
+        }
     }
 
     function execute(uint256 batchId) external returns (bytes[] memory) {
-        if (_isEmergencyModeActive() && msg.sender != _emergencyCommittee) {
-            revert NotEmergencyCommittee(msg.sender);
+        if (_emergencyProtection.isActive()) {
+            _emergencyProtection.validateIsCommittee(msg.sender);
         }
         return _scheduledCalls.execute(batchId);
     }
 
-    function setGovernance(address governance, uint256 timelock) external onlyAdminExecutor {
-        _setGovernance(governance, timelock);
+    function removeCanceledCallsBatch(uint256 batchId) external {
+        _scheduledCalls.removeCanceled(batchId);
     }
 
-    function setEmergencyCommittee(
-        address committee,
-        uint256 lifetime,
-        uint256 duration
-    ) external onlyAdminExecutor {
-        _setEmergencyCommittee(committee, lifetime, duration);
+    function setGovernance(address governance, uint256 delay) external onlyAdminExecutor {
+        _setGovernance(governance, delay);
     }
 
     function transferExecutorOwnership(address executor, address owner) external onlyAdminExecutor {
         IOwnable(executor).transferOwnership(owner);
     }
 
-    function enterEmergencyMode() external {
-        if (msg.sender != _emergencyCommittee) {
-            revert NotEmergencyCommittee(msg.sender);
-        }
-        if (block.timestamp >= _emergencyCommitteeActiveTill) {
-            revert EmergencyCommitteeExpired();
-        }
-        _scheduledCalls.unscheduleAll();
-        _emergencyModeEnteredAt = block.timestamp.toUint40();
-        emit EmergencyModeEntered();
+    function setEmergencyProtection(
+        address committee,
+        uint256 lifetime,
+        uint256 duration
+    ) external onlyAdminExecutor {
+        _emergencyProtection.setup(committee, lifetime, duration);
     }
 
-    function exitEmergencyMode() external {
-        uint256 emergencyModeEnteredAt = _emergencyModeEnteredAt;
-        if (emergencyModeEnteredAt == 0) {
-            revert EmergencyModeNotEntered();
-        }
-        if (
-            msg.sender != _emergencyCommittee &&
-            block.timestamp < emergencyModeEnteredAt + _emergencyModeDuration
-        ) {
-            revert EmergencyPeriodNotFinished();
-        }
-        _exitEmergencyMode();
-        emit EmergencyModeExited();
+    function emergencyModeActivate() external {
+        _emergencyProtection.activate();
+    }
+
+    function emergencyModeDeactivate() external {
+        _emergencyProtection.deactivate();
+        _scheduledCalls.cancelAll();
     }
 
     function emergencyResetGovernance() external {
-        uint256 emergencyModeEnteredAt = _emergencyModeEnteredAt;
-        if (emergencyModeEnteredAt == 0) {
-            revert EmergencyModeNotEntered();
-        }
-        if (msg.sender != _emergencyCommittee) {
-            revert NotEmergencyCommittee(msg.sender);
-        }
-        if (block.timestamp > emergencyModeEnteredAt + _emergencyModeDuration) {
-            revert EmergencyPeriodFinished();
-        }
-        _exitEmergencyMode();
+        _emergencyProtection.reset();
+        _scheduledCalls.cancelAll();
         _setGovernance(EMERGENCY_GOVERNANCE, 0);
     }
 
-    function removeCanceledCalls(uint256 batchId) external {
-        _scheduledCalls.removeCanceled(batchId);
+    function getDelay() external view returns (uint256 delay) {
+        delay = _delay;
     }
 
     function getGovernance() external view returns (address governance) {
         governance = _governance;
     }
 
-    function getScheduledCalls(
+    function getScheduledCallBatchesCount() external view returns (uint256 count) {
+        count = _scheduledCalls.count();
+    }
+
+    function getScheduledCallBatches()
+        external
+        view
+        returns (ScheduledExecutorCallsBatch[] memory batches)
+    {
+        batches = _scheduledCalls.all();
+    }
+
+    function getScheduledCallsBatch(
         uint256 batchId
     ) external view returns (ScheduledExecutorCallsBatch memory batch) {
         batch = _scheduledCalls.get(batchId);
     }
 
-    function getEmergencyCommittee() external view returns (address emergencyCommittee) {
-        emergencyCommittee = _emergencyCommittee;
+    function getIsExecutable(uint256 batchId) external view returns (bool isExecutable) {
+        isExecutable = _scheduledCalls.isExecutable(batchId);
     }
 
-    function getEmergencyModeState()
+    function getIsCanceled(uint256 batchId) external view returns (bool isExecutable) {
+        isExecutable = _scheduledCalls.isCanceled(batchId);
+    }
+
+    function getEmergencyState()
         external
         view
-        returns (bool isActive, uint256 start, uint256 end)
+        returns (
+            bool isActive,
+            address committee,
+            uint256 protectedTill,
+            uint256 emergencyModeEndsAfter,
+            uint256 emergencyModeDuration
+        )
     {
-        start = _emergencyModeEnteredAt;
-        if (start > 0) {
-            end = start + _emergencyModeDuration;
-            isActive = block.timestamp >= start && block.timestamp < end;
-        }
+        EmergencyProtection.State memory state = _emergencyProtection;
+        isActive = _emergencyProtection.isActive();
+        committee = state.committee;
+        protectedTill = state.protectedTill;
+        emergencyModeEndsAfter = state.emergencyModeEndsAfter;
+        emergencyModeDuration = state.emergencyModeDuration;
     }
 
-    function _exitEmergencyMode() internal {
-        _scheduledCalls.unscheduleAll();
-        _setEmergencyCommittee(address(0), 0, 0);
-        _emergencyModeEnteredAt = 0;
-        emit EmergencyModeExited();
-    }
-
-    function _isEmergencyModeActive() internal view returns (bool) {
-        uint256 emergencyModeEnteredAt = _emergencyModeEnteredAt;
-        // TODO: check the boundaries properly
-        return block.timestamp - emergencyModeEnteredAt <= _emergencyModeDuration;
-    }
-
-    function _setGovernance(address governance, uint256 timelock) internal {
+    function _setGovernance(address governance, uint256 delay) internal {
         address prevGovernance = _governance;
-        uint256 prevTimelock = _timelock;
+        uint256 prevTimelock = _delay;
         if (prevGovernance != governance) {
             _governance = governance;
             emit GovernanceSet(governance);
         }
-        if (prevTimelock != timelock) {
-            _timelock = timelock.toUint40();
-            emit TimelockSet(timelock);
+        if (prevTimelock != delay) {
+            _delay = delay.toUint40();
+            emit DelaySet(delay);
         }
-    }
-
-    function _setEmergencyCommittee(
-        address emergencyCommittee,
-        uint256 emergencyCommitteeLifetime,
-        uint256 emergencyModeDuration
-    ) internal {
-        address prevEmergencyCommittee = _emergencyCommittee;
-        if (prevEmergencyCommittee != emergencyCommittee) {
-            _emergencyCommittee = emergencyCommittee;
-            emit EmergencyCommitteeSet(emergencyCommittee);
-        }
-
-        uint256 prevEmergencyCommitteeActiveTill = _emergencyCommitteeActiveTill;
-        uint256 emergencyCommitteeActiveTill = block.timestamp + emergencyCommitteeLifetime;
-
-        if (prevEmergencyCommitteeActiveTill != emergencyCommitteeActiveTill) {
-            _emergencyCommitteeActiveTill = emergencyCommitteeActiveTill.toUint40();
-            emit EmergencyCommitteeActiveTillSet(emergencyCommitteeActiveTill);
-        }
-
-        uint256 prevEmergencyModeDuration = _emergencyModeDuration;
-        if (prevEmergencyModeDuration != emergencyModeDuration) {
-            _emergencyModeDuration = emergencyModeDuration.toUint40();
-            emit EmergencyDurationSet(emergencyModeDuration);
-        }
-    }
-
-    modifier onlyGovernance() {
-        if (msg.sender != _governance) {
-            revert NotGovernance(msg.sender);
-        }
-        _;
     }
 
     modifier onlyAdminExecutor() {

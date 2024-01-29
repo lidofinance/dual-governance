@@ -80,7 +80,7 @@ abstract contract DualGovernanceSetup is TestAssertions {
             address(d.timelock),
             0,
             abi.encodeCall(
-                d.timelock.setEmergencyCommittee,
+                d.timelock.setEmergencyProtection,
                 (
                     timelockEmergencyMultisig,
                     timelockEmergencyMultisigActiveFor,

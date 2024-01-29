@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+
+import {Escrow} from "contracts/Escrow.sol";
+import {Configuration} from "contracts/Configuration.sol";
+import {DualGovernance} from "contracts/DualGovernance.sol";
+import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
+
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
-import {EmergencyProtectedTimelock, ExecutorCall, ScheduledExecutorCallsBatch, ScheduledCalls} from "contracts/EmergencyProtectedTimelock.sol";
+import {EmergencyProtectedTimelock, ExecutorCall, ScheduledExecutorCallsBatch, ScheduledCalls, EmergencyProtection} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "forge-std/Test.sol";
 
@@ -10,12 +17,52 @@ import "../utils/mainnet-addresses.sol";
 import "../utils/interfaces.sol";
 import "../utils/utils.sol";
 
+contract DualGovernanceDeployFactory {
+    address immutable STETH;
+    address immutable WSTETH;
+    address immutable WITHDRAWAL_QUEUE;
+
+    constructor(address stETH, address wstETH, address withdrawalQueue) {
+        STETH = stETH;
+        WSTETH = wstETH;
+        WITHDRAWAL_QUEUE = withdrawalQueue;
+    }
+
+    function deployDualGovernance(address timelock) external returns (DualGovernance dualGov) {
+        // deploy initial config impl
+        address configImpl = address(new Configuration(DAO_VOTING));
+
+        // deploy config proxy
+        ProxyAdmin configAdmin = new ProxyAdmin(address(this));
+        TransparentUpgradeableProxy config = new TransparentUpgradeableProxy(
+            configImpl,
+            address(configAdmin),
+            new bytes(0)
+        );
+
+        // deploy DG
+        address escrowImpl = address(
+            new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE)
+        );
+        dualGov = new DualGovernance(
+            address(config),
+            configImpl,
+            address(configAdmin),
+            escrowImpl,
+            timelock
+        );
+
+        configAdmin.transferOwnership(address(dualGov));
+    }
+}
+
 abstract contract PlanBSetup is Test {
     function deployPlanB(
         address daoVoting,
         uint256 timelockDuration,
         address vetoMultisig,
-        uint256 vetoMultisigActiveFor
+        uint256 vetoMultisigActiveFor,
+        uint256 emergencyModeDuration
     ) public returns (EmergencyProtectedTimelock timelock) {
         OwnableExecutor adminExecutor = new OwnableExecutor(address(this));
 
@@ -28,13 +75,11 @@ abstract contract PlanBSetup is Test {
             abi.encodeCall(timelock.setGovernance, (daoVoting, timelockDuration))
         );
 
-        // TODO: pass this value via args
-        uint256 emergencyModeDuration = 180 days;
         adminExecutor.execute(
             address(timelock),
             0,
             abi.encodeCall(
-                timelock.setEmergencyCommittee,
+                timelock.setEmergencyProtection,
                 (vetoMultisig, vetoMultisigActiveFor, emergencyModeDuration)
             )
         );
@@ -52,6 +97,7 @@ contract HappyPathPlanBTest is PlanBSetup {
 
     uint256 internal timelockDuration;
     uint256 internal vetoMultisigActiveFor;
+    uint256 internal _emergencyModeDuration;
 
     function setUp() external {
         Utils.selectFork();
@@ -63,8 +109,15 @@ contract HappyPathPlanBTest is PlanBSetup {
 
         timelockDuration = 1 days;
         vetoMultisigActiveFor = 90 days;
+        _emergencyModeDuration = 180 days;
 
-        timelock = deployPlanB(DAO_VOTING, timelockDuration, vetoMultisig, vetoMultisigActiveFor);
+        timelock = deployPlanB(
+            DAO_VOTING,
+            timelockDuration,
+            vetoMultisig,
+            vetoMultisigActiveFor,
+            _emergencyModeDuration
+        );
         target = new Target();
         daoVoting = IAragonVoting(DAO_VOTING);
     }
@@ -80,7 +133,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         uint256 proposalId = 1;
 
         bytes memory proposeCalldata = abi.encodeCall(
-            timelock.schedule,
+            timelock.forward,
             (proposalId, timelock.ADMIN_EXECUTOR(), calls)
         );
 
@@ -97,110 +150,251 @@ contract HappyPathPlanBTest is PlanBSetup {
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(newVoteScript);
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
+        // no calls to execute before the vote is enacted
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
+
+        // executing the vote
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
         daoVoting.executeVote(voteId);
 
-        ScheduledExecutorCallsBatch memory callsBatch = timelock.getScheduledCalls(proposalId);
+        // new call is scheduled but has not executable yet
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
+        assertFalse(timelock.getIsExecutable(proposalId));
 
-        assertTrue(callsBatch.executableAfter > 0);
-
+        // wait until call becomes executable
         vm.warp(block.timestamp + timelockDuration + 1);
-        assertTrue(callsBatch.executableAfter < block.timestamp);
+        assertTrue(timelock.getIsExecutable(proposalId));
 
+        // call successfully executed
         vm.expectCall(address(target), targetCalldata);
         target.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
-
         timelock.execute(proposalId);
 
+        // scheduled call was removed after execution
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
+
         // malicious vote was proposed and passed
-        uint256 maliciousVoteId = daoVoting.votesLength();
+        voteId = daoVoting.votesLength();
 
         vm.prank(ldoWhale);
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(newVoteScript);
-        Utils.supportVoteAndWaitTillDecided(maliciousVoteId, ldoWhale);
+        Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
-        assertEq(IAragonVoting(DAO_VOTING).canExecute(maliciousVoteId), true);
-        daoVoting.executeVote(maliciousVoteId);
+        assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
+        daoVoting.executeVote(voteId);
 
-        // emergency committee activates emergency mode
+        // malicious call was scheduled
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
+
+        // emergency committee activates emergency mode during the timelock duration
         vm.prank(vetoMultisig);
-        timelock.enterEmergencyMode();
-        (bool isEmergencyModeActive, , ) = timelock.getEmergencyModeState();
+        timelock.emergencyModeActivate();
+
+        (
+            bool isEmergencyModeActive,
+            address committee,
+            uint256 protectedTill,
+            uint256 emergencyModeEndsAfter,
+            uint256 emergencyModeDuration
+        ) = timelock.getEmergencyState();
+
         assertTrue(isEmergencyModeActive);
+        assertEq(emergencyModeEndsAfter, block.timestamp + emergencyModeDuration);
+        assertEq(emergencyModeDuration, _emergencyModeDuration);
 
         // now, only emergency committee may execute calls on timelock
         vm.warp(block.timestamp + timelockDuration + 1);
         uint256 maliciousProposalId = 1;
-        ScheduledExecutorCallsBatch memory maliciousCallsBatch = timelock.getScheduledCalls(
-            maliciousProposalId
-        );
-        assertTrue(maliciousCallsBatch.executableAfter < block.timestamp);
 
+        // malicious proposal can be executed now, but in emergency mode, only by the committee
+        assertTrue(timelock.getIsExecutable(maliciousProposalId));
+
+        // attempt to execute malicious proposal not from committee fails
         vm.expectRevert(
             abi.encodeWithSelector(
-                EmergencyProtectedTimelock.NotEmergencyCommittee.selector,
+                EmergencyProtection.NotEmergencyCommittee.selector,
                 address(this)
             )
         );
         timelock.execute(maliciousProposalId);
 
-        // some time later, the ldo holders controlling major part of LDO prepare vote to
-        // burn ldo of malicious actor
-        Target newTarget = new Target();
+        // Some time later, the DG development was finished and may be deployed
+        vm.warp(block.timestamp + 30 days);
 
-        ExecutorCall[] memory newCalls = new ExecutorCall[](1);
-        newCalls[0].value = 0;
-        newCalls[0].target = address(newTarget);
-        newCalls[0].payload = abi.encodeCall(newTarget.doSmth, (42));
+        DualGovernanceDeployFactory dgFactory = new DualGovernanceDeployFactory(
+            ST_ETH,
+            WST_ETH,
+            WITHDRAWAL_QUEUE
+        );
+
+        DualGovernance dualGov = dgFactory.deployDualGovernance(address(timelock));
+
+        // The vote to enable dual governance is prepared and launched
+
+        ExecutorCall[] memory dualGovActivationCalls = new ExecutorCall[](2);
+        // call timelock.setGovernance() with deployed instance of DG
+        dualGovActivationCalls[0].target = address(timelock);
+        dualGovActivationCalls[0].payload = abi.encodeCall(
+            timelock.setGovernance,
+            (address(dualGov), 1 days)
+        );
+
+        // call timelock.setEmergencyProtection() to update the emergency protection settings
+        dualGovActivationCalls[1].target = address(timelock);
+        dualGovActivationCalls[1].payload = abi.encodeCall(
+            timelock.setEmergencyProtection,
+            (vetoMultisig, 90 days, 30 days)
+        );
 
         uint256 newProposalId = 3;
         bytes memory newProposeCalldata = abi.encodeCall(
-            timelock.schedule,
-            (newProposalId, timelock.ADMIN_EXECUTOR(), newCalls)
+            timelock.forward,
+            (newProposalId, timelock.ADMIN_EXECUTOR(), dualGovActivationCalls)
         );
 
         bytes memory newScript = Utils.encodeEvmCallScript(address(timelock), newProposeCalldata);
 
-        uint256 newVoteId = daoVoting.votesLength();
+        voteId = daoVoting.votesLength();
 
+        // The quorum to activate the DG is reached among the honest LDO holders
         vm.prank(ldoWhale);
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(
             Utils.encodeEvmCallScript(
                 address(daoVoting),
-                abi.encodeCall(daoVoting.newVote, (newScript, "", false, false))
+                abi.encodeCall(daoVoting.newVote, (newScript, "Activate DG", false, false))
             )
         );
-        Utils.supportVoteAndWaitTillDecided(newVoteId, ldoWhale);
+        Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
-        // execute the vote
-        assertEq(IAragonVoting(DAO_VOTING).canExecute(newVoteId), true);
-        daoVoting.executeVote(newVoteId);
+        // The vote passed and may be enacted
+        assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
+        daoVoting.executeVote(voteId);
+
+        // call was scheduled successfully
+        assertEq(timelock.getScheduledCallBatchesCount(), 2);
 
         // wait timelock duration passes
         vm.warp(block.timestamp + timelockDuration + 1);
-        ScheduledExecutorCallsBatch memory newCallsBatch = timelock.getScheduledCalls(
-            newProposalId
-        );
-        assertTrue(newCallsBatch.executableAfter < block.timestamp);
+        assertTrue(timelock.getIsExecutable(newProposalId));
 
         // execute new proposal by emergency committee
-
-        vm.expectCall(address(newTarget), newCalls[0].payload);
-        newTarget.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
-
         vm.prank(vetoMultisig);
         timelock.execute(newProposalId);
 
-        // now committee may exit the emergency mode
+        uint256 dgDeployedTimestamp = block.timestamp;
+
+        // validate the governance and emergency protection was set correctly
+        assertEq(timelock.getGovernance(), address(dualGov));
+
+        {
+            (
+                bool isEmergencyModeActive,
+                address committee,
+                uint256 protectedTill,
+                uint256 emergencyModeEndsAfter,
+                uint256 emergencyModeDuration
+            ) = timelock.getEmergencyState();
+
+            // emergency mode still active
+            assertTrue(isEmergencyModeActive);
+            assertEq(committee, vetoMultisig);
+            assertEq(protectedTill, dgDeployedTimestamp + 90 days);
+            assertEq(emergencyModeDuration, 30 days);
+        }
+
+        // after execution only malicious proposal has left
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
+
+        // now committee may exit the emergency mode and clear stayed malicious calls
         vm.prank(vetoMultisig);
-        timelock.exitEmergencyMode();
+        timelock.emergencyModeDeactivate();
 
-        (isEmergencyModeActive, , ) = timelock.getEmergencyModeState();
+        {
+            (
+                bool isEmergencyModeActive,
+                address committee,
+                uint256 protectedTill,
+                uint256 emergencyModeEndsAfter,
+                uint256 emergencyModeDuration
+            ) = timelock.getEmergencyState();
 
-        assertFalse(isEmergencyModeActive);
-        assertEq(timelock.getEmergencyCommittee(), address(0));
+            // after the emergency mode deactivation, all other emergency protection settings
+            // stays the same
+            assertFalse(isEmergencyModeActive);
+            assertEq(committee, vetoMultisig);
+            assertEq(protectedTill, dgDeployedTimestamp + 90 days);
+            assertEq(emergencyModeDuration, 30 days);
+        }
 
         // malicious proposal was canceled and may be removed
-        timelock.removeCanceledCalls(maliciousProposalId);
+        timelock.getIsCanceled(maliciousProposalId);
+        timelock.removeCanceledCallsBatch(maliciousProposalId);
+
+        // now, all votings passes via dual governance
+        _testDualGovernanceWorks(dualGov);
+    }
+
+    function _testDualGovernanceWorks(DualGovernance dualGov) internal {
+        ExecutorCall[] memory calls = new ExecutorCall[](1);
+        calls[0].value = 0;
+        calls[0].target = address(target);
+        calls[0].payload = abi.encodeCall(target.doSmth, (43));
+
+        bytes memory dgProposeCalldata = abi.encodeCall(dualGov.propose, calls);
+
+        bytes memory dgProposeVoteScript = Utils.encodeEvmCallScript(
+            address(dualGov),
+            dgProposeCalldata
+        );
+
+        uint256 voteId = daoVoting.votesLength();
+
+        // The quorum to activate the DG is reached among the honest LDO holders
+        vm.prank(ldoWhale);
+        IAragonForwarder(DAO_TOKEN_MANAGER).forward(
+            Utils.encodeEvmCallScript(
+                address(daoVoting),
+                abi.encodeCall(
+                    daoVoting.newVote,
+                    (dgProposeVoteScript, "Propose via DG", false, false)
+                )
+            )
+        );
+        Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
+
+        // The vote passed and may be enacted
+        assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
+        daoVoting.executeVote(voteId);
+
+        // The vote was proposed to DG
+        assertEq(dualGov.getProposalsCount(), 1);
+
+        uint256 newProposalId = 1;
+
+        // wait till the proposal may be executed
+        vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock() + 1);
+
+        // execute the proposal
+        dualGov.execute(newProposalId);
+
+        // the call must be scheduled to the timelock now
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
+
+        // but it's not executable now
+        assertFalse(timelock.getIsExecutable(newProposalId));
+
+        // wait the timelock duration
+        vm.warp(block.timestamp + timelock.getDelay() + 1);
+
+        // now call must be executable
+        assertTrue(timelock.getIsExecutable(newProposalId));
+
+        // executing the call
+        vm.expectCall(address(target), calls[0].payload);
+        target.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
+        timelock.execute(newProposalId);
+
+        // executed calls were removed from the scheduled
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
     }
 }

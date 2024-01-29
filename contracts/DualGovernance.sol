@@ -119,7 +119,7 @@ contract DualGovernance {
         newProposalId = _proposals.create(msg.sender, proposer.executor, calls);
     }
 
-    function schedule(uint256 proposalId) external {
+    function execute(uint256 proposalId) external {
         GOV_STATE.activateNextState();
 
         if (!GOV_STATE.isExecutionEnabled()) {
@@ -140,7 +140,7 @@ contract DualGovernance {
             revert ProposalIsNotExecutable();
         }
         CONFIG.minProposalExecutionTimelock();
-        TIMELOCK.schedule(proposalId, proposal.executor, proposal.calls);
+        TIMELOCK.forward(proposalId, proposal.executor, proposal.calls);
     }
 
     function _isRegisteredProposer(address proposer) internal view returns (bool isProposer) {

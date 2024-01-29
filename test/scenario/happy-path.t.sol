@@ -114,19 +114,19 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         // min execution timelock enforced by DG hasn't elapsed yet
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.schedule(newProposalId);
+        dualGov.execute(newProposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
 
-        // enqueue doesn't execute the call
-        dualGov.schedule(newProposalId);
-
         vm.expectCall(address(target), calls[0].payload);
         target.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
 
-        // execute the enqueued call
-        timelock.execute(newProposalId);
+        // the timelock is set to 0, so call will be executed immediately
+        dualGov.execute(newProposalId);
+
+        // timelock will not have scheduled calls now
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
     }
 
     function test_happy_path_with_multiple_items() external {
@@ -194,20 +194,22 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         // min execution timelock enforced by DG hasn't elapsed yet
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.schedule(newProposalId);
+        dualGov.execute(newProposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
 
-        // enqueue doesn't execute the call
-        dualGov.schedule(newProposalId);
+        // check the calls will be executed
         vm.expectCall(address(targetAragon), aragonTargetCalldata);
         vm.expectCall(address(targetDualGov), calls[1].payload);
         targetAragon.expectCalledBy(DAO_AGENT);
         targetDualGov.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
 
-        // execute the enqueued call
-        timelock.execute(newProposalId);
+        // the timelock is set to 0, so call will be executed immediately
+        dualGov.execute(newProposalId);
+
+        // timelock will not have scheduled calls now
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
     }
 
     function test_escalation_and_one_sided_de_escalation() external {
@@ -280,7 +282,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         // proposal is blocked due to stakers' opposition
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.schedule(proposalId);
+        dualGov.execute(proposalId);
 
         // de-escalate down to 2% of stETH total supply
         updateVetoSupport(dualGov, 2 * 10 ** 16 + 1);
@@ -290,7 +292,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
         // proposal is still blocked
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.schedule(proposalId);
+        dualGov.execute(proposalId);
 
         // wait till the Veto Signalling Deactivation timeout elapses
         vm.warp(block.timestamp + dualGov.CONFIG().signallingDeactivationDuration() + 1);
@@ -301,17 +303,14 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         // gov state is now Veto Cooldown
         assertEq(dualGov.currentState(), GovernanceState.State.VetoCooldown);
 
-        // proposal is finally executable, put it into the queue
-        dualGov.schedule(proposalId);
-
         // proposal is finally executable
         vm.expectCall(address(target), calls[0].payload);
         target.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
 
-        // execute the enqueued call
-        timelock.execute(proposalId);
+        // the timelock is set to 0, so call will be executed immediately
+        dualGov.execute(proposalId);
 
-        // // but new proposals cannot be submitted
+        // but new proposals cannot be submitted
         vm.prank(ldoWhale);
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(
             Utils.encodeEvmCallScript(

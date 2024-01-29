@@ -86,7 +86,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
 
         // min execution timelock enforced by DG hasn't elapsed yet
         vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.schedule(newProposalId);
+        dualGov.execute(newProposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
@@ -96,25 +96,24 @@ contract AgentTimelockTest is DualGovernanceSetup {
         target.expectNoCalls();
 
         // enqueueing the proposal schedules one call from the Timelock
-        dualGov.schedule(newProposalId);
+        dualGov.execute(newProposalId);
 
-        ScheduledExecutorCallsBatch memory scheduledCallsBatch = timelock.getScheduledCalls(
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
+        ScheduledExecutorCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
             newProposalId
         );
-
-        assertTrue(scheduledCallsBatch.executableAfter != 0);
 
         assertEq(scheduledCallsBatch.calls[0].target, address(target));
         assertEq(scheduledCallsBatch.calls[0].payload, calls[0].payload);
 
         // the call isn't executable yet
-        assertTrue(scheduledCallsBatch.executableAfter > block.timestamp);
+        assertFalse(timelock.getIsExecutable(newProposalId));
 
         // wait till the Timelock delay elapses
         vm.warp(block.timestamp + AGENT_TIMELOCK_DURATION + 1);
 
         // the call became executable
-        assertTrue(scheduledCallsBatch.executableAfter < block.timestamp);
+        assertTrue(timelock.getIsExecutable(newProposalId));
 
         // executing the call invokes the target
         vm.expectCall(address(target), calls[0].payload);
@@ -122,7 +121,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         timelock.execute(newProposalId);
 
         // scheduled call was removed after execution
-        assertEq(timelock.getScheduledCalls(newProposalId).executableAfter, 0);
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
     }
 
     function test_initial_agent_governance_value() external {
@@ -175,13 +174,13 @@ contract AgentTimelockTest is DualGovernanceSetup {
         target.expectNoCalls();
 
         // enqueueing the proposal schedules one call from the Timelock
-        dualGov.schedule(newProposalId);
+        dualGov.execute(newProposalId);
 
-        ScheduledExecutorCallsBatch memory scheduledCallsBatch = timelock.getScheduledCalls(
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
+
+        ScheduledExecutorCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
             newProposalId
         );
-
-        assertTrue(scheduledCallsBatch.executableAfter != 0);
 
         assertEq(scheduledCallsBatch.calls[0].target, address(target));
         assertEq(scheduledCallsBatch.calls[0].payload, calls[0].payload);
@@ -190,11 +189,11 @@ contract AgentTimelockTest is DualGovernanceSetup {
         vm.warp(block.timestamp + AGENT_TIMELOCK_DURATION / 2);
 
         // the call is not executable yet
-        assertTrue(scheduledCallsBatch.executableAfter > block.timestamp);
+        assertFalse(timelock.getIsExecutable(newProposalId));
 
         // emergency disabling the dual governance system while the multisig is active
         vm.prank(emergencyMultisig);
-        timelock.enterEmergencyMode();
+        timelock.emergencyModeActivate();
         vm.prank(emergencyMultisig);
         timelock.emergencyResetGovernance();
         assertEq(timelock.getGovernance(), DAO_VOTING);
@@ -203,6 +202,8 @@ contract AgentTimelockTest is DualGovernanceSetup {
         vm.warp(block.timestamp + AGENT_TIMELOCK_DURATION / 2 + 1);
 
         // remove canceled call from the timelock
-        timelock.removeCanceledCalls(newProposalId);
+        assertTrue(timelock.getIsCanceled(newProposalId));
+        timelock.removeCanceledCallsBatch(newProposalId);
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
     }
 }
