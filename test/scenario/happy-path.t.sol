@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Escrow} from "contracts/Escrow.sol";
-import {DualGovernance, ExecutorCall} from "contracts/DualGovernance.sol";
+import {DualGovernance, Proposals, ExecutorCall} from "contracts/DualGovernance.sol";
 import {EmergencyProtectedTimelock, ScheduledCalls} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "forge-std/Test.sol";
@@ -113,7 +113,9 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         uint256 newProposalId = dualGov.getProposalsCount();
 
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId))
+        );
         dualGov.execute(newProposalId);
 
         // wait till the DG-enforced timelock elapses
@@ -193,7 +195,9 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         uint256 newProposalId = proposalsCountBefore + 1;
 
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId))
+        );
         dualGov.execute(newProposalId);
 
         // wait till the DG-enforced timelock elapses
@@ -281,7 +285,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
 
         // proposal is blocked due to stakers' opposition
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
+        vm.expectRevert(DualGovernance.ExecutionForbidden.selector);
         dualGov.execute(proposalId);
 
         // de-escalate down to 2% of stETH total supply
@@ -291,7 +295,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
 
         // proposal is still blocked
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
+        vm.expectRevert(DualGovernance.ExecutionForbidden.selector);
         dualGov.execute(proposalId);
 
         // wait till the Veto Signalling Deactivation timeout elapses

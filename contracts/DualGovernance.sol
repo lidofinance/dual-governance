@@ -21,9 +21,7 @@ contract DualGovernance {
     event ConfigSet(address config);
 
     error ProposalSubmissionNotAllowed();
-    error ProposerIsNotRegistered(address proposer);
-    error UnregisteredProposer(address sender);
-    error ProposalIsNotExecutable();
+    error ExecutionForbidden();
     error Unauthorized();
 
     Configuration public immutable CONFIG;
@@ -88,6 +86,14 @@ contract DualGovernance {
         _proposers.unregister(proposer);
     }
 
+    function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
+        return _proposals.load(proposalId);
+    }
+
+    function getProposalsCount() external view returns (uint256 proposalsCount) {
+        proposalsCount = _proposals.count();
+    }
+
     function killAllPendingProposals() external {
         GOV_STATE.activateNextState();
         if (msg.sender != CONFIG.adminProposer()) {
@@ -96,55 +102,31 @@ contract DualGovernance {
         _proposals.cancelAll();
     }
 
-    function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
-        return _proposals.load(proposalId);
-    }
-
-    function getProposalsCount() external view returns (uint256 proposalsCount) {
-        proposalsCount = _proposals.proposalsCount;
-    }
-
     function propose(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
         GOV_STATE.activateNextState();
         if (!GOV_STATE.isProposalSubmissionAllowed()) {
             revert ProposalSubmissionNotAllowed();
         }
 
-        (Proposer memory proposer, bool isRegistered) = _proposers.get(msg.sender);
-
-        if (!isRegistered) {
-            revert UnregisteredProposer(msg.sender);
-        }
-
-        newProposalId = _proposals.create(msg.sender, proposer.executor, calls);
+        Proposer memory proposer = _proposers.get(msg.sender);
+        newProposalId = _proposals.create(proposer, calls);
     }
 
     function execute(uint256 proposalId) external {
         GOV_STATE.activateNextState();
 
         if (!GOV_STATE.isExecutionEnabled()) {
-            revert ProposalIsNotExecutable();
+            revert ExecutionForbidden();
         }
 
-        Proposal storage proposal = _proposals.load(proposalId);
+        Proposal memory proposal = _proposals.decide(
+            proposalId,
+            CONFIG.minProposalExecutionTimelock()
+        );
 
-        proposal.isDecided = true;
+        _proposers.validate(proposal.proposer);
 
-        if (!_isRegisteredProposer(proposal.proposer)) {
-            revert ProposerIsNotRegistered(proposal.proposer);
-        }
-
-        // TODO: the time must pass before enqueueing the proposal
-        // must be computed dynamically?
-        if (block.timestamp < proposal.proposedAt + CONFIG.minProposalExecutionTimelock()) {
-            revert ProposalIsNotExecutable();
-        }
-        CONFIG.minProposalExecutionTimelock();
-        TIMELOCK.forward(proposalId, proposal.executor, proposal.calls);
-    }
-
-    function _isRegisteredProposer(address proposer) internal view returns (bool isProposer) {
-        isProposer = _proposers.executor(proposer) != address(0);
+        TIMELOCK.forward(proposalId, proposal.proposer.executor, proposal.calls);
     }
 
     function _getTime() internal view virtual returns (uint256) {

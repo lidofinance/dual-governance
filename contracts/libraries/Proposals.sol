@@ -5,10 +5,11 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {ExecutorCall} from "./ScheduledCalls.sol";
 
+import {Proposer} from "./Proposers.sol";
+
 struct Proposal {
     uint24 id;
-    address executor;
-    address proposer;
+    Proposer proposer;
     uint40 proposedAt;
     bool isDecided;
     ExecutorCall[] calls;
@@ -24,8 +25,8 @@ library Proposals {
     }
 
     error EmptyCalls();
-    error InvalidExecutorAddress(address executor);
     error ProposalNotFound(uint256 proposalId);
+    error ProposalNotExecutable(uint256 proposalId);
 
     event Proposed(
         uint256 indexed id,
@@ -40,14 +41,9 @@ library Proposals {
     // the calldata by hand is more gas efficient then calls passed via memory
     function create(
         State storage self,
-        address proposer,
-        address executor,
+        Proposer memory proposer,
         ExecutorCall[] memory calls
     ) internal returns (uint256) {
-        if (executor == address(0)) {
-            revert InvalidExecutorAddress(executor);
-        }
-
         if (calls.length == 0) {
             revert EmptyCalls();
         }
@@ -56,7 +52,6 @@ library Proposals {
         Proposal storage newProposal = self.proposals[newProposalId];
         newProposal.id = newProposalId;
         newProposal.proposer = proposer;
-        newProposal.executor = executor;
         newProposal.proposedAt = block.timestamp.toUint40();
         newProposal.isDecided = false;
 
@@ -69,8 +64,20 @@ library Proposals {
             }
         }
 
-        emit Proposed(newProposalId, proposer, executor, calls);
+        emit Proposed(newProposalId, proposer.account, proposer.executor, calls);
         return newProposalId;
+    }
+
+    function decide(
+        State storage self,
+        uint256 proposalId,
+        uint256 delay
+    ) internal returns (Proposal storage proposal) {
+        proposal = load(self, proposalId);
+        if (block.timestamp < proposal.proposedAt + delay) {
+            revert ProposalNotExecutable(proposalId);
+        }
+        proposal.isDecided = true;
     }
 
     function load(
@@ -88,15 +95,7 @@ library Proposals {
         emit ProposalsCanceledTill(self.proposalsCount);
     }
 
-    function get(
-        State storage self,
-        uint256 proposalId
-    ) internal view returns (Proposal memory proposal) {
-        Proposal storage storedProposal = self.proposals[proposalId];
-        proposal.id = storedProposal.id;
-        proposal.executor = storedProposal.executor;
-        proposal.isDecided = storedProposal.isDecided;
-        proposal.proposedAt = storedProposal.proposedAt;
-        proposal.proposer = storedProposal.proposer;
+    function count(State storage self) internal view returns (uint256 count_) {
+        count_ = self.proposalsCount;
     }
 }

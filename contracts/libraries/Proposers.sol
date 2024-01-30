@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 struct Proposer {
-    address proposer;
+    address account;
     address executor;
 }
 
@@ -25,36 +25,6 @@ library Proposers {
     struct State {
         address[] proposers;
         mapping(address proposer => ExecutorData) executors;
-    }
-
-    function executor(State storage self, address proposer) internal view returns (address) {
-        return self.executors[proposer].executor;
-    }
-
-    function get(
-        State storage self,
-        address proposer_
-    ) internal view returns (Proposer memory proposer, bool isRegistered) {
-        ExecutorData memory executorData = self.executors[proposer_];
-        if (executorData.proposerIndexOneBased != 0) {
-            isRegistered = true;
-            proposer.proposer = proposer_;
-            proposer.executor = executorData.executor;
-        }
-    }
-
-    function all(State storage self) internal view returns (Proposer[] memory proposers) {
-        proposers = new Proposer[](self.proposers.length);
-        address proposer;
-        for (uint256 i = 0; i < proposers.length; ) {
-            proposer = self.proposers[i];
-            proposers[i].proposer = proposer;
-            proposers[i].executor = self.executors[proposer].executor;
-        }
-    }
-
-    function count(State storage self) internal view returns (uint256) {
-        return self.proposers.length;
     }
 
     function register(State storage self, address proposer, address executor_) internal {
@@ -85,7 +55,37 @@ library Proposers {
         emit ProposerUnregistered(proposer, executorData.executor);
     }
 
+    function validate(State storage self, Proposer memory proposer) internal view {
+        if (!_isProposer(self, proposer)) {
+            revert ProposerNotRegistered(proposer.account);
+        }
+    }
+
+    function all(State storage self) internal view returns (Proposer[] memory proposers) {
+        proposers = new Proposer[](self.proposers.length);
+        for (uint256 i = 0; i < proposers.length; ) {
+            proposers[i] = get(self, self.proposers[i]);
+        }
+    }
+
+    function get(
+        State storage self,
+        address account
+    ) internal view returns (Proposer memory proposer) {
+        ExecutorData memory executorData = self.executors[account];
+        if (executorData.proposerIndexOneBased == 0) {
+            revert ProposerNotRegistered(account);
+        }
+        proposer.account = account;
+        proposer.executor = executorData.executor;
+    }
+
     function isProposer(State storage self, address proposer) internal view returns (bool) {
         return self.executors[proposer].proposerIndexOneBased != 0;
+    }
+
+    function _isProposer(State storage self, Proposer memory proposer) private view returns (bool) {
+        Proposer memory storedProposer = get(self, proposer.account);
+        return storedProposer.executor == proposer.executor;
     }
 }

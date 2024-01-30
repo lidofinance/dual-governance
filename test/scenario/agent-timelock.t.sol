@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {DualGovernance} from "contracts/DualGovernance.sol";
+import {DualGovernance, Proposals} from "contracts/DualGovernance.sol";
 import {EmergencyProtectedTimelock, ScheduledCalls, ExecutorCall, ScheduledExecutorCallsBatch} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "../utils/mainnet-addresses.sol";
@@ -85,7 +85,9 @@ contract AgentTimelockTest is DualGovernanceSetup {
         uint256 newProposalId = dualGov.getProposalsCount();
 
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId))
+        );
         dualGov.execute(newProposalId);
 
         // wait till the DG-enforced timelock elapses
