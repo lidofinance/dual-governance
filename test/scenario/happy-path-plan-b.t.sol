@@ -20,12 +20,12 @@ import "../utils/utils.sol";
 contract DualGovernanceDeployFactory {
     address immutable STETH;
     address immutable WSTETH;
-    address immutable WITHDRAWAL_QUEUE;
+    address immutable WQ;
 
     constructor(address stETH, address wstETH, address withdrawalQueue) {
         STETH = stETH;
         WSTETH = wstETH;
-        WITHDRAWAL_QUEUE = withdrawalQueue;
+        WQ = withdrawalQueue;
     }
 
     function deployDualGovernance(address timelock) external returns (DualGovernance dualGov) {
@@ -190,17 +190,14 @@ contract HappyPathPlanBTest is PlanBSetup {
         vm.prank(vetoMultisig);
         timelock.emergencyModeActivate();
 
-        (
-            bool isEmergencyModeActive,
-            address committee,
-            uint256 protectedTill,
-            uint256 emergencyModeEndsAfter,
-            uint256 emergencyModeDuration
-        ) = timelock.getEmergencyState();
-
-        assertTrue(isEmergencyModeActive);
-        assertEq(emergencyModeEndsAfter, block.timestamp + emergencyModeDuration);
-        assertEq(emergencyModeDuration, _emergencyModeDuration);
+        EmergencyProtectedTimelock.EmergencyState memory emergencyState = timelock
+            .getEmergencyState();
+        assertTrue(emergencyState.isActive);
+        assertEq(
+            emergencyState.emergencyModeEndsAfter,
+            block.timestamp + emergencyState.emergencyModeDuration
+        );
+        assertEq(emergencyState.emergencyModeDuration, _emergencyModeDuration);
 
         // now, only emergency committee may execute calls on timelock
         vm.warp(block.timestamp + timelockDuration + 1);
@@ -286,21 +283,11 @@ contract HappyPathPlanBTest is PlanBSetup {
         // validate the governance and emergency protection was set correctly
         assertEq(timelock.getGovernance(), address(dualGov));
 
-        {
-            (
-                bool isEmergencyModeActive,
-                address committee,
-                uint256 protectedTill,
-                uint256 emergencyModeEndsAfter,
-                uint256 emergencyModeDuration
-            ) = timelock.getEmergencyState();
-
-            // emergency mode still active
-            assertTrue(isEmergencyModeActive);
-            assertEq(committee, vetoMultisig);
-            assertEq(protectedTill, dgDeployedTimestamp + 90 days);
-            assertEq(emergencyModeDuration, 30 days);
-        }
+        emergencyState = timelock.getEmergencyState();
+        assertTrue(emergencyState.isActive);
+        assertEq(emergencyState.committee, vetoMultisig);
+        assertEq(emergencyState.protectedTill, dgDeployedTimestamp + 90 days);
+        assertEq(emergencyState.emergencyModeDuration, 30 days);
 
         // after execution only malicious proposal has left
         assertEq(timelock.getScheduledCallBatchesCount(), 1);
@@ -309,22 +296,13 @@ contract HappyPathPlanBTest is PlanBSetup {
         vm.prank(vetoMultisig);
         timelock.emergencyModeDeactivate();
 
-        {
-            (
-                bool isEmergencyModeActive,
-                address committee,
-                uint256 protectedTill,
-                uint256 emergencyModeEndsAfter,
-                uint256 emergencyModeDuration
-            ) = timelock.getEmergencyState();
-
-            // after the emergency mode deactivation, all other emergency protection settings
-            // stays the same
-            assertFalse(isEmergencyModeActive);
-            assertEq(committee, vetoMultisig);
-            assertEq(protectedTill, dgDeployedTimestamp + 90 days);
-            assertEq(emergencyModeDuration, 30 days);
-        }
+        emergencyState = timelock.getEmergencyState();
+        // after the emergency mode deactivation, all other emergency protection settings
+        // stays the same
+        assertFalse(emergencyState.isActive);
+        assertEq(emergencyState.committee, vetoMultisig);
+        assertEq(emergencyState.protectedTill, dgDeployedTimestamp + 90 days);
+        assertEq(emergencyState.emergencyModeDuration, 30 days);
 
         // malicious proposal was canceled and may be removed
         timelock.getIsCanceled(maliciousProposalId);
@@ -476,21 +454,13 @@ contract HappyPathPlanBTest is PlanBSetup {
         // new dual gov instance must be attached to timelock now
         assertEq(timelock.getGovernance(), address(newDg));
 
-        {
-            (
-                bool isEmergencyModeActive,
-                address committee,
-                uint256 protectedTill,
-                uint256 emergencyModeEndsAfter,
-                uint256 emergencyModeDuration
-            ) = timelock.getEmergencyState();
-
-            // after the emergency mode deactivation, all other emergency protection settings
-            // stays the same
-            assertFalse(isEmergencyModeActive);
-            assertEq(committee, vetoMultisig);
-            assertEq(protectedTill, dgDeployedTimestamp + 90 days);
-            assertEq(emergencyModeDuration, 30 days);
-        }
+        EmergencyProtectedTimelock.EmergencyState memory emergencyState = timelock
+            .getEmergencyState();
+        // after the emergency mode deactivation, all other emergency protection settings
+        // stays the same
+        assertFalse(emergencyState.isActive);
+        assertEq(emergencyState.committee, vetoMultisig);
+        assertEq(emergencyState.protectedTill, dgDeployedTimestamp + 90 days);
+        assertEq(emergencyState.emergencyModeDuration, 30 days);
     }
 }

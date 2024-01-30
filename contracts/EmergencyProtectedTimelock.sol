@@ -122,23 +122,21 @@ contract EmergencyProtectedTimelock is ITimelock {
         isExecutable = _scheduledCalls.isCanceled(batchId);
     }
 
-    function getEmergencyState()
-        external
-        view
-        returns (
-            bool isActive,
-            address committee,
-            uint256 protectedTill,
-            uint256 emergencyModeEndsAfter,
-            uint256 emergencyModeDuration
-        )
-    {
+    struct EmergencyState {
+        bool isActive;
+        address committee;
+        uint256 protectedTill;
+        uint256 emergencyModeEndsAfter;
+        uint256 emergencyModeDuration;
+    }
+
+    function getEmergencyState() external view returns (EmergencyState memory res) {
         EmergencyProtection.State memory state = _emergencyProtection;
-        isActive = _emergencyProtection.isActive();
-        committee = state.committee;
-        protectedTill = state.protectedTill;
-        emergencyModeEndsAfter = state.emergencyModeEndsAfter;
-        emergencyModeDuration = state.emergencyModeDuration;
+        res.isActive = _emergencyProtection.isActive();
+        res.committee = state.committee;
+        res.protectedTill = state.protectedTill;
+        res.emergencyModeEndsAfter = state.emergencyModeEndsAfter;
+        res.emergencyModeDuration = state.emergencyModeDuration;
     }
 
     function _setGovernance(address governance, uint256 delay) internal {
