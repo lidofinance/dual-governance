@@ -4,16 +4,22 @@ pragma solidity 0.8.23;
 import {Configuration} from "./Configuration.sol";
 import {GovernanceState} from "./GovernanceState.sol";
 
-
 interface IERC20 {
     function totalSupply() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256);
+
     function approve(address spender, uint256 value) external returns (bool);
 }
 
 interface IStETH {
-    function getSharesByPooledEth(uint256 ethAmount) external view returns (uint256);
-    function getPooledEthByShares(uint256 sharesAmount) external view returns (uint256);
+    function getSharesByPooledEth(
+        uint256 ethAmount
+    ) external view returns (uint256);
+
+    function getPooledEthByShares(
+        uint256 sharesAmount
+    ) external view returns (uint256);
 }
 
 interface IWstETH {
@@ -22,11 +28,20 @@ interface IWstETH {
 
 interface IWithdrawalQueue {
     function MAX_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
-    function requestWithdrawalsWstETH(uint256[] calldata amounts, address owner) external returns (uint256[] memory);
-    function claimWithdrawalsTo(uint256[] calldata requestIds, uint256[] calldata hints, address recipient) external;
+
+    function requestWithdrawalsWstETH(
+        uint256[] calldata amounts,
+        address owner
+    ) external returns (uint256[] memory);
+
+    function claimWithdrawalsTo(
+        uint256[] calldata requestIds,
+        uint256[] calldata hints,
+        address recipient
+    ) external;
+
     function getLastFinalizedRequestId() external view returns (uint256);
 }
-
 
 /**
  * A contract serving as a veto signalling and rage quit escrow.
@@ -65,7 +80,12 @@ contract Escrow {
     uint256 internal _rageQuitWstEthAmountRequested;
     uint256 internal _lastWithdrawalRequestId;
 
-    constructor(address config, address stEth, address wstEth, address withdrawalQueue) {
+    constructor(
+        address config,
+        address stEth,
+        address wstEth,
+        address withdrawalQueue
+    ) {
         CONFIG = Configuration(config);
         ST_ETH = stEth;
         WST_ETH = wstEth;
@@ -150,12 +170,18 @@ contract Escrow {
         return _totalWstEthLocked;
     }
 
-    function getSignallingState() external view returns (uint256 totalSupport, uint256 rageQuitSupport) {
+    function getSignallingState()
+        external
+        view
+        returns (uint256 totalSupport, uint256 rageQuitSupport)
+    {
         uint256 stEthTotalSupply = IERC20(ST_ETH).totalSupply();
-        uint256 wstEthLockedAsStEth = IStETH(ST_ETH).getPooledEthByShares(_totalWstEthLocked);
+        uint256 wstEthLockedAsStEth = IStETH(ST_ETH).getPooledEthByShares(
+            _totalWstEthLocked
+        );
         // TODO: include locked NFTs underlying stETH balance
         uint256 totalStakedEthLocked = _totalStEthLocked + wstEthLockedAsStEth;
-        totalSupport = totalStakedEthLocked * 10**18 / stEthTotalSupply;
+        totalSupport = (totalStakedEthLocked * 10 ** 18) / stEthTotalSupply;
         // TODO: rageQuitSupport = totalSupport but not not counting withdrawal NFTs
         rageQuitSupport = totalSupport;
         return (totalSupport, rageQuitSupport);
@@ -199,13 +225,18 @@ contract Escrow {
         emit RageQuitStarted();
     }
 
-    function requestNextWithdrawalsBatch(uint256 maxNumRequests) external returns (uint256, uint256, uint256) {
+    function requestNextWithdrawalsBatch(
+        uint256 maxNumRequests
+    ) external returns (uint256, uint256, uint256) {
         if (_state != State.RageQuit) {
             revert InvalidState();
         }
 
-        uint256 maxStRequestAmount = IWithdrawalQueue(WITHDRAWAL_QUEUE).MAX_STETH_WITHDRAWAL_AMOUNT();
-        uint256 maxWstRequestAmount = IStETH(ST_ETH).getSharesByPooledEth(maxStRequestAmount);
+        uint256 maxStRequestAmount = IWithdrawalQueue(WITHDRAWAL_QUEUE)
+            .MAX_STETH_WITHDRAWAL_AMOUNT();
+        uint256 maxWstRequestAmount = IStETH(ST_ETH).getSharesByPooledEth(
+            maxStRequestAmount
+        );
 
         uint256 total = _rageQuitWstEthAmountTotal;
         uint256 requested = _rageQuitWstEthAmountRequested;
@@ -226,7 +257,9 @@ contract Escrow {
 
         uint256[] memory amounts;
 
-        if (numFullRequests < maxNumRequests && remainder < maxWstRequestAmount) {
+        if (
+            numFullRequests < maxNumRequests && remainder < maxWstRequestAmount
+        ) {
             amounts = new uint256[](numFullRequests + 1);
             amounts[numFullRequests] = remainder;
             requested += remainder;
@@ -244,7 +277,8 @@ contract Escrow {
 
         _rageQuitWstEthAmountRequested = requested;
 
-        uint256[] memory reqIds = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawalsWstETH(amounts, address(this));
+        uint256[] memory reqIds = IWithdrawalQueue(WITHDRAWAL_QUEUE)
+            .requestWithdrawalsWstETH(amounts, address(this));
 
         uint256 lastRequestId = reqIds[reqIds.length - 1];
         _lastWithdrawalRequestId = lastRequestId;
@@ -254,14 +288,23 @@ contract Escrow {
     }
 
     function isRageQuitFinalized() external view returns (bool) {
-        return _state == State.RageQuit
-            && _rageQuitWstEthAmountRequested == _rageQuitWstEthAmountTotal
-            && IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastFinalizedRequestId() >= _lastWithdrawalRequestId;
+        return
+            _state == State.RageQuit &&
+            _rageQuitWstEthAmountRequested == _rageQuitWstEthAmountTotal &&
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastFinalizedRequestId() >=
+            _lastWithdrawalRequestId;
     }
 
-    function claimNextETHBatch(uint256[] calldata requestIds, uint256[] calldata hints) external {
+    function claimNextETHBatch(
+        uint256[] calldata requestIds,
+        uint256[] calldata hints
+    ) external {
         // TODO: check that all requests are claimed
-        IWithdrawalQueue(WITHDRAWAL_QUEUE).claimWithdrawalsTo(requestIds, hints, address(this));
+        IWithdrawalQueue(WITHDRAWAL_QUEUE).claimWithdrawalsTo(
+            requestIds,
+            hints,
+            address(this)
+        );
     }
 
     function _activateNextGovernanceState() internal {
