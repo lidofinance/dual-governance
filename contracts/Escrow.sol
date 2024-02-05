@@ -80,6 +80,10 @@ interface IWithdrawalQueue {
     ) external returns (uint256[] memory requestIds);
 }
 
+interface IBurner {
+    function requestBurnMyStETH(uint256 _stETHAmountToBurn) external;
+}
+
 /**
  * A contract serving as a veto signalling and rage quit escrow.
  */
@@ -90,6 +94,8 @@ contract Escrow {
     error SenderIsNotOwner(uint256 id);
     error TransferFailed(uint256 id);
     error NotClaimedWQRequests();
+    error FinalizedRequest(uint256);
+    error RequestNotFound(uint256 id);
 
     event RageQuitAccumulationStarted();
     event RageQuitStarted();
@@ -101,45 +107,49 @@ contract Escrow {
 
     enum State {
         Signalling,
-        RageQuitAccumulation,
         RageQuit
+    }
+
+    struct HolderState {
+        uint256 wstEthInEthBalance;
+        uint256 stEthInEthBalance;
+        uint256 wqRequestsBalance;
+        uint256 finalizedWqRequestsBalance;
     }
 
     Configuration internal immutable CONFIG;
     address internal immutable ST_ETH;
     address internal immutable WST_ETH;
     address internal immutable WITHDRAWAL_QUEUE;
+    address internal immutable BURNER;
 
     address internal _govState;
     State internal _state;
 
-    uint256 internal _totalStEthSharesLocked;
-    uint256 internal _totalWstEthLocked;
+    uint256 internal _totalStEthInEthLocked;
+    uint256 internal _totalWstEthInEthLocked;
     uint256 internal _totalWithdrawalNftsAmountLocked;
-    uint256 internal _totalNonNFTEthToShare;
+    uint256 internal _totalFinalizedWithdrawalNftsAmountLocked;
 
-    uint256 internal _rageQuitWstEthAmountTotal;
-    uint256 internal _rageQuitWstEthAmountRequested;
+    uint256 internal _rageQuitAmountTotal;
+    uint256 internal _rageQuitAmountRequested;
     uint256 internal _lastWithdrawalRequestId;
 
-    mapping(address => uint256) private _wstEthBalances;
-    mapping(address => uint256) private _stEthSharesBalances;
-    mapping(address => uint256) private _wqRequestsBalances;
-
-    uint256 internal constant WITHDRAWAL_REQUESTS_LIMIT = 10_000 * 10 ** 18;
-
+    mapping(uint256 => HolderState) private balances;
     mapping(uint256 => WithdrawalRequestStatus) private wqRequests;
 
     constructor(
         address config,
         address stEth,
         address wstEth,
-        address withdrawalQueue
+        address withdrawalQueue,
+        address burner
     ) {
         CONFIG = Configuration(config);
         ST_ETH = stEth;
         WST_ETH = wstEth;
         WITHDRAWAL_QUEUE = withdrawalQueue;
+        BURNER = burner;
     }
 
     function initialize(address governanceState) external {
@@ -153,45 +163,53 @@ contract Escrow {
     /// Staker interface
     ///
     function lockStEth(uint256 amount) external {
-        if (_state == State.RageQuit) {
+        if (_state != State.Signalling) {
             revert InvalidState();
         }
+
         IERC20(ST_ETH).transferFrom(msg.sender, address(this), amount);
 
-        uint256 amountInShares = IStETH(ST_ETH).getSharesByPooledEth(amount);
-        _stEthSharesBalances[msg.sender] += amountInShares;
-        _totalStEthSharesLocked += amountInShares;
+        balances[msg.sender].stEthInEthBalance += amount;
+        _totalStEthInEthLocked += amount;
 
         _activateNextGovernanceState();
     }
 
     function lockWstEth(uint256 amount) external {
-        if (_state == State.RageQuit) {
+        if (_state != State.Signalling) {
             revert InvalidState();
         }
 
         IERC20(WST_ETH).transferFrom(msg.sender, address(this), amount);
 
-        _wstEthBalances[msg.sender] += amount;
-        _totalWstEthLocked += amount;
+        uint256 amountInEth = IStETH(ST_ETH).getPooledEthByShares(amount);
+
+        balances[msg.sender].wstEthInEthBalance = amountInEth;
+        _totalWstEthInEthLocked += amountInEth;
 
         _activateNextGovernanceState();
     }
 
     function lockWithdrawalNFT(uint256[] memory ids) external {
-        if (_state == State.RageQuit) {
+        if (_state != State.Signalling) {
             revert InvalidState();
         }
 
         WithdrawalRequestStatus[] memory wqRequestStatuses = IWithdrawalQueue(
             WITHDRAWAL_QUEUE
         ).getWithdrawalStatus(ids);
-        uint256 wqRequestsAmount = 0;
 
-        for (uint256 i = 0; i < ids.length; i++) {
+        uint256 wqRequestsAmount = 0;
+        address sender = msg.sender;
+
+        for (uint256 i = 0; i < ids.length; ++i) {
             uint256 id = ids[i];
+            if (wqRequestStatuses[i].isFinalized == true) {
+                revert FinalizedRequest(id);
+            }
+
             IWithdrawalQueue(WITHDRAWAL_QUEUE).safeTransferFrom(
-                msg.sender,
+                sender,
                 address(this),
                 id
             );
@@ -199,8 +217,8 @@ contract Escrow {
             wqRequestsAmount += wqRequestStatuses[i].amountOfStETH;
         }
 
+        balances[sender].wqRequestsBalance += wqRequestsAmount;
         _totalWithdrawalNftsAmountLocked += wqRequestsAmount;
-        _wqRequestsBalances[msg.sender] += wqRequestsAmount;
 
         _activateNextGovernanceState();
     }
@@ -211,12 +229,12 @@ contract Escrow {
         }
 
         address sender = msg.sender;
-        uint256 amountInShares = _stEthSharesBalances[sender];
+        uint256 amount = balances[sender].stEthInEthBalance;
 
-        IStETH(ST_ETH).transferShares(sender, amountInShares);
+        IStETH(ST_ETH).transfer(sender, amount);
 
-        _stEthSharesBalances[sender] = 0;
-        _totalStEthSharesLocked -= amountInShares;
+        balances[sender].stEthInEthBalance = 0;
+        _totalStEthInEthLocked -= amount;
 
         _activateNextGovernanceState();
     }
@@ -227,12 +245,13 @@ contract Escrow {
         }
 
         address sender = msg.sender;
-        uint256 amount = _wstEthBalances[sender];
+        uint256 amount = balances[sender].wstEthInEthBalance;
+        uint256 amountInShares = IStETH(ST_ETH).getSharesByPooledEth(amount);
 
-        IStETH(ST_ETH).transferShares(sender, amount);
+        IERC20(WST_ETH).transferFrom(address(this), sender, amountInShares);
 
-        _wstEthBalances[sender] = 0;
-        _totalWstEthLocked -= amount;
+        balances[sender].wstEthInEthBalance = 0;
+        _totalWstEthInEthLocked -= amount;
 
         _activateNextGovernanceState();
     }
@@ -245,39 +264,34 @@ contract Escrow {
         WithdrawalRequestStatus[] memory wqRequestStatuses = IWithdrawalQueue(
             WITHDRAWAL_QUEUE
         ).getWithdrawalStatus(ids);
-        uint256 wqRequestsAmount = 0;
 
-        for (uint256 i = 0; i < ids.length; i++) {
+        uint256 wqRequestsAmount = 0;
+        uint256 finalizedWqRequestsAmount = 0;
+        address sender = msg.sender;
+
+        for (uint256 i = 0; i < ids.length; ++i) {
             uint256 id = ids[i];
-            if (wqRequests[ids[i]].owner == msg.sender) {
+            if (wqRequests[ids[i]].owner == sender) {
                 revert SenderIsNotOwner(id);
             }
             IWithdrawalQueue(WITHDRAWAL_QUEUE).safeTransferFrom(
                 address(this),
-                msg.sender,
+                sender,
                 id
             );
             wqRequests[id].owner = address(0);
-            wqRequestsAmount += wqRequestStatuses[i].amountOfStETH;
+            if (wqRequests[id].isFinalized == true) {
+                finalizedWqRequestsAmount += wqRequestStatuses[i].amountOfStETH;
+            } else {
+                wqRequestsAmount += wqRequestStatuses[i].amountOfStETH;
+            }
         }
 
-        _wqRequestsBalances[msg.sender] -= wqRequestsAmount;
+        balances[sender].wqRequestsBalance -= wqRequestsAmount;
+        balances[sender]
+            .finalizedWqRequestsBalance -= finalizedWqRequestsAmount;
         _totalWithdrawalNftsAmountLocked -= wqRequestsAmount;
-
-        _activateNextGovernanceState();
-    }
-
-    function initiateStEthWithdrawal(uint) external {
-        if (_state == State.Signalling) {
-            revert InvalidState();
-        }
-
-        uint256 wstEthBalance = IERC20(WST_ETH).balanceOf(address(this));
-        if (wstEthBalance > 0) {
-            IWstETH(WST_ETH).unwrap(wstEthBalance);
-            _totalStEthSharesLocked += wstEthBalance;
-            _totalWstEthLocked = 0;
-        }
+        _totalFinalizedWithdrawalNftsAmountLocked -= finalizedWqRequestsAmount;
 
         _activateNextGovernanceState();
     }
@@ -308,8 +322,65 @@ contract Escrow {
     /// State transitions
     ///
 
-    function totalStEthLocked() public view returns (uint256) {
-        return IStETH(ST_ETH).getPooledEthByShares(_totalStEthSharesLocked);
+    // function totalStEthLocked() public view returns (uint256) {
+    //     return IStETH(ST_ETH).getPooledEthByShares(_totalStEthSharesLocked);
+    // }
+
+    function burnRewards() public {
+        if (_state != State.RageQuit) {
+            revert InvalidState();
+        }
+
+        uint256 wstEthLocked = IStETH(ST_ETH).getSharesByPooledEth(
+            _totalWstEthInEthLocked
+        );
+        uint256 wstEthRewards = IERC20(WST_ETH).balanceOf(address(this)) -
+            wstEthLocked;
+
+        IWstETH(WST_ETH).unwrap(wstEthRewards);
+
+        uint256 stEthRewards = IERC20(ST_ETH).balanceOf(address(this)) -
+            _totalStEthInEthLocked;
+
+        IBurner(BURNER).requestBurnMyStETH(stEthRewards);
+    }
+
+    function checkForFinalization(uint256 ids) public {
+        if (_state != State.Signalling) {
+            revert InvalidState();
+        }
+
+        WithdrawalRequestStatus[] memory wqRequestStatuses = IWithdrawalQueue(
+            WITHDRAWAL_QUEUE
+        ).getWithdrawalStatus(ids);
+
+        for (uint256 i = 0; i < ids.length; ++i) {
+            uint256 id = ids[i];
+            address requestOwner = wqRequests[ids[i]].owner;
+
+            if (requestOwner == address(0)) {
+                revert RequestNotFound(id);
+            }
+
+            if (
+                wqRequests[id].isFinalized == false &&
+                wqRequestStatuses[i].isFinalized == true
+            ) {
+                _totalWithdrawalNftsAmountLocked -= wqRequests[id]
+                    .amountOfStETH;
+                _totalFinalizedWithdrawalNftsAmountLocked += wqRequestStatuses[i]
+                    .amountOfStETH;
+                balances[requestOwner].wqRequestsBalance -= wqRequests[id]
+                    .amountOfStETH;
+                balances[requestOwner]
+                    .finalizedWqRequestsBalance += wqRequestStatuses[i]
+                    .amountOfStETH;
+
+                wqRequests[id].amountOfStETH = wqRequestStatuses[i]
+                    .amountOfStETH;
+                wqRequests[id].isFinalized = true;
+            }
+        }
     }
 
     function getSignallingState()
@@ -317,27 +388,14 @@ contract Escrow {
         view
         returns (uint256 totalSupport, uint256 rageQuitSupport)
     {
-        uint256 stEthTotalSupply = IERC20(ST_ETH).totalSupply();
-        uint256 totalRageQuitStEthLocked = IStETH(ST_ETH).getPooledEthByShares(
-            _totalWstEthLocked + _totalStEthSharesLocked
-        );
-        uint256 totalStakedEthLocked = totalRageQuitStEthLocked +
-            _totalWithdrawalNftsAmountLocked;
-        totalSupport = (totalStakedEthLocked * 10 ** 18) / stEthTotalSupply;
-        rageQuitSupport =
-            (totalRageQuitStEthLocked * 10 ** 18) /
-            stEthTotalSupply;
-    }
-
-    function startRageQuitAccumulation() external {
-        if (msg.sender != _govState) {
-            revert Unauthorized();
-        }
-        if (_state != State.Signalling) {
-            revert InvalidState();
-        }
-        _state = State.RageQuitAccumulation;
-        emit RageQuitAccumulationStarted();
+        // uint256 stEthTotalSupply = IERC20(ST_ETH).totalSupply();
+        // uint256 totalRageQuitStEthLocked = _totalStEthInEthLocked + _totalWstEthInEthLocked;
+        // uint256 totalStakedEthLocked = totalRageQuitStEthLocked +
+        //     _totalWithdrawalNftsAmountLocked;
+        // totalSupport = (totalStakedEthLocked * 10 ** 18) / stEthTotalSupply;
+        // rageQuitSupport =
+        //     (totalRageQuitStEthLocked * 10 ** 18) /
+        //     stEthTotalSupply;
     }
 
     function startRageQuit() external {
@@ -348,21 +406,21 @@ contract Escrow {
             revert InvalidState();
         }
 
-        assert(_rageQuitWstEthAmountTotal == 0);
-        assert(_rageQuitWstEthAmountRequested == 0);
+        burnRewards();
+
+        assert(_rageQuitAmountRequested == 0);
         assert(_lastWithdrawalRequestId == 0);
+
+        _rageQuitAmountTotal = _totalWstEthInEthLocked + _totalStEthInEthLocked;
 
         _state = State.RageQuit;
 
-        uint256 stEthBalance = IERC20(ST_ETH).balanceOf(address(this));
-        if (stEthBalance != 0) {
-            IERC20(ST_ETH).approve(WST_ETH, stEthBalance);
-            IWstETH(WST_ETH).wrap(stEthBalance);
+        uint256 wstEthBalance = IERC20(WST_ETH).balanceOf(address(this));
+        if (wstEthBalance != 0) {
+            IWstETH(WST_ETH).unwrap(wstEthBalance);
         }
 
-        _rageQuitWstEthAmountTotal = IERC20(WST_ETH).balanceOf(address(this));
-
-        IERC20(WST_ETH).approve(WITHDRAWAL_QUEUE, type(uint256).max);
+        IERC20(ST_ETH).approve(WITHDRAWAL_QUEUE, type(uint256).max);
 
         emit RageQuitStarted();
     }
@@ -370,37 +428,34 @@ contract Escrow {
     function requestNextWithdrawalsBatch(
         uint256 maxNumRequests
     ) external returns (uint256, uint256, uint256) {
-        if (_state != State.RageQuit) {
+        if (_state == State.RageQuit) {
             revert InvalidState();
         }
 
         uint256 maxStRequestAmount = IWithdrawalQueue(WITHDRAWAL_QUEUE)
             .MAX_STETH_WITHDRAWAL_AMOUNT();
-        uint256 maxWstRequestAmount = IStETH(ST_ETH).getSharesByPooledEth(
-            maxStRequestAmount
-        );
 
-        uint256 total = _rageQuitWstEthAmountTotal;
-        uint256 requested = _rageQuitWstEthAmountRequested;
+        uint256 total = _rageQuitAmountTotal;
+        uint256 requested = _rageQuitAmountRequested;
 
         if (requested >= total) {
             revert NoUnrequestedWithdrawalsLeft();
         }
 
         uint256 remainder = total - requested;
-        uint256 numFullRequests = remainder / maxWstRequestAmount;
+        uint256 numFullRequests = remainder / maxStRequestAmount;
 
         if (numFullRequests > maxNumRequests) {
             numFullRequests = maxNumRequests;
         }
 
-        requested += maxWstRequestAmount * numFullRequests;
+        requested += maxStRequestAmount * numFullRequests;
         remainder = total - requested;
 
         uint256[] memory amounts;
 
         if (
-            numFullRequests < maxNumRequests && remainder < maxWstRequestAmount
+            numFullRequests < maxNumRequests && remainder < maxStRequestAmount
         ) {
             amounts = new uint256[](numFullRequests + 1);
             amounts[numFullRequests] = remainder;
@@ -414,13 +469,13 @@ contract Escrow {
         assert(amounts.length > 0);
 
         for (uint256 i = 0; i < numFullRequests; ++i) {
-            amounts[i] = maxWstRequestAmount;
+            amounts[i] = maxStRequestAmount;
         }
 
-        _rageQuitWstEthAmountRequested = requested;
+        _rageQuitAmountRequested = requested;
 
         uint256[] memory reqIds = IWithdrawalQueue(WITHDRAWAL_QUEUE)
-            .requestWithdrawalsWstETH(amounts, address(this));
+            .requestWithdrawals(amounts, address(this));
 
         uint256 lastRequestId = reqIds[reqIds.length - 1];
         _lastWithdrawalRequestId = lastRequestId;
@@ -432,7 +487,7 @@ contract Escrow {
     function isRageQuitFinalized() external view returns (bool) {
         return
             _state == State.RageQuit &&
-            _rageQuitWstEthAmountRequested == _rageQuitWstEthAmountTotal &&
+            _rageQuitAmountRequested == _rageQuitAmountTotal &&
             IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastFinalizedRequestId() >=
             _lastWithdrawalRequestId;
     }
@@ -456,7 +511,7 @@ contract Escrow {
             WITHDRAWAL_QUEUE
         ).getWithdrawalStatus(requestIds);
 
-        for (uint256 i = 0; i < requestIds.length; i++) {
+        for (uint256 i = 0; i < requestIds.length; ++i) {
             uint256 id = requestIds[i];
             if (
                 wqRequests[id].owner != address(0) &&
