@@ -87,7 +87,7 @@ contract DualGovernance {
     }
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
-        return _proposals.load(proposalId);
+        return _proposals.get(proposalId);
     }
 
     function getProposalsCount() external view returns (uint256 proposalsCount) {
@@ -107,26 +107,32 @@ contract DualGovernance {
         if (!GOV_STATE.isProposalSubmissionAllowed()) {
             revert ProposalSubmissionNotAllowed();
         }
-
         Proposer memory proposer = _proposers.get(msg.sender);
-        newProposalId = _proposals.create(proposer, calls);
+        newProposalId = _proposals.create(proposer.account, proposer.executor, calls);
     }
 
-    function execute(uint256 proposalId) external {
+    function relay(uint256 proposalId) external {
         GOV_STATE.activateNextState();
-
         if (!GOV_STATE.isExecutionEnabled()) {
             revert ExecutionForbidden();
         }
-
-        Proposal memory proposal = _proposals.decide(
+        Proposal memory proposal = _proposals.adopt(
             proposalId,
             CONFIG.minProposalExecutionTimelock()
         );
+        TIMELOCK.relay(proposal.executor, proposal.calls);
+    }
 
-        _proposers.validate(proposal.proposer);
-
-        TIMELOCK.forward(proposalId, proposal.proposer.executor, proposal.calls);
+    function schedule(uint256 proposalId) external {
+        GOV_STATE.activateNextState();
+        if (!GOV_STATE.isExecutionEnabled()) {
+            revert ExecutionForbidden();
+        }
+        Proposal memory proposal = _proposals.adopt(
+            proposalId,
+            CONFIG.minProposalExecutionTimelock()
+        );
+        TIMELOCK.schedule(proposalId, proposal.executor, proposal.calls);
     }
 
     function _getTime() internal view virtual returns (uint256) {

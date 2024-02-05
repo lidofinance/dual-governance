@@ -22,7 +22,7 @@ library EmergencyProtection {
     struct State {
         // has rights to activate emergency mode
         address committee;
-        // during this period of time committee may activate the emergency mode
+        // till this time, the committee may activate the emergency mode
         uint40 protectedTill;
         uint40 emergencyModeEndsAfter;
         uint32 emergencyModeDuration;
@@ -63,7 +63,7 @@ library EmergencyProtection {
         if (msg.sender != self.committee) {
             revert NotEmergencyCommittee(msg.sender);
         }
-        if (block.timestamp >= self.protectedTill) {
+        if (block.timestamp > self.protectedTill) {
             revert EmergencyCommitteeExpired();
         }
         if (self.emergencyModeEndsAfter != 0) {
@@ -103,7 +103,11 @@ library EmergencyProtection {
         if (block.timestamp > endsAfter) {
             revert EmergencyPeriodFinished();
         }
-        _reset(self);
+        self.committee = address(0);
+        self.protectedTill = 0;
+        self.emergencyModeDuration = 0;
+        self.emergencyModeEndsAfter = 0;
+        self.emergencyModeWasActivatedPreviously = false;
         emit EmergencyGovernanceReset();
     }
 
@@ -117,17 +121,9 @@ library EmergencyProtection {
         return msg.sender == self.committee;
     }
 
-    function validateIsCommittee(State storage self, address account) internal view returns (bool) {
+    function validateIsCommittee(State storage self, address account) internal view {
         if (self.committee != account) {
             revert NotEmergencyCommittee(account);
         }
-    }
-
-    function _reset(State storage self) internal {
-        self.committee = address(0);
-        self.protectedTill = 0;
-        self.emergencyModeDuration = 0;
-        self.emergencyModeEndsAfter = 0;
-        self.emergencyModeWasActivatedPreviously = false;
     }
 }

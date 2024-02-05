@@ -8,26 +8,25 @@ import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
-import {ScheduledCalls, ExecutorCall, ScheduledExecutorCallsBatch} from "./libraries/ScheduledCalls.sol";
+import {ScheduledCallsBatches, ScheduledCallsBatch, ExecutorCall} from "./libraries/ScheduledCalls.sol";
 
 contract EmergencyProtectedTimelock is ITimelock {
     using SafeCast for uint256;
-    using ScheduledCalls for ScheduledCalls.State;
+    using ScheduledCallsBatches for ScheduledCallsBatches.State;
     using EmergencyProtection for EmergencyProtection.State;
 
     error NotGovernance(address sender);
     error NotAdminExecutor(address sender);
 
-    event DelaySet(uint256 timelock);
+    event DelaySet(uint256 delay);
     event GovernanceSet(address indexed governance);
 
     address public immutable ADMIN_EXECUTOR;
     address public immutable EMERGENCY_GOVERNANCE;
 
-    uint40 internal _delay;
     address internal _governance;
 
-    ScheduledCalls.State internal _scheduledCalls;
+    ScheduledCallsBatches.State internal _scheduledCalls;
     EmergencyProtection.State internal _emergencyProtection;
 
     constructor(address adminExecutor, address emergencyGovernance) {
@@ -35,22 +34,26 @@ contract EmergencyProtectedTimelock is ITimelock {
         EMERGENCY_GOVERNANCE = emergencyGovernance;
     }
 
-    function forward(uint256 batchId, address executor, ExecutorCall[] calldata calls) external {
-        if (msg.sender != _governance) {
-            revert NotGovernance(msg.sender);
-        }
-        if (_delay == 0) {
-            _scheduledCalls.forward(batchId, executor, calls);
-        } else {
-            _scheduledCalls.add(batchId, executor, _delay, calls);
-        }
+    // executes call immediately when the delay for scheduled calls is set to 0
+    function relay(address executor, ExecutorCall[] calldata calls) external onlyGovernance {
+        _scheduledCalls.relay(executor, calls);
     }
 
-    function execute(uint256 batchId) external returns (bytes[] memory) {
+    // schedules call to be executed after some delay
+    function schedule(
+        uint256 batchId,
+        address executor,
+        ExecutorCall[] calldata calls
+    ) external onlyGovernance {
+        _scheduledCalls.add(batchId, executor, calls);
+    }
+
+    // executes scheduled call
+    function execute(uint256 batchId) external {
         if (_emergencyProtection.isActive()) {
             _emergencyProtection.validateIsCommittee(msg.sender);
         }
-        return _scheduledCalls.execute(batchId);
+        _scheduledCalls.execute(batchId);
     }
 
     function removeCanceledCallsBatch(uint256 batchId) external {
@@ -89,7 +92,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     }
 
     function getDelay() external view returns (uint256 delay) {
-        delay = _delay;
+        delay = _scheduledCalls.delay;
     }
 
     function getGovernance() external view returns (address governance) {
@@ -103,14 +106,14 @@ contract EmergencyProtectedTimelock is ITimelock {
     function getScheduledCallBatches()
         external
         view
-        returns (ScheduledExecutorCallsBatch[] memory batches)
+        returns (ScheduledCallsBatch[] memory batches)
     {
         batches = _scheduledCalls.all();
     }
 
     function getScheduledCallsBatch(
         uint256 batchId
-    ) external view returns (ScheduledExecutorCallsBatch memory batch) {
+    ) external view returns (ScheduledCallsBatch memory batch) {
         batch = _scheduledCalls.get(batchId);
     }
 
@@ -141,15 +144,22 @@ contract EmergencyProtectedTimelock is ITimelock {
 
     function _setGovernance(address governance, uint256 delay) internal {
         address prevGovernance = _governance;
-        uint256 prevTimelock = _delay;
+        uint256 prevDelay = _scheduledCalls.delay;
         if (prevGovernance != governance) {
             _governance = governance;
             emit GovernanceSet(governance);
         }
-        if (prevTimelock != delay) {
-            _delay = delay.toUint40();
+        if (prevDelay != delay) {
+            _scheduledCalls.delay = delay.toUint32();
             emit DelaySet(delay);
         }
+    }
+
+    modifier onlyGovernance() {
+        if (msg.sender != _governance) {
+            revert NotGovernance(msg.sender);
+        }
+        _;
     }
 
     modifier onlyAdminExecutor() {

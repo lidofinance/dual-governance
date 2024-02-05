@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {DualGovernance, Proposals} from "contracts/DualGovernance.sol";
-import {EmergencyProtectedTimelock, ScheduledCalls, ExecutorCall, ScheduledExecutorCallsBatch} from "contracts/EmergencyProtectedTimelock.sol";
+import {EmergencyProtectedTimelock, ScheduledCallsBatches, ExecutorCall, ScheduledCallsBatch} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "../utils/mainnet-addresses.sol";
 import "../utils/interfaces.sol";
@@ -88,7 +88,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         vm.expectRevert(
             abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId))
         );
-        dualGov.execute(newProposalId);
+        dualGov.schedule(newProposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
@@ -98,10 +98,10 @@ contract AgentTimelockTest is DualGovernanceSetup {
         target.expectNoCalls();
 
         // enqueueing the proposal schedules one call from the Timelock
-        dualGov.execute(newProposalId);
+        dualGov.schedule(newProposalId);
 
         assertEq(timelock.getScheduledCallBatchesCount(), 1);
-        ScheduledExecutorCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
+        ScheduledCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
             newProposalId
         );
 
@@ -176,11 +176,11 @@ contract AgentTimelockTest is DualGovernanceSetup {
         target.expectNoCalls();
 
         // enqueueing the proposal schedules one call from the Timelock
-        dualGov.execute(newProposalId);
+        dualGov.schedule(newProposalId);
 
         assertEq(timelock.getScheduledCallBatchesCount(), 1);
 
-        ScheduledExecutorCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
+        ScheduledCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
             newProposalId
         );
 

@@ -9,7 +9,7 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
 
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
-import {EmergencyProtectedTimelock, ExecutorCall, ScheduledExecutorCallsBatch, ScheduledCalls, EmergencyProtection} from "contracts/EmergencyProtectedTimelock.sol";
+import {ExecutorCall, EmergencyProtection, ScheduledCallsBatch, ScheduledCallsBatches, EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "forge-std/Test.sol";
 
@@ -131,9 +131,8 @@ contract HappyPathPlanBTest is PlanBSetup {
         calls[0].payload = abi.encodeCall(target.doSmth, (42));
 
         uint256 proposalId = 1;
-
         bytes memory proposeCalldata = abi.encodeCall(
-            timelock.forward,
+            timelock.schedule,
             (proposalId, timelock.ADMIN_EXECUTOR(), calls)
         );
 
@@ -245,7 +244,7 @@ contract HappyPathPlanBTest is PlanBSetup {
 
         uint256 newProposalId = 3;
         bytes memory newProposeCalldata = abi.encodeCall(
-            timelock.forward,
+            timelock.schedule,
             (newProposalId, timelock.ADMIN_EXECUTOR(), dualGovActivationCalls)
         );
 
@@ -354,7 +353,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock() + 1);
 
         // execute the proposal
-        dualGov.execute(newProposalId);
+        dualGov.schedule(newProposalId);
 
         // the call must be scheduled to the timelock now
         assertEq(timelock.getScheduledCallBatchesCount(), 1);
@@ -435,7 +434,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock() + 1);
 
         // execute the proposal
-        dualGov.execute(newProposalId);
+        dualGov.schedule(newProposalId);
 
         // the call must be scheduled to the timelock now
         assertEq(timelock.getScheduledCallBatchesCount(), 1);
