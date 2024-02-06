@@ -26,8 +26,6 @@ library EmergencyProtection {
         uint40 protectedTill;
         uint40 emergencyModeEndsAfter;
         uint32 emergencyModeDuration;
-        // flag which allow to the committee activate the emergency mode only once
-        bool emergencyModeWasActivatedPreviously;
     }
 
     function setup(
@@ -55,8 +53,6 @@ library EmergencyProtection {
             self.emergencyModeDuration = SafeCast.toUint32(duration);
             emit EmergencyDurationSet(duration);
         }
-        // new committee has rights to trigger emergency mode again
-        self.emergencyModeWasActivatedPreviously = false;
     }
 
     function activate(State storage self) internal {
@@ -69,9 +65,6 @@ library EmergencyProtection {
         if (self.emergencyModeEndsAfter != 0) {
             revert EmergencyModeIsActive();
         }
-        if (self.emergencyModeWasActivatedPreviously) {
-            revert EmergencyModeWasActivatedPreviously();
-        }
         self.emergencyModeEndsAfter = SafeCast.toUint40(
             block.timestamp + self.emergencyModeDuration
         );
@@ -83,12 +76,7 @@ library EmergencyProtection {
         if (endsAfter == 0) {
             revert EmergencyModeNotEntered();
         }
-        if (msg.sender != self.committee && block.timestamp <= endsAfter) {
-            revert EmergencyPeriodNotFinished();
-        }
-        // TODO: Check security guarantees.
-        // When deactivation happens, the committee is not reset
-        self.emergencyModeEndsAfter = 0;
+        _reset(self);
         emit EmergencyModeDeactivated();
     }
 
@@ -103,11 +91,7 @@ library EmergencyProtection {
         if (block.timestamp > endsAfter) {
             revert EmergencyPeriodFinished();
         }
-        self.committee = address(0);
-        self.protectedTill = 0;
-        self.emergencyModeDuration = 0;
-        self.emergencyModeEndsAfter = 0;
-        self.emergencyModeWasActivatedPreviously = false;
+        _reset(self);
         emit EmergencyGovernanceReset();
     }
 
@@ -125,5 +109,12 @@ library EmergencyProtection {
         if (self.committee != account) {
             revert NotEmergencyCommittee(account);
         }
+    }
+
+    function _reset(State storage self) private {
+        self.committee = address(0);
+        self.protectedTill = 0;
+        self.emergencyModeDuration = 0;
+        self.emergencyModeEndsAfter = 0;
     }
 }

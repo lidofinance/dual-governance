@@ -81,13 +81,16 @@ contract EmergencyProtectedTimelock is ITimelock {
     }
 
     function emergencyModeDeactivate() external {
-        _emergencyProtection.deactivate();
+        if (_emergencyProtection.isActive()) {
+            _assertAdminExecutor();
+        }
         _scheduledCalls.cancelAll();
+        _emergencyProtection.deactivate();
     }
 
     function emergencyResetGovernance() external {
-        _emergencyProtection.reset();
         _scheduledCalls.cancelAll();
+        _emergencyProtection.reset();
         _setGovernance(EMERGENCY_GOVERNANCE, 0);
     }
 
@@ -155,16 +158,20 @@ contract EmergencyProtectedTimelock is ITimelock {
         }
     }
 
-    modifier onlyGovernance() {
-        if (msg.sender != _governance) {
-            revert NotGovernance(msg.sender);
+    function _assertAdminExecutor() private view {
+        if (msg.sender != ADMIN_EXECUTOR) {
+            revert NotAdminExecutor(msg.sender);
         }
-        _;
     }
 
     modifier onlyAdminExecutor() {
-        if (msg.sender != ADMIN_EXECUTOR) {
-            revert NotAdminExecutor(msg.sender);
+        _assertAdminExecutor();
+        _;
+    }
+
+    modifier onlyGovernance() {
+        if (msg.sender != _governance) {
+            revert NotGovernance(msg.sender);
         }
         _;
     }
