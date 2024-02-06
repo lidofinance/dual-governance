@@ -1,0 +1,8 @@
+{
+  "extends": "solhint:recommended",
+  "plugins": ["lido"],
+  "rules": {
+    "func-name-mixedcase": "off",
+    "func-visibility": ["warn", { "ignoreConstructors": true }]
+  }
+}
