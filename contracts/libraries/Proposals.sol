@@ -3,7 +3,7 @@ pragma solidity 0.8.23;
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {ExecutorCall, ExecutorCallPacked} from "./ScheduledCalls.sol";
+import {ExecutorCall} from "./ScheduledCalls.sol";
 
 import {Proposer} from "./Proposers.sol";
 
@@ -17,26 +17,30 @@ struct Proposal {
 }
 
 struct ProposalPacked {
-    uint24 id;
     address proposer;
     uint40 proposedAt;
     // time passed, starting from proposedAt to adopting the proposal
     uint32 adoptionTime;
     address executor;
-    ExecutorCallPacked[] calls;
+    ExecutorCall[] calls;
 }
 
 library Proposals {
     using SafeCast for uint256;
+
+    // The id of the first proposal
+    uint256 private constant FIRST_PROPOSAL_ID = 1;
+
     struct State {
-        uint24 proposalsCount;
-        // all proposals with ids less or equal than given one cannot be queued
-        uint24 lastCanceledProposalId;
-        mapping(uint256 id => ProposalPacked proposal) proposals;
+        // all proposals with ids less or equal than given one cannot be executed
+        uint256 lastCanceledProposalId;
+        ProposalPacked[] proposals;
     }
 
     error EmptyCalls();
+    error ProposalCanceled(uint256 proposalId);
     error ProposalNotFound(uint256 proposalId);
+    error ProposalAlreadyAdopted(uint256 proposalId, uint256 adoptedAt);
     error ProposalNotExecutable(uint256 proposalId);
     error InvalidAdoptionDelay(uint256 adoptionDelay);
 
@@ -58,27 +62,18 @@ library Proposals {
             revert EmptyCalls();
         }
 
-        uint24 newProposalId = ++self.proposalsCount;
+        self.proposals.push();
+        uint256 newProposalId = self.proposals.length - FIRST_PROPOSAL_ID;
         ProposalPacked storage newProposal = self.proposals[newProposalId];
-        newProposal.id = newProposalId;
         newProposal.proposer = proposer;
         newProposal.executor = executor;
-        newProposal.proposedAt = block.timestamp.toUint40();
         newProposal.adoptionTime = 0;
+        newProposal.proposedAt = block.timestamp.toUint40();
 
-        // copying of arrays of custom types from memory to storage has not supported
+        // copying of arrays of custom types from calldata to storage has not supported
         // by the Solidity compiler yet, so copy item by item
-        for (uint256 i = 0; i < calls.length; ) {
-            newProposal.calls.push(
-                ExecutorCallPacked({
-                    target: calls[i].target,
-                    value: calls[i].value.toUint96(),
-                    payload: calls[i].payload
-                })
-            );
-            unchecked {
-                ++i;
-            }
+        for (uint256 i = 0; i < calls.length; ++i) {
+            newProposal.calls.push(calls[i]);
         }
 
         emit Proposed(newProposalId, proposer, executor, calls);
@@ -86,8 +81,9 @@ library Proposals {
     }
 
     function cancelAll(State storage self) internal {
-        self.lastCanceledProposalId = self.proposalsCount;
-        emit ProposalsCanceledTill(self.proposalsCount);
+        uint256 lastProposalId = self.proposals.length;
+        self.lastCanceledProposalId = lastProposalId;
+        emit ProposalsCanceledTill(lastProposalId);
     }
 
     function adopt(
@@ -96,58 +92,59 @@ library Proposals {
         uint256 delay
     ) internal returns (Proposal memory proposal) {
         ProposalPacked storage packed = _packed(self, proposalId);
-        if (block.timestamp < packed.proposedAt + delay) {
+
+        if (proposalId <= self.lastCanceledProposalId) {
+            revert ProposalCanceled(proposalId);
+        }
+        uint256 proposedAt = packed.proposedAt;
+        uint256 adoptionTime = packed.adoptionTime;
+        if (block.timestamp < proposedAt + delay) {
             revert ProposalNotExecutable(proposalId);
         }
-        uint256 adoptionDelay = block.timestamp - packed.proposedAt;
+        if (adoptionTime != 0) {
+            revert ProposalAlreadyAdopted(proposalId, proposedAt + adoptionTime);
+        }
+        uint256 adoptionDelay = block.timestamp - proposedAt;
+        // the proposal can't be proposed and adopted at the same transaction
         if (adoptionDelay == 0) {
             revert InvalidAdoptionDelay(0);
         }
         packed.adoptionTime = adoptionDelay.toUint32();
-        proposal = _unpack(packed);
+        proposal = _unpack(proposalId, packed);
     }
 
     function get(
         State storage self,
         uint256 proposalId
     ) internal view returns (Proposal memory proposal) {
-        proposal = _unpack(_packed(self, proposalId));
+        proposal = _unpack(proposalId, _packed(self, proposalId));
     }
 
     function count(State storage self) internal view returns (uint256 count_) {
-        count_ = self.proposalsCount;
+        count_ = self.proposals.length;
     }
 
     function _packed(
         State storage self,
         uint256 proposalId
     ) private view returns (ProposalPacked storage packed) {
-        packed = self.proposals[proposalId];
-        if (packed.id == 0) {
+        if (proposalId < FIRST_PROPOSAL_ID || proposalId > self.proposals.length) {
             revert ProposalNotFound(proposalId);
         }
+        packed = self.proposals[proposalId - FIRST_PROPOSAL_ID];
     }
 
     function _unpack(
-        ProposalPacked storage packed
-    ) private view returns (Proposal memory proposal) {
-        proposal.id = packed.id;
+        uint256 id,
+        ProposalPacked memory packed
+    ) private pure returns (Proposal memory proposal) {
+        proposal.id = id;
+        proposal.calls = packed.calls;
         proposal.proposer = packed.proposer;
         proposal.executor = packed.executor;
         proposal.proposedAt = packed.proposedAt;
         proposal.adoptedAt = packed.adoptionTime == 0
             ? 0
             : proposal.proposedAt + packed.adoptionTime;
-
-        uint256 callsCount = packed.calls.length;
-        proposal.calls = new ExecutorCall[](callsCount);
-        for (uint256 i = 0; i < callsCount; ) {
-            proposal.calls[i].target = packed.calls[i].target;
-            proposal.calls[i].value = packed.calls[i].value;
-            proposal.calls[i].payload = packed.calls[i].payload;
-            unchecked {
-                ++i;
-            }
-        }
     }
 }
