@@ -112,27 +112,21 @@ contract DualGovernance {
     }
 
     function relay(uint256 proposalId) external {
-        GOV_STATE.activateNextState();
-        if (!GOV_STATE.isExecutionEnabled()) {
-            revert ExecutionForbidden();
-        }
-        Proposal memory proposal = _proposals.adopt(
-            proposalId,
-            CONFIG.minProposalExecutionTimelock()
-        );
+        Proposal memory proposal = _adopt(proposalId);
         TIMELOCK.relay(proposal.executor, proposal.calls);
     }
 
     function schedule(uint256 proposalId) external {
+        Proposal memory proposal = _adopt(proposalId);
+        TIMELOCK.schedule(proposalId, proposal.executor, proposal.calls);
+    }
+
+    function _adopt(uint256 proposalId) internal returns (Proposal memory proposal) {
         GOV_STATE.activateNextState();
         if (!GOV_STATE.isExecutionEnabled()) {
             revert ExecutionForbidden();
         }
-        Proposal memory proposal = _proposals.adopt(
-            proposalId,
-            CONFIG.minProposalExecutionTimelock()
-        );
-        TIMELOCK.schedule(proposalId, proposal.executor, proposal.calls);
+        proposal = _proposals.adopt(proposalId, CONFIG.minProposalExecutionTimelock());
     }
 
     function _getTime() internal view virtual returns (uint256) {
