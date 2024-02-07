@@ -32,6 +32,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         DualGovernanceSetup.Deployed memory deployed = deployDG(
             ST_ETH,
             WST_ETH,
+            BURNER,
             WITHDRAWAL_QUEUE,
             AGENT_TIMELOCK_DURATION,
             emergencyMultisig,

@@ -42,7 +42,7 @@ contract DualGovernanceDeployFactory {
 
         // deploy DG
         address escrowImpl = address(
-            new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE)
+            new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER)
         );
         dualGov = new DualGovernance(
             address(config),

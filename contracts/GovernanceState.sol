@@ -249,7 +249,7 @@ contract GovernanceState {
 
     function _transitionVetoSignallingToRageQuitAccumulation() internal {
         _setState(State.RageQuitAccumulation);
-        _signallingEscrow.startRageQuitAccumulation();
+        // _signallingEscrow.startRageQuitAccumulation();
         _rageQuitEscrow = _signallingEscrow;
         _deployNewSignallingEscrow();
     }
