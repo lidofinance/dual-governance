@@ -40,11 +40,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     }
 
     // schedules call to be executed after some delay
-    function schedule(
-        uint256 batchId,
-        address executor,
-        ExecutorCall[] calldata calls
-    ) external onlyGovernance {
+    function schedule(uint256 batchId, address executor, ExecutorCall[] calldata calls) external onlyGovernance {
         _scheduledCalls.add(batchId, executor, calls);
     }
 
@@ -68,11 +64,7 @@ contract EmergencyProtectedTimelock is ITimelock {
         IOwnable(executor).transferOwnership(owner);
     }
 
-    function setEmergencyProtection(
-        address committee,
-        uint256 lifetime,
-        uint256 duration
-    ) external onlyAdminExecutor {
+    function setEmergencyProtection(address committee, uint256 lifetime, uint256 duration) external onlyAdminExecutor {
         _emergencyProtection.setup(committee, lifetime, duration);
     }
 
@@ -106,17 +98,11 @@ contract EmergencyProtectedTimelock is ITimelock {
         count = _scheduledCalls.count();
     }
 
-    function getScheduledCallBatches()
-        external
-        view
-        returns (ScheduledCallsBatch[] memory batches)
-    {
+    function getScheduledCallBatches() external view returns (ScheduledCallsBatch[] memory batches) {
         batches = _scheduledCalls.all();
     }
 
-    function getScheduledCallsBatch(
-        uint256 batchId
-    ) external view returns (ScheduledCallsBatch memory batch) {
+    function getScheduledCallsBatch(uint256 batchId) external view returns (ScheduledCallsBatch memory batch) {
         batch = _scheduledCalls.get(batchId);
     }
 

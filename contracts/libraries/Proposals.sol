@@ -5,8 +5,6 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {ExecutorCall} from "./ScheduledCalls.sol";
 
-import {Proposer} from "./Proposers.sol";
-
 struct Proposal {
     uint256 id;
     address proposer;
@@ -44,12 +42,7 @@ library Proposals {
     error ProposalNotExecutable(uint256 proposalId);
     error InvalidAdoptionDelay(uint256 adoptionDelay);
 
-    event Proposed(
-        uint256 indexed id,
-        address indexed proposer,
-        address indexed executor,
-        ExecutorCall[] calls
-    );
+    event Proposed(uint256 indexed id, address indexed proposer, address indexed executor, ExecutorCall[] calls);
     event ProposalsCanceledTill(uint256 proposalId);
 
     function create(
@@ -86,11 +79,7 @@ library Proposals {
         emit ProposalsCanceledTill(lastProposalId);
     }
 
-    function adopt(
-        State storage self,
-        uint256 proposalId,
-        uint256 delay
-    ) internal returns (Proposal memory proposal) {
+    function adopt(State storage self, uint256 proposalId, uint256 delay) internal returns (Proposal memory proposal) {
         ProposalPacked storage packed = _packed(self, proposalId);
 
         if (proposalId <= self.lastCanceledProposalId) {
@@ -113,10 +102,7 @@ library Proposals {
         proposal = _unpack(proposalId, packed);
     }
 
-    function get(
-        State storage self,
-        uint256 proposalId
-    ) internal view returns (Proposal memory proposal) {
+    function get(State storage self, uint256 proposalId) internal view returns (Proposal memory proposal) {
         proposal = _unpack(proposalId, _packed(self, proposalId));
     }
 
@@ -124,27 +110,19 @@ library Proposals {
         count_ = self.proposals.length;
     }
 
-    function _packed(
-        State storage self,
-        uint256 proposalId
-    ) private view returns (ProposalPacked storage packed) {
+    function _packed(State storage self, uint256 proposalId) private view returns (ProposalPacked storage packed) {
         if (proposalId < FIRST_PROPOSAL_ID || proposalId > self.proposals.length) {
             revert ProposalNotFound(proposalId);
         }
         packed = self.proposals[proposalId - FIRST_PROPOSAL_ID];
     }
 
-    function _unpack(
-        uint256 id,
-        ProposalPacked memory packed
-    ) private pure returns (Proposal memory proposal) {
+    function _unpack(uint256 id, ProposalPacked memory packed) private pure returns (Proposal memory proposal) {
         proposal.id = id;
         proposal.calls = packed.calls;
         proposal.proposer = packed.proposer;
         proposal.executor = packed.executor;
         proposal.proposedAt = packed.proposedAt;
-        proposal.adoptedAt = packed.adoptionTime == 0
-            ? 0
-            : proposal.proposedAt + packed.adoptionTime;
+        proposal.adoptedAt = packed.adoptionTime == 0 ? 0 : proposal.proposedAt + packed.adoptionTime;
     }
 }

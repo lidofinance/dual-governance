@@ -68,10 +68,7 @@ library Proposers {
         }
     }
 
-    function get(
-        State storage self,
-        address account
-    ) internal view returns (Proposer memory proposer) {
+    function get(State storage self, address account) internal view returns (Proposer memory proposer) {
         ExecutorData memory executorData = self.executors[account];
         if (executorData.proposerIndexOneBased == 0) {
             revert ProposerNotRegistered(account);

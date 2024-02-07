@@ -26,12 +26,12 @@ contract BurnerVault {
 
     function requestBurning() public {
         uint256 wstEthBalance = IERC20(WST_ETH).balanceOf(address(this));
-        if ( wstEthBalance > 0 ) {
+        if (wstEthBalance > 0) {
             IWstETH(WST_ETH).unwrap(wstEthBalance);
         }
 
         uint256 stEthBalance = IERC20(ST_ETH).balanceOf(address(this));
-        if ( stEthBalance > 0 ) {
+        if (stEthBalance > 0) {
             IBurner(BURNER).requestBurnMyStETH(stEthBalance);
         }
     }
