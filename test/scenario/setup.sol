@@ -38,11 +38,7 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
         // deploy config proxy
         d.configAdmin = new ProxyAdmin(address(this));
-        d.config = new TransparentUpgradeableProxy(
-            configImpl,
-            address(d.configAdmin),
-            new bytes(0)
-        );
+        d.config = new TransparentUpgradeableProxy(configImpl, address(d.configAdmin), new bytes(0));
 
         // initially owner of the admin is set to the deployer
         // to configure setup
@@ -53,25 +49,20 @@ abstract contract DualGovernanceSetup is TestAssertions {
             DAO_VOTING // maybe emergency governance should be Agent
         );
 
+        // solhint-disable-next-line
         console.log("Timelock deployed to %x", address(d.timelock));
 
         // deploy DG
         address escrowImpl = address(new Escrow(address(d.config), stEth, wstEth, withdrawalQueue));
-        d.dualGov = new DualGovernance(
-            address(d.config),
-            configImpl,
-            address(d.configAdmin),
-            escrowImpl,
-            address(d.timelock)
-        );
+        d.dualGov =
+            new DualGovernance(address(d.config), configImpl, address(d.configAdmin), escrowImpl, address(d.timelock));
 
+        // solhint-disable-next-line
         console.log("DG deployed to %x", address(d.dualGov));
 
         // configure Timelock
         d.adminExecutor.execute(
-            address(d.timelock),
-            0,
-            abi.encodeCall(d.timelock.setGovernance, (address(d.dualGov), timelockDuration))
+            address(d.timelock), 0, abi.encodeCall(d.timelock.setGovernance, (address(d.dualGov), timelockDuration))
         );
 
         // TODO: pass this value via args
@@ -81,11 +72,7 @@ abstract contract DualGovernanceSetup is TestAssertions {
             0,
             abi.encodeCall(
                 d.timelock.setEmergencyProtection,
-                (
-                    timelockEmergencyMultisig,
-                    timelockEmergencyMultisigActiveFor,
-                    emergencyModeDuration
-                )
+                (timelockEmergencyMultisig, timelockEmergencyMultisigActiveFor, emergencyModeDuration)
             )
         );
 
@@ -96,9 +83,7 @@ abstract contract DualGovernanceSetup is TestAssertions {
     }
 
     function getAddress(bytes memory bytecode, uint256 salt) public view returns (address) {
-        bytes32 hash = keccak256(
-            abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(bytecode))
-        );
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(bytecode)));
         return address(uint160(uint256(hash)));
     }
 }

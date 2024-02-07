@@ -3,7 +3,7 @@ pragma solidity 0.8.23;
 
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernance, Proposals, ExecutorCall} from "contracts/DualGovernance.sol";
-import {EmergencyProtectedTimelock, ScheduledCallsBatch} from "contracts/EmergencyProtectedTimelock.sol";
+import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "forge-std/Test.sol";
 
@@ -27,6 +27,7 @@ abstract contract DualGovernanceUtils is TestAssertions {
         }
 
         (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
+        // solhint-disable-next-line
         console.log("veto totalSupport %d, rageQuitSupport %d", totalSupport, rageQuitSupport);
     }
 }
@@ -78,10 +79,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         calls[0].target = address(target);
         calls[0].payload = abi.encodeCall(target.doSmth, (42));
 
-        bytes memory script = Utils.encodeEvmCallScript(
-            address(dualGov),
-            abi.encodeCall(dualGov.propose, (calls))
-        );
+        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), abi.encodeCall(dualGov.propose, (calls)));
 
         // create vote
         vm.prank(ldoWhale);
@@ -90,8 +88,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
             Utils.encodeEvmCallScript(
                 DAO_VOTING,
                 abi.encodeCall(
-                    voting.newVote,
-                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                    voting.newVote, (script, "Propose to doSmth on target passing dual governance", false, false)
                 )
             )
         );
@@ -113,9 +110,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         uint256 newProposalId = dualGov.getProposalsCount();
 
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(
-            abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId))
-        );
+        vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId)));
         dualGov.relay(newProposalId);
 
         // wait till the DG-enforced timelock elapses
@@ -133,20 +128,13 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
 
     function test_happy_path_with_multiple_items() external {
         // additional phase required here, grant rights to call DAO Agent to the admin executor
-        Utils.grantPermission(
-            DAO_AGENT,
-            IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE(),
-            address(timelock.ADMIN_EXECUTOR())
-        );
+        Utils.grantPermission(DAO_AGENT, IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE(), address(timelock.ADMIN_EXECUTOR()));
 
         // prepare target to be called by the DAO agent using DG Executor
         Target targetAragon = new Target();
         IAragonForwarder aragonAgent = IAragonForwarder(DAO_AGENT);
         bytes memory aragonTargetCalldata = abi.encodeCall(targetAragon.doSmth, (84));
-        bytes memory aragonForwardScript = Utils.encodeEvmCallScript(
-            address(targetAragon),
-            aragonTargetCalldata
-        );
+        bytes memory aragonForwardScript = Utils.encodeEvmCallScript(address(targetAragon), aragonTargetCalldata);
 
         // prepare target to be called by the executor
         Target targetDualGov = new Target();
@@ -160,21 +148,14 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         calls[1].target = address(targetDualGov);
         calls[1].payload = abi.encodeCall(targetDualGov.doSmth, (42));
 
-        bytes memory script = Utils.encodeEvmCallScript(
-            address(dualGov),
-            abi.encodeCall(dualGov.propose, (calls))
-        );
+        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), abi.encodeCall(dualGov.propose, (calls)));
 
         // create vote
         vm.prank(ldoWhale);
         IAragonVoting voting = IAragonVoting(DAO_VOTING);
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(
             Utils.encodeEvmCallScript(
-                DAO_VOTING,
-                abi.encodeCall(
-                    voting.newVote,
-                    (script, "Call doSmth from different agents", false, false)
-                )
+                DAO_VOTING, abi.encodeCall(voting.newVote, (script, "Call doSmth from different agents", false, false))
             )
         );
 
@@ -195,9 +176,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         uint256 newProposalId = proposalsCountBefore + 1;
 
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(
-            abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId))
-        );
+        vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId)));
         dualGov.relay(newProposalId);
 
         // wait till the DG-enforced timelock elapses
@@ -224,10 +203,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
         calls[0].target = address(target);
         calls[0].payload = abi.encodeCall(target.doSmth, (42));
 
-        bytes memory script = Utils.encodeEvmCallScript(
-            address(dualGov),
-            abi.encodeCall(dualGov.propose, (calls))
-        );
+        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), abi.encodeCall(dualGov.propose, (calls)));
 
         // create vote
         vm.prank(ldoWhale);
@@ -236,8 +212,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
             Utils.encodeEvmCallScript(
                 DAO_VOTING,
                 abi.encodeCall(
-                    voting.newVote,
-                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                    voting.newVote, (script, "Propose to doSmth on target passing dual governance", false, false)
                 )
             )
         );
@@ -320,8 +295,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
             Utils.encodeEvmCallScript(
                 DAO_VOTING,
                 abi.encodeCall(
-                    voting.newVote,
-                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                    voting.newVote, (script, "Propose to doSmth on target passing dual governance", false, false)
                 )
             )
         );

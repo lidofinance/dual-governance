@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {DualGovernance, Proposals} from "contracts/DualGovernance.sol";
-import {EmergencyProtectedTimelock, ScheduledCallsBatches, ExecutorCall, ScheduledCallsBatch} from "contracts/EmergencyProtectedTimelock.sol";
+import {EmergencyProtectedTimelock, ExecutorCall, ScheduledCallsBatch} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "../utils/mainnet-addresses.sol";
 import "../utils/interfaces.sol";
@@ -30,12 +30,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         emergencyMultisig = makeAddr("emergency_multisig");
 
         DualGovernanceSetup.Deployed memory deployed = deployDG(
-            ST_ETH,
-            WST_ETH,
-            WITHDRAWAL_QUEUE,
-            AGENT_TIMELOCK_DURATION,
-            emergencyMultisig,
-            EMERGENCY_MULTISIG_ACTIVE_FOR
+            ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, AGENT_TIMELOCK_DURATION, emergencyMultisig, EMERGENCY_MULTISIG_ACTIVE_FOR
         );
 
         timelock = deployed.timelock;
@@ -50,10 +45,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         calls[0].target = address(target);
         calls[0].payload = abi.encodeCall(target.doSmth, (42));
 
-        bytes memory script = Utils.encodeEvmCallScript(
-            address(dualGov),
-            abi.encodeCall(dualGov.propose, calls)
-        );
+        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), abi.encodeCall(dualGov.propose, calls));
 
         // create vote
         vm.prank(ldoWhale);
@@ -62,8 +54,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
             Utils.encodeEvmCallScript(
                 DAO_VOTING,
                 abi.encodeCall(
-                    voting.newVote,
-                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                    voting.newVote, (script, "Propose to doSmth on target passing dual governance", false, false)
                 )
             )
         );
@@ -85,9 +76,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         uint256 newProposalId = dualGov.getProposalsCount();
 
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(
-            abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId))
-        );
+        vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId)));
         dualGov.schedule(newProposalId);
 
         // wait till the DG-enforced timelock elapses
@@ -101,9 +90,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         dualGov.schedule(newProposalId);
 
         assertEq(timelock.getScheduledCallBatchesCount(), 1);
-        ScheduledCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
-            newProposalId
-        );
+        ScheduledCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(newProposalId);
 
         assertEq(scheduledCallsBatch.calls[0].target, address(target));
         assertEq(scheduledCallsBatch.calls[0].payload, calls[0].payload);
@@ -138,10 +125,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
         calls[0].target = address(target);
         calls[0].payload = abi.encodeCall(target.doSmth, (42));
 
-        bytes memory script = Utils.encodeEvmCallScript(
-            address(dualGov),
-            abi.encodeCall(dualGov.propose, (calls))
-        );
+        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), abi.encodeCall(dualGov.propose, (calls)));
 
         // create vote
         vm.prank(ldoWhale);
@@ -150,8 +134,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
             Utils.encodeEvmCallScript(
                 DAO_VOTING,
                 abi.encodeCall(
-                    voting.newVote,
-                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                    voting.newVote, (script, "Propose to doSmth on target passing dual governance", false, false)
                 )
             )
         );
@@ -180,9 +163,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
 
         assertEq(timelock.getScheduledCallBatchesCount(), 1);
 
-        ScheduledCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
-            newProposalId
-        );
+        ScheduledCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(newProposalId);
 
         assertEq(scheduledCallsBatch.calls[0].target, address(target));
         assertEq(scheduledCallsBatch.calls[0].payload, calls[0].payload);

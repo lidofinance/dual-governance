@@ -9,7 +9,7 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
 
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
-import {ExecutorCall, EmergencyProtection, ScheduledCallsBatch, ScheduledCallsBatches, EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
+import {ExecutorCall, EmergencyProtection, EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "forge-std/Test.sol";
 
@@ -34,23 +34,12 @@ contract DualGovernanceDeployFactory {
 
         // deploy config proxy
         ProxyAdmin configAdmin = new ProxyAdmin(address(this));
-        TransparentUpgradeableProxy config = new TransparentUpgradeableProxy(
-            configImpl,
-            address(configAdmin),
-            new bytes(0)
-        );
+        TransparentUpgradeableProxy config =
+            new TransparentUpgradeableProxy(configImpl, address(configAdmin), new bytes(0));
 
         // deploy DG
-        address escrowImpl = address(
-            new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE)
-        );
-        dualGov = new DualGovernance(
-            address(config),
-            configImpl,
-            address(configAdmin),
-            escrowImpl,
-            timelock
-        );
+        address escrowImpl = address(new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE));
+        dualGov = new DualGovernance(address(config), configImpl, address(configAdmin), escrowImpl, timelock);
 
         configAdmin.transferOwnership(address(dualGov));
     }
@@ -70,17 +59,14 @@ abstract contract PlanBSetup is Test {
 
         // configure Timelock
         adminExecutor.execute(
-            address(timelock),
-            0,
-            abi.encodeCall(timelock.setGovernance, (daoVoting, timelockDuration))
+            address(timelock), 0, abi.encodeCall(timelock.setGovernance, (daoVoting, timelockDuration))
         );
 
         adminExecutor.execute(
             address(timelock),
             0,
             abi.encodeCall(
-                timelock.setEmergencyProtection,
-                (vetoMultisig, vetoMultisigActiveFor, emergencyModeDuration)
+                timelock.setEmergencyProtection, (vetoMultisig, vetoMultisigActiveFor, emergencyModeDuration)
             )
         );
 
@@ -111,13 +97,8 @@ contract HappyPathPlanBTest is PlanBSetup {
         vetoMultisigActiveFor = 90 days;
         _emergencyModeDuration = 180 days;
 
-        timelock = deployPlanB(
-            DAO_VOTING,
-            timelockDuration,
-            vetoMultisig,
-            vetoMultisigActiveFor,
-            _emergencyModeDuration
-        );
+        timelock =
+            deployPlanB(DAO_VOTING, timelockDuration, vetoMultisig, vetoMultisigActiveFor, _emergencyModeDuration);
         target = new Target();
         daoVoting = IAragonVoting(DAO_VOTING);
     }
@@ -131,17 +112,12 @@ contract HappyPathPlanBTest is PlanBSetup {
         calls[0].payload = abi.encodeCall(target.doSmth, (42));
 
         uint256 proposalId = 1;
-        bytes memory proposeCalldata = abi.encodeCall(
-            timelock.schedule,
-            (proposalId, timelock.ADMIN_EXECUTOR(), calls)
-        );
+        bytes memory proposeCalldata = abi.encodeCall(timelock.schedule, (proposalId, timelock.ADMIN_EXECUTOR(), calls));
 
         bytes memory script = Utils.encodeEvmCallScript(address(timelock), proposeCalldata);
 
-        bytes memory newVoteScript = Utils.encodeEvmCallScript(
-            address(daoVoting),
-            abi.encodeCall(daoVoting.newVote, (script, "", false, false))
-        );
+        bytes memory newVoteScript =
+            Utils.encodeEvmCallScript(address(daoVoting), abi.encodeCall(daoVoting.newVote, (script, "", false, false)));
 
         uint256 voteId = daoVoting.votesLength();
 
@@ -189,13 +165,9 @@ contract HappyPathPlanBTest is PlanBSetup {
         vm.prank(vetoMultisig);
         timelock.emergencyModeActivate();
 
-        EmergencyProtectedTimelock.EmergencyState memory emergencyState = timelock
-            .getEmergencyState();
+        EmergencyProtectedTimelock.EmergencyState memory emergencyState = timelock.getEmergencyState();
         assertTrue(emergencyState.isActive);
-        assertEq(
-            emergencyState.emergencyModeEndsAfter,
-            block.timestamp + emergencyState.emergencyModeDuration
-        );
+        assertEq(emergencyState.emergencyModeEndsAfter, block.timestamp + emergencyState.emergencyModeDuration);
         assertEq(emergencyState.emergencyModeDuration, _emergencyModeDuration);
 
         // now, only emergency committee may execute calls on timelock
@@ -206,22 +178,13 @@ contract HappyPathPlanBTest is PlanBSetup {
         assertTrue(timelock.getIsExecutable(maliciousProposalId));
 
         // attempt to execute malicious proposal not from committee fails
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                EmergencyProtection.NotEmergencyCommittee.selector,
-                address(this)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyCommittee.selector, address(this)));
         timelock.execute(maliciousProposalId);
 
         // Some time later, the DG development was finished and may be deployed
         vm.warp(block.timestamp + 30 days);
 
-        DualGovernanceDeployFactory dgFactory = new DualGovernanceDeployFactory(
-            ST_ETH,
-            WST_ETH,
-            WITHDRAWAL_QUEUE
-        );
+        DualGovernanceDeployFactory dgFactory = new DualGovernanceDeployFactory(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE);
 
         DualGovernance dualGov = dgFactory.deployDualGovernance(address(timelock));
 
@@ -230,10 +193,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         ExecutorCall[] memory dualGovActivationCalls = new ExecutorCall[](3);
         // call timelock.setGovernance() with deployed instance of DG
         dualGovActivationCalls[0].target = address(timelock);
-        dualGovActivationCalls[0].payload = abi.encodeCall(
-            timelock.setGovernance,
-            (address(dualGov), 1 days)
-        );
+        dualGovActivationCalls[0].payload = abi.encodeCall(timelock.setGovernance, (address(dualGov), 1 days));
 
         // deactivate emergency mode
         dualGovActivationCalls[1].target = address(timelock);
@@ -241,16 +201,12 @@ contract HappyPathPlanBTest is PlanBSetup {
 
         // call timelock.setEmergencyProtection() to update the emergency protection settings
         dualGovActivationCalls[2].target = address(timelock);
-        dualGovActivationCalls[2].payload = abi.encodeCall(
-            timelock.setEmergencyProtection,
-            (vetoMultisig, 90 days, 30 days)
-        );
+        dualGovActivationCalls[2].payload =
+            abi.encodeCall(timelock.setEmergencyProtection, (vetoMultisig, 90 days, 30 days));
 
         uint256 newProposalId = 3;
-        bytes memory newProposeCalldata = abi.encodeCall(
-            timelock.schedule,
-            (newProposalId, timelock.ADMIN_EXECUTOR(), dualGovActivationCalls)
-        );
+        bytes memory newProposeCalldata =
+            abi.encodeCall(timelock.schedule, (newProposalId, timelock.ADMIN_EXECUTOR(), dualGovActivationCalls));
 
         bytes memory newScript = Utils.encodeEvmCallScript(address(timelock), newProposeCalldata);
 
@@ -260,8 +216,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         vm.prank(ldoWhale);
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(
             Utils.encodeEvmCallScript(
-                address(daoVoting),
-                abi.encodeCall(daoVoting.newVote, (newScript, "Activate DG", false, false))
+                address(daoVoting), abi.encodeCall(daoVoting.newVote, (newScript, "Activate DG", false, false))
             )
         );
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
@@ -313,10 +268,7 @@ contract HappyPathPlanBTest is PlanBSetup {
 
         bytes memory dgProposeCalldata = abi.encodeCall(dualGov.propose, calls);
 
-        bytes memory dgProposeVoteScript = Utils.encodeEvmCallScript(
-            address(dualGov),
-            dgProposeCalldata
-        );
+        bytes memory dgProposeVoteScript = Utils.encodeEvmCallScript(address(dualGov), dgProposeCalldata);
 
         uint256 voteId = daoVoting.votesLength();
 
@@ -325,10 +277,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(
             Utils.encodeEvmCallScript(
                 address(daoVoting),
-                abi.encodeCall(
-                    daoVoting.newVote,
-                    (dgProposeVoteScript, "Propose via DG", false, false)
-                )
+                abi.encodeCall(daoVoting.newVote, (dgProposeVoteScript, "Propose via DG", false, false))
             )
         );
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
@@ -372,11 +321,7 @@ contract HappyPathPlanBTest is PlanBSetup {
     function _testDualGovernanceRedeploy(DualGovernance dualGov) internal {
         // after some significant time dual governance update is prepared
         vm.warp(block.timestamp + 365 days);
-        DualGovernanceDeployFactory newDgFactory = new DualGovernanceDeployFactory(
-            ST_ETH,
-            WST_ETH,
-            WITHDRAWAL_QUEUE
-        );
+        DualGovernanceDeployFactory newDgFactory = new DualGovernanceDeployFactory(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE);
         DualGovernance newDg = newDgFactory.deployDualGovernance(address(timelock));
 
         // prepare vote to update the DG implementation and reset the emergency committee
@@ -384,23 +329,15 @@ contract HappyPathPlanBTest is PlanBSetup {
         ExecutorCall[] memory newDualGovActivationCalls = new ExecutorCall[](2);
         // call timelock.setGovernance() with deployed instance of DG
         newDualGovActivationCalls[0].target = address(timelock);
-        newDualGovActivationCalls[0].payload = abi.encodeCall(
-            timelock.setGovernance,
-            (address(newDg), 1 days)
-        );
+        newDualGovActivationCalls[0].payload = abi.encodeCall(timelock.setGovernance, (address(newDg), 1 days));
 
         // call timelock.setEmergencyProtection() to update the emergency protection settings
         newDualGovActivationCalls[1].target = address(timelock);
-        newDualGovActivationCalls[1].payload = abi.encodeCall(
-            timelock.setEmergencyProtection,
-            (vetoMultisig, 90 days, 30 days)
-        );
+        newDualGovActivationCalls[1].payload =
+            abi.encodeCall(timelock.setEmergencyProtection, (vetoMultisig, 90 days, 30 days));
 
         uint256 newProposalId = 2;
-        bytes memory newProposeCalldata = abi.encodeCall(
-            dualGov.propose,
-            (newDualGovActivationCalls)
-        );
+        bytes memory newProposeCalldata = abi.encodeCall(dualGov.propose, (newDualGovActivationCalls));
 
         bytes memory newScript = Utils.encodeEvmCallScript(address(dualGov), newProposeCalldata);
 
@@ -410,8 +347,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         vm.prank(ldoWhale);
         IAragonForwarder(DAO_TOKEN_MANAGER).forward(
             Utils.encodeEvmCallScript(
-                address(daoVoting),
-                abi.encodeCall(daoVoting.newVote, (newScript, "Redeploy DG", false, false))
+                address(daoVoting), abi.encodeCall(daoVoting.newVote, (newScript, "Redeploy DG", false, false))
             )
         );
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
@@ -446,8 +382,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         // new dual gov instance must be attached to timelock now
         assertEq(timelock.getGovernance(), address(newDg));
 
-        EmergencyProtectedTimelock.EmergencyState memory emergencyState = timelock
-            .getEmergencyState();
+        EmergencyProtectedTimelock.EmergencyState memory emergencyState = timelock.getEmergencyState();
         // after the emergency mode deactivation, all other emergency protection settings
         // stays the same
         assertFalse(emergencyState.isActive);
