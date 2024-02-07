@@ -9,6 +9,7 @@ import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy
 import {Configuration} from "contracts/Configuration.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
+import {BurnerVault} from "contracts/BurnerVault.sol";
 
 import "../utils/mainnet-addresses.sol";
 import "../utils/interfaces.sol";
@@ -21,6 +22,7 @@ abstract contract DualGovernanceSetup is TestAssertions {
         ProxyAdmin configAdmin;
         EmergencyProtectedTimelock timelock;
         OwnableExecutor adminExecutor;
+        BurnerVault burnerVault;
     }
 
     uint256 internal constant ARAGON_VOTING_SYSTEM_ID = 1;
@@ -29,6 +31,7 @@ abstract contract DualGovernanceSetup is TestAssertions {
         address stEth,
         address wstEth,
         address withdrawalQueue,
+        address burner,
         uint256 timelockDuration,
         address timelockEmergencyMultisig,
         uint256 timelockEmergencyMultisigActiveFor
@@ -55,8 +58,10 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
         console.log("Timelock deployed to %x", address(d.timelock));
 
+        address burner_vault = address(new BurnerVault(burner, stEth, wstEth));
+
         // deploy DG
-        address escrowImpl = address(new Escrow(address(d.config), stEth, wstEth, withdrawalQueue));
+        address escrowImpl = address(new Escrow(address(d.config), stEth, wstEth, withdrawalQueue, burner_vault));
         d.dualGov = new DualGovernance(
             address(d.config),
             configImpl,
