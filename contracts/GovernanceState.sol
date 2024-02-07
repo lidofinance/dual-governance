@@ -207,8 +207,23 @@ contract GovernanceState {
     }
 
     function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256) {
-        // TODO: use the formula from the design overview
-        return 4 days;
+        uint256 firstSealThreshold = CONFIG.firstSealThreshold();
+        uint256 secondSealThreshold = CONFIG.secondSealThreshold();
+
+        if (totalSupport < firstSealThreshold) {
+            return 0;
+        }
+
+        uint256 maxDuration = CONFIG.signallingMaxDuration();
+
+        if (totalSupport >= secondSealThreshold) {
+            return maxDuration;
+        }
+
+        uint256 minDuration = CONFIG.signallingMinDuration();
+
+        return minDuration
+            + (totalSupport - firstSealThreshold) * (maxDuration - minDuration) / (secondSealThreshold - firstSealThreshold);
     }
 
     function _enterVetoSignallingDeactivationSubState() internal {
@@ -243,7 +258,7 @@ contract GovernanceState {
     //
     function _transitionVetoSignallingToRageQuitAccumulation() internal {
         _setState(State.RageQuitAccumulation);
-        _signallingEscrow.startRageQuitAccumulation();
+        // _signallingEscrow.startRageQuitAccumulation();
         _rageQuitEscrow = _signallingEscrow;
         _deployNewSignallingEscrow();
     }

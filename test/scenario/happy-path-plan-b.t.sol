@@ -38,7 +38,7 @@ contract DualGovernanceDeployFactory {
             new TransparentUpgradeableProxy(configImpl, address(configAdmin), new bytes(0));
 
         // deploy DG
-        address escrowImpl = address(new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE));
+        address escrowImpl = address(new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER));
         dualGov = new DualGovernance(address(config), configImpl, address(configAdmin), escrowImpl, timelock);
 
         configAdmin.transferOwnership(address(dualGov));

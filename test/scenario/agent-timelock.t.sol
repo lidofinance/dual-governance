@@ -30,7 +30,13 @@ contract AgentTimelockTest is DualGovernanceSetup {
         emergencyMultisig = makeAddr("emergency_multisig");
 
         DualGovernanceSetup.Deployed memory deployed = deployDG(
-            ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, AGENT_TIMELOCK_DURATION, emergencyMultisig, EMERGENCY_MULTISIG_ACTIVE_FOR
+            ST_ETH,
+            WST_ETH,
+            BURNER,
+            WITHDRAWAL_QUEUE,
+            AGENT_TIMELOCK_DURATION,
+            emergencyMultisig,
+            EMERGENCY_MULTISIG_ACTIVE_FOR
         );
 
         timelock = deployed.timelock;

@@ -18,13 +18,13 @@ abstract contract DualGovernanceUtils is TestAssertions {
         Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
 
         uint256 newVetoSupport = (supportPercentage * IERC20(ST_ETH).totalSupply()) / 10 ** 18;
-        uint256 currentVetoSupport = signallingEscrow.totalStEthLocked();
+        // uint256 currentVetoSupport = signallingEscrow.totalStEthLocked();
 
-        if (newVetoSupport > currentVetoSupport) {
-            signallingEscrow.mock__lockStEth(newVetoSupport - currentVetoSupport);
-        } else if (newVetoSupport < currentVetoSupport) {
-            signallingEscrow.mock__unlockStEth(currentVetoSupport - newVetoSupport);
-        }
+        // if (newVetoSupport > currentVetoSupport) {
+        //     signallingEscrow.mock__lockStEth(newVetoSupport - currentVetoSupport);
+        // } else if (newVetoSupport < currentVetoSupport) {
+        //     signallingEscrow.mock__unlockStEth(currentVetoSupport - newVetoSupport);
+        // }
 
         (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
         // solhint-disable-next-line
@@ -58,6 +58,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
             ST_ETH,
             WST_ETH,
             WITHDRAWAL_QUEUE,
+            BURNER,
             timelockDuration,
             timelockEmergencyMultisig,
             timelockEmergencyMultisigActiveFor
