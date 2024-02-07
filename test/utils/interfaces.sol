@@ -2,6 +2,9 @@ pragma solidity 0.8.23;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
+interface IAragonAgent {
+    function RUN_SCRIPT_ROLE() external pure returns (bytes32);
+}
 
 interface IAragonVoting {
     function newVote(

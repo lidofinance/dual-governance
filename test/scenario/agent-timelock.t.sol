@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Agent, TimelockCallSet} from "contracts/Agent.sol";
-import {DualGovernance} from "contracts/DualGovernance.sol";
+import {DualGovernance, Proposals} from "contracts/DualGovernance.sol";
+import {EmergencyProtectedTimelock, ScheduledCallsBatches, ExecutorCall, ScheduledCallsBatch} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "../utils/mainnet-addresses.sol";
 import "../utils/interfaces.sol";
@@ -9,13 +10,12 @@ import "../utils/utils.sol";
 
 import {DualGovernanceSetup} from "./setup.sol";
 
-
 contract AgentTimelockTest is DualGovernanceSetup {
     uint256 internal constant AGENT_TIMELOCK_DURATION = 1 days;
     uint256 internal constant EMERGENCY_MULTISIG_ACTIVE_FOR = 90 days;
 
-    Agent internal agent;
     DualGovernance internal dualGov;
+    EmergencyProtectedTimelock internal timelock;
 
     address internal ldoWhale;
     address emergencyMultisig;
@@ -30,9 +30,6 @@ contract AgentTimelockTest is DualGovernanceSetup {
         emergencyMultisig = makeAddr("emergency_multisig");
 
         DualGovernanceSetup.Deployed memory deployed = deployDG(
-            DAO_AGENT,
-            DAO_VOTING,
-            LDO_TOKEN,
             ST_ETH,
             WST_ETH,
             WITHDRAWAL_QUEUE,
@@ -41,83 +38,136 @@ contract AgentTimelockTest is DualGovernanceSetup {
             EMERGENCY_MULTISIG_ACTIVE_FOR
         );
 
-        agent = deployed.agent;
+        timelock = deployed.timelock;
         dualGov = deployed.dualGov;
     }
 
     function test_agent_timelock_happy_path() external {
         Target target = new Target();
 
-        bytes memory targetCalldata = abi.encodeCall(target.doSmth, (42));
-        bytes memory forwardCalldata = abi.encodeCall(dualGov.forwardCall, (address(target), targetCalldata));
-        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), forwardCalldata);
+        ExecutorCall[] memory calls = new ExecutorCall[](1);
+        calls[0].value = 0;
+        calls[0].target = address(target);
+        calls[0].payload = abi.encodeCall(target.doSmth, (42));
 
-        uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
+        bytes memory script = Utils.encodeEvmCallScript(
+            address(dualGov),
+            abi.encodeCall(dualGov.propose, calls)
+        );
+
+        // create vote
+        vm.prank(ldoWhale);
+        IAragonVoting voting = IAragonVoting(DAO_VOTING);
+        IAragonForwarder(DAO_TOKEN_MANAGER).forward(
+            Utils.encodeEvmCallScript(
+                DAO_VOTING,
+                abi.encodeCall(
+                    voting.newVote,
+                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                )
+            )
+        );
+
+        uint256 voteId = voting.votesLength() - 1;
+
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
 
         // from the Aragon's POV, the proposal is executable
         assertEq(IAragonVoting(DAO_VOTING).canExecute(voteId), true);
 
-        // however, proposals containing DG-related calls cannot be executed directly
-        vm.expectRevert(DualGovernance.CannotCallOutsideExecution.selector);
+        uint256 proposalsCountBefore = dualGov.getProposalsCount();
+
+        // Execute the vote to submit the proposal to dual governance
         IAragonVoting(DAO_VOTING).executeVote(voteId);
 
+        assertEq(dualGov.getProposalsCount(), proposalsCountBefore + 1);
+
+        uint256 newProposalId = dualGov.getProposalsCount();
+
         // min execution timelock enforced by DG hasn't elapsed yet
-        vm.expectRevert(DualGovernance.ProposalIsNotExecutable.selector);
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (newProposalId))
+        );
+        dualGov.schedule(newProposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
-
-        // no scheduled calls yet
-        assertEq(agent.getScheduledCallIds().length, 0);
 
         // no calls to target yet
         // cannot use forge's expectCall here due to negative assertions' limitations, see issue #5655 in foundry
         target.expectNoCalls();
 
-        // executing the proposal schedules one call from the Agent
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
+        // enqueueing the proposal schedules one call from the Timelock
+        dualGov.schedule(newProposalId);
 
-        uint256[] memory scheduledCallIds = agent.getScheduledCallIds();
-        assertEq(scheduledCallIds.length, 1);
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
+        ScheduledCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
+            newProposalId
+        );
 
-        TimelockCallSet.Call memory call = agent.getScheduledCall(scheduledCallIds[0]);
-        assertEq(call.target, address(target));
-        assertEq(call.data, targetCalldata);
+        assertEq(scheduledCallsBatch.calls[0].target, address(target));
+        assertEq(scheduledCallsBatch.calls[0].payload, calls[0].payload);
 
         // the call isn't executable yet
-        assertEq(agent.getExecutableCallIds().length, 0);
+        assertFalse(timelock.getIsExecutable(newProposalId));
 
-        // wait till the Agent-enforced timelock elapses
+        // wait till the Timelock delay elapses
         vm.warp(block.timestamp + AGENT_TIMELOCK_DURATION + 1);
 
         // the call became executable
-        assertEq(agent.getExecutableCallIds(), scheduledCallIds);
+        assertTrue(timelock.getIsExecutable(newProposalId));
 
         // executing the call invokes the target
-        vm.expectCall(address(target), targetCalldata);
-        target.expectCalledBy(address(agent));
-        agent.executeScheduledCall(scheduledCallIds[0]);
+        vm.expectCall(address(target), calls[0].payload);
+        target.expectCalledBy(address(timelock.ADMIN_EXECUTOR()));
+        timelock.execute(newProposalId);
 
-        // no scheduled calls are left
-        assertEq(agent.getScheduledCallIds().length, 0);
-        assertEq(agent.getExecutableCallIds().length, 0);
+        // scheduled call was removed after execution
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
     }
 
     function test_initial_agent_governance_value() external {
-        assertEq(agent.getGovernance(), address(dualGov));
+        assertEq(timelock.getGovernance(), address(dualGov));
     }
 
     function test_agent_timelock_emergency_dg_deactivation() external {
         Target target = new Target();
 
-        bytes memory targetCalldata = abi.encodeCall(target.doSmth, (42));
-        bytes memory forwardCalldata = abi.encodeCall(dualGov.forwardCall, (address(target), targetCalldata));
-        bytes memory script = Utils.encodeEvmCallScript(address(dualGov), forwardCalldata);
+        ExecutorCall[] memory calls = new ExecutorCall[](1);
+        calls[0].value = 0;
+        calls[0].target = address(target);
+        calls[0].payload = abi.encodeCall(target.doSmth, (42));
 
-        uint256 voteId = dualGov.submitProposal(ARAGON_VOTING_SYSTEM_ID, script);
+        bytes memory script = Utils.encodeEvmCallScript(
+            address(dualGov),
+            abi.encodeCall(dualGov.propose, (calls))
+        );
+
+        // create vote
+        vm.prank(ldoWhale);
+        IAragonVoting voting = IAragonVoting(DAO_VOTING);
+        IAragonForwarder(DAO_TOKEN_MANAGER).forward(
+            Utils.encodeEvmCallScript(
+                DAO_VOTING,
+                abi.encodeCall(
+                    voting.newVote,
+                    (script, "Propose to doSmth on target passing dual governance", false, false)
+                )
+            )
+        );
+
+        uint256 voteId = voting.votesLength() - 1;
+
         Utils.supportVoteAndWaitTillDecided(voteId, ldoWhale);
+
+        uint256 proposalsCountBefore = dualGov.getProposalsCount();
+
+        // Execute the vote to submit the proposal to dual governance
+        IAragonVoting(DAO_VOTING).executeVote(voteId);
+
+        assertEq(dualGov.getProposalsCount(), proposalsCountBefore + 1);
+
+        uint256 newProposalId = proposalsCountBefore + 1;
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + dualGov.CONFIG().minProposalExecutionTimelock());
@@ -125,42 +175,37 @@ contract AgentTimelockTest is DualGovernanceSetup {
         // target won't be called in this test
         target.expectNoCalls();
 
-        // executing the proposal schedules one call from the Agent
-        dualGov.executeProposal(ARAGON_VOTING_SYSTEM_ID, voteId, new bytes(0));
+        // enqueueing the proposal schedules one call from the Timelock
+        dualGov.schedule(newProposalId);
 
-        uint256[] memory scheduledCallIds = agent.getScheduledCallIds();
-        assertEq(scheduledCallIds.length, 1);
+        assertEq(timelock.getScheduledCallBatchesCount(), 1);
 
-        TimelockCallSet.Call memory call = agent.getScheduledCall(scheduledCallIds[0]);
-        assertEq(call.target, address(target));
-        assertEq(call.data, targetCalldata);
+        ScheduledCallsBatch memory scheduledCallsBatch = timelock.getScheduledCallsBatch(
+            newProposalId
+        );
 
-        // some time passes (but less than the Agent-enforced timelock)
+        assertEq(scheduledCallsBatch.calls[0].target, address(target));
+        assertEq(scheduledCallsBatch.calls[0].payload, calls[0].payload);
+
+        // some time passes (but less than the Timelock-enforced delay)
         vm.warp(block.timestamp + AGENT_TIMELOCK_DURATION / 2);
 
         // the call is not executable yet
-        assertEq(agent.getExecutableCallIds().length, 0);
+        assertFalse(timelock.getIsExecutable(newProposalId));
 
         // emergency disabling the dual governance system while the multisig is active
         vm.prank(emergencyMultisig);
-        agent.emergencyResetGovernanceToDAO();
-        assertEq(agent.getGovernance(), DAO_AGENT);
+        timelock.emergencyModeActivate();
+        vm.prank(emergencyMultisig);
+        timelock.emergencyResetGovernance();
+        assertEq(timelock.getGovernance(), DAO_VOTING);
 
         // waiting till the initial timelock of the scheduled call passes
         vm.warp(block.timestamp + AGENT_TIMELOCK_DURATION / 2 + 1);
 
-        // the call is still scheduled
-        assertEq(agent.getScheduledCallIds(), scheduledCallIds);
-        call = agent.getScheduledCall(scheduledCallIds[0]);
-        assertLt(call.lockedTill, block.timestamp);
-
-        // but cannot be executed
-        assertEq(agent.getExecutableCallIds().length, 0);
-        vm.expectRevert(Agent.CallCancelled.selector);
-        agent.executeScheduledCall(scheduledCallIds[0]);
-
-        // anyone can unschedule cancelled calls
-        agent.unscheduleCancelledCalls(scheduledCallIds);
-        assertEq(agent.getScheduledCallIds().length, 0);
+        // remove canceled call from the timelock
+        assertTrue(timelock.getIsCanceled(newProposalId));
+        timelock.removeCanceledCallsBatch(newProposalId);
+        assertEq(timelock.getScheduledCallBatchesCount(), 0);
     }
 }
