@@ -63,7 +63,7 @@ library Proposers {
 
     function all(State storage self) internal view returns (Proposer[] memory proposers) {
         proposers = new Proposer[](self.proposers.length);
-        for (uint256 i = 0; i < proposers.length; ) {
+        for (uint256 i = 0; i < proposers.length; ++i) {
             proposers[i] = get(self, self.proposers[i]);
         }
     }

@@ -227,7 +227,7 @@ contract HappyPathPlanBTest is PlanBSetup {
 
         // The vote to enable dual governance is prepared and launched
 
-        ExecutorCall[] memory dualGovActivationCalls = new ExecutorCall[](2);
+        ExecutorCall[] memory dualGovActivationCalls = new ExecutorCall[](3);
         // call timelock.setGovernance() with deployed instance of DG
         dualGovActivationCalls[0].target = address(timelock);
         dualGovActivationCalls[0].payload = abi.encodeCall(
@@ -235,9 +235,13 @@ contract HappyPathPlanBTest is PlanBSetup {
             (address(dualGov), 1 days)
         );
 
-        // call timelock.setEmergencyProtection() to update the emergency protection settings
+        // deactivate emergency mode
         dualGovActivationCalls[1].target = address(timelock);
-        dualGovActivationCalls[1].payload = abi.encodeCall(
+        dualGovActivationCalls[1].payload = abi.encodeCall(timelock.emergencyModeDeactivate, ());
+
+        // call timelock.setEmergencyProtection() to update the emergency protection settings
+        dualGovActivationCalls[2].target = address(timelock);
+        dualGovActivationCalls[2].payload = abi.encodeCall(
             timelock.setEmergencyProtection,
             (vetoMultisig, 90 days, 30 days)
         );
@@ -282,26 +286,15 @@ contract HappyPathPlanBTest is PlanBSetup {
         // validate the governance and emergency protection was set correctly
         assertEq(timelock.getGovernance(), address(dualGov));
 
+        // Validate the emergency mode is deactivated and emergency settings updated
         emergencyState = timelock.getEmergencyState();
-        assertTrue(emergencyState.isActive);
+        assertFalse(emergencyState.isActive);
         assertEq(emergencyState.committee, vetoMultisig);
         assertEq(emergencyState.protectedTill, dgDeployedTimestamp + 90 days);
         assertEq(emergencyState.emergencyModeDuration, 30 days);
 
         // after execution only malicious proposal has left
         assertEq(timelock.getScheduledCallBatchesCount(), 1);
-
-        // now committee may exit the emergency mode and clear stayed malicious calls
-        vm.prank(vetoMultisig);
-        timelock.emergencyModeDeactivate();
-
-        emergencyState = timelock.getEmergencyState();
-        // after the emergency mode deactivation, all other emergency protection settings
-        // stays the same
-        assertFalse(emergencyState.isActive);
-        assertEq(emergencyState.committee, vetoMultisig);
-        assertEq(emergencyState.protectedTill, dgDeployedTimestamp + 90 days);
-        assertEq(emergencyState.emergencyModeDuration, 30 days);
 
         // malicious proposal was canceled and may be removed
         timelock.getIsCanceled(maliciousProposalId);
