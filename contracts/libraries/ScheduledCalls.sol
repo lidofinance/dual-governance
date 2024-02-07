@@ -3,7 +3,6 @@ pragma solidity 0.8.23;
 
 import {IExecutor} from "../interfaces/IExecutor.sol";
 
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 struct ExecutorCall {
@@ -57,12 +56,7 @@ library ScheduledCallsBatches {
     error TimelockNotExpired(uint256 batchId);
     error CallsBatchNotFound(uint256 batchId);
 
-    function add(
-        State storage self,
-        uint256 batchId,
-        address executor,
-        ExecutorCall[] calldata calls
-    ) internal {
+    function add(State storage self, uint256 batchId, address executor, ExecutorCall[] calldata calls) internal {
         uint32 delay = self.delay;
         if (delay == 0) {
             revert SchedulingDisabled();
@@ -105,10 +99,7 @@ library ScheduledCallsBatches {
         emit Relayed(executor, calls, results);
     }
 
-    function execute(
-        State storage self,
-        uint256 batchId
-    ) internal returns (bytes[] memory results) {
+    function execute(State storage self, uint256 batchId) internal returns (bytes[] memory results) {
         ScheduledCallsBatchPacked memory batch = _remove(self, batchId);
         uint256 executableAfter = batch.scheduledAt + batch.delay;
         if (block.timestamp <= executableAfter) {
@@ -135,10 +126,7 @@ library ScheduledCallsBatches {
         emit CallsBatchRemoved(batchId);
     }
 
-    function get(
-        State storage self,
-        uint256 batchId
-    ) internal view returns (ScheduledCallsBatch memory batch) {
+    function get(State storage self, uint256 batchId) internal view returns (ScheduledCallsBatch memory batch) {
         return _unpack(_packed(self, batchId), self.canceledBeforeTimestamp);
     }
 
@@ -168,10 +156,7 @@ library ScheduledCallsBatches {
         return scheduledAt > self.canceledBeforeTimestamp && block.timestamp > executableAfter;
     }
 
-    function _executeCalls(
-        address executor,
-        ExecutorCall[] memory calls
-    ) private returns (bytes[] memory results) {
+    function _executeCalls(address executor, ExecutorCall[] memory calls) private returns (bytes[] memory results) {
         uint256 callsCount = calls.length;
 
         if (callsCount == 0) {
@@ -190,10 +175,7 @@ library ScheduledCallsBatches {
         }
     }
 
-    function _remove(
-        State storage self,
-        uint256 batchId
-    ) private returns (ScheduledCallsBatchPacked memory batch) {
+    function _remove(State storage self, uint256 batchId) private returns (ScheduledCallsBatchPacked memory batch) {
         batch = _packed(self, batchId);
 
         // index can't be equal to zero at this point

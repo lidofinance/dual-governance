@@ -34,13 +34,7 @@ contract DualGovernance {
     Proposers.State internal _proposers;
     Proposals.State internal _proposals;
 
-    constructor(
-        address config,
-        address initialConfigImpl,
-        address configAdmin,
-        address escrowImpl,
-        address timelock
-    ) {
+    constructor(address config, address initialConfigImpl, address configAdmin, address escrowImpl, address timelock) {
         CONFIG = Configuration(config);
         CONFIG_ADMIN = IProxyAdmin(configAdmin);
         TIMELOCK = ITimelock(timelock);

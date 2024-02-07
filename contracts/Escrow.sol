@@ -4,7 +4,6 @@ pragma solidity 0.8.23;
 import {Configuration} from "./Configuration.sol";
 import {GovernanceState} from "./GovernanceState.sol";
 
-
 interface IERC20 {
     function totalSupply() external view returns (uint256);
     function balanceOf(address owner) external view returns (uint256);
@@ -27,7 +26,6 @@ interface IWithdrawalQueue {
     function getLastFinalizedRequestId() external view returns (uint256);
 }
 
-
 /**
  * A contract serving as a veto signalling and rage quit escrow.
  */
@@ -39,9 +37,7 @@ contract Escrow {
     event RageQuitAccumulationStarted();
     event RageQuitStarted();
     event WithdrawalsBatchRequested(
-        uint256 indexed firstRequestId,
-        uint256 indexed lastRequestId,
-        uint256 wstEthLeftToRequest
+        uint256 indexed firstRequestId, uint256 indexed lastRequestId, uint256 wstEthLeftToRequest
     );
 
     enum State {
@@ -155,7 +151,7 @@ contract Escrow {
         uint256 wstEthLockedAsStEth = IStETH(ST_ETH).getPooledEthByShares(_totalWstEthLocked);
         // TODO: include locked NFTs underlying stETH balance
         uint256 totalStakedEthLocked = _totalStEthLocked + wstEthLockedAsStEth;
-        totalSupport = totalStakedEthLocked * 10**18 / stEthTotalSupply;
+        totalSupport = totalStakedEthLocked * 10 ** 18 / stEthTotalSupply;
         // TODO: rageQuitSupport = totalSupport but not not counting withdrawal NFTs
         rageQuitSupport = totalSupport;
         return (totalSupport, rageQuitSupport);
@@ -254,8 +250,7 @@ contract Escrow {
     }
 
     function isRageQuitFinalized() external view returns (bool) {
-        return _state == State.RageQuit
-            && _rageQuitWstEthAmountRequested == _rageQuitWstEthAmountTotal
+        return _state == State.RageQuit && _rageQuitWstEthAmountRequested == _rageQuitWstEthAmountTotal
             && IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastFinalizedRequestId() >= _lastWithdrawalRequestId;
     }
 

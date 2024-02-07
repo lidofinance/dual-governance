@@ -28,12 +28,7 @@ library EmergencyProtection {
         uint32 emergencyModeDuration;
     }
 
-    function setup(
-        State storage self,
-        address committee,
-        uint256 lifetime,
-        uint256 duration
-    ) internal {
+    function setup(State storage self, address committee, uint256 lifetime, uint256 duration) internal {
         address prevCommittee = self.committee;
         if (prevCommittee != committee) {
             self.committee = committee;
@@ -65,9 +60,7 @@ library EmergencyProtection {
         if (self.emergencyModeEndsAfter != 0) {
             revert EmergencyModeIsActive();
         }
-        self.emergencyModeEndsAfter = SafeCast.toUint40(
-            block.timestamp + self.emergencyModeDuration
-        );
+        self.emergencyModeEndsAfter = SafeCast.toUint40(block.timestamp + self.emergencyModeDuration);
         emit EmergencyModeActivated();
     }
 

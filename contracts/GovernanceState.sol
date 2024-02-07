@@ -6,7 +6,6 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Configuration} from "./Configuration.sol";
 import {Escrow} from "./Escrow.sol";
 
-
 contract GovernanceState {
     error Unauthorized();
 
@@ -68,8 +67,7 @@ contract GovernanceState {
     }
 
     function isProposalExecutable(uint256 submittedAt, uint256 decidedAt) external view returns (bool) {
-        return _isExecutionEnabled()
-            && submittedAt > _proposalsKilledUntil
+        return _isExecutionEnabled() && submittedAt > _proposalsKilledUntil
             && _getTime() >= decidedAt + CONFIG.minProposalExecutionTimelock();
     }
 
@@ -122,7 +120,6 @@ contract GovernanceState {
     //
     // State: Normal
     //
-
     function _transitionVetoCooldownToNormal() internal {
         _activateNormal();
     }
@@ -142,14 +139,13 @@ contract GovernanceState {
     }
 
     function _isFirstThresholdReached() internal view returns (bool) {
-        (uint256 totalSupport, ) = _signallingEscrow.getSignallingState();
+        (uint256 totalSupport,) = _signallingEscrow.getSignallingState();
         return totalSupport >= CONFIG.firstSealThreshold();
     }
 
     //
     // State: VetoSignalling
     //
-
     function _transitionNormalToVetoSignalling() internal {
         _activateVetoSignalling();
     }
@@ -226,7 +222,6 @@ contract GovernanceState {
     //
     // State: VetoCooldown
     //
-
     function _transitionVetoSignallingToVetoCooldown() internal {
         _setState(State.VetoCooldown);
     }
@@ -246,7 +241,6 @@ contract GovernanceState {
     //
     // State: RageQuitAccumulation
     //
-
     function _transitionVetoSignallingToRageQuitAccumulation() internal {
         _setState(State.RageQuitAccumulation);
         _signallingEscrow.startRageQuitAccumulation();
@@ -264,7 +258,6 @@ contract GovernanceState {
     //
     // State: RageQuit
     //
-
     function _transitionRageQuitAccumulationToRageQuit() internal {
         _setState(State.RageQuit);
         _rageQuitEscrow.startRageQuit();
@@ -284,8 +277,7 @@ contract GovernanceState {
     //
     // Utils
     //
-
-    function _getTime() internal virtual view returns (uint256) {
+    function _getTime() internal view virtual returns (uint256) {
         return block.timestamp;
     }
 }
