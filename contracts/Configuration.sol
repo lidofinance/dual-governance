@@ -13,7 +13,6 @@ contract Configuration {
     uint256 public immutable signallingMaxDuration = 30 * DAY;
     uint256 public immutable signallingDeactivationDuration = 5 * DAY;
     uint256 public immutable signallingCooldownDuration = 4 * DAY;
-    uint256 public immutable rageQuitAccumulationDuration = 15 * DAY;
     uint256 public immutable rageQuitEthWithdrawalTimelock = 30 * DAY;
 
     constructor(address adminProposer_) {

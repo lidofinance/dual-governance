@@ -17,7 +17,6 @@ contract GovernanceState {
         VetoSignalling,
         VetoSignallingDeactivation,
         VetoCooldown,
-        RageQuitAccumulation,
         RageQuit
     }
 
@@ -91,8 +90,6 @@ contract GovernanceState {
             _activateNextStateFromVetoSignallingDeactivation();
         } else if (state == State.VetoCooldown) {
             _activateNextStateFromVetoCooldown();
-        } else if (state == State.RageQuitAccumulation) {
-            _activateNextStateFromRageQuitAccumulation();
         } else if (state == State.RageQuit) {
             _activateNextStateFromRageQuit();
         } else {
@@ -178,7 +175,7 @@ contract GovernanceState {
         }
 
         if (rageQuitSupport >= CONFIG.secondSealThreshold()) {
-            _transitionVetoSignallingToRageQuitAccumulation();
+            _activateRageQuit();
         } else {
             _enterVetoSignallingDeactivationSubState();
         }
@@ -199,7 +196,7 @@ contract GovernanceState {
 
         if (currentSignallingDuration >= targetSignallingDuration) {
             if (rageQuitSupport >= CONFIG.secondSealThreshold()) {
-                _transitionVetoSignallingToRageQuitAccumulation();
+                _activateRageQuit();
             }
         } else if (totalSupport >= CONFIG.firstSealThreshold()) {
             _exitVetoSignallingDeactivationSubState();
@@ -254,26 +251,9 @@ contract GovernanceState {
     }
 
     //
-    // State: RageQuitAccumulation
-    //
-    function _transitionVetoSignallingToRageQuitAccumulation() internal {
-        _setState(State.RageQuitAccumulation);
-        // _signallingEscrow.startRageQuitAccumulation();
-        _rageQuitEscrow = _signallingEscrow;
-        _deployNewSignallingEscrow();
-    }
-
-    function _activateNextStateFromRageQuitAccumulation() internal {
-        uint256 accumulationDuration = _getTime() - _stateEnteredAt;
-        if (accumulationDuration >= CONFIG.rageQuitAccumulationDuration()) {
-            _transitionRageQuitAccumulationToRageQuit();
-        }
-    }
-
-    //
     // State: RageQuit
     //
-    function _transitionRageQuitAccumulationToRageQuit() internal {
+    function _activateRageQuit() internal {
         _setState(State.RageQuit);
         _rageQuitEscrow.startRageQuit();
     }

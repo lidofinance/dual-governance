@@ -76,7 +76,6 @@ contract Escrow {
     error FinalizedRequest(uint256);
     error RequestNotFound(uint256 id);
 
-    event RageQuitAccumulationStarted();
     event RageQuitStarted();
     event WithdrawalsBatchRequested(
         uint256 indexed firstRequestId, uint256 indexed lastRequestId, uint256 wstEthLeftToRequest
