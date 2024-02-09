@@ -220,6 +220,8 @@ contract Escrow {
             revert InvalidState();
         }
 
+        burnRewards();
+
         address sender = msg.sender;
         uint256 shares = balances[sender].stEthInEthShares;
         uint256 amount = _getETHByShares(shares);
@@ -238,6 +240,8 @@ contract Escrow {
         if (_state != State.Signalling) {
             revert InvalidState();
         }
+
+        burnRewards();
 
         address sender = msg.sender;
         uint256 escrowShares = balances[sender].wstEthInEthShares;
@@ -318,23 +322,22 @@ contract Escrow {
 
         uint256 stEthBalance = IERC20(ST_ETH).balanceOf(address(this));
 
-        if (wstEthLocked > wstEthBalance) {
-            _totalWstEthInEthLocked = IStETH(ST_ETH).getPooledEthByShares(wstEthBalance);
-        } else {
+        if (wstEthLocked < wstEthBalance) {
             uint256 wstEthRewards = wstEthBalance - wstEthLocked;
             IWstETH(WST_ETH).unwrap(wstEthRewards);
+        } else {
+            _totalWstEthInEthLocked = IStETH(ST_ETH).getPooledEthByShares(wstEthBalance);
         }
 
         uint256 stEthRewards = 0;
 
-        if (_totalStEthInEthLocked > stEthBalance) {
-            _totalStEthInEthLocked = stEthBalance;
-        } else {
+        if (_totalStEthInEthLocked < stEthBalance) {
             stEthBalance = IERC20(ST_ETH).balanceOf(address(this));
             stEthRewards = stEthBalance - _totalStEthInEthLocked;
+            IERC20(ST_ETH).transfer(BURNER_VAULT, stEthRewards);
+        } else {
+            _totalStEthInEthLocked = stEthBalance;
         }
-
-        IERC20(ST_ETH).transferFrom(address(this), BURNER_VAULT, stEthRewards);
     }
 
     function checkForFinalization(uint256[] memory ids) public {

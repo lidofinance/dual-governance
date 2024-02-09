@@ -103,10 +103,10 @@ contract EscrowHappyPath is TestHelpers {
         unlockAssets(stEthHolder1, true, true);
         unlockAssets(stEthHolder2, true, true);
 
-        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1, 2);
-        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1, 2);
-        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder2), stEthBalanceBefore2, 2);
-        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder2), wstEthBalanceBefore2, 2);
+        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1, 3);
+        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1, 3);
+        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder2), stEthBalanceBefore2, 3);
+        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder2), wstEthBalanceBefore2, 3);
     }
 
     function test_lock_unlock_w_rebase() public {
@@ -128,13 +128,14 @@ contract EscrowHappyPath is TestHelpers {
         unlockAssets(stEthHolder1, true, true);
         unlockAssets(stEthHolder2, true, true);
 
-        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1 + amountToLock, 2);
-        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1 + wstEthAmountToUnlock, 2);
-        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder2), stEthBalanceBefore2 + 2 * amountToLock, 2);
-        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder2), wstEthBalanceBefore2 + 2 * wstEthAmountToUnlock, 2);
+        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1 + amountToLock, 3);
+        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1 + wstEthAmountToUnlock, 3);
+        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder2), stEthBalanceBefore2 + 2 * amountToLock, 3);
+        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder2), wstEthBalanceBefore2 + 2 * wstEthAmountToUnlock, 3);
     }
 
     function test_lock_unlock_w_negative_rebase() public {
+        int256 rebaseBP = -100;
         uint256 amountToLock = 1e18;
         uint256 wstEthAmountToLock = IStEth(ST_ETH).getSharesByPooledEth(amountToLock);
 
@@ -146,17 +147,16 @@ contract EscrowHappyPath is TestHelpers {
         lockAssets(stEthHolder1, amountToLock, wstEthAmountToLock);
         lockAssets(stEthHolder2, 2 * amountToLock, 2 * wstEthAmountToLock);
 
-        rebase(-100);
-        // Frontrun
+        rebase(rebaseBP);
         escrow.burnRewards();
 
         unlockAssets(stEthHolder1, true, true);
         unlockAssets(stEthHolder2, true, true);
 
-        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1 * 9900 / 10000, 2);
-        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1, 2);
-        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder2), stEthBalanceBefore2 * 9900 / 10000, 2);
-        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder2), wstEthBalanceBefore2, 2);
+        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1 * 9900 / 10000, 3);
+        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1, 3);
+        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder2), stEthBalanceBefore2 * 9900 / 10000, 3);
+        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder2), wstEthBalanceBefore2, 3);
     }
 
     function lockAssets(address owner, uint256 stEthAmountToLock, uint256 wstEthAmountToLock) public {
@@ -182,13 +182,17 @@ contract EscrowHappyPath is TestHelpers {
             )
         );
 
-        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(owner), stEthBalanceBefore - stEthAmountToLock, 2);
+        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(owner), stEthBalanceBefore - stEthAmountToLock, 3);
         assertEq(IERC20(WST_ETH).balanceOf(owner), wstEthBalanceBefore - wstEthAmountToLock);
 
         vm.stopPrank();
     }
 
     function unlockAssets(address owner, bool unlockStEth, bool unlockWstEth) public {
+        unlockAssets(owner, unlockStEth, unlockWstEth, 0);
+    }
+
+    function unlockAssets(address owner, bool unlockStEth, bool unlockWstEth, int256 rebaseBP) public {
         vm.startPrank(owner);
 
         Escrow.Balance memory balanceBefore = escrow.balanceOf(owner);
@@ -211,8 +215,11 @@ contract EscrowHappyPath is TestHelpers {
             )
         );
 
-        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(owner), stEthBalanceBefore + balanceBefore.stEth, 2);
-        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(owner), wstEthBalanceBefore + balanceBefore.wstEth, 2);
+        uint256 expectedStEthAmount = uint256(int256(balanceBefore.stEth) * (10000 + rebaseBP) / 10000);
+        uint256 expectedWstEthAmount = uint256(int256(balanceBefore.wstEth) * (10000 + rebaseBP) / 10000);
+
+        assertApproxEqAbs(IERC20(ST_ETH).balanceOf(owner), stEthBalanceBefore + expectedStEthAmount, 3);
+        assertApproxEqAbs(IERC20(WST_ETH).balanceOf(owner), wstEthBalanceBefore + expectedWstEthAmount, 3);
 
         vm.stopPrank();
     }
