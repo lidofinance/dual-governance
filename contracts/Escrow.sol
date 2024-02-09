@@ -23,6 +23,8 @@ interface IERC20 {
     function approve(address spender, uint256 value) external returns (bool);
 
     function transferFrom(address from, address to, uint256 value) external returns (bool);
+
+    function transfer(address to, uint256 value) external returns (bool);
 }
 
 interface IStETH {
@@ -88,8 +90,15 @@ contract Escrow {
     }
 
     struct HolderState {
-        uint256 wstEthInEthShares;
         uint256 stEthInEthShares;
+        uint256 wstEthInEthShares;
+        uint256 wqRequestsBalance;
+        uint256 finalizedWqRequestsBalance;
+    }
+
+    struct Balance {
+        uint256 stEth;
+        uint256 wstEth;
         uint256 wqRequestsBalance;
         uint256 finalizedWqRequestsBalance;
     }
@@ -103,12 +112,12 @@ contract Escrow {
     address internal _govState;
     State internal _state;
 
-    uint256 internal _totalStEthInEthLocked;
+    uint256 internal _totalStEthInEthLocked = 1;
     uint256 internal _totalWstEthInEthLocked;
     uint256 internal _totalWithdrawalNftsAmountLocked;
     uint256 internal _totalFinalizedWithdrawalNftsAmountLocked;
 
-    uint256 internal _totalEscrowShares;
+    uint256 internal _totalEscrowShares = 1;
     uint256 internal _claimedWQRequestsAmount;
 
     uint256 internal _rageQuitAmountTotal;
@@ -136,6 +145,15 @@ contract Escrow {
     ///
     /// Staker interface
     ///
+    function balanceOf(address holder) public view returns (Balance memory balance) {
+        HolderState memory state = balances[holder];
+
+        balance.stEth = _getETHByShares(state.stEthInEthShares);
+        balance.wstEth = IStETH(ST_ETH).getSharesByPooledEth(_getETHByShares(state.wstEthInEthShares));
+        balance.wqRequestsBalance = state.wqRequestsBalance;
+        balance.finalizedWqRequestsBalance = state.finalizedWqRequestsBalance;
+    }
+
     function lockStEth(uint256 amount) external {
         if (_state != State.Signalling) {
             revert InvalidState();
@@ -162,7 +180,7 @@ contract Escrow {
         uint256 amountInEth = IStETH(ST_ETH).getPooledEthByShares(amount);
         uint256 shares = _getSharesByETH(amountInEth);
 
-        balances[msg.sender].wstEthInEthShares = amountInEth;
+        balances[msg.sender].wstEthInEthShares = shares;
         _totalEscrowShares += shares;
         _totalWstEthInEthLocked += amountInEth;
 
@@ -206,7 +224,7 @@ contract Escrow {
         uint256 shares = balances[sender].stEthInEthShares;
         uint256 amount = _getETHByShares(shares);
 
-        IERC20(ST_ETH).transferFrom(address(this), sender, amount);
+        IERC20(ST_ETH).transfer(sender, amount);
 
         balances[sender].stEthInEthShares = 0;
         _totalEscrowShares -= shares;
@@ -226,7 +244,7 @@ contract Escrow {
         uint256 amount = _getETHByShares(escrowShares);
         uint256 amountInShares = IStETH(ST_ETH).getSharesByPooledEth(amount);
 
-        IERC20(WST_ETH).transferFrom(address(this), sender, amountInShares);
+        IERC20(WST_ETH).transfer(sender, amountInShares);
 
         balances[sender].wstEthInEthShares = 0;
         _totalEscrowShares -= escrowShares;
@@ -295,10 +313,6 @@ contract Escrow {
     ///
 
     function burnRewards() public {
-        if (_state != State.RageQuit) {
-            revert InvalidState();
-        }
-
         uint256 wstEthLocked = IStETH(ST_ETH).getSharesByPooledEth(_totalWstEthInEthLocked);
         uint256 wstEthBalance = IERC20(WST_ETH).balanceOf(address(this));
 
@@ -357,7 +371,7 @@ contract Escrow {
             _totalStEthInEthLocked + _totalWstEthInEthLocked + _totalWithdrawalNftsAmountLocked;
         rageQuitSupport = (totalRageQuitStEthLocked * 10 ** 18) / stEthTotalSupply;
 
-        uint256 totalStakedEthLocked = totalRageQuitStEthLocked + _totalWithdrawalNftsAmountLocked;
+        uint256 totalStakedEthLocked = totalRageQuitStEthLocked + _totalFinalizedWithdrawalNftsAmountLocked;
         totalSupport = (totalStakedEthLocked * 10 ** 18) / stEthTotalSupply;
     }
 

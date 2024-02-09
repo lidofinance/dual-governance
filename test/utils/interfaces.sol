@@ -37,4 +37,11 @@ interface IStEth {
     function STAKING_CONTROL_ROLE() external view returns (bytes32);
     function submit(address referral) external payable returns (uint256);
     function removeStakingLimit() external;
+    function getSharesByPooledEth(uint256 ethAmount) external view returns (uint256);
+    function getPooledEthByShares(uint256 sharesAmount) external view returns (uint256);
+}
+
+interface IWstETH {
+    function wrap(uint256 stETHAmount) external returns (uint256);
+    function unwrap(uint256 wstETHAmount) external returns (uint256);
 }
