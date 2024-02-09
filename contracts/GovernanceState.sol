@@ -42,15 +42,15 @@ contract GovernanceState {
         _stateEnteredAt = _getTime();
     }
 
-    function currentState() external returns (State) {
+    function currentState() external view returns (State) {
         return _state;
     }
 
-    function signallingEscrow() external returns (address) {
+    function signallingEscrow() external view returns (address) {
         return address(_signallingEscrow);
     }
 
-    function rageQuitEscrow() external returns (address) {
+    function rageQuitEscrow() external view returns (address) {
         return address(_rageQuitEscrow);
     }
 
