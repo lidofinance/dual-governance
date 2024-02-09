@@ -107,7 +107,8 @@ contract Escrow {
     uint256 internal _totalWstEthInEthLocked;
     uint256 internal _totalWithdrawalNftsAmountLocked;
     uint256 internal _totalFinalizedWithdrawalNftsAmountLocked;
-    uint256 internal _escrowTotalShares;
+
+    uint256 internal _totalEscrowShares;
     uint256 internal _claimedWQRequestsAmount;
 
     uint256 internal _rageQuitAmountTotal;
@@ -142,7 +143,10 @@ contract Escrow {
 
         IERC20(ST_ETH).transferFrom(msg.sender, address(this), amount);
 
-        balances[msg.sender].stEthInEthShares += amount;
+        uint256 shares = _getSharesByETH(amount);
+
+        balances[msg.sender].stEthInEthShares += shares;
+        _totalEscrowShares += shares;
         _totalStEthInEthLocked += amount;
 
         _activateNextGovernanceState();
@@ -156,8 +160,10 @@ contract Escrow {
         IERC20(WST_ETH).transferFrom(msg.sender, address(this), amount);
 
         uint256 amountInEth = IStETH(ST_ETH).getPooledEthByShares(amount);
+        uint256 shares = _getSharesByETH(amountInEth);
 
         balances[msg.sender].wstEthInEthShares = amountInEth;
+        _totalEscrowShares += shares;
         _totalWstEthInEthLocked += amountInEth;
 
         _activateNextGovernanceState();
@@ -197,11 +203,13 @@ contract Escrow {
         }
 
         address sender = msg.sender;
-        uint256 amount = balances[sender].stEthInEthShares;
+        uint256 shares = balances[sender].stEthInEthShares;
+        uint256 amount = _getETHByShares(shares);
 
         IERC20(ST_ETH).transferFrom(address(this), sender, amount);
 
         balances[sender].stEthInEthShares = 0;
+        _totalEscrowShares -= shares;
         _totalStEthInEthLocked -= amount;
 
         _activateNextGovernanceState();
@@ -214,12 +222,14 @@ contract Escrow {
         }
 
         address sender = msg.sender;
-        uint256 amount = balances[sender].wstEthInEthShares;
+        uint256 escrowShares = balances[sender].wstEthInEthShares;
+        uint256 amount = _getETHByShares(escrowShares);
         uint256 amountInShares = IStETH(ST_ETH).getSharesByPooledEth(amount);
 
         IERC20(WST_ETH).transferFrom(address(this), sender, amountInShares);
 
         balances[sender].wstEthInEthShares = 0;
+        _totalEscrowShares -= escrowShares;
         _totalWstEthInEthLocked -= amount;
 
         _activateNextGovernanceState();
@@ -272,7 +282,7 @@ contract Escrow {
         HolderState memory state = balances[sender];
 
         uint256 ethToClaim =
-            (state.stEthInEthShares + state.wqRequestsBalance) * _rageQuitAmountTotal / _escrowTotalShares;
+            (state.stEthInEthShares + state.wqRequestsBalance) * _rageQuitAmountTotal / _totalEscrowShares;
 
         balances[sender].stEthInEthShares = 0;
         balances[sender].wstEthInEthShares = 0;
@@ -290,11 +300,25 @@ contract Escrow {
         }
 
         uint256 wstEthLocked = IStETH(ST_ETH).getSharesByPooledEth(_totalWstEthInEthLocked);
-        uint256 wstEthRewards = IERC20(WST_ETH).balanceOf(address(this)) - wstEthLocked;
+        uint256 wstEthBalance = IERC20(WST_ETH).balanceOf(address(this));
 
-        IWstETH(WST_ETH).unwrap(wstEthRewards);
+        uint256 stEthBalance = IERC20(ST_ETH).balanceOf(address(this));
 
-        uint256 stEthRewards = IERC20(ST_ETH).balanceOf(address(this)) - _totalStEthInEthLocked;
+        if (wstEthLocked > wstEthBalance) {
+            _totalWstEthInEthLocked = IStETH(ST_ETH).getPooledEthByShares(wstEthBalance);
+        } else {
+            uint256 wstEthRewards = wstEthBalance - wstEthLocked;
+            IWstETH(WST_ETH).unwrap(wstEthRewards);
+        }
+
+        uint256 stEthRewards = 0;
+
+        if (_totalStEthInEthLocked > stEthBalance) {
+            _totalStEthInEthLocked = stEthBalance;
+        } else {
+            stEthBalance = IERC20(ST_ETH).balanceOf(address(this));
+            stEthRewards = stEthBalance - _totalStEthInEthLocked;
+        }
 
         IERC20(ST_ETH).transferFrom(address(this), BURNER_VAULT, stEthRewards);
     }
@@ -449,5 +473,17 @@ contract Escrow {
 
     function _activateNextGovernanceState() internal {
         GovernanceState(_govState).activateNextState();
+    }
+
+    function _getSharesByETH(uint256 eth) internal view returns (uint256 shares) {
+        uint256 totalEthLocked = _totalStEthInEthLocked + _totalWstEthInEthLocked;
+
+        shares = eth * _totalEscrowShares / totalEthLocked;
+    }
+
+    function _getETHByShares(uint256 shares) internal view returns (uint256 eth) {
+        uint256 totalEthLocked = _totalStEthInEthLocked + _totalWstEthInEthLocked;
+
+        eth = shares * totalEthLocked / _totalEscrowShares;
     }
 }
