@@ -262,11 +262,8 @@ contract GovernanceState {
         if (!_rageQuitEscrow.isRageQuitFinalized()) {
             return;
         }
-        if (_isFirstThresholdReached()) {
-            _transitionRageQuitToVetoSignalling();
-        } else {
-            _transitionRageQuitToNormal();
-        }
+        _deployNewSignallingEscrow();
+        _transitionRageQuitToNormal();
     }
 
     //
