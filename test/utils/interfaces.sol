@@ -2,6 +2,15 @@ pragma solidity 0.8.23;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
+struct WithdrawalRequestStatus {
+    uint256 amountOfStETH;
+    uint256 amountOfShares;
+    address owner;
+    uint256 timestamp;
+    bool isFinalized;
+    bool isClaimed;
+}
+
 interface IAragonAgent {
     function RUN_SCRIPT_ROLE() external pure returns (bytes32);
 }
@@ -44,4 +53,13 @@ interface IStEth {
 interface IWstETH {
     function wrap(uint256 stETHAmount) external returns (uint256);
     function unwrap(uint256 wstETHAmount) external returns (uint256);
+}
+
+interface IWithdrawalQueue {
+    function getWithdrawalStatus(uint256[] calldata _requestIds)
+        external
+        view
+        returns (WithdrawalRequestStatus[] memory statuses);
+    function requestWithdrawalsWstETH(uint256[] calldata amounts, address owner) external returns (uint256[] memory);
+    function setApprovalForAll(address _operator, bool _approved) external;
 }

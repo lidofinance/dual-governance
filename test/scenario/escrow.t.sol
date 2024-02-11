@@ -11,7 +11,6 @@ import {BurnerVault} from "contracts/BurnerVault.sol";
 import "forge-std/Test.sol";
 
 import "../utils/mainnet-addresses.sol";
-import "../utils/interfaces.sol";
 import "../utils/utils.sol";
 
 import {DualGovernanceSetup} from "./setup.sol";
@@ -73,6 +72,9 @@ contract EscrowHappyPath is TestHelpers {
 
         IERC20(ST_ETH).approve(address(escrow), 1e30);
         IERC20(WST_ETH).approve(address(escrow), 1e30);
+        IERC20(WST_ETH).approve(address(WITHDRAWAL_QUEUE), 1e30);
+        IERC20(ST_ETH).approve(address(WITHDRAWAL_QUEUE), 1e30);
+        IWithdrawalQueue(WITHDRAWAL_QUEUE).setApprovalForAll(address(escrow), true);
         vm.stopPrank();
 
         stEthHolder2 = makeAddr("steth_holder_2");
@@ -85,6 +87,9 @@ contract EscrowHappyPath is TestHelpers {
 
         IERC20(ST_ETH).approve(address(escrow), 1e30);
         IERC20(WST_ETH).approve(address(escrow), 1e30);
+        IERC20(WST_ETH).approve(address(WITHDRAWAL_QUEUE), 1e30);
+        IERC20(ST_ETH).approve(address(WITHDRAWAL_QUEUE), 1e30);
+        IWithdrawalQueue(WITHDRAWAL_QUEUE).setApprovalForAll(address(escrow), true);
         vm.stopPrank();
     }
 
@@ -97,11 +102,11 @@ contract EscrowHappyPath is TestHelpers {
         uint256 stEthBalanceBefore2 = IERC20(ST_ETH).balanceOf(stEthHolder2);
         uint256 wstEthBalanceBefore2 = IERC20(WST_ETH).balanceOf(stEthHolder2);
 
-        lockAssets(stEthHolder1, amountToLock, wstEthAmountToLock);
-        lockAssets(stEthHolder2, 2 * amountToLock, 2 * wstEthAmountToLock);
+        lockAssets(stEthHolder1, amountToLock, wstEthAmountToLock, new uint256[](0));
+        lockAssets(stEthHolder2, 2 * amountToLock, 2 * wstEthAmountToLock, new uint256[](0));
 
-        unlockAssets(stEthHolder1, true, true);
-        unlockAssets(stEthHolder2, true, true);
+        unlockAssets(stEthHolder1, true, true, new uint256[](0));
+        unlockAssets(stEthHolder2, true, true, new uint256[](0));
 
         assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1, 3);
         assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1, 3);
@@ -113,8 +118,8 @@ contract EscrowHappyPath is TestHelpers {
         uint256 amountToLock = 1e18;
         uint256 wstEthAmountToLock = IStEth(ST_ETH).getSharesByPooledEth(amountToLock);
 
-        lockAssets(stEthHolder1, amountToLock, wstEthAmountToLock);
-        lockAssets(stEthHolder2, 2 * amountToLock, 2 * wstEthAmountToLock);
+        lockAssets(stEthHolder1, amountToLock, wstEthAmountToLock, new uint256[](0));
+        lockAssets(stEthHolder2, 2 * amountToLock, 2 * wstEthAmountToLock, new uint256[](0));
 
         rebase(100);
 
@@ -125,8 +130,8 @@ contract EscrowHappyPath is TestHelpers {
         uint256 stEthBalanceBefore2 = IERC20(ST_ETH).balanceOf(stEthHolder2);
         uint256 wstEthBalanceBefore2 = IERC20(WST_ETH).balanceOf(stEthHolder2);
 
-        unlockAssets(stEthHolder1, true, true);
-        unlockAssets(stEthHolder2, true, true);
+        unlockAssets(stEthHolder1, true, true, new uint256[](0));
+        unlockAssets(stEthHolder2, true, true, new uint256[](0));
 
         assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1 + amountToLock, 3);
         assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1 + wstEthAmountToUnlock, 3);
@@ -144,14 +149,14 @@ contract EscrowHappyPath is TestHelpers {
         uint256 stEthBalanceBefore2 = IERC20(ST_ETH).balanceOf(stEthHolder2);
         uint256 wstEthBalanceBefore2 = IERC20(WST_ETH).balanceOf(stEthHolder2);
 
-        lockAssets(stEthHolder1, amountToLock, wstEthAmountToLock);
-        lockAssets(stEthHolder2, 2 * amountToLock, 2 * wstEthAmountToLock);
+        lockAssets(stEthHolder1, amountToLock, wstEthAmountToLock, new uint256[](0));
+        lockAssets(stEthHolder2, 2 * amountToLock, 2 * wstEthAmountToLock, new uint256[](0));
 
         rebase(rebaseBP);
         escrow.burnRewards();
 
-        unlockAssets(stEthHolder1, true, true);
-        unlockAssets(stEthHolder2, true, true);
+        unlockAssets(stEthHolder1, true, true, new uint256[](0));
+        unlockAssets(stEthHolder2, true, true, new uint256[](0));
 
         assertApproxEqAbs(IERC20(ST_ETH).balanceOf(stEthHolder1), stEthBalanceBefore1 * 9900 / 10000, 3);
         assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder1), wstEthBalanceBefore1, 3);
@@ -159,7 +164,26 @@ contract EscrowHappyPath is TestHelpers {
         assertApproxEqAbs(IERC20(WST_ETH).balanceOf(stEthHolder2), wstEthBalanceBefore2, 3);
     }
 
-    function lockAssets(address owner, uint256 stEthAmountToLock, uint256 wstEthAmountToLock) public {
+    function test_lock_unlock_withdrawal_nfts() public {
+        uint256[] memory amounts = new uint256[](2);
+        for (uint256 i = 0; i < 2; ++i) {
+            amounts[i] = 1e18;
+        }
+
+        vm.prank(stEthHolder1);
+        uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawalsWstETH(amounts, stEthHolder1);
+
+        lockAssets(stEthHolder1, 0, 0, ids);
+
+        unlockAssets(stEthHolder1, false, false, ids);
+    }
+
+    function lockAssets(
+        address owner,
+        uint256 stEthAmountToLock,
+        uint256 wstEthAmountToLock,
+        uint256[] memory wqRequestIds
+    ) public {
         vm.startPrank(owner);
 
         Escrow.Balance memory balanceBefore = escrow.balanceOf(owner);
@@ -172,12 +196,25 @@ contract EscrowHappyPath is TestHelpers {
             escrow.lockWstEth(wstEthAmountToLock);
         }
 
+        uint256 wqRequestsAmount = 0;
+        if (wqRequestIds.length > 0) {
+            WithdrawalRequestStatus[] memory statuses =
+                IWithdrawalQueue(WITHDRAWAL_QUEUE).getWithdrawalStatus(wqRequestIds);
+
+            for (uint256 i = 0; i < wqRequestIds.length; ++i) {
+                assertEq(statuses[i].isFinalized, false);
+                wqRequestsAmount += statuses[i].amountOfStETH;
+            }
+
+            escrow.lockWithdrawalNFT(wqRequestIds);
+        }
+
         assertEq(
             escrow.balanceOf(owner),
             Escrow.Balance(
                 balanceBefore.stEth + stEthAmountToLock,
                 balanceBefore.wstEth + wstEthAmountToLock,
-                balanceBefore.wqRequestsBalance,
+                balanceBefore.wqRequestsBalance + wqRequestsAmount,
                 balanceBefore.finalizedWqRequestsBalance
             )
         );
@@ -188,11 +225,17 @@ contract EscrowHappyPath is TestHelpers {
         vm.stopPrank();
     }
 
-    function unlockAssets(address owner, bool unlockStEth, bool unlockWstEth) public {
-        unlockAssets(owner, unlockStEth, unlockWstEth, 0);
+    function unlockAssets(address owner, bool unlockStEth, bool unlockWstEth, uint256[] memory wqRequestIds) public {
+        unlockAssets(owner, unlockStEth, unlockWstEth, wqRequestIds, 0);
     }
 
-    function unlockAssets(address owner, bool unlockStEth, bool unlockWstEth, int256 rebaseBP) public {
+    function unlockAssets(
+        address owner,
+        bool unlockStEth,
+        bool unlockWstEth,
+        uint256[] memory wqRequestIds,
+        int256 rebaseBP
+    ) public {
         vm.startPrank(owner);
 
         Escrow.Balance memory balanceBefore = escrow.balanceOf(owner);
@@ -205,12 +248,26 @@ contract EscrowHappyPath is TestHelpers {
         if (unlockWstEth) {
             escrow.unlockWstEth();
         }
+
+        uint256 wqRequestsAmount = 0;
+        if (wqRequestIds.length > 0) {
+            WithdrawalRequestStatus[] memory statuses =
+                IWithdrawalQueue(WITHDRAWAL_QUEUE).getWithdrawalStatus(wqRequestIds);
+
+            for (uint256 i = 0; i < wqRequestIds.length; ++i) {
+                assertEq(statuses[i].owner, address(escrow));
+                wqRequestsAmount += statuses[i].amountOfStETH;
+            }
+
+            escrow.unlockWithdrawalNFT(wqRequestIds);
+        }
+
         assertEq(
             escrow.balanceOf(owner),
             Escrow.Balance(
                 unlockStEth ? 0 : balanceBefore.stEth,
                 unlockWstEth ? 0 : balanceBefore.wstEth,
-                balanceBefore.wqRequestsBalance,
+                balanceBefore.wqRequestsBalance - wqRequestsAmount,
                 balanceBefore.finalizedWqRequestsBalance
             )
         );
