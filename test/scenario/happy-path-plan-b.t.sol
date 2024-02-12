@@ -9,7 +9,12 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
 
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
-import {ExecutorCall, EmergencyProtection, EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
+import {
+    ExecutorCall,
+    EmergencyState,
+    EmergencyProtection,
+    EmergencyProtectedTimelock
+} from "contracts/EmergencyProtectedTimelock.sol";
 
 import "forge-std/Test.sol";
 
@@ -165,7 +170,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         vm.prank(vetoMultisig);
         timelock.emergencyModeActivate();
 
-        EmergencyProtectedTimelock.EmergencyState memory emergencyState = timelock.getEmergencyState();
+        EmergencyState memory emergencyState = timelock.getEmergencyState();
         assertTrue(emergencyState.isActive);
         assertEq(emergencyState.emergencyModeEndsAfter, block.timestamp + emergencyState.emergencyModeDuration);
         assertEq(emergencyState.emergencyModeDuration, _emergencyModeDuration);
@@ -382,7 +387,7 @@ contract HappyPathPlanBTest is PlanBSetup {
         // new dual gov instance must be attached to timelock now
         assertEq(timelock.getGovernance(), address(newDg));
 
-        EmergencyProtectedTimelock.EmergencyState memory emergencyState = timelock.getEmergencyState();
+        EmergencyState memory emergencyState = timelock.getEmergencyState();
         // after the emergency mode deactivation, all other emergency protection settings
         // stays the same
         assertFalse(emergencyState.isActive);

@@ -3,21 +3,27 @@ pragma solidity 0.8.23;
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
+struct EmergencyState {
+    bool isActive;
+    address committee;
+    uint256 protectedTill;
+    uint256 emergencyModeEndsAfter;
+    uint256 emergencyModeDuration;
+}
+
 library EmergencyProtection {
     error NotEmergencyCommittee(address sender);
     error EmergencyCommitteeExpired();
-    error EmergencyModeNotEntered();
+    error EmergencyModeNotActivated();
     error EmergencyPeriodFinished();
-    error EmergencyPeriodNotFinished();
-    error EmergencyModeIsActive();
-    error EmergencyModeWasActivatedPreviously();
+    error EmergencyModeAlreadyActive();
 
     event EmergencyModeActivated();
     event EmergencyModeDeactivated();
     event EmergencyGovernanceReset();
     event EmergencyCommitteeSet(address indexed guardian);
-    event EmergencyDurationSet(uint256 emergencyModeDuration);
-    event EmergencyCommitteeActiveTillSet(uint256 guardedTill);
+    event EmergencyModeDurationSet(uint256 emergencyModeDuration);
+    event EmergencyCommitteeProtectedTillSet(uint256 guardedTill);
 
     struct State {
         // has rights to activate emergency mode
@@ -40,13 +46,13 @@ library EmergencyProtection {
 
         if (prevProtectedTill != protectedTill) {
             self.protectedTill = SafeCast.toUint40(protectedTill);
-            emit EmergencyCommitteeActiveTillSet(protectedTill);
+            emit EmergencyCommitteeProtectedTillSet(protectedTill);
         }
 
         uint256 prevDuration = self.emergencyModeDuration;
         if (prevDuration != duration) {
             self.emergencyModeDuration = SafeCast.toUint32(duration);
-            emit EmergencyDurationSet(duration);
+            emit EmergencyModeDurationSet(duration);
         }
     }
 
@@ -58,7 +64,7 @@ library EmergencyProtection {
             revert EmergencyCommitteeExpired();
         }
         if (self.emergencyModeEndsAfter != 0) {
-            revert EmergencyModeIsActive();
+            revert EmergencyModeAlreadyActive();
         }
         self.emergencyModeEndsAfter = SafeCast.toUint40(block.timestamp + self.emergencyModeDuration);
         emit EmergencyModeActivated();
@@ -67,7 +73,7 @@ library EmergencyProtection {
     function deactivate(State storage self) internal {
         uint256 endsAfter = self.emergencyModeEndsAfter;
         if (endsAfter == 0) {
-            revert EmergencyModeNotEntered();
+            revert EmergencyModeNotActivated();
         }
         _reset(self);
         emit EmergencyModeDeactivated();
@@ -76,10 +82,7 @@ library EmergencyProtection {
     function reset(State storage self) internal {
         uint256 endsAfter = self.emergencyModeEndsAfter;
         if (endsAfter == 0) {
-            revert EmergencyModeNotEntered();
-        }
-        if (msg.sender != self.committee) {
-            revert NotEmergencyCommittee(msg.sender);
+            revert EmergencyModeNotActivated();
         }
         if (block.timestamp > endsAfter) {
             revert EmergencyPeriodFinished();
@@ -88,20 +91,23 @@ library EmergencyProtection {
         emit EmergencyGovernanceReset();
     }
 
-    function isActive(State storage self) internal view returns (bool) {
-        uint256 endsAfter = self.emergencyModeEndsAfter;
-        if (endsAfter == 0) return false;
-        return endsAfter >= block.timestamp;
-    }
-
-    function isCommittee(State storage self) internal view returns (bool) {
-        return msg.sender == self.committee;
-    }
-
     function validateIsCommittee(State storage self, address account) internal view {
         if (self.committee != account) {
             revert NotEmergencyCommittee(account);
         }
+    }
+
+    function getEmergencyState(State storage self) internal view returns (EmergencyState memory res) {
+        res.isActive = isEmergencyModeActivated(self);
+        res.committee = self.committee;
+        res.protectedTill = self.protectedTill;
+        res.emergencyModeEndsAfter = self.emergencyModeEndsAfter;
+        res.emergencyModeDuration = self.emergencyModeDuration;
+    }
+
+    function isEmergencyModeActivated(State storage self) internal view returns (bool) {
+        uint256 endsAfter = self.emergencyModeEndsAfter;
+        return endsAfter != 0 && endsAfter >= block.timestamp;
     }
 
     function _reset(State storage self) private {

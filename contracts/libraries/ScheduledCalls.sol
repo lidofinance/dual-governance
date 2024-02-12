@@ -34,12 +34,13 @@ library ScheduledCallsBatches {
 
     struct State {
         uint32 delay;
-        // all scheduled batch with executableAfter less or equal than given cannot be executed
+        // all scheduled batches with executableAfter less or equal than given cannot be executed
         uint40 canceledBeforeTimestamp;
         uint256[] batchIds;
         mapping(uint256 batchId => ScheduledCallsBatchPacked) batches;
     }
 
+    event DelaySet(uint256 delay);
     event Scheduled(uint256 indexed batchId, uint256 delay, ExecutorCall[] calls);
     event Executed(uint256 indexed batchId, uint256 executedAt, bytes[] results);
     event Relayed(address indexed executor, ExecutorCall[] calls, bytes[] results);
@@ -47,16 +48,15 @@ library ScheduledCallsBatches {
     event CallsBatchRemoved(uint256 indexed batchId);
 
     error EmptyCallsArray();
-    error CallsUnscheduled();
+    error CallsBatchUnscheduled();
     error RelayingDisabled();
     error SchedulingDisabled();
     error BatchNotScheduled(uint256 batchId);
     error BatchAlreadyScheduled(uint256 batchId);
     error CallsBatchNotCanceled(uint256 batchId);
     error TimelockNotExpired(uint256 batchId);
-    error CallsBatchNotFound(uint256 batchId);
 
-    function add(State storage self, uint256 batchId, address executor, ExecutorCall[] calldata calls) internal {
+    function schedule(State storage self, uint256 batchId, address executor, ExecutorCall[] calldata calls) internal {
         uint32 delay = self.delay;
         if (delay == 0) {
             revert SchedulingDisabled();
@@ -78,10 +78,7 @@ library ScheduledCallsBatches {
         batch.scheduledAt = block.timestamp.toUint40();
 
         for (uint256 i = 0; i < calls.length; ++i) {
-            ExecutorCall storage call = batch.calls.push();
-            call.value = calls[i].value;
-            call.target = calls[i].target;
-            call.payload = calls[i].payload;
+            batch.calls.push(ExecutorCall({value: calls[i].value, target: calls[i].target, payload: calls[i].payload}));
         }
 
         emit Scheduled(batchId, delay, calls);
@@ -107,7 +104,7 @@ library ScheduledCallsBatches {
         }
         // check that batch wasn't unscheduled
         if (executableAfter <= self.canceledBeforeTimestamp) {
-            revert CallsUnscheduled();
+            revert CallsBatchUnscheduled();
         }
         results = _executeCalls(batch.executor, batch.calls);
         emit Executed(batchId, block.timestamp, results);
@@ -124,6 +121,13 @@ library ScheduledCallsBatches {
             revert CallsBatchNotCanceled(batchId);
         }
         emit CallsBatchRemoved(batchId);
+    }
+
+    function setDelay(State storage self, uint256 delay) internal {
+        if (self.delay != delay) {
+            self.delay = delay.toUint32();
+            emit DelaySet(delay);
+        }
     }
 
     function get(State storage self, uint256 batchId) internal view returns (ScheduledCallsBatch memory batch) {
@@ -186,13 +190,7 @@ library ScheduledCallsBatches {
         }
         self.batchIds.pop();
 
-        uint256 callsCount = batch.calls.length;
-        // remove every item in the batch
-        for (uint256 i = 0; i < callsCount; ++i) {
-            self.batches[batchId].calls.pop();
-        }
-
-        // then remove the batch itself
+        // then remove the batch with calls
         delete self.batches[batchId];
     }
 
