@@ -77,11 +77,12 @@ contract Escrow {
     error NotClaimedWQRequests();
     error FinalizedRequest(uint256);
     error RequestNotFound(uint256 id);
+    error SenderIsNotAllowed();
 
     event RageQuitAccumulationStarted();
     event RageQuitStarted();
     event WithdrawalsBatchRequested(
-        uint256 indexed firstRequestId, uint256 indexed lastRequestId, uint256 wstEthLeftToRequest
+        uint256 indexed firstRequestId, uint256 indexed lastRequestId, uint256 stEthLeftToRequest
     );
 
     enum State {
@@ -298,7 +299,7 @@ contract Escrow {
             revert InvalidState();
         }
 
-        if (_claimedWQRequestsAmount < (_totalStEthInEthLocked + _totalWstEthInEthLocked)) {
+        if (_claimedWQRequestsAmount < _rageQuitAmountTotal) {
             revert NotClaimedWQRequests();
         }
 
@@ -395,7 +396,7 @@ contract Escrow {
         assert(_rageQuitAmountRequested == 0);
         assert(_lastWithdrawalRequestId == 0);
 
-        _rageQuitAmountTotal = _totalWstEthInEthLocked + _totalStEthInEthLocked;
+        _rageQuitAmountTotal = _totalStEthInEthLocked + _totalWstEthInEthLocked;
 
         _state = State.RageQuit;
 
@@ -410,7 +411,7 @@ contract Escrow {
     }
 
     function requestNextWithdrawalsBatch(uint256 maxNumRequests) external returns (uint256, uint256, uint256) {
-        if (_state == State.RageQuit) {
+        if (_state != State.RageQuit) {
             revert InvalidState();
         }
 
@@ -455,6 +456,13 @@ contract Escrow {
 
         uint256[] memory reqIds = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, address(this));
 
+        WithdrawalRequestStatus[] memory wqRequestStatuses =
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getWithdrawalStatus(reqIds);
+
+        for (uint256 i = 0; i < reqIds.length; ++i) {
+            _wqRequests[reqIds[i]] = wqRequestStatuses[i];
+        }
+
         uint256 lastRequestId = reqIds[reqIds.length - 1];
         _lastWithdrawalRequestId = lastRequestId;
 
@@ -489,6 +497,12 @@ contract Escrow {
                 _totalFinalizedWithdrawalNftsAmountLocked += wqRequestStatuses[i].amountOfStETH;
                 _totalWithdrawalNftsAmountLocked -= _wqRequests[id].amountOfStETH;
             }
+        }
+    }
+
+    receive() external payable {
+        if (msg.sender != WITHDRAWAL_QUEUE) {
+            revert SenderIsNotAllowed();
         }
     }
 

@@ -19,23 +19,39 @@ contract TestHelpers is DualGovernanceSetup {
     function rebase(int256 deltaBP) public {
         bytes32 CL_BALANCE_POSITION = 0xa66d35f054e68143c18f32c990ed5cb972bb68a68f500cd2dd3a16bbf3686483; // keccak256("lido.Lido.beaconBalance");
 
-        uint256 totalSuply = IERC20(ST_ETH).totalSupply();
+        uint256 totalSupply = IERC20(ST_ETH).totalSupply();
         uint256 clBalance = uint256(vm.load(ST_ETH, CL_BALANCE_POSITION));
 
-        int256 delta = (deltaBP * int256(totalSuply) / 10000);
+        int256 delta = (deltaBP * int256(totalSupply) / 10000);
         vm.store(ST_ETH, CL_BALANCE_POSITION, bytes32(uint256(int256(clBalance) + delta)));
 
         assertEq(
-            uint256(int256(totalSuply) * deltaBP / 10000 + int256(totalSuply)),
+            uint256(int256(totalSupply) * deltaBP / 10000 + int256(totalSupply)),
             IERC20(ST_ETH).totalSupply(),
             "total supply"
         );
+    }
+
+    function setLastFinalizedId(uint256 newLastFinalizedId) public {
+        bytes32 LAST_FINALIZED_REQUEST_ID_POSITION = 0x992f2e0c24ce59a21f2dab8bba13b25c2f872129df7f4d45372155e717db0c48; // keccak256("lido.WithdrawalQueue.lastFinalizedRequestId");
+
+        uint256 currentLastFinalizedId = uint256(vm.load(WITHDRAWAL_QUEUE, LAST_FINALIZED_REQUEST_ID_POSITION));
+
+        assertEq(newLastFinalizedId > currentLastFinalizedId, true);
+        vm.store(WITHDRAWAL_QUEUE, LAST_FINALIZED_REQUEST_ID_POSITION, bytes32(newLastFinalizedId));
+    }
+
+    function updateLockedEtherAmount() public {
+        bytes32 LOCKED_ETHER_AMOUNT_POSITION = 0x0e27eaa2e71c8572ab988fef0b54cd45bbd1740de1e22343fb6cda7536edc12f; // keccak256("lido.WithdrawalQueue.lockedEtherAmount");
+
+        vm.store(WITHDRAWAL_QUEUE, LOCKED_ETHER_AMOUNT_POSITION, bytes32(address(WITHDRAWAL_QUEUE).balance));
     }
 }
 
 contract EscrowHappyPath is TestHelpers {
     Escrow internal escrow;
     BurnerVault internal burnerVault;
+    GovernanceState__mock internal govState;
 
     address internal stEthHolder1;
     address internal stEthHolder2;
@@ -45,7 +61,7 @@ contract EscrowHappyPath is TestHelpers {
         assertApproxEqAbs(a.wstEth, b.wstEth, 2, "WstEth balance missmatched");
         assertEq(a.wqRequestsBalance, b.wqRequestsBalance, "WQ requests balance missmatched");
         assertEq(
-            a.finalizedWqRequestsBalance, b.finalizedWqRequestsBalance, "Finilized WQ requests balance missmatched"
+            a.finalizedWqRequestsBalance, b.finalizedWqRequestsBalance, "Finalized WQ requests balance missmatched"
         );
     }
 
@@ -58,7 +74,7 @@ contract EscrowHappyPath is TestHelpers {
 
         (escrow, burnerVault) = deployEscrowImplementation(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER, address(config));
 
-        GovernanceState__mock govState = new GovernanceState__mock();
+        govState = new GovernanceState__mock();
 
         escrow.initialize(address(govState));
 
@@ -68,7 +84,7 @@ contract EscrowHappyPath is TestHelpers {
         vm.startPrank(stEthHolder1);
         IERC20(ST_ETH).approve(WST_ETH, 1e30);
 
-        IWstETH(WST_ETH).wrap(1e20);
+        IWstETH(WST_ETH).wrap(1e24);
 
         IERC20(ST_ETH).approve(address(escrow), 1e30);
         IERC20(WST_ETH).approve(address(escrow), 1e30);
@@ -83,7 +99,7 @@ contract EscrowHappyPath is TestHelpers {
         vm.startPrank(stEthHolder2);
         IERC20(ST_ETH).approve(WST_ETH, 1e30);
 
-        IWstETH(WST_ETH).wrap(1e20);
+        IWstETH(WST_ETH).wrap(1e24);
 
         IERC20(ST_ETH).approve(address(escrow), 1e30);
         IERC20(WST_ETH).approve(address(escrow), 1e30);
@@ -171,11 +187,155 @@ contract EscrowHappyPath is TestHelpers {
         }
 
         vm.prank(stEthHolder1);
-        uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawalsWstETH(amounts, stEthHolder1);
+        uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, stEthHolder1);
 
         lockAssets(stEthHolder1, 0, 0, ids);
 
         unlockAssets(stEthHolder1, false, false, ids);
+    }
+
+    function test_lock_withdrawal_nfts_reverts_on_finalized() public {
+        uint256[] memory amounts = new uint256[](3);
+        for (uint256 i = 0; i < 3; ++i) {
+            amounts[i] = 1e18;
+        }
+
+        vm.startPrank(stEthHolder1);
+        uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, stEthHolder1);
+
+        setLastFinalizedId(ids[1]);
+
+        vm.expectRevert();
+        escrow.lockWithdrawalNFT(ids);
+
+        vm.stopPrank();
+    }
+
+    function test_check_finalization() public {
+        uint256[] memory amounts = new uint256[](2);
+        for (uint256 i = 0; i < 2; ++i) {
+            amounts[i] = 1e18;
+        }
+
+        vm.prank(stEthHolder1);
+        uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, stEthHolder1);
+
+        lockAssets(stEthHolder1, 0, 0, ids);
+
+        Escrow.Balance memory balance = escrow.balanceOf(stEthHolder1);
+        assertEq(balance.wqRequestsBalance, 2 * 1e18);
+        assertEq(balance.finalizedWqRequestsBalance, 0);
+
+        setLastFinalizedId(ids[0]);
+        escrow.checkForFinalization(ids);
+
+        balance = escrow.balanceOf(stEthHolder1);
+        assertEq(balance.wqRequestsBalance, 1e18);
+        assertEq(balance.finalizedWqRequestsBalance, 1e18);
+    }
+
+    function test_get_signaling_state() public {
+        uint256[] memory amounts = new uint256[](2);
+        for (uint256 i = 0; i < 2; ++i) {
+            amounts[i] = 1e18;
+        }
+
+        uint256 totalSupply = IERC20(ST_ETH).totalSupply();
+
+        vm.prank(stEthHolder1);
+        uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, stEthHolder1);
+
+        lockAssets(stEthHolder1, 1e18, IStEth(ST_ETH).getSharesByPooledEth(1e18), ids);
+
+        Escrow.Balance memory balance = escrow.balanceOf(stEthHolder1);
+        assertEq(balance.wqRequestsBalance, 2 * 1e18);
+        assertEq(balance.finalizedWqRequestsBalance, 0);
+
+        (uint256 totalSupport, uint256 rageQuitSupport) = escrow.getSignallingState();
+        assertEq(totalSupport, 4 * 1e18 * 1e18 / totalSupply);
+        assertEq(rageQuitSupport, 4 * 1e18 * 1e18 / totalSupply);
+
+        setLastFinalizedId(ids[0]);
+        escrow.checkForFinalization(ids);
+
+        balance = escrow.balanceOf(stEthHolder1);
+        assertEq(balance.wqRequestsBalance, 1e18);
+        assertEq(balance.finalizedWqRequestsBalance, 1e18);
+
+        (totalSupport, rageQuitSupport) = escrow.getSignallingState();
+        assertEq(totalSupport, 4 * 1e18 * 1e18 / totalSupply);
+        assertEq(rageQuitSupport, 3 * 1e18 * 1e18 / totalSupply);
+    }
+
+    function test_rage_quit() public {
+        uint256 requestAmount = 1000 * 1e18;
+        uint256[] memory amounts = new uint256[](10);
+        for (uint256 i = 0; i < 10; ++i) {
+            amounts[i] = requestAmount;
+        }
+
+        vm.prank(stEthHolder1);
+        uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, stEthHolder1);
+
+        lockAssets(stEthHolder1, 20 * requestAmount, IStEth(ST_ETH).getSharesByPooledEth(20 * requestAmount), ids);
+
+        rebase(100);
+
+        vm.expectRevert();
+        escrow.startRageQuit();
+
+        vm.prank(address(govState));
+        escrow.startRageQuit();
+
+        assertEq(IWithdrawalQueue(WITHDRAWAL_QUEUE).balanceOf(address(escrow)), 10);
+
+        escrow.requestNextWithdrawalsBatch(10);
+
+        assertEq(IWithdrawalQueue(WITHDRAWAL_QUEUE).balanceOf(address(escrow)), 20);
+
+        escrow.requestNextWithdrawalsBatch(200);
+
+        assertEq(IWithdrawalQueue(WITHDRAWAL_QUEUE).balanceOf(address(escrow)), 50);
+        assertEq(escrow.isRageQuitFinalized(), false);
+
+        setLastFinalizedId(IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastRequestId());
+
+        uint256[] memory hints = IWithdrawalQueue(WITHDRAWAL_QUEUE).findCheckpointHints(
+            ids,
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastCheckpointIndex() - 2,
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastCheckpointIndex()
+        );
+
+        escrow.claimNextETHBatch(ids, hints);
+
+        assertEq(escrow.isRageQuitFinalized(), true);
+
+        vm.expectRevert();
+        vm.prank(stEthHolder1);
+        escrow.claimETH();
+
+        uint256[] memory escrowRequestIds = new uint256[](40);
+        for (uint256 i = 0; i < 40; ++i) {
+            escrowRequestIds[i] = ids[9] + i + 1;
+        }
+
+        uint256[] memory escrowRequestHints = IWithdrawalQueue(WITHDRAWAL_QUEUE).findCheckpointHints(
+            escrowRequestIds,
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastCheckpointIndex() - 2,
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastCheckpointIndex()
+        );
+
+        vm.deal(WITHDRAWAL_QUEUE, 100 * requestAmount);
+        updateLockedEtherAmount();
+
+        vm.expectRevert();
+        vm.prank(stEthHolder1);
+        escrow.claimETH();
+
+        escrow.claimNextETHBatch(escrowRequestIds, escrowRequestHints);
+
+        vm.prank(stEthHolder1);
+        escrow.claimETH();
     }
 
     function lockAssets(

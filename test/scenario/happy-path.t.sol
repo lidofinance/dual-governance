@@ -15,7 +15,7 @@ import {DualGovernanceSetup} from "./setup.sol";
 
 abstract contract DualGovernanceUtils is TestAssertions {
     function updateVetoSupport(DualGovernance dualGov, uint256 supportPercentage) internal {
-        Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
+        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
 
         uint256 newVetoSupport = (supportPercentage * IERC20(ST_ETH).totalSupply()) / 10 ** 18;
         // uint256 currentVetoSupport = signallingEscrow.totalStEthLocked();

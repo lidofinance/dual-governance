@@ -61,5 +61,15 @@ interface IWithdrawalQueue {
         view
         returns (WithdrawalRequestStatus[] memory statuses);
     function requestWithdrawalsWstETH(uint256[] calldata amounts, address owner) external returns (uint256[] memory);
+    function requestWithdrawals(uint256[] calldata amounts, address owner) external returns (uint256[] memory);
     function setApprovalForAll(address _operator, bool _approved) external;
+    function balanceOf(address owner) external view returns (uint256);
+    function MAX_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
+    function getLastRequestId() external view returns (uint256);
+    function findCheckpointHints(
+        uint256[] calldata _requestIds,
+        uint256 _firstIndex,
+        uint256 _lastIndex
+    ) external view returns (uint256[] memory hintIds);
+    function getLastCheckpointIndex() external view returns (uint256);
 }
