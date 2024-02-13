@@ -47,10 +47,6 @@ contract DualGovernance {
         return GOV_STATE.signallingEscrow();
     }
 
-    function rageQuitEscrow() external returns (address) {
-        return GOV_STATE.rageQuitEscrow();
-    }
-
     function currentState() external returns (GovernanceState.State) {
         return GOV_STATE.currentState();
     }

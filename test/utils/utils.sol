@@ -93,7 +93,7 @@ library Utils {
 
     function setupStEthWhale(address addr) internal {
         // 15% of total stETH supply
-        setupStEthWhale(addr, 15 * 10 ** 16);
+        setupStEthWhale(addr, 30 * 10 ** 16);
     }
 
     function setupStEthWhale(address addr, uint256 totalSupplyPercentage) internal {

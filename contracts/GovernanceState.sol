@@ -6,6 +6,12 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Configuration} from "./Configuration.sol";
 import {Escrow} from "./Escrow.sol";
 
+import "forge-std/console.sol";
+
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+}
+
 contract GovernanceState {
     error Unauthorized();
 
@@ -26,13 +32,14 @@ contract GovernanceState {
 
     uint256 internal _escrowIndex;
     Escrow internal _signallingEscrow;
-    Escrow internal _rageQuitEscrow;
 
     State internal _state;
     uint256 internal _stateEnteredAt;
     uint256 internal _signallingActivatedAt;
 
     uint256 internal _proposalsKilledUntil;
+
+    uint16 internal constant MAX_BASIS_POINTS = 10_000;
 
     constructor(address config, address governance, address escrowImpl) {
         CONFIG = Configuration(config);
@@ -48,10 +55,6 @@ contract GovernanceState {
 
     function signallingEscrow() external view returns (address) {
         return address(_signallingEscrow);
-    }
-
-    function rageQuitEscrow() external view returns (address) {
-        return address(_rageQuitEscrow);
     }
 
     function killAllPendingProposals() external {
@@ -203,23 +206,19 @@ contract GovernanceState {
         }
     }
 
-    function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256) {
-        uint256 firstSealThreshold = CONFIG.firstSealThreshold();
-        uint256 secondSealThreshold = CONFIG.secondSealThreshold();
+    function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256 duration) {
+        (uint256 firstSealThreshold, uint256 secondSealThreshold, uint256 minDuration, uint256 maxDuration) =
+            CONFIG.getSignallingThresholdData();
 
         if (totalSupport < firstSealThreshold) {
             return 0;
         }
 
-        uint256 maxDuration = CONFIG.signallingMaxDuration();
-
         if (totalSupport >= secondSealThreshold) {
             return maxDuration;
         }
 
-        uint256 minDuration = CONFIG.signallingMinDuration();
-
-        return minDuration
+        duration = minDuration
             + (totalSupport - firstSealThreshold) * (maxDuration - minDuration) / (secondSealThreshold - firstSealThreshold);
     }
 
@@ -255,11 +254,11 @@ contract GovernanceState {
     //
     function _activateRageQuit() internal {
         _setState(State.RageQuit);
-        _rageQuitEscrow.startRageQuit();
+        _signallingEscrow.startRageQuit();
     }
 
     function _activateNextStateFromRageQuit() internal {
-        if (!_rageQuitEscrow.isRageQuitFinalized()) {
+        if (!_signallingEscrow.isRageQuitFinalized()) {
             return;
         }
         _deployNewSignallingEscrow();
