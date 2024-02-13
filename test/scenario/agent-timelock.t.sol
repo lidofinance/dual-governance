@@ -34,6 +34,7 @@ contract AgentTimelockTest is DualGovernanceSetup {
             WST_ETH,
             BURNER,
             WITHDRAWAL_QUEUE,
+            DAO_VOTING,
             AGENT_TIMELOCK_DURATION,
             emergencyMultisig,
             EMERGENCY_MULTISIG_ACTIVE_FOR

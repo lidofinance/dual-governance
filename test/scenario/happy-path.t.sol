@@ -59,6 +59,7 @@ contract HappyPathTest is DualGovernanceSetup, DualGovernanceUtils {
             WST_ETH,
             WITHDRAWAL_QUEUE,
             BURNER,
+            DAO_VOTING,
             timelockDuration,
             timelockEmergencyMultisig,
             timelockEmergencyMultisigActiveFor
