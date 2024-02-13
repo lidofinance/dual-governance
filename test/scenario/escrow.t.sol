@@ -56,6 +56,8 @@ contract EscrowHappyPath is TestHelpers {
     address internal stEthHolder1;
     address internal stEthHolder2;
 
+    address internal proxyAdmin = makeAddr("proxy_admin");
+
     function assertEq(Escrow.Balance memory a, Escrow.Balance memory b) internal {
         assertApproxEqAbs(a.stEth, b.stEth, 2, "StEth balance missmatched");
         assertApproxEqAbs(a.wstEth, b.wstEth, 2, "WstEth balance missmatched");
@@ -72,7 +74,12 @@ contract EscrowHappyPath is TestHelpers {
         TransparentUpgradeableProxy config;
         (, config,) = deployConfig(DAO_VOTING);
 
-        (escrow, burnerVault) = deployEscrowImplementation(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER, address(config));
+        Escrow escrowImpl;
+        (escrowImpl, burnerVault) =
+            deployEscrowImplementation(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER, address(config));
+
+        escrow =
+            Escrow(payable(address(new TransparentUpgradeableProxy(address(escrowImpl), proxyAdmin, new bytes(0)))));
 
         govState = new GovernanceState__mock();
 

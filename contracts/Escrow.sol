@@ -113,12 +113,12 @@ contract Escrow {
     address internal _govState;
     State internal _state;
 
-    uint256 internal _totalStEthInEthLocked = 1;
+    uint256 internal _totalStEthInEthLocked;
     uint256 internal _totalWstEthInEthLocked;
     uint256 internal _totalWithdrawalNftsAmountLocked;
     uint256 internal _totalFinalizedWithdrawalNftsAmountLocked;
 
-    uint256 internal _totalEscrowShares = 1;
+    uint256 internal _totalEscrowShares;
     uint256 internal _claimedWQRequestsAmount;
 
     uint256 internal _rageQuitAmountTotal;
@@ -135,13 +135,15 @@ contract Escrow {
         WITHDRAWAL_QUEUE = withdrawalQueue;
         BURNER_VAULT = burnerVault;
 
-        // _govState = address(this);
+        _govState = address(this);
     }
 
     function initialize(address governanceState) external {
         if (_govState != address(0)) {
             revert Unauthorized();
         }
+        _totalStEthInEthLocked = 1;
+        _totalEscrowShares = 1;
         _govState = governanceState;
     }
 
