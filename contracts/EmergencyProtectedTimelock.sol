@@ -32,7 +32,7 @@ contract EmergencyProtectedTimelock is ITimelock {
         EMERGENCY_GOVERNANCE = emergencyGovernance;
     }
 
-    // executes call immediately when the delay for scheduled calls is set to 0
+    // executes call immediately when the delay is set to 0
     function relay(address executor, ExecutorCall[] calldata calls) external onlyGovernance {
         _scheduledCalls.relay(executor, calls);
     }
@@ -44,6 +44,8 @@ contract EmergencyProtectedTimelock is ITimelock {
 
     // executes scheduled call
     function execute(uint256 batchId) external {
+        // Until the emergency mode is deactivated manually, the execution of the calls is allowed
+        // only for the emergency committee
         if (_emergencyProtection.isEmergencyModeActivated()) {
             _emergencyProtection.validateIsCommittee(msg.sender);
         }
@@ -54,8 +56,12 @@ contract EmergencyProtectedTimelock is ITimelock {
         _scheduledCalls.removeCanceled(batchId);
     }
 
-    function setGovernance(address governance, uint256 delay) external onlyAdminExecutor {
+    function setGovernanceAndDelay(address governance, uint256 delay) external onlyAdminExecutor {
         _setGovernance(governance);
+        _scheduledCalls.setDelay(delay);
+    }
+
+    function setDelay(uint256 delay) external onlyAdminExecutor {
         _scheduledCalls.setDelay(delay);
     }
 
@@ -63,8 +69,8 @@ contract EmergencyProtectedTimelock is ITimelock {
         IOwnable(executor).transferOwnership(owner);
     }
 
-    function setEmergencyProtection(address committee, uint256 lifetime, uint256 duration) external onlyAdminExecutor {
-        _emergencyProtection.setup(committee, lifetime, duration);
+    function setEmergencyProtection(address committee, uint256 emergencyModeDuration) external onlyAdminExecutor {
+        _emergencyProtection.setup(committee, emergencyModeDuration);
     }
 
     function emergencyModeActivate() external {
@@ -72,11 +78,11 @@ contract EmergencyProtectedTimelock is ITimelock {
     }
 
     function emergencyModeDeactivate() external {
-        if (_emergencyProtection.isEmergencyModeActivated()) {
+        if (!_emergencyProtection.isEmergencyModePassed()) {
             _assertAdminExecutor();
         }
-        _scheduledCalls.cancelAll();
         _emergencyProtection.deactivate();
+        _scheduledCalls.cancelAll();
     }
 
     function emergencyResetGovernance() external {
@@ -108,7 +114,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     }
 
     function getIsExecutable(uint256 batchId) external view returns (bool isExecutable) {
-        isExecutable = _scheduledCalls.isExecutable(batchId);
+        isExecutable = !_emergencyProtection.isEmergencyModeActivated() && _scheduledCalls.isExecutable(batchId);
     }
 
     function getIsCanceled(uint256 batchId) external view returns (bool isExecutable) {

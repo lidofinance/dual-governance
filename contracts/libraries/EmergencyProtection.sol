@@ -4,11 +4,10 @@ pragma solidity 0.8.23;
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 struct EmergencyState {
-    bool isActive;
     address committee;
-    uint256 protectedTill;
-    uint256 emergencyModeEndsAfter;
+    bool isEmergencyModeActivated;
     uint256 emergencyModeDuration;
+    uint256 emergencyModeEndsAfter;
 }
 
 library EmergencyProtection {
@@ -28,40 +27,27 @@ library EmergencyProtection {
     struct State {
         // has rights to activate emergency mode
         address committee;
-        // till this time, the committee may activate the emergency mode
-        uint40 protectedTill;
         uint40 emergencyModeEndsAfter;
         uint32 emergencyModeDuration;
     }
 
-    function setup(State storage self, address committee, uint256 lifetime, uint256 duration) internal {
+    function setup(State storage self, address committee, uint256 emergencyModeDuration) internal {
         address prevCommittee = self.committee;
         if (prevCommittee != committee) {
             self.committee = committee;
             emit EmergencyCommitteeSet(committee);
         }
 
-        uint256 prevProtectedTill = self.protectedTill;
-        uint256 protectedTill = block.timestamp + lifetime;
-
-        if (prevProtectedTill != protectedTill) {
-            self.protectedTill = SafeCast.toUint40(protectedTill);
-            emit EmergencyCommitteeProtectedTillSet(protectedTill);
-        }
-
         uint256 prevDuration = self.emergencyModeDuration;
-        if (prevDuration != duration) {
-            self.emergencyModeDuration = SafeCast.toUint32(duration);
-            emit EmergencyModeDurationSet(duration);
+        if (prevDuration != emergencyModeDuration) {
+            self.emergencyModeDuration = SafeCast.toUint32(emergencyModeDuration);
+            emit EmergencyModeDurationSet(emergencyModeDuration);
         }
     }
 
     function activate(State storage self) internal {
         if (msg.sender != self.committee) {
             revert NotEmergencyCommittee(msg.sender);
-        }
-        if (block.timestamp > self.protectedTill) {
-            revert EmergencyCommitteeExpired();
         }
         if (self.emergencyModeEndsAfter != 0) {
             revert EmergencyModeAlreadyActive();
@@ -98,21 +84,23 @@ library EmergencyProtection {
     }
 
     function getEmergencyState(State storage self) internal view returns (EmergencyState memory res) {
-        res.isActive = isEmergencyModeActivated(self);
         res.committee = self.committee;
-        res.protectedTill = self.protectedTill;
-        res.emergencyModeEndsAfter = self.emergencyModeEndsAfter;
         res.emergencyModeDuration = self.emergencyModeDuration;
+        res.emergencyModeEndsAfter = self.emergencyModeEndsAfter;
+        res.isEmergencyModeActivated = isEmergencyModeActivated(self);
     }
 
     function isEmergencyModeActivated(State storage self) internal view returns (bool) {
+        return self.emergencyModeEndsAfter != 0;
+    }
+
+    function isEmergencyModePassed(State storage self) internal view returns (bool) {
         uint256 endsAfter = self.emergencyModeEndsAfter;
-        return endsAfter != 0 && endsAfter >= block.timestamp;
+        return endsAfter != 0 && block.timestamp > endsAfter;
     }
 
     function _reset(State storage self) private {
         self.committee = address(0);
-        self.protectedTill = 0;
         self.emergencyModeDuration = 0;
         self.emergencyModeEndsAfter = 0;
     }
