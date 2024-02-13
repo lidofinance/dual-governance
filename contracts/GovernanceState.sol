@@ -32,6 +32,7 @@ contract GovernanceState {
 
     uint256 internal _escrowIndex;
     Escrow internal _signallingEscrow;
+    Escrow internal _rageQuitEscrow;
 
     State internal _state;
     uint256 internal _stateEnteredAt;
@@ -55,6 +56,10 @@ contract GovernanceState {
 
     function signallingEscrow() external view returns (address) {
         return address(_signallingEscrow);
+    }
+
+    function rageQuitEscrow() external view returns (address) {
+        return address(_rageQuitEscrow);
     }
 
     function killAllPendingProposals() external {
@@ -254,15 +259,21 @@ contract GovernanceState {
     //
     function _activateRageQuit() internal {
         _setState(State.RageQuit);
-        _signallingEscrow.startRageQuit();
+        _rageQuitEscrow = _signallingEscrow;
+        _rageQuitEscrow.startRageQuit();
+        _deployNewSignallingEscrow();
     }
 
     function _activateNextStateFromRageQuit() internal {
-        if (!_signallingEscrow.isRageQuitFinalized()) {
+        if (!_rageQuitEscrow.isRageQuitFinalized()) {
             return;
         }
-        _deployNewSignallingEscrow();
-        _transitionRageQuitToNormal();
+
+        if (_isFirstThresholdReached()) {
+            _transitionRageQuitToVetoSignalling();
+        } else {
+            _transitionRageQuitToNormal();
+        }
     }
 
     //
