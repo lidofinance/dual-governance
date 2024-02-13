@@ -23,6 +23,8 @@ interface IERC20 {
     function approve(address spender, uint256 value) external returns (bool);
 
     function transferFrom(address from, address to, uint256 value) external returns (bool);
+
+    function transfer(address to, uint256 value) external returns (bool);
 }
 
 interface IStETH {
@@ -48,7 +50,7 @@ interface IWithdrawalQueue {
 
     function getLastFinalizedRequestId() external view returns (uint256);
 
-    function safeTransferFrom(address from, address to, uint256 requestId) external;
+    function transferFrom(address from, address to, uint256 requestId) external;
 
     function getWithdrawalStatus(uint256[] calldata _requestIds)
         external
@@ -75,10 +77,11 @@ contract Escrow {
     error NotClaimedWQRequests();
     error FinalizedRequest(uint256);
     error RequestNotFound(uint256 id);
+    error SenderIsNotAllowed();
 
     event RageQuitStarted();
     event WithdrawalsBatchRequested(
-        uint256 indexed firstRequestId, uint256 indexed lastRequestId, uint256 wstEthLeftToRequest
+        uint256 indexed firstRequestId, uint256 indexed lastRequestId, uint256 stEthLeftToRequest
     );
 
     enum State {
@@ -87,8 +90,15 @@ contract Escrow {
     }
 
     struct HolderState {
-        uint256 wstEthInEthShares;
         uint256 stEthInEthShares;
+        uint256 wstEthInEthShares;
+        uint256 wqRequestsBalance;
+        uint256 finalizedWqRequestsBalance;
+    }
+
+    struct Balance {
+        uint256 stEth;
+        uint256 wstEth;
         uint256 wqRequestsBalance;
         uint256 finalizedWqRequestsBalance;
     }
@@ -114,8 +124,8 @@ contract Escrow {
     uint256 internal _rageQuitAmountRequested;
     uint256 internal _lastWithdrawalRequestId;
 
-    mapping(address => HolderState) private balances;
-    mapping(uint256 => WithdrawalRequestStatus) private wqRequests;
+    mapping(address => HolderState) private _balances;
+    mapping(uint256 => WithdrawalRequestStatus) private _wqRequests;
 
     constructor(address config, address stEth, address wstEth, address withdrawalQueue, address burnerVault) {
         CONFIG = Configuration(config);
@@ -123,18 +133,31 @@ contract Escrow {
         WST_ETH = wstEth;
         WITHDRAWAL_QUEUE = withdrawalQueue;
         BURNER_VAULT = burnerVault;
+
+        _govState = address(this);
     }
 
     function initialize(address governanceState) external {
         if (_govState != address(0)) {
             revert Unauthorized();
         }
+        _totalStEthInEthLocked = 1;
+        _totalEscrowShares = 1;
         _govState = governanceState;
     }
 
     ///
     /// Staker interface
     ///
+    function balanceOf(address holder) public view returns (Balance memory balance) {
+        HolderState memory state = _balances[holder];
+
+        balance.stEth = _getETHByShares(state.stEthInEthShares);
+        balance.wstEth = IStETH(ST_ETH).getSharesByPooledEth(_getETHByShares(state.wstEthInEthShares));
+        balance.wqRequestsBalance = state.wqRequestsBalance;
+        balance.finalizedWqRequestsBalance = state.finalizedWqRequestsBalance;
+    }
+
     function lockStEth(uint256 amount) external {
         if (_state != State.Signalling) {
             revert InvalidState();
@@ -144,7 +167,7 @@ contract Escrow {
 
         uint256 shares = _getSharesByETH(amount);
 
-        balances[msg.sender].stEthInEthShares += shares;
+        _balances[msg.sender].stEthInEthShares += shares;
         _totalEscrowShares += shares;
         _totalStEthInEthLocked += amount;
 
@@ -161,7 +184,7 @@ contract Escrow {
         uint256 amountInEth = IStETH(ST_ETH).getPooledEthByShares(amount);
         uint256 shares = _getSharesByETH(amountInEth);
 
-        balances[msg.sender].wstEthInEthShares = amountInEth;
+        _balances[msg.sender].wstEthInEthShares = shares;
         _totalEscrowShares += shares;
         _totalWstEthInEthLocked += amountInEth;
 
@@ -184,12 +207,12 @@ contract Escrow {
                 revert FinalizedRequest(id);
             }
 
-            IWithdrawalQueue(WITHDRAWAL_QUEUE).safeTransferFrom(sender, address(this), id);
-            wqRequests[id] = wqRequestStatuses[i];
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).transferFrom(sender, address(this), id);
+            _wqRequests[id] = wqRequestStatuses[i];
             wqRequestsAmount += wqRequestStatuses[i].amountOfStETH;
         }
 
-        balances[sender].wqRequestsBalance += wqRequestsAmount;
+        _balances[sender].wqRequestsBalance += wqRequestsAmount;
         _totalWithdrawalNftsAmountLocked += wqRequestsAmount;
 
         _activateNextGovernanceState();
@@ -201,14 +224,16 @@ contract Escrow {
             revert InvalidState();
         }
 
+        burnRewards();
+
         address sender = msg.sender;
-        uint256 shares = balances[sender].stEthInEthShares;
-        uint256 amount = _getETHByShares(shares);
+        uint256 escrowShares = _balances[sender].stEthInEthShares;
+        uint256 amount = _getETHByShares(escrowShares);
 
-        IERC20(ST_ETH).transferFrom(address(this), sender, amount);
+        IERC20(ST_ETH).transfer(sender, amount);
 
-        balances[sender].stEthInEthShares = 0;
-        _totalEscrowShares -= shares;
+        _balances[sender].stEthInEthShares = 0;
+        _totalEscrowShares -= escrowShares;
         _totalStEthInEthLocked -= amount;
 
         _activateNextGovernanceState();
@@ -220,14 +245,16 @@ contract Escrow {
             revert InvalidState();
         }
 
+        burnRewards();
+
         address sender = msg.sender;
-        uint256 escrowShares = balances[sender].wstEthInEthShares;
+        uint256 escrowShares = _balances[sender].wstEthInEthShares;
         uint256 amount = _getETHByShares(escrowShares);
         uint256 amountInShares = IStETH(ST_ETH).getSharesByPooledEth(amount);
 
-        IERC20(WST_ETH).transferFrom(address(this), sender, amountInShares);
+        IERC20(WST_ETH).transfer(sender, amountInShares);
 
-        balances[sender].wstEthInEthShares = 0;
+        _balances[sender].wstEthInEthShares = 0;
         _totalEscrowShares -= escrowShares;
         _totalWstEthInEthLocked -= amount;
 
@@ -248,20 +275,20 @@ contract Escrow {
 
         for (uint256 i = 0; i < ids.length; ++i) {
             uint256 id = ids[i];
-            if (wqRequests[ids[i]].owner == sender) {
+            if (_wqRequests[ids[i]].owner != sender) {
                 revert SenderIsNotOwner(id);
             }
-            IWithdrawalQueue(WITHDRAWAL_QUEUE).safeTransferFrom(address(this), sender, id);
-            wqRequests[id].owner = address(0);
-            if (wqRequests[id].isFinalized == true) {
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).transferFrom(address(this), sender, id);
+            _wqRequests[id].owner = address(0);
+            if (_wqRequests[id].isFinalized == true) {
                 finalizedWqRequestsAmount += wqRequestStatuses[i].amountOfStETH;
             } else {
                 wqRequestsAmount += wqRequestStatuses[i].amountOfStETH;
             }
         }
 
-        balances[sender].wqRequestsBalance -= wqRequestsAmount;
-        balances[sender].finalizedWqRequestsBalance -= finalizedWqRequestsAmount;
+        _balances[sender].wqRequestsBalance -= wqRequestsAmount;
+        _balances[sender].finalizedWqRequestsBalance -= finalizedWqRequestsAmount;
         _totalWithdrawalNftsAmountLocked -= wqRequestsAmount;
         _totalFinalizedWithdrawalNftsAmountLocked -= finalizedWqRequestsAmount;
 
@@ -273,18 +300,18 @@ contract Escrow {
             revert InvalidState();
         }
 
-        if (_claimedWQRequestsAmount < (_totalStEthInEthLocked + _totalWstEthInEthLocked)) {
+        if (_claimedWQRequestsAmount < _rageQuitAmountTotal) {
             revert NotClaimedWQRequests();
         }
 
         address sender = msg.sender;
-        HolderState memory state = balances[sender];
+        HolderState memory state = _balances[sender];
 
         uint256 ethToClaim =
             (state.stEthInEthShares + state.wqRequestsBalance) * _rageQuitAmountTotal / _totalEscrowShares;
 
-        balances[sender].stEthInEthShares = 0;
-        balances[sender].wstEthInEthShares = 0;
+        _balances[sender].stEthInEthShares = 0;
+        _balances[sender].wstEthInEthShares = 0;
 
         payable(sender).transfer(ethToClaim);
     }
@@ -294,32 +321,29 @@ contract Escrow {
     ///
 
     function burnRewards() public {
-        if (_state != State.RageQuit) {
-            revert InvalidState();
-        }
-
+        uint256 minRewardsAmount = 1e9;
         uint256 wstEthLocked = IStETH(ST_ETH).getSharesByPooledEth(_totalWstEthInEthLocked);
         uint256 wstEthBalance = IERC20(WST_ETH).balanceOf(address(this));
 
         uint256 stEthBalance = IERC20(ST_ETH).balanceOf(address(this));
 
-        if (wstEthLocked > wstEthBalance) {
-            _totalWstEthInEthLocked = IStETH(ST_ETH).getPooledEthByShares(wstEthBalance);
-        } else {
+        if (wstEthLocked + minRewardsAmount < wstEthBalance) {
             uint256 wstEthRewards = wstEthBalance - wstEthLocked;
             IWstETH(WST_ETH).unwrap(wstEthRewards);
+        }
+        if (wstEthLocked > wstEthBalance) {
+            _totalWstEthInEthLocked = IStETH(ST_ETH).getPooledEthByShares(wstEthBalance);
         }
 
         uint256 stEthRewards = 0;
 
-        if (_totalStEthInEthLocked > stEthBalance) {
-            _totalStEthInEthLocked = stEthBalance;
-        } else {
+        if (_totalStEthInEthLocked < stEthBalance) {
             stEthBalance = IERC20(ST_ETH).balanceOf(address(this));
             stEthRewards = stEthBalance - _totalStEthInEthLocked;
+            IERC20(ST_ETH).transfer(BURNER_VAULT, stEthRewards);
+        } else {
+            _totalStEthInEthLocked = stEthBalance;
         }
-
-        IERC20(ST_ETH).transferFrom(address(this), BURNER_VAULT, stEthRewards);
     }
 
     function checkForFinalization(uint256[] memory ids) public {
@@ -331,20 +355,20 @@ contract Escrow {
 
         for (uint256 i = 0; i < ids.length; ++i) {
             uint256 id = ids[i];
-            address requestOwner = wqRequests[ids[i]].owner;
+            address requestOwner = _wqRequests[ids[i]].owner;
 
             if (requestOwner == address(0)) {
                 revert RequestNotFound(id);
             }
 
-            if (wqRequests[id].isFinalized == false && wqRequestStatuses[i].isFinalized == true) {
-                _totalWithdrawalNftsAmountLocked -= wqRequests[id].amountOfStETH;
+            if (_wqRequests[id].isFinalized == false && wqRequestStatuses[i].isFinalized == true) {
+                _totalWithdrawalNftsAmountLocked -= _wqRequests[id].amountOfStETH;
                 _totalFinalizedWithdrawalNftsAmountLocked += wqRequestStatuses[i].amountOfStETH;
-                balances[requestOwner].wqRequestsBalance -= wqRequests[id].amountOfStETH;
-                balances[requestOwner].finalizedWqRequestsBalance += wqRequestStatuses[i].amountOfStETH;
+                _balances[requestOwner].wqRequestsBalance -= _wqRequests[id].amountOfStETH;
+                _balances[requestOwner].finalizedWqRequestsBalance += wqRequestStatuses[i].amountOfStETH;
 
-                wqRequests[id].amountOfStETH = wqRequestStatuses[i].amountOfStETH;
-                wqRequests[id].isFinalized = true;
+                _wqRequests[id].amountOfStETH = wqRequestStatuses[i].amountOfStETH;
+                _wqRequests[id].isFinalized = true;
             }
         }
     }
@@ -356,7 +380,7 @@ contract Escrow {
             _totalStEthInEthLocked + _totalWstEthInEthLocked + _totalWithdrawalNftsAmountLocked;
         rageQuitSupport = (totalRageQuitStEthLocked * 10 ** 18) / stEthTotalSupply;
 
-        uint256 totalStakedEthLocked = totalRageQuitStEthLocked + _totalWithdrawalNftsAmountLocked;
+        uint256 totalStakedEthLocked = totalRageQuitStEthLocked + _totalFinalizedWithdrawalNftsAmountLocked;
         totalSupport = (totalStakedEthLocked * 10 ** 18) / stEthTotalSupply;
     }
 
@@ -373,7 +397,7 @@ contract Escrow {
         assert(_rageQuitAmountRequested == 0);
         assert(_lastWithdrawalRequestId == 0);
 
-        _rageQuitAmountTotal = _totalWstEthInEthLocked + _totalStEthInEthLocked;
+        _rageQuitAmountTotal = _totalStEthInEthLocked + _totalWstEthInEthLocked;
 
         _state = State.RageQuit;
 
@@ -388,7 +412,7 @@ contract Escrow {
     }
 
     function requestNextWithdrawalsBatch(uint256 maxNumRequests) external returns (uint256, uint256, uint256) {
-        if (_state == State.RageQuit) {
+        if (_state != State.RageQuit) {
             revert InvalidState();
         }
 
@@ -433,6 +457,13 @@ contract Escrow {
 
         uint256[] memory reqIds = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, address(this));
 
+        WithdrawalRequestStatus[] memory wqRequestStatuses =
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getWithdrawalStatus(reqIds);
+
+        for (uint256 i = 0; i < reqIds.length; ++i) {
+            _wqRequests[reqIds[i]] = wqRequestStatuses[i];
+        }
+
         uint256 lastRequestId = reqIds[reqIds.length - 1];
         _lastWithdrawalRequestId = lastRequestId;
 
@@ -457,16 +488,22 @@ contract Escrow {
 
         for (uint256 i = 0; i < requestIds.length; ++i) {
             uint256 id = requestIds[i];
-            address owner = wqRequests[id].owner;
+            address owner = _wqRequests[id].owner;
             if (owner == address(this)) {
                 _claimedWQRequestsAmount += wqRequestStatuses[i].amountOfStETH;
             } else {
-                balances[owner].finalizedWqRequestsBalance += wqRequestStatuses[i].amountOfStETH;
-                balances[owner].wqRequestsBalance -= wqRequests[id].amountOfStETH;
+                _balances[owner].finalizedWqRequestsBalance += wqRequestStatuses[i].amountOfStETH;
+                _balances[owner].wqRequestsBalance -= _wqRequests[id].amountOfStETH;
 
                 _totalFinalizedWithdrawalNftsAmountLocked += wqRequestStatuses[i].amountOfStETH;
-                _totalWithdrawalNftsAmountLocked -= wqRequests[id].amountOfStETH;
+                _totalWithdrawalNftsAmountLocked -= _wqRequests[id].amountOfStETH;
             }
+        }
+    }
+
+    receive() external payable {
+        if (msg.sender != WITHDRAWAL_QUEUE) {
+            revert SenderIsNotAllowed();
         }
     }
 
