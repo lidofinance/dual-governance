@@ -2,6 +2,7 @@
 pragma solidity 0.8.23;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 import {Escrow} from "contracts/Escrow.sol";
@@ -35,6 +36,7 @@ contract GovernanceStateTransitions is DualGovernanceSetup {
             WST_ETH,
             WITHDRAWAL_QUEUE,
             BURNER,
+            DAO_VOTING,
             timelockDuration,
             timelockEmergencyMultisig,
             timelockEmergencyMultisigActiveFor
@@ -43,42 +45,55 @@ contract GovernanceStateTransitions is DualGovernanceSetup {
         dualGov = deployed.dualGov;
     }
 
-    function test_normal_to_signalling_transition() public {
+    function test_signalling_state_min_duration() public {
         assertEq(dualGov.currentState(), GovernanceState.State.Normal);
 
-        updateVetoSupportInBps(300);
+        updateVetoSupportInPercent(3 * 10 ** 16);
         updateVetoSupport(1);
 
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
 
+        uint256 signallingDuration = dualGov.CONFIG().signallingMinDuration();
 
-        uint256 minProposalExecutionTimelock = dualGov.CONFIG().signallingMinDuration();
-
-        vm.warp(block.timestamp + (minProposalExecutionTimelock / 2));
+        vm.warp(block.timestamp + (signallingDuration / 2));
         updateVetoSupport(1);
 
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
 
-        // vm.warp(block.timestamp + minProposalExecutionTimelock / 2);
-        // updateVetoSupport(1);
+        vm.warp(block.timestamp + signallingDuration / 2);
+        updateVetoSupport(1);
 
-        // assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
     }
 
-    function updateVetoSupportInBps(uint256 supportInBps) internal {
+    function test_signalling_state_max_duration() public {
+        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+
+        updateVetoSupportInPercent(15 * 10 ** 16 + 1);
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+
+        uint256 signallingDuration = dualGov.CONFIG().signallingMaxDuration();
+
+        vm.warp(block.timestamp + (signallingDuration / 2));
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+
+        vm.warp(block.timestamp + signallingDuration / 2 + 1000);
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.RageQuit);
+    }
+
+    function updateVetoSupportInPercent(uint256 supportInPercent) internal {
         Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
+        uint256 newVetoSupport = (supportInPercent * IERC20(ST_ETH).totalSupply()) / 10 ** 18;
 
-        uint256 newVetoSupport = (supportInBps * IERC20(ST_ETH).totalSupply()) / 10_000;
-        (uint256 currentVetoSupport,) = signallingEscrow.getSignallingState();
+        vm.prank(stEthWhale);
+        // signallingEscrow.unlockStEth();
 
-        if (newVetoSupport > currentVetoSupport) {
-            updateVetoSupport(newVetoSupport - currentVetoSupport);
-        } else if (newVetoSupport < currentVetoSupport) {
-            vm.prank(stEthWhale);
-            signallingEscrow.unlockStEth();
-            updateVetoSupport(newVetoSupport);
-        }
-
+        updateVetoSupport(newVetoSupport);
         vm.stopPrank();
 
         (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
@@ -90,7 +105,6 @@ contract GovernanceStateTransitions is DualGovernanceSetup {
         Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
         vm.startPrank(stEthWhale);
         IERC20(ST_ETH).approve(address(signallingEscrow), amount);
-        console.log('steth locked:', amount);
         signallingEscrow.lockStEth(amount);
         vm.stopPrank();
     }
