@@ -78,6 +78,8 @@ contract Escrow {
     error FinalizedRequest(uint256);
     error RequestNotFound(uint256 id);
     error SenderIsNotAllowed();
+    error RequestIsNotFromBatch(uint256 id);
+    error RequestFromBatch(uint256 id);
 
     event RageQuitAccumulationStarted();
     event RageQuitStarted();
@@ -95,6 +97,15 @@ contract Escrow {
         uint256 wstEthInEthShares;
         uint256 wqRequestsBalance;
         uint256 finalizedWqRequestsBalance;
+        // uint256[] wqRequestIds;
+        uint256 eth;
+    }
+
+    struct WithdrawalRequest {
+        uint256 stEthInEthShares;
+        uint256 wstEthInEthShares;
+        uint256 wqRequestsBalance;
+        uint256 finalizedWqRequestsBalance;
     }
 
     struct Balance {
@@ -102,6 +113,8 @@ contract Escrow {
         uint256 wstEth;
         uint256 wqRequestsBalance;
         uint256 finalizedWqRequestsBalance;
+        // WithdrawalReqsuest[] wqRequests;
+        uint256 eth;
     }
 
     Configuration internal immutable CONFIG;
@@ -117,6 +130,7 @@ contract Escrow {
     uint256 internal _totalWstEthInEthLocked;
     uint256 internal _totalWithdrawalNftsAmountLocked;
     uint256 internal _totalFinalizedWithdrawalNftsAmountLocked;
+    uint256 internal _totalClaimedEthLocked;
 
     uint256 internal _totalEscrowShares;
     uint256 internal _claimedWQRequestsAmount;
@@ -157,6 +171,7 @@ contract Escrow {
         balance.wstEth = IStETH(ST_ETH).getSharesByPooledEth(_getETHByShares(state.wstEthInEthShares));
         balance.wqRequestsBalance = state.wqRequestsBalance;
         balance.finalizedWqRequestsBalance = state.finalizedWqRequestsBalance;
+        balance.eth = state.eth;
     }
 
     function lockStEth(uint256 amount) external {
@@ -308,13 +323,17 @@ contract Escrow {
         address sender = msg.sender;
         HolderState memory state = _balances[sender];
 
-        uint256 ethToClaim =
-            (state.stEthInEthShares + state.wqRequestsBalance) * _rageQuitAmountTotal / _totalEscrowShares;
+        uint256 ethToClaim = _getETHByShares(state.stEthInEthShares);
+        ethToClaim += _getETHByShares(state.wstEthInEthShares);
+        ethToClaim += _balances[sender].eth;
 
         _balances[sender].stEthInEthShares = 0;
         _balances[sender].wstEthInEthShares = 0;
+        _balances[sender].eth = 0;
 
-        payable(sender).transfer(ethToClaim);
+        if (ethToClaim > 0) {
+            payable(sender).transfer(ethToClaim);
+        }
     }
 
     ///
@@ -381,7 +400,8 @@ contract Escrow {
             _totalStEthInEthLocked + _totalWstEthInEthLocked + _totalWithdrawalNftsAmountLocked;
         rageQuitSupport = (totalRageQuitStEthLocked * 10 ** 18) / stEthTotalSupply;
 
-        uint256 totalStakedEthLocked = totalRageQuitStEthLocked + _totalFinalizedWithdrawalNftsAmountLocked;
+        uint256 totalStakedEthLocked =
+            totalRageQuitStEthLocked + _totalFinalizedWithdrawalNftsAmountLocked + _totalClaimedEthLocked;
         totalSupport = (totalStakedEthLocked * 10 ** 18) / stEthTotalSupply;
     }
 
@@ -490,15 +510,36 @@ contract Escrow {
         for (uint256 i = 0; i < requestIds.length; ++i) {
             uint256 id = requestIds[i];
             address owner = _wqRequests[id].owner;
-            if (owner == address(this)) {
-                _claimedWQRequestsAmount += wqRequestStatuses[i].amountOfStETH;
-            } else {
-                _balances[owner].finalizedWqRequestsBalance += wqRequestStatuses[i].amountOfStETH;
-                _balances[owner].wqRequestsBalance -= _wqRequests[id].amountOfStETH;
-
-                _totalFinalizedWithdrawalNftsAmountLocked += wqRequestStatuses[i].amountOfStETH;
-                _totalWithdrawalNftsAmountLocked -= _wqRequests[id].amountOfStETH;
+            if (owner != address(this)) {
+                revert RequestIsNotFromBatch(id);
             }
+            _claimedWQRequestsAmount += wqRequestStatuses[i].amountOfStETH;
+        }
+    }
+
+    function claimWithdrawalRequests(uint256[] calldata requestIds, uint256[] calldata hints) external {
+        IWithdrawalQueue(WITHDRAWAL_QUEUE).claimWithdrawals(requestIds, hints);
+
+        WithdrawalRequestStatus[] memory wqRequestStatuses =
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getWithdrawalStatus(requestIds);
+
+        for (uint256 i = 0; i < requestIds.length; ++i) {
+            uint256 id = requestIds[i];
+            WithdrawalRequestStatus memory request = _wqRequests[id];
+            address owner = request.owner;
+            if (owner == address(this) || owner == address(0)) {
+                revert RequestFromBatch(id);
+            }
+
+            if (request.isFinalized) {
+                _balances[owner].finalizedWqRequestsBalance -= request.amountOfStETH;
+                _totalFinalizedWithdrawalNftsAmountLocked -= request.amountOfStETH;
+            } else {
+                _balances[owner].wqRequestsBalance -= request.amountOfStETH;
+                _totalWithdrawalNftsAmountLocked -= request.amountOfStETH;
+            }
+            _balances[owner].eth += wqRequestStatuses[i].amountOfStETH;
+            _totalClaimedEthLocked += wqRequestStatuses[i].amountOfStETH;
         }
     }
 

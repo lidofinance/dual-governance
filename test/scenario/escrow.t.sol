@@ -32,16 +32,17 @@ contract TestHelpers is DualGovernanceSetup {
         );
     }
 
-    function setLastFinalizedId(uint256 newLastFinalizedId) public {
-        bytes32 LAST_FINALIZED_REQUEST_ID_POSITION = 0x992f2e0c24ce59a21f2dab8bba13b25c2f872129df7f4d45372155e717db0c48; // keccak256("lido.WithdrawalQueue.lastFinalizedRequestId");
-
-        uint256 currentLastFinalizedId = uint256(vm.load(WITHDRAWAL_QUEUE, LAST_FINALIZED_REQUEST_ID_POSITION));
-
-        assertEq(newLastFinalizedId > currentLastFinalizedId, true);
-        vm.store(WITHDRAWAL_QUEUE, LAST_FINALIZED_REQUEST_ID_POSITION, bytes32(newLastFinalizedId));
+    function finalizeWQ() public {
+        uint256 lastRequestId = IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastRequestId();
+        finalizeWQ(lastRequestId);
     }
 
-    function updateLockedEtherAmount() public {
+    function finalizeWQ(uint256 id) public {
+        uint256 finalizationShareRate = IStEth(ST_ETH).getPooledEthByShares(1e27) + 1e9; // TODO check finalization rate
+        address lido = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+        vm.prank(lido);
+        IWithdrawalQueue(WITHDRAWAL_QUEUE).finalize(id, finalizationShareRate);
+
         bytes32 LOCKED_ETHER_AMOUNT_POSITION = 0x0e27eaa2e71c8572ab988fef0b54cd45bbd1740de1e22343fb6cda7536edc12f; // keccak256("lido.WithdrawalQueue.lockedEtherAmount");
 
         vm.store(WITHDRAWAL_QUEUE, LOCKED_ETHER_AMOUNT_POSITION, bytes32(address(WITHDRAWAL_QUEUE).balance));
@@ -207,15 +208,14 @@ contract EscrowHappyPath is TestHelpers {
             amounts[i] = 1e18;
         }
 
-        vm.startPrank(stEthHolder1);
+        vm.prank(stEthHolder1);
         uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, stEthHolder1);
 
-        setLastFinalizedId(ids[1]);
+        finalizeWQ();
 
+        vm.prank(stEthHolder1);
         vm.expectRevert();
         escrow.lockWithdrawalNFT(ids);
-
-        vm.stopPrank();
     }
 
     function test_check_finalization() public {
@@ -233,7 +233,7 @@ contract EscrowHappyPath is TestHelpers {
         assertEq(balance.wqRequestsBalance, 2 * 1e18);
         assertEq(balance.finalizedWqRequestsBalance, 0);
 
-        setLastFinalizedId(ids[0]);
+        finalizeWQ(ids[0]);
         escrow.checkForFinalization(ids);
 
         balance = escrow.balanceOf(stEthHolder1);
@@ -262,7 +262,7 @@ contract EscrowHappyPath is TestHelpers {
         assertEq(totalSupport, 4 * 1e18 * 1e18 / totalSupply);
         assertEq(rageQuitSupport, 4 * 1e18 * 1e18 / totalSupply);
 
-        setLastFinalizedId(ids[0]);
+        finalizeWQ(ids[0]);
         escrow.checkForFinalization(ids);
 
         balance = escrow.balanceOf(stEthHolder1);
@@ -305,7 +305,8 @@ contract EscrowHappyPath is TestHelpers {
         assertEq(IWithdrawalQueue(WITHDRAWAL_QUEUE).balanceOf(address(escrow)), 50);
         assertEq(escrow.isRageQuitFinalized(), false);
 
-        setLastFinalizedId(IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastRequestId());
+        vm.deal(WITHDRAWAL_QUEUE, 1000 * requestAmount);
+        finalizeWQ();
 
         uint256[] memory hints = IWithdrawalQueue(WITHDRAWAL_QUEUE).findCheckpointHints(
             ids,
@@ -313,7 +314,7 @@ contract EscrowHappyPath is TestHelpers {
             IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastCheckpointIndex()
         );
 
-        escrow.claimNextETHBatch(ids, hints);
+        escrow.claimWithdrawalRequests(ids, hints);
 
         assertEq(escrow.isRageQuitFinalized(), true);
 
@@ -332,14 +333,44 @@ contract EscrowHappyPath is TestHelpers {
             IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastCheckpointIndex()
         );
 
-        vm.deal(WITHDRAWAL_QUEUE, 100 * requestAmount);
-        updateLockedEtherAmount();
-
         vm.expectRevert();
         vm.prank(stEthHolder1);
         escrow.claimETH();
 
         escrow.claimNextETHBatch(escrowRequestIds, escrowRequestHints);
+
+        vm.prank(stEthHolder1);
+        escrow.claimETH();
+    }
+
+    function test_wq_requests_only_happy_path() public {
+        uint256 requestAmount = 10 * 1e18;
+        uint256 requestsCount = 10;
+        uint256[] memory amounts = new uint256[](requestsCount);
+        for (uint256 i = 0; i < requestsCount; ++i) {
+            amounts[i] = requestAmount;
+        }
+
+        vm.prank(stEthHolder1);
+        uint256[] memory ids = IWithdrawalQueue(WITHDRAWAL_QUEUE).requestWithdrawals(amounts, stEthHolder1);
+
+        lockAssets(stEthHolder1, 0, 0, ids);
+
+        vm.prank(address(govState));
+        escrow.startRageQuit();
+
+        vm.deal(WITHDRAWAL_QUEUE, 100 * requestAmount);
+        finalizeWQ();
+
+        uint256[] memory hints = IWithdrawalQueue(WITHDRAWAL_QUEUE).findCheckpointHints(
+            ids,
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastCheckpointIndex() - 2,
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).getLastCheckpointIndex()
+        );
+
+        escrow.claimWithdrawalRequests(ids, hints);
+
+        assertEq(escrow.isRageQuitFinalized(), true);
 
         vm.prank(stEthHolder1);
         escrow.claimETH();
@@ -382,9 +413,11 @@ contract EscrowHappyPath is TestHelpers {
                 balanceBefore.stEth + stEthAmountToLock,
                 balanceBefore.wstEth + wstEthAmountToLock,
                 balanceBefore.wqRequestsBalance + wqRequestsAmount,
-                balanceBefore.finalizedWqRequestsBalance
+                balanceBefore.finalizedWqRequestsBalance,
+                0
             )
         );
+        // new uint256[](0)
 
         assertApproxEqAbs(IERC20(ST_ETH).balanceOf(owner), stEthBalanceBefore - stEthAmountToLock, 3);
         assertEq(IERC20(WST_ETH).balanceOf(owner), wstEthBalanceBefore - wstEthAmountToLock);
@@ -435,9 +468,11 @@ contract EscrowHappyPath is TestHelpers {
                 unlockStEth ? 0 : balanceBefore.stEth,
                 unlockWstEth ? 0 : balanceBefore.wstEth,
                 balanceBefore.wqRequestsBalance - wqRequestsAmount,
-                balanceBefore.finalizedWqRequestsBalance
+                balanceBefore.finalizedWqRequestsBalance,
+                0
             )
         );
+        // new uint256[](0)
 
         uint256 expectedStEthAmount = uint256(int256(balanceBefore.stEth) * (10000 + rebaseBP) / 10000);
         uint256 expectedWstEthAmount = uint256(int256(balanceBefore.wstEth) * (10000 + rebaseBP) / 10000);

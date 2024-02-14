@@ -72,4 +72,7 @@ interface IWithdrawalQueue {
         uint256 _lastIndex
     ) external view returns (uint256[] memory hintIds);
     function getLastCheckpointIndex() external view returns (uint256);
+    function claimWithdrawals(uint256[] calldata requestIds, uint256[] calldata hints) external;
+    function getLastFinalizedRequestId() external view returns (uint256);
+    function finalize(uint256 _lastRequestIdToBeFinalized, uint256 _maxShareRate) external payable;
 }
