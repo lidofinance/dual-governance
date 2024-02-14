@@ -69,7 +69,7 @@ contract GovernanceStateTransitions is DualGovernanceSetup {
     function test_signalling_state_max_duration() public {
         assertEq(dualGov.currentState(), GovernanceState.State.Normal);
 
-        updateVetoSupportInPercent(15 * 10 ** 16 + 1);
+        updateVetoSupportInPercent(15 * 10 ** 16);
 
         assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
 
@@ -87,7 +87,7 @@ contract GovernanceStateTransitions is DualGovernanceSetup {
     }
 
     function updateVetoSupportInPercent(uint256 supportInPercent) internal {
-        Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
+        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
         uint256 newVetoSupport = (supportInPercent * IERC20(ST_ETH).totalSupply()) / 10 ** 18;
 
         vm.prank(stEthWhale);
@@ -102,7 +102,7 @@ contract GovernanceStateTransitions is DualGovernanceSetup {
     }
 
     function updateVetoSupport(uint256 amount) internal {
-        Escrow signallingEscrow = Escrow(dualGov.signallingEscrow());
+        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
         vm.startPrank(stEthWhale);
         IERC20(ST_ETH).approve(address(signallingEscrow), amount);
         signallingEscrow.lockStEth(amount);
