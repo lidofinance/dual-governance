@@ -97,8 +97,8 @@ contract Escrow {
         uint256 wstEthInEthShares;
         uint256 wqRequestsBalance;
         uint256 finalizedWqRequestsBalance;
-        // uint256[] wqRequestIds;
         uint256 eth;
+        uint256[] wqRequestIds;
     }
 
     struct WithdrawalRequest {
@@ -113,8 +113,8 @@ contract Escrow {
         uint256 wstEth;
         uint256 wqRequestsBalance;
         uint256 finalizedWqRequestsBalance;
-        // WithdrawalReqsuest[] wqRequests;
         uint256 eth;
+        uint256[] wqRequestIds;
     }
 
     Configuration internal immutable CONFIG;
@@ -172,6 +172,7 @@ contract Escrow {
         balance.wqRequestsBalance = state.wqRequestsBalance;
         balance.finalizedWqRequestsBalance = state.finalizedWqRequestsBalance;
         balance.eth = state.eth;
+        balance.wqRequestIds = state.wqRequestIds;
     }
 
     function lockStEth(uint256 amount) external {
@@ -226,6 +227,7 @@ contract Escrow {
             IWithdrawalQueue(WITHDRAWAL_QUEUE).transferFrom(sender, address(this), id);
             _wqRequests[id] = wqRequestStatuses[i];
             wqRequestsAmount += wqRequestStatuses[i].amountOfStETH;
+            _balances[sender].wqRequestIds.push(ids[i]);
         }
 
         _balances[sender].wqRequestsBalance += wqRequestsAmount;
@@ -527,6 +529,7 @@ contract Escrow {
             uint256 id = requestIds[i];
             WithdrawalRequestStatus memory request = _wqRequests[id];
             address owner = request.owner;
+
             if (owner == address(this) || owner == address(0)) {
                 revert RequestFromBatch(id);
             }
@@ -540,6 +543,15 @@ contract Escrow {
             }
             _balances[owner].eth += wqRequestStatuses[i].amountOfStETH;
             _totalClaimedEthLocked += wqRequestStatuses[i].amountOfStETH;
+
+            for (uint256 idx = 0; i < _balances[owner].wqRequestIds.length; i++) {
+                if (_balances[owner].wqRequestIds[idx] == requestIds[i]) {
+                    _balances[owner].wqRequestIds[idx] =
+                        _balances[owner].wqRequestIds[_balances[owner].wqRequestIds.length - 1];
+                    _balances[owner].wqRequestIds.pop();
+                    break;
+                }
+            }
         }
     }
 

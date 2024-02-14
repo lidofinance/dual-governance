@@ -414,10 +414,10 @@ contract EscrowHappyPath is TestHelpers {
                 balanceBefore.wstEth + wstEthAmountToLock,
                 balanceBefore.wqRequestsBalance + wqRequestsAmount,
                 balanceBefore.finalizedWqRequestsBalance,
-                0
+                0,
+                new uint256[](0)
             )
         );
-        // new uint256[](0)
 
         assertApproxEqAbs(IERC20(ST_ETH).balanceOf(owner), stEthBalanceBefore - stEthAmountToLock, 3);
         assertEq(IERC20(WST_ETH).balanceOf(owner), wstEthBalanceBefore - wstEthAmountToLock);
@@ -469,10 +469,10 @@ contract EscrowHappyPath is TestHelpers {
                 unlockWstEth ? 0 : balanceBefore.wstEth,
                 balanceBefore.wqRequestsBalance - wqRequestsAmount,
                 balanceBefore.finalizedWqRequestsBalance,
-                0
+                0,
+                new uint256[](0)
             )
         );
-        // new uint256[](0)
 
         uint256 expectedStEthAmount = uint256(int256(balanceBefore.stEth) * (10000 + rebaseBP) / 10000);
         uint256 expectedWstEthAmount = uint256(int256(balanceBefore.wstEth) * (10000 + rebaseBP) / 10000);
