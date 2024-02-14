@@ -9,9 +9,10 @@ import {Escrow} from "contracts/Escrow.sol";
 
 import {DualGovernanceSetup} from "./setup.sol";
 import {DualGovernanceUtils} from "./happy-path.t.sol";
+import {TestHelpers} from './escrow.t.sol';
 import "../utils/utils.sol";
 
-contract GovernanceStateTransitions is DualGovernanceSetup {
+contract GovernanceStateTransitions is TestHelpers {
     DualGovernance internal dualGov;
 
     address internal ldoWhale;
@@ -85,6 +86,84 @@ contract GovernanceStateTransitions is DualGovernanceSetup {
 
         assertEq(dualGov.currentState(), GovernanceState.State.RageQuit);
     }
+
+    function test_signalling_to_normal() public {
+        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+
+        updateVetoSupportInPercent(3 * 10 ** 16 + 1);
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+
+        uint256 signallingDuration = dualGov.CONFIG().signallingMinDuration();
+
+        vm.warp(block.timestamp + signallingDuration);
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
+
+        uint256 signallingDeactivationDuration = dualGov.CONFIG().signallingDeactivationDuration();
+
+        vm.warp(block.timestamp + signallingDeactivationDuration);
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoCooldown);
+
+        uint256 signallingCooldownDuration = dualGov.CONFIG().signallingCooldownDuration();
+
+        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
+        vm.prank(stEthWhale);
+        signallingEscrow.unlockStEth();
+
+        vm.warp(block.timestamp + signallingCooldownDuration);
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+    }
+
+    function test_signalling_non_stop() public {
+        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+
+        updateVetoSupportInPercent(3 * 10 ** 16 + 1);
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+
+        uint256 signallingDuration = dualGov.CONFIG().signallingMinDuration();
+
+        vm.warp(block.timestamp + signallingDuration);
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
+
+        uint256 signallingDeactivationDuration = dualGov.CONFIG().signallingDeactivationDuration();
+
+        vm.warp(block.timestamp + signallingDeactivationDuration);
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoCooldown);
+
+        uint256 signallingCooldownDuration = dualGov.CONFIG().signallingCooldownDuration();
+
+        vm.warp(block.timestamp + signallingCooldownDuration);
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+    }
+
+    function test_signalling_to_rage_quit() public {
+        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+
+        updateVetoSupportInPercent(15 * 10 ** 16);
+
+        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+
+        uint256 signallingDuration = dualGov.CONFIG().signallingMaxDuration();
+
+        vm.warp(block.timestamp + signallingDuration);
+        dualGov.activateNextState();
+
+        assertEq(dualGov.currentState(), GovernanceState.State.RageQuit);
+    }
+
 
     function updateVetoSupportInPercent(uint256 supportInPercent) internal {
         Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
