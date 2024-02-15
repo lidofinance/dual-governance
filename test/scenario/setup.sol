@@ -22,26 +22,46 @@ abstract contract DualGovernanceSetup is TestAssertions {
         ProxyAdmin configAdmin;
         EmergencyProtectedTimelock timelock;
         OwnableExecutor adminExecutor;
-        BurnerVault burnerVault;
     }
 
     uint256 internal constant ARAGON_VOTING_SYSTEM_ID = 1;
+
+    function deployEscrowImplementation(
+        address stEth,
+        address wstEth,
+        address withdrawalQueue,
+        address burner,
+        address config
+    ) public returns (Escrow escrowImpl, BurnerVault burnerVault) {
+        burnerVault = new BurnerVault(burner, stEth, wstEth);
+        escrowImpl = new Escrow(config, stEth, wstEth, withdrawalQueue, address(burnerVault));
+    }
+
+    function deployConfig(address voting)
+        public
+        returns (ProxyAdmin configAdmin, TransparentUpgradeableProxy configProxy, Configuration configImpl)
+    {
+        // deploy initial config impl
+        configImpl = new Configuration(voting);
+
+        // deploy config proxy
+        configAdmin = new ProxyAdmin(address(this));
+        configProxy = new TransparentUpgradeableProxy(address(configImpl), address(configAdmin), new bytes(0));
+    }
 
     function deployDG(
         address stEth,
         address wstEth,
         address withdrawalQueue,
         address burner,
+        address voting,
         uint256 timelockDuration,
         address timelockEmergencyMultisig,
         uint256 timelockEmergencyMultisigActiveFor
     ) public returns (Deployed memory d) {
-        // deploy initial config impl
-        address configImpl = address(new Configuration(DAO_VOTING));
+        Configuration configImpl;
 
-        // deploy config proxy
-        d.configAdmin = new ProxyAdmin(address(this));
-        d.config = new TransparentUpgradeableProxy(configImpl, address(d.configAdmin), new bytes(0));
+        (d.configAdmin, d.config, configImpl) = deployConfig(voting);
 
         // initially owner of the admin is set to the deployer
         // to configure setup
@@ -49,18 +69,18 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
         d.timelock = new EmergencyProtectedTimelock(
             address(d.adminExecutor),
-            DAO_VOTING // maybe emergency governance should be Agent
+            voting // maybe emergency governance should be Agent
         );
 
         // solhint-disable-next-line
         console.log("Timelock deployed to %x", address(d.timelock));
 
-        address burner_vault = address(new BurnerVault(burner, stEth, wstEth));
-
         // deploy DG
-        address escrowImpl = address(new Escrow(address(d.config), stEth, wstEth, withdrawalQueue, burner_vault));
-        d.dualGov =
-            new DualGovernance(address(d.config), configImpl, address(d.configAdmin), escrowImpl, address(d.timelock));
+        (Escrow escrowImpl,) = deployEscrowImplementation(stEth, wstEth, withdrawalQueue, burner, address(d.config));
+
+        d.dualGov = new DualGovernance(
+            address(d.config), address(configImpl), address(d.configAdmin), address(escrowImpl), address(d.timelock)
+        );
 
         // solhint-disable-next-line
         console.log("DG deployed to %x", address(d.dualGov));

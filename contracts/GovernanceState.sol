@@ -111,7 +111,7 @@ contract GovernanceState {
 
     function _deployNewSignallingEscrow() internal {
         uint256 escrowIndex = _escrowIndex++;
-        Escrow escrow = Escrow(Clones.cloneDeterministic(ESCROW_IMPL, bytes32(escrowIndex)));
+        Escrow escrow = Escrow(payable(Clones.cloneDeterministic(ESCROW_IMPL, bytes32(escrowIndex))));
         escrow.initialize(address(this));
         _signallingEscrow = escrow;
         emit NewSignallingEscrowDeployed(address(escrow), escrowIndex);

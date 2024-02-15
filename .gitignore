@@ -2,6 +2,7 @@ node_modules/
 .env
 coverage/
 coverage.json
+.DS_Store
 
 # Hardhat files
 cache/
