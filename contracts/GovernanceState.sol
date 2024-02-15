@@ -6,6 +6,12 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Configuration} from "./Configuration.sol";
 import {Escrow} from "./Escrow.sol";
 
+import "forge-std/console.sol";
+
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+}
+
 contract GovernanceState {
     error Unauthorized();
 
@@ -17,7 +23,6 @@ contract GovernanceState {
         VetoSignalling,
         VetoSignallingDeactivation,
         VetoCooldown,
-        RageQuitAccumulation,
         RageQuit
     }
 
@@ -35,6 +40,8 @@ contract GovernanceState {
 
     uint256 internal _proposalsKilledUntil;
 
+    uint16 internal constant MAX_BASIS_POINTS = 10_000;
+
     constructor(address config, address governance, address escrowImpl) {
         CONFIG = Configuration(config);
         GOVERNANCE = governance;
@@ -43,15 +50,15 @@ contract GovernanceState {
         _stateEnteredAt = _getTime();
     }
 
-    function currentState() external returns (State) {
+    function currentState() external view returns (State) {
         return _state;
     }
 
-    function signallingEscrow() external returns (address) {
+    function signallingEscrow() external view returns (address) {
         return address(_signallingEscrow);
     }
 
-    function rageQuitEscrow() external returns (address) {
+    function rageQuitEscrow() external view returns (address) {
         return address(_rageQuitEscrow);
     }
 
@@ -91,8 +98,6 @@ contract GovernanceState {
             _activateNextStateFromVetoSignallingDeactivation();
         } else if (state == State.VetoCooldown) {
             _activateNextStateFromVetoCooldown();
-        } else if (state == State.RageQuitAccumulation) {
-            _activateNextStateFromRageQuitAccumulation();
         } else if (state == State.RageQuit) {
             _activateNextStateFromRageQuit();
         } else {
@@ -178,7 +183,7 @@ contract GovernanceState {
         }
 
         if (rageQuitSupport >= CONFIG.secondSealThreshold()) {
-            _transitionVetoSignallingToRageQuitAccumulation();
+            _activateRageQuit();
         } else {
             _enterVetoSignallingDeactivationSubState();
         }
@@ -199,30 +204,26 @@ contract GovernanceState {
 
         if (currentSignallingDuration >= targetSignallingDuration) {
             if (rageQuitSupport >= CONFIG.secondSealThreshold()) {
-                _transitionVetoSignallingToRageQuitAccumulation();
+                _activateRageQuit();
             }
         } else if (totalSupport >= CONFIG.firstSealThreshold()) {
             _exitVetoSignallingDeactivationSubState();
         }
     }
 
-    function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256) {
-        uint256 firstSealThreshold = CONFIG.firstSealThreshold();
-        uint256 secondSealThreshold = CONFIG.secondSealThreshold();
+    function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256 duration) {
+        (uint256 firstSealThreshold, uint256 secondSealThreshold, uint256 minDuration, uint256 maxDuration) =
+            CONFIG.getSignallingThresholdData();
 
         if (totalSupport < firstSealThreshold) {
             return 0;
         }
 
-        uint256 maxDuration = CONFIG.signallingMaxDuration();
-
         if (totalSupport >= secondSealThreshold) {
             return maxDuration;
         }
 
-        uint256 minDuration = CONFIG.signallingMinDuration();
-
-        return minDuration
+        duration = minDuration
             + (totalSupport - firstSealThreshold) * (maxDuration - minDuration) / (secondSealThreshold - firstSealThreshold);
     }
 
@@ -254,34 +255,20 @@ contract GovernanceState {
     }
 
     //
-    // State: RageQuitAccumulation
-    //
-    function _transitionVetoSignallingToRageQuitAccumulation() internal {
-        _setState(State.RageQuitAccumulation);
-        // _signallingEscrow.startRageQuitAccumulation();
-        _rageQuitEscrow = _signallingEscrow;
-        _deployNewSignallingEscrow();
-    }
-
-    function _activateNextStateFromRageQuitAccumulation() internal {
-        uint256 accumulationDuration = _getTime() - _stateEnteredAt;
-        if (accumulationDuration >= CONFIG.rageQuitAccumulationDuration()) {
-            _transitionRageQuitAccumulationToRageQuit();
-        }
-    }
-
-    //
     // State: RageQuit
     //
-    function _transitionRageQuitAccumulationToRageQuit() internal {
+    function _activateRageQuit() internal {
         _setState(State.RageQuit);
+        _rageQuitEscrow = _signallingEscrow;
         _rageQuitEscrow.startRageQuit();
+        _deployNewSignallingEscrow();
     }
 
     function _activateNextStateFromRageQuit() internal {
         if (!_rageQuitEscrow.isRageQuitFinalized()) {
             return;
         }
+
         if (_isFirstThresholdReached()) {
             _transitionRageQuitToVetoSignalling();
         } else {
