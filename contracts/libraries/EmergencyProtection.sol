@@ -5,6 +5,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 struct EmergencyState {
     address committee;
+    uint256 protectedTill;
     bool isEmergencyModeActivated;
     uint256 emergencyModeDuration;
     uint256 emergencyModeEndsAfter;
@@ -12,9 +13,9 @@ struct EmergencyState {
 
 library EmergencyProtection {
     error NotEmergencyCommittee(address sender);
-    error EmergencyCommitteeExpired();
     error EmergencyModeNotActivated();
     error EmergencyPeriodFinished();
+    error EmergencyCommitteeExpired();
     error EmergencyModeAlreadyActive();
 
     event EmergencyModeActivated();
@@ -22,20 +23,35 @@ library EmergencyProtection {
     event EmergencyGovernanceReset();
     event EmergencyCommitteeSet(address indexed guardian);
     event EmergencyModeDurationSet(uint256 emergencyModeDuration);
-    event EmergencyCommitteeProtectedTillSet(uint256 guardedTill);
+    event EmergencyCommitteeProtectedTillSet(uint256 protectedTill);
 
     struct State {
         // has rights to activate emergency mode
         address committee;
+        // till this time, the committee may activate the emergency mode
+        uint40 protectedTill;
         uint40 emergencyModeEndsAfter;
         uint32 emergencyModeDuration;
     }
 
-    function setup(State storage self, address committee, uint256 emergencyModeDuration) internal {
+    function setup(
+        State storage self,
+        address committee,
+        uint256 protectionDuration,
+        uint256 emergencyModeDuration
+    ) internal {
         address prevCommittee = self.committee;
         if (prevCommittee != committee) {
             self.committee = committee;
             emit EmergencyCommitteeSet(committee);
+        }
+
+        uint256 prevProtectedTill = self.protectedTill;
+        uint256 protectedTill = block.timestamp + protectionDuration;
+
+        if (prevProtectedTill != protectedTill) {
+            self.protectedTill = SafeCast.toUint40(protectedTill);
+            emit EmergencyCommitteeProtectedTillSet(protectedTill);
         }
 
         uint256 prevDuration = self.emergencyModeDuration;
@@ -48,6 +64,9 @@ library EmergencyProtection {
     function activate(State storage self) internal {
         if (msg.sender != self.committee) {
             revert NotEmergencyCommittee(msg.sender);
+        }
+        if (block.timestamp > self.protectedTill) {
+            revert EmergencyCommitteeExpired();
         }
         if (self.emergencyModeEndsAfter != 0) {
             revert EmergencyModeAlreadyActive();
@@ -85,6 +104,7 @@ library EmergencyProtection {
 
     function getEmergencyState(State storage self) internal view returns (EmergencyState memory res) {
         res.committee = self.committee;
+        res.protectedTill = self.protectedTill;
         res.emergencyModeDuration = self.emergencyModeDuration;
         res.emergencyModeEndsAfter = self.emergencyModeEndsAfter;
         res.isEmergencyModeActivated = isEmergencyModeActivated(self);

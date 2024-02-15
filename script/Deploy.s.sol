@@ -30,12 +30,14 @@ contract DualGovernanceDeployScript {
         address adminProposer,
         uint256 delay,
         address emergencyCommittee,
+        uint256 protectionDuration,
         uint256 emergencyModeDuration
     )
         external
         returns (DualGovernance dualGovernance, EmergencyProtectedTimelock timelock, OwnableExecutor adminExecutor)
     {
-        (timelock, adminExecutor) = deployEmergencyProtectedTimelock(delay, emergencyCommittee, emergencyModeDuration);
+        (timelock, adminExecutor) =
+            deployEmergencyProtectedTimelock(delay, emergencyCommittee, protectionDuration, emergencyModeDuration);
         dualGovernance = deployDualGovernance(address(timelock), adminProposer);
     }
 
@@ -60,6 +62,7 @@ contract DualGovernanceDeployScript {
     function deployEmergencyProtectedTimelock(
         uint256 delay,
         address emergencyCommittee,
+        uint256 protectionDuration,
         uint256 emergencyModeDuration
     ) public returns (EmergencyProtectedTimelock timelock, OwnableExecutor adminExecutor) {
         adminExecutor = new OwnableExecutor(address(this));
@@ -69,7 +72,9 @@ contract DualGovernanceDeployScript {
         adminExecutor.execute(
             address(timelock),
             0,
-            abi.encodeCall(timelock.setEmergencyProtection, (emergencyCommittee, emergencyModeDuration))
+            abi.encodeCall(
+                timelock.setEmergencyProtection, (emergencyCommittee, protectionDuration, emergencyModeDuration)
+            )
         );
         adminExecutor.transferOwnership(address(timelock));
     }

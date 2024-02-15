@@ -69,8 +69,12 @@ contract EmergencyProtectedTimelock is ITimelock {
         IOwnable(executor).transferOwnership(owner);
     }
 
-    function setEmergencyProtection(address committee, uint256 emergencyModeDuration) external onlyAdminExecutor {
-        _emergencyProtection.setup(committee, emergencyModeDuration);
+    function setEmergencyProtection(
+        address committee,
+        uint256 protectionDuration,
+        uint256 emergencyModeDuration
+    ) external onlyAdminExecutor {
+        _emergencyProtection.setup(committee, protectionDuration, emergencyModeDuration);
     }
 
     function emergencyModeActivate() external {

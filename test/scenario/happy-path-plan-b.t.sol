@@ -27,6 +27,7 @@ interface IDangerousContract {
 contract PlanBSetup is Test {
     uint256 private immutable _DELAY = 3 days;
     uint256 private immutable _EMERGENCY_MODE_DURATION = 180 days;
+    uint256 private immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
     address private immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
 
     TargetMock private _target;
@@ -42,7 +43,7 @@ contract PlanBSetup is Test {
             new DualGovernanceDeployScript(ST_ETH, WST_ETH, BURNER, DAO_VOTING, WITHDRAWAL_QUEUE);
 
         (_timelock,) = _dualGovernanceDeployScript.deployEmergencyProtectedTimelock(
-            _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_MODE_DURATION
+            _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION
         );
     }
 
@@ -132,7 +133,9 @@ contract PlanBSetup is Test {
                     // Now the emergency mode may be deactivated (all scheduled calls will be canceled)
                     abi.encodeCall(_timelock.emergencyModeDeactivate, ()),
                     // Setup emergency committee for some period of time until the Dual Governance is battle tested
-                    abi.encodeCall(_timelock.setEmergencyProtection, (_EMERGENCY_COMMITTEE, 30 days))
+                    abi.encodeCall(
+                        _timelock.setEmergencyProtection, (_EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, 30 days)
+                    )
                 ]
             );
 
@@ -177,7 +180,7 @@ contract PlanBSetup is Test {
                 address(_timelock),
                 [
                     // disable emergency protection
-                    abi.encodeCall(_timelock.setEmergencyProtection, (address(0), 0)),
+                    abi.encodeCall(_timelock.setEmergencyProtection, (address(0), 0, 0)),
                     // turn off the scheduling and allow calls relaying
                     abi.encodeCall(_timelock.setDelay, (0))
                 ]
@@ -254,7 +257,9 @@ contract PlanBSetup is Test {
                     // Update the governance in the Timelock
                     abi.encodeCall(_timelock.setGovernanceAndDelay, (address(dualGovernanceV2), _DELAY)),
                     // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
-                    abi.encodeCall(_timelock.setEmergencyProtection, (_EMERGENCY_COMMITTEE, 30 days))
+                    abi.encodeCall(
+                        _timelock.setEmergencyProtection, (_EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, 30 days)
+                    )
                 ]
             );
 
@@ -308,7 +313,7 @@ contract PlanBSetup is Test {
         }
     }
 
-    function testFork_scheduledCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
+    function testFork_ScheduledCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
         uint256 maliciousProposalId = 666;
         ExecutorCall[] memory maliciousCalls =
             ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
@@ -415,11 +420,12 @@ contract PlanBSetup is Test {
         }
     }
 
-    function testFork_emergencyResetGovernance() external {
+    function testFork_EmergencyResetGovernance() external {
         // deploy dual governance full setup
         {
-            (_dualGovernance, _timelock,) =
-                _dualGovernanceDeployScript.deploy(DAO_VOTING, _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_MODE_DURATION);
+            (_dualGovernance, _timelock,) = _dualGovernanceDeployScript.deploy(
+                DAO_VOTING, _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION
+            );
         }
 
         // emergency committee activates emergency mode
@@ -447,6 +453,27 @@ contract PlanBSetup is Test {
             assertEq(emergencyState.emergencyModeDuration, 0);
             assertEq(emergencyState.emergencyModeEndsAfter, 0);
             assertFalse(emergencyState.isEmergencyModeActivated);
+        }
+    }
+
+    function testFork_ExpiredEmergencyCommitteeHasNoPower() external {
+        // deploy dual governance full setup
+        {
+            (_dualGovernance, _timelock,) = _dualGovernanceDeployScript.deploy(
+                DAO_VOTING, _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION
+            );
+        }
+
+        // wait till the protection duration passes
+        {
+            vm.warp(block.timestamp + _EMERGENCY_PROTECTION_DURATION + 1);
+        }
+
+        // attempt to activate emergency protection fails
+        {
+            vm.expectRevert(EmergencyProtection.EmergencyCommitteeExpired.selector);
+            vm.prank(_EMERGENCY_COMMITTEE);
+            _timelock.emergencyModeActivate();
         }
     }
 

@@ -77,7 +77,10 @@ abstract contract DualGovernanceSetup is TestAssertions {
         d.adminExecutor.execute(
             address(d.timelock),
             0,
-            abi.encodeCall(d.timelock.setEmergencyProtection, (timelockEmergencyMultisig, emergencyModeDuration))
+            abi.encodeCall(
+                d.timelock.setEmergencyProtection,
+                (timelockEmergencyMultisig, timelockEmergencyMultisigActiveFor, emergencyModeDuration)
+            )
         );
 
         d.adminExecutor.transferOwnership(address(d.timelock));
