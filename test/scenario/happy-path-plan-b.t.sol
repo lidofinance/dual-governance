@@ -11,12 +11,13 @@ import {
     EmergencyState,
     EmergencyProtection,
     ScheduledCallsBatch,
-    ScheduledCallsBatches
+    ScheduledCallsBatches,
+    EmergencyProtectedTimelock
 } from "contracts/EmergencyProtectedTimelock.sol";
-import {Proposals, Proposal} from "contracts/libraries/Proposals.sol";
-import {PlanBDeployScript, OwnableExecutor, EmergencyProtectedTimelock} from "script/PlanBDeploy.s.sol";
 
-import {DualGovernanceDeployScript, DualGovernance} from "script/DualGovernanceDeploy.s.sol";
+import {Proposals, Proposal} from "contracts/libraries/Proposals.sol";
+
+import {DualGovernanceDeployScript, DualGovernance} from "script/Deploy.s.sol";
 
 interface IDangerousContract {
     function doRegularStaff(uint256 magic) external;
@@ -29,18 +30,23 @@ contract PlanBSetup is Test {
     address private immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
 
     TargetMock private _target;
-    OwnableExecutor private _executor;
-    EmergencyProtectedTimelock private _timelock;
     DualGovernance private _dualGovernance;
+    EmergencyProtectedTimelock private _timelock;
+    DualGovernanceDeployScript private _dualGovernanceDeployScript;
 
     function setUp() external {
         Utils.selectFork();
         _target = new TargetMock();
-        PlanBDeployScript deployScript = new PlanBDeployScript(DAO_VOTING);
-        (_timelock, _executor) = deployScript.run(_DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_MODE_DURATION);
+
+        _dualGovernanceDeployScript =
+            new DualGovernanceDeployScript(ST_ETH, WST_ETH, BURNER, DAO_VOTING, WITHDRAWAL_QUEUE);
+
+        (_timelock,) = _dualGovernanceDeployScript.deployEmergencyProtectedTimelock(
+            _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_MODE_DURATION
+        );
     }
 
-    function testFork_deploySetup() external {
+    function testFork_PlanB_Scenario() external {
         bytes memory regularStaffCalldata = abi.encodeCall(IDangerousContract.doRegularStaff, (42));
         ExecutorCall[] memory regularStaffCalls = ExecutorCallHelpers.create(address(_target), regularStaffCalldata);
 
@@ -107,7 +113,6 @@ contract PlanBSetup is Test {
         // ---
         // ACT 3. 🔫 DAO STRIKES BACK (WITH DUAL GOVERNANCE SHIPMENT)
         // ---
-        DualGovernanceDeployScript dgDeployScript;
         {
             // Lido contributors work hard to implement and ship the Dual Governance mechanism
             // before the emergency mode is over
@@ -117,8 +122,7 @@ contract PlanBSetup is Test {
             assertFalse(_timelock.getIsExecutable(maliciousProposalId));
 
             // Dual Governance is deployed into mainnet
-            dgDeployScript = new DualGovernanceDeployScript(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER);
-            _dualGovernance = dgDeployScript.run(address(_timelock), DAO_VOTING);
+            _dualGovernance = _dualGovernanceDeployScript.deployDualGovernance(address(_timelock), DAO_VOTING);
 
             ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
                 address(_timelock),
@@ -241,7 +245,8 @@ contract PlanBSetup is Test {
         {
             // some time later, the major Dual Governance update release is ready to be launched
             vm.warp(block.timestamp + 365 days);
-            DualGovernance dualGovernanceV2 = dgDeployScript.run(address(_timelock), DAO_VOTING);
+            DualGovernance dualGovernanceV2 =
+                _dualGovernanceDeployScript.deployDualGovernance(address(_timelock), DAO_VOTING);
 
             ExecutorCall[] memory dualGovernanceUpdateCalls = ExecutorCallHelpers.create(
                 address(_timelock),
@@ -411,39 +416,10 @@ contract PlanBSetup is Test {
     }
 
     function testFork_emergencyResetGovernance() external {
-        // deploy dual governance and connect it to the timelock instance
+        // deploy dual governance full setup
         {
-            DualGovernanceDeployScript dgDeployScript =
-                new DualGovernanceDeployScript(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER);
-
-            _dualGovernance = dgDeployScript.run(address(_timelock), DAO_VOTING);
-
-            ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
-                address(_timelock),
-                [
-                    // Only Dual Governance contract can call the Timelock contract
-                    abi.encodeCall(_timelock.setGovernanceAndDelay, (address(_dualGovernance), _DELAY)),
-                    // Setup emergency committee for some period of time until the Dual Governance is battle tested
-                    abi.encodeCall(_timelock.setEmergencyProtection, (_EMERGENCY_COMMITTEE, _EMERGENCY_MODE_DURATION))
-                ]
-            );
-
-            // The vote to launch Dual Governance is launched and reached the quorum (the major part of LDO holder still have power)
-            uint256 dualGovernanceLunchProposalId = 777;
-            _scheduleViaVoting(
-                dualGovernanceLunchProposalId,
-                "Launch the Dual Governance",
-                _timelock.ADMIN_EXECUTOR(),
-                dualGovernanceLaunchCalls
-            );
-
-            // Anticipated vote will be executed soon...
-            _waitFor(dualGovernanceLunchProposalId);
-
-            // Emergency Committee executes vote and enables Dual Governance
-            _execute(dualGovernanceLunchProposalId);
-
-            assertEq(_timelock.getGovernance(), address(_dualGovernance));
+            (_dualGovernance, _timelock,) =
+                _dualGovernanceDeployScript.deploy(DAO_VOTING, _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_MODE_DURATION);
         }
 
         // emergency committee activates emergency mode
