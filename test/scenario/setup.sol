@@ -87,7 +87,9 @@ abstract contract DualGovernanceSetup is TestAssertions {
 
         // configure Timelock
         d.adminExecutor.execute(
-            address(d.timelock), 0, abi.encodeCall(d.timelock.setGovernance, (address(d.dualGov), timelockDuration))
+            address(d.timelock),
+            0,
+            abi.encodeCall(d.timelock.setGovernanceAndDelay, (address(d.dualGov), timelockDuration))
         );
 
         // TODO: pass this value via args

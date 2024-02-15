@@ -18,6 +18,36 @@ abstract contract TestAssertions is Test {
     }
 }
 
+// May be used as a mock contract to collect method calls
+contract TargetMock {
+    struct Call {
+        uint256 value;
+        address sender;
+        uint256 blockNumber;
+        bytes data;
+    }
+
+    Call[] public calls;
+
+    function getCallsLength() external view returns (uint256) {
+        return calls.length;
+    }
+
+    function getCalls() external view returns (Call[] memory calls_) {
+        calls_ = calls;
+    }
+
+    function reset() external {
+        for (uint256 i = 0; i < calls.length; ++i) {
+            calls.pop();
+        }
+    }
+
+    fallback() external payable {
+        calls.push(Call({value: msg.value, sender: msg.sender, blockNumber: block.number, data: msg.data}));
+    }
+}
+
 contract Target is TestAssertions {
     bool internal _expectNoCalls;
     address internal _expectedCaller;
@@ -142,5 +172,31 @@ library Utils {
         console.log("voting from %x at block %d", voter, block.number);
         vm.prank(voter);
         IAragonVoting(DAO_VOTING).vote(voteId, support, false);
+    }
+
+    // Creates vote with given description and script, votes for it, and waits until it can be executed
+    function adoptVote(
+        address voting,
+        string memory description,
+        bytes memory script
+    ) internal returns (uint256 voteId) {
+        uint256 ldoWhalePrivateKey = uint256(keccak256(abi.encodePacked("LDO_WHALE")));
+        address ldoWhale = vm.addr(ldoWhalePrivateKey);
+        if (IERC20(LDO_TOKEN).balanceOf(ldoWhale) < IAragonVoting(DAO_VOTING).minAcceptQuorumPct()) {
+            setupLdoWhale(ldoWhale);
+        }
+        bytes memory voteScript = Utils.encodeEvmCallScript(
+            voting, abi.encodeCall(IAragonVoting.newVote, (script, description, false, false))
+        );
+
+        voteId = IAragonVoting(voting).votesLength();
+
+        vm.prank(ldoWhale);
+        IAragonForwarder(DAO_TOKEN_MANAGER).forward(voteScript);
+        supportVoteAndWaitTillDecided(voteId, ldoWhale);
+    }
+
+    function executeVote(address voting, uint256 voteId) internal {
+        IAragonVoting(voting).executeVote(voteId);
     }
 }

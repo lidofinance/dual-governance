@@ -123,10 +123,6 @@ contract DualGovernance {
         proposal = _proposals.adopt(proposalId, CONFIG.minProposalExecutionTimelock());
     }
 
-    function _getTime() internal view virtual returns (uint256) {
-        return block.timestamp;
-    }
-
     modifier onlyAdminExecutor() {
         if (msg.sender != TIMELOCK.ADMIN_EXECUTOR()) {
             revert Unauthorized();

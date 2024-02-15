@@ -17,7 +17,7 @@ struct Proposal {
 struct ProposalPacked {
     address proposer;
     uint40 proposedAt;
-    // time passed, starting from proposedAt to adopting the proposal
+    // Time passed, starting from the proposedAt till the adoption of the proposal
     uint32 adoptionTime;
     address executor;
     ExecutorCall[] calls;
@@ -30,7 +30,7 @@ library Proposals {
     uint256 private constant FIRST_PROPOSAL_ID = 1;
 
     struct State {
-        // all proposals with ids less or equal than given one cannot be executed
+        // any proposals with ids less or equal to the given one cannot be executed
         uint256 lastCanceledProposalId;
         ProposalPacked[] proposals;
     }
@@ -50,27 +50,27 @@ library Proposals {
         address proposer,
         address executor,
         ExecutorCall[] calldata calls
-    ) internal returns (uint256) {
+    ) internal returns (uint256 newProposalId) {
         if (calls.length == 0) {
             revert EmptyCalls();
         }
 
+        newProposalId = self.proposals.length;
         self.proposals.push();
-        uint256 newProposalId = self.proposals.length - FIRST_PROPOSAL_ID;
+
         ProposalPacked storage newProposal = self.proposals[newProposalId];
         newProposal.proposer = proposer;
         newProposal.executor = executor;
         newProposal.adoptionTime = 0;
         newProposal.proposedAt = block.timestamp.toUint40();
 
-        // copying of arrays of custom types from calldata to storage has not supported
-        // by the Solidity compiler yet, so copy item by item
+        // copying of arrays of custom types from calldata to storage has not been supported by the
+        // Solidity compiler yet, so insert item by item
         for (uint256 i = 0; i < calls.length; ++i) {
             newProposal.calls.push(calls[i]);
         }
 
         emit Proposed(newProposalId, proposer, executor, calls);
-        return newProposalId;
     }
 
     function cancelAll(State storage self) internal {
@@ -86,19 +86,18 @@ library Proposals {
             revert ProposalCanceled(proposalId);
         }
         uint256 proposedAt = packed.proposedAt;
-        uint256 adoptionTime = packed.adoptionTime;
+        if (packed.adoptionTime != 0) {
+            revert ProposalAlreadyAdopted(proposalId, proposedAt + packed.adoptionTime);
+        }
         if (block.timestamp < proposedAt + delay) {
             revert ProposalNotExecutable(proposalId);
         }
-        if (adoptionTime != 0) {
-            revert ProposalAlreadyAdopted(proposalId, proposedAt + adoptionTime);
-        }
-        uint256 adoptionDelay = block.timestamp - proposedAt;
+        uint256 adoptionTime = block.timestamp - proposedAt;
         // the proposal can't be proposed and adopted at the same transaction
-        if (adoptionDelay == 0) {
+        if (adoptionTime == 0) {
             revert InvalidAdoptionDelay(0);
         }
-        packed.adoptionTime = adoptionDelay.toUint32();
+        packed.adoptionTime = adoptionTime.toUint32();
         proposal = _unpack(proposalId, packed);
     }
 

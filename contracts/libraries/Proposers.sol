@@ -18,7 +18,7 @@ library Proposers {
     event ProposerUnregistered(address indexed proposer, address indexed executor);
 
     struct ExecutorData {
-        uint8 proposerIndexOneBased; // indexed from 1. We don't wanna have many executors
+        uint8 proposerIndexOneBased; // indexed from 1. The count of executors is limited
         address executor;
     }
 
@@ -27,13 +27,13 @@ library Proposers {
         mapping(address proposer => ExecutorData) executors;
     }
 
-    function register(State storage self, address proposer, address executor_) internal {
+    function register(State storage self, address proposer, address executor) internal {
         if (self.executors[proposer].proposerIndexOneBased != 0) {
             revert ProposerAlreadyRegistered(proposer);
         }
         self.proposers.push(proposer);
-        self.executors[proposer] = ExecutorData(self.proposers.length.toUint8(), executor_);
-        emit ProposerRegistered(proposer, executor_);
+        self.executors[proposer] = ExecutorData(self.proposers.length.toUint8(), executor);
+        emit ProposerRegistered(proposer, executor);
     }
 
     function unregister(State storage self, address proposer) internal {
@@ -55,12 +55,6 @@ library Proposers {
         emit ProposerUnregistered(proposer, executorData.executor);
     }
 
-    function validate(State storage self, Proposer memory proposer) internal view {
-        if (!_isProposer(self, proposer)) {
-            revert ProposerNotRegistered(proposer.account);
-        }
-    }
-
     function all(State storage self) internal view returns (Proposer[] memory proposers) {
         proposers = new Proposer[](self.proposers.length);
         for (uint256 i = 0; i < proposers.length; ++i) {
@@ -79,10 +73,5 @@ library Proposers {
 
     function isProposer(State storage self, address proposer) internal view returns (bool) {
         return self.executors[proposer].proposerIndexOneBased != 0;
-    }
-
-    function _isProposer(State storage self, Proposer memory proposer) private view returns (bool) {
-        Proposer memory storedProposer = get(self, proposer.account);
-        return storedProposer.executor == proposer.executor;
     }
 }
