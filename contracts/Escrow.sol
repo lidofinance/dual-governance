@@ -81,7 +81,6 @@ contract Escrow {
     error RequestIsNotFromBatch(uint256 id);
     error RequestFromBatch(uint256 id);
 
-    event RageQuitAccumulationStarted();
     event RageQuitStarted();
     event WithdrawalsBatchRequested(
         uint256 indexed firstRequestId, uint256 indexed lastRequestId, uint256 stEthLeftToRequest
@@ -313,6 +312,24 @@ contract Escrow {
         _activateNextGovernanceState();
     }
 
+    function unlockEth() public {
+        _activateNextGovernanceState();
+        if (_state != State.Signalling) {
+            revert InvalidState();
+        }
+
+        address sender = msg.sender;
+        uint256 ethToUnlock = _balances[sender].eth;
+
+        if (ethToUnlock > 0) {
+            _balances[sender].eth = 0;
+            _totalClaimedEthLocked -= ethToUnlock;
+            IERC20(WST_ETH).transfer(sender, ethToUnlock);
+
+            _activateNextGovernanceState();
+        }
+    }
+
     function claimETH() external {
         if (_state != State.RageQuit) {
             revert InvalidState();
@@ -512,10 +529,20 @@ contract Escrow {
         for (uint256 i = 0; i < requestIds.length; ++i) {
             uint256 id = requestIds[i];
             address owner = _wqRequests[id].owner;
+
             if (owner != address(this)) {
                 revert RequestIsNotFromBatch(id);
             }
             _claimedWQRequestsAmount += wqRequestStatuses[i].amountOfStETH;
+
+            for (uint256 idx = 0; i < _balances[owner].wqRequestIds.length; i++) {
+                if (_balances[owner].wqRequestIds[idx] == requestIds[i]) {
+                    _balances[owner].wqRequestIds[idx] =
+                        _balances[owner].wqRequestIds[_balances[owner].wqRequestIds.length - 1];
+                    _balances[owner].wqRequestIds.pop();
+                    break;
+                }
+            }
         }
     }
 
