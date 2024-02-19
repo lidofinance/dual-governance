@@ -6,8 +6,6 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Configuration} from "./Configuration.sol";
 import {Escrow} from "./Escrow.sol";
 
-import "forge-std/console.sol";
-
 interface IERC20 {
     function totalSupply() external view returns (uint256);
 }
