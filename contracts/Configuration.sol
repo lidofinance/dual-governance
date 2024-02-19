@@ -8,7 +8,7 @@ contract Configuration {
     address public immutable adminProposer;
 
     uint256 public immutable minProposalExecutionTimelock = 3 * DAY;
-    
+
     uint256 public immutable signallingDeactivationDuration = 5 * DAY;
     uint256 public immutable signallingCooldownDuration = 4 * DAY;
     uint256 public immutable rageQuitEthWithdrawalTimelock = 30 * DAY;
@@ -17,6 +17,8 @@ contract Configuration {
     uint256 public immutable secondSealThreshold = 15 * PERCENT;
     uint256 public immutable signallingMinDuration = 3 days;
     uint256 public immutable signallingMaxDuration = 30 days;
+
+    uint256 public immutable tieBreakerActivationTimeout = 365 days;
 
     constructor(address adminProposer_) {
         adminProposer = adminProposer_;
