@@ -43,6 +43,10 @@ contract DualGovernance {
         _proposers.register(CONFIG.adminProposer(), TIMELOCK.ADMIN_EXECUTOR());
     }
 
+    function state() external view returns (GovernanceState state_) {
+        state_ = GOV_STATE;
+    }
+
     function signallingEscrow() external returns (address) {
         return GOV_STATE.signallingEscrow();
     }

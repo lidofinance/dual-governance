@@ -56,6 +56,9 @@ interface IWstETH {
 }
 
 interface IWithdrawalQueue {
+    function PAUSE_ROLE() external pure returns (bytes32);
+    function RESUME_ROLE() external pure returns (bytes32);
+
     function getWithdrawalStatus(uint256[] calldata _requestIds)
         external
         view
@@ -75,4 +78,7 @@ interface IWithdrawalQueue {
     function claimWithdrawals(uint256[] calldata requestIds, uint256[] calldata hints) external;
     function getLastFinalizedRequestId() external view returns (uint256);
     function finalize(uint256 _lastRequestIdToBeFinalized, uint256 _maxShareRate) external payable;
+    function grantRole(bytes32 role, address account) external;
+    function hasRole(bytes32 role, address account) external view returns (bool);
+    function isPaused() external view returns (bool);
 }
