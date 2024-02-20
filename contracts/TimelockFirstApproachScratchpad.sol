@@ -4,16 +4,13 @@ pragma solidity 0.8.23;
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
-import {ExecutorCall} from "contracts/libraries/ScheduledCalls.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {IExecutor} from "./interfaces/IExecutor.sol";
-import {Configuration} from "./Configuration.sol";
-import {GovernanceState} from "./GovernanceState.sol";
 
-interface IGateSeal {
-    function isTriggered() external view returns (bool);
-}
+import {GateSeal} from "./GateSeal.sol";
+import {GovernanceState} from "./GovernanceState.sol";
+import {ExecutorCall} from "contracts/libraries/ScheduledCalls.sol";
 
 struct Proposer {
     address account;
@@ -345,30 +342,39 @@ contract EmergencyModeGuardian is ExpirableCommittee {
     }
 }
 
-contract TiebreakCommitteeGuardian is Committee {
+contract TiebreakGuardian is Committee {
     Timelock public immutable TIMELOCK;
-    IGateSeal public immutable GATE_SEAL;
-    Configuration public immutable CONFIG;
+    GateSeal public immutable GATE_SEAL;
     GovernanceState public immutable GOV_STATE;
 
-    constructor(address committee) Committee(committee) {}
+    error DualGovernanceNotBlocked();
 
-    function execute(uint256 proposalId) external {
-        if (_isRageQuitAndGateSealTriggered() || _isDualGovernanceLocked()) {
+    constructor(address timelock, address gateSeal, address govState, address committee) Committee(committee) {
+        TIMELOCK = Timelock(timelock);
+        GATE_SEAL = GateSeal(gateSeal);
+        GOV_STATE = GovernanceState(govState);
+    }
+
+    function execute(uint256 proposalId) external onlyCommittee {
+        if (canExecute()) {
             TIMELOCK.executeByGuardian(proposalId);
             return;
         }
-        revert("Dual Governance is not locked");
+        revert DualGovernanceNotBlocked();
     }
 
-    function _isRageQuitAndGateSealTriggered() internal view returns (bool) {
+    function canExecute() public view returns (bool) {
+        return isRageQuitAndGateSealTriggered() || isDualGovernanceLocked();
+    }
+
+    function isRageQuitAndGateSealTriggered() public view returns (bool) {
         return GATE_SEAL.isTriggered() && GOV_STATE.currentState() == GovernanceState.State.RageQuit;
     }
 
-    function _isDualGovernanceLocked() internal view returns (bool) {
+    function isDualGovernanceLocked() public view returns (bool) {
         (GovernanceState.State state_, uint256 enteredAt) = GOV_STATE.stateInfo();
-        return
-            state_ != GovernanceState.State.Normal && block.timestamp > enteredAt + CONFIG.tieBreakerActivationTimeout();
+        return state_ != GovernanceState.State.Normal
+            && block.timestamp > enteredAt + GOV_STATE.CONFIG().tieBreakerActivationTimeout();
     }
 }
 

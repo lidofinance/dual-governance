@@ -15,14 +15,16 @@ import {
     Proposal,
     Proposals,
     ResetTimelockControllerGuardian,
-    GovernanceState
+    GovernanceState,
+    TiebreakGuardian,
+    GateSeal
 } from "contracts/TimelockFirstApproachScratchpad.sol";
 import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
 
 import {Utils, TargetMock} from "../utils/utils.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
 import {IWithdrawalQueue, IERC20} from "../utils/interfaces.sol";
-import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER} from "../utils/mainnet-addresses.sol";
+import {DAO_AGENT, DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER} from "../utils/mainnet-addresses.sol";
 
 interface IDangerousContract {
     function doRegularStaff(uint256 magic) external;
@@ -35,7 +37,11 @@ contract AgentFirstApproachTest is Test {
     uint256 internal constant _DELAY = 3 days;
     uint256 internal constant _EMERGENCY_COMMITTEE_LIFETIME = 90 days;
     uint256 internal constant _EMERGENCY_MODE_DURATION = 180 days;
+    uint256 internal immutable _SEALING_DURATION = 14 days;
+    uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
 
+    address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
+    address internal immutable _TIEBREAK_COMMITTEE = makeAddr("TIEBREAK_COMMITTEE");
     address internal immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
 
     TargetMock private _target;
@@ -46,8 +52,13 @@ contract AgentFirstApproachTest is Test {
 
     EmergencyModeGuardian internal _emergencyModeGuardian;
 
+    GateSeal private _gateSeal;
+    address[] private _sealables;
+
     function setUp() external {
         Utils.selectFork();
+
+        _sealables.push(WITHDRAWAL_QUEUE);
         _target = new TargetMock();
 
         OwnableExecutor adminExecutor = new OwnableExecutor(address(this));
@@ -132,6 +143,7 @@ contract AgentFirstApproachTest is Test {
         GovernanceState govState;
         ResetTimelockControllerGuardian resetTimelockControllerGuardian;
         EmergencyModeGuardian emergencyModeGuardian;
+        TiebreakGuardian tiebreakGuardian;
         {
             // Lido contributors work hard to implement and ship the Dual Governance mechanism
             // before the emergency mode is over
@@ -141,11 +153,12 @@ contract AgentFirstApproachTest is Test {
             assertFalse(_timelock.getIsExecutable(maliciousProposalId));
 
             // Dual Governance delay strategy is deployed into mainnet
-            (govState, resetTimelockControllerGuardian, emergencyModeGuardian) = _deployDualGovernance();
+            (govState, resetTimelockControllerGuardian, emergencyModeGuardian, tiebreakGuardian) =
+                _deployDualGovernance();
 
             address timelock = address(_timelock);
             ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
-                [address(_emergencyModeGuardian), timelock, timelock, timelock, timelock, timelock],
+                [address(_emergencyModeGuardian), timelock, timelock, timelock, timelock, timelock, timelock],
                 [
                     // 1. deactivate emergency mode
                     abi.encodeCall(_emergencyModeGuardian.deactivateEmergencyMode, ()),
@@ -159,9 +172,11 @@ contract AgentFirstApproachTest is Test {
                     abi.encodeCall(
                         _timelock.grantRole, (_timelock.CONTROLLER_MANAGER_ROLE(), address(resetTimelockControllerGuardian))
                     ),
-                    // 5. grant GUARDIAN_ROLE to the emergencyModeGuardian
+                    // 5. grant GUARDIAN_ROLE to the new EmergencyModeGuardian
                     abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(emergencyModeGuardian))),
-                    // 6. revoke GUARDIAN_ROLE from the used EmergencyModeGuardian
+                    // 6. grant GUARDIAN_ROLE to the TiebreakGuardian
+                    abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(tiebreakGuardian))),
+                    // 7. revoke GUARDIAN_ROLE from the old EmergencyModeGuardian
                     abi.encodeCall(_timelock.revokeRole, (_timelock.GUARDIAN_ROLE(), address(_emergencyModeGuardian)))
                 ]
             );
@@ -187,6 +202,7 @@ contract AgentFirstApproachTest is Test {
         // ACT 4 - DUAL GOVERNANCE WORKS PROPERLY (VETO SIGNALING CASE)
         // ---
         {
+            uint256 snapshotId = vm.snapshot();
             ExecutorCall[] memory controversialCalls = ExecutorCallHelpers.create(
                 address(_target), abi.encodeCall(IDangerousContract.doControversialStaff, ())
             );
@@ -228,6 +244,7 @@ contract AgentFirstApproachTest is Test {
             // execute controversial decision
             _timelock.execute(controversialProposalId);
             _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), controversialCalls);
+            vm.revertTo(snapshotId);
         }
 
         // ---
@@ -251,6 +268,60 @@ contract AgentFirstApproachTest is Test {
             vm.warp(block.timestamp + _EMERGENCY_MODE_DURATION + 1);
             emergencyModeGuardian.deactivateEmergencyMode();
             assertFalse(_timelock.paused());
+            vm.revertTo(snapshotId);
+        }
+
+        // ---
+        // ACT 6. TIEBREAK COMMITTEE FLOW
+        // ---
+        {
+            uint256 snapshotId = vm.snapshot();
+
+            // some regular proposal is launched
+            uint256 proposalId = _scheduleViaVoting(
+                "DAO does regular staff on potentially dangerous contract",
+                _timelock.ADMIN_EXECUTOR(),
+                regularStaffCalls
+            );
+
+            address stEthWhale = makeAddr("STETH_WHALE");
+            Utils.removeLidoStakingLimit();
+            Utils.setupStEthWhale(stEthWhale, 20 * 10 ** 16);
+            uint256 stEthWhaleBalance = IERC20(ST_ETH).balanceOf(stEthWhale);
+
+            Escrow escrow = Escrow(payable(govState.signallingEscrow()));
+            vm.startPrank(stEthWhale);
+            IERC20(ST_ETH).approve(address(escrow), stEthWhaleBalance);
+            escrow.lockStEth(stEthWhaleBalance);
+            vm.stopPrank();
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignalling));
+
+            // before the RageQuit phase is entered tiebreak committee can't execute decisions
+            vm.prank(_TIEBREAK_COMMITTEE);
+            vm.expectRevert(TiebreakGuardian.DualGovernanceNotBlocked.selector);
+            tiebreakGuardian.execute(proposalId);
+
+            vm.warp(block.timestamp + govState.CONFIG().signallingMaxDuration() + 1);
+
+            govState.activateNextState();
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.RageQuit));
+
+            // activate gate seal to enter deadlock
+            vm.prank(_SEALING_COMMITTEE);
+            _gateSeal.seal(_sealables);
+
+            assertTrue(tiebreakGuardian.canExecute());
+            assertTrue(tiebreakGuardian.isRageQuitAndGateSealTriggered());
+            assertFalse(tiebreakGuardian.isDualGovernanceLocked());
+
+            // proposal is not executable
+            _timelock.getIsExecutable(proposalId);
+
+            // now tiebreak committee may execute any dao decision
+            vm.prank(_TIEBREAK_COMMITTEE);
+            tiebreakGuardian.execute(proposalId);
+            _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), regularStaffCalls);
+
             vm.revertTo(snapshotId);
         }
     }
@@ -323,7 +394,8 @@ contract AgentFirstApproachTest is Test {
         returns (
             GovernanceState govState,
             ResetTimelockControllerGuardian resetTimelockControllerGuardian,
-            EmergencyModeGuardian emergencyModeGuardian
+            EmergencyModeGuardian emergencyModeGuardian,
+            TiebreakGuardian tiebreakGuardian
         )
     {
         // deploy initial config impl
@@ -346,5 +418,25 @@ contract AgentFirstApproachTest is Test {
         emergencyModeGuardian = new EmergencyModeGuardian(
             address(_timelock), _EMERGENCY_COMMITTEE, _EMERGENCY_COMMITTEE_LIFETIME, _EMERGENCY_MODE_DURATION
         );
+
+        _deployGateSeal(address(govState));
+        tiebreakGuardian =
+            new TiebreakGuardian(address(_timelock), address(_gateSeal), address(govState), _TIEBREAK_COMMITTEE);
+    }
+
+    function _deployGateSeal(address govState) internal {
+        // deploy new gate seal instance
+        _gateSeal =
+            new GateSeal(govState, _SEALING_COMMITTEE, _SEALING_COMMITTEE_LIFETIME, _SEALING_DURATION, _sealables);
+
+        // grant rights to gate seal to pause/resume the withdrawal queue
+        vm.startPrank(DAO_AGENT);
+        IWithdrawalQueue(WITHDRAWAL_QUEUE).grantRole(
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).PAUSE_ROLE(), address(_gateSeal)
+        );
+        IWithdrawalQueue(WITHDRAWAL_QUEUE).grantRole(
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(), address(_gateSeal)
+        );
+        vm.stopPrank();
     }
 }
