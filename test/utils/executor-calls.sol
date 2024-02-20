@@ -61,6 +61,17 @@ library ExecutorCallHelpers {
         }
     }
 
+    function create(
+        address[6] memory targets,
+        bytes[6] memory payloads
+    ) internal pure returns (ExecutorCall[] memory res) {
+        res = new ExecutorCall[](6);
+        for (uint256 i = 0; i < 6; ++i) {
+            res[i].target = targets[i];
+            res[i].payload = payloads[i];
+        }
+    }
+
     // same target different calls
 
     function create(address target, bytes memory payload) internal pure returns (ExecutorCall[] memory res) {
@@ -80,6 +91,14 @@ library ExecutorCallHelpers {
     function create(address target, bytes[3] memory payloads) internal pure returns (ExecutorCall[] memory res) {
         res = new ExecutorCall[](3);
         for (uint256 i = 0; i < 3; ++i) {
+            res[i].target = target;
+            res[i].payload = payloads[i];
+        }
+    }
+
+    function create(address target, bytes[5] memory payloads) internal pure returns (ExecutorCall[] memory res) {
+        res = new ExecutorCall[](5);
+        for (uint256 i = 0; i < 5; ++i) {
             res[i].target = target;
             res[i].payload = payloads[i];
         }

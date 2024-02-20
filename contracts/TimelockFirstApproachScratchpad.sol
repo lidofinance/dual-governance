@@ -1,38 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
+import {ExecutorCall} from "contracts/libraries/ScheduledCalls.sol";
 
+import {IOwnable} from "./interfaces/IOwnable.sol";
+import {IExecutor} from "./interfaces/IExecutor.sol";
 import {Configuration} from "./Configuration.sol";
+import {GovernanceState} from "./GovernanceState.sol";
 
 interface IGateSeal {
     function isTriggered() external view returns (bool);
 }
 
-interface IGovernanceState {
-    enum State {
-        Normal,
-        VetoSignalling,
-        VetoSignallingDeactivation,
-        VetoCooldown,
-        RageQuit
-    }
-
-    function currentState() external view returns (State);
-    function state() external view returns (State state, uint256 enteredAt);
-    function activateNextState() external returns (State);
-}
-
 struct Proposer {
     address account;
     address executor;
-}
-
-struct ExecutorCall {
-    address target;
-    uint96 value; // ~ 7.9 billion ETH
-    bytes payload;
 }
 
 library Proposers {
@@ -107,16 +93,15 @@ struct Proposal {
     uint256 id;
     address proposer;
     address executor;
-    uint256 proposedAt;
-    uint256 adoptedAt;
+    uint256 scheduledAt;
+    uint256 executedAt;
     ExecutorCall[] calls;
 }
 
 struct ProposalPacked {
     address proposer;
-    uint40 proposedAt;
-    // Time passed, starting from the proposedAt till the adoption of the proposal
-    uint32 adoptionTime;
+    uint40 scheduledAt;
+    uint40 executedAt;
     address executor;
     ExecutorCall[] calls;
 }
@@ -136,14 +121,14 @@ library Proposals {
     error EmptyCalls();
     error ProposalCanceled(uint256 proposalId);
     error ProposalNotFound(uint256 proposalId);
-    error ProposalAlreadyAdopted(uint256 proposalId, uint256 adoptedAt);
     error ProposalNotExecutable(uint256 proposalId);
+    error ProposalAlreadyExecuted(uint256 proposalId);
     error InvalidAdoptionDelay(uint256 adoptionDelay);
 
     event Proposed(uint256 indexed id, address indexed proposer, address indexed executor, ExecutorCall[] calls);
     event ProposalsCanceledTill(uint256 proposalId);
 
-    function create(
+    function schedule(
         State storage self,
         address proposer,
         address executor,
@@ -159,8 +144,8 @@ library Proposals {
         ProposalPacked storage newProposal = self.proposals[newProposalId];
         newProposal.proposer = proposer;
         newProposal.executor = executor;
-        newProposal.adoptionTime = 0;
-        newProposal.proposedAt = block.timestamp.toUint40();
+        newProposal.executedAt = 0;
+        newProposal.scheduledAt = block.timestamp.toUint40();
 
         // copying of arrays of custom types from calldata to storage has not been supported by the
         // Solidity compiler yet, so insert item by item
@@ -177,32 +162,25 @@ library Proposals {
         emit ProposalsCanceledTill(lastProposalId);
     }
 
-    function adopt(State storage self, uint256 proposalId, uint256 delay) internal returns (Proposal memory proposal) {
+    function execute(State storage self, uint256 proposalId, uint256 delay) internal {
+        if (delay == 0) {
+            revert InvalidAdoptionDelay(0);
+        }
+
         ProposalPacked storage packed = _packed(self, proposalId);
 
         if (proposalId <= self.lastCanceledProposalId) {
             revert ProposalCanceled(proposalId);
         }
-        uint256 proposedAt = packed.proposedAt;
-        if (packed.adoptionTime != 0) {
-            revert ProposalAlreadyAdopted(proposalId, proposedAt + packed.adoptionTime);
+        uint256 scheduledAt = packed.scheduledAt;
+        if (packed.executedAt != 0) {
+            revert ProposalAlreadyExecuted(proposalId);
         }
-        if (block.timestamp < proposedAt + delay) {
+        if (block.timestamp < scheduledAt + delay) {
             revert ProposalNotExecutable(proposalId);
         }
-        uint256 adoptionTime = block.timestamp - proposedAt;
-        // the proposal can't be proposed and adopted at the same transaction
-        if (adoptionTime == 0) {
-            revert InvalidAdoptionDelay(0);
-        }
-        packed.adoptionTime = adoptionTime.toUint32();
-        proposal = _unpack(proposalId, packed);
-    }
-
-    function execute(State storage self, uint256 proposalId, uint256 delay) internal {
-        // Works similar to ScheduledCalls.execute() but marks proposal as executed
-        // instead of calls deletion
-        // TODO: implement
+        packed.executedAt = block.timestamp.toUint40();
+        _executeCalls(packed.executor, packed.calls);
     }
 
     function get(State storage self, uint256 proposalId) internal view returns (Proposal memory proposal) {
@@ -211,6 +189,30 @@ library Proposals {
 
     function count(State storage self) internal view returns (uint256 count_) {
         count_ = self.proposals.length;
+    }
+
+    function isExecutable(State storage self, uint256 proposalId, uint256 delay) internal view returns (bool) {
+        ProposalPacked storage packed = _packed(self, proposalId);
+        if (packed.executedAt != 0) return false;
+        if (proposalId <= self.lastCanceledProposalId) return false;
+        return block.timestamp > packed.scheduledAt + delay;
+    }
+
+    function _executeCalls(address executor, ExecutorCall[] memory calls) private returns (bytes[] memory results) {
+        uint256 callsCount = calls.length;
+
+        assert(callsCount > 0);
+
+        address target;
+        uint256 value;
+        bytes memory payload;
+        results = new bytes[](callsCount);
+        for (uint256 i = 0; i < callsCount; ++i) {
+            value = calls[i].value;
+            target = calls[i].target;
+            payload = calls[i].payload;
+            results[i] = IExecutor(payable(executor)).execute(target, value, payload);
+        }
     }
 
     function _packed(State storage self, uint256 proposalId) private view returns (ProposalPacked storage packed) {
@@ -225,148 +227,331 @@ library Proposals {
         proposal.calls = packed.calls;
         proposal.proposer = packed.proposer;
         proposal.executor = packed.executor;
-        proposal.proposedAt = packed.proposedAt;
-        proposal.adoptedAt = packed.adoptionTime == 0 ? 0 : proposal.proposedAt + packed.adoptionTime;
+        proposal.executedAt = packed.executedAt;
+        proposal.scheduledAt = packed.scheduledAt;
     }
 }
 
-interface IDelayer {
+interface IDelayStrategy {
     function getDelay() external view returns (uint256);
     function beforeSchedule() external returns (bool isSchedulingAllowed);
     function beforeExecute() external returns (bool isExecutionAllowed);
 }
 
-contract PauseExecutionEmergencyCommittee {
-    Timelock timelock;
+contract Committee {
+    error NotCommittee(address sender, address committee);
 
-    uint256 emergencyModeDuration;
-    uint256 emergencyModeActivatedAt;
+    address public immutable COMMITTEE;
 
-    function activateEmergencyMode() external {
-        timelock.pause();
-        emergencyModeActivatedAt = block.timestamp;
+    constructor(address committee) {
+        COMMITTEE = committee;
     }
 
-    function deactivateEmergencyMode() external {
-        if (block.timestamp < emergencyModeActivatedAt + emergencyModeDuration) {
-            revert("emergency duration not passed");
+    function _checkCommittee() internal view {
+        if (msg.sender != COMMITTEE) {
+            revert NotCommittee(msg.sender, COMMITTEE);
         }
-        timelock.cancelAll();
-        timelock.resume();
     }
 
-    function execute(uint256 proposalId) external {
-        timelock.executeUrgently(proposalId);
+    modifier onlyCommittee() virtual {
+        _checkCommittee();
+        _;
     }
 }
 
-contract TiebreakCommittee {
-    Timelock timelock;
-    DualGovernanceDelayer delayer;
-    IGateSeal gateSeal;
+contract ExpirableCommittee is Committee {
+    error CommitteeExpired(uint256 expirationDate);
+
+    uint256 public immutable EXPIRED_AFTER;
+
+    constructor(address committee, uint256 lifetime) Committee(committee) {
+        EXPIRED_AFTER = block.number + lifetime;
+    }
+
+    function _checkExpired() internal view {
+        if (block.number > EXPIRED_AFTER) {
+            revert CommitteeExpired(EXPIRED_AFTER);
+        }
+    }
+
+    modifier onlyCommittee() override {
+        _checkCommittee();
+        _checkExpired();
+        _;
+    }
+}
+
+contract ResetDelayStrategyGuardian is ExpirableCommittee {
+    Timelock public immutable TIMELOCK;
+    address public immutable FALLBACK_DELAY_STRATEGY;
+
+    constructor(
+        address timelock,
+        address fallbackDelayStrategy,
+        address committee,
+        uint256 lifetime
+    ) ExpirableCommittee(committee, lifetime) {
+        TIMELOCK = Timelock(timelock);
+        FALLBACK_DELAY_STRATEGY = fallbackDelayStrategy;
+    }
+
+    function resetDelayStrategy() external onlyCommittee {
+        TIMELOCK.cancelAll();
+        TIMELOCK.setDelayStrategy(FALLBACK_DELAY_STRATEGY);
+        TIMELOCK.renounceRole(TIMELOCK.GUARDIAN_ROLE(), address(this));
+    }
+}
+
+contract EmergencyModeGuardian is ExpirableCommittee {
+    error EmergencyModeNotActive();
+    error EmergencyModeNodePassed(uint256 endsAfter);
+    error EmergencyModeActivated(uint256 activatedAt);
+
+    Timelock public immutable TIMELOCK;
+    uint256 public immutable EMERGENCY_MODE_DURATION;
+
+    uint256 internal _emergencyModeActivatedAt;
+
+    constructor(
+        address timelock,
+        address committee,
+        uint256 lifetime,
+        uint256 emergencyModeDuration
+    ) ExpirableCommittee(committee, lifetime) {
+        TIMELOCK = Timelock(timelock);
+        EMERGENCY_MODE_DURATION = emergencyModeDuration;
+    }
+
+    function activateEmergencyMode() external onlyCommittee {
+        if (_emergencyModeActivatedAt != 0) {
+            revert EmergencyModeActivated(_emergencyModeActivatedAt);
+        }
+        TIMELOCK.pause();
+        _emergencyModeActivatedAt = block.timestamp;
+    }
+
+    function deactivateEmergencyMode() external {
+        bool isEmergencyModeEnded = block.timestamp >= _emergencyModeActivatedAt + EMERGENCY_MODE_DURATION;
+
+        if (!isEmergencyModeEnded && msg.sender != TIMELOCK.ADMIN_EXECUTOR()) {
+            revert EmergencyModeNodePassed(_emergencyModeActivatedAt + EMERGENCY_MODE_DURATION);
+        }
+
+        TIMELOCK.cancelAll();
+        TIMELOCK.resume();
+    }
+
+    function execute(uint256 proposalId) external onlyCommittee {
+        if (_emergencyModeActivatedAt == 0) {
+            revert EmergencyModeNotActive();
+        }
+        TIMELOCK.executeUrgently(proposalId);
+    }
+
+    function getEmergencyModeEndsAfter() external view returns (uint256) {
+        return _emergencyModeActivatedAt == 0 ? 0 : _emergencyModeActivatedAt + EMERGENCY_MODE_DURATION;
+    }
+}
+
+contract TiebreakCommittee is Committee {
+    Timelock public immutable TIMELOCK;
+    IGateSeal public immutable GATE_SEAL;
+    Configuration public immutable CONFIG;
+    GovernanceState public immutable GOV_STATE;
+
+    constructor(address committee) Committee(committee) {}
 
     function execute(uint256 proposalId) external {
         if (_isRageQuitAndGateSealTriggered() || _isDualGovernanceLocked()) {
-            timelock.executeUrgently(proposalId);
+            TIMELOCK.executeUrgently(proposalId);
             return;
         }
         revert("Dual Governance is not locked");
     }
 
     function _isRageQuitAndGateSealTriggered() internal view returns (bool) {
-        return gateSeal.isTriggered() && delayer.state() == IGovernanceState.State.RageQuit;
+        return GATE_SEAL.isTriggered() && GOV_STATE.currentState() == GovernanceState.State.RageQuit;
     }
 
     function _isDualGovernanceLocked() internal view returns (bool) {
-        return delayer.isLocked();
+        (GovernanceState.State state_, uint256 enteredAt) = GOV_STATE.stateInfo();
+        return
+            state_ != GovernanceState.State.Normal && block.timestamp > enteredAt + CONFIG.tieBreakerActivationTimeout();
     }
 }
 
-contract ResetDualGovernanceEmergencyCommittee {
-    Timelock timelock;
+contract ConstantDelayStrategy is IDelayStrategy {
+    uint256 public immutable DELAY;
+
+    constructor(uint256 delay) {
+        DELAY = delay;
+    }
+
+    function getDelay() external view returns (uint256) {
+        return DELAY;
+    }
+
+    function beforeSchedule() external pure returns (bool isSchedulingAllowed) {
+        isSchedulingAllowed = true;
+    }
+
+    function beforeExecute() external pure returns (bool isExecutionAllowed) {
+        isExecutionAllowed = true;
+    }
 }
 
-contract DualGovernanceDelayer is IDelayer {
+contract DualGovernanceDelayStrategy is IDelayStrategy {
     Configuration public immutable CONFIG;
-    IGovernanceState internal immutable GOV_STATE;
+    GovernanceState public immutable GOV_STATE;
 
-    function isLocked() external view returns (bool) {
-        (IGovernanceState.State state_, uint256 enteredAt) = GOV_STATE.state();
-        return state_ != IGovernanceState.State.Normal
-            && block.timestamp > enteredAt + CONFIG.tieBreakerActivationTimeout();
+    constructor(address config, address escrowImpl) {
+        CONFIG = Configuration(config);
+        GOV_STATE = new GovernanceState(address(CONFIG), address(this), escrowImpl);
     }
 
-    function state() external view returns (IGovernanceState.State) {
+    function activateNextState() external returns (GovernanceState.State) {
+        return GOV_STATE.activateNextState();
+    }
+
+    function signallingEscrow() external view returns (address) {
+        return GOV_STATE.signallingEscrow();
+    }
+
+    function currentState() external view returns (GovernanceState.State) {
+        return GOV_STATE.currentState();
+    }
+
+    function state() external view returns (GovernanceState.State) {
         return GOV_STATE.currentState();
     }
 
     function getDelay() external view returns (uint256) {
-        return CONFIG.minProposalExecutionTimelock();
+        GovernanceState.State state = GOV_STATE.currentState();
+        return state == GovernanceState.State.Normal || state == GovernanceState.State.VetoCooldown
+            ? CONFIG.minProposalExecutionTimelock()
+            : type(uint64).max;
     }
 
     function beforeSchedule() external returns (bool isSchedulingAllowed) {
         GOV_STATE.activateNextState();
+        return GOV_STATE.isProposalSubmissionAllowed();
     }
 
     function beforeExecute() external returns (bool isExecutionAllowed) {
         GOV_STATE.activateNextState();
+        return GOV_STATE.isExecutionEnabled();
     }
 }
 
-contract Timelock {
+contract Timelock is Pausable, AccessControlEnumerable {
     using Proposers for Proposers.State;
     using Proposals for Proposals.State;
+
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+    bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
     address public immutable ADMIN_EXECUTOR;
     address public immutable ADMIN_PROPOSER;
 
     uint256 public immutable MIN_TIMELOCK_DURATION = 2 days;
 
-    bool _isPaused;
-    IDelayer internal _delayer;
     Proposers.State internal _proposers;
     Proposals.State internal _proposals;
+    IDelayStrategy internal _delayStrategy;
 
-    // emergency committee and tiebreak committee are guardians
-    address[] internal _guardians;
+    constructor(address delayStrategy, address adminProposer, address adminExecutor) {
+        ADMIN_PROPOSER = adminProposer;
+        ADMIN_EXECUTOR = adminExecutor;
+        _proposers.register(adminProposer, adminExecutor);
+
+        _delayStrategy = IDelayStrategy(delayStrategy);
+
+        _grantRole(MANAGER_ROLE, adminExecutor);
+        _grantRole(DEFAULT_ADMIN_ROLE, adminExecutor);
+    }
 
     function schedule(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
-        bool isSchedulingAllowed = _delayer.beforeSchedule();
+        Proposer memory proposer = _proposers.get(msg.sender);
+        bool isSchedulingAllowed = _delayStrategy.beforeSchedule();
         if (!isSchedulingAllowed) {
             revert("scheduling disabled");
         }
-        Proposer memory proposer = _proposers.get(msg.sender);
-        newProposalId = _proposals.create(proposer.account, proposer.executor, calls);
+        newProposalId = _proposals.schedule(proposer.account, proposer.executor, calls);
     }
 
-    function execute(uint256 proposalId) external {
-        if (_isPaused) {
-            revert("paused");
-        }
-        bool isExecutionAllowed = _delayer.beforeExecute();
+    function execute(uint256 proposalId) external whenNotPaused {
+        bool isExecutionAllowed = _delayStrategy.beforeExecute();
         if (!isExecutionAllowed) {
             revert("execution disabled");
         }
-        uint256 delay = Math.max(MIN_TIMELOCK_DURATION, _delayer.getDelay());
+        uint256 delay = Math.max(MIN_TIMELOCK_DURATION, _delayStrategy.getDelay());
 
         _proposals.execute(proposalId, delay);
     }
 
-    // executes even when delay is not passed
+    function pause() external onlyRole(GUARDIAN_ROLE) {
+        _pause();
+    }
 
-    function pause() external onlyGuardian {}
+    function resume() external onlyRole(GUARDIAN_ROLE) {
+        _unpause();
+    }
 
-    function resume() external onlyGuardian {}
+    function cancelAll() external {
+        if (msg.sender != ADMIN_PROPOSER && !hasRole(GUARDIAN_ROLE, msg.sender)) {
+            revert("forbidden");
+        }
+        _proposals.cancelAll();
+    }
 
-    function cancelAll() external onlyGuardian {}
+    function setDelayStrategy(address delayer) external {
+        if (msg.sender != ADMIN_EXECUTOR && !hasRole(MANAGER_ROLE, msg.sender)) {
+            revert("forbidden");
+        }
+        _delayStrategy = IDelayStrategy(delayer);
+    }
 
     // allows execution of the proposal without touching the delayer
-    function executeUrgently(uint256 proposalId) external onlyGuardian {
-        uint256 delay = MIN_TIMELOCK_DURATION;
-        _proposals.execute(proposalId, delay);
+    function executeUrgently(uint256 proposalId) external onlyRole(GUARDIAN_ROLE) {
+        _proposals.execute(proposalId, MIN_TIMELOCK_DURATION);
     }
 
-    modifier onlyGuardian() {
+    function registerProposer(address proposer, address executor) external onlyAdminExecutor {
+        return _proposers.register(proposer, executor);
+    }
+
+    function unregisterProposer(address proposer) external onlyAdminExecutor {
+        _proposers.unregister(proposer);
+    }
+
+    function transferExecutorOwnership(address executor, address owner) external onlyAdminExecutor {
+        IOwnable(executor).transferOwnership(owner);
+    }
+
+    function getDelayStrategy() external view returns (address) {
+        return address(_delayStrategy);
+    }
+
+    function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
+        proposal = _proposals.get(proposalId);
+    }
+
+    function getProposalsCount() external view returns (uint256 count) {
+        count = _proposals.count();
+    }
+
+    function getIsExecutable(uint256 proposalId) external view returns (bool isExecutable) {
+        isExecutable = !paused() && _proposals.isExecutable(proposalId, _getDelay());
+    }
+
+    function _getDelay() internal view returns (uint256) {
+        return Math.max(MIN_TIMELOCK_DURATION, _delayStrategy.getDelay());
+    }
+
+    modifier onlyAdminExecutor() {
+        if (msg.sender != ADMIN_EXECUTOR) {
+            revert("Unauthorized()");
+        }
         _;
     }
 }

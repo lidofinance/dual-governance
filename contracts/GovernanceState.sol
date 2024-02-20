@@ -6,8 +6,6 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Configuration} from "./Configuration.sol";
 import {Escrow} from "./Escrow.sol";
 
-import "forge-std/console.sol";
-
 interface IERC20 {
     function totalSupply() external view returns (uint256);
 }
@@ -48,6 +46,11 @@ contract GovernanceState {
         ESCROW_IMPL = escrowImpl;
         _deployNewSignallingEscrow();
         _stateEnteredAt = _getTime();
+    }
+
+    function stateInfo() external view returns (State state_, uint256 enteredAt) {
+        state_ = _state;
+        enteredAt = _stateEnteredAt;
     }
 
     function currentState() external view returns (State) {
