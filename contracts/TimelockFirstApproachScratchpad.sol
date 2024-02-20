@@ -229,6 +229,7 @@ library Proposals {
 }
 
 interface ITimelockController {
+    function handleCancelAll() external;
     function isExecutionEnabled() external view returns (bool);
     function isSchedulingEnabled() external view returns (bool);
 }
@@ -286,7 +287,8 @@ contract ResetTimelockControllerGuardian is ExpirableCommittee {
     function resetController() external onlyCommittee {
         TIMELOCK.cancelAll();
         TIMELOCK.setController(address(0));
-        TIMELOCK.renounceRole(TIMELOCK.GUARDIAN_ROLE(), address(this));
+        TIMELOCK.renounceRole(TIMELOCK.CANCELER_ROLE(), address(this));
+        TIMELOCK.renounceRole(TIMELOCK.CONTROLLER_MANAGER_ROLE(), address(this));
     }
 }
 
@@ -328,6 +330,7 @@ contract EmergencyModeGuardian is ExpirableCommittee {
         TIMELOCK.cancelAll();
         TIMELOCK.resume();
         TIMELOCK.renounceRole(TIMELOCK.GUARDIAN_ROLE(), address(this));
+        TIMELOCK.renounceRole(TIMELOCK.CANCELER_ROLE(), address(this));
     }
 
     function execute(uint256 proposalId) external onlyCommittee {
@@ -388,6 +391,7 @@ contract Timelock is Pausable, AccessControlEnumerable {
     error NotAdminExecutor(address sender);
 
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+    bytes32 public constant CANCELER_ROLE = keccak256("CANCELER_ROLE");
     bytes32 public constant CONTROLLER_MANAGER_ROLE = keccak256("CONTROLLER_MANAGER_ROLE");
 
     address public immutable ADMIN_EXECUTOR;
@@ -439,8 +443,12 @@ contract Timelock is Pausable, AccessControlEnumerable {
         _unpause();
     }
 
-    function cancelAll() external onlyRole(GUARDIAN_ROLE) {
+    function cancelAll() external {
+        if (msg.sender != ADMIN_PROPOSER && !hasRole(CANCELER_ROLE, msg.sender)) {
+            revert("forbidden");
+        }
         _proposals.cancelAll();
+        _handleCancelAll();
     }
 
     function setController(address controller) external onlyRole(CONTROLLER_MANAGER_ROLE) {
@@ -481,6 +489,12 @@ contract Timelock is Pausable, AccessControlEnumerable {
 
     function _isExecutionEnabled() internal view returns (bool) {
         return address(_controller) == address(0) ? true : _controller.isExecutionEnabled();
+    }
+
+    function _handleCancelAll() internal {
+        if (address(_controller) != address(0)) {
+            _controller.handleCancelAll();
+        }
     }
 
     modifier onlyAdminExecutor() {

@@ -75,6 +75,12 @@ contract AgentFirstApproachTest is Test {
             abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(_emergencyModeGuardian)))
         );
 
+        adminExecutor.execute(
+            address(_timelock),
+            0,
+            abi.encodeCall(_timelock.grantRole, (_timelock.CANCELER_ROLE(), address(_emergencyModeGuardian)))
+        );
+
         adminExecutor.transferOwnership(address(_timelock));
     }
 
@@ -158,26 +164,43 @@ contract AgentFirstApproachTest is Test {
 
             address timelock = address(_timelock);
             ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
-                [address(_emergencyModeGuardian), timelock, timelock, timelock, timelock, timelock, timelock],
+                [
+                    address(_emergencyModeGuardian),
+                    timelock,
+                    timelock,
+                    timelock,
+                    timelock,
+                    timelock,
+                    timelock,
+                    timelock,
+                    timelock,
+                    timelock
+                ],
                 [
                     // 1. deactivate emergency mode
                     abi.encodeCall(_emergencyModeGuardian.deactivateEmergencyMode, ()),
                     // 2. set controller for the timelock
                     abi.encodeCall(_timelock.setController, (address(govState))),
-                    // 3. grant GUARDIAN_ROLE to the resetTimelockControllerGuardian
+                    // 3. garnt CANCELER_ROLE to the govState
+                    abi.encodeCall(_timelock.grantRole, (_timelock.CANCELER_ROLE(), address(govState))),
+                    // 4. grant CANCELER_ROLE to the resetTimelockControllerGuardian
                     abi.encodeCall(
-                        _timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(resetTimelockControllerGuardian))
+                        _timelock.grantRole, (_timelock.CANCELER_ROLE(), address(resetTimelockControllerGuardian))
                     ),
-                    // 4. grant MANAGER_ROLE to the resetTimelockControllerGuardian
+                    // 5. grant CONTROLLER_MANAGER_ROLE to the resetTimelockControllerGuardian
                     abi.encodeCall(
                         _timelock.grantRole, (_timelock.CONTROLLER_MANAGER_ROLE(), address(resetTimelockControllerGuardian))
                     ),
-                    // 5. grant GUARDIAN_ROLE to the new EmergencyModeGuardian
+                    // 6. grant GUARDIAN_ROLE to the new EmergencyModeGuardian
                     abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(emergencyModeGuardian))),
-                    // 6. grant GUARDIAN_ROLE to the TiebreakGuardian
+                    // 7. grant CANCELER_ROLE to the new EmergencyModeGuardian
+                    abi.encodeCall(_timelock.grantRole, (_timelock.CANCELER_ROLE(), address(emergencyModeGuardian))),
+                    // 8. grant GUARDIAN_ROLE to the TiebreakGuardian
                     abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(tiebreakGuardian))),
-                    // 7. revoke GUARDIAN_ROLE from the old EmergencyModeGuardian
-                    abi.encodeCall(_timelock.revokeRole, (_timelock.GUARDIAN_ROLE(), address(_emergencyModeGuardian)))
+                    // 9. revoke GUARDIAN_ROLE from the old EmergencyModeGuardian
+                    abi.encodeCall(_timelock.revokeRole, (_timelock.GUARDIAN_ROLE(), address(_emergencyModeGuardian))),
+                    // 10. revoke CANCELER_ROLE from the old EmergencyModeGuardian
+                    abi.encodeCall(_timelock.revokeRole, (_timelock.CANCELER_ROLE(), address(_emergencyModeGuardian)))
                 ]
             );
 
@@ -248,7 +271,7 @@ contract AgentFirstApproachTest is Test {
         }
 
         // ---
-        // ACT 5. RESET DELAY STRATEGY
+        // ACT 5. RESET TIMELOCK CONTROLLER
         // ---
         {
             uint256 snapshotId = vm.snapshot();
@@ -323,6 +346,65 @@ contract AgentFirstApproachTest is Test {
             _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), regularStaffCalls);
 
             vm.revertTo(snapshotId);
+        }
+
+        // ---
+        // ACT 7. CANCEL ALL PROPOSALS
+        // ---
+        {
+            uint256 snapshotId = vm.snapshot();
+            ExecutorCall[] memory controversialCalls = ExecutorCallHelpers.create(
+                address(_target), abi.encodeCall(IDangerousContract.doControversialStaff, ())
+            );
+
+            uint256 controversialProposalId =
+                _scheduleViaVoting("Do some controversial staff", _timelock.ADMIN_EXECUTOR(), controversialCalls);
+
+            vm.warp(block.timestamp + _DELAY / 2);
+
+            assertFalse(_timelock.getIsExecutable(controversialProposalId));
+
+            // dual governance escrow accumulates
+            address stEthWhale = makeAddr("STETH_WHALE");
+            Utils.removeLidoStakingLimit();
+            Utils.setupStEthWhale(stEthWhale, 5 * 10 ** 16);
+            uint256 stEthWhaleBalance = IERC20(ST_ETH).balanceOf(stEthWhale);
+
+            Escrow escrow = Escrow(payable(govState.signallingEscrow()));
+            vm.startPrank(stEthWhale);
+            IERC20(ST_ETH).approve(address(escrow), stEthWhaleBalance);
+            escrow.lockStEth(stEthWhaleBalance);
+            vm.stopPrank();
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignalling));
+
+            vm.warp(block.timestamp + _DELAY / 2 + 1);
+
+            assertFalse(_timelock.getIsExecutable(controversialProposalId));
+
+            // dao decides to cancel all pending proposals
+            uint256 cancelAllVoteId = Utils.adoptVote(
+                DAO_VOTING,
+                "Cancel all proposals",
+                Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.cancelAll, ()))
+            );
+            Utils.executeVote(DAO_VOTING, cancelAllVoteId);
+
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignalling));
+
+            // new proposal sent later also must be cancelled
+            uint256 anotherControversialProposalId =
+                _scheduleViaVoting("Another controversial vote", _timelock.ADMIN_EXECUTOR(), controversialCalls);
+
+            // wait the dual governance returns to normal state
+            vm.warp(block.timestamp + 14 days);
+            govState.activateNextState();
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignallingDeactivation));
+            vm.warp(block.timestamp + govState.CONFIG().signallingDeactivationDuration() + 1);
+            govState.activateNextState();
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoCooldown));
+
+            assertFalse(_timelock.getIsExecutable(controversialProposalId));
+            assertFalse(_timelock.getIsExecutable(anotherControversialProposalId));
         }
     }
 
@@ -409,7 +491,7 @@ contract AgentFirstApproachTest is Test {
         // deploy DG
         address escrowImpl = address(new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER));
 
-        govState = new GovernanceState(address(config), address(0), escrowImpl);
+        govState = new GovernanceState(address(config), address(_timelock), escrowImpl);
 
         // deploy guardians
         resetTimelockControllerGuardian =

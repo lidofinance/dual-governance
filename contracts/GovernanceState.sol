@@ -10,6 +10,10 @@ interface IERC20 {
     function totalSupply() external view returns (uint256);
 }
 
+interface ITimelock {
+    function cancelAll() external;
+}
+
 contract GovernanceState {
     error Unauthorized();
 
@@ -25,7 +29,7 @@ contract GovernanceState {
     }
 
     Configuration public immutable CONFIG;
-    address internal immutable GOVERNANCE;
+    ITimelock internal immutable TIMELOCK;
     address internal immutable ESCROW_IMPL;
 
     uint256 internal _escrowIndex;
@@ -37,12 +41,13 @@ contract GovernanceState {
     uint256 internal _signallingActivatedAt;
 
     uint256 internal _proposalsKilledUntil;
+    bool internal _isCancelAllScheduled;
 
     uint16 internal constant MAX_BASIS_POINTS = 10_000;
 
-    constructor(address config, address governance, address escrowImpl) {
+    constructor(address config, address timelock, address escrowImpl) {
         CONFIG = Configuration(config);
-        GOVERNANCE = governance;
+        TIMELOCK = ITimelock(timelock);
         ESCROW_IMPL = escrowImpl;
         _deployNewSignallingEscrow();
         _stateEnteredAt = _getTime();
@@ -65,11 +70,12 @@ contract GovernanceState {
         return address(_rageQuitEscrow);
     }
 
-    function killAllPendingProposals() external {
-        if (msg.sender != GOVERNANCE) {
-            revert Unauthorized();
+    function handleCancelAll() external {
+        State state = _state;
+        if (state == State.VetoSignalling || state == State.VetoSignallingDeactivation) {
+            // cancel all proposals when veto signaling or veto cooldown states exited
+            _isCancelAllScheduled = true;
         }
-        _proposalsKilledUntil = _getTime();
     }
 
     function isExecutionEnabled() external view returns (bool) {
@@ -195,6 +201,10 @@ contract GovernanceState {
         } else {
             _enterVetoSignallingDeactivationSubState();
         }
+        if (_isCancelAllScheduled) {
+            _isCancelAllScheduled = true;
+            TIMELOCK.cancelAll();
+        }
     }
 
     function _activateNextStateFromVetoSignallingDeactivation() internal {
@@ -216,6 +226,10 @@ contract GovernanceState {
             }
         } else if (totalSupport >= CONFIG.firstSealThreshold()) {
             _exitVetoSignallingDeactivationSubState();
+        }
+        if (_isCancelAllScheduled) {
+            _isCancelAllScheduled = true;
+            TIMELOCK.cancelAll();
         }
     }
 
