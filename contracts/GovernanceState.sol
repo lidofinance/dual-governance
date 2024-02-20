@@ -24,7 +24,7 @@ contract GovernanceState {
         RageQuit
     }
 
-    Configuration internal immutable CONFIG;
+    Configuration public immutable CONFIG;
     address internal immutable GOVERNANCE;
     address internal immutable ESCROW_IMPL;
 
@@ -74,6 +74,11 @@ contract GovernanceState {
 
     function isExecutionEnabled() external view returns (bool) {
         return _isExecutionEnabled();
+    }
+
+    function isSchedulingEnabled() external view returns (bool) {
+        State state = _state;
+        return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
     }
 
     function isProposalExecutable(uint256 submittedAt, uint256 decidedAt) external view returns (bool) {

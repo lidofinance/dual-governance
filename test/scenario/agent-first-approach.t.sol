@@ -10,13 +10,11 @@ import {Configuration} from "contracts/Configuration.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
 import {
     Timelock,
-    ConstantDelayStrategy,
-    DualGovernanceDelayStrategy,
     EmergencyModeGuardian,
     ExecutorCall,
     Proposal,
     Proposals,
-    ResetDelayStrategyGuardian,
+    ResetTimelockControllerGuardian,
     GovernanceState
 } from "contracts/TimelockFirstApproachScratchpad.sol";
 import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
@@ -42,16 +40,18 @@ contract AgentFirstApproachTest is Test {
 
     TargetMock private _target;
     Timelock internal _timelock;
+
+    GovernanceState internal _govState;
+    Configuration internal _config;
+
     EmergencyModeGuardian internal _emergencyModeGuardian;
-    ConstantDelayStrategy internal _constantDelayStrategy;
 
     function setUp() external {
         Utils.selectFork();
         _target = new TargetMock();
 
         OwnableExecutor adminExecutor = new OwnableExecutor(address(this));
-        _constantDelayStrategy = new ConstantDelayStrategy(_DELAY);
-        _timelock = new Timelock(address(_constantDelayStrategy), _ADMIN_PROPOSER, address(adminExecutor));
+        _timelock = new Timelock(_ADMIN_PROPOSER, address(adminExecutor), _DELAY);
 
         // deploy emergency mode guardian
         _emergencyModeGuardian = new EmergencyModeGuardian(
@@ -129,8 +129,8 @@ contract AgentFirstApproachTest is Test {
         // ---
         // ACT 3. 🔫 DAO STRIKES BACK (WITH DUAL GOVERNANCE SHIPMENT)
         // ---
-        DualGovernanceDelayStrategy dgDelayStrategy;
-        ResetDelayStrategyGuardian resetDelayStrategyGuardian;
+        GovernanceState govState;
+        ResetTimelockControllerGuardian resetTimelockControllerGuardian;
         EmergencyModeGuardian emergencyModeGuardian;
         {
             // Lido contributors work hard to implement and ship the Dual Governance mechanism
@@ -141,7 +141,7 @@ contract AgentFirstApproachTest is Test {
             assertFalse(_timelock.getIsExecutable(maliciousProposalId));
 
             // Dual Governance delay strategy is deployed into mainnet
-            (dgDelayStrategy, resetDelayStrategyGuardian, emergencyModeGuardian) = _deployDualGovernanceDelayStrategy();
+            (govState, resetTimelockControllerGuardian, emergencyModeGuardian) = _deployDualGovernance();
 
             address timelock = address(_timelock);
             ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
@@ -149,12 +149,16 @@ contract AgentFirstApproachTest is Test {
                 [
                     // 1. deactivate emergency mode
                     abi.encodeCall(_emergencyModeGuardian.deactivateEmergencyMode, ()),
-                    // 2. replace delay strategy with dual governance
-                    abi.encodeCall(_timelock.setDelayStrategy, (address(dgDelayStrategy))),
-                    // 3. grant GUARDIAN_ROLE to the resetDelayStrategyGuardian
-                    abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(resetDelayStrategyGuardian))),
-                    // 4. grant MANAGER_ROLE to the resetDelayStrategyGuardian
-                    abi.encodeCall(_timelock.grantRole, (_timelock.MANAGER_ROLE(), address(resetDelayStrategyGuardian))),
+                    // 2. set controller for the timelock
+                    abi.encodeCall(_timelock.setController, (address(govState))),
+                    // 3. grant GUARDIAN_ROLE to the resetTimelockControllerGuardian
+                    abi.encodeCall(
+                        _timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(resetTimelockControllerGuardian))
+                    ),
+                    // 4. grant MANAGER_ROLE to the resetTimelockControllerGuardian
+                    abi.encodeCall(
+                        _timelock.grantRole, (_timelock.CONTROLLER_MANAGER_ROLE(), address(resetTimelockControllerGuardian))
+                    ),
                     // 5. grant GUARDIAN_ROLE to the emergencyModeGuardian
                     abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(emergencyModeGuardian))),
                     // 6. revoke GUARDIAN_ROLE from the used EmergencyModeGuardian
@@ -200,12 +204,12 @@ contract AgentFirstApproachTest is Test {
             Utils.setupStEthWhale(stEthWhale, 5 * 10 ** 16);
             uint256 stEthWhaleBalance = IERC20(ST_ETH).balanceOf(stEthWhale);
 
-            Escrow escrow = Escrow(payable(dgDelayStrategy.signallingEscrow()));
+            Escrow escrow = Escrow(payable(govState.signallingEscrow()));
             vm.startPrank(stEthWhale);
             IERC20(ST_ETH).approve(address(escrow), stEthWhaleBalance);
             escrow.lockStEth(stEthWhaleBalance);
             vm.stopPrank();
-            assertEq(uint256(dgDelayStrategy.currentState()), uint256(GovernanceState.State.VetoSignalling));
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignalling));
 
             vm.warp(block.timestamp + _DELAY / 2 + 1);
 
@@ -213,11 +217,11 @@ contract AgentFirstApproachTest is Test {
 
             // wait the dual governance returns to normal state
             vm.warp(block.timestamp + 14 days);
-            dgDelayStrategy.activateNextState();
-            assertEq(uint256(dgDelayStrategy.currentState()), uint256(GovernanceState.State.VetoSignallingDeactivation));
-            vm.warp(block.timestamp + dgDelayStrategy.CONFIG().signallingDeactivationDuration() + 1);
-            dgDelayStrategy.activateNextState();
-            assertEq(uint256(dgDelayStrategy.currentState()), uint256(GovernanceState.State.VetoCooldown));
+            govState.activateNextState();
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignallingDeactivation));
+            vm.warp(block.timestamp + govState.CONFIG().signallingDeactivationDuration() + 1);
+            govState.activateNextState();
+            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoCooldown));
 
             assertTrue(_timelock.getIsExecutable(controversialProposalId));
 
@@ -231,11 +235,11 @@ contract AgentFirstApproachTest is Test {
         // ---
         {
             uint256 snapshotId = vm.snapshot();
-            assertEq(_timelock.getDelayStrategy(), address(dgDelayStrategy));
+            assertEq(_timelock.getController(), address(govState));
             vm.prank(_EMERGENCY_COMMITTEE);
-            resetDelayStrategyGuardian.resetDelayStrategy();
-            assertEq(_timelock.getDelayStrategy(), address(_constantDelayStrategy));
-            assertFalse(_timelock.hasRole(_timelock.GUARDIAN_ROLE(), address(resetDelayStrategyGuardian)));
+            resetTimelockControllerGuardian.resetController();
+            assertEq(_timelock.getController(), address(0));
+            assertFalse(_timelock.hasRole(_timelock.GUARDIAN_ROLE(), address(resetTimelockControllerGuardian)));
 
             // emergency committee still may activate emergency mode
             assertFalse(_timelock.paused());
@@ -314,11 +318,11 @@ contract AgentFirstApproachTest is Test {
         assertTrue(_timelock.getIsExecutable(proposalId), "proposal is not executable");
     }
 
-    function _deployDualGovernanceDelayStrategy()
+    function _deployDualGovernance()
         internal
         returns (
-            DualGovernanceDelayStrategy dgDelayStrategy,
-            ResetDelayStrategyGuardian resetDelayStrategyGuardian,
+            GovernanceState govState,
+            ResetTimelockControllerGuardian resetTimelockControllerGuardian,
             EmergencyModeGuardian emergencyModeGuardian
         )
     {
@@ -332,12 +336,12 @@ contract AgentFirstApproachTest is Test {
 
         // deploy DG
         address escrowImpl = address(new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER));
-        dgDelayStrategy = new DualGovernanceDelayStrategy(address(config), escrowImpl);
+
+        govState = new GovernanceState(address(config), address(0), escrowImpl);
 
         // deploy guardians
-        resetDelayStrategyGuardian = new ResetDelayStrategyGuardian(
-            address(_timelock), address(_constantDelayStrategy), _EMERGENCY_COMMITTEE, _EMERGENCY_COMMITTEE_LIFETIME
-        );
+        resetTimelockControllerGuardian =
+            new ResetTimelockControllerGuardian(address(_timelock), _EMERGENCY_COMMITTEE, _EMERGENCY_COMMITTEE_LIFETIME);
 
         emergencyModeGuardian = new EmergencyModeGuardian(
             address(_timelock), _EMERGENCY_COMMITTEE, _EMERGENCY_COMMITTEE_LIFETIME, _EMERGENCY_MODE_DURATION

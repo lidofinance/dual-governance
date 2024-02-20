@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
@@ -232,10 +231,9 @@ library Proposals {
     }
 }
 
-interface IDelayStrategy {
-    function getDelay() external view returns (uint256);
-    function beforeSchedule() external returns (bool isSchedulingAllowed);
-    function beforeExecute() external returns (bool isExecutionAllowed);
+interface ITimelockController {
+    function isExecutionEnabled() external view returns (bool);
+    function isSchedulingEnabled() external view returns (bool);
 }
 
 contract Committee {
@@ -281,23 +279,16 @@ contract ExpirableCommittee is Committee {
     }
 }
 
-contract ResetDelayStrategyGuardian is ExpirableCommittee {
+contract ResetTimelockControllerGuardian is ExpirableCommittee {
     Timelock public immutable TIMELOCK;
-    address public immutable FALLBACK_DELAY_STRATEGY;
 
-    constructor(
-        address timelock,
-        address fallbackDelayStrategy,
-        address committee,
-        uint256 lifetime
-    ) ExpirableCommittee(committee, lifetime) {
+    constructor(address timelock, address committee, uint256 lifetime) ExpirableCommittee(committee, lifetime) {
         TIMELOCK = Timelock(timelock);
-        FALLBACK_DELAY_STRATEGY = fallbackDelayStrategy;
     }
 
-    function resetDelayStrategy() external onlyCommittee {
+    function resetController() external onlyCommittee {
         TIMELOCK.cancelAll();
-        TIMELOCK.setDelayStrategy(FALLBACK_DELAY_STRATEGY);
+        TIMELOCK.setController(address(0));
         TIMELOCK.renounceRole(TIMELOCK.GUARDIAN_ROLE(), address(this));
     }
 }
@@ -339,13 +330,14 @@ contract EmergencyModeGuardian is ExpirableCommittee {
 
         TIMELOCK.cancelAll();
         TIMELOCK.resume();
+        TIMELOCK.renounceRole(TIMELOCK.GUARDIAN_ROLE(), address(this));
     }
 
     function execute(uint256 proposalId) external onlyCommittee {
         if (_emergencyModeActivatedAt == 0) {
             revert EmergencyModeNotActive();
         }
-        TIMELOCK.executeUrgently(proposalId);
+        TIMELOCK.executeByGuardian(proposalId);
     }
 
     function getEmergencyModeEndsAfter() external view returns (uint256) {
@@ -353,7 +345,7 @@ contract EmergencyModeGuardian is ExpirableCommittee {
     }
 }
 
-contract TiebreakCommittee is Committee {
+contract TiebreakCommitteeGuardian is Committee {
     Timelock public immutable TIMELOCK;
     IGateSeal public immutable GATE_SEAL;
     Configuration public immutable CONFIG;
@@ -363,7 +355,7 @@ contract TiebreakCommittee is Committee {
 
     function execute(uint256 proposalId) external {
         if (_isRageQuitAndGateSealTriggered() || _isDualGovernanceLocked()) {
-            TIMELOCK.executeUrgently(proposalId);
+            TIMELOCK.executeByGuardian(proposalId);
             return;
         }
         revert("Dual Governance is not locked");
@@ -380,113 +372,57 @@ contract TiebreakCommittee is Committee {
     }
 }
 
-contract ConstantDelayStrategy is IDelayStrategy {
-    uint256 public immutable DELAY;
-
-    constructor(uint256 delay) {
-        DELAY = delay;
-    }
-
-    function getDelay() external view returns (uint256) {
-        return DELAY;
-    }
-
-    function beforeSchedule() external pure returns (bool isSchedulingAllowed) {
-        isSchedulingAllowed = true;
-    }
-
-    function beforeExecute() external pure returns (bool isExecutionAllowed) {
-        isExecutionAllowed = true;
-    }
-}
-
-contract DualGovernanceDelayStrategy is IDelayStrategy {
-    Configuration public immutable CONFIG;
-    GovernanceState public immutable GOV_STATE;
-
-    constructor(address config, address escrowImpl) {
-        CONFIG = Configuration(config);
-        GOV_STATE = new GovernanceState(address(CONFIG), address(this), escrowImpl);
-    }
-
-    function activateNextState() external returns (GovernanceState.State) {
-        return GOV_STATE.activateNextState();
-    }
-
-    function signallingEscrow() external view returns (address) {
-        return GOV_STATE.signallingEscrow();
-    }
-
-    function currentState() external view returns (GovernanceState.State) {
-        return GOV_STATE.currentState();
-    }
-
-    function state() external view returns (GovernanceState.State) {
-        return GOV_STATE.currentState();
-    }
-
-    function getDelay() external view returns (uint256) {
-        GovernanceState.State state = GOV_STATE.currentState();
-        return state == GovernanceState.State.Normal || state == GovernanceState.State.VetoCooldown
-            ? CONFIG.minProposalExecutionTimelock()
-            : type(uint64).max;
-    }
-
-    function beforeSchedule() external returns (bool isSchedulingAllowed) {
-        GOV_STATE.activateNextState();
-        return GOV_STATE.isProposalSubmissionAllowed();
-    }
-
-    function beforeExecute() external returns (bool isExecutionAllowed) {
-        GOV_STATE.activateNextState();
-        return GOV_STATE.isExecutionEnabled();
-    }
-}
-
 contract Timelock is Pausable, AccessControlEnumerable {
     using Proposers for Proposers.State;
     using Proposals for Proposals.State;
 
-    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+    error SchedulingDisabled();
+    error ExecutionDisabled();
+    error NotController(address sender);
+    error NotAdminExecutor(address sender);
+
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+    bytes32 public constant CONTROLLER_MANAGER_ROLE = keccak256("CONTROLLER_MANAGER_ROLE");
 
     address public immutable ADMIN_EXECUTOR;
     address public immutable ADMIN_PROPOSER;
 
     uint256 public immutable MIN_TIMELOCK_DURATION = 2 days;
+    uint256 public immutable MAX_TIMELOCK_DURATION = 30 days;
 
+    uint256 internal _delay;
     Proposers.State internal _proposers;
     Proposals.State internal _proposals;
-    IDelayStrategy internal _delayStrategy;
+    ITimelockController internal _controller;
 
-    constructor(address delayStrategy, address adminProposer, address adminExecutor) {
+    constructor(address adminProposer, address adminExecutor, uint256 delay) {
         ADMIN_PROPOSER = adminProposer;
         ADMIN_EXECUTOR = adminExecutor;
         _proposers.register(adminProposer, adminExecutor);
 
-        _delayStrategy = IDelayStrategy(delayStrategy);
+        _delay = delay;
 
-        _grantRole(MANAGER_ROLE, adminExecutor);
         _grantRole(DEFAULT_ADMIN_ROLE, adminExecutor);
+        _grantRole(CONTROLLER_MANAGER_ROLE, adminExecutor);
     }
 
     function schedule(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
         Proposer memory proposer = _proposers.get(msg.sender);
-        bool isSchedulingAllowed = _delayStrategy.beforeSchedule();
-        if (!isSchedulingAllowed) {
-            revert("scheduling disabled");
+        if (!_isSchedulingEnabled()) {
+            revert SchedulingDisabled();
         }
         newProposalId = _proposals.schedule(proposer.account, proposer.executor, calls);
     }
 
     function execute(uint256 proposalId) external whenNotPaused {
-        bool isExecutionAllowed = _delayStrategy.beforeExecute();
-        if (!isExecutionAllowed) {
-            revert("execution disabled");
+        if (!_isExecutionEnabled()) {
+            revert ExecutionDisabled();
         }
-        uint256 delay = Math.max(MIN_TIMELOCK_DURATION, _delayStrategy.getDelay());
+        _proposals.execute(proposalId, _delay);
+    }
 
-        _proposals.execute(proposalId, delay);
+    function executeByGuardian(uint256 proposalId) external onlyRole(GUARDIAN_ROLE) {
+        _proposals.execute(proposalId, _delay);
     }
 
     function pause() external onlyRole(GUARDIAN_ROLE) {
@@ -497,23 +433,12 @@ contract Timelock is Pausable, AccessControlEnumerable {
         _unpause();
     }
 
-    function cancelAll() external {
-        if (msg.sender != ADMIN_PROPOSER && !hasRole(GUARDIAN_ROLE, msg.sender)) {
-            revert("forbidden");
-        }
+    function cancelAll() external onlyRole(GUARDIAN_ROLE) {
         _proposals.cancelAll();
     }
 
-    function setDelayStrategy(address delayer) external {
-        if (msg.sender != ADMIN_EXECUTOR && !hasRole(MANAGER_ROLE, msg.sender)) {
-            revert("forbidden");
-        }
-        _delayStrategy = IDelayStrategy(delayer);
-    }
-
-    // allows execution of the proposal without touching the delayer
-    function executeUrgently(uint256 proposalId) external onlyRole(GUARDIAN_ROLE) {
-        _proposals.execute(proposalId, MIN_TIMELOCK_DURATION);
+    function setController(address controller) external onlyRole(CONTROLLER_MANAGER_ROLE) {
+        _controller = ITimelockController(controller);
     }
 
     function registerProposer(address proposer, address executor) external onlyAdminExecutor {
@@ -528,8 +453,8 @@ contract Timelock is Pausable, AccessControlEnumerable {
         IOwnable(executor).transferOwnership(owner);
     }
 
-    function getDelayStrategy() external view returns (address) {
-        return address(_delayStrategy);
+    function getController() external view returns (address) {
+        return address(_controller);
     }
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
@@ -541,16 +466,20 @@ contract Timelock is Pausable, AccessControlEnumerable {
     }
 
     function getIsExecutable(uint256 proposalId) external view returns (bool isExecutable) {
-        isExecutable = !paused() && _proposals.isExecutable(proposalId, _getDelay());
+        return !paused() && _isExecutionEnabled() && _proposals.isExecutable(proposalId, _delay);
     }
 
-    function _getDelay() internal view returns (uint256) {
-        return Math.max(MIN_TIMELOCK_DURATION, _delayStrategy.getDelay());
+    function _isSchedulingEnabled() internal view returns (bool) {
+        return address(_controller) == address(0) ? true : _controller.isSchedulingEnabled();
+    }
+
+    function _isExecutionEnabled() internal view returns (bool) {
+        return address(_controller) == address(0) ? true : _controller.isExecutionEnabled();
     }
 
     modifier onlyAdminExecutor() {
         if (msg.sender != ADMIN_EXECUTOR) {
-            revert("Unauthorized()");
+            revert NotAdminExecutor(msg.sender);
         }
         _;
     }
