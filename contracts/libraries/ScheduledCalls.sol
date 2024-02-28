@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {IExecutor} from "../interfaces/IExecutor.sol";
+import {IExecutor, ExecutorCall} from "../interfaces/IExecutor.sol";
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
-struct ExecutorCall {
-    address target;
-    uint96 value; // ~ 7.9 billion ETH
-    bytes payload;
-}
 
 struct ScheduledCallsBatch {
     uint256 id;

@@ -17,6 +17,7 @@ library EmergencyProtection {
     error EmergencyPeriodFinished();
     error EmergencyCommitteeExpired();
     error EmergencyModeAlreadyActive();
+    error EmergencyModeActive();
 
     event EmergencyModeActivated();
     event EmergencyModeDeactivated();
@@ -62,9 +63,6 @@ library EmergencyProtection {
     }
 
     function activate(State storage self) internal {
-        if (msg.sender != self.committee) {
-            revert NotEmergencyCommittee(msg.sender);
-        }
         if (block.timestamp > self.protectedTill) {
             revert EmergencyCommitteeExpired();
         }
@@ -119,8 +117,31 @@ library EmergencyProtection {
         return endsAfter != 0 && block.timestamp > endsAfter;
     }
 
+    function isEmergencyProtectionEnabled(State storage self) internal view returns (bool) {
+        return block.number <= self.protectedTill;
+    }
+
+    function checkEmergencyCommittee(State storage self, address account) internal view {
+        if (self.committee != account) {
+            revert NotEmergencyCommittee(account);
+        }
+    }
+
+    function checkEmergencyModeActivated(State storage self) internal view {
+        if (!isEmergencyModeActivated(self)) {
+            revert EmergencyModeNotActivated();
+        }
+    }
+
+    function checkEmergencyModeNotActivated(State storage self) internal view {
+        if (isEmergencyModeActivated(self)) {
+            revert EmergencyModeActive();
+        }
+    }
+
     function _reset(State storage self) private {
         self.committee = address(0);
+        self.protectedTill = 0;
         self.emergencyModeDuration = 0;
         self.emergencyModeEndsAfter = 0;
     }

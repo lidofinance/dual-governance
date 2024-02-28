@@ -3,9 +3,8 @@ pragma solidity 0.8.23;
 
 import {ITimelock} from "./interfaces/ITimelock.sol";
 
-import {ExecutorCall} from "./libraries/ScheduledCalls.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
-import {Proposals, Proposal} from "./libraries/Proposals.sol";
+import {Proposals, Proposal, ExecutorCall} from "./libraries/Proposals.sol";
 
 import {Configuration} from "./Configuration.sol";
 import {GovernanceState} from "./GovernanceState.sol";

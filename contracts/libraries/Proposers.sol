@@ -4,16 +4,29 @@ pragma solidity 0.8.23;
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 struct Proposer {
+    bool isAdmin;
     address account;
     address executor;
+}
+
+struct ProposerData {
+    address proposer;
+    address executor;
+    bool isAdmin;
 }
 
 library Proposers {
     using SafeCast for uint256;
 
+    error NotProposer(address account);
+    error NotAdminProposer(address account);
+    error NotAdminExecutor(address account);
     error ProposerNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
+    error InvalidAdminExecutor(address executor);
+    error ExecutorNotRegistered(address account);
 
+    event AdminExecutorSet(address indexed adminExecutor);
     event ProposerRegistered(address indexed proposer, address indexed executor);
     event ProposerUnregistered(address indexed proposer, address indexed executor);
 
@@ -25,6 +38,19 @@ library Proposers {
     struct State {
         address[] proposers;
         mapping(address proposer => ExecutorData) executors;
+        mapping(address executor => uint256 usagesCount) executorRefsCounts;
+        address adminExecutor;
+    }
+
+    function setAdminExecutor(State storage self, address adminExecutor) internal {
+        if (adminExecutor == address(0) || self.adminExecutor == adminExecutor) {
+            revert InvalidAdminExecutor(adminExecutor);
+        }
+        if (self.executorRefsCounts[adminExecutor] == 0) {
+            revert ExecutorNotRegistered(adminExecutor);
+        }
+        self.adminExecutor = adminExecutor;
+        emit AdminExecutorSet(adminExecutor);
     }
 
     function register(State storage self, address proposer, address executor) internal {
@@ -33,6 +59,7 @@ library Proposers {
         }
         self.proposers.push(proposer);
         self.executors[proposer] = ExecutorData(self.proposers.length.toUint8(), executor);
+        self.executorRefsCounts[executor] += 1;
         emit ProposerRegistered(proposer, executor);
     }
 
@@ -52,6 +79,7 @@ library Proposers {
         }
         self.proposers.pop();
         delete self.executors[proposer];
+        self.executorRefsCounts[executorData.executor] -= 1;
         emit ProposerUnregistered(proposer, executorData.executor);
     }
 
@@ -71,7 +99,46 @@ library Proposers {
         proposer.executor = executorData.executor;
     }
 
-    function isProposer(State storage self, address proposer) internal view returns (bool) {
-        return self.executors[proposer].proposerIndexOneBased != 0;
+    function isProposer(State storage self, address account) internal view returns (bool) {
+        return self.executors[account].proposerIndexOneBased != 0;
+    }
+
+    function isAdminProposer(State storage self, address account) internal view returns (bool) {
+        ExecutorData memory executorData = self.executors[account];
+        return executorData.proposerIndexOneBased != 0 && executorData.executor == self.adminExecutor;
+    }
+
+    function isExecutor(State storage self, address account) internal view returns (bool) {
+        return self.executorRefsCounts[account] > 0;
+    }
+
+    function isAdminExecutor(State storage self, address account) internal view returns (bool) {
+        return self.adminExecutor == account;
+    }
+
+    function checkProposer(State storage self, address account) internal view {
+        if (!isProposer(self, account)) {
+            revert NotProposer(account);
+        }
+    }
+
+    function checkAdminProposer(State storage self, address account) internal view {
+        checkProposer(self, account);
+        if (!isAdminProposer(self, account)) {
+            revert NotAdminProposer(account);
+        }
+    }
+
+    function checkExecutor(State storage self, address account) internal view {
+        if (!isExecutor(self, account)) {
+            revert ExecutorNotRegistered(account);
+        }
+    }
+
+    function checkAdminExecutor(State storage self, address account) internal view {
+        checkExecutor(self, account);
+        if (!isAdminExecutor(self, account)) {
+            revert NotAdminExecutor(account);
+        }
     }
 }

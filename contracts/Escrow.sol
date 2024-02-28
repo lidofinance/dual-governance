@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Blueprint} from "./Blueprint.sol";
 import {Configuration} from "./Configuration.sol";
-import {GovernanceState} from "./GovernanceState.sol";
 
 struct WithdrawalRequestStatus {
     uint256 amountOfStETH;
@@ -11,6 +11,10 @@ struct WithdrawalRequestStatus {
     uint256 timestamp;
     bool isFinalized;
     bool isClaimed;
+}
+
+interface IGovernanceState {
+    function activateNextState() external;
 }
 
 interface IERC20 {
@@ -68,7 +72,7 @@ interface IWithdrawalQueue {
 /**
  * A contract serving as a veto signalling and rage quit escrow.
  */
-contract Escrow {
+contract Escrow is Blueprint {
     error Unauthorized();
     error InvalidState();
     error NoUnrequestedWithdrawalsLeft();
@@ -80,6 +84,7 @@ contract Escrow {
     error SenderIsNotAllowed();
     error RequestIsNotFromBatch(uint256 id);
     error RequestFromBatch(uint256 id);
+    error AlreadyInitialized();
 
     event RageQuitStarted();
     event WithdrawalsBatchRequested(
@@ -116,14 +121,13 @@ contract Escrow {
         uint256[] wqRequestIds;
     }
 
-    Configuration internal immutable CONFIG;
     address internal immutable ST_ETH;
     address internal immutable WST_ETH;
     address internal immutable WITHDRAWAL_QUEUE;
     address internal immutable BURNER_VAULT;
 
-    address internal _govState;
     State internal _state;
+    address internal _dualGovernance;
 
     uint256 internal _totalStEthInEthLocked;
     uint256 internal _totalWstEthInEthLocked;
@@ -141,23 +145,20 @@ contract Escrow {
     mapping(address => HolderState) private _balances;
     mapping(uint256 => WithdrawalRequestStatus) private _wqRequests;
 
-    constructor(address config, address stEth, address wstEth, address withdrawalQueue, address burnerVault) {
-        CONFIG = Configuration(config);
+    constructor(address, address stEth, address wstEth, address withdrawalQueue, address burnerVault) {
         ST_ETH = stEth;
         WST_ETH = wstEth;
         WITHDRAWAL_QUEUE = withdrawalQueue;
         BURNER_VAULT = burnerVault;
-
-        _govState = address(this);
     }
 
-    function initialize(address governanceState) external {
-        if (_govState != address(0)) {
-            revert Unauthorized();
+    function initialize(address dualGovernance) external onlyOnProxy {
+        if (_dualGovernance != address(0)) {
+            revert AlreadyInitialized();
         }
         _totalStEthInEthLocked = 1;
         _totalEscrowShares = 1;
-        _govState = governanceState;
+        _dualGovernance = dualGovernance;
     }
 
     ///
@@ -424,8 +425,8 @@ contract Escrow {
         totalSupport = (totalStakedEthLocked * 10 ** 18) / stEthTotalSupply;
     }
 
-    function startRageQuit() external {
-        if (msg.sender != _govState) {
+    function startRageQuit() external returns (address) {
+        if (msg.sender != _dualGovernance) {
             revert Unauthorized();
         }
         if (_state != State.Signalling) {
@@ -449,6 +450,7 @@ contract Escrow {
         IERC20(ST_ETH).approve(WITHDRAWAL_QUEUE, type(uint256).max);
 
         emit RageQuitStarted();
+        return _clone();
     }
 
     function requestNextWithdrawalsBatch(uint256 maxNumRequests) external returns (uint256, uint256, uint256) {
@@ -589,7 +591,7 @@ contract Escrow {
     }
 
     function _activateNextGovernanceState() internal {
-        GovernanceState(_govState).activateNextState();
+        IGovernanceState(_dualGovernance).activateNextState();
     }
 
     function _getSharesByETH(uint256 eth) internal view returns (uint256 shares) {
