@@ -37,7 +37,8 @@ contract AgentFirstApproachTest is Test {
     uint256 internal constant _DELAY = 3 days;
     uint256 internal constant _EMERGENCY_COMMITTEE_LIFETIME = 90 days;
     uint256 internal constant _EMERGENCY_MODE_DURATION = 180 days;
-    uint256 internal immutable _SEALING_DURATION = 14 days;
+    uint256 internal immutable _RELEASE_EXPERY = 5 days;
+    uint256 internal immutable _RELEASE_TIMELOCK = 14 days;
     uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
 
     address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
@@ -510,8 +511,15 @@ contract AgentFirstApproachTest is Test {
 
     function _deployGateSeal(address govState) internal {
         // deploy new gate seal instance
-        _gateSeal =
-            new GateSeal(govState, _SEALING_COMMITTEE, _SEALING_COMMITTEE_LIFETIME, _SEALING_DURATION, _sealables);
+        _gateSeal = new GateSeal(
+            address(this),
+            govState,
+            _SEALING_COMMITTEE,
+            _SEALING_COMMITTEE_LIFETIME,
+            _RELEASE_TIMELOCK,
+            _RELEASE_EXPERY,
+            _sealables
+        );
 
         // grant rights to gate seal to pause/resume the withdrawal queue
         vm.startPrank(DAO_AGENT);

@@ -371,7 +371,7 @@ contract TiebreakGuardian is Committee {
     }
 
     function isRageQuitAndGateSealTriggered() public view returns (bool) {
-        return GATE_SEAL.isTriggered() && GOV_STATE.currentState() == GovernanceState.State.RageQuit;
+        return GATE_SEAL.isAnySealed() && GOV_STATE.currentState() == GovernanceState.State.RageQuit;
     }
 
     function isDualGovernanceLocked() public view returns (bool) {
