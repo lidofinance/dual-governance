@@ -1,31 +1,55 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
+
+import {DualGovernanceState, Status as DualGovernanceStatus} from "./libraries/DualGovernanceState.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {IExecutor} from "./interfaces/IExecutor.sol";
+import {ConfigurationProvider, IConfiguration} from "./ConfigurationProvider.sol";
 
-import {Escrow} from "./Escrow.sol";
-import {GateSeal} from "./GateSeal.sol";
-import {Configuration} from "./Configuration.sol";
-import {GovernanceState} from "./GovernanceState.sol";
-import {ExecutorCall} from "contracts/libraries/ScheduledCalls.sol";
+import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
+import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
 
+interface ITimelock {
+    function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId);
+    function cancelAll() external;
+}
+
+interface ITimelockController {
+    function handleProposalAdoption() external;
+
+    function isBlocked() external view returns (bool);
+    function isProposalsAdoptionAllowed() external view returns (bool);
+}
+
+// ---
+// Proposers
+// ---
 struct Proposer {
+    bool isAdmin;
     address account;
     address executor;
+}
+
+struct ProposerData {
+    address proposer;
+    address executor;
+    bool isAdmin;
 }
 
 library Proposers {
     using SafeCast for uint256;
 
+    error NotProposer(address account);
+    error NotAdminProposer(address account);
     error ProposerNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
+    error InvalidAdminExecutor(address executor);
+    error ExecutorNotRegistered(address account);
+    error LastAdminProposerRemoval();
 
+    event AdminExecutorSet(address indexed adminExecutor);
     event ProposerRegistered(address indexed proposer, address indexed executor);
     event ProposerUnregistered(address indexed proposer, address indexed executor);
 
@@ -37,6 +61,7 @@ library Proposers {
     struct State {
         address[] proposers;
         mapping(address proposer => ExecutorData) executors;
+        mapping(address executor => uint256 usagesCount) executorRefsCounts;
     }
 
     function register(State storage self, address proposer, address executor) internal {
@@ -45,10 +70,11 @@ library Proposers {
         }
         self.proposers.push(proposer);
         self.executors[proposer] = ExecutorData(self.proposers.length.toUint8(), executor);
+        self.executorRefsCounts[executor] += 1;
         emit ProposerRegistered(proposer, executor);
     }
 
-    function unregister(State storage self, address proposer) internal {
+    function unregister(State storage self, IConfiguration config, address proposer) internal {
         uint256 proposerIndexToDelete;
         ExecutorData memory executorData = self.executors[proposer];
         unchecked {
@@ -64,7 +90,14 @@ library Proposers {
         }
         self.proposers.pop();
         delete self.executors[proposer];
-        emit ProposerUnregistered(proposer, executorData.executor);
+
+        address executor = executorData.executor;
+        if (executor == config.ADMIN_EXECUTOR() && self.executorRefsCounts[executor] == 1) {
+            revert LastAdminProposerRemoval();
+        }
+
+        self.executorRefsCounts[executor] -= 1;
+        emit ProposerUnregistered(proposer, executor);
     }
 
     function all(State storage self) internal view returns (Proposer[] memory proposers) {
@@ -83,696 +116,323 @@ library Proposers {
         proposer.executor = executorData.executor;
     }
 
-    function isProposer(State storage self, address proposer) internal view returns (bool) {
-        return self.executors[proposer].proposerIndexOneBased != 0;
+    function isProposer(State storage self, address account) internal view returns (bool) {
+        return self.executors[account].proposerIndexOneBased != 0;
+    }
+
+    function isAdminProposer(State storage self, IConfiguration config, address account) internal view returns (bool) {
+        ExecutorData memory executorData = self.executors[account];
+        return executorData.proposerIndexOneBased != 0 && executorData.executor == config.ADMIN_EXECUTOR();
+    }
+
+    function isExecutor(State storage self, address account) internal view returns (bool) {
+        return self.executorRefsCounts[account] > 0;
+    }
+
+    function checkProposer(State storage self, address account) internal view {
+        if (!isProposer(self, account)) {
+            revert NotProposer(account);
+        }
+    }
+
+    function checkAdminProposer(State storage self, IConfiguration config, address account) internal view {
+        checkProposer(self, account);
+        if (!isAdminProposer(self, config, account)) {
+            revert NotAdminProposer(account);
+        }
     }
 }
 
-struct Proposal {
-    uint256 id;
-    address proposer;
-    address executor;
-    uint256 scheduledAt;
-    uint256 executedAt;
-    ExecutorCall[] calls;
-}
+contract DualGovernance is ITimelockController, ConfigurationProvider {
+    using Proposers for Proposers.State;
+    using DualGovernanceState for DualGovernanceState.State;
 
-struct ProposalPacked {
-    address proposer;
-    uint40 scheduledAt;
-    uint40 executedAt;
-    address executor;
-    ExecutorCall[] calls;
-}
+    error NotTimelock(address account);
+    error ProposalsCreationSuspended();
+    error ProposalsAdoptionSuspended();
 
-library Proposals {
-    using SafeCast for uint256;
+    ITimelock public immutable TIMELOCK;
 
-    // The id of the first proposal
-    uint256 private constant FIRST_PROPOSAL_ID = 1;
-
-    struct State {
-        // any proposals with ids less or equal to the given one cannot be executed
-        uint256 lastCanceledProposalId;
-        ProposalPacked[] proposals;
-    }
-
-    error EmptyCalls();
-    error ProposalCanceled(uint256 proposalId);
-    error ProposalNotFound(uint256 proposalId);
-    error ProposalNotExecutable(uint256 proposalId);
-    error ProposalAlreadyExecuted(uint256 proposalId);
-    error InvalidAdoptionDelay(uint256 adoptionDelay);
-
-    event Proposed(uint256 indexed id, address indexed proposer, address indexed executor, ExecutorCall[] calls);
-    event ProposalsCanceledTill(uint256 proposalId);
-
-    function schedule(
-        State storage self,
-        address proposer,
-        address executor,
-        ExecutorCall[] calldata calls
-    ) internal returns (uint256 newProposalId) {
-        if (calls.length == 0) {
-            revert EmptyCalls();
-        }
-
-        newProposalId = self.proposals.length;
-        self.proposals.push();
-
-        ProposalPacked storage newProposal = self.proposals[newProposalId];
-        newProposal.proposer = proposer;
-        newProposal.executor = executor;
-        newProposal.executedAt = 0;
-        newProposal.scheduledAt = block.timestamp.toUint40();
-
-        // copying of arrays of custom types from calldata to storage has not been supported by the
-        // Solidity compiler yet, so insert item by item
-        for (uint256 i = 0; i < calls.length; ++i) {
-            newProposal.calls.push(calls[i]);
-        }
-
-        emit Proposed(newProposalId, proposer, executor, calls);
-    }
-
-    function cancelAll(State storage self) internal {
-        uint256 lastProposalId = self.proposals.length;
-        self.lastCanceledProposalId = lastProposalId;
-        emit ProposalsCanceledTill(lastProposalId);
-    }
-
-    function execute(State storage self, uint256 proposalId, uint256 delay) internal {
-        if (delay == 0) {
-            revert InvalidAdoptionDelay(0);
-        }
-
-        ProposalPacked storage packed = _packed(self, proposalId);
-
-        if (proposalId <= self.lastCanceledProposalId) {
-            revert ProposalCanceled(proposalId);
-        }
-        uint256 scheduledAt = packed.scheduledAt;
-        if (packed.executedAt != 0) {
-            revert ProposalAlreadyExecuted(proposalId);
-        }
-        if (block.timestamp < scheduledAt + delay) {
-            revert ProposalNotExecutable(proposalId);
-        }
-        packed.executedAt = block.timestamp.toUint40();
-        _executeCalls(packed.executor, packed.calls);
-    }
-
-    function get(State storage self, uint256 proposalId) internal view returns (Proposal memory proposal) {
-        proposal = _unpack(proposalId, _packed(self, proposalId));
-    }
-
-    function count(State storage self) internal view returns (uint256 count_) {
-        count_ = self.proposals.length;
-    }
-
-    function isExecutable(State storage self, uint256 proposalId, uint256 delay) internal view returns (bool) {
-        ProposalPacked storage packed = _packed(self, proposalId);
-        if (packed.executedAt != 0) return false;
-        if (proposalId <= self.lastCanceledProposalId) return false;
-        return block.timestamp > packed.scheduledAt + delay;
-    }
-
-    function _executeCalls(address executor, ExecutorCall[] memory calls) private returns (bytes[] memory results) {
-        uint256 callsCount = calls.length;
-
-        assert(callsCount > 0);
-
-        address target;
-        uint256 value;
-        bytes memory payload;
-        results = new bytes[](callsCount);
-        for (uint256 i = 0; i < callsCount; ++i) {
-            value = calls[i].value;
-            target = calls[i].target;
-            payload = calls[i].payload;
-            results[i] = IExecutor(payable(executor)).execute(target, value, payload);
-        }
-    }
-
-    function _packed(State storage self, uint256 proposalId) private view returns (ProposalPacked storage packed) {
-        if (proposalId < FIRST_PROPOSAL_ID || proposalId > self.proposals.length) {
-            revert ProposalNotFound(proposalId);
-        }
-        packed = self.proposals[proposalId - FIRST_PROPOSAL_ID];
-    }
-
-    function _unpack(uint256 id, ProposalPacked memory packed) private pure returns (Proposal memory proposal) {
-        proposal.id = id;
-        proposal.calls = packed.calls;
-        proposal.proposer = packed.proposer;
-        proposal.executor = packed.executor;
-        proposal.executedAt = packed.executedAt;
-        proposal.scheduledAt = packed.scheduledAt;
-    }
-}
-
-interface ITimelockController {
-    function isExecutionEnabled() external view returns (bool);
-    function isSchedulingEnabled() external view returns (bool);
-}
-
-contract Committee {
-    error NotCommittee(address sender, address committee);
-
-    address public immutable COMMITTEE;
-
-    constructor(address committee) {
-        COMMITTEE = committee;
-    }
-
-    function _checkCommittee() internal view {
-        if (msg.sender != COMMITTEE) {
-            revert NotCommittee(msg.sender, COMMITTEE);
-        }
-    }
-
-    modifier onlyCommittee() virtual {
-        _checkCommittee();
-        _;
-    }
-}
-
-contract ExpirableCommittee is Committee {
-    error CommitteeExpired(uint256 expirationDate);
-
-    uint256 public immutable EXPIRED_AFTER;
-
-    constructor(address committee, uint256 lifetime) Committee(committee) {
-        EXPIRED_AFTER = block.number + lifetime;
-    }
-
-    function _checkExpired() internal view {
-        if (block.number > EXPIRED_AFTER) {
-            revert CommitteeExpired(EXPIRED_AFTER);
-        }
-    }
-
-    modifier onlyCommittee() override {
-        _checkCommittee();
-        _checkExpired();
-        _;
-    }
-}
-
-contract ResetTimelockControllerGuardian is ExpirableCommittee {
-    Timelock public immutable TIMELOCK;
-
-    constructor(address timelock, address committee, uint256 lifetime) ExpirableCommittee(committee, lifetime) {
-        TIMELOCK = Timelock(timelock);
-    }
-
-    function resetController() external onlyCommittee {
-        TIMELOCK.cancelAll();
-        TIMELOCK.setController(address(0));
-        TIMELOCK.renounceRole(TIMELOCK.CANCELER_ROLE(), address(this));
-        TIMELOCK.renounceRole(TIMELOCK.CONTROLLER_MANAGER_ROLE(), address(this));
-    }
-}
-
-contract EmergencyModeGuardian is ExpirableCommittee {
-    error EmergencyModeNotActive();
-    error EmergencyModeNodePassed(uint256 endsAfter);
-    error EmergencyModeActivated(uint256 activatedAt);
-
-    Timelock public immutable TIMELOCK;
-    uint256 public immutable EMERGENCY_MODE_DURATION;
-
-    uint256 internal _emergencyModeActivatedAt;
+    Proposers.State internal _proposers;
+    DualGovernanceState.State internal _state;
 
     constructor(
         address timelock,
-        address committee,
-        uint256 lifetime,
-        uint256 emergencyModeDuration
-    ) ExpirableCommittee(committee, lifetime) {
-        TIMELOCK = Timelock(timelock);
-        EMERGENCY_MODE_DURATION = emergencyModeDuration;
+        address escrowMasterCopy,
+        address config,
+        address adminProposer
+    ) ConfigurationProvider(config) {
+        TIMELOCK = ITimelock(timelock);
+        _state.initialize(escrowMasterCopy);
+        _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
     }
 
-    function activateEmergencyMode() external onlyCommittee {
-        if (_emergencyModeActivatedAt != 0) {
-            revert EmergencyModeActivated(_emergencyModeActivatedAt);
-        }
-        TIMELOCK.pause();
-        _emergencyModeActivatedAt = block.timestamp;
-    }
+    function submit(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
+        _proposers.checkProposer(msg.sender);
+        _state.activateNextState(CONFIG);
 
-    function deactivateEmergencyMode() external {
-        bool isEmergencyModeEnded = block.timestamp >= _emergencyModeActivatedAt + EMERGENCY_MODE_DURATION;
-
-        if (!isEmergencyModeEnded && msg.sender != TIMELOCK.ADMIN_EXECUTOR()) {
-            revert EmergencyModeNodePassed(_emergencyModeActivatedAt + EMERGENCY_MODE_DURATION);
+        if (!_state.isProposalsCreationAllowed()) {
+            revert ProposalsCreationSuspended();
         }
 
-        TIMELOCK.cancelAll();
-        TIMELOCK.resume();
-        TIMELOCK.renounceRole(TIMELOCK.GUARDIAN_ROLE(), address(this));
-        TIMELOCK.renounceRole(TIMELOCK.CANCELER_ROLE(), address(this));
-    }
-
-    function execute(uint256 proposalId) external onlyCommittee {
-        if (_emergencyModeActivatedAt == 0) {
-            revert EmergencyModeNotActive();
-        }
-        TIMELOCK.executeByGuardian(proposalId);
-    }
-
-    function getEmergencyModeEndsAfter() external view returns (uint256) {
-        return _emergencyModeActivatedAt == 0 ? 0 : _emergencyModeActivatedAt + EMERGENCY_MODE_DURATION;
-    }
-}
-
-contract TiebreakGuardian is Committee {
-    Timelock public immutable TIMELOCK;
-    GateSeal public immutable GATE_SEAL;
-    GovernanceState public immutable GOV_STATE;
-
-    error DualGovernanceNotBlocked();
-
-    constructor(address timelock, address gateSeal, address govState, address committee) Committee(committee) {
-        TIMELOCK = Timelock(timelock);
-        GATE_SEAL = GateSeal(gateSeal);
-        GOV_STATE = GovernanceState(govState);
-    }
-
-    function execute(uint256 proposalId) external onlyCommittee {
-        if (canExecute()) {
-            TIMELOCK.executeByGuardian(proposalId);
-            return;
-        }
-        revert DualGovernanceNotBlocked();
-    }
-
-    function canExecute() public view returns (bool) {
-        return isRageQuitAndGateSealTriggered() || isDualGovernanceLocked();
-    }
-
-    function isRageQuitAndGateSealTriggered() public view returns (bool) {
-        return GATE_SEAL.isTriggered() && GOV_STATE.currentState() == GovernanceState.State.RageQuit;
-    }
-
-    function isDualGovernanceLocked() public view returns (bool) {
-        (GovernanceState.State state_, uint256 enteredAt) = GOV_STATE.stateInfo();
-        return state_ != GovernanceState.State.Normal
-            && block.timestamp > enteredAt + GOV_STATE.CONFIG().tieBreakerActivationTimeout();
-    }
-}
-
-contract DualGovernance is ITimelockController {
-    using Proposers for Proposers.State;
-
-    error Unauthorized();
-
-    event StateTransition(uint256 indexed fromState, uint256 indexed toState);
-    event NewSignallingEscrowDeployed(address indexed escrow, uint256 indexed index);
-
-    enum State {
-        Normal,
-        VetoSignalling,
-        VetoSignallingDeactivation,
-        VetoCooldown,
-        RageQuit
-    }
-
-    Timelock public immutable TIMELOCK;
-    address public immutable ESCROW_IMPL;
-    Configuration public immutable CONFIG;
-
-    Proposers.State internal _proposers;
-
-    uint256 internal _escrowIndex;
-    Escrow internal _signallingEscrow;
-    Escrow internal _rageQuitEscrow;
-
-    State internal _state;
-    uint256 internal _stateEnteredAt;
-    uint256 internal _signallingActivatedAt;
-
-    bool internal _isCancelAllScheduled;
-
-    constructor(address config, address timelock, address escrowImpl) {
-        CONFIG = Configuration(config);
-        TIMELOCK = Timelock(timelock);
-        ESCROW_IMPL = escrowImpl;
-        _deployNewSignallingEscrow();
-        _stateEnteredAt = _getTime();
-        _proposers.register(CONFIG.adminProposer(), TIMELOCK.ADMIN_EXECUTOR());
-    }
-
-    function schedule(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
         Proposer memory proposer = _proposers.get(msg.sender);
-        newProposalId = TIMELOCK.schedule(proposer.account, proposer.executor, calls);
+        newProposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
     function cancelAll() external {
-        if (msg.sender != CONFIG.adminProposer()) {
-            revert Unauthorized();
-        }
-        State state = _state;
-        if (state == State.VetoSignalling || state == State.VetoSignallingDeactivation) {
-            // cancel all proposals when veto signaling or veto cooldown states exited
-            _isCancelAllScheduled = true;
-        }
+        _proposers.checkAdminProposer(CONFIG, msg.sender);
+        _state.activateNextState(CONFIG);
+        _state.haltProposalsCreation();
         TIMELOCK.cancelAll();
     }
 
-    function registerProposer(address proposer, address executor) external onlyAdminExecutor {
-        return _proposers.register(proposer, executor);
-    }
-
-    function unregisterProposer(address proposer) external onlyAdminExecutor {
-        _proposers.unregister(proposer);
-    }
-
-    function activateNextState() public returns (State) {
-        State state = _state;
-        if (state == State.Normal) {
-            _activateNextStateFromNormal();
-        } else if (state == State.VetoSignalling) {
-            _activateNextStateFromVetoSignalling();
-        } else if (state == State.VetoSignallingDeactivation) {
-            _activateNextStateFromVetoSignallingDeactivation();
-        } else if (state == State.VetoCooldown) {
-            _activateNextStateFromVetoCooldown();
-        } else if (state == State.RageQuit) {
-            _activateNextStateFromRageQuit();
-        } else {
-            assert(false);
+    function handleProposalAdoption() external {
+        _checkTimelock(msg.sender);
+        _state.activateNextState(CONFIG);
+        if (!_state.isProposalsAdoptionAllowed()) {
+            revert ProposalsAdoptionSuspended();
         }
-        return _state;
     }
 
-    function stateInfo() external view returns (State state_, uint256 enteredAt) {
-        state_ = _state;
-        enteredAt = _stateEnteredAt;
+    function activateNextState() external {
+        _state.activateNextState(CONFIG);
     }
 
-    function currentState() external view returns (State) {
-        return _state;
+    function currentState() external view returns (DualGovernanceStatus) {
+        return _state.currentState();
     }
 
     function signallingEscrow() external view returns (address) {
-        return address(_signallingEscrow);
+        return address(_state.signallingEscrow);
     }
 
-    function isExecutionEnabled() external view returns (bool) {
-        return _isExecutionEnabled();
+    function rageQuitEscrow() external view returns (address) {
+        return address(_state.rageQuitEscrow);
     }
 
-    function isSchedulingEnabled() external view returns (bool) {
-        State state = _state;
-        return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
+    function isBlocked() external view returns (bool) {
+        return _state.isDeadLockedOrFrozen(CONFIG);
     }
 
-    function _setState(State newState) internal {
-        State state = _state;
-        assert(newState != state);
-        _state = newState;
-        _stateEnteredAt = _getTime();
-        emit StateTransition(uint256(state), uint256(newState));
+    function isProposalsAdoptionAllowed() external view returns (bool) {
+        return _state.isProposalsAdoptionAllowed();
     }
 
-    function _deployNewSignallingEscrow() internal {
-        uint256 escrowIndex = _escrowIndex++;
-        Escrow escrow = Escrow(payable(Clones.cloneDeterministic(ESCROW_IMPL, bytes32(escrowIndex))));
-        escrow.initialize(address(this));
-        _signallingEscrow = escrow;
-        emit NewSignallingEscrowDeployed(address(escrow), escrowIndex);
+    // ---
+    // Proposers & Executors Management
+    // ---
+
+    function registerProposer(address proposer, address executor) external {
+        _checkAdminExecutor(msg.sender);
+        return _proposers.register(proposer, executor);
     }
 
-    function _isExecutionEnabled() internal view returns (bool) {
-        State state = _state;
-        return state == State.Normal || state == State.VetoCooldown;
+    function unregisterProposer(address proposer) external {
+        _checkAdminExecutor(msg.sender);
+        _proposers.unregister(CONFIG, proposer);
     }
 
-    //
-    // State: Normal
-    //
-    function _transitionVetoCooldownToNormal() internal {
-        _activateNormal();
+    function getProposer(address account) external view returns (Proposer memory proposer) {
+        proposer = _proposers.get(account);
     }
 
-    function _transitionRageQuitToNormal() internal {
-        _activateNormal();
+    function getProposers() external view returns (Proposer[] memory proposers) {
+        proposers = _proposers.all();
     }
 
-    function _activateNormal() internal {
-        _setState(State.Normal);
+    function isProposer(address account) external view returns (bool) {
+        return _proposers.isProposer(account);
     }
 
-    function _activateNextStateFromNormal() internal {
-        if (_isFirstThresholdReached()) {
-            _transitionNormalToVetoSignalling();
+    function isExecutor(address account) external view returns (bool) {
+        return _proposers.isExecutor(account);
+    }
+
+    // ---
+    // Internal Helper Methods
+    // ---
+
+    function _checkTimelock(address account) internal view {
+        if (account != address(TIMELOCK)) {
+            revert NotTimelock(account);
         }
-    }
-
-    function _isFirstThresholdReached() internal view returns (bool) {
-        (uint256 totalSupport,) = _signallingEscrow.getSignallingState();
-        return totalSupport >= CONFIG.firstSealThreshold();
-    }
-
-    //
-    // State: VetoSignalling
-    //
-    function _transitionNormalToVetoSignalling() internal {
-        _activateVetoSignalling();
-    }
-
-    function _transitionVetoCooldownToVetoSignalling() internal {
-        _activateVetoSignalling();
-    }
-
-    function _transitionRageQuitToVetoSignalling() internal {
-        _activateVetoSignalling();
-    }
-
-    function _activateVetoSignalling() internal {
-        _setState(State.VetoSignalling);
-        _signallingActivatedAt = _getTime();
-    }
-
-    function _activateNextStateFromVetoSignalling() internal {
-        (uint256 totalSupport, uint256 rageQuitSupport) = _signallingEscrow.getSignallingState();
-        if (totalSupport < CONFIG.firstSealThreshold()) {
-            _enterVetoSignallingDeactivationSubState();
-            return;
-        }
-
-        uint256 currentDuration = _getTime() - _signallingActivatedAt;
-        uint256 targetDuration = _calcVetoSignallingTargetDuration(totalSupport);
-
-        if (currentDuration < targetDuration) {
-            return;
-        }
-
-        if (rageQuitSupport >= CONFIG.secondSealThreshold()) {
-            _activateRageQuit();
-        } else {
-            _enterVetoSignallingDeactivationSubState();
-        }
-        if (_isCancelAllScheduled) {
-            _isCancelAllScheduled = true;
-            TIMELOCK.cancelAll();
-        }
-    }
-
-    function _activateNextStateFromVetoSignallingDeactivation() internal {
-        uint256 timestamp = _getTime();
-
-        uint256 currentDeactivationDuration = timestamp - _stateEnteredAt;
-        if (currentDeactivationDuration >= CONFIG.signallingDeactivationDuration()) {
-            _transitionVetoSignallingToVetoCooldown();
-            return;
-        }
-
-        (uint256 totalSupport, uint256 rageQuitSupport) = _signallingEscrow.getSignallingState();
-        uint256 currentSignallingDuration = timestamp - _signallingActivatedAt;
-        uint256 targetSignallingDuration = _calcVetoSignallingTargetDuration(totalSupport);
-
-        if (currentSignallingDuration >= targetSignallingDuration) {
-            if (rageQuitSupport >= CONFIG.secondSealThreshold()) {
-                _activateRageQuit();
-            }
-        } else if (totalSupport >= CONFIG.firstSealThreshold()) {
-            _exitVetoSignallingDeactivationSubState();
-        }
-        if (_isCancelAllScheduled) {
-            _isCancelAllScheduled = true;
-            TIMELOCK.cancelAll();
-        }
-    }
-
-    function _calcVetoSignallingTargetDuration(uint256 totalSupport) internal view returns (uint256 duration) {
-        (uint256 firstSealThreshold, uint256 secondSealThreshold, uint256 minDuration, uint256 maxDuration) =
-            CONFIG.getSignallingThresholdData();
-
-        if (totalSupport < firstSealThreshold) {
-            return 0;
-        }
-
-        if (totalSupport >= secondSealThreshold) {
-            return maxDuration;
-        }
-
-        duration = minDuration
-            + (totalSupport - firstSealThreshold) * (maxDuration - minDuration) / (secondSealThreshold - firstSealThreshold);
-    }
-
-    function _enterVetoSignallingDeactivationSubState() internal {
-        _setState(State.VetoSignallingDeactivation);
-    }
-
-    function _exitVetoSignallingDeactivationSubState() internal {
-        _setState(State.VetoSignalling);
-    }
-
-    //
-    // State: VetoCooldown
-    //
-    function _transitionVetoSignallingToVetoCooldown() internal {
-        _setState(State.VetoCooldown);
-    }
-
-    function _activateNextStateFromVetoCooldown() internal {
-        uint256 stateDuration = _getTime() - _stateEnteredAt;
-        if (stateDuration < CONFIG.signallingCooldownDuration()) {
-            return;
-        }
-        if (_isFirstThresholdReached()) {
-            _transitionVetoCooldownToVetoSignalling();
-        } else {
-            _transitionVetoCooldownToNormal();
-        }
-    }
-
-    //
-    // State: RageQuit
-    //
-    function _activateRageQuit() internal {
-        _setState(State.RageQuit);
-        _rageQuitEscrow = _signallingEscrow;
-        _rageQuitEscrow.startRageQuit();
-        _deployNewSignallingEscrow();
-    }
-
-    function _activateNextStateFromRageQuit() internal {
-        if (!_rageQuitEscrow.isRageQuitFinalized()) {
-            return;
-        }
-
-        if (_isFirstThresholdReached()) {
-            _transitionRageQuitToVetoSignalling();
-        } else {
-            _transitionRageQuitToNormal();
-        }
-    }
-
-    //
-    // Utils
-    //
-    function _getTime() internal view virtual returns (uint256) {
-        return block.timestamp;
-    }
-
-    modifier onlyAdminExecutor() {
-        if (msg.sender != TIMELOCK.ADMIN_EXECUTOR()) {
-            revert Unauthorized();
-        }
-        _;
     }
 }
 
-contract Timelock is Pausable, AccessControlEnumerable {
+contract Timelock is ITimelock, ConfigurationProvider {
     using Proposals for Proposals.State;
+    using EmergencyProtection for EmergencyProtection.State;
 
+    error NotGovernance(address account);
+    error ControllerNotSet();
+    error ControllerNotLocked();
+    error NotTiebreakCommittee(address sender);
     error SchedulingDisabled();
-    error ExecutionDisabled();
-    error NotController(address sender);
-    error NotAdminExecutor(address sender);
+    error UnscheduledExecutionForbidden();
+    error InvalidAfterProposeDelayDuration(
+        uint256 minDelayDuration, uint256 maxDelayDuration, uint256 afterProposeDelayDuration
+    );
+    error InvalidAfterScheduleDelayDuration(
+        uint256 minDelayDuration, uint256 maxDelayDuration, uint256 afterScheduleDelayDuration
+    );
 
-    bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
-    bytes32 public constant CANCELER_ROLE = keccak256("CANCELER_ROLE");
-    bytes32 public constant CONTROLLER_MANAGER_ROLE = keccak256("CONTROLLER_MANAGER_ROLE");
-
-    address public immutable ADMIN_EXECUTOR;
-
-    uint256 public immutable MIN_TIMELOCK_DURATION = 2 days;
-    uint256 public immutable MAX_TIMELOCK_DURATION = 30 days;
+    uint256 public immutable MIN_DELAY_DURATION = 2 days;
+    uint256 public immutable MAX_DELAY_DURATION = 30 days;
 
     address internal _governance;
-
-    uint256 internal _delay;
-    Proposals.State internal _proposals;
     ITimelockController internal _controller;
+    address internal _tiebreakCommittee;
 
-    constructor(address governance, address adminExecutor, uint256 delay) {
-        ADMIN_EXECUTOR = adminExecutor;
+    Proposers.State internal _proposers;
+    Proposals.State internal _proposals;
+    EmergencyProtection.State internal _emergencyProtection;
 
-        _delay = delay;
-        _governance = governance;
+    constructor(
+        address config,
+        uint256 minDelayDuration,
+        uint256 maxDelayDuration,
+        uint256 afterProposeDelay,
+        uint256 afterScheduleDelay
+    ) ConfigurationProvider(config) {
+        MIN_DELAY_DURATION = minDelayDuration;
+        MAX_DELAY_DURATION = maxDelayDuration;
 
-        _grantRole(DEFAULT_ADMIN_ROLE, adminExecutor);
-        _grantRole(CONTROLLER_MANAGER_ROLE, adminExecutor);
+        _setDelays(afterProposeDelay, afterScheduleDelay);
     }
 
-    function schedule(
-        address proposer,
-        address executor,
-        ExecutorCall[] calldata calls
-    ) external returns (uint256 newProposalId) {
-        if (!_isSchedulingEnabled()) {
+    function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
+        _checkGovernance(msg.sender);
+        newProposalId = _proposals.submit(executor, calls);
+    }
+
+    function schedule(uint256 proposalId) external {
+        if (!_emergencyProtection.isEmergencyProtectionEnabled()) {
             revert SchedulingDisabled();
         }
-        newProposalId = _proposals.schedule(proposer, executor, calls);
+        _controllerHandleProposalAdoption();
+        _proposals.schedule(proposalId);
     }
 
-    function execute(uint256 proposalId) external whenNotPaused {
-        if (!_isExecutionEnabled()) {
-            revert ExecutionDisabled();
+    function executeScheduled(uint256 proposalId) external {
+        _emergencyProtection.checkEmergencyModeNotActivated();
+        _proposals.executeScheduled(proposalId);
+    }
+
+    function executeSubmitted(uint256 proposalId) external {
+        if (_emergencyProtection.isEmergencyProtectionEnabled()) {
+            revert UnscheduledExecutionForbidden();
         }
-        _proposals.execute(proposalId, _delay);
-    }
-
-    function executeByGuardian(uint256 proposalId) external onlyRole(GUARDIAN_ROLE) {
-        _proposals.execute(proposalId, _delay);
-    }
-
-    function pause() external onlyRole(GUARDIAN_ROLE) {
-        _pause();
-    }
-
-    function resume() external onlyRole(GUARDIAN_ROLE) {
-        _unpause();
+        _emergencyProtection.checkEmergencyModeNotActivated();
+        _controllerHandleProposalAdoption();
+        _proposals.executeSubmitted(proposalId);
     }
 
     function cancelAll() external {
-        if (msg.sender != _governance && !hasRole(CANCELER_ROLE, msg.sender)) {
-            revert("forbidden");
-        }
+        _checkGovernance(msg.sender);
         _proposals.cancelAll();
     }
 
-    function setController(address controller) external onlyRole(CONTROLLER_MANAGER_ROLE) {
-        _controller = ITimelockController(controller);
+    function transferExecutorOwnership(address executor, address owner) external {
+        _checkAdminExecutor(msg.sender);
+        IOwnable(executor).transferOwnership(owner);
     }
 
     function setGovernance(address governance) external {
-        if (msg.sender != ADMIN_EXECUTOR && !hasRole(GUARDIAN_ROLE, msg.sender)) {
-            revert("forbidden");
-        }
-        address prevGovernance = _governance;
-        if (prevGovernance != governance) {
-            _governance = governance;
+        _checkAdminExecutor(msg.sender);
+        _setGovernance(governance);
+    }
+
+    function setController(address controller) external {
+        _checkAdminExecutor(msg.sender);
+        _setController(controller);
+    }
+
+    function setDelays(uint256 afterProposeDelay, uint256 afterScheduleDelay) external {
+        _checkAdminExecutor(msg.sender);
+        _setDelays(afterProposeDelay, afterScheduleDelay);
+    }
+
+    // ---
+    // Emergency Protection Functionality
+    // ---
+
+    function emergencyActivate() external {
+        _emergencyProtection.checkEmergencyCommittee(msg.sender);
+        _emergencyProtection.activate();
+    }
+
+    function emergencyExecute(uint256 proposalId) external {
+        _emergencyProtection.checkEmergencyModeActivated();
+        _emergencyProtection.checkEmergencyCommittee(msg.sender);
+        if (_proposals.canExecuteScheduled(proposalId)) {
+            _proposals.executeScheduled(proposalId);
+        } else {
+            _proposals.executeSubmitted(proposalId);
         }
     }
 
-    function transferExecutorOwnership(address executor, address owner) external onlyAdminExecutor {
-        IOwnable(executor).transferOwnership(owner);
+    function emergencyDeactivate() external {
+        if (!_emergencyProtection.isEmergencyModePassed()) {
+            _checkAdminExecutor(msg.sender);
+        }
+        _emergencyProtection.deactivate();
+        _proposals.cancelAll();
+    }
+
+    function emergencyReset() external {
+        _emergencyProtection.checkEmergencyModeActivated();
+        _emergencyProtection.checkEmergencyCommittee(msg.sender);
+        _emergencyProtection.reset();
+        _proposals.cancelAll();
+        _setController(address(0));
+        _setGovernance(CONFIG.EMERGENCY_GOVERNANCE());
+    }
+
+    function setEmergencyProtection(
+        address committee,
+        uint256 protectionDuration,
+        uint256 emergencyModeDuration
+    ) external {
+        _checkAdminExecutor(msg.sender);
+        _emergencyProtection.setup(committee, protectionDuration, emergencyModeDuration);
+    }
+
+    function isEmergencyProtectionEnabled() external view returns (bool) {
+        return _emergencyProtection.isEmergencyProtectionEnabled();
+    }
+
+    function getEmergencyState() external view returns (EmergencyState memory res) {
+        res = _emergencyProtection.getEmergencyState();
+    }
+
+    // ---
+    // Tiebreak Protection
+    // ---
+
+    function tiebreakExecute(uint256 proposalId) external {
+        if (msg.sender != _tiebreakCommittee) {
+            revert NotTiebreakCommittee(msg.sender);
+        }
+        if (address(_controller) == address(0)) {
+            revert ControllerNotSet();
+        }
+        if (!_controller.isBlocked()) {
+            revert ControllerNotLocked();
+        }
+        _executeScheduledOrSubmittedProposal(proposalId);
+    }
+
+    function setTiebreakCommittee(address committee) external {
+        _checkAdminExecutor(msg.sender);
+        _tiebreakCommittee = committee;
+    }
+
+    // ---
+    // Timelock View Methods
+    // ---
+
+    function getGovernance() external view returns (address) {
+        return _governance;
     }
 
     function getController() external view returns (address) {
@@ -787,22 +447,84 @@ contract Timelock is Pausable, AccessControlEnumerable {
         count = _proposals.count();
     }
 
-    function getIsExecutable(uint256 proposalId) external view returns (bool isExecutable) {
-        return !paused() && _isExecutionEnabled() && _proposals.isExecutable(proposalId, _delay);
+    function getIsSchedulingEnabled() external view returns (bool) {
+        return _emergencyProtection.isEmergencyProtectionEnabled();
     }
 
-    function _isSchedulingEnabled() internal view returns (bool) {
-        return address(_controller) == address(0) ? true : _controller.isSchedulingEnabled();
+    // ---
+    // Proposals Lifecycle View Methods
+    // ---
+
+    function canExecuteSubmitted(uint256 proposalId) external view returns (bool) {
+        if (_emergencyProtection.isEmergencyModeActivated()) return false;
+        if (_emergencyProtection.isEmergencyProtectionEnabled()) return false;
+        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(proposalId);
     }
 
-    function _isExecutionEnabled() internal view returns (bool) {
-        return address(_controller) == address(0) ? true : _controller.isExecutionEnabled();
+    function canSchedule(uint256 proposalId) external view returns (bool) {
+        if (_emergencyProtection.isEmergencyModeActivated()) return false;
+        if (!_emergencyProtection.isEmergencyProtectionEnabled()) return false;
+        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(proposalId);
     }
 
-    modifier onlyAdminExecutor() {
-        if (msg.sender != ADMIN_EXECUTOR) {
-            revert NotAdminExecutor(msg.sender);
+    function canExecuteScheduled(uint256 proposalId) external view returns (bool) {
+        if (_emergencyProtection.isEmergencyModeActivated()) return false;
+        return _isProposalsAdoptionAllowed() && _proposals.canExecuteScheduled(proposalId);
+    }
+
+    // ---
+    // Internal Methods
+    // ---
+
+    function _setGovernance(address governance) internal {
+        address prevGovernance = _governance;
+        if (prevGovernance != governance) {
+            _governance = governance;
         }
-        _;
+    }
+
+    function _setController(address controller) internal {
+        address prevController = address(_controller);
+        if (prevController != controller) {
+            _controller = ITimelockController(controller);
+        }
+    }
+
+    function _setDelays(uint256 afterProposeDelay, uint256 afterScheduleDelay) internal {
+        if (afterProposeDelay < MIN_DELAY_DURATION || afterProposeDelay > MAX_DELAY_DURATION) {
+            revert InvalidAfterProposeDelayDuration(afterProposeDelay, MIN_DELAY_DURATION, MAX_DELAY_DURATION);
+        }
+
+        if (afterScheduleDelay < MIN_DELAY_DURATION || afterScheduleDelay > MAX_DELAY_DURATION) {
+            revert InvalidAfterScheduleDelayDuration(afterScheduleDelay, MIN_DELAY_DURATION, MAX_DELAY_DURATION);
+        }
+
+        _proposals.setDelays(afterProposeDelay, afterScheduleDelay);
+    }
+
+    function _executeScheduledOrSubmittedProposal(uint256 proposalId) internal {
+        if (_proposals.canExecuteScheduled(proposalId)) {
+            _proposals.executeScheduled(proposalId);
+        } else {
+            _proposals.executeSubmitted(proposalId);
+        }
+    }
+
+    function _isProposalsAdoptionAllowed() internal view returns (bool) {
+        address controller = address(_controller);
+        return controller == address(0) || ITimelockController(controller).isProposalsAdoptionAllowed();
+    }
+
+    function _controllerHandleProposalAdoption() internal {
+        address controller = address(_controller);
+        if (controller != address(0)) {
+            ITimelockController(controller).handleProposalAdoption();
+        }
+    }
+
+    function _checkGovernance(address account) internal view {
+        if (account != _governance) {
+            revert NotGovernance(account);
+        }
     }
 }

@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Blueprint} from "./Blueprint.sol";
-import {Configuration} from "./Configuration.sol";
-
 struct WithdrawalRequestStatus {
     uint256 amountOfStETH;
     uint256 amountOfShares;
@@ -72,7 +69,7 @@ interface IWithdrawalQueue {
 /**
  * A contract serving as a veto signalling and rage quit escrow.
  */
-contract Escrow is Blueprint {
+contract Escrow {
     error Unauthorized();
     error InvalidState();
     error NoUnrequestedWithdrawalsLeft();
@@ -85,6 +82,7 @@ contract Escrow is Blueprint {
     error RequestIsNotFromBatch(uint256 id);
     error RequestFromBatch(uint256 id);
     error AlreadyInitialized();
+    error MasterCopyCallForbidden();
 
     event RageQuitStarted();
     event WithdrawalsBatchRequested(
@@ -121,6 +119,10 @@ contract Escrow is Blueprint {
         uint256[] wqRequestIds;
     }
 
+    // the source code from this address is used as the implementation
+    // to clone the Escrow contract on when escrow instance becomes an rage quit escrow
+    address public immutable MASTER_COPY;
+
     address internal immutable ST_ETH;
     address internal immutable WST_ETH;
     address internal immutable WITHDRAWAL_QUEUE;
@@ -150,9 +152,13 @@ contract Escrow is Blueprint {
         WST_ETH = wstEth;
         WITHDRAWAL_QUEUE = withdrawalQueue;
         BURNER_VAULT = burnerVault;
+        MASTER_COPY = address(this);
     }
 
-    function initialize(address dualGovernance) external onlyOnProxy {
+    function initialize(address dualGovernance) external {
+        if (address(this) == MASTER_COPY) {
+            revert MasterCopyCallForbidden();
+        }
         if (_dualGovernance != address(0)) {
             revert AlreadyInitialized();
         }
@@ -425,7 +431,7 @@ contract Escrow is Blueprint {
         totalSupport = (totalStakedEthLocked * 10 ** 18) / stEthTotalSupply;
     }
 
-    function startRageQuit() external returns (address) {
+    function startRageQuit() external {
         if (msg.sender != _dualGovernance) {
             revert Unauthorized();
         }
@@ -450,7 +456,6 @@ contract Escrow is Blueprint {
         IERC20(ST_ETH).approve(WITHDRAWAL_QUEUE, type(uint256).max);
 
         emit RageQuitStarted();
-        return _clone();
     }
 
     function requestNextWithdrawalsBatch(uint256 maxNumRequests) external returns (uint256, uint256, uint256) {
