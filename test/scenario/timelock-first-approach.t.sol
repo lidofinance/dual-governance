@@ -2,24 +2,23 @@
 pragma solidity 0.8.23;
 
 import {Test} from "forge-std/Test.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {Escrow} from "contracts/Escrow.sol";
-import {Configuration} from "contracts/Configuration.sol";
+import {GateSeal} from "contracts/GateSeal.sol";
+import {BurnerVault} from "contracts/BurnerVault.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
+import {Configuration} from "contracts/DualGovernanceConfiguration.sol";
+import {Proposals, Proposal, ProposalStatus} from "contracts/libraries/Proposals.sol";
+
 import {
     Timelock,
-    EmergencyModeGuardian,
     ExecutorCall,
-    Proposal,
-    Proposals,
-    ResetTimelockControllerGuardian,
-    GovernanceState,
-    TiebreakGuardian,
-    GateSeal
+    EmergencyState,
+    EmergencyProtection,
+    DualGovernanceTimelockController,
+    DualGovernanceStatus
 } from "contracts/TimelockFirstApproachScratchpad.sol";
-import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
 
 import {Utils, TargetMock} from "../utils/utils.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
@@ -32,53 +31,62 @@ interface IDangerousContract {
     function doControversialStaff() external;
 }
 
-contract AgentFirstApproachTest is Test {
-    address internal constant _ADMIN_PROPOSER = DAO_VOTING;
-    uint256 internal constant _DELAY = 3 days;
-    uint256 internal constant _EMERGENCY_COMMITTEE_LIFETIME = 90 days;
-    uint256 internal constant _EMERGENCY_MODE_DURATION = 180 days;
-    uint256 internal immutable _SEALING_DURATION = 14 days;
-    uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
+contract TimelockFirstApproachTest is Test {
+    uint256 private immutable _MIN_DELAY_DURATION = 1 days;
+    uint256 private immutable _MAX_DELAY_DURATION = 30 days;
 
-    address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
+    uint256 private immutable _AFTER_PROPOSE_DELAY = 3 days;
+    uint256 private immutable _AFTER_SCHEDULE_DELAY = 2 days;
+
+    uint256 private immutable _EMERGENCY_MODE_DURATION = 180 days;
+    uint256 private immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
+    address private immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
+
+    uint256 private immutable _SEALING_DURATION = 14 days;
+    uint256 private immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
+    address private immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
+
     address internal immutable _TIEBREAK_COMMITTEE = makeAddr("TIEBREAK_COMMITTEE");
-    address internal immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
+
+    address[] private _sealableWithdrawalBlockers = [WITHDRAWAL_QUEUE];
 
     TargetMock private _target;
-    Timelock internal _timelock;
-
-    GovernanceState internal _govState;
-    Configuration internal _config;
-
-    EmergencyModeGuardian internal _emergencyModeGuardian;
-
     GateSeal private _gateSeal;
-    address[] private _sealables;
+    Timelock internal _timelock;
+    DualGovernanceTimelockController internal _controller;
+    Configuration internal _config;
 
     function setUp() external {
         Utils.selectFork();
 
-        _sealables.push(WITHDRAWAL_QUEUE);
         _target = new TargetMock();
 
+        // deploy admin executor
         OwnableExecutor adminExecutor = new OwnableExecutor(address(this));
-        _timelock = new Timelock(_ADMIN_PROPOSER, address(adminExecutor), _DELAY);
 
-        // deploy emergency mode guardian
-        _emergencyModeGuardian = new EmergencyModeGuardian(
-            address(_timelock), _EMERGENCY_COMMITTEE, _EMERGENCY_COMMITTEE_LIFETIME, _EMERGENCY_MODE_DURATION
+        // deploy configuration implementation
+        Configuration configImpl = new Configuration(address(adminExecutor), DAO_VOTING, _sealableWithdrawalBlockers);
+        TransparentUpgradeableProxy configProxy =
+            new TransparentUpgradeableProxy(address(configImpl), address(this), new bytes(0));
+        _config = Configuration(address(configProxy));
+
+        _timelock = new Timelock(
+            address(_config),
+            DAO_VOTING,
+            _MIN_DELAY_DURATION,
+            _MAX_DELAY_DURATION,
+            _AFTER_PROPOSE_DELAY,
+            _AFTER_SCHEDULE_DELAY
         );
 
+        // setup emergency protection
         adminExecutor.execute(
             address(_timelock),
             0,
-            abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(_emergencyModeGuardian)))
-        );
-
-        adminExecutor.execute(
-            address(_timelock),
-            0,
-            abi.encodeCall(_timelock.grantRole, (_timelock.CANCELER_ROLE(), address(_emergencyModeGuardian)))
+            abi.encodeCall(
+                _timelock.setEmergencyProtection,
+                (_EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION)
+            )
         );
 
         adminExecutor.transferOwnership(address(_timelock));
@@ -92,133 +100,120 @@ contract AgentFirstApproachTest is Test {
         // ACT 1. 📈 DAO OPERATES AS USUALLY
         // ---
         {
-            uint256 proposalId = _scheduleViaVoting(
-                "DAO does regular staff on potentially dangerous contract",
-                _timelock.ADMIN_EXECUTOR(),
-                regularStaffCalls
+            uint256 proposalId = _submitProposal(
+                "DAO does regular staff on potentially dangerous contract", _config.ADMIN_EXECUTOR(), regularStaffCalls
             );
 
             // wait until scheduled call becomes executable
             _waitFor(proposalId);
 
             // call successfully executed
-            _timelock.execute(1);
-            _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), regularStaffCalls);
+            _timelock.executeScheduled(proposalId);
+            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
 
         // ---
         // ACT 2. 😱 DAO IS UNDER ATTACK
         // ---
         uint256 maliciousProposalId;
+        EmergencyState memory emergencyState;
         {
             // Malicious vote was proposed by the attacker with huge LDO wad (but still not the majority)
             ExecutorCall[] memory maliciousCalls =
                 ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
 
-            maliciousProposalId = _scheduleViaVoting("Rug Pool attempt", _timelock.ADMIN_EXECUTOR(), maliciousCalls);
+            maliciousProposalId = _submitProposal("Rug Pool attempt", _config.ADMIN_EXECUTOR(), maliciousCalls);
 
             // the call isn't executable until the delay has passed
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
+            assertFalse(_timelock.canSchedule(maliciousProposalId));
+            assertFalse(_timelock.canExecuteScheduled(maliciousProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(maliciousProposalId));
 
             // some time required to assemble the emergency committee and activate emergency mode
-            vm.warp(block.timestamp + _DELAY / 2);
+            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2);
 
             // malicious call still not executable
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
-            vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, maliciousProposalId));
-            _timelock.execute(maliciousProposalId);
+            assertFalse(_timelock.canSchedule(maliciousProposalId));
+            assertFalse(_timelock.canExecuteScheduled(maliciousProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(maliciousProposalId));
+
+            vm.expectRevert(Timelock.UnscheduledExecutionForbidden.selector);
+            _timelock.executeSubmitted(maliciousProposalId);
+
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    Proposals.InvalidProposalStatus.selector, ProposalStatus.Submitted, ProposalStatus.Scheduled
+                )
+            );
+            _timelock.executeScheduled(maliciousProposalId);
 
             // emergency committee activates emergency mode
             vm.prank(_EMERGENCY_COMMITTEE);
-            _emergencyModeGuardian.activateEmergencyMode();
+            _timelock.emergencyActivate();
 
             // emergency mode was successfully activated
             uint256 expectedEmergencyModeEndTimestamp = block.timestamp + _EMERGENCY_MODE_DURATION;
-            assertEq(_emergencyModeGuardian.getEmergencyModeEndsAfter(), expectedEmergencyModeEndTimestamp);
+            emergencyState = _timelock.getEmergencyState();
+            assertTrue(emergencyState.isEmergencyModeActivated);
+            assertEq(emergencyState.emergencyModeEndsAfter, expectedEmergencyModeEndTimestamp);
 
             // now only emergency committee may execute scheduled calls
-            vm.warp(block.timestamp + _DELAY / 2 + 1);
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
-            vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
-            _timelock.execute(maliciousProposalId);
+            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2 + 1);
+
+            assertFalse(_timelock.canSchedule(maliciousProposalId));
+            assertFalse(_timelock.canExecuteScheduled(maliciousProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(maliciousProposalId));
+
+            vm.expectRevert(Timelock.UnscheduledExecutionForbidden.selector);
+            _timelock.executeSubmitted(maliciousProposalId);
+
+            vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
+            _timelock.executeScheduled(maliciousProposalId);
         }
 
         // ---
         // ACT 3. 🔫 DAO STRIKES BACK (WITH DUAL GOVERNANCE SHIPMENT)
         // ---
-        GovernanceState govState;
-        ResetTimelockControllerGuardian resetTimelockControllerGuardian;
-        EmergencyModeGuardian emergencyModeGuardian;
-        TiebreakGuardian tiebreakGuardian;
         {
             // Lido contributors work hard to implement and ship the Dual Governance mechanism
             // before the emergency mode is over
             vm.warp(block.timestamp + _EMERGENCY_MODE_DURATION / 2);
 
             // Time passes but malicious proposal still on hold
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
+            assertFalse(_timelock.canSchedule(maliciousProposalId));
+            assertFalse(_timelock.canExecuteScheduled(maliciousProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(maliciousProposalId));
 
-            // Dual Governance delay strategy is deployed into mainnet
-            (govState, resetTimelockControllerGuardian, emergencyModeGuardian, tiebreakGuardian) =
-                _deployDualGovernance();
+            // Dual Governance timelock is deployed into mainnet
+            _controller = _deployDualGovernanceTimelockController();
 
-            address timelock = address(_timelock);
             ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
+                address(_timelock),
                 [
-                    address(_emergencyModeGuardian),
-                    timelock,
-                    timelock,
-                    timelock,
-                    timelock,
-                    timelock,
-                    timelock,
-                    timelock,
-                    timelock,
-                    timelock
-                ],
-                [
-                    // 1. deactivate emergency mode
-                    abi.encodeCall(_emergencyModeGuardian.deactivateEmergencyMode, ()),
-                    // 2. set controller for the timelock
-                    abi.encodeCall(_timelock.setController, (address(govState))),
-                    // 3. garnt CANCELER_ROLE to the govState
-                    abi.encodeCall(_timelock.grantRole, (_timelock.CANCELER_ROLE(), address(govState))),
-                    // 4. grant CANCELER_ROLE to the resetTimelockControllerGuardian
+                    abi.encodeCall(_timelock.setController, (address(_controller))),
+                    abi.encodeCall(_timelock.emergencyDeactivate, ()),
                     abi.encodeCall(
-                        _timelock.grantRole, (_timelock.CANCELER_ROLE(), address(resetTimelockControllerGuardian))
+                        _timelock.setEmergencyProtection,
+                        (_EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION)
                     ),
-                    // 5. grant CONTROLLER_MANAGER_ROLE to the resetTimelockControllerGuardian
-                    abi.encodeCall(
-                        _timelock.grantRole, (_timelock.CONTROLLER_MANAGER_ROLE(), address(resetTimelockControllerGuardian))
-                    ),
-                    // 6. grant GUARDIAN_ROLE to the new EmergencyModeGuardian
-                    abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(emergencyModeGuardian))),
-                    // 7. grant CANCELER_ROLE to the new EmergencyModeGuardian
-                    abi.encodeCall(_timelock.grantRole, (_timelock.CANCELER_ROLE(), address(emergencyModeGuardian))),
-                    // 8. grant GUARDIAN_ROLE to the TiebreakGuardian
-                    abi.encodeCall(_timelock.grantRole, (_timelock.GUARDIAN_ROLE(), address(tiebreakGuardian))),
-                    // 9. revoke GUARDIAN_ROLE from the old EmergencyModeGuardian
-                    abi.encodeCall(_timelock.revokeRole, (_timelock.GUARDIAN_ROLE(), address(_emergencyModeGuardian))),
-                    // 10. revoke CANCELER_ROLE from the old EmergencyModeGuardian
-                    abi.encodeCall(_timelock.revokeRole, (_timelock.CANCELER_ROLE(), address(_emergencyModeGuardian)))
+                    abi.encodeCall(_timelock.setTiebreakCommittee, (_TIEBREAK_COMMITTEE))
                 ]
             );
 
             // The vote to launch Dual Governance is launched and reached the quorum (the major part of LDO holder still have power)
             uint256 dualGovernanceLunchProposalId =
-                _scheduleViaVoting("Launch the Dual Governance", _timelock.ADMIN_EXECUTOR(), dualGovernanceLaunchCalls);
+                _submitProposal("Launch the Dual Governance", _config.ADMIN_EXECUTOR(), dualGovernanceLaunchCalls);
 
-            // Anticipated vote will be executed soon...
-            vm.warp(block.timestamp + _DELAY + 1);
-
-            // The malicious vote still on hold
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
+            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY + 1);
 
             // Emergency Committee executes vote and enables Dual Governance
             vm.prank(_EMERGENCY_COMMITTEE);
-            _emergencyModeGuardian.execute(dualGovernanceLunchProposalId);
+            _timelock.emergencyExecute(dualGovernanceLunchProposalId);
 
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
+            // Time passes but malicious proposal still on hold
+            assertFalse(_timelock.canSchedule(maliciousProposalId));
+            assertFalse(_timelock.canExecuteScheduled(maliciousProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(maliciousProposalId));
         }
 
         // ---
@@ -231,11 +226,13 @@ contract AgentFirstApproachTest is Test {
             );
 
             uint256 controversialProposalId =
-                _scheduleViaVoting("Do some controversial staff", _timelock.ADMIN_EXECUTOR(), controversialCalls);
+                _submitProposal("Do some controversial staff", _config.ADMIN_EXECUTOR(), controversialCalls);
 
-            vm.warp(block.timestamp + _DELAY / 2);
+            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2);
 
-            assertFalse(_timelock.getIsExecutable(controversialProposalId));
+            assertFalse(_timelock.canSchedule(controversialProposalId));
+            assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
 
             // dual governance escrow accumulates
             address stEthWhale = makeAddr("STETH_WHALE");
@@ -243,30 +240,43 @@ contract AgentFirstApproachTest is Test {
             Utils.setupStEthWhale(stEthWhale, 5 * 10 ** 16);
             uint256 stEthWhaleBalance = IERC20(ST_ETH).balanceOf(stEthWhale);
 
-            Escrow escrow = Escrow(payable(govState.signallingEscrow()));
+            Escrow escrow = Escrow(payable(_controller.signallingEscrow()));
             vm.startPrank(stEthWhale);
             IERC20(ST_ETH).approve(address(escrow), stEthWhaleBalance);
             escrow.lockStEth(stEthWhaleBalance);
             vm.stopPrank();
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignalling));
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
 
-            vm.warp(block.timestamp + _DELAY / 2 + 1);
+            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2 + 1);
 
-            assertFalse(_timelock.getIsExecutable(controversialProposalId));
+            assertFalse(_timelock.canSchedule(controversialProposalId));
+            assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
 
             // wait the dual governance returns to normal state
             vm.warp(block.timestamp + 14 days);
-            govState.activateNextState();
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignallingDeactivation));
-            vm.warp(block.timestamp + govState.CONFIG().signallingDeactivationDuration() + 1);
-            govState.activateNextState();
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoCooldown));
+            _controller.activateNextState();
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoSignallingDeactivation));
 
-            assertTrue(_timelock.getIsExecutable(controversialProposalId));
+            vm.warp(block.timestamp + _config.SIGNALLING_DEACTIVATION_DURATION() + 1);
+
+            _controller.activateNextState();
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoCooldown));
+
+            assertTrue(_timelock.canSchedule(controversialProposalId));
+            assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
+
+            _timelock.schedule(controversialProposalId);
+            vm.warp(block.timestamp + _AFTER_SCHEDULE_DELAY + 1);
+
+            assertFalse(_timelock.canSchedule(controversialProposalId));
+            assertTrue(_timelock.canExecuteScheduled(controversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
 
             // execute controversial decision
-            _timelock.execute(controversialProposalId);
-            _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), controversialCalls);
+            _timelock.executeScheduled(controversialProposalId);
+            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), controversialCalls);
             vm.revertTo(snapshotId);
         }
 
@@ -275,22 +285,17 @@ contract AgentFirstApproachTest is Test {
         // ---
         {
             uint256 snapshotId = vm.snapshot();
-            assertEq(_timelock.getController(), address(govState));
+            assertEq(_timelock.getController(), address(_controller));
+
             vm.prank(_EMERGENCY_COMMITTEE);
-            resetTimelockControllerGuardian.resetController();
+            _timelock.emergencyActivate();
+
+            vm.prank(_EMERGENCY_COMMITTEE);
+            _timelock.emergencyReset();
+
             assertEq(_timelock.getController(), address(0));
-            assertFalse(_timelock.hasRole(_timelock.GUARDIAN_ROLE(), address(resetTimelockControllerGuardian)));
+            assertFalse(_timelock.isEmergencyProtectionEnabled());
 
-            // emergency committee still may activate emergency mode
-            assertFalse(_timelock.paused());
-            vm.prank(_EMERGENCY_COMMITTEE);
-            emergencyModeGuardian.activateEmergencyMode();
-
-            assertTrue(_timelock.paused());
-            // when the emergency period passed, anyone can deactivate emergency mode
-            vm.warp(block.timestamp + _EMERGENCY_MODE_DURATION + 1);
-            emergencyModeGuardian.deactivateEmergencyMode();
-            assertFalse(_timelock.paused());
             vm.revertTo(snapshotId);
         }
 
@@ -299,12 +304,11 @@ contract AgentFirstApproachTest is Test {
         // ---
         {
             uint256 snapshotId = vm.snapshot();
+            _gateSeal = _deployGateSeal(address(_controller));
 
             // some regular proposal is launched
-            uint256 proposalId = _scheduleViaVoting(
-                "DAO does regular staff on potentially dangerous contract",
-                _timelock.ADMIN_EXECUTOR(),
-                regularStaffCalls
+            uint256 proposalId = _submitProposal(
+                "DAO does regular staff on potentially dangerous contract", _config.ADMIN_EXECUTOR(), regularStaffCalls
             );
 
             address stEthWhale = makeAddr("STETH_WHALE");
@@ -312,38 +316,38 @@ contract AgentFirstApproachTest is Test {
             Utils.setupStEthWhale(stEthWhale, 20 * 10 ** 16);
             uint256 stEthWhaleBalance = IERC20(ST_ETH).balanceOf(stEthWhale);
 
-            Escrow escrow = Escrow(payable(govState.signallingEscrow()));
+            Escrow escrow = Escrow(payable(_controller.signallingEscrow()));
             vm.startPrank(stEthWhale);
             IERC20(ST_ETH).approve(address(escrow), stEthWhaleBalance);
             escrow.lockStEth(stEthWhaleBalance);
             vm.stopPrank();
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignalling));
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
 
             // before the RageQuit phase is entered tiebreak committee can't execute decisions
             vm.prank(_TIEBREAK_COMMITTEE);
-            vm.expectRevert(TiebreakGuardian.DualGovernanceNotBlocked.selector);
-            tiebreakGuardian.execute(proposalId);
+            vm.expectRevert(Timelock.ControllerNotLocked.selector);
+            _timelock.tiebreakExecute(proposalId);
 
-            vm.warp(block.timestamp + govState.CONFIG().signallingMaxDuration() + 1);
+            vm.warp(block.timestamp + _config.SIGNALING_MAX_DURATION() + 1);
 
-            govState.activateNextState();
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.RageQuit));
+            _controller.activateNextState();
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.RageQuit));
 
             // activate gate seal to enter deadlock
             vm.prank(_SEALING_COMMITTEE);
-            _gateSeal.seal(_sealables);
+            _gateSeal.seal(_sealableWithdrawalBlockers);
 
-            assertTrue(tiebreakGuardian.canExecute());
-            assertTrue(tiebreakGuardian.isRageQuitAndGateSealTriggered());
-            assertFalse(tiebreakGuardian.isDualGovernanceLocked());
+            // the dual governance is blocked
+            assertTrue(_controller.isBlocked());
 
             // proposal is not executable
-            _timelock.getIsExecutable(proposalId);
+            assertFalse(_timelock.canSchedule(proposalId));
+            assertFalse(_timelock.canExecuteSubmitted(proposalId));
 
             // now tiebreak committee may execute any dao decision
             vm.prank(_TIEBREAK_COMMITTEE);
-            tiebreakGuardian.execute(proposalId);
-            _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), regularStaffCalls);
+            _timelock.tiebreakExecute(proposalId);
+            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
 
             vm.revertTo(snapshotId);
         }
@@ -358,11 +362,13 @@ contract AgentFirstApproachTest is Test {
             );
 
             uint256 controversialProposalId =
-                _scheduleViaVoting("Do some controversial staff", _timelock.ADMIN_EXECUTOR(), controversialCalls);
+                _submitProposal("Do some controversial staff", _config.ADMIN_EXECUTOR(), controversialCalls);
 
-            vm.warp(block.timestamp + _DELAY / 2);
+            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2);
 
-            assertFalse(_timelock.getIsExecutable(controversialProposalId));
+            assertFalse(_timelock.canSchedule(controversialProposalId));
+            assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
 
             // dual governance escrow accumulates
             address stEthWhale = makeAddr("STETH_WHALE");
@@ -370,16 +376,18 @@ contract AgentFirstApproachTest is Test {
             Utils.setupStEthWhale(stEthWhale, 5 * 10 ** 16);
             uint256 stEthWhaleBalance = IERC20(ST_ETH).balanceOf(stEthWhale);
 
-            Escrow escrow = Escrow(payable(govState.signallingEscrow()));
+            Escrow escrow = Escrow(payable(_controller.signallingEscrow()));
             vm.startPrank(stEthWhale);
             IERC20(ST_ETH).approve(address(escrow), stEthWhaleBalance);
             escrow.lockStEth(stEthWhaleBalance);
             vm.stopPrank();
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignalling));
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
 
-            vm.warp(block.timestamp + _DELAY / 2 + 1);
+            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2 + 1);
 
-            assertFalse(_timelock.getIsExecutable(controversialProposalId));
+            assertFalse(_timelock.canSchedule(controversialProposalId));
+            assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
 
             // dao decides to cancel all pending proposals
             uint256 cancelAllVoteId = Utils.adoptVote(
@@ -389,35 +397,65 @@ contract AgentFirstApproachTest is Test {
             );
             Utils.executeVote(DAO_VOTING, cancelAllVoteId);
 
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignalling));
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoSignallingHalted));
 
-            // new proposal sent later also must be cancelled
-            uint256 anotherControversialProposalId =
-                _scheduleViaVoting("Another controversial vote", _timelock.ADMIN_EXECUTOR(), controversialCalls);
+            // new proposal sent later can't be submitted until the veto signaling is exited
+
+            bytes memory script =
+                Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.submit, (controversialCalls)));
+            uint256 voteId = Utils.adoptVote(DAO_VOTING, "Another controversial vote", script);
+
+            vm.expectRevert(DualGovernanceTimelockController.ProposalsCreationSuspended.selector);
+            Utils.executeVote(DAO_VOTING, voteId);
 
             // wait the dual governance returns to normal state
             vm.warp(block.timestamp + 14 days);
-            govState.activateNextState();
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoSignallingDeactivation));
-            vm.warp(block.timestamp + govState.CONFIG().signallingDeactivationDuration() + 1);
-            govState.activateNextState();
-            assertEq(uint256(govState.currentState()), uint256(GovernanceState.State.VetoCooldown));
+            _controller.activateNextState();
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoSignallingDeactivation));
+            vm.warp(block.timestamp + _config.SIGNALLING_DEACTIVATION_DURATION() + 1);
+            _controller.activateNextState();
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoCooldown));
 
-            assertFalse(_timelock.getIsExecutable(controversialProposalId));
-            assertFalse(_timelock.getIsExecutable(anotherControversialProposalId));
+            // stETH holders unlock their funds from escrow
+            vm.startPrank(stEthWhale);
+            escrow.unlockStEth();
+
+            assertFalse(_timelock.canSchedule(controversialProposalId));
+            assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
+
+            // wait until veto cooldown is passed
+            vm.warp(block.timestamp + _config.SIGNALING_COOLDOWN_DURATION() + 1);
+            _controller.activateNextState();
+            assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.Normal));
+
+            // previous malicious proposal may be submitted now
+            Utils.executeVote(DAO_VOTING, voteId);
+            uint256 anotherControversialProposalId = _timelock.getProposalsCount();
+
+            assertFalse(_timelock.canSchedule(anotherControversialProposalId));
+            assertFalse(_timelock.canExecuteScheduled(anotherControversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(anotherControversialProposalId));
+
+            // and scheduled later
+            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY + 1);
+
+            assertTrue(_timelock.canSchedule(anotherControversialProposalId));
+            assertFalse(_timelock.canExecuteScheduled(anotherControversialProposalId));
+            assertFalse(_timelock.canExecuteSubmitted(anotherControversialProposalId));
 
             vm.revertTo(snapshotId);
         }
     }
 
-    function _scheduleViaVoting(
+    function _submitProposal(
         string memory description,
         address executor,
         ExecutorCall[] memory calls
     ) internal returns (uint256 proposalId) {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
-        bytes memory script = Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.schedule, (calls)));
+        bytes memory script = Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.submit, (calls)));
         uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
 
         // The scheduled calls count is the same until the vote is enacted
@@ -429,15 +467,15 @@ contract AgentFirstApproachTest is Test {
         proposalId = _timelock.getProposalsCount();
         // new call is scheduled but has not executable yet
         assertEq(proposalId, proposalsCountBefore + 1);
-        _assertScheduledProposal(proposalId, executor, calls);
+        _assertSubmittedProposal(proposalId, executor, calls);
     }
 
-    function _assertScheduledProposal(uint256 proposalId, address executor, ExecutorCall[] memory calls) internal {
+    function _assertSubmittedProposal(uint256 proposalId, address executor, ExecutorCall[] memory calls) internal {
         Proposal memory proposal = _timelock.getProposal(proposalId);
         assertEq(proposal.id, proposalId, "unexpected proposal id");
         // assertFalse(proposal.isCanceled, "proposal is canceled");
         assertEq(proposal.executor, executor, "unexpected executor");
-        assertEq(proposal.scheduledAt, block.timestamp, "unexpected scheduledAt");
+        assertEq(proposal.proposedAt, block.timestamp, "unexpected scheduledAt");
         assertEq(proposal.executedAt, 0, "unexpected executedAt");
         assertEq(proposal.calls.length, calls.length, "unexpected calls length");
 
@@ -466,60 +504,51 @@ contract AgentFirstApproachTest is Test {
 
     function _waitFor(uint256 proposalId) internal {
         // the call is not executable until the delay has passed
-        assertFalse(_timelock.getIsExecutable(proposalId), "proposal is executable");
+        assertFalse(_timelock.canSchedule(proposalId), "canSchedule() != false");
+        assertFalse(_timelock.canExecuteSubmitted(proposalId), "canExecuteSubmitted() != false");
+        assertFalse(_timelock.canExecuteScheduled(proposalId), "canExecuteScheduled() != false");
 
-        // wait until scheduled call becomes executable
-        vm.warp(block.timestamp + _DELAY + 1);
-        assertTrue(_timelock.getIsExecutable(proposalId), "proposal is not executable");
+        // wait until proposed call becomes adoptable
+        vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY + 1);
+
+        assertTrue(_timelock.canSchedule(proposalId), "canSchedule() != true");
+        assertFalse(_timelock.canExecuteSubmitted(proposalId), "canExecuteSubmitted() != false");
+        assertFalse(_timelock.canExecuteScheduled(proposalId), "canExecuteScheduled() != false");
+
+        if (_timelock.getIsSchedulingEnabled()) {
+            _timelock.schedule(proposalId);
+
+            // wait until scheduled call become executable
+            vm.warp(block.timestamp + _AFTER_SCHEDULE_DELAY + 1);
+        }
+
+        assertFalse(_timelock.canSchedule(proposalId), "canSchedule() != false");
+        assertFalse(_timelock.canExecuteSubmitted(proposalId), "canExecuteSubmitted() != false");
+        assertTrue(_timelock.canExecuteScheduled(proposalId), "canExecuteScheduled() != true");
     }
 
-    function _deployDualGovernance()
-        internal
-        returns (
-            GovernanceState govState,
-            ResetTimelockControllerGuardian resetTimelockControllerGuardian,
-            EmergencyModeGuardian emergencyModeGuardian,
-            TiebreakGuardian tiebreakGuardian
-        )
-    {
-        // deploy initial config impl
-        address configImpl = address(new Configuration(_ADMIN_PROPOSER));
-
-        // deploy config proxy
-        ProxyAdmin configAdmin = new ProxyAdmin(address(this));
-        TransparentUpgradeableProxy config =
-            new TransparentUpgradeableProxy(configImpl, address(configAdmin), new bytes(0));
-
-        // deploy DG
-        address escrowImpl = address(new Escrow(address(config), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER));
-
-        govState = new GovernanceState(address(config), address(_timelock), escrowImpl);
-
-        // deploy guardians
-        resetTimelockControllerGuardian =
-            new ResetTimelockControllerGuardian(address(_timelock), _EMERGENCY_COMMITTEE, _EMERGENCY_COMMITTEE_LIFETIME);
-
-        emergencyModeGuardian = new EmergencyModeGuardian(
-            address(_timelock), _EMERGENCY_COMMITTEE, _EMERGENCY_COMMITTEE_LIFETIME, _EMERGENCY_MODE_DURATION
-        );
-
-        _deployGateSeal(address(govState));
-        tiebreakGuardian =
-            new TiebreakGuardian(address(_timelock), address(_gateSeal), address(govState), _TIEBREAK_COMMITTEE);
+    function _deployDualGovernanceTimelockController() internal returns (DualGovernanceTimelockController controller) {
+        BurnerVault burnerVault = new BurnerVault(BURNER, ST_ETH, WST_ETH);
+        Escrow escrowMasterCopy = new Escrow(address(0), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(burnerVault));
+        controller =
+            new DualGovernanceTimelockController(address(_timelock), address(escrowMasterCopy), address(_config));
     }
 
-    function _deployGateSeal(address govState) internal {
+    function _deployGateSeal(address dualGovernance) internal returns (GateSeal gateSeal) {
         // deploy new gate seal instance
-        _gateSeal =
-            new GateSeal(govState, _SEALING_COMMITTEE, _SEALING_COMMITTEE_LIFETIME, _SEALING_DURATION, _sealables);
+        gateSeal = new GateSeal(
+            dualGovernance,
+            _SEALING_COMMITTEE,
+            _SEALING_COMMITTEE_LIFETIME,
+            _SEALING_DURATION,
+            _sealableWithdrawalBlockers
+        );
 
         // grant rights to gate seal to pause/resume the withdrawal queue
         vm.startPrank(DAO_AGENT);
+        IWithdrawalQueue(WITHDRAWAL_QUEUE).grantRole(IWithdrawalQueue(WITHDRAWAL_QUEUE).PAUSE_ROLE(), address(gateSeal));
         IWithdrawalQueue(WITHDRAWAL_QUEUE).grantRole(
-            IWithdrawalQueue(WITHDRAWAL_QUEUE).PAUSE_ROLE(), address(_gateSeal)
-        );
-        IWithdrawalQueue(WITHDRAWAL_QUEUE).grantRole(
-            IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(), address(_gateSeal)
+            IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(), address(gateSeal)
         );
         vm.stopPrank();
     }

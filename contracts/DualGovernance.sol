@@ -76,7 +76,7 @@ contract DualGovernance {
     }
 
     function unregisterProposer(address proposer) external onlyAdminExecutor {
-        _proposers.unregister(proposer);
+        // _proposers.unregister(proposer);
     }
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {

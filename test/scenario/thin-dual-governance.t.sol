@@ -2,21 +2,18 @@
 pragma solidity 0.8.23;
 
 import {Test} from "forge-std/Test.sol";
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {ProposalStatus} from "contracts/libraries/Proposals.sol";
-import {GateSeal} from "contracts/GateSeal.sol";
 import {Escrow} from "contracts/Escrow.sol";
+import {GateSeal} from "contracts/GateSeal.sol";
 import {BurnerVault} from "contracts/BurnerVault.sol";
 import {Configuration} from "contracts/DualGovernanceConfiguration.sol";
+import {Proposals, Proposal, ProposalStatus} from "contracts/libraries/Proposals.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
 import {
     Timelock,
     DualGovernance,
     ExecutorCall,
-    Proposal,
-    Proposals,
     EmergencyState,
     EmergencyProtection,
     DualGovernanceStatus
