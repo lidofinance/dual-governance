@@ -5,6 +5,9 @@ interface IConfiguration {
     function ADMIN_EXECUTOR() external view returns (address);
     function EMERGENCY_GOVERNANCE() external view returns (address);
 
+    function AFTER_SUBMIT_DELAY() external view returns (uint256);
+    function AFTER_SCHEDULE_DELAY() external view returns (uint256);
+
     function RAGE_QUIT_ETH_WITHDRAWAL_TIMELOCK() external view returns (uint256);
 
     function SIGNALING_COOLDOWN_DURATION() external view returns (uint256);

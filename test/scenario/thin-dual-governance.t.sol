@@ -32,12 +32,6 @@ interface IDangerousContract {
 }
 
 contract ThinDualGovernanceApproachTest is Test {
-    uint256 private immutable _MIN_DELAY_DURATION = 1 days;
-    uint256 private immutable _MAX_DELAY_DURATION = 30 days;
-
-    uint256 private immutable _AFTER_PROPOSE_DELAY = 3 days;
-    uint256 private immutable _AFTER_SCHEDULE_DELAY = 2 days;
-
     uint256 private immutable _EMERGENCY_MODE_DURATION = 180 days;
     uint256 private immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
     address private immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
@@ -70,9 +64,7 @@ contract ThinDualGovernanceApproachTest is Test {
             new TransparentUpgradeableProxy(address(configImpl), address(this), new bytes(0));
         _config = Configuration(address(configProxy));
 
-        _timelock = new Timelock(
-            address(_config), _MIN_DELAY_DURATION, _MAX_DELAY_DURATION, _AFTER_PROPOSE_DELAY, _AFTER_SCHEDULE_DELAY
-        );
+        _timelock = new Timelock(address(_config));
 
         // setup timelock to work with the Voting as a governance
         adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (DAO_VOTING)));
@@ -129,7 +121,7 @@ contract ThinDualGovernanceApproachTest is Test {
             assertFalse(_timelock.canExecuteSubmitted(maliciousProposalId));
 
             // some time required to assemble the emergency committee and activate emergency mode
-            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
             // malicious call still not executable
             assertFalse(_timelock.canSchedule(maliciousProposalId));
@@ -157,7 +149,7 @@ contract ThinDualGovernanceApproachTest is Test {
             assertEq(emergencyState.emergencyModeEndsAfter, expectedEmergencyModeEndTimestamp);
 
             // now only emergency committee may execute scheduled calls
-            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2 + 1);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
             assertFalse(_timelock.canSchedule(maliciousProposalId));
             assertFalse(_timelock.canExecuteScheduled(maliciousProposalId));
@@ -203,7 +195,7 @@ contract ThinDualGovernanceApproachTest is Test {
                 "Launch the Dual Governance", _config.ADMIN_EXECUTOR(), dualGovernanceLaunchCalls
             );
 
-            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY + 1);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
             // Emergency Committee executes vote and enables Dual Governance
             vm.prank(_EMERGENCY_COMMITTEE);
@@ -227,7 +219,7 @@ contract ThinDualGovernanceApproachTest is Test {
             uint256 controversialProposalId =
                 _submitProposalToDualGovernance("Do some controversial staff", controversialCalls);
 
-            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
             assertFalse(_timelock.canSchedule(controversialProposalId));
             assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
@@ -246,7 +238,7 @@ contract ThinDualGovernanceApproachTest is Test {
             vm.stopPrank();
             assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
 
-            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2 + 1);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
             assertFalse(_timelock.canSchedule(controversialProposalId));
             assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
@@ -267,7 +259,7 @@ contract ThinDualGovernanceApproachTest is Test {
             assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
 
             _timelock.schedule(controversialProposalId);
-            vm.warp(block.timestamp + _AFTER_SCHEDULE_DELAY + 1);
+            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
 
             assertFalse(_timelock.canSchedule(controversialProposalId));
             assertTrue(_timelock.canExecuteScheduled(controversialProposalId));
@@ -364,7 +356,7 @@ contract ThinDualGovernanceApproachTest is Test {
             uint256 controversialProposalId =
                 _submitProposalToDualGovernance("Do some controversial staff", controversialCalls);
 
-            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
             assertFalse(_timelock.canSchedule(controversialProposalId));
             assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
@@ -383,7 +375,7 @@ contract ThinDualGovernanceApproachTest is Test {
             vm.stopPrank();
             assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
 
-            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY / 2 + 1);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
             assertFalse(_timelock.canSchedule(controversialProposalId));
             assertFalse(_timelock.canExecuteScheduled(controversialProposalId));
@@ -439,7 +431,7 @@ contract ThinDualGovernanceApproachTest is Test {
             assertFalse(_timelock.canExecuteSubmitted(anotherControversialProposalId));
 
             // and scheduled later
-            vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY + 1);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
             assertTrue(_timelock.canSchedule(anotherControversialProposalId));
             assertFalse(_timelock.canExecuteScheduled(anotherControversialProposalId));
@@ -533,7 +525,7 @@ contract ThinDualGovernanceApproachTest is Test {
         assertFalse(_timelock.canExecuteScheduled(proposalId), "canExecuteScheduled() != false");
 
         // wait until proposed call becomes adoptable
-        vm.warp(block.timestamp + _AFTER_PROPOSE_DELAY + 1);
+        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
         assertTrue(_timelock.canSchedule(proposalId), "canSchedule() != true");
         assertFalse(_timelock.canExecuteSubmitted(proposalId), "canExecuteSubmitted() != false");
@@ -543,7 +535,7 @@ contract ThinDualGovernanceApproachTest is Test {
             _timelock.schedule(proposalId);
 
             // wait until scheduled call become executable
-            vm.warp(block.timestamp + _AFTER_SCHEDULE_DELAY + 1);
+            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
         }
 
         assertFalse(_timelock.canSchedule(proposalId), "canSchedule() != false");

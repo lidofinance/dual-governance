@@ -77,6 +77,10 @@ contract DualGovernance is ITimelockController, ConfigurationProvider {
         }
     }
 
+    // ---
+    // View Methods
+    // ---
+
     function currentState() external view returns (DualGovernanceStatus) {
         return _state.currentState();
     }
@@ -148,15 +152,6 @@ contract Timelock is ITimelock, ConfigurationProvider {
     error NotTiebreakCommittee(address sender);
     error SchedulingDisabled();
     error UnscheduledExecutionForbidden();
-    error InvalidAfterProposeDelayDuration(
-        uint256 minDelayDuration, uint256 maxDelayDuration, uint256 afterProposeDelayDuration
-    );
-    error InvalidAfterScheduleDelayDuration(
-        uint256 minDelayDuration, uint256 maxDelayDuration, uint256 afterScheduleDelayDuration
-    );
-
-    uint256 public immutable MIN_DELAY_DURATION = 2 days;
-    uint256 public immutable MAX_DELAY_DURATION = 30 days;
 
     address internal _governance;
     ITimelockController internal _controller;
@@ -166,18 +161,7 @@ contract Timelock is ITimelock, ConfigurationProvider {
     Proposals.State internal _proposals;
     EmergencyProtection.State internal _emergencyProtection;
 
-    constructor(
-        address config,
-        uint256 minDelayDuration,
-        uint256 maxDelayDuration,
-        uint256 afterProposeDelay,
-        uint256 afterScheduleDelay
-    ) ConfigurationProvider(config) {
-        MIN_DELAY_DURATION = minDelayDuration;
-        MAX_DELAY_DURATION = maxDelayDuration;
-
-        _setDelays(afterProposeDelay, afterScheduleDelay);
-    }
+    constructor(address config) ConfigurationProvider(config) {}
 
     function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
         _checkGovernance(msg.sender);
@@ -189,12 +173,12 @@ contract Timelock is ITimelock, ConfigurationProvider {
             revert SchedulingDisabled();
         }
         _controllerHandleProposalAdoption();
-        _proposals.schedule(proposalId);
+        _proposals.schedule(CONFIG, proposalId);
     }
 
     function executeScheduled(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeNotActivated();
-        _proposals.executeScheduled(proposalId);
+        _proposals.executeScheduled(CONFIG, proposalId);
     }
 
     function executeSubmitted(uint256 proposalId) external {
@@ -203,7 +187,7 @@ contract Timelock is ITimelock, ConfigurationProvider {
         }
         _emergencyProtection.checkEmergencyModeNotActivated();
         _controllerHandleProposalAdoption();
-        _proposals.executeSubmitted(proposalId);
+        _proposals.executeSubmitted(CONFIG, proposalId);
     }
 
     function cancelAll() external {
@@ -226,11 +210,6 @@ contract Timelock is ITimelock, ConfigurationProvider {
         _setController(controller);
     }
 
-    function setDelays(uint256 afterProposeDelay, uint256 afterScheduleDelay) external {
-        _checkAdminExecutor(msg.sender);
-        _setDelays(afterProposeDelay, afterScheduleDelay);
-    }
-
     // ---
     // Emergency Protection Functionality
     // ---
@@ -243,11 +222,7 @@ contract Timelock is ITimelock, ConfigurationProvider {
     function emergencyExecute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeActivated();
         _emergencyProtection.checkEmergencyCommittee(msg.sender);
-        if (_proposals.canExecuteScheduled(proposalId)) {
-            _proposals.executeScheduled(proposalId);
-        } else {
-            _proposals.executeSubmitted(proposalId);
-        }
+        _executeScheduledOrSubmittedProposal(proposalId);
     }
 
     function emergencyDeactivate() external {
@@ -337,18 +312,18 @@ contract Timelock is ITimelock, ConfigurationProvider {
     function canExecuteSubmitted(uint256 proposalId) external view returns (bool) {
         if (_emergencyProtection.isEmergencyModeActivated()) return false;
         if (_emergencyProtection.isEmergencyProtectionEnabled()) return false;
-        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(proposalId);
+        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
     }
 
     function canSchedule(uint256 proposalId) external view returns (bool) {
         if (_emergencyProtection.isEmergencyModeActivated()) return false;
         if (!_emergencyProtection.isEmergencyProtectionEnabled()) return false;
-        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(proposalId);
+        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
     }
 
     function canExecuteScheduled(uint256 proposalId) external view returns (bool) {
         if (_emergencyProtection.isEmergencyModeActivated()) return false;
-        return _isProposalsAdoptionAllowed() && _proposals.canExecuteScheduled(proposalId);
+        return _isProposalsAdoptionAllowed() && _proposals.canExecuteScheduled(CONFIG, proposalId);
     }
 
     // ---
@@ -369,23 +344,11 @@ contract Timelock is ITimelock, ConfigurationProvider {
         }
     }
 
-    function _setDelays(uint256 afterProposeDelay, uint256 afterScheduleDelay) internal {
-        if (afterProposeDelay < MIN_DELAY_DURATION || afterProposeDelay > MAX_DELAY_DURATION) {
-            revert InvalidAfterProposeDelayDuration(afterProposeDelay, MIN_DELAY_DURATION, MAX_DELAY_DURATION);
-        }
-
-        if (afterScheduleDelay < MIN_DELAY_DURATION || afterScheduleDelay > MAX_DELAY_DURATION) {
-            revert InvalidAfterScheduleDelayDuration(afterScheduleDelay, MIN_DELAY_DURATION, MAX_DELAY_DURATION);
-        }
-
-        _proposals.setDelays(afterProposeDelay, afterScheduleDelay);
-    }
-
     function _executeScheduledOrSubmittedProposal(uint256 proposalId) internal {
-        if (_proposals.canExecuteScheduled(proposalId)) {
-            _proposals.executeScheduled(proposalId);
+        if (_proposals.canExecuteScheduled(CONFIG, proposalId)) {
+            _proposals.executeScheduled(CONFIG, proposalId);
         } else {
-            _proposals.executeSubmitted(proposalId);
+            _proposals.executeSubmitted(CONFIG, proposalId);
         }
     }
 
