@@ -15,7 +15,9 @@ contract GateSealScenarioTest is Test {
     uint256 private immutable _EMERGENCY_MODE_DURATION = 180 days;
     uint256 private immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
     address private immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
-    uint256 private immutable _SEALING_DURATION = 14 days;
+    uint256 internal immutable _RELEASE_EXPERY = 5 days;
+    uint256 internal immutable _RELEASE_TIMELOCK = 14 days;
+    uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
     address private immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
 
     GateSeal private _gateSeal;
@@ -35,7 +37,15 @@ contract GateSealScenarioTest is Test {
 
         _sealables.push(WITHDRAWAL_QUEUE);
 
-        _gateSeal = new GateSeal(_SEALING_COMMITTEE, _SEALING_DURATION, address(_dualGovernance.state()), _sealables);
+        _gateSeal = new GateSeal(
+            address(this),
+            address(_dualGovernance.state()),
+            _SEALING_COMMITTEE,
+            _SEALING_COMMITTEE_LIFETIME,
+            _RELEASE_TIMELOCK,
+            _RELEASE_EXPERY,
+            _sealables
+        );
 
         // grant rights to gate seal to pause/resume the withdrawal queue
         vm.startPrank(DAO_AGENT);
@@ -72,16 +82,12 @@ contract GateSealScenarioTest is Test {
         // validate Withdrawal Queue was paused
         assertTrue(IWithdrawalQueue(WITHDRAWAL_QUEUE).isPaused());
 
-        // wait till the end of the sealing duration
-        vm.warp(block.timestamp + _SEALING_DURATION / 2 + 1);
-        assertTrue(block.timestamp > _gateSeal.expiryTimestamp());
-
         // validate the dual governance still in the veto signaling state
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoSignalling));
 
         // seal can't be released before the governance returns to Normal state
         vm.expectRevert(GateSeal.GovernanceIsBlocked.selector);
-        _gateSeal.release(_sealables);
+        _gateSeal.startRelease();
 
         // wait the governance returns to normal state
         vm.warp(block.timestamp + 14 days);
@@ -91,8 +97,16 @@ contract GateSealScenarioTest is Test {
         _dualGovernance.activateNextState();
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoCooldown));
 
-        // committee may release the governance
-        _gateSeal.release(_sealables);
+        // anyone may start release the seal
+        _gateSeal.startRelease();
+
+        // reverts until timelock
+        vm.expectRevert(GateSeal.SealDurationNotPassed.selector);
+        _gateSeal.enactRelease();
+
+        // anyone may release the seal after timelock
+        vm.warp(block.timestamp + _RELEASE_TIMELOCK);
+        _gateSeal.enactRelease();
         assertFalse(IWithdrawalQueue(WITHDRAWAL_QUEUE).isPaused());
     }
 
@@ -107,12 +121,8 @@ contract GateSealScenarioTest is Test {
         // validate Withdrawal Queue was paused
         assertTrue(IWithdrawalQueue(WITHDRAWAL_QUEUE).isPaused());
 
-        // seal can't be released before the SEAL_DURATION is ended
-        vm.expectRevert(GateSeal.SealDurationNotPassed.selector);
-        _gateSeal.release(_sealables);
-
         // wait some time, before dual governance enters veto signaling state
-        vm.warp(block.timestamp + _SEALING_DURATION / 2);
+        vm.warp(block.timestamp + _RELEASE_TIMELOCK / 2);
 
         address stEthWhale = makeAddr("STETH_WHALE");
         Utils.removeLidoStakingLimit();
@@ -127,16 +137,12 @@ contract GateSealScenarioTest is Test {
         vm.stopPrank();
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoSignalling));
 
-        // wait the end of the seal duration
-        vm.warp(block.timestamp + _SEALING_DURATION / 2 + 1);
-        assertTrue(block.timestamp > _gateSeal.expiryTimestamp());
-
         // validate the dual governance still in the veto signaling state
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoSignalling));
 
         // seal can't be released before the governance returns to Normal state
         vm.expectRevert(GateSeal.GovernanceIsBlocked.selector);
-        _gateSeal.release(_sealables);
+        _gateSeal.startRelease();
 
         // wait the governance returns to normal state
         vm.warp(block.timestamp + 14 days);
@@ -155,7 +161,15 @@ contract GateSealScenarioTest is Test {
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.Normal));
 
         // now seal may be released
-        _gateSeal.release(_sealables);
+        _gateSeal.startRelease();
+
+        // reverts until timelock
+        vm.expectRevert(GateSeal.SealDurationNotPassed.selector);
+        _gateSeal.enactRelease();
+
+        // anyone may release the seal after timelock
+        vm.warp(block.timestamp + _RELEASE_TIMELOCK);
+        _gateSeal.enactRelease();
         assertFalse(IWithdrawalQueue(WITHDRAWAL_QUEUE).isPaused());
     }
 
@@ -170,16 +184,16 @@ contract GateSealScenarioTest is Test {
         // validate Withdrawal Queue was paused
         assertTrue(IWithdrawalQueue(WITHDRAWAL_QUEUE).isPaused());
 
-        // seal can't be released before the SEAL_DURATION is ended
+        // now seal may be released
+        _gateSeal.startRelease();
+
+        // reverts until timelock
         vm.expectRevert(GateSeal.SealDurationNotPassed.selector);
-        _gateSeal.release(_sealables);
+        _gateSeal.enactRelease();
 
-        // wait gate seal is expired
-        vm.warp(block.timestamp + _SEALING_DURATION + 1);
-        assertTrue(block.timestamp > _gateSeal.expiryTimestamp());
-
-        // release the seal from the Withdrawal Queue
-        _gateSeal.release(_sealables);
+        // anyone may release the seal after timelock
+        vm.warp(block.timestamp + _RELEASE_TIMELOCK);
+        _gateSeal.enactRelease();
         assertFalse(IWithdrawalQueue(WITHDRAWAL_QUEUE).isPaused());
     }
 }
