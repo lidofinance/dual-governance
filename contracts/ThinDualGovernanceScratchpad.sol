@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {DualGovernanceState, Status as DualGovernanceStatus} from "./libraries/DualGovernanceState.sol";
+import {DualGovernanceState, Status as DualGovernanceStatus, ITimelock} from "./libraries/DualGovernanceState.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
@@ -10,7 +10,7 @@ import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
 
-interface ITimelock {
+interface ITimelockEnhanced is ITimelock {
     function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId);
     function cancelAll() external;
 }
@@ -18,7 +18,7 @@ interface ITimelock {
 interface ITimelockController {
     function handleProposalAdoption() external;
 
-    function isBlocked() external view returns (bool);
+    function isTiebreak() external view returns (bool);
     function isProposalsAdoptionAllowed() external view returns (bool);
 }
 
@@ -30,7 +30,7 @@ contract DualGovernance is ITimelockController, ConfigurationProvider {
     error ProposalsCreationSuspended();
     error ProposalsAdoptionSuspended();
 
-    ITimelock public immutable TIMELOCK;
+    ITimelockEnhanced public immutable TIMELOCK;
 
     Proposers.State internal _proposers;
     DualGovernanceState.State internal _state;
@@ -41,14 +41,14 @@ contract DualGovernance is ITimelockController, ConfigurationProvider {
         address config,
         address adminProposer
     ) ConfigurationProvider(config) {
-        TIMELOCK = ITimelock(timelock);
+        TIMELOCK = ITimelockEnhanced(timelock);
         _state.initialize(escrowMasterCopy);
         _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
     }
 
     function submit(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
         _proposers.checkProposer(msg.sender);
-        _state.activateNextState(CONFIG);
+        _state.activateNextState(CONFIG, TIMELOCK);
 
         if (!_state.isProposalsCreationAllowed()) {
             revert ProposalsCreationSuspended();
@@ -60,18 +60,18 @@ contract DualGovernance is ITimelockController, ConfigurationProvider {
 
     function cancelAll() external {
         _proposers.checkAdminProposer(CONFIG, msg.sender);
-        _state.activateNextState(CONFIG);
-        _state.haltProposalsCreation();
+        _state.activateNextState(CONFIG, TIMELOCK);
+        _state.scheduleFutureCallsRevocation();
         TIMELOCK.cancelAll();
     }
 
     function activateNextState() external {
-        _state.activateNextState(CONFIG);
+        _state.activateNextState(CONFIG, TIMELOCK);
     }
 
     function handleProposalAdoption() external {
         _checkTimelock(msg.sender);
-        _state.activateNextState(CONFIG);
+        _state.activateNextState(CONFIG, TIMELOCK);
         if (!_state.isProposalsAdoptionAllowed()) {
             revert ProposalsAdoptionSuspended();
         }
@@ -93,8 +93,8 @@ contract DualGovernance is ITimelockController, ConfigurationProvider {
         return address(_state.rageQuitEscrow);
     }
 
-    function isBlocked() external view returns (bool) {
-        return _state.isDeadLockedOrFrozen(CONFIG);
+    function isTiebreak() external view returns (bool) {
+        return _state.isTiebreak(CONFIG);
     }
 
     function isProposalsAdoptionAllowed() external view returns (bool) {
@@ -146,6 +146,7 @@ contract Timelock is ITimelock, ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
+    error NotAuthorized();
     error NotGovernance(address account);
     error ControllerNotSet();
     error ControllerNotLocked();
@@ -192,6 +193,13 @@ contract Timelock is ITimelock, ConfigurationProvider {
 
     function cancelAll() external {
         _checkGovernance(msg.sender);
+        _proposals.cancelAll();
+    }
+
+    function cancelAllCallback() external {
+        if (msg.sender != address(_controller)) {
+            revert NotAuthorized();
+        }
         _proposals.cancelAll();
     }
 
@@ -270,7 +278,7 @@ contract Timelock is ITimelock, ConfigurationProvider {
         if (address(_controller) == address(0)) {
             revert ControllerNotSet();
         }
-        if (!_controller.isBlocked()) {
+        if (!_controller.isTiebreak()) {
             revert ControllerNotLocked();
         }
         _executeScheduledOrSubmittedProposal(proposalId);

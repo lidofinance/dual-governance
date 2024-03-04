@@ -330,7 +330,7 @@ contract ThinDualGovernanceApproachTest is Test {
             _gateSeal.seal(_sealableWithdrawalBlockers);
 
             // the dual governance is blocked
-            assertTrue(_dualGovernance.isBlocked());
+            assertTrue(_dualGovernance.isTiebreak());
 
             // proposal is not executable
             assertFalse(_timelock.canSchedule(proposalId));
@@ -365,7 +365,7 @@ contract ThinDualGovernanceApproachTest is Test {
             // dual governance escrow accumulates
             address stEthWhale = makeAddr("STETH_WHALE");
             Utils.removeLidoStakingLimit();
-            Utils.setupStEthWhale(stEthWhale, 5 * 10 ** 16);
+            Utils.setupStEthWhale(stEthWhale, 10 * 10 ** 16);
             uint256 stEthWhaleBalance = IERC20(ST_ETH).balanceOf(stEthWhale);
 
             Escrow escrow = Escrow(payable(_dualGovernance.signallingEscrow()));
@@ -389,7 +389,7 @@ contract ThinDualGovernanceApproachTest is Test {
             );
             Utils.executeVote(DAO_VOTING, cancelAllVoteId);
 
-            assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignallingHalted));
+            assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
 
             // new proposal sent later can't be submitted until the veto signaling is exited
 
@@ -398,8 +398,9 @@ contract ThinDualGovernanceApproachTest is Test {
             );
             uint256 voteId = Utils.adoptVote(DAO_VOTING, "Another controversial vote", script);
 
-            vm.expectRevert(DualGovernance.ProposalsCreationSuspended.selector);
+            // another malicious proposal is submitted
             Utils.executeVote(DAO_VOTING, voteId);
+            uint256 anotherControversialProposalId = _timelock.getProposalsCount();
 
             // wait the dual governance returns to normal state
             vm.warp(block.timestamp + 14 days);
@@ -422,10 +423,6 @@ contract ThinDualGovernanceApproachTest is Test {
             _dualGovernance.activateNextState();
             assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.Normal));
 
-            // previous malicious proposal may be submitted now
-            Utils.executeVote(DAO_VOTING, voteId);
-            uint256 anotherControversialProposalId = _timelock.getProposalsCount();
-
             assertFalse(_timelock.canSchedule(anotherControversialProposalId));
             assertFalse(_timelock.canExecuteScheduled(anotherControversialProposalId));
             assertFalse(_timelock.canExecuteSubmitted(anotherControversialProposalId));
@@ -433,7 +430,8 @@ contract ThinDualGovernanceApproachTest is Test {
             // and scheduled later
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
-            assertTrue(_timelock.canSchedule(anotherControversialProposalId));
+            // proposal submitted later also not executable
+            assertFalse(_timelock.canSchedule(anotherControversialProposalId));
             assertFalse(_timelock.canExecuteScheduled(anotherControversialProposalId));
             assertFalse(_timelock.canExecuteSubmitted(anotherControversialProposalId));
 

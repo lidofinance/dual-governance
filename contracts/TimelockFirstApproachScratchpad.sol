@@ -8,14 +8,14 @@ import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
 
-import {DualGovernanceState, Status as DualGovernanceStatus} from "./libraries/DualGovernanceState.sol";
+import {DualGovernanceState, Status as DualGovernanceStatus, ITimelock} from "./libraries/DualGovernanceState.sol";
 
 interface ITimelockController {
     function handleProposalCreation() external;
     function handleProposalAdoption() external;
     function handleProposalsRevocation() external;
 
-    function isBlocked() external view returns (bool);
+    function isTiebreak() external view returns (bool);
     function isProposalsAdoptionAllowed() external view returns (bool);
 }
 
@@ -26,21 +26,21 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
     error ProposalsCreationSuspended();
     error ProposalsAdoptionSuspended();
 
-    address public immutable TIMELOCK;
+    ITimelock public immutable TIMELOCK;
     DualGovernanceState.State internal _state;
 
     constructor(address timelock, address escrowMasterCopy, address config) ConfigurationProvider(config) {
-        TIMELOCK = timelock;
+        TIMELOCK = ITimelock(timelock);
         _state.initialize(escrowMasterCopy);
     }
 
     function activateNextState() external {
-        _state.activateNextState(CONFIG);
+        _state.activateNextState(CONFIG, TIMELOCK);
     }
 
     function handleProposalCreation() external {
         _checkTimelock(msg.sender);
-        _state.activateNextState(CONFIG);
+        _state.activateNextState(CONFIG, TIMELOCK);
         if (!_state.isProposalsCreationAllowed()) {
             revert ProposalsCreationSuspended();
         }
@@ -48,7 +48,7 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
 
     function handleProposalAdoption() external {
         _checkTimelock(msg.sender);
-        _state.activateNextState(CONFIG);
+        _state.activateNextState(CONFIG, TIMELOCK);
         if (!_state.isProposalsAdoptionAllowed()) {
             revert ProposalsAdoptionSuspended();
         }
@@ -56,8 +56,8 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
 
     function handleProposalsRevocation() external {
         _checkTimelock(msg.sender);
-        _state.activateNextState(CONFIG);
-        _state.haltProposalsCreation();
+        _state.activateNextState(CONFIG, TIMELOCK);
+        _state.scheduleFutureCallsRevocation();
     }
 
     // ---
@@ -76,8 +76,8 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
         return address(_state.rageQuitEscrow);
     }
 
-    function isBlocked() external view returns (bool) {
-        return _state.isDeadLockedOrFrozen(CONFIG);
+    function isTiebreak() external view returns (bool) {
+        return _state.isTiebreak(CONFIG);
     }
 
     function isProposalsCreationAllowed() external view returns (bool) {
@@ -104,6 +104,7 @@ contract Timelock is ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
+    error NotAuthorized();
     error ControllerNotSet();
     error ControllerNotLocked();
     error NotTiebreakCommittee(address sender);
@@ -153,6 +154,13 @@ contract Timelock is ConfigurationProvider {
     function cancelAll() external {
         _proposers.checkAdminProposer(CONFIG, msg.sender);
         _controllerHandleProposalsRevocation();
+        _proposals.cancelAll();
+    }
+
+    function cancelAllCallback() external {
+        if (msg.sender != address(_controller)) {
+            revert NotAuthorized();
+        }
         _proposals.cancelAll();
     }
 
@@ -255,7 +263,7 @@ contract Timelock is ConfigurationProvider {
         if (address(_controller) == address(0)) {
             revert ControllerNotSet();
         }
-        if (!_controller.isBlocked()) {
+        if (!_controller.isTiebreak()) {
             revert ControllerNotLocked();
         }
         _executeScheduledOrSubmittedProposal(proposalId);
