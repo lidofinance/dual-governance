@@ -24,60 +24,6 @@ interface ITimelockEnhanced is ITimelock {
     function cancelAll() external;
 }
 
-contract DualGovernanceProposers is ConfigurationProvider {
-    using Proposers for Proposers.State;
-
-    ITimelockEnhanced public immutable TIMELOCK;
-
-    Proposers.State internal _proposers;
-
-    constructor(address timelock, address config, address adminProposer) ConfigurationProvider(config) {
-        TIMELOCK = ITimelockEnhanced(timelock);
-        _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
-    }
-
-    function submit(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
-        _proposers.checkProposer(msg.sender);
-        Proposer memory proposer = _proposers.get(msg.sender);
-        newProposalId = TIMELOCK.submit(proposer.executor, calls);
-    }
-
-    function cancelAll() external {
-        _proposers.checkAdminProposer(CONFIG, msg.sender);
-        TIMELOCK.cancelAll();
-    }
-
-    // ---
-    // Proposers & Executors Management
-    // ---
-
-    function registerProposer(address proposer, address executor) external {
-        _checkAdminExecutor(msg.sender);
-        return _proposers.register(proposer, executor);
-    }
-
-    function unregisterProposer(address proposer) external {
-        _checkAdminExecutor(msg.sender);
-        _proposers.unregister(CONFIG, proposer);
-    }
-
-    function getProposer(address account) external view returns (Proposer memory proposer) {
-        proposer = _proposers.get(account);
-    }
-
-    function getProposers() external view returns (Proposer[] memory proposers) {
-        proposers = _proposers.all();
-    }
-
-    function isProposer(address account) external view returns (bool) {
-        return _proposers.isProposer(account);
-    }
-
-    function isExecutor(address account) external view returns (bool) {
-        return _proposers.isExecutor(account);
-    }
-}
-
 contract DualGovernanceTimelockController is ITimelockController, ConfigurationProvider {
     using DualGovernanceState for DualGovernanceState.State;
 
@@ -85,11 +31,11 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
     error ProposalsCreationSuspended();
     error ProposalsAdoptionSuspended();
 
-    ITimelock public immutable TIMELOCK;
+    ITimelockEnhanced public immutable TIMELOCK;
     DualGovernanceState.State internal _state;
 
-    constructor(address timelock, address escrowMasterCopy, address config) ConfigurationProvider(config) {
-        TIMELOCK = ITimelock(timelock);
+    constructor(address config, address timelock, address escrowMasterCopy) ConfigurationProvider(config) {
+        TIMELOCK = ITimelockEnhanced(timelock);
         _state.initialize(escrowMasterCopy);
     }
 
@@ -103,6 +49,7 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
         if (!_state.isProposalsCreationAllowed()) {
             revert ProposalsCreationSuspended();
         }
+        _state.setLastProposalCreationTimestamp();
     }
 
     function handleProposalAdoption() external {
@@ -155,6 +102,63 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
         if (account != address(TIMELOCK)) {
             revert NotTimelock(account);
         }
+    }
+}
+
+contract DualGovernance is DualGovernanceTimelockController {
+    using Proposers for Proposers.State;
+
+    Proposers.State internal _proposers;
+
+    constructor(
+        address config,
+        address timelock,
+        address escrowMasterCopy,
+        address adminProposer
+    ) DualGovernanceTimelockController(config, timelock, escrowMasterCopy) {
+        TIMELOCK = ITimelockEnhanced(timelock);
+        _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
+    }
+
+    function submit(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
+        _proposers.checkProposer(msg.sender);
+        Proposer memory proposer = _proposers.get(msg.sender);
+        newProposalId = TIMELOCK.submit(proposer.executor, calls);
+    }
+
+    function cancelAll() external {
+        _proposers.checkAdminProposer(CONFIG, msg.sender);
+        TIMELOCK.cancelAll();
+    }
+
+    // ---
+    // Proposers & Executors Management
+    // ---
+
+    function registerProposer(address proposer, address executor) external {
+        _checkAdminExecutor(msg.sender);
+        return _proposers.register(proposer, executor);
+    }
+
+    function unregisterProposer(address proposer) external {
+        _checkAdminExecutor(msg.sender);
+        _proposers.unregister(CONFIG, proposer);
+    }
+
+    function getProposer(address account) external view returns (Proposer memory proposer) {
+        proposer = _proposers.get(account);
+    }
+
+    function getProposers() external view returns (Proposer[] memory proposers) {
+        proposers = _proposers.all();
+    }
+
+    function isProposer(address account) external view returns (bool) {
+        return _proposers.isProposer(account);
+    }
+
+    function isExecutor(address account) external view returns (bool) {
+        return _proposers.isExecutor(account);
     }
 }
 

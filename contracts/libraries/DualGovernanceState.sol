@@ -32,6 +32,8 @@ library DualGovernanceState {
         uint40 lastAdoptableStateExitedAt;
         IEscrow signallingEscrow;
         IEscrow rageQuitEscrow;
+        uint40 lastProposalCreatedAt;
+        bool isProposedOnVetoSignalling;
         bool isCallsRevocationScheduled;
     }
 
@@ -70,6 +72,11 @@ library DualGovernanceState {
             _setStatus(self, oldStatus, newStatus);
             _handleStatusTransitionSideEffects(self, timelock, oldStatus, newStatus);
         }
+    }
+
+    function setLastProposalCreationTimestamp(State storage self) internal {
+        self.lastProposalCreatedAt = timestamp();
+        self.isProposedOnVetoSignalling = self.status == Status.VetoSignalling;
     }
 
     function scheduleFutureCallsRevocation(State storage self) internal {
@@ -137,10 +144,7 @@ library DualGovernanceState {
         State storage self,
         IConfiguration config
     ) private view returns (Status) {
-        uint256 currentDeactivationDuration = block.timestamp - self.enteredAt;
-        if (currentDeactivationDuration >= config.SIGNALLING_DEACTIVATION_DURATION()) {
-            return Status.VetoCooldown;
-        }
+        if (_isVetoSignallingDeactivationPhasePassed(self, config)) return Status.VetoCooldown;
 
         (uint256 totalSupport, uint256 rageQuitSupport) = self.signallingEscrow.getSignallingState();
         uint256 currentSignallingDuration = block.timestamp - self.signalingActivatedAt;
@@ -242,6 +246,21 @@ library DualGovernanceState {
 
         duration_ = minDuration
             + (totalSupport - firstSealThreshold) * (maxDuration - minDuration) / (secondSealThreshold - firstSealThreshold);
+    }
+
+    function _isVetoSignallingDeactivationPhasePassed(
+        State storage self,
+        IConfiguration config
+    ) private view returns (bool) {
+        uint256 currentDeactivationDuration = block.timestamp - self.enteredAt;
+
+        if (currentDeactivationDuration < config.SIGNALLING_DEACTIVATION_DURATION()) return false;
+
+        uint256 timePassedFromLastProposalCreation = block.timestamp - self.lastProposalCreatedAt;
+
+        return self.isProposedOnVetoSignalling
+            ? timePassedFromLastProposalCreation >= config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION()
+            : true;
     }
 
     function _deployNewSignalingEscrow(State storage self, address escrowMasterCopy) private {

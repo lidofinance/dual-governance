@@ -12,6 +12,7 @@ interface IConfiguration {
 
     function SIGNALING_COOLDOWN_DURATION() external view returns (uint256);
     function SIGNALLING_DEACTIVATION_DURATION() external view returns (uint256);
+    function SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION() external view returns (uint256);
 
     function SIGNALING_MIN_DURATION() external view returns (uint256);
     function SIGNALING_MAX_DURATION() external view returns (uint256);

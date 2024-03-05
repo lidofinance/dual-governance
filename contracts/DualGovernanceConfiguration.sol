@@ -18,6 +18,7 @@ contract Configuration is IConfiguration {
 
     uint256 public immutable SIGNALING_COOLDOWN_DURATION = 4 days;
     uint256 public immutable SIGNALLING_DEACTIVATION_DURATION = 5 days;
+    uint256 public immutable SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION = 30 days;
 
     uint256 public immutable SIGNALING_MIN_DURATION = 3 days;
     uint256 public immutable SIGNALING_MAX_DURATION = 30 days;
