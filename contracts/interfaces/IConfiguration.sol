@@ -10,12 +10,12 @@ interface IConfiguration {
 
     function RAGE_QUIT_ETH_WITHDRAWAL_TIMELOCK() external view returns (uint256);
 
-    function SIGNALING_COOLDOWN_DURATION() external view returns (uint256);
+    function SIGNALLING_COOLDOWN_DURATION() external view returns (uint256);
     function SIGNALLING_DEACTIVATION_DURATION() external view returns (uint256);
     function SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION() external view returns (uint256);
 
-    function SIGNALING_MIN_DURATION() external view returns (uint256);
-    function SIGNALING_MAX_DURATION() external view returns (uint256);
+    function SIGNALLING_MIN_DURATION() external view returns (uint256);
+    function SIGNALLING_MAX_DURATION() external view returns (uint256);
 
     function FIRST_SEAL_THRESHOLD() external view returns (uint256);
     function SECOND_SEAL_THRESHOLD() external view returns (uint256);

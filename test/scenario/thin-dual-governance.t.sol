@@ -320,7 +320,7 @@ contract ThinDualGovernanceApproachTest is Test {
             vm.expectRevert(Timelock.ControllerNotLocked.selector);
             _timelock.tiebreakExecute(proposalId);
 
-            vm.warp(block.timestamp + _config.SIGNALING_MAX_DURATION() + 1);
+            vm.warp(block.timestamp + _config.SIGNALLING_MAX_DURATION() + 1);
 
             _dualGovernance.activateNextState();
             assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.RageQuit));
@@ -391,7 +391,7 @@ contract ThinDualGovernanceApproachTest is Test {
 
             assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
 
-            // new proposal sent later can't be submitted until the veto signaling is exited
+            // new proposal sent later can't be submitted until the veto signalLing is exited
 
             bytes memory script = Utils.encodeEvmCallScript(
                 address(_dualGovernance), abi.encodeCall(_dualGovernance.submit, (controversialCalls))
@@ -419,7 +419,7 @@ contract ThinDualGovernanceApproachTest is Test {
             assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
 
             // wait until veto cooldown is passed
-            vm.warp(block.timestamp + _config.SIGNALING_COOLDOWN_DURATION() + 1);
+            vm.warp(block.timestamp + _config.SIGNALLING_COOLDOWN_DURATION() + 1);
             _dualGovernance.activateNextState();
             assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.Normal));
 

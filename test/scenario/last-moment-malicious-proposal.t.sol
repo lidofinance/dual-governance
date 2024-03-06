@@ -17,11 +17,11 @@ import {BurnerVault} from "contracts/BurnerVault.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
 import {Configuration} from "contracts/DualGovernanceConfiguration.sol";
 
+import {IERC20} from "../utils/interfaces.sol";
 import {Utils, TargetMock} from "../utils/utils.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
-import {IWithdrawalQueue, IERC20} from "../utils/interfaces.sol";
 
-import {DAO_AGENT, DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER} from "../utils/mainnet-addresses.sol";
+import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER} from "../utils/mainnet-addresses.sol";
 
 interface IDangerousContract {
     function doRegularStaff(uint256 magic) external;
@@ -29,12 +29,6 @@ interface IDangerousContract {
     function doControversialStaff() external;
 }
 
-// 1. DAO submits proposal
-// 2. Malicious actor locks funds to waste the veto signaling period
-// 3. Before the end of the veto signaling, malicious actor submits malicious proposal
-// 4. Unlock all funds from the Escrow
-// 5. stETH holders try to acquire enough rage quit power, but have not enough time
-// 6. the veto deactivation ends and malicious proposal is executed
 contract LastMomentMaliciousProposal is Test {
     address private immutable _ADMIN_PROPOSER = DAO_VOTING;
     address private immutable _EMERGENCY_GOVERNANCE = DAO_VOTING;
@@ -119,7 +113,7 @@ contract LastMomentMaliciousProposal is Test {
         }
 
         // ---
-        // ACT 2. MALICIOUS ACTOR STARTS ACQUIRE VETO SIGNALING DURATION
+        // ACT 2. MALICIOUS ACTOR STARTS ACQUIRE VETO SIGNALLING DURATION
         // ---
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         Escrow escrow = Escrow(payable(_dualGovernance.signallingEscrow()));
@@ -219,6 +213,66 @@ contract LastMomentMaliciousProposal is Test {
             assertFalse(_timelock.canSchedule(maliciousProposalId));
             assertFalse(_timelock.canExecuteScheduled(maliciousProposalId));
             assertFalse(_timelock.canExecuteSubmitted(maliciousProposalId));
+        }
+    }
+
+    function testFork_VetoSignallingDeactivationDefaultDuration() external {
+        bytes memory regularStaffCalldata = abi.encodeCall(IDangerousContract.doRegularStaff, (42));
+        ExecutorCall[] memory regularStaffCalls = ExecutorCallHelpers.create(address(_target), regularStaffCalldata);
+
+        uint256 proposalId;
+        // ---
+        // ACT 1. DAO SUBMITS CONTROVERSIAL PROPOSAL
+        // ---
+        {
+            proposalId = _submitProposalToDualGovernance(
+                "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            );
+            // the call isn't executable until the delay has passed
+            assertFalse(_timelock.canSchedule(proposalId));
+            assertFalse(_timelock.canExecuteScheduled(proposalId));
+            assertFalse(_timelock.canExecuteSubmitted(proposalId));
+        }
+
+        // ---
+        // ACT 2. MALICIOUS ACTOR ACCUMULATES FIRST THRESHOLD OF STETH IN THE ESCROW
+        // ---
+        address maliciousActor = makeAddr("MALICIOUS_ACTOR");
+        Escrow escrow = Escrow(payable(_dualGovernance.signallingEscrow()));
+        {
+            Utils.removeLidoStakingLimit();
+            Utils.setupStEthWhale(maliciousActor, _config.FIRST_SEAL_THRESHOLD() + 1);
+            uint256 maliciousActorBalance = IERC20(ST_ETH).balanceOf(maliciousActor);
+
+            vm.startPrank(maliciousActor);
+            IERC20(ST_ETH).approve(address(escrow), maliciousActorBalance);
+            escrow.lockStEth(maliciousActorBalance);
+            vm.stopPrank();
+            assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
+
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
+
+            assertFalse(_timelock.canSchedule(proposalId));
+            assertFalse(_timelock.canExecuteScheduled(proposalId));
+            assertFalse(_timelock.canExecuteSubmitted(proposalId));
+
+            vm.warp(block.timestamp + _config.SIGNALLING_MIN_DURATION() + 1);
+            _dualGovernance.activateNextState();
+            assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignallingDeactivation));
+        }
+
+        // ---
+        // ACT 3. THE VETO SIGNALLING DEACTIVATION DURATION EQUALS TO "SIGNALLING_DEACTIVATION_DURATION" DAYS
+        // ---
+        {
+            vm.warp(block.timestamp + _config.SIGNALLING_DEACTIVATION_DURATION() + 1);
+            _dualGovernance.activateNextState();
+            assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoCooldown));
+
+            // and proposal can be scheduled and executed
+            assertTrue(_timelock.canSchedule(proposalId));
+            assertFalse(_timelock.canExecuteScheduled(proposalId));
+            assertFalse(_timelock.canExecuteSubmitted(proposalId));
         }
     }
 

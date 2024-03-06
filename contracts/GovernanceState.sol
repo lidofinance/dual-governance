@@ -73,7 +73,7 @@ contract GovernanceState {
     function handleCancelAll() external {
         State state = _state;
         if (state == State.VetoSignalling || state == State.VetoSignallingDeactivation) {
-            // cancel all proposals when veto signaling or veto cooldown states exited
+            // cancel all proposals when veto signalling or veto cooldown states exited
             _isCancelAllScheduled = true;
         }
     }

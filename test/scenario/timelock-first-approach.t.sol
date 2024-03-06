@@ -204,7 +204,7 @@ contract TimelockFirstApproachTest is Test {
         }
 
         // ---
-        // ACT 4 - DUAL GOVERNANCE WORKS PROPERLY (VETO SIGNALING CASE)
+        // ACT 4 - DUAL GOVERNANCE WORKS PROPERLY (VETO SIGNALLING CASE)
         // ---
         {
             uint256 snapshotId = vm.snapshot();
@@ -315,7 +315,7 @@ contract TimelockFirstApproachTest is Test {
             vm.expectRevert(Timelock.ControllerNotLocked.selector);
             _timelock.tiebreakExecute(proposalId);
 
-            vm.warp(block.timestamp + _config.SIGNALING_MAX_DURATION() + 1);
+            vm.warp(block.timestamp + _config.SIGNALLING_MAX_DURATION() + 1);
 
             _controller.activateNextState();
             assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.RageQuit));
@@ -386,7 +386,7 @@ contract TimelockFirstApproachTest is Test {
 
             assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
 
-            // new proposal sent later can't be submitted until the veto signaling is exited
+            // new proposal sent later can't be submitted until the veto signalling is exited
 
             bytes memory script =
                 Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.submit, (controversialCalls)));
@@ -413,7 +413,7 @@ contract TimelockFirstApproachTest is Test {
             assertFalse(_timelock.canExecuteSubmitted(controversialProposalId));
 
             // wait until veto cooldown is passed
-            vm.warp(block.timestamp + _config.SIGNALING_COOLDOWN_DURATION() + 1);
+            vm.warp(block.timestamp + _config.SIGNALLING_COOLDOWN_DURATION() + 1);
             _controller.activateNextState();
             assertEq(uint256(_controller.currentState()), uint256(DualGovernanceStatus.Normal));
 

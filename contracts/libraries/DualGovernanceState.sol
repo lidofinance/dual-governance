@@ -28,7 +28,7 @@ library DualGovernanceState {
     struct State {
         Status status;
         uint40 enteredAt;
-        uint40 signalingActivatedAt;
+        uint40 signallingActivatedAt;
         uint40 lastAdoptableStateExitedAt;
         IEscrow signallingEscrow;
         IEscrow rageQuitEscrow;
@@ -45,7 +45,7 @@ library DualGovernanceState {
         if (address(self.signallingEscrow) != address(0)) {
             revert AlreadyInitialized();
         }
-        _deployNewSignalingEscrow(self, escrowMasterCopy);
+        _deployNewSignallingEscrow(self, escrowMasterCopy);
     }
 
     function activateNextState(
@@ -57,9 +57,9 @@ library DualGovernanceState {
         if (oldStatus == Status.Normal) {
             newStatus = _fromNormalState(self, config);
         } else if (oldStatus == Status.VetoSignalling) {
-            newStatus = _fromVetoSignalingState(self, config);
+            newStatus = _fromVetoSignallingState(self, config);
         } else if (oldStatus == Status.VetoSignallingDeactivation) {
-            newStatus = _fromVetoSignalingDeactivationState(self, config);
+            newStatus = _fromVetoSignallingDeactivationState(self, config);
         } else if (oldStatus == Status.VetoCooldown) {
             newStatus = _fromVetoCooldownState(self, config);
         } else if (oldStatus == Status.RageQuit) {
@@ -123,14 +123,14 @@ library DualGovernanceState {
         return totalSupport >= config.FIRST_SEAL_THRESHOLD() ? Status.VetoSignalling : Status.Normal;
     }
 
-    function _fromVetoSignalingState(State storage self, IConfiguration config) private view returns (Status) {
+    function _fromVetoSignallingState(State storage self, IConfiguration config) private view returns (Status) {
         (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
 
         if (totalSupport < config.FIRST_SEAL_THRESHOLD()) {
             return Status.VetoSignallingDeactivation;
         }
 
-        uint256 currentDuration = block.timestamp - self.signalingActivatedAt;
+        uint256 currentDuration = block.timestamp - self.signallingActivatedAt;
         uint256 targetDuration = _calcVetoSignallingTargetDuration(config, totalSupport);
 
         if (currentDuration < targetDuration) {
@@ -140,14 +140,14 @@ library DualGovernanceState {
         return _isSecondThresholdReached(self, config) ? Status.RageQuit : Status.VetoSignallingDeactivation;
     }
 
-    function _fromVetoSignalingDeactivationState(
+    function _fromVetoSignallingDeactivationState(
         State storage self,
         IConfiguration config
     ) private view returns (Status) {
         if (_isVetoSignallingDeactivationPhasePassed(self, config)) return Status.VetoCooldown;
 
         (uint256 totalSupport, uint256 rageQuitSupport) = self.signallingEscrow.getSignallingState();
-        uint256 currentSignallingDuration = block.timestamp - self.signalingActivatedAt;
+        uint256 currentSignallingDuration = block.timestamp - self.signallingActivatedAt;
         uint256 targetSignallingDuration = _calcVetoSignallingTargetDuration(config, totalSupport);
 
         if (currentSignallingDuration >= targetSignallingDuration) {
@@ -162,7 +162,7 @@ library DualGovernanceState {
 
     function _fromVetoCooldownState(State storage self, IConfiguration config) private view returns (Status) {
         uint256 duration_ = block.timestamp - self.enteredAt;
-        if (duration_ < config.SIGNALING_COOLDOWN_DURATION()) {
+        if (duration_ < config.SIGNALLING_COOLDOWN_DURATION()) {
             return Status.VetoCooldown;
         }
         return _isFirstThresholdReached(self, config) ? Status.VetoSignalling : Status.Normal;
@@ -198,15 +198,15 @@ library DualGovernanceState {
         }
 
         if (newStatus == Status.VetoSignalling && oldStatus != Status.VetoSignallingDeactivation) {
-            self.signalingActivatedAt = currentTime;
+            self.signallingActivatedAt = currentTime;
         }
         if (newStatus == Status.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
             signallingEscrow.startRageQuit();
             self.rageQuitEscrow = signallingEscrow;
-            _deployNewSignalingEscrow(self, signallingEscrow.MASTER_COPY());
+            _deployNewSignallingEscrow(self, signallingEscrow.MASTER_COPY());
         }
-        // when the governance was set on halt, remove self-limit after the veto signaling state is left
+        // when the governance was set on halt, remove self-limit after the veto signalling state is left
         if (self.isCallsRevocationScheduled) {
             if (newStatus != Status.VetoSignalling && newStatus != Status.VetoSignallingDeactivation) {
                 self.isCallsRevocationScheduled = false;
@@ -263,7 +263,7 @@ library DualGovernanceState {
             : true;
     }
 
-    function _deployNewSignalingEscrow(State storage self, address escrowMasterCopy) private {
+    function _deployNewSignallingEscrow(State storage self, address escrowMasterCopy) private {
         IEscrow clone = IEscrow(Clones.clone(escrowMasterCopy));
         clone.initialize(address(this));
         self.signallingEscrow = clone;
