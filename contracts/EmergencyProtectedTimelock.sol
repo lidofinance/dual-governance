@@ -13,33 +13,29 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
-    error ControllerNotSet();
-    error ControllerNotLocked();
-    error NotGovernance(address account);
-    error NotTiebreakCommittee(address sender);
     error SchedulingDisabled();
     error UnscheduledExecutionForbidden();
 
+    event ProposalLaunched(address indexed proposer, address indexed executor, uint256 indexed proposalId);
+
     ITimelockController internal _controller;
-    address internal _tiebreakCommittee;
-    address internal _governance;
 
     Proposals.State internal _proposals;
     EmergencyProtection.State internal _emergencyProtection;
 
     constructor(address config) ConfigurationProvider(config) {}
 
-    function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
-        _checkGovernance(msg.sender);
-        _controllerHandleProposalCreation();
+    function submit(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
+        address executor = _controller.handleProposalCreation(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
+        emit ProposalLaunched(msg.sender, executor, newProposalId);
     }
 
     function schedule(uint256 proposalId) external {
         if (!_emergencyProtection.isEmergencyProtectionEnabled()) {
             revert SchedulingDisabled();
         }
-        _controllerHandleProposalAdoption();
+        _controller.handleProposalAdoption(msg.sender);
         _proposals.schedule(CONFIG, proposalId);
     }
 
@@ -53,24 +49,18 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
             revert UnscheduledExecutionForbidden();
         }
         _emergencyProtection.checkEmergencyModeNotActivated();
-        _controllerHandleProposalAdoption();
+        _controller.handleProposalAdoption(msg.sender);
         _proposals.executeSubmitted(CONFIG, proposalId);
     }
 
     function cancelAll() external {
-        _checkGovernance(msg.sender);
-        _controllerHandleProposalsRevocation();
+        _controller.handleProposalsRevocation(msg.sender);
         _proposals.cancelAll();
     }
 
     function transferExecutorOwnership(address executor, address owner) external {
         _checkAdminExecutor(msg.sender);
         IOwnable(executor).transferOwnership(owner);
-    }
-
-    function setGovernance(address governance) external {
-        _checkAdminExecutor(msg.sender);
-        _setGovernance(governance);
     }
 
     function setController(address controller) external {
@@ -106,7 +96,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         _emergencyProtection.checkEmergencyCommittee(msg.sender);
         _emergencyProtection.reset();
         _proposals.cancelAll();
-        _setController(address(0));
+        _setController(CONFIG.EMERGENCY_CONTROLLER());
     }
 
     function setEmergencyProtection(
@@ -127,37 +117,11 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     }
 
     // ---
-    // Tiebreak Protection
-    // ---
-
-    function tiebreakExecute(uint256 proposalId) external {
-        if (msg.sender != _tiebreakCommittee) {
-            revert NotTiebreakCommittee(msg.sender);
-        }
-        if (address(_controller) == address(0)) {
-            revert ControllerNotSet();
-        }
-        if (!_controller.isTiebreak()) {
-            revert ControllerNotLocked();
-        }
-        _executeScheduledOrSubmittedProposal(proposalId);
-    }
-
-    function setTiebreakCommittee(address committee) external {
-        _checkAdminExecutor(msg.sender);
-        _tiebreakCommittee = committee;
-    }
-
-    // ---
     // Timelock View Methods
     // ---
 
     function getController() external view returns (address) {
         return address(_controller);
-    }
-
-    function getGovernance() external view returns (address) {
-        return address(_governance);
     }
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
@@ -179,29 +143,22 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     function canExecuteSubmitted(uint256 proposalId) external view returns (bool) {
         if (_emergencyProtection.isEmergencyModeActivated()) return false;
         if (_emergencyProtection.isEmergencyProtectionEnabled()) return false;
-        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
+        return _controller.isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
     }
 
     function canSchedule(uint256 proposalId) external view returns (bool) {
         if (!_emergencyProtection.isEmergencyProtectionEnabled()) return false;
-        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
+        return _controller.isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
     }
 
     function canExecuteScheduled(uint256 proposalId) external view returns (bool) {
         if (_emergencyProtection.isEmergencyModeActivated()) return false;
-        return _isProposalsAdoptionAllowed() && _proposals.canExecuteScheduled(CONFIG, proposalId);
+        return _controller.isProposalsAdoptionAllowed() && _proposals.canExecuteScheduled(CONFIG, proposalId);
     }
 
     // ---
     // Internal Methods
     // ---
-
-    function _setGovernance(address governance) internal {
-        address prevGovernance = _governance;
-        if (prevGovernance != governance) {
-            _governance = governance;
-        }
-    }
 
     function _setController(address controller) internal {
         address prevController = address(_controller);
@@ -210,43 +167,8 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         }
     }
 
-    function _executeScheduledOrSubmittedProposal(uint256 proposalId) internal {
-        if (_proposals.canExecuteScheduled(CONFIG, proposalId)) {
-            _proposals.executeScheduled(CONFIG, proposalId);
-        } else {
-            _proposals.executeSubmitted(CONFIG, proposalId);
-        }
-    }
-
     function _isProposalsAdoptionAllowed() internal view returns (bool) {
         address controller = address(_controller);
-        return controller == address(0) || ITimelockController(controller).isProposalsAdoptionAllowed();
-    }
-
-    function _controllerHandleProposalCreation() internal {
-        address controller = address(_controller);
-        if (controller != address(0)) {
-            ITimelockController(controller).handleProposalCreation();
-        }
-    }
-
-    function _controllerHandleProposalAdoption() internal {
-        address controller = address(_controller);
-        if (controller != address(0)) {
-            ITimelockController(controller).handleProposalAdoption();
-        }
-    }
-
-    function _controllerHandleProposalsRevocation() internal {
-        address controller = address(_controller);
-        if (controller != address(0)) {
-            ITimelockController(controller).handleProposalsRevocation();
-        }
-    }
-
-    function _checkGovernance(address account) internal view {
-        if (account != _governance) {
-            revert NotGovernance(account);
-        }
+        return ITimelockController(controller).isProposalsAdoptionAllowed();
     }
 }

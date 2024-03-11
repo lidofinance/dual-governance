@@ -131,8 +131,12 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _deployDualGovernanceTimelockController();
 
             ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
-                address(_timelock),
+                [address(_dualGovernanceTimelockController), address(_timelock), address(_timelock), address(_timelock)],
                 [
+                    // set the admin proposer
+                    abi.encodeCall(
+                        _dualGovernanceTimelockController.registerProposer, (_ADMIN_PROPOSER, _config.ADMIN_EXECUTOR())
+                    ),
                     // Only Dual Governance contract can call the Timelock contract
                     abi.encodeCall(_timelock.setController, (address(_dualGovernanceTimelockController))),
                     // Now the emergency mode may be deactivated (all scheduled calls will be canceled)
@@ -201,8 +205,12 @@ contract PlanBSetup is ScenarioTestBlueprint {
                 new DualGovernanceTimelockController(address(_config), address(_timelock), address(_escrowMasterCopy));
 
             ExecutorCall[] memory dualGovernanceUpdateCalls = ExecutorCallHelpers.create(
-                address(_timelock),
+                [address(dualGovernanceTimelockControllerV2), address(_timelock), address(_timelock)],
                 [
+                    // set the admin proposer
+                    abi.encodeCall(
+                        dualGovernanceTimelockControllerV2.registerProposer, (_ADMIN_PROPOSER, _config.ADMIN_EXECUTOR())
+                    ),
                     // Update the controller for timelock
                     abi.encodeCall(_timelock.setController, address(dualGovernanceTimelockControllerV2)),
                     // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
@@ -383,7 +391,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // deploy dual governance full setup
         {
             _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
-            assertNotEq(_timelock.getController(), address(0));
+            assertNotEq(_timelock.getController(), _config.EMERGENCY_CONTROLLER());
         }
 
         // emergency committee activates emergency mode
@@ -405,8 +413,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             vm.prank(_EMERGENCY_COMMITTEE);
             _timelock.emergencyReset();
 
-            assertEq(_timelock.getGovernance(), address(_proposersTimelockLaunchpad));
-            assertEq(_timelock.getController(), address(0));
+            assertEq(_timelock.getController(), _config.EMERGENCY_CONTROLLER());
 
             emergencyState = _timelock.getEmergencyState();
             assertEq(emergencyState.committee, address(0));
@@ -420,7 +427,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // deploy dual governance full setup
         {
             _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
-            assertNotEq(_timelock.getController(), address(0));
+            assertNotEq(_timelock.getController(), _config.EMERGENCY_CONTROLLER());
         }
 
         // wait till the protection duration passes

@@ -11,10 +11,14 @@ import {BurnerVault} from "contracts/BurnerVault.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
 import {Configuration} from "contracts/DualGovernanceConfiguration.sol";
 
-import {ProposersTimelockLaunchpad, ExecutorCall} from "contracts/ProposersTimelockLaunchpad.sol";
 import {
-    EmergencyProtectedTimelock, EmergencyProtection, EmergencyState
+    ExecutorCall,
+    EmergencyState,
+    EmergencyProtection,
+    EmergencyProtectedTimelock
 } from "contracts/EmergencyProtectedTimelock.sol";
+
+import {SingleGovernanceTimelockController} from "contracts/SingleGovernanceTimelockController.sol";
 import {DualGovernanceTimelockController, DualGovernanceStatus} from "contracts/DualGovernanceTimelockController.sol";
 
 import {ProposalStatus, Proposal} from "contracts/libraries/Proposals.sol";
@@ -46,7 +50,6 @@ interface IDangerousContract {
 
 contract ScenarioTestBlueprint is Test {
     address internal immutable _ADMIN_PROPOSER = DAO_VOTING;
-    address internal immutable _EMERGENCY_GOVERNANCE = DAO_VOTING;
     uint256 internal immutable _EMERGENCY_MODE_DURATION = 180 days;
     uint256 internal immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
     address internal immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
@@ -69,7 +72,7 @@ contract ScenarioTestBlueprint is Test {
     OwnableExecutor internal _adminExecutor;
 
     EmergencyProtectedTimelock internal _timelock;
-    ProposersTimelockLaunchpad internal _proposersTimelockLaunchpad;
+    SingleGovernanceTimelockController internal _singleGovernanceTimelockController;
     DualGovernanceTimelockController internal _dualGovernanceTimelockController;
 
     address[] internal _sealableWithdrawalBlockers = [WITHDRAWAL_QUEUE];
@@ -136,9 +139,7 @@ contract ScenarioTestBlueprint is Test {
     ) internal returns (uint256 proposalId) {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
-        bytes memory script = Utils.encodeEvmCallScript(
-            address(_proposersTimelockLaunchpad), abi.encodeCall(_proposersTimelockLaunchpad.submit, (calls))
-        );
+        bytes memory script = Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.submit, (calls)));
         uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
 
         // The scheduled calls count is the same until the vote is enacted
@@ -353,24 +354,23 @@ contract ScenarioTestBlueprint is Test {
 
     function _deployDualGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
         _deployAdminExecutor(address(this));
+        _deploySingleGovernanceTimelockController();
         _deployConfigImpl();
         _deployConfigProxy(address(this));
         _deployEscrowMasterCopy();
         _deployUngovernedTimelock();
-        _deployProposersTimelockLaunchpad();
         _deployDualGovernanceTimelockController();
         _finishTimelockSetup(address(_dualGovernanceTimelockController), isEmergencyProtectionEnabled);
     }
 
     function _deploySingleGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
         _deployAdminExecutor(address(this));
+        _deploySingleGovernanceTimelockController();
         _deployConfigImpl();
         _deployConfigProxy(address(this));
         _deployEscrowMasterCopy();
         _deployUngovernedTimelock();
-        _deployProposersTimelockLaunchpad();
-        _deployDualGovernanceTimelockController();
-        _finishTimelockSetup(address(0), isEmergencyProtectionEnabled);
+        _finishTimelockSetup(address(_singleGovernanceTimelockController), isEmergencyProtectionEnabled);
     }
 
     function _deployTarget() internal {
@@ -382,7 +382,9 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deployConfigImpl() internal {
-        _configImpl = new Configuration(address(_adminExecutor), _EMERGENCY_GOVERNANCE, _sealableWithdrawalBlockers);
+        _configImpl = new Configuration(
+            address(_adminExecutor), address(_singleGovernanceTimelockController), _sealableWithdrawalBlockers
+        );
     }
 
     function _deployConfigProxy(address owner) internal {
@@ -395,8 +397,8 @@ contract ScenarioTestBlueprint is Test {
         _timelock = new EmergencyProtectedTimelock(address(_config));
     }
 
-    function _deployProposersTimelockLaunchpad() internal {
-        _proposersTimelockLaunchpad = new ProposersTimelockLaunchpad(address(_config), address(_timelock));
+    function _deploySingleGovernanceTimelockController() internal {
+        _singleGovernanceTimelockController = new SingleGovernanceTimelockController(DAO_VOTING);
     }
 
     function _deployDualGovernanceTimelockController() internal {
@@ -410,15 +412,16 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _finishTimelockSetup(address controller, bool isEmergencyProtectionEnabled) internal {
-        _adminExecutor.execute(
-            address(_proposersTimelockLaunchpad),
-            0,
-            abi.encodeCall(_proposersTimelockLaunchpad.registerProposer, (_ADMIN_PROPOSER, address(_adminExecutor)))
-        );
+        if (address(_dualGovernanceTimelockController) != address(0)) {
+            _adminExecutor.execute(
+                address(_dualGovernanceTimelockController),
+                0,
+                abi.encodeCall(
+                    _dualGovernanceTimelockController.registerProposer, (_ADMIN_PROPOSER, address(_adminExecutor))
+                )
+            );
+        }
 
-        _adminExecutor.execute(
-            address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (address(_proposersTimelockLaunchpad)))
-        );
         if (isEmergencyProtectionEnabled) {
             _adminExecutor.execute(
                 address(_timelock),
@@ -429,10 +432,13 @@ contract ScenarioTestBlueprint is Test {
                 )
             );
         }
-        if (controller != address(0)) {
-            _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setController, (controller)));
+        _singleGovernanceTimelockController.setConfig(address(_config));
+        _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setController, (controller)));
+        if (controller == address(_dualGovernanceTimelockController)) {
             _adminExecutor.execute(
-                address(_timelock), 0, abi.encodeCall(_timelock.setTiebreakCommittee, (_TIEBREAK_COMMITTEE))
+                address(_dualGovernanceTimelockController),
+                0,
+                abi.encodeCall(_dualGovernanceTimelockController.setTiebreakCommittee, (_TIEBREAK_COMMITTEE))
             );
         }
 

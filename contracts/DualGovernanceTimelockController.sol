@@ -5,16 +5,22 @@ import {ITimelock, ITimelockController} from "./interfaces/ITimelock.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 
+import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {DualGovernanceState, Status as DualGovernanceStatus} from "./libraries/DualGovernanceState.sol";
 
 contract DualGovernanceTimelockController is ITimelockController, ConfigurationProvider {
+    using Proposers for Proposers.State;
     using DualGovernanceState for DualGovernanceState.State;
 
+    error NotTie();
     error NotTimelock(address account);
     error ProposalsCreationSuspended();
     error ProposalsAdoptionSuspended();
 
     ITimelock public immutable TIMELOCK;
+
+    address internal _tiebreakCommittee;
+    Proposers.State internal _proposers;
     DualGovernanceState.State internal _state;
 
     constructor(address config, address timelock, address escrowMasterCopy) ConfigurationProvider(config) {
@@ -26,26 +32,42 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
         _state.activateNextState(CONFIG);
     }
 
-    function handleProposalCreation() external {
+    function handleProposalCreation(address sender) external returns (address executor) {
         _checkTimelock(msg.sender);
+        _proposers.checkProposer(sender);
         _state.activateNextState(CONFIG);
         if (!_state.isProposalsCreationAllowed()) {
             revert ProposalsCreationSuspended();
         }
         _state.setLastProposalCreationTimestamp();
+        executor = _proposers.get(sender).executor;
     }
 
-    function handleProposalAdoption() external {
-        _checkTimelock(msg.sender);
+    function handleProposalAdoption(address sender) external {
+        if (sender == _tiebreakCommittee) {
+            if (!_state.isTiebreak(CONFIG)) {
+                revert NotTie();
+            } else {
+                return;
+            }
+        } else if (msg.sender != address(TIMELOCK)) {
+            revert NotTimelock(sender);
+        }
         _state.activateNextState(CONFIG);
         if (!_state.isProposalsAdoptionAllowed()) {
             revert ProposalsAdoptionSuspended();
         }
     }
 
-    function handleProposalsRevocation() external {
+    function handleProposalsRevocation(address sender) external {
         _checkTimelock(msg.sender);
+        _proposers.checkAdminProposer(CONFIG, sender);
         _state.activateNextState(CONFIG);
+    }
+
+    function setTiebreakCommittee(address committee) external {
+        _checkAdminExecutor(msg.sender);
+        _tiebreakCommittee = committee;
     }
 
     // ---
@@ -90,6 +112,36 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
         (isActive, duration, enteredAt) = _state.getVetoSignallingDeactivationState(CONFIG);
+    }
+
+    // ---
+    // Proposers & Executors Management
+    // ---
+
+    function registerProposer(address proposer, address executor) external {
+        _checkAdminExecutor(msg.sender);
+        _proposers.register(proposer, executor);
+    }
+
+    function unregisterProposer(address proposer) external {
+        _checkAdminExecutor(msg.sender);
+        _proposers.unregister(CONFIG, proposer);
+    }
+
+    function getProposer(address account) external view returns (Proposer memory proposer) {
+        proposer = _proposers.get(account);
+    }
+
+    function getProposers() external view returns (Proposer[] memory proposers) {
+        proposers = _proposers.all();
+    }
+
+    function isProposer(address account) external view returns (bool) {
+        return _proposers.isProposer(account);
+    }
+
+    function isExecutor(address account) external view returns (bool) {
+        return _proposers.isExecutor(account);
     }
 
     // ---

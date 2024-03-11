@@ -69,11 +69,11 @@ library ExecutorCallHelpers {
     }
 
     function create(
-        address[11] memory targets,
-        bytes[11] memory payloads
+        address[4] memory targets,
+        bytes[4] memory payloads
     ) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](11);
-        for (uint256 i = 0; i < 11; ++i) {
+        res = new ExecutorCall[](4);
+        for (uint256 i = 0; i < 4; ++i) {
             res[i].target = targets[i];
             res[i].payload = payloads[i];
         }
