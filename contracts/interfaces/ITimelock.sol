@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {ExecutorCall} from "../libraries/ScheduledCalls.sol";
+import {ExecutorCall} from "./IExecutor.sol";
+
+interface ITimelockController {
+    function handleProposalCreation() external;
+    function handleProposalAdoption() external;
+    function handleProposalsRevocation() external;
+
+    function isTiebreak() external view returns (bool);
+    function isProposalsAdoptionAllowed() external view returns (bool);
+}
 
 interface ITimelock {
-    function ADMIN_EXECUTOR() external view returns (address);
-
-    function relay(address executor, ExecutorCall[] calldata calls) external;
-
-    function schedule(uint256 batchId, address executor, ExecutorCall[] calldata calls) external;
-
-    function execute(uint256 batchId) external;
+    function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId);
+    function cancelAll() external;
 }

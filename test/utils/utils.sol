@@ -1,7 +1,7 @@
 pragma solidity 0.8.23;
 
 // solhint-disable-next-line
-import "forge-std/console.sol";
+import "forge-std/console2.sol";
 import "forge-std/Vm.sol";
 import "forge-std/Test.sol";
 
@@ -9,14 +9,6 @@ import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 import "./mainnet-addresses.sol";
 import "./interfaces.sol";
-
-import {GovernanceState} from "contracts/GovernanceState.sol";
-
-abstract contract TestAssertions is Test {
-    function assertEq(GovernanceState.State a, GovernanceState.State b) internal {
-        assertEq(uint256(a), uint256(b));
-    }
-}
 
 // May be used as a mock contract to collect method calls
 contract TargetMock {
@@ -45,32 +37,6 @@ contract TargetMock {
 
     fallback() external payable {
         calls.push(Call({value: msg.value, sender: msg.sender, blockNumber: block.number, data: msg.data}));
-    }
-}
-
-contract Target is TestAssertions {
-    bool internal _expectNoCalls;
-    address internal _expectedCaller;
-
-    function expectCalledBy(address expectedCaller) external {
-        _expectNoCalls = false;
-        _expectedCaller = expectedCaller;
-    }
-
-    function expectNoCalls() external {
-        _expectNoCalls = true;
-    }
-
-    function doSmth(uint256 /* value */ ) external {
-        if (_expectNoCalls) {
-            // solhint-disable-next-line
-            console.log("unexpected call to %x by %x", address(this), msg.sender);
-            fail("expected no calls but got a call");
-        }
-        if (_expectedCaller != address(0)) {
-            assertEq(msg.sender, _expectedCaller, "unexpected caller");
-            _expectedCaller = address(0);
-        }
     }
 }
 
@@ -139,9 +105,11 @@ library Utils {
     }
 
     function removeLidoStakingLimit() external {
-        bytes32 stakingControlRole = IStEth(ST_ETH).STAKING_CONTROL_ROLE();
-        grantPermission(ST_ETH, stakingControlRole, address(this));
-        IStEth(ST_ETH).removeStakingLimit();
+        grantPermission(ST_ETH, IStEth(ST_ETH).STAKING_CONTROL_ROLE(), address(this));
+        (, bool isStakingLimitSet,,,,,) = IStEth(ST_ETH).getStakeLimitFullInfo();
+        if (isStakingLimitSet) {
+            IStEth(ST_ETH).removeStakingLimit();
+        }
         // solhint-disable-next-line
         console.log("Lido staking limit removed");
     }

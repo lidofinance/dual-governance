@@ -1,157 +1,252 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {ITimelock} from "./interfaces/ITimelock.sol";
+import {ITimelockController} from "./interfaces/ITimelock.sol";
 
+import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
-import {ScheduledCallsBatches, ScheduledCallsBatch, ExecutorCall} from "./libraries/ScheduledCalls.sol";
 
-contract EmergencyProtectedTimelock is ITimelock {
-    using SafeCast for uint256;
-    using ScheduledCallsBatches for ScheduledCallsBatches.State;
+import {ConfigurationProvider} from "./ConfigurationProvider.sol";
+
+contract EmergencyProtectedTimelock is ConfigurationProvider {
+    using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
-    error NotGovernance(address sender);
-    error NotAdminExecutor(address sender);
+    error ControllerNotSet();
+    error ControllerNotLocked();
+    error NotGovernance(address account);
+    error NotTiebreakCommittee(address sender);
+    error SchedulingDisabled();
+    error UnscheduledExecutionForbidden();
 
-    event GovernanceSet(address indexed governance);
-
-    address public immutable ADMIN_EXECUTOR;
-    address public immutable EMERGENCY_GOVERNANCE;
-
+    ITimelockController internal _controller;
+    address internal _tiebreakCommittee;
     address internal _governance;
 
-    ScheduledCallsBatches.State internal _scheduledCalls;
+    Proposals.State internal _proposals;
     EmergencyProtection.State internal _emergencyProtection;
 
-    constructor(address adminExecutor, address emergencyGovernance) {
-        ADMIN_EXECUTOR = adminExecutor;
-        EMERGENCY_GOVERNANCE = emergencyGovernance;
+    constructor(address config) ConfigurationProvider(config) {}
+
+    function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
+        _checkGovernance(msg.sender);
+        _controllerHandleProposalCreation();
+        newProposalId = _proposals.submit(executor, calls);
     }
 
-    // executes call immediately when the delay is set to 0
-    function relay(address executor, ExecutorCall[] calldata calls) external onlyGovernance {
-        _scheduledCalls.relay(executor, calls);
-    }
-
-    // schedules call to be executed after some delay
-    function schedule(uint256 batchId, address executor, ExecutorCall[] calldata calls) external onlyGovernance {
-        _scheduledCalls.schedule(batchId, executor, calls);
-    }
-
-    // executes scheduled call
-    function execute(uint256 batchId) external {
-        // Until the emergency mode is deactivated manually, the execution of the calls is allowed
-        // only for the emergency committee
-        if (_emergencyProtection.isEmergencyModeActivated()) {
-            _emergencyProtection.validateIsCommittee(msg.sender);
+    function schedule(uint256 proposalId) external {
+        if (!_emergencyProtection.isEmergencyProtectionEnabled()) {
+            revert SchedulingDisabled();
         }
-        _scheduledCalls.execute(batchId);
+        _controllerHandleProposalAdoption();
+        _proposals.schedule(CONFIG, proposalId);
     }
 
-    function removeCanceledCallsBatch(uint256 batchId) external {
-        _scheduledCalls.removeCanceled(batchId);
+    function executeScheduled(uint256 proposalId) external {
+        _emergencyProtection.checkEmergencyModeNotActivated();
+        _proposals.executeScheduled(CONFIG, proposalId);
     }
 
-    function setGovernanceAndDelay(address governance, uint256 delay) external onlyAdminExecutor {
-        _setGovernance(governance);
-        _scheduledCalls.setDelay(delay);
+    function executeSubmitted(uint256 proposalId) external {
+        if (_emergencyProtection.isEmergencyProtectionEnabled()) {
+            revert UnscheduledExecutionForbidden();
+        }
+        _emergencyProtection.checkEmergencyModeNotActivated();
+        _controllerHandleProposalAdoption();
+        _proposals.executeSubmitted(CONFIG, proposalId);
     }
 
-    function setDelay(uint256 delay) external onlyAdminExecutor {
-        _scheduledCalls.setDelay(delay);
+    function cancelAll() external {
+        _checkGovernance(msg.sender);
+        _controllerHandleProposalsRevocation();
+        _proposals.cancelAll();
     }
 
-    function transferExecutorOwnership(address executor, address owner) external onlyAdminExecutor {
+    function transferExecutorOwnership(address executor, address owner) external {
+        _checkAdminExecutor(msg.sender);
         IOwnable(executor).transferOwnership(owner);
+    }
+
+    function setGovernance(address governance) external {
+        _checkAdminExecutor(msg.sender);
+        _setGovernance(governance);
+    }
+
+    function setController(address controller) external {
+        _checkAdminExecutor(msg.sender);
+        _setController(controller);
+    }
+
+    // ---
+    // Emergency Protection Functionality
+    // ---
+
+    function emergencyActivate() external {
+        _emergencyProtection.checkEmergencyCommittee(msg.sender);
+        _emergencyProtection.activate();
+    }
+
+    function emergencyExecute(uint256 proposalId) external {
+        _emergencyProtection.checkEmergencyModeActivated();
+        _emergencyProtection.checkEmergencyCommittee(msg.sender);
+        _proposals.executeScheduled(CONFIG, proposalId);
+    }
+
+    function emergencyDeactivate() external {
+        if (!_emergencyProtection.isEmergencyModePassed()) {
+            _checkAdminExecutor(msg.sender);
+        }
+        _emergencyProtection.deactivate();
+        _proposals.cancelAll();
+    }
+
+    function emergencyReset() external {
+        _emergencyProtection.checkEmergencyModeActivated();
+        _emergencyProtection.checkEmergencyCommittee(msg.sender);
+        _emergencyProtection.reset();
+        _proposals.cancelAll();
+        _setController(address(0));
     }
 
     function setEmergencyProtection(
         address committee,
         uint256 protectionDuration,
         uint256 emergencyModeDuration
-    ) external onlyAdminExecutor {
+    ) external {
+        _checkAdminExecutor(msg.sender);
         _emergencyProtection.setup(committee, protectionDuration, emergencyModeDuration);
     }
 
-    function emergencyModeActivate() external {
-        _emergencyProtection.activate();
-    }
-
-    function emergencyModeDeactivate() external {
-        if (!_emergencyProtection.isEmergencyModePassed()) {
-            _assertAdminExecutor();
-        }
-        _emergencyProtection.deactivate();
-        _scheduledCalls.cancelAll();
-    }
-
-    function emergencyResetGovernance() external {
-        _emergencyProtection.validateIsCommittee(msg.sender);
-        _emergencyProtection.reset();
-        _scheduledCalls.cancelAll();
-        _scheduledCalls.setDelay(0);
-        _setGovernance(EMERGENCY_GOVERNANCE);
-    }
-
-    function getDelay() external view returns (uint256 delay) {
-        delay = _scheduledCalls.delay;
-    }
-
-    function getGovernance() external view returns (address governance) {
-        governance = _governance;
-    }
-
-    function getScheduledCallBatchesCount() external view returns (uint256 count) {
-        count = _scheduledCalls.count();
-    }
-
-    function getScheduledCallBatches() external view returns (ScheduledCallsBatch[] memory batches) {
-        batches = _scheduledCalls.all();
-    }
-
-    function getScheduledCallsBatch(uint256 batchId) external view returns (ScheduledCallsBatch memory batch) {
-        batch = _scheduledCalls.get(batchId);
-    }
-
-    function getIsExecutable(uint256 batchId) external view returns (bool isExecutable) {
-        isExecutable = !_emergencyProtection.isEmergencyModeActivated() && _scheduledCalls.isExecutable(batchId);
-    }
-
-    function getIsCanceled(uint256 batchId) external view returns (bool isExecutable) {
-        isExecutable = _scheduledCalls.isCanceled(batchId);
+    function isEmergencyProtectionEnabled() external view returns (bool) {
+        return _emergencyProtection.isEmergencyProtectionEnabled();
     }
 
     function getEmergencyState() external view returns (EmergencyState memory res) {
         res = _emergencyProtection.getEmergencyState();
     }
 
+    // ---
+    // Tiebreak Protection
+    // ---
+
+    function tiebreakExecute(uint256 proposalId) external {
+        if (msg.sender != _tiebreakCommittee) {
+            revert NotTiebreakCommittee(msg.sender);
+        }
+        if (address(_controller) == address(0)) {
+            revert ControllerNotSet();
+        }
+        if (!_controller.isTiebreak()) {
+            revert ControllerNotLocked();
+        }
+        _executeScheduledOrSubmittedProposal(proposalId);
+    }
+
+    function setTiebreakCommittee(address committee) external {
+        _checkAdminExecutor(msg.sender);
+        _tiebreakCommittee = committee;
+    }
+
+    // ---
+    // Timelock View Methods
+    // ---
+
+    function getController() external view returns (address) {
+        return address(_controller);
+    }
+
+    function getGovernance() external view returns (address) {
+        return address(_governance);
+    }
+
+    function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
+        proposal = _proposals.get(proposalId);
+    }
+
+    function getProposalsCount() external view returns (uint256 count) {
+        count = _proposals.count();
+    }
+
+    function getIsSchedulingEnabled() external view returns (bool) {
+        return _emergencyProtection.isEmergencyProtectionEnabled();
+    }
+
+    // ---
+    // Proposals Lifecycle View Methods
+    // ---
+
+    function canExecuteSubmitted(uint256 proposalId) external view returns (bool) {
+        if (_emergencyProtection.isEmergencyModeActivated()) return false;
+        if (_emergencyProtection.isEmergencyProtectionEnabled()) return false;
+        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
+    }
+
+    function canSchedule(uint256 proposalId) external view returns (bool) {
+        if (!_emergencyProtection.isEmergencyProtectionEnabled()) return false;
+        return _isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
+    }
+
+    function canExecuteScheduled(uint256 proposalId) external view returns (bool) {
+        if (_emergencyProtection.isEmergencyModeActivated()) return false;
+        return _isProposalsAdoptionAllowed() && _proposals.canExecuteScheduled(CONFIG, proposalId);
+    }
+
+    // ---
+    // Internal Methods
+    // ---
+
     function _setGovernance(address governance) internal {
         address prevGovernance = _governance;
         if (prevGovernance != governance) {
             _governance = governance;
-            emit GovernanceSet(governance);
         }
     }
 
-    function _assertAdminExecutor() private view {
-        if (msg.sender != ADMIN_EXECUTOR) {
-            revert NotAdminExecutor(msg.sender);
+    function _setController(address controller) internal {
+        address prevController = address(_controller);
+        if (prevController != controller) {
+            _controller = ITimelockController(controller);
         }
     }
 
-    modifier onlyAdminExecutor() {
-        _assertAdminExecutor();
-        _;
+    function _executeScheduledOrSubmittedProposal(uint256 proposalId) internal {
+        if (_proposals.canExecuteScheduled(CONFIG, proposalId)) {
+            _proposals.executeScheduled(CONFIG, proposalId);
+        } else {
+            _proposals.executeSubmitted(CONFIG, proposalId);
+        }
     }
 
-    modifier onlyGovernance() {
-        if (msg.sender != _governance) {
-            revert NotGovernance(msg.sender);
+    function _isProposalsAdoptionAllowed() internal view returns (bool) {
+        address controller = address(_controller);
+        return controller == address(0) || ITimelockController(controller).isProposalsAdoptionAllowed();
+    }
+
+    function _controllerHandleProposalCreation() internal {
+        address controller = address(_controller);
+        if (controller != address(0)) {
+            ITimelockController(controller).handleProposalCreation();
         }
-        _;
+    }
+
+    function _controllerHandleProposalAdoption() internal {
+        address controller = address(_controller);
+        if (controller != address(0)) {
+            ITimelockController(controller).handleProposalAdoption();
+        }
+    }
+
+    function _controllerHandleProposalsRevocation() internal {
+        address controller = address(_controller);
+        if (controller != address(0)) {
+            ITimelockController(controller).handleProposalsRevocation();
+        }
+    }
+
+    function _checkGovernance(address account) internal view {
+        if (account != _governance) {
+            revert NotGovernance(account);
+        }
     }
 }

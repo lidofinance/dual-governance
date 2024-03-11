@@ -118,7 +118,7 @@ library EmergencyProtection {
     }
 
     function isEmergencyProtectionEnabled(State storage self) internal view returns (bool) {
-        return block.number <= self.protectedTill;
+        return block.timestamp <= self.protectedTill || self.emergencyModeEndsAfter != 0;
     }
 
     function checkEmergencyCommittee(State storage self, address account) internal view {

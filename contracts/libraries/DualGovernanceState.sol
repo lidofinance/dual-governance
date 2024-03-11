@@ -12,10 +12,6 @@ interface IPausableUntil {
     function isPaused() external view returns (bool);
 }
 
-interface ITimelock {
-    function cancelAllCallback() external;
-}
-
 enum Status {
     Normal,
     VetoSignalling,
@@ -34,12 +30,15 @@ library DualGovernanceState {
         IEscrow rageQuitEscrow;
         uint40 lastProposalCreatedAt;
         bool isProposedOnVetoSignalling;
-        bool isCallsRevocationScheduled;
     }
 
+    error NotTie();
     error AlreadyInitialized();
+    error ProposalsCreationSuspended();
+    error ProposalsAdoptionSuspended();
 
     event NewSignallingEscrowDeployed(address indexed escrow);
+    event DualGovernanceStateChanged(Status oldState, Status newState);
 
     function initialize(State storage self, address escrowMasterCopy) internal {
         if (address(self.signallingEscrow) != address(0)) {
@@ -48,11 +47,7 @@ library DualGovernanceState {
         _deployNewSignallingEscrow(self, escrowMasterCopy);
     }
 
-    function activateNextState(
-        State storage self,
-        IConfiguration config,
-        ITimelock timelock
-    ) internal returns (Status newStatus) {
+    function activateNextState(State storage self, IConfiguration config) internal returns (Status newStatus) {
         Status oldStatus = self.status;
         if (oldStatus == Status.Normal) {
             newStatus = _fromNormalState(self, config);
@@ -70,7 +65,8 @@ library DualGovernanceState {
 
         if (oldStatus != newStatus) {
             _setStatus(self, oldStatus, newStatus);
-            _handleStatusTransitionSideEffects(self, timelock, oldStatus, newStatus);
+            _handleStatusTransitionSideEffects(self, oldStatus, newStatus);
+            emit DualGovernanceStateChanged(oldStatus, newStatus);
         }
     }
 
@@ -79,9 +75,21 @@ library DualGovernanceState {
         self.isProposedOnVetoSignalling = self.status == Status.VetoSignalling;
     }
 
-    function scheduleFutureCallsRevocation(State storage self) internal {
-        if (self.status == Status.VetoSignalling || self.status == Status.VetoSignallingDeactivation) {
-            self.isCallsRevocationScheduled = true;
+    function checkProposalsCreationAllowed(State storage self) internal view {
+        if (!isProposalsCreationAllowed(self)) {
+            revert ProposalsCreationSuspended();
+        }
+    }
+
+    function checkProposalsAdoptionAllowed(State storage self) internal view {
+        if (!isProposalsAdoptionAllowed(self)) {
+            revert ProposalsAdoptionSuspended();
+        }
+    }
+
+    function checkTiebreak(State storage self, IConfiguration config) internal view {
+        if (!isTiebreak(self, config)) {
+            revert NotTie();
         }
     }
 
@@ -112,6 +120,44 @@ library DualGovernanceState {
             if (IPausableUntil(sealableWithdrawalBlockers[i]).isPaused()) return true;
         }
         return false;
+    }
+
+    function getVetoSignallingState(
+        State storage self,
+        IConfiguration config
+    ) internal view returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) {
+        isActive = self.status == Status.VetoSignalling;
+        duration = isActive ? getVetoSignallingDuration(self, config) : 0;
+        enteredAt = isActive ? self.enteredAt : 0;
+        activatedAt = isActive ? self.signallingActivatedAt : 0;
+    }
+
+    function getVetoSignallingDuration(State storage self, IConfiguration config) internal view returns (uint256) {
+        (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
+        return _calcVetoSignallingTargetDuration(config, totalSupport);
+    }
+
+    struct VetoSignallingDeactivationState {
+        uint256 duration;
+        uint256 enteredAt;
+    }
+
+    function getVetoSignallingDeactivationState(
+        State storage self,
+        IConfiguration config
+    ) internal view returns (bool isActive, uint256 duration, uint256 enteredAt) {
+        isActive = self.status == Status.VetoSignallingDeactivation;
+        duration = getVetoSignallingDeactivationDuration(self, config);
+        enteredAt = isActive ? self.enteredAt : 0;
+    }
+
+    function getVetoSignallingDeactivationDuration(
+        State storage self,
+        IConfiguration config
+    ) internal view returns (uint256) {
+        return self.isProposedOnVetoSignalling
+            ? config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION()
+            : config.SIGNALLING_DEACTIVATION_DURATION();
     }
 
     // ---
@@ -185,12 +231,7 @@ library DualGovernanceState {
         self.enteredAt = currentTime;
     }
 
-    function _handleStatusTransitionSideEffects(
-        State storage self,
-        ITimelock timelock,
-        Status oldStatus,
-        Status newStatus
-    ) private {
+    function _handleStatusTransitionSideEffects(State storage self, Status oldStatus, Status newStatus) private {
         uint40 currentTime = timestamp();
         // track the time when the governance state allowed execution
         if (oldStatus == Status.Normal || oldStatus == Status.VetoCooldown) {
@@ -205,13 +246,6 @@ library DualGovernanceState {
             signallingEscrow.startRageQuit();
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, signallingEscrow.MASTER_COPY());
-        }
-        // when the governance was set on halt, remove self-limit after the veto signalling state is left
-        if (self.isCallsRevocationScheduled) {
-            if (newStatus != Status.VetoSignalling && newStatus != Status.VetoSignallingDeactivation) {
-                self.isCallsRevocationScheduled = false;
-                timelock.cancelAllCallback();
-            }
         }
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {ExecutorCall} from "contracts/libraries/ScheduledCalls.sol";
+import {ExecutorCall} from "contracts/interfaces/IExecutor.sol";
 
 // Syntax sugar for more convenient creation of ExecutorCall arrays
 library ExecutorCallHelpers {
