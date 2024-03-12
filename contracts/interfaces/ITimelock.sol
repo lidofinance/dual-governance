@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import {ExecutorCall} from "./IExecutor.sol";
 
 interface ITimelockController {
-    function handleProposalCreation(address sender) external returns (address executor);
+    function handleProposalCreation(address sender, address executor) external;
     function handleProposalAdoption(address sender) external;
     function handleProposalsRevocation(address sender) external;
 

@@ -21,6 +21,7 @@ library Proposers {
     using SafeCast for uint256;
 
     error NotProposer(address account);
+    error NotAssignedExecutor(address account, address actualExecutor, address expectedExecutor);
     error NotAdminProposer(address account);
     error ProposerNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
@@ -111,6 +112,14 @@ library Proposers {
     function checkProposer(State storage self, address account) internal view {
         if (!isProposer(self, account)) {
             revert NotProposer(account);
+        }
+    }
+
+    function checkExecutor(State storage self, address account, address executor) internal view {
+        checkProposer(self, account);
+        ExecutorData memory executorData = self.executors[account];
+        if (executor != executorData.executor) {
+            revert NotAssignedExecutor(account, executor, executorData.executor);
         }
     }
 

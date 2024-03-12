@@ -25,8 +25,8 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
 
     constructor(address config) ConfigurationProvider(config) {}
 
-    function submit(ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
-        address executor = _controller.handleProposalCreation(msg.sender);
+    function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
+        _controller.handleProposalCreation(msg.sender, executor);
         newProposalId = _proposals.submit(executor, calls);
         emit ProposalLaunched(msg.sender, executor, newProposalId);
     }

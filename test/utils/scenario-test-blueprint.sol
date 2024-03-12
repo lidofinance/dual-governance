@@ -138,12 +138,14 @@ contract ScenarioTestBlueprint is Test {
     // Proposals Submission
     // ---
     function _submitProposal(
+        address executor,
         string memory description,
         ExecutorCall[] memory calls
     ) internal returns (uint256 proposalId) {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
-        bytes memory script = Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.submit, (calls)));
+        bytes memory script =
+            Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.submit, (executor, calls)));
         uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
 
         // The scheduled calls count is the same until the vote is enacted
@@ -155,6 +157,13 @@ contract ScenarioTestBlueprint is Test {
         proposalId = _timelock.getProposalsCount();
         // new call is scheduled but has not executable yet
         assertEq(proposalId, proposalsCountBefore + 1);
+    }
+
+    function _submitProposal(
+        string memory description,
+        ExecutorCall[] memory calls
+    ) internal returns (uint256 proposalId) {
+        proposalId = _submitProposal(_config.ADMIN_EXECUTOR(), description, calls);
     }
 
     function _scheduleProposal(uint256 proposalId) internal {
@@ -402,8 +411,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deploySingleGovernanceTimelockController() internal {
-        _singleGovernanceTimelockController =
-            new SingleGovernanceTimelockController(DAO_VOTING, address(_adminExecutor));
+        _singleGovernanceTimelockController = new SingleGovernanceTimelockController(DAO_VOTING);
     }
 
     function _deployDualGovernanceTimelockController() internal {

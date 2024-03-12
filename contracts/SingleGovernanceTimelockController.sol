@@ -9,18 +9,15 @@ contract SingleGovernanceTimelockController is ITimelockController {
     error NotTimelock(address account);
     error ConfigAlreadySet();
 
-    address public immutable EXECUTOR;
     address public immutable GOVERNANCE;
 
-    constructor(address governance, address executor) {
-        EXECUTOR = executor;
+    constructor(address governance) {
         GOVERNANCE = governance;
     }
 
     // only dao can
-    function handleProposalCreation(address sender) external view returns (address executor) {
+    function handleProposalCreation(address sender, address /* executor */ ) external view {
         _checkGovernance(sender);
-        return EXECUTOR;
     }
 
     // anyone can schedule the proposal

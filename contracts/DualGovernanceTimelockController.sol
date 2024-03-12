@@ -32,15 +32,14 @@ contract DualGovernanceTimelockController is ITimelockController, ConfigurationP
         _state.activateNextState(CONFIG);
     }
 
-    function handleProposalCreation(address sender) external returns (address executor) {
+    function handleProposalCreation(address sender, address executor) external {
         _checkTimelock(msg.sender);
-        _proposers.checkProposer(sender);
+        _proposers.checkExecutor(sender, executor);
         _state.activateNextState(CONFIG);
         if (!_state.isProposalsCreationAllowed()) {
             revert ProposalsCreationSuspended();
         }
         _state.setLastProposalCreationTimestamp();
-        executor = _proposers.get(sender).executor;
     }
 
     function handleProposalAdoption(address sender) external {
