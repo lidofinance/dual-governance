@@ -4,7 +4,10 @@ pragma solidity 0.8.23;
 import {Test} from "forge-std/Test.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy,
+    ProxyAdmin
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {Escrow} from "contracts/Escrow.sol";
 import {BurnerVault} from "contracts/BurnerVault.sol";
@@ -64,6 +67,7 @@ contract ScenarioTestBlueprint is Test {
 
     Configuration internal _config;
     Configuration internal _configImpl;
+    ProxyAdmin internal _configProxyAdmin;
     TransparentUpgradeableProxy internal _configProxy;
 
     Escrow internal _escrowMasterCopy;
@@ -388,8 +392,8 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deployConfigProxy(address owner) internal {
-        // TODO: extract deployed proxyAdmin address and save into storage variable
         _configProxy = new TransparentUpgradeableProxy(address(_configImpl), address(owner), new bytes(0));
+        _configProxyAdmin = ProxyAdmin(Utils.predictDeployedAddress(address(_configProxy), 1));
         _config = Configuration(address(_configProxy));
     }
 
@@ -398,7 +402,8 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deploySingleGovernanceTimelockController() internal {
-        _singleGovernanceTimelockController = new SingleGovernanceTimelockController(DAO_VOTING);
+        _singleGovernanceTimelockController =
+            new SingleGovernanceTimelockController(DAO_VOTING, address(_adminExecutor));
     }
 
     function _deployDualGovernanceTimelockController() internal {
@@ -408,20 +413,10 @@ contract ScenarioTestBlueprint is Test {
 
     function _deployEscrowMasterCopy() internal {
         _burnerVault = new BurnerVault(BURNER, ST_ETH, WST_ETH);
-        _escrowMasterCopy = new Escrow(address(0), ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_burnerVault));
+        _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_burnerVault));
     }
 
     function _finishTimelockSetup(address controller, bool isEmergencyProtectionEnabled) internal {
-        if (address(_dualGovernanceTimelockController) != address(0)) {
-            _adminExecutor.execute(
-                address(_dualGovernanceTimelockController),
-                0,
-                abi.encodeCall(
-                    _dualGovernanceTimelockController.registerProposer, (_ADMIN_PROPOSER, address(_adminExecutor))
-                )
-            );
-        }
-
         if (isEmergencyProtectionEnabled) {
             _adminExecutor.execute(
                 address(_timelock),
@@ -432,13 +427,19 @@ contract ScenarioTestBlueprint is Test {
                 )
             );
         }
-        _singleGovernanceTimelockController.setConfig(address(_config));
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setController, (controller)));
         if (controller == address(_dualGovernanceTimelockController)) {
             _adminExecutor.execute(
                 address(_dualGovernanceTimelockController),
                 0,
                 abi.encodeCall(_dualGovernanceTimelockController.setTiebreakCommittee, (_TIEBREAK_COMMITTEE))
+            );
+            _adminExecutor.execute(
+                address(_dualGovernanceTimelockController),
+                0,
+                abi.encodeCall(
+                    _dualGovernanceTimelockController.registerProposer, (_ADMIN_PROPOSER, address(_adminExecutor))
+                )
             );
         }
 

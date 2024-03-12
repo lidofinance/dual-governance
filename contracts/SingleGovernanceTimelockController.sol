@@ -9,44 +9,38 @@ contract SingleGovernanceTimelockController is ITimelockController {
     error NotTimelock(address account);
     error ConfigAlreadySet();
 
-    IConfiguration internal _config;
-    address public immutable DAO;
+    address public immutable EXECUTOR;
+    address public immutable GOVERNANCE;
 
-    constructor(address dao) {
-        DAO = dao;
+    constructor(address governance, address executor) {
+        EXECUTOR = executor;
+        GOVERNANCE = governance;
     }
 
+    // only dao can
     function handleProposalCreation(address sender) external view returns (address executor) {
-        _checkDao(sender);
-        executor = _config.ADMIN_EXECUTOR();
+        _checkGovernance(sender);
+        return EXECUTOR;
     }
 
-    function handleProposalAdoption(address) external view {
-        // anyone can schedule the proposal
-    }
+    // anyone can schedule the proposal
+    function handleProposalAdoption(address) external view {}
 
+    // only governance can cancel proposals
     function handleProposalsRevocation(address sender) external view {
-        _checkDao(sender);
+        _checkGovernance(sender);
     }
 
     function isProposalsAdoptionAllowed() external pure returns (bool) {
         return true;
     }
 
-    // TODO: make config immutable and set on the deployment phase
-    function setConfig(address config) external {
-        if (address(_config) != address(0)) {
-            revert ConfigAlreadySet();
-        }
-        _config = IConfiguration(config);
-    }
-
     // ---
     // Internal Helper Methods
     // ---
 
-    function _checkDao(address account) internal view {
-        if (account != address(DAO)) {
+    function _checkGovernance(address account) internal view {
+        if (account != GOVERNANCE) {
             revert NotDao();
         }
     }

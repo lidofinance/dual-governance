@@ -147,7 +147,7 @@ contract Escrow {
     mapping(address => HolderState) private _balances;
     mapping(uint256 => WithdrawalRequestStatus) private _wqRequests;
 
-    constructor(address, address stEth, address wstEth, address withdrawalQueue, address burnerVault) {
+    constructor(address stEth, address wstEth, address withdrawalQueue, address burnerVault) {
         ST_ETH = stEth;
         WST_ETH = wstEth;
         WITHDRAWAL_QUEUE = withdrawalQueue;

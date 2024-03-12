@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {IStEth, IWstETH, IWithdrawalQueue, WithdrawalRequestStatus} from "../utils/interfaces.sol";
 
@@ -58,8 +58,6 @@ contract EscrowHappyPath is TestHelpers {
     address internal stEthHolder1;
     address internal stEthHolder2;
 
-    address internal proxyAdmin = makeAddr("proxy_admin");
-
     function assertEq(Escrow.Balance memory a, Escrow.Balance memory b) internal {
         assertApproxEqAbs(a.stEth, b.stEth, 2, "StEth balance missmatched");
         assertApproxEqAbs(a.wstEth, b.wstEth, 2, "WstEth balance missmatched");
@@ -83,7 +81,7 @@ contract EscrowHappyPath is TestHelpers {
         burnerVault = _burnerVault;
 
         escrow =
-            Escrow(payable(address(new TransparentUpgradeableProxy(address(escrowImpl), proxyAdmin, new bytes(0)))));
+            Escrow(payable(address(new TransparentUpgradeableProxy(address(escrowImpl), address(this), new bytes(0)))));
 
         govState = new GovernanceState__mock();
 
