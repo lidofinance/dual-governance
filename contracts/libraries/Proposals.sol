@@ -1,33 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {IConfiguration} from "../interfaces/IConfiguration.sol";
 import {IExecutor, ExecutorCall} from "../interfaces/IExecutor.sol";
 
 import {timestamp} from "../utils/time.sol";
 
-struct Proposal {
-    uint256 id;
-    address proposer;
-    address executor;
-    uint256 submittedAt;
-    uint256 executedAt;
-    bool isCanceled;
-    ExecutorCall[] calls;
-}
-
-enum ProposalStatus {
+enum Status {
     NotExist,
     Submitted,
+    Scheduled,
     Executed,
     Canceled
 }
 
+struct Proposal {
+    uint256 id;
+    Status status;
+    address executor;
+    uint256 submittedAt;
+    uint256 scheduledAt;
+    uint256 executedAt;
+    ExecutorCall[] calls;
+}
+
 library Proposals {
     struct ProposalPacked {
-        address proposer;
         address executor;
         uint40 submittedAt;
+        uint40 scheduledAt;
         uint40 executedAt;
         ExecutorCall[] calls;
     }
@@ -41,9 +41,12 @@ library Proposals {
     error EmptyCalls();
     error ProposalCanceled(uint256 proposalId);
     error ProposalNotFound(uint256 proposalId);
+    error ProposalNotScheduled(uint256 proposalId);
     error ProposalNotSubmitted(uint256 proposalId);
-    error ProposalNotExecutable(uint256 proposalId);
+    error AfterSubmitDelayNotPassed(uint256 proposalId);
+    error AfterScheduleDelayNotPassed(uint256 proposalId);
 
+    event ProposalScheduled(uint256 indexed id);
     event ProposalSubmitted(uint256 indexed id, address indexed executor, ExecutorCall[] calls);
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
     event ProposalsCanceledTill(uint256 proposalId);
@@ -79,9 +82,16 @@ library Proposals {
         emit ProposalSubmitted(newProposalId, executor, calls);
     }
 
-    function execute(State storage self, IConfiguration config, uint256 proposalId) internal {
-        checkProposalSubmitted(self, proposalId);
-        _checkAfterSubmitDelayPassed(self, proposalId, config.AFTER_SUBMIT_DELAY());
+    function schedule(State storage self, uint256 proposalId, uint256 afterSubmitDelay) internal {
+        _checkProposalSubmitted(self, proposalId);
+        _checkAfterSubmitDelayPassed(self, proposalId, afterSubmitDelay);
+        _packed(self, proposalId).scheduledAt = timestamp();
+        emit ProposalScheduled(proposalId);
+    }
+
+    function execute(State storage self, uint256 proposalId, uint256 afterScheduleDelay) internal {
+        _checkProposalScheduled(self, proposalId);
+        _checkAfterScheduleDelayPassed(self, proposalId, afterScheduleDelay);
         _executeProposal(self, proposalId);
     }
 
@@ -96,11 +106,10 @@ library Proposals {
         ProposalPacked storage packed = _packed(self, proposalId);
 
         proposal.id = proposalId;
-        proposal.proposer = packed.proposer;
+        proposal.status = _getProposalStatus(self, proposalId);
         proposal.executor = packed.executor;
         proposal.submittedAt = packed.submittedAt;
         proposal.executedAt = packed.executedAt;
-        proposal.isCanceled = _getProposalStatus(self, proposalId) == ProposalStatus.Canceled;
         proposal.calls = packed.calls;
     }
 
@@ -108,21 +117,22 @@ library Proposals {
         count_ = self.proposals.length;
     }
 
-    function canExecute(State storage self, IConfiguration config, uint256 proposalId) internal view returns (bool) {
-        return _getProposalStatus(self, proposalId) == ProposalStatus.Submitted
-            && block.timestamp >= _packed(self, proposalId).submittedAt + config.AFTER_SUBMIT_DELAY();
+    function canExecute(
+        State storage self,
+        uint256 proposalId,
+        uint256 afterScheduleDelay
+    ) internal view returns (bool) {
+        return _getProposalStatus(self, proposalId) == Status.Scheduled
+            && block.timestamp >= _packed(self, proposalId).scheduledAt + afterScheduleDelay;
     }
 
-    function isProposalSubmitted(State storage self, uint256 proposalId) internal view returns (bool) {
-        return _getProposalStatus(self, proposalId) == ProposalStatus.Submitted;
-    }
-
-    function isProposalCanceled(State storage self, uint256 proposalId) internal view returns (bool) {
-        return _getProposalStatus(self, proposalId) == ProposalStatus.Canceled;
-    }
-
-    function isProposalExecuted(State storage self, uint256 proposalId) internal view returns (bool) {
-        return _getProposalStatus(self, proposalId) == ProposalStatus.Executed;
+    function canSchedule(
+        State storage self,
+        uint256 proposalId,
+        uint256 afterSubmitDelay
+    ) internal view returns (bool) {
+        return _getProposalStatus(self, proposalId) == Status.Submitted
+            && block.timestamp >= _packed(self, proposalId).submittedAt + afterSubmitDelay;
     }
 
     function _executeProposal(State storage self, uint256 proposalId) private returns (bytes[] memory results) {
@@ -152,10 +162,17 @@ library Proposals {
         }
     }
 
-    function checkProposalSubmitted(State storage self, uint256 proposalId) private view {
-        ProposalStatus status = _getProposalStatus(self, proposalId);
-        if (status != ProposalStatus.Submitted) {
+    function _checkProposalSubmitted(State storage self, uint256 proposalId) private view {
+        Status status = _getProposalStatus(self, proposalId);
+        if (status != Status.Submitted) {
             revert ProposalNotSubmitted(proposalId);
+        }
+    }
+
+    function _checkProposalScheduled(State storage self, uint256 proposalId) private view {
+        Status status = _getProposalStatus(self, proposalId);
+        if (status != Status.Scheduled) {
+            revert ProposalNotScheduled(proposalId);
         }
     }
 
@@ -165,18 +182,29 @@ library Proposals {
         uint256 afterSubmitDelay
     ) private view {
         if (block.timestamp < _packed(self, proposalId).submittedAt + afterSubmitDelay) {
-            revert ProposalNotExecutable(proposalId);
+            revert AfterSubmitDelayNotPassed(proposalId);
         }
     }
 
-    function _getProposalStatus(State storage self, uint256 proposalId) private view returns (ProposalStatus) {
-        if (proposalId < PROPOSAL_ID_OFFSET || proposalId > self.proposals.length) return ProposalStatus.NotExist;
+    function _checkAfterScheduleDelayPassed(
+        State storage self,
+        uint256 proposalId,
+        uint256 afterScheduleDelay
+    ) private view {
+        if (block.timestamp < _packed(self, proposalId).scheduledAt + afterScheduleDelay) {
+            revert AfterScheduleDelayNotPassed(proposalId);
+        }
+    }
+
+    function _getProposalStatus(State storage self, uint256 proposalId) private view returns (Status) {
+        if (proposalId < PROPOSAL_ID_OFFSET || proposalId > self.proposals.length) return Status.NotExist;
 
         ProposalPacked storage packed = _packed(self, proposalId);
 
-        if (packed.executedAt != 0) return ProposalStatus.Executed;
-        if (proposalId <= self.lastCanceledProposalId) return ProposalStatus.Canceled;
-        if (packed.submittedAt != 0) return ProposalStatus.Submitted;
+        if (packed.executedAt != 0) return Status.Executed;
+        if (proposalId <= self.lastCanceledProposalId) return Status.Canceled;
+        if (packed.scheduledAt != 0) return Status.Scheduled;
+        if (packed.submittedAt != 0) return Status.Submitted;
         assert(false);
     }
 }

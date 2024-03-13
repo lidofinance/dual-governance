@@ -24,7 +24,7 @@ import {
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
 import {DualGovernance, DualGovernanceStatus} from "contracts/DualGovernance.sol";
 
-import {Proposal} from "contracts/libraries/Proposals.sol";
+import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
 import {IERC20} from "../utils/interfaces.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
@@ -145,7 +145,7 @@ contract ScenarioTestBlueprint is Test {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
         bytes memory script =
-            Utils.encodeEvmCallScript(address(governance), abi.encodeCall(_dualGovernance.submit, (calls)));
+            Utils.encodeEvmCallScript(address(governance), abi.encodeCall(IGovernance.submit, (calls)));
         uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
 
         // The scheduled calls count is the same until the vote is enacted
@@ -159,19 +159,17 @@ contract ScenarioTestBlueprint is Test {
         assertEq(proposalId, proposalsCountBefore + 1);
     }
 
-    // function _submitProposal(
-    //     string memory description,
-    //     ExecutorCall[] memory calls
-    // ) internal returns (uint256 proposalId) {
-    //     proposalId = _submitProposal(_config.ADMIN_EXECUTOR(), description, calls);
-    // }
-
-    function _scheduleProposal(uint256 proposalId) internal {
-        _dualGovernance.schedule(proposalId);
+    function _scheduleProposal(IGovernance governance, uint256 proposalId) internal {
+        governance.schedule(proposalId);
     }
 
-    function _executeProposal(IGovernance governance, uint256 proposalId) internal {
-        governance.execute(proposalId);
+    function _executeProposal(uint256 proposalId) internal {
+        _timelock.execute(proposalId);
+    }
+
+    function _scheduleAndExecuteProposal(IGovernance governance, uint256 proposalId) internal {
+        _scheduleProposal(governance, proposalId);
+        _executeProposal(proposalId);
     }
 
     // ---
@@ -185,7 +183,7 @@ contract ScenarioTestBlueprint is Test {
     function _assertSubmittedProposalData(uint256 proposalId, address executor, ExecutorCall[] memory calls) internal {
         Proposal memory proposal = _timelock.getProposal(proposalId);
         assertEq(proposal.id, proposalId, "unexpected proposal id");
-        assertFalse(proposal.isCanceled, "proposal is canceled");
+        assertEq(uint256(proposal.status), uint256(ProposalStatus.Submitted), "unexpected status value");
         assertEq(proposal.executor, executor, "unexpected executor");
         assertEq(proposal.submittedAt, block.timestamp, "unexpected scheduledAt");
         assertEq(proposal.executedAt, 0, "unexpected executedAt");
@@ -228,28 +226,40 @@ contract ScenarioTestBlueprint is Test {
         _target.reset();
     }
 
-    function _assertCanExecute(IGovernance governance, uint256 proposalId, bool canExecute) internal {
-        assertEq(governance.canExecute(proposalId), canExecute, "unexpected canExecute() value");
+    function _assertCanExecute(uint256 proposalId, bool canExecute) internal {
+        assertEq(_timelock.canExecute(proposalId), canExecute, "unexpected canExecute() value");
     }
 
-    function _assertCanSchedule(uint256 proposalId, bool canSchedule) internal {
-        assertEq(_dualGovernance.canSchedule(proposalId), canSchedule, "unexpected canSchedule() value");
+    function _assertCanSchedule(IGovernance governance, uint256 proposalId, bool canSchedule) internal {
+        assertEq(governance.canSchedule(proposalId), canSchedule, "unexpected canSchedule() value");
+    }
+
+    function _assertCanScheduleAndExecute(IGovernance governance, uint256 proposalId) internal {
+        _assertCanSchedule(governance, proposalId, true);
+        assertFalse(
+            _timelock.isEmergencyProtectionEnabled(),
+            "Execution in the same block with scheduling allowed only when emergency protection is disabled"
+        );
     }
 
     function _assertProposalSubmitted(uint256 proposalId) internal {
-        assertTrue(_timelock.isProposalSubmitted(proposalId), "Proposal not in 'Submitted' state");
+        assertEq(
+            _timelock.getProposal(proposalId).status, ProposalStatus.Submitted, "Proposal not in 'Submitted' state"
+        );
     }
 
-    function _assertProposalScheduled(uint256 proposalId, bool isExecutable) internal {
-        assertTrue(_dualGovernance.isScheduled(proposalId));
+    function _assertProposalScheduled(uint256 proposalId) internal {
+        assertEq(
+            _timelock.getProposal(proposalId).status, ProposalStatus.Scheduled, "Proposal not in 'Scheduled' state"
+        );
     }
 
     function _assertProposalExecuted(uint256 proposalId) internal {
-        assertTrue(_timelock.isProposalExecuted(proposalId), "Proposal not in 'Executed' state");
+        assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Executed, "Proposal not in 'Executed' state");
     }
 
     function _assertProposalCanceled(uint256 proposalId) internal {
-        assertTrue(_timelock.isProposalCanceled(proposalId), "Proposal not in 'Canceled' state");
+        assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Canceled, "Proposal not in 'Canceled' state");
     }
 
     function _assertVetoSignalingState() internal {
@@ -415,6 +425,18 @@ contract ScenarioTestBlueprint is Test {
     // Utils Methods
     // ---
 
+    function _wait(uint256 duration) internal {
+        vm.warp(block.timestamp + duration);
+    }
+
+    function _waitAfterSubmitDelayPassed() internal {
+        _wait(_config.AFTER_SUBMIT_DELAY() + 1);
+    }
+
+    function _waitAfterScheduleDelayPassed() internal {
+        _wait(_config.AFTER_SCHEDULE_DELAY() + 1);
+    }
+
     struct Duration {
         uint256 _days;
         uint256 _hours;
@@ -443,6 +465,14 @@ contract ScenarioTestBlueprint is Test {
                 "s"
             )
         );
+    }
+
+    function assertEq(ProposalStatus a, ProposalStatus b) internal {
+        assertEq(uint256(a), uint256(b));
+    }
+
+    function assertEq(ProposalStatus a, ProposalStatus b, string memory message) internal {
+        assertEq(uint256(a), uint256(b), message);
     }
 
     function assertEq(DualGovernanceStatus a, DualGovernanceStatus b) internal {

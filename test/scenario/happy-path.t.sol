@@ -20,7 +20,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
     }
 
-    function test_happy_path() external {
+    function testFork_HappyPath() external {
         ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         uint256 proposalId = _submitProposal(
@@ -29,27 +29,27 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _assertProposalSubmitted(proposalId);
         _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
-        // when the emergency protection enabled, proposals can't be scheduled
-        _assertCanSchedule(proposalId, false);
+        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
         // the min execution delay hasn't elapsed yet
-        vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (proposalId)));
-        _executeProposal(_dualGovernance, proposalId);
+        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        _scheduleProposal(_dualGovernance, proposalId);
 
-        // wait till the DG-enforced timelock elapses
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
+        // wait till the first phase of timelock passes
+        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
-        _executeProposal(_dualGovernance, proposalId);
+        // now proposal may be executed (in the same block with scheduling, because emergency protection is disabled)
+        _assertCanScheduleAndExecute(_dualGovernance, proposalId);
+        _scheduleAndExecuteProposal(_dualGovernance, proposalId);
+
         _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
     }
 
-    function test_happy_path_with_multiple_items() external {
+    function testFork_HappyPathWithMultipleItems() external {
         // additional phase required here, grant rights to call DAO Agent to the admin executor
         Utils.grantPermission(DAO_AGENT, IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE(), _config.ADMIN_EXECUTOR());
 
         bytes memory agentDoRegularStaffPayload = abi.encodeCall(IDangerousContract.doRegularStaff, (42));
-        bytes memory executorDoRegularStaffPayload = abi.encodeCall(IDangerousContract.doRegularStaff, (43));
-
         bytes memory targetCallEvmScript = Utils.encodeEvmCallScript(address(_target), agentDoRegularStaffPayload);
 
         ExecutorCall[] memory multipleCalls = ExecutorCallHelpers.create(
@@ -62,18 +62,21 @@ contract HappyPathTest is ScenarioTestBlueprint {
 
         uint256 proposalId = _submitProposal(_dualGovernance, "Multiple items", multipleCalls);
 
-        // when the emergency protection enabled, proposals can't be scheduled
-        _assertCanSchedule(proposalId, false);
+        _wait(_config.AFTER_SUBMIT_DELAY() / 2);
+
+        // proposal can't be scheduled before the after submit delay has passed
+        _assertCanSchedule(_dualGovernance, proposalId, false);
 
         // the min execution delay hasn't elapsed yet
-        vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (proposalId)));
-        _executeProposal(_dualGovernance, proposalId);
+        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        _scheduleProposal(_dualGovernance, proposalId);
 
         // wait till the DG-enforced timelock elapses
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
+        _wait(_config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
-        // the delay is set to 0, so call will be executed immediately
-        _executeProposal(_dualGovernance, proposalId);
+        // now proposal may be executed (in the same block with scheduling, because emergency protection is disabled)
+        _assertCanScheduleAndExecute(_dualGovernance, proposalId);
+        _scheduleAndExecuteProposal(_dualGovernance, proposalId);
 
         address[] memory senders = new address[](2);
         senders[0] = DAO_AGENT;

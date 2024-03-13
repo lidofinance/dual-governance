@@ -2,19 +2,18 @@
 pragma solidity 0.8.23;
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {ITimelock} from "./interfaces/ITimelock.sol";
 
 import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 
-contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
+contract EmergencyProtectedTimelock is ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
-    error SchedulingDisabled();
     error NotGovernance(address account, address governance);
+    error SchedulingDisabled();
     error UnscheduledExecutionForbidden();
 
     event ProposalLaunched(address indexed proposer, address indexed executor, uint256 indexed proposalId);
@@ -29,12 +28,19 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
         _checkGovernance(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
+        emit ProposalLaunched(msg.sender, executor, newProposalId);
+    }
+
+    function schedule(uint256 proposalId) external {
+        _checkGovernance(msg.sender);
+        _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
     }
 
     function execute(uint256 proposalId) external {
-        _checkGovernance(msg.sender);
         _emergencyProtection.checkEmergencyModeNotActivated();
-        _proposals.execute(CONFIG, proposalId);
+        uint256 afterScheduleDelay =
+            _emergencyProtection.isEmergencyProtectionEnabled() ? CONFIG.AFTER_SCHEDULE_DELAY() : 0;
+        _proposals.execute(proposalId, afterScheduleDelay);
     }
 
     function cancelAll() external {
@@ -47,9 +53,9 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
         IOwnable(executor).transferOwnership(owner);
     }
 
-    function setGovernance(address governance) external {
+    function setGovernance(address newGovernance) external {
         _checkAdminExecutor(msg.sender);
-        _setGovernance(governance);
+        _setGovernance(newGovernance);
     }
 
     // ---
@@ -64,7 +70,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     function emergencyExecute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeActivated();
         _emergencyProtection.checkEmergencyCommittee(msg.sender);
-        _proposals.execute(CONFIG, proposalId);
+        _proposals.execute(proposalId, /* afterScheduleDelay */ 0);
     }
 
     function emergencyDeactivate() external {
@@ -80,7 +86,6 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
         _emergencyProtection.checkEmergencyCommittee(msg.sender);
         _emergencyProtection.reset();
         _proposals.cancelAll();
-        // TODO: rename into EMERGENCY_GOVERNANCE
         _setGovernance(CONFIG.EMERGENCY_CONTROLLER());
     }
 
@@ -106,7 +111,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     // ---
 
     function getGovernance() external view returns (address) {
-        return address(_governance);
+        return _governance;
     }
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
@@ -121,40 +126,30 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     // Proposals Lifecycle View Methods
     // ---
 
-    function isDelayPassed(uint256 proposalId) external view returns (bool) {
-        return block.timestamp >= _proposals.get(proposalId).submittedAt + CONFIG.AFTER_SUBMIT_DELAY();
-    }
-
     function canExecute(uint256 proposalId) external view returns (bool) {
-        return !_emergencyProtection.isEmergencyModeActivated() && _proposals.canExecute(CONFIG, proposalId);
+        uint256 afterScheduleDelay =
+            _emergencyProtection.isEmergencyProtectionEnabled() ? CONFIG.AFTER_SCHEDULE_DELAY() : 0;
+        return !_emergencyProtection.isEmergencyModeActivated() && _proposals.canExecute(proposalId, afterScheduleDelay);
     }
 
-    function isProposalExecuted(uint256 proposalId) external view returns (bool) {
-        return _proposals.isProposalExecuted(proposalId);
-    }
-
-    function isProposalSubmitted(uint256 proposalId) external view returns (bool) {
-        return _proposals.isProposalSubmitted(proposalId);
-    }
-
-    function isProposalCanceled(uint256 proposalId) external view returns (bool) {
-        return _proposals.isProposalCanceled(proposalId);
+    function canSchedule(uint256 proposalId) external view returns (bool) {
+        return _proposals.canSchedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
     }
 
     // ---
     // Internal Methods
     // ---
 
-    function _checkGovernance(address account) internal view {
-        if (account != _governance) {
-            revert NotGovernance(account, _governance);
+    function _setGovernance(address newGovernance) internal {
+        address prevController = _governance;
+        if (prevController != newGovernance) {
+            _governance = newGovernance;
         }
     }
 
-    function _setGovernance(address governance) internal {
-        address prevGovernance = _governance;
-        if (prevGovernance != governance) {
-            _governance = governance;
+    function _checkGovernance(address account) internal view {
+        if (_governance != account) {
+            revert NotGovernance(account, _governance);
         }
     }
 }
