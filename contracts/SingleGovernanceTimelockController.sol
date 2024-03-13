@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {IConfiguration} from "./interfaces/IConfiguration.sol";
 import {ITimelockController} from "./interfaces/ITimelock.sol";
 
 contract SingleGovernanceTimelockController is ITimelockController {
@@ -16,19 +15,23 @@ contract SingleGovernanceTimelockController is ITimelockController {
     }
 
     // only dao can
-    function handleProposalCreation(address sender, address /* executor */ ) external view {
+    function onSubmitProposal(address sender, address /* executor */ ) external view {
         _checkGovernance(sender);
     }
 
     // anyone can schedule the proposal
-    function handleProposalAdoption(address) external view {}
+    function onExecuteProposal(address, /* sender */ uint256 /* proposalId */ ) external view {}
 
     // only governance can cancel proposals
-    function handleProposalsRevocation(address sender) external view {
+    function onCancelAllProposals(address sender) external view {
         _checkGovernance(sender);
     }
 
-    function isProposalsAdoptionAllowed() external pure returns (bool) {
+    function isProposalsSubmissionAllowed() external pure returns (bool) {
+        return true;
+    }
+
+    function isProposalExecutionAllowed(uint256 /* proposalId */ ) external pure returns (bool) {
         return true;
     }
 

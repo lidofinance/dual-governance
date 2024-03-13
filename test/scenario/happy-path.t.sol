@@ -33,12 +33,12 @@ contract HappyPathTest is ScenarioTestBlueprint {
 
         // the min execution delay hasn't elapsed yet
         vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (proposalId)));
-        _executeSubmittedProposal(proposalId);
+        _executeProposal(proposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
-        _executeSubmittedProposal(proposalId);
+        _executeProposal(proposalId);
         _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
     }
 
@@ -66,13 +66,13 @@ contract HappyPathTest is ScenarioTestBlueprint {
 
         // the min execution delay hasn't elapsed yet
         vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (proposalId)));
-        _executeSubmittedProposal(proposalId);
+        _executeProposal(proposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
         // the delay is set to 0, so call will be executed immediately
-        _executeSubmittedProposal(proposalId);
+        _executeProposal(proposalId);
 
         address[] memory senders = new address[](2);
         senders[0] = DAO_AGENT;

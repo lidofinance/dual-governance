@@ -3,17 +3,13 @@ pragma solidity 0.8.23;
 
 import {
     EmergencyState,
-    ProposalStatus,
     EmergencyProtection,
     IDangerousContract,
     ScenarioTestBlueprint,
     ExecutorCall,
     ExecutorCallHelpers,
-    EmergencyProtectedTimelock,
     DualGovernanceTimelockController
 } from "../utils/scenario-test-blueprint.sol";
-
-import {DAO_VOTING} from "../utils/mainnet-addresses.sol";
 
 import {Proposals} from "contracts/libraries/Proposals.sol";
 
@@ -36,19 +32,14 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
-            // wait until submitted call becomes schedulable
+            // wait until submitted call becomes executable
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
-            // schedule the proposal
-            _assertCanSchedule(proposalId, true);
-            _scheduleProposal(proposalId);
-
-            // wait while the after schedule delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
+            // execute the proposal
 
             // execute the proposal
-            _assertCanExecuteScheduled(proposalId, true);
-            _executeScheduledProposal(proposalId);
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
 
             // call successfully executed
             _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
@@ -68,25 +59,13 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             // the call isn't executable until the delay has passed
             _assertProposalSubmitted(maliciousProposalId);
-            _assertCanSchedule(maliciousProposalId, false);
-            _assertCanExecuteScheduled(maliciousProposalId, false);
+            _assertCanExecute(maliciousProposalId, false);
 
             // some time required to assemble the emergency committee and activate emergency mode
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
             // malicious call still not executable
-            _assertCanSchedule(maliciousProposalId, false);
-            _assertCanExecuteScheduled(maliciousProposalId, false);
-
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    Proposals.InvalidProposalStatus.selector, ProposalStatus.Submitted, ProposalStatus.Scheduled
-                )
-            );
-            _timelock.executeScheduled(maliciousProposalId);
-
-            vm.expectRevert(EmergencyProtectedTimelock.UnscheduledExecutionForbidden.selector);
-            _timelock.executeSubmitted(maliciousProposalId);
+            _assertCanExecute(maliciousProposalId, false);
 
             // emergency committee activates emergency mode
             vm.prank(_EMERGENCY_COMMITTEE);
@@ -102,18 +81,11 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // only the emergency committee
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
-            // malicious call still not executable
-            _assertCanSchedule(maliciousProposalId, true);
-            _scheduleProposal(maliciousProposalId);
-
-            // wait until the after schedule delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
-
             // but the call still not executable
-            _assertCanExecuteScheduled(maliciousProposalId, false);
+            _assertCanExecute(maliciousProposalId, false);
 
             vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
-            _timelock.executeScheduled(maliciousProposalId);
+            _executeProposal(maliciousProposalId);
         }
 
         // ---
@@ -125,7 +97,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             vm.warp(block.timestamp + _EMERGENCY_PROTECTION_DURATION / 2);
 
             // Time passes but malicious proposal still on hold
-            _assertCanExecuteScheduled(maliciousProposalId, false);
+            _assertCanExecute(maliciousProposalId, false);
 
             // Dual Governance is deployed into mainnet
             _deployDualGovernanceTimelockController();
@@ -155,12 +127,6 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // wait until the after submit delay has passed
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
-            _scheduleProposal(dualGovernanceLunchProposalId);
-            _assertProposalScheduled(dualGovernanceLunchProposalId, /* isExecutable */ false);
-
-            // wait until the after schedule delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
-
             // now emergency committee may execute the proposal
             vm.prank(_EMERGENCY_COMMITTEE);
             _timelock.emergencyExecute(dualGovernanceLunchProposalId);
@@ -187,9 +153,9 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             // execute the proposal
             _assertCanSchedule(proposalId, false);
-            _assertCanExecuteSubmitted(proposalId, true);
+            _assertCanExecute(proposalId, true);
 
-            _executeSubmittedProposal(proposalId);
+            _executeProposal(proposalId);
 
             // call successfully executed
             _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
@@ -226,8 +192,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // wait until the proposal is executable
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
-            _assertCanExecuteSubmitted(updateDualGovernanceProposalId, true);
-            _executeSubmittedProposal(updateDualGovernanceProposalId);
+            _assertCanExecute(updateDualGovernanceProposalId, true);
+            _executeProposal(updateDualGovernanceProposalId);
 
             // validate the proposal was applied correctly:
 
@@ -267,15 +233,15 @@ contract PlanBSetup is ScenarioTestBlueprint {
             vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
 
             // execute the proposal
-            _assertCanExecuteScheduled(proposalId, true);
-            _executeScheduledProposal(proposalId);
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
 
             // call successfully executed
             _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
     }
 
-    function testFork_ScheduledCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
+    function testFork_SubmittedCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
         ExecutorCall[] memory maliciousCalls =
             ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
 
@@ -285,8 +251,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             maliciousProposalId = _submitProposal("Rug Pool attempt", maliciousCalls);
 
             // malicious calls can't be executed until the delays have passed
-            _assertCanExecuteScheduled(maliciousProposalId, false);
-            _assertCanExecuteSubmitted(maliciousProposalId, false);
+            _assertCanExecute(maliciousProposalId, false);
         }
 
         // activate emergency mode
@@ -305,16 +270,10 @@ contract PlanBSetup is ScenarioTestBlueprint {
         {
             // the after submit delay has passed, and proposal can be scheduled, but not executed
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
-            _assertCanSchedule(maliciousProposalId, true);
-
-            _scheduleProposal(maliciousProposalId);
-
-            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
-            _assertCanExecuteScheduled(maliciousProposalId, false);
-            _assertCanExecuteSubmitted(maliciousProposalId, false);
+            _assertCanExecute(maliciousProposalId, false);
 
             vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
-            _timelock.executeScheduled(maliciousProposalId);
+            _executeProposal(maliciousProposalId);
         }
 
         // another malicious call is scheduled during the emergency mode also can't be executed
@@ -328,21 +287,14 @@ contract PlanBSetup is ScenarioTestBlueprint {
             anotherMaliciousProposalId = _submitProposal("Another Rug Pool attempt", maliciousCalls);
 
             // malicious calls can't be executed until the delays have passed
-            _assertCanExecuteScheduled(anotherMaliciousProposalId, false);
-            _assertCanExecuteSubmitted(anotherMaliciousProposalId, false);
+            _assertCanExecute(anotherMaliciousProposalId, false);
 
-            // the after submit delay has passed, and proposal can be scheduled, but not executed
+            // the after submit delay has passed, and proposal can not be executed
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
-            _assertCanSchedule(anotherMaliciousProposalId, true);
-
-            _timelock.schedule(anotherMaliciousProposalId);
-
-            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
-            _assertCanExecuteScheduled(anotherMaliciousProposalId, false);
-            _assertCanExecuteSubmitted(anotherMaliciousProposalId, false);
+            _assertCanExecute(anotherMaliciousProposalId, false);
 
             vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
-            _executeScheduledProposal(anotherMaliciousProposalId);
+            _executeProposal(anotherMaliciousProposalId);
         }
 
         // emergency mode is over but proposals can't be executed until the emergency mode turned off manually
@@ -351,10 +303,10 @@ contract PlanBSetup is ScenarioTestBlueprint {
             assertTrue(emergencyState.emergencyModeEndsAfter < block.timestamp);
 
             vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
-            _executeScheduledProposal(maliciousProposalId);
+            _executeProposal(maliciousProposalId);
 
-            vm.expectRevert(EmergencyProtectedTimelock.UnscheduledExecutionForbidden.selector);
-            _executeSubmittedProposal(anotherMaliciousProposalId);
+            vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
+            _executeProposal(anotherMaliciousProposalId);
         }
 
         // anyone can deactivate emergency mode when it's over
@@ -371,19 +323,11 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertProposalCanceled(maliciousProposalId);
             _assertProposalCanceled(anotherMaliciousProposalId);
 
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    Proposals.InvalidProposalStatus.selector, ProposalStatus.Canceled, ProposalStatus.Scheduled
-                )
-            );
-            _executeScheduledProposal(maliciousProposalId);
+            vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotSubmitted.selector, maliciousProposalId));
+            _executeProposal(maliciousProposalId);
 
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    Proposals.InvalidProposalStatus.selector, ProposalStatus.Canceled, ProposalStatus.Submitted
-                )
-            );
-            _executeSubmittedProposal(anotherMaliciousProposalId);
+            vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotSubmitted.selector, anotherMaliciousProposalId));
+            _executeProposal(anotherMaliciousProposalId);
         }
     }
 

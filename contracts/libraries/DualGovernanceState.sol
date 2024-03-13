@@ -29,7 +29,6 @@ library DualGovernanceState {
         IEscrow signallingEscrow;
         IEscrow rageQuitEscrow;
         uint40 lastProposalCreatedAt;
-        bool isProposedOnVetoSignalling;
     }
 
     error NotTie();
@@ -72,7 +71,6 @@ library DualGovernanceState {
 
     function setLastProposalCreationTimestamp(State storage self) internal {
         self.lastProposalCreatedAt = timestamp();
-        self.isProposedOnVetoSignalling = self.status == Status.VetoSignalling;
     }
 
     function checkProposalsCreationAllowed(State storage self) internal view {
@@ -155,7 +153,7 @@ library DualGovernanceState {
         State storage self,
         IConfiguration config
     ) internal view returns (uint256) {
-        return self.isProposedOnVetoSignalling
+        return self.lastProposalCreatedAt >= self.signallingActivatedAt
             ? config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION()
             : config.SIGNALLING_DEACTIVATION_DURATION();
     }
@@ -290,10 +288,9 @@ library DualGovernanceState {
 
         if (currentDeactivationDuration < config.SIGNALLING_DEACTIVATION_DURATION()) return false;
 
-        uint256 timePassedFromLastProposalCreation = block.timestamp - self.lastProposalCreatedAt;
-
-        return self.isProposedOnVetoSignalling
-            ? timePassedFromLastProposalCreation >= config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION()
+        uint256 lastProposalCreatedAt = self.lastProposalCreatedAt;
+        return lastProposalCreatedAt >= self.signallingActivatedAt
+            ? block.timestamp - lastProposalCreatedAt >= config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION()
             : true;
     }
 

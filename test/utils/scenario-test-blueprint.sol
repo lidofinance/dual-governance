@@ -24,7 +24,7 @@ import {
 import {SingleGovernanceTimelockController} from "contracts/SingleGovernanceTimelockController.sol";
 import {DualGovernanceTimelockController, DualGovernanceStatus} from "contracts/DualGovernanceTimelockController.sol";
 
-import {ProposalStatus, Proposal} from "contracts/libraries/Proposals.sol";
+import {Proposal} from "contracts/libraries/Proposals.sol";
 
 import {IERC20} from "../utils/interfaces.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
@@ -167,15 +167,11 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _scheduleProposal(uint256 proposalId) internal {
-        _timelock.schedule(proposalId);
+        _dualGovernanceTimelockController.scheduleProposal(proposalId);
     }
 
-    function _executeScheduledProposal(uint256 proposalId) internal {
-        _timelock.executeScheduled(proposalId);
-    }
-
-    function _executeSubmittedProposal(uint256 proposalId) internal {
-        _timelock.executeSubmitted(proposalId);
+    function _executeProposal(uint256 proposalId) internal {
+        _timelock.execute(proposalId);
     }
 
     // ---
@@ -189,9 +185,9 @@ contract ScenarioTestBlueprint is Test {
     function _assertSubmittedProposalData(uint256 proposalId, address executor, ExecutorCall[] memory calls) internal {
         Proposal memory proposal = _timelock.getProposal(proposalId);
         assertEq(proposal.id, proposalId, "unexpected proposal id");
-        // assertFalse(proposal.isCanceled, "proposal is canceled");
+        assertFalse(proposal.isCanceled, "proposal is canceled");
         assertEq(proposal.executor, executor, "unexpected executor");
-        assertEq(proposal.proposedAt, block.timestamp, "unexpected scheduledAt");
+        assertEq(proposal.submittedAt, block.timestamp, "unexpected scheduledAt");
         assertEq(proposal.executedAt, 0, "unexpected executedAt");
         assertEq(proposal.calls.length, calls.length, "unexpected calls length");
 
@@ -232,51 +228,30 @@ contract ScenarioTestBlueprint is Test {
         _target.reset();
     }
 
-    function _assertCanExecuteSubmitted(uint256 proposalId, bool canExecute) internal {
-        assertEq(_timelock.canExecuteSubmitted(proposalId), canExecute, "unexpected canExecuteSubmitted() value");
-    }
-
-    function _assertCanExecuteScheduled(uint256 proposalId, bool canExecute) internal {
-        assertEq(_timelock.canExecuteScheduled(proposalId), canExecute, "unexpected canExecuteScheduled() value");
+    function _assertCanExecute(uint256 proposalId, bool canExecute) internal {
+        assertEq(_timelock.canExecute(proposalId), canExecute, "unexpected canExecute() value");
     }
 
     function _assertCanSchedule(uint256 proposalId, bool canSchedule) internal {
-        assertEq(_timelock.canSchedule(proposalId), canSchedule, "unexpected canSchedule() value");
+        assertEq(
+            _dualGovernanceTimelockController.canSchedule(proposalId), canSchedule, "unexpected canSchedule() value"
+        );
     }
 
     function _assertProposalSubmitted(uint256 proposalId) internal {
-        Proposal memory proposal = _timelock.getProposal(proposalId);
-        assertEq(uint256(proposal.status), uint256(ProposalStatus.Submitted), "proposal.status != Submitted");
-
-        _assertCanSchedule(proposalId, false);
-        // TODO: validate proposal can not be executed
+        assertTrue(_timelock.isProposalSubmitted(proposalId), "Proposal not in 'Submitted' state");
     }
 
     function _assertProposalScheduled(uint256 proposalId, bool isExecutable) internal {
-        Proposal memory proposal = _timelock.getProposal(proposalId);
-        assertEq(uint256(proposal.status), uint256(ProposalStatus.Scheduled), "proposal.status != Scheduled");
-
-        _assertCanSchedule(proposalId, false);
-        _assertCanExecuteSubmitted(proposalId, false);
-        _assertCanExecuteScheduled(proposalId, isExecutable);
+        assertTrue(_dualGovernanceTimelockController.isScheduled(proposalId));
     }
 
     function _assertProposalExecuted(uint256 proposalId) internal {
-        Proposal memory proposal = _timelock.getProposal(proposalId);
-        assertEq(uint256(proposal.status), uint256(ProposalStatus.Executed), "proposal.status != Executed");
-
-        _assertCanSchedule(proposalId, false);
-        _assertCanExecuteSubmitted(proposalId, false);
-        _assertCanExecuteScheduled(proposalId, false);
+        assertTrue(_timelock.isProposalExecuted(proposalId), "Proposal not in 'Executed' state");
     }
 
     function _assertProposalCanceled(uint256 proposalId) internal {
-        Proposal memory proposal = _timelock.getProposal(proposalId);
-        assertEq(uint256(proposal.status), uint256(ProposalStatus.Canceled), "proposal.status != Canceled");
-
-        _assertCanSchedule(proposalId, false);
-        _assertCanExecuteSubmitted(proposalId, false);
-        _assertCanExecuteScheduled(proposalId, false);
+        assertTrue(_timelock.isProposalCanceled(proposalId), "Proposal not in 'Canceled' state");
     }
 
     function _assertVetoSignalingState() internal {

@@ -130,6 +130,8 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ---
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         {
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
+
             _lockStEth(maliciousActor, percents(12, 0));
             _assertVetoSignalingState();
 
@@ -154,8 +156,9 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _assertVetoCooldownState();
 
             // and proposal can be executed
-            _assertCanExecuteSubmitted(proposalId, true);
-            _assertCanExecuteScheduled(proposalId, false);
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
+            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
     }
 }

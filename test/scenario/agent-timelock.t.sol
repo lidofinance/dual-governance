@@ -39,7 +39,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
 
             // proposal can't be executed until the second delay has ended
             _assertProposalScheduled(proposalId, /* isExecutable */ false);
-            _assertCanExecuteScheduled(proposalId, false);
+            _assertCanExecute(proposalId, false);
         }
 
         // ---
@@ -50,18 +50,18 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
 
             // Now proposal can be executed
-            _assertCanExecuteScheduled(proposalId, true);
+            _assertCanExecute(proposalId, true);
             _assertProposalScheduled(proposalId, /* isExecutable */ true);
 
             // before the proposal is executed there are no calls to target
             _assertNoTargetCalls();
 
-            _executeScheduledProposal(proposalId);
+            _executeProposal(proposalId);
 
             // check the proposal was executed correctly
             _assertProposalExecuted(proposalId);
             _assertCanSchedule(proposalId, false);
-            _assertCanExecuteScheduled(proposalId, false);
+            _assertCanExecute(proposalId, false);
             _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
     }
@@ -96,7 +96,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
 
             // proposal can't be executed until the second delay has ended
             _assertProposalScheduled(proposalId, /* isExecutable */ false);
-            _assertCanExecuteScheduled(proposalId, false);
+            _assertCanExecute(proposalId, false);
         }
 
         // ---
@@ -117,8 +117,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
             // remove canceled call from the timelock
-            _assertCanExecuteScheduled(proposalId, false);
-            _assertCanExecuteSubmitted(proposalId, false);
+            _assertCanExecute(proposalId, false);
             _assertProposalCanceled(proposalId);
         }
     }

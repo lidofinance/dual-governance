@@ -6,33 +6,29 @@ import {IExecutor, ExecutorCall} from "../interfaces/IExecutor.sol";
 
 import {timestamp} from "../utils/time.sol";
 
+struct Proposal {
+    uint256 id;
+    address proposer;
+    address executor;
+    uint256 submittedAt;
+    uint256 executedAt;
+    bool isCanceled;
+    ExecutorCall[] calls;
+}
+
 enum ProposalStatus {
     NotExist,
     Submitted,
-    Scheduled,
     Executed,
     Canceled
 }
 
-struct Proposal {
-    uint256 id;
-    ProposalStatus status;
-    address proposer;
-    address executor;
-    uint256 proposedAt;
-    uint256 scheduledAt;
-    uint256 executedAt;
-    ExecutorCall[] calls;
-    // TODO: remove unused fields
-    uint256 adoptedAt;
-}
-
 library Proposals {
     struct ProposalPacked {
-        uint40 proposedAt;
-        uint40 scheduledAt;
-        uint40 executedAt;
+        address proposer;
         address executor;
+        uint40 submittedAt;
+        uint40 executedAt;
         ExecutorCall[] calls;
     }
 
@@ -45,30 +41,15 @@ library Proposals {
     error EmptyCalls();
     error ProposalCanceled(uint256 proposalId);
     error ProposalNotFound(uint256 proposalId);
+    error ProposalNotSubmitted(uint256 proposalId);
     error ProposalNotExecutable(uint256 proposalId);
-    error ProposalNotScheduled(uint256 proposalId);
-    error ProposalAlreadyExecuted(uint256 proposalId);
-    error ProposalAlreadyScheduled(uint256 proposalId);
-    error InvalidAdoptionDelay(uint256 adoptionDelay);
-    error InvalidProposalStatus(ProposalStatus actual, ProposalStatus expected);
 
     event ProposalSubmitted(uint256 indexed id, address indexed executor, ExecutorCall[] calls);
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
     event ProposalsCanceledTill(uint256 proposalId);
-    event ProposalScheduled(uint256 indexed id);
 
     // The id of the first proposal
-
     uint256 private constant PROPOSAL_ID_OFFSET = 1;
-
-    function create(
-        State storage self,
-        address proposer,
-        address executor,
-        ExecutorCall[] calldata calls
-    ) internal returns (uint256 newProposalId) {}
-
-    function adopt(State storage self, uint256 id, uint256 delay) internal returns (Proposal memory) {}
 
     function submit(
         State storage self,
@@ -86,8 +67,7 @@ library Proposals {
         newProposal.executor = executor;
 
         newProposal.executedAt = 0;
-        newProposal.scheduledAt = 0;
-        newProposal.proposedAt = timestamp();
+        newProposal.submittedAt = timestamp();
 
         // copying of arrays of custom types from calldata to storage has not been supported by the
         // Solidity compiler yet, so insert item by item
@@ -99,24 +79,8 @@ library Proposals {
         emit ProposalSubmitted(newProposalId, executor, calls);
     }
 
-    function schedule(State storage self, IConfiguration config, uint256 proposalId) internal {
-        _checkProposalExists(self, proposalId);
-        _checkProposalStatus(self, proposalId, ProposalStatus.Submitted);
-        _checkAfterSubmitDelayPassed(self, proposalId, config.AFTER_SUBMIT_DELAY());
-        _packed(self, proposalId).scheduledAt = timestamp();
-        emit ProposalScheduled(proposalId);
-    }
-
-    function executeScheduled(State storage self, IConfiguration config, uint256 proposalId) internal {
-        _checkProposalExists(self, proposalId);
-        _checkProposalStatus(self, proposalId, ProposalStatus.Scheduled);
-        _checkAfterScheduleDelayPassed(self, proposalId, config.AFTER_SCHEDULE_DELAY());
-        _executeProposal(self, proposalId);
-    }
-
-    function executeSubmitted(State storage self, IConfiguration config, uint256 proposalId) internal {
-        _checkProposalExists(self, proposalId);
-        _checkProposalStatus(self, proposalId, ProposalStatus.Submitted);
+    function execute(State storage self, IConfiguration config, uint256 proposalId) internal {
+        checkProposalSubmitted(self, proposalId);
         _checkAfterSubmitDelayPassed(self, proposalId, config.AFTER_SUBMIT_DELAY());
         _executeProposal(self, proposalId);
     }
@@ -132,11 +96,11 @@ library Proposals {
         ProposalPacked storage packed = _packed(self, proposalId);
 
         proposal.id = proposalId;
-        proposal.status = _getProposalStatus(self, proposalId);
+        proposal.proposer = packed.proposer;
         proposal.executor = packed.executor;
-        proposal.proposedAt = packed.proposedAt;
-        proposal.scheduledAt = packed.scheduledAt;
+        proposal.submittedAt = packed.submittedAt;
         proposal.executedAt = packed.executedAt;
+        proposal.isCanceled = _getProposalStatus(self, proposalId) == ProposalStatus.Canceled;
         proposal.calls = packed.calls;
     }
 
@@ -144,22 +108,21 @@ library Proposals {
         count_ = self.proposals.length;
     }
 
-    function canScheduleOrExecuteSubmitted(
-        State storage self,
-        IConfiguration config,
-        uint256 proposalId
-    ) internal view returns (bool) {
+    function canExecute(State storage self, IConfiguration config, uint256 proposalId) internal view returns (bool) {
         return _getProposalStatus(self, proposalId) == ProposalStatus.Submitted
-            && block.timestamp > _packed(self, proposalId).proposedAt + config.AFTER_SUBMIT_DELAY();
+            && block.timestamp >= _packed(self, proposalId).submittedAt + config.AFTER_SUBMIT_DELAY();
     }
 
-    function canExecuteScheduled(
-        State storage self,
-        IConfiguration config,
-        uint256 proposalId
-    ) internal view returns (bool) {
-        return _getProposalStatus(self, proposalId) == ProposalStatus.Scheduled
-            && block.timestamp > _packed(self, proposalId).scheduledAt + config.AFTER_SCHEDULE_DELAY();
+    function isProposalSubmitted(State storage self, uint256 proposalId) internal view returns (bool) {
+        return _getProposalStatus(self, proposalId) == ProposalStatus.Submitted;
+    }
+
+    function isProposalCanceled(State storage self, uint256 proposalId) internal view returns (bool) {
+        return _getProposalStatus(self, proposalId) == ProposalStatus.Canceled;
+    }
+
+    function isProposalExecuted(State storage self, uint256 proposalId) internal view returns (bool) {
+        return _getProposalStatus(self, proposalId) == ProposalStatus.Executed;
     }
 
     function _executeProposal(State storage self, uint256 proposalId) private returns (bytes[] memory results) {
@@ -189,50 +152,31 @@ library Proposals {
         }
     }
 
+    function checkProposalSubmitted(State storage self, uint256 proposalId) private view {
+        ProposalStatus status = _getProposalStatus(self, proposalId);
+        if (status != ProposalStatus.Submitted) {
+            revert ProposalNotSubmitted(proposalId);
+        }
+    }
+
     function _checkAfterSubmitDelayPassed(
         State storage self,
         uint256 proposalId,
         uint256 afterSubmitDelay
     ) private view {
-        uint256 proposedAt = _packed(self, proposalId).proposedAt;
-        if (block.timestamp < proposedAt + afterSubmitDelay) {
+        if (block.timestamp < _packed(self, proposalId).submittedAt + afterSubmitDelay) {
             revert ProposalNotExecutable(proposalId);
-        }
-    }
-
-    function _checkAfterScheduleDelayPassed(
-        State storage self,
-        uint256 proposalId,
-        uint256 afterScheduleDelay
-    ) private view {
-        uint256 scheduledAt = _packed(self, proposalId).scheduledAt;
-        if (block.timestamp < scheduledAt + afterScheduleDelay) {
-            revert ProposalNotExecutable(proposalId);
-        }
-    }
-
-    function _checkProposalStatus(State storage self, uint256 proposalId, ProposalStatus expected) private view {
-        ProposalStatus actual = _getProposalStatus(self, proposalId);
-        if (actual != expected) {
-            revert InvalidProposalStatus(actual, expected);
         }
     }
 
     function _getProposalStatus(State storage self, uint256 proposalId) private view returns (ProposalStatus) {
-        if (proposalId < PROPOSAL_ID_OFFSET || proposalId > self.proposals.length) {
-            return ProposalStatus.NotExist;
-        } else if (proposalId <= self.lastCanceledProposalId) {
-            return ProposalStatus.Canceled;
-        }
-        ProposalPacked storage packed = self.proposals[proposalId - PROPOSAL_ID_OFFSET];
+        if (proposalId < PROPOSAL_ID_OFFSET || proposalId > self.proposals.length) return ProposalStatus.NotExist;
 
-        if (packed.executedAt != 0) {
-            return ProposalStatus.Executed;
-        } else if (packed.scheduledAt != 0) {
-            return ProposalStatus.Scheduled;
-        } else if (packed.proposedAt != 0) {
-            return ProposalStatus.Submitted;
-        }
+        ProposalPacked storage packed = _packed(self, proposalId);
+
+        if (packed.executedAt != 0) return ProposalStatus.Executed;
+        if (proposalId <= self.lastCanceledProposalId) return ProposalStatus.Canceled;
+        if (packed.submittedAt != 0) return ProposalStatus.Submitted;
         assert(false);
     }
 }

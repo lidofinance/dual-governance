@@ -2,14 +2,14 @@
 pragma solidity 0.8.23;
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {ITimelockController} from "./interfaces/ITimelock.sol";
+import {ITimelock, ITimelockController} from "./interfaces/ITimelock.sol";
 
 import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 
-contract EmergencyProtectedTimelock is ConfigurationProvider {
+contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
@@ -26,35 +26,19 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     constructor(address config) ConfigurationProvider(config) {}
 
     function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
-        _controller.handleProposalCreation(msg.sender, executor);
+        _controller.onSubmitProposal(msg.sender, executor);
         newProposalId = _proposals.submit(executor, calls);
         emit ProposalLaunched(msg.sender, executor, newProposalId);
     }
 
-    function schedule(uint256 proposalId) external {
-        if (!_emergencyProtection.isEmergencyProtectionEnabled()) {
-            revert SchedulingDisabled();
-        }
-        _controller.handleProposalAdoption(msg.sender);
-        _proposals.schedule(CONFIG, proposalId);
-    }
-
-    function executeScheduled(uint256 proposalId) external {
+    function execute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeNotActivated();
-        _proposals.executeScheduled(CONFIG, proposalId);
-    }
-
-    function executeSubmitted(uint256 proposalId) external {
-        if (_emergencyProtection.isEmergencyProtectionEnabled()) {
-            revert UnscheduledExecutionForbidden();
-        }
-        _emergencyProtection.checkEmergencyModeNotActivated();
-        _controller.handleProposalAdoption(msg.sender);
-        _proposals.executeSubmitted(CONFIG, proposalId);
+        _controller.onExecuteProposal(msg.sender, proposalId);
+        _proposals.execute(CONFIG, proposalId);
     }
 
     function cancelAll() external {
-        _controller.handleProposalsRevocation(msg.sender);
+        _controller.onCancelAllProposals(msg.sender);
         _proposals.cancelAll();
     }
 
@@ -80,7 +64,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     function emergencyExecute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeActivated();
         _emergencyProtection.checkEmergencyCommittee(msg.sender);
-        _proposals.executeScheduled(CONFIG, proposalId);
+        _proposals.execute(CONFIG, proposalId);
     }
 
     function emergencyDeactivate() external {
@@ -132,28 +116,33 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         count = _proposals.count();
     }
 
-    function getIsSchedulingEnabled() external view returns (bool) {
-        return _emergencyProtection.isEmergencyProtectionEnabled();
-    }
-
     // ---
     // Proposals Lifecycle View Methods
     // ---
 
-    function canExecuteSubmitted(uint256 proposalId) external view returns (bool) {
-        if (_emergencyProtection.isEmergencyModeActivated()) return false;
-        if (_emergencyProtection.isEmergencyProtectionEnabled()) return false;
-        return _controller.isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
+    function isDelayPassed(uint256 proposalId) external view returns (bool) {
+        return block.timestamp >= _proposals.get(proposalId).submittedAt + CONFIG.AFTER_SUBMIT_DELAY();
     }
 
-    function canSchedule(uint256 proposalId) external view returns (bool) {
-        if (!_emergencyProtection.isEmergencyProtectionEnabled()) return false;
-        return _controller.isProposalsAdoptionAllowed() && _proposals.canScheduleOrExecuteSubmitted(CONFIG, proposalId);
+    function canSubmit() external view returns (bool) {
+        return _controller.isProposalsSubmissionAllowed();
     }
 
-    function canExecuteScheduled(uint256 proposalId) external view returns (bool) {
-        if (_emergencyProtection.isEmergencyModeActivated()) return false;
-        return _controller.isProposalsAdoptionAllowed() && _proposals.canExecuteScheduled(CONFIG, proposalId);
+    function canExecute(uint256 proposalId) external view returns (bool) {
+        return !_emergencyProtection.isEmergencyModeActivated() && _controller.isProposalExecutionAllowed(proposalId)
+            && _proposals.canExecute(CONFIG, proposalId);
+    }
+
+    function isProposalExecuted(uint256 proposalId) external view returns (bool) {
+        return _proposals.isProposalExecuted(proposalId);
+    }
+
+    function isProposalSubmitted(uint256 proposalId) external view returns (bool) {
+        return _proposals.isProposalSubmitted(proposalId);
+    }
+
+    function isProposalCanceled(uint256 proposalId) external view returns (bool) {
+        return _proposals.isProposalCanceled(proposalId);
     }
 
     // ---
@@ -165,10 +154,5 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         if (prevController != controller) {
             _controller = ITimelockController(controller);
         }
-    }
-
-    function _isProposalsAdoptionAllowed() internal view returns (bool) {
-        address controller = address(_controller);
-        return ITimelockController(controller).isProposalsAdoptionAllowed();
     }
 }
