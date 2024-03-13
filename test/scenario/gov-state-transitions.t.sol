@@ -8,22 +8,22 @@ import {
     ST_ETH,
     console,
     ExecutorCall,
+    DualGovernance,
     IDangerousContract,
     ExecutorCallHelpers,
     DualGovernanceStatus,
-    ScenarioTestBlueprint,
-    DualGovernanceTimelockController
+    ScenarioTestBlueprint
 } from "../utils/scenario-test-blueprint.sol";
 
 contract GovernanceStateTransitions is ScenarioTestBlueprint {
     address internal stEthWhale;
-    DualGovernanceTimelockController internal dualGov;
+    DualGovernance internal dualGov;
 
     function setUp() external {
         _selectFork();
         _deployTarget();
         _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
-        dualGov = _dualGovernanceTimelockController;
+        dualGov = _dualGovernance;
 
         Utils.removeLidoStakingLimit();
         stEthWhale = makeAddr("steth_whale");

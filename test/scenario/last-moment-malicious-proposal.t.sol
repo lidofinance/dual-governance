@@ -26,7 +26,9 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ACT 1. DAO SUBMITS PROPOSAL WITH REGULAR STAFF
         // ---
         {
-            proposalId = _submitProposal("DAO does regular staff on potentially dangerous contract", regularStaffCalls);
+            proposalId = _submitProposal(
+                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
             _logVetoSignallingState();
@@ -55,6 +57,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         {
             _assertVetoSignalingState();
             maliciousProposalId = _submitProposal(
+                _dualGovernance,
                 "Malicious Proposal",
                 ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()))
             );
@@ -119,7 +122,9 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ACT 1. DAO SUBMITS CONTROVERSIAL PROPOSAL
         // ---
         {
-            proposalId = _submitProposal("DAO does regular staff on potentially dangerous contract", regularStaffCalls);
+            proposalId = _submitProposal(
+                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
             _logVetoSignallingState();
@@ -156,8 +161,8 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _assertVetoCooldownState();
 
             // and proposal can be executed
-            _assertCanExecute(proposalId, true);
-            _executeProposal(proposalId);
+            _assertCanExecute(_dualGovernance, proposalId, true);
+            _executeProposal(_dualGovernance, proposalId);
             _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
     }

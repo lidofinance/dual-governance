@@ -21,8 +21,8 @@ import {
     EmergencyProtectedTimelock
 } from "contracts/EmergencyProtectedTimelock.sol";
 
-import {SingleGovernanceTimelockController} from "contracts/SingleGovernanceTimelockController.sol";
-import {DualGovernanceTimelockController, DualGovernanceStatus} from "contracts/DualGovernanceTimelockController.sol";
+import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
+import {DualGovernance, DualGovernanceStatus} from "contracts/DualGovernance.sol";
 
 import {Proposal} from "contracts/libraries/Proposals.sol";
 
@@ -76,8 +76,8 @@ contract ScenarioTestBlueprint is Test {
     OwnableExecutor internal _adminExecutor;
 
     EmergencyProtectedTimelock internal _timelock;
-    SingleGovernanceTimelockController internal _singleGovernanceTimelockController;
-    DualGovernanceTimelockController internal _dualGovernanceTimelockController;
+    SingleGovernance internal _singleGovernance;
+    DualGovernance internal _dualGovernance;
 
     address[] internal _sealableWithdrawalBlockers = [WITHDRAWAL_QUEUE];
 
@@ -85,7 +85,7 @@ contract ScenarioTestBlueprint is Test {
     // Helper Getters
     // ---
     function _getSignallingEscrow() internal view returns (Escrow) {
-        return Escrow(payable(_dualGovernanceTimelockController.signallingEscrow()));
+        return Escrow(payable(_dualGovernance.signallingEscrow()));
     }
 
     function _getTargetRegularStaffCalls() internal view returns (ExecutorCall[] memory) {
@@ -97,7 +97,7 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        return _dualGovernanceTimelockController.getVetoSignallingState();
+        return _dualGovernance.getVetoSignallingState();
     }
 
     // ---
@@ -131,21 +131,21 @@ contract ScenarioTestBlueprint is Test {
     // Dual Governance State Manipulation
     // ---
     function _activateNextState() internal {
-        _dualGovernanceTimelockController.activateNextState();
+        _dualGovernance.activateNextState();
     }
 
     // ---
     // Proposals Submission
     // ---
     function _submitProposal(
-        address executor,
+        IGovernance governance,
         string memory description,
         ExecutorCall[] memory calls
     ) internal returns (uint256 proposalId) {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
         bytes memory script =
-            Utils.encodeEvmCallScript(address(_timelock), abi.encodeCall(_timelock.submit, (executor, calls)));
+            Utils.encodeEvmCallScript(address(governance), abi.encodeCall(_dualGovernance.submit, (calls)));
         uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
 
         // The scheduled calls count is the same until the vote is enacted
@@ -159,19 +159,19 @@ contract ScenarioTestBlueprint is Test {
         assertEq(proposalId, proposalsCountBefore + 1);
     }
 
-    function _submitProposal(
-        string memory description,
-        ExecutorCall[] memory calls
-    ) internal returns (uint256 proposalId) {
-        proposalId = _submitProposal(_config.ADMIN_EXECUTOR(), description, calls);
-    }
+    // function _submitProposal(
+    //     string memory description,
+    //     ExecutorCall[] memory calls
+    // ) internal returns (uint256 proposalId) {
+    //     proposalId = _submitProposal(_config.ADMIN_EXECUTOR(), description, calls);
+    // }
 
     function _scheduleProposal(uint256 proposalId) internal {
-        _dualGovernanceTimelockController.scheduleProposal(proposalId);
+        _dualGovernance.schedule(proposalId);
     }
 
-    function _executeProposal(uint256 proposalId) internal {
-        _timelock.execute(proposalId);
+    function _executeProposal(IGovernance governance, uint256 proposalId) internal {
+        governance.execute(proposalId);
     }
 
     // ---
@@ -228,14 +228,12 @@ contract ScenarioTestBlueprint is Test {
         _target.reset();
     }
 
-    function _assertCanExecute(uint256 proposalId, bool canExecute) internal {
-        assertEq(_timelock.canExecute(proposalId), canExecute, "unexpected canExecute() value");
+    function _assertCanExecute(IGovernance governance, uint256 proposalId, bool canExecute) internal {
+        assertEq(governance.canExecute(proposalId), canExecute, "unexpected canExecute() value");
     }
 
     function _assertCanSchedule(uint256 proposalId, bool canSchedule) internal {
-        assertEq(
-            _dualGovernanceTimelockController.canSchedule(proposalId), canSchedule, "unexpected canSchedule() value"
-        );
+        assertEq(_dualGovernance.canSchedule(proposalId), canSchedule, "unexpected canSchedule() value");
     }
 
     function _assertProposalSubmitted(uint256 proposalId) internal {
@@ -243,7 +241,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertProposalScheduled(uint256 proposalId, bool isExecutable) internal {
-        assertTrue(_dualGovernanceTimelockController.isScheduled(proposalId));
+        assertTrue(_dualGovernance.isScheduled(proposalId));
     }
 
     function _assertProposalExecuted(uint256 proposalId) internal {
@@ -255,24 +253,19 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(
-            uint256(_dualGovernanceTimelockController.currentState()), uint256(DualGovernanceStatus.VetoSignalling)
-        );
+        assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(
-            uint256(_dualGovernanceTimelockController.currentState()),
-            uint256(DualGovernanceStatus.VetoSignallingDeactivation)
-        );
+        assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignallingDeactivation));
     }
 
     function _assertRageQuitState() internal {
-        assertEq(uint256(_dualGovernanceTimelockController.currentState()), uint256(DualGovernanceStatus.RageQuit));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.RageQuit));
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(uint256(_dualGovernanceTimelockController.currentState()), uint256(DualGovernanceStatus.VetoCooldown));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoCooldown));
     }
 
     function _assertNoTargetCalls() internal {
@@ -285,7 +278,7 @@ contract ScenarioTestBlueprint is Test {
     function _logVetoSignallingState() internal {
         /* solhint-disable no-console */
         (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) =
-            _dualGovernanceTimelockController.getVetoSignallingState();
+            _dualGovernance.getVetoSignallingState();
 
         if (!isActive) {
             console.log("VetoSignalling state is not active");
@@ -310,8 +303,7 @@ contract ScenarioTestBlueprint is Test {
 
     function _logVetoSignallingDeactivationState() internal {
         /* solhint-disable no-console */
-        (bool isActive, uint256 duration, uint256 enteredAt) =
-            _dualGovernanceTimelockController.getVetoSignallingDeactivationState();
+        (bool isActive, uint256 duration, uint256 enteredAt) = _dualGovernance.getVetoSignallingDeactivationState();
 
         if (!isActive) {
             console.log("VetoSignallingDeactivation state is not active");
@@ -342,23 +334,22 @@ contract ScenarioTestBlueprint is Test {
 
     function _deployDualGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
         _deployAdminExecutor(address(this));
-        _deploySingleGovernanceTimelockController();
         _deployConfigImpl();
         _deployConfigProxy(address(this));
         _deployEscrowMasterCopy();
         _deployUngovernedTimelock();
-        _deployDualGovernanceTimelockController();
-        _finishTimelockSetup(address(_dualGovernanceTimelockController), isEmergencyProtectionEnabled);
+        _deployDualGovernance();
+        _finishTimelockSetup(address(_dualGovernance), isEmergencyProtectionEnabled);
     }
 
     function _deploySingleGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
         _deployAdminExecutor(address(this));
-        _deploySingleGovernanceTimelockController();
         _deployConfigImpl();
         _deployConfigProxy(address(this));
         _deployEscrowMasterCopy();
         _deployUngovernedTimelock();
-        _finishTimelockSetup(address(_singleGovernanceTimelockController), isEmergencyProtectionEnabled);
+        _deploySingleGovernance();
+        _finishTimelockSetup(address(_singleGovernance), isEmergencyProtectionEnabled);
     }
 
     function _deployTarget() internal {
@@ -370,9 +361,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deployConfigImpl() internal {
-        _configImpl = new Configuration(
-            address(_adminExecutor), address(_singleGovernanceTimelockController), _sealableWithdrawalBlockers
-        );
+        _configImpl = new Configuration(address(_adminExecutor), address(DAO_VOTING), _sealableWithdrawalBlockers);
     }
 
     function _deployConfigProxy(address owner) internal {
@@ -385,13 +374,13 @@ contract ScenarioTestBlueprint is Test {
         _timelock = new EmergencyProtectedTimelock(address(_config));
     }
 
-    function _deploySingleGovernanceTimelockController() internal {
-        _singleGovernanceTimelockController = new SingleGovernanceTimelockController(DAO_VOTING);
+    function _deploySingleGovernance() internal {
+        _singleGovernance = new SingleGovernance(address(_config), DAO_VOTING, address(_timelock));
     }
 
-    function _deployDualGovernanceTimelockController() internal {
-        _dualGovernanceTimelockController =
-            new DualGovernanceTimelockController(address(_config), address(_timelock), address(_escrowMasterCopy));
+    function _deployDualGovernance() internal {
+        _dualGovernance =
+            new DualGovernance(address(_config), address(_timelock), address(_escrowMasterCopy), _ADMIN_PROPOSER);
     }
 
     function _deployEscrowMasterCopy() internal {
@@ -399,7 +388,7 @@ contract ScenarioTestBlueprint is Test {
         _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_burnerVault));
     }
 
-    function _finishTimelockSetup(address controller, bool isEmergencyProtectionEnabled) internal {
+    function _finishTimelockSetup(address governance, bool isEmergencyProtectionEnabled) internal {
         if (isEmergencyProtectionEnabled) {
             _adminExecutor.execute(
                 address(_timelock),
@@ -410,22 +399,15 @@ contract ScenarioTestBlueprint is Test {
                 )
             );
         }
-        _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setController, (controller)));
-        if (controller == address(_dualGovernanceTimelockController)) {
+
+        if (governance == address(_dualGovernance)) {
             _adminExecutor.execute(
-                address(_dualGovernanceTimelockController),
+                address(_dualGovernance),
                 0,
-                abi.encodeCall(_dualGovernanceTimelockController.setTiebreakCommittee, (_TIEBREAK_COMMITTEE))
-            );
-            _adminExecutor.execute(
-                address(_dualGovernanceTimelockController),
-                0,
-                abi.encodeCall(
-                    _dualGovernanceTimelockController.registerProposer, (_ADMIN_PROPOSER, address(_adminExecutor))
-                )
+                abi.encodeCall(_dualGovernance.setTiebreakerProtection, (_TIEBREAK_COMMITTEE))
             );
         }
-
+        _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (governance)));
         _adminExecutor.transferOwnership(address(_timelock));
     }
 

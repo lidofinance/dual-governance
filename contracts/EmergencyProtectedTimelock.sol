@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {ITimelock, ITimelockController} from "./interfaces/ITimelock.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
 
 import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
@@ -14,11 +14,12 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     using EmergencyProtection for EmergencyProtection.State;
 
     error SchedulingDisabled();
+    error NotGovernance(address account, address governance);
     error UnscheduledExecutionForbidden();
 
     event ProposalLaunched(address indexed proposer, address indexed executor, uint256 indexed proposalId);
 
-    ITimelockController internal _controller;
+    address internal _governance;
 
     Proposals.State internal _proposals;
     EmergencyProtection.State internal _emergencyProtection;
@@ -26,19 +27,18 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     constructor(address config) ConfigurationProvider(config) {}
 
     function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
-        _controller.onSubmitProposal(msg.sender, executor);
+        _checkGovernance(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
-        emit ProposalLaunched(msg.sender, executor, newProposalId);
     }
 
     function execute(uint256 proposalId) external {
+        _checkGovernance(msg.sender);
         _emergencyProtection.checkEmergencyModeNotActivated();
-        _controller.onExecuteProposal(msg.sender, proposalId);
         _proposals.execute(CONFIG, proposalId);
     }
 
     function cancelAll() external {
-        _controller.onCancelAllProposals(msg.sender);
+        _checkGovernance(msg.sender);
         _proposals.cancelAll();
     }
 
@@ -47,9 +47,9 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
         IOwnable(executor).transferOwnership(owner);
     }
 
-    function setController(address controller) external {
+    function setGovernance(address governance) external {
         _checkAdminExecutor(msg.sender);
-        _setController(controller);
+        _setGovernance(governance);
     }
 
     // ---
@@ -80,7 +80,8 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
         _emergencyProtection.checkEmergencyCommittee(msg.sender);
         _emergencyProtection.reset();
         _proposals.cancelAll();
-        _setController(CONFIG.EMERGENCY_CONTROLLER());
+        // TODO: rename into EMERGENCY_GOVERNANCE
+        _setGovernance(CONFIG.EMERGENCY_CONTROLLER());
     }
 
     function setEmergencyProtection(
@@ -104,8 +105,8 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     // Timelock View Methods
     // ---
 
-    function getController() external view returns (address) {
-        return address(_controller);
+    function getGovernance() external view returns (address) {
+        return address(_governance);
     }
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
@@ -124,13 +125,8 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
         return block.timestamp >= _proposals.get(proposalId).submittedAt + CONFIG.AFTER_SUBMIT_DELAY();
     }
 
-    function canSubmit() external view returns (bool) {
-        return _controller.isProposalsSubmissionAllowed();
-    }
-
     function canExecute(uint256 proposalId) external view returns (bool) {
-        return !_emergencyProtection.isEmergencyModeActivated() && _controller.isProposalExecutionAllowed(proposalId)
-            && _proposals.canExecute(CONFIG, proposalId);
+        return !_emergencyProtection.isEmergencyModeActivated() && _proposals.canExecute(CONFIG, proposalId);
     }
 
     function isProposalExecuted(uint256 proposalId) external view returns (bool) {
@@ -149,10 +145,16 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     // Internal Methods
     // ---
 
-    function _setController(address controller) internal {
-        address prevController = address(_controller);
-        if (prevController != controller) {
-            _controller = ITimelockController(controller);
+    function _checkGovernance(address account) internal view {
+        if (account != _governance) {
+            revert NotGovernance(account, _governance);
+        }
+    }
+
+    function _setGovernance(address governance) internal {
+        address prevGovernance = _governance;
+        if (prevGovernance != governance) {
+            _governance = governance;
         }
     }
 }

@@ -23,8 +23,9 @@ contract HappyPathTest is ScenarioTestBlueprint {
     function test_happy_path() external {
         ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
-        uint256 proposalId =
-            _submitProposal("DAO does regular staff on potentially dangerous contract", regularStaffCalls);
+        uint256 proposalId = _submitProposal(
+            _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+        );
         _assertProposalSubmitted(proposalId);
         _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
@@ -33,12 +34,12 @@ contract HappyPathTest is ScenarioTestBlueprint {
 
         // the min execution delay hasn't elapsed yet
         vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (proposalId)));
-        _executeProposal(proposalId);
+        _executeProposal(_dualGovernance, proposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
-        _executeProposal(proposalId);
+        _executeProposal(_dualGovernance, proposalId);
         _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
     }
 
@@ -59,20 +60,20 @@ contract HappyPathTest is ScenarioTestBlueprint {
             ]
         );
 
-        uint256 proposalId = _submitProposal("Multiple items", multipleCalls);
+        uint256 proposalId = _submitProposal(_dualGovernance, "Multiple items", multipleCalls);
 
         // when the emergency protection enabled, proposals can't be scheduled
         _assertCanSchedule(proposalId, false);
 
         // the min execution delay hasn't elapsed yet
         vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, (proposalId)));
-        _executeProposal(proposalId);
+        _executeProposal(_dualGovernance, proposalId);
 
         // wait till the DG-enforced timelock elapses
         vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
 
         // the delay is set to 0, so call will be executed immediately
-        _executeProposal(proposalId);
+        _executeProposal(_dualGovernance, proposalId);
 
         address[] memory senders = new address[](2);
         senders[0] = DAO_AGENT;
