@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+struct ExecutorCall {
+    address target;
+    uint96 value; // ~ 7.9 billion ETH
+    bytes payload;
+}
+
 interface IExecutor {
     function execute(
         address target,

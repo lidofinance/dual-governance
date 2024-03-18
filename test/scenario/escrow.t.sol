@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import {TransparentUpgradeableProxy} from "contracts/TransparentUpgradeableProxy.sol";
-import {Configuration} from "contracts/Configuration.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {Escrow} from "contracts/Escrow.sol";
-import {BurnerVault} from "contracts/BurnerVault.sol";
+import {IStEth, IWstETH, IWithdrawalQueue, WithdrawalRequestStatus} from "../utils/interfaces.sol";
 
-import "forge-std/Test.sol";
+import {
+    Utils,
+    Escrow,
+    BurnerVault,
+    IERC20,
+    ST_ETH,
+    WST_ETH,
+    WITHDRAWAL_QUEUE,
+    ScenarioTestBlueprint
+} from "../utils/scenario-test-blueprint.sol";
 
-import "../utils/mainnet-addresses.sol";
-import "../utils/utils.sol";
-
-import {DualGovernanceSetup} from "./setup.sol";
-
-contract TestHelpers is DualGovernanceSetup {
+contract TestHelpers is ScenarioTestBlueprint {
     function rebase(int256 deltaBP) public {
         bytes32 CL_BALANCE_POSITION = 0xa66d35f054e68143c18f32c990ed5cb972bb68a68f500cd2dd3a16bbf3686483; // keccak256("lido.Lido.beaconBalance");
 
@@ -57,8 +58,6 @@ contract EscrowHappyPath is TestHelpers {
     address internal stEthHolder1;
     address internal stEthHolder2;
 
-    address internal proxyAdmin = makeAddr("proxy_admin");
-
     function assertEq(Escrow.Balance memory a, Escrow.Balance memory b) internal {
         assertApproxEqAbs(a.stEth, b.stEth, 2, "StEth balance missmatched");
         assertApproxEqAbs(a.wstEth, b.wstEth, 2, "WstEth balance missmatched");
@@ -72,15 +71,17 @@ contract EscrowHappyPath is TestHelpers {
         Utils.selectFork();
         Utils.removeLidoStakingLimit();
 
-        TransparentUpgradeableProxy config;
-        (, config,) = deployConfig(DAO_VOTING);
+        _deployAdminExecutor(address(this));
+        _deployConfigImpl();
+        _deployConfigProxy(address(this));
+        _deployEscrowMasterCopy();
 
         Escrow escrowImpl;
-        (escrowImpl, burnerVault) =
-            deployEscrowImplementation(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER, address(config));
+        escrowImpl = _escrowMasterCopy;
+        burnerVault = _burnerVault;
 
         escrow =
-            Escrow(payable(address(new TransparentUpgradeableProxy(address(escrowImpl), proxyAdmin, new bytes(0)))));
+            Escrow(payable(address(new TransparentUpgradeableProxy(address(escrowImpl), address(this), new bytes(0)))));
 
         govState = new GovernanceState__mock();
 
