@@ -1,0 +1,295 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.23;
+
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
+interface IGovernanceState {
+    enum State {
+        Normal,
+        VetoSignalling,
+        VetoSignallingDeactivation,
+        VetoCooldown,
+        RageQuit
+    }
+
+    function currentState() external view returns (State);
+}
+
+interface ISealable {
+    function resume() external;
+    function pauseFor(uint256 duration) external;
+    function isPaused() external view returns (bool);
+}
+
+struct SealFailure {
+    address sealable;
+    bytes lowLevelError;
+}
+
+library SealableCalls {
+    function callPauseFor(
+        ISealable sealable,
+        uint256 sealDuration
+    ) internal returns (bool success, bytes memory lowLevelError) {
+        try sealable.pauseFor(sealDuration) {
+            (bool isPausedCallSuccess, bytes memory isPausedLowLevelError, bool isPaused) = callIsPaused(sealable);
+            success = isPausedCallSuccess && isPaused;
+            lowLevelError = isPausedLowLevelError;
+        } catch (bytes memory pauseForLowLevelError) {
+            success = false;
+            lowLevelError = pauseForLowLevelError;
+        }
+    }
+
+    function callIsPaused(ISealable sealable)
+        internal
+        view
+        returns (bool success, bytes memory lowLevelError, bool isPaused)
+    {
+        try sealable.isPaused() returns (bool isPausedResult) {
+            success = true;
+            isPaused = isPausedResult;
+        } catch (bytes memory isPausedLowLevelError) {
+            success = false;
+            lowLevelError = isPausedLowLevelError;
+        }
+    }
+
+    function callResume(ISealable sealable) internal returns (bool success, bytes memory lowLevelError) {
+        try sealable.resume() {
+            (bool isPausedCallSuccess, bytes memory isPausedLowLevelError, bool isPaused) = callIsPaused(sealable);
+            success = isPausedCallSuccess && isPaused;
+            lowLevelError = isPausedLowLevelError;
+        } catch (bytes memory resumeLowLevelError) {
+            success = false;
+            lowLevelError = resumeLowLevelError;
+        }
+    }
+}
+
+interface IGateSeal {
+    function MIN_SEAL_DURATION() external view returns (uint256);
+    function activatedAt() external view returns (uint256);
+    function getSealed() external view returns (address[] memory);
+}
+
+contract GateSeal is IGateSeal, Ownable {
+    using SafeCast for uint256;
+    using SealableCalls for ISealable;
+
+    event Sealed(address[] sealables);
+
+    error SealFailed(SealFailure[] failures);
+    error GateSealExpired(uint256 expiredAt);
+    error GateSealAlreadyActivated(uint256 activatedAt);
+
+    uint256 public immutable SEAL_DURATION;
+    uint256 public immutable MIN_SEAL_DURATION;
+
+    uint40 internal _expiredAt;
+    uint40 internal _activatedAt;
+
+    address[] internal _sealables;
+    address[] internal _sealed;
+
+    constructor(
+        address owner,
+        uint256 lifetime,
+        uint256 sealDuration,
+        uint256 minSealDuration,
+        address[] memory sealables
+    ) Ownable(owner) {
+        SEAL_DURATION = sealDuration;
+        MIN_SEAL_DURATION = minSealDuration;
+
+        _expiredAt = (block.timestamp + lifetime).toUint40();
+        _sealables = sealables;
+    }
+
+    function seal(address[] calldata sealables_) external {
+        _checkOwner();
+        _checkNotExpired();
+        _checkNotActivated();
+
+        _activatedAt = block.timestamp.toUint40();
+        _sealed = sealables_;
+
+        uint256 failuresCount = 0;
+        SealFailure[] memory sealFailures = new SealFailure[](sealables_.length);
+
+        for (uint256 i = 0; i < sealables_.length; ++i) {
+            (bool success, bytes memory lowLevelError) = ISealable(sealables_[i]).callPauseFor(SEAL_DURATION);
+            if (success) continue;
+            sealFailures[failuresCount++] = SealFailure({sealable: sealables_[i], lowLevelError: lowLevelError});
+        }
+
+        if (failuresCount > 0) {
+            revert SealFailed(_shrink(sealFailures, failuresCount));
+        }
+    }
+
+    function activatedAt() external view returns (uint256) {
+        return _activatedAt;
+    }
+
+    function isActivated() external view returns (bool) {
+        return _activatedAt != 0;
+    }
+
+    function getSealed() external view returns (address[] memory) {
+        return _sealed;
+    }
+
+    function _shrink(
+        SealFailure[] memory failures,
+        uint256 newLength
+    ) internal pure returns (SealFailure[] memory shrinked) {
+        shrinked = new SealFailure[](newLength);
+
+        for (uint256 i = 0; i < newLength; ++i) {
+            shrinked[i] = failures[i];
+        }
+    }
+
+    function _checkNotExpired() private view {
+        if (block.timestamp > _expiredAt) {
+            revert GateSealExpired(_expiredAt);
+        }
+    }
+
+    function _checkNotActivated() private view {
+        if (_activatedAt != 0) {
+            revert GateSealAlreadyActivated(_activatedAt);
+        }
+    }
+}
+
+interface IDualGovernance {
+    function isExecutionEnabled() external view returns (bool);
+}
+
+abstract contract SealBreaker is Ownable {
+    using SafeCast for uint256;
+    using SealableCalls for ISealable;
+
+    struct GateSealState {
+        uint40 registeredAt;
+        uint40 releaseStartedAt;
+        uint40 releaseEnactedAt;
+    }
+
+    error ReleaseNotStarted();
+    error GateSealNotActivated();
+    error ReleaseDelayNotPassed();
+    error DualGovernanceIsLocked();
+    error GateSealAlreadyReleased();
+    error MinSealDurationNotPassed();
+    error GateSealIsNotRegistered(IGateSeal gateSeal);
+    error GateSealAlreadyRegistered(IGateSeal gateSeal, uint256 registeredAt);
+
+    event ReleaseIsPausedConditionNotMet(ISealable sealable);
+    event ReleaseResumeCallFailed(ISealable sealable, bytes lowLevelError);
+    event ReleaseIsPausedCheckFailed(ISealable sealable, bytes lowLevelError);
+
+    uint256 public immutable RELEASE_DELAY;
+
+    constructor(uint256 releaseDelay, address owner) Ownable(owner) {
+        RELEASE_DELAY = releaseDelay;
+    }
+
+    mapping(IGateSeal gateSeal => GateSealState) internal _gateSeals;
+
+    function register(IGateSeal gateSeal) external {
+        _checkOwner();
+        if (_gateSeals[gateSeal].registeredAt != 0) {
+            revert GateSealAlreadyRegistered(gateSeal, _gateSeals[gateSeal].registeredAt);
+        }
+        _gateSeals[gateSeal].registeredAt = block.timestamp.toUint40();
+    }
+
+    function startRelease(IGateSeal gateSeal) external {
+        _checkGateSealRegistered(gateSeal);
+        _checkGateSealActivated(gateSeal);
+        _checkMinSealDurationPassed(gateSeal);
+        _checkGateSealNotReleased(gateSeal);
+        _checkReleaseStartAllowed(gateSeal);
+
+        _gateSeals[gateSeal].releaseStartedAt = block.timestamp.toUint40();
+    }
+
+    function enactRelease(IGateSeal gateSeal) external {
+        _checkGateSealRegistered(gateSeal);
+        GateSealState memory gateSealState = _gateSeals[gateSeal];
+        if (gateSealState.releaseStartedAt == 0) {
+            revert ReleaseNotStarted();
+        }
+        if (block.timestamp < gateSealState.releaseStartedAt + RELEASE_DELAY) {
+            revert ReleaseDelayNotPassed();
+        }
+
+        _gateSeals[gateSeal].releaseEnactedAt = block.timestamp.toUint40();
+
+        address[] memory sealed_ = gateSeal.getSealed();
+
+        for (uint256 i = 0; i < sealed_.length; ++i) {
+            ISealable sealable = ISealable(sealed_[i]);
+            (bool isPausedCallSuccess, bytes memory isPausedLowLevelError, bool isPaused) = sealable.callIsPaused();
+            if (!isPausedCallSuccess) {
+                emit ReleaseIsPausedCheckFailed(sealable, isPausedLowLevelError);
+            }
+            if (!isPaused) {
+                emit ReleaseIsPausedConditionNotMet(sealable);
+                continue;
+            }
+            (bool resumeCallSuccess, bytes memory lowLevelError) = sealable.callResume();
+            if (!resumeCallSuccess) {
+                emit ReleaseResumeCallFailed(sealable, lowLevelError);
+            }
+        }
+    }
+
+    function _checkGateSealRegistered(IGateSeal gateSeal) internal view {
+        if (_gateSeals[gateSeal].registeredAt == 0) {
+            revert GateSealIsNotRegistered(gateSeal);
+        }
+    }
+
+    function _checkGateSealActivated(IGateSeal gateSeal) internal view {
+        uint256 gateSealActivatedAt = gateSeal.activatedAt();
+        if (gateSealActivatedAt == 0) {
+            revert GateSealNotActivated();
+        }
+    }
+
+    function _checkMinSealDurationPassed(IGateSeal gateSeal) internal view {
+        uint256 gateSealActivatedAt = gateSeal.activatedAt();
+        if (block.timestamp < gateSealActivatedAt + gateSeal.MIN_SEAL_DURATION()) {
+            revert MinSealDurationNotPassed();
+        }
+    }
+
+    function _checkGateSealNotReleased(IGateSeal gateSeal) internal view {
+        if (_gateSeals[gateSeal].releaseStartedAt != 0) {
+            revert GateSealAlreadyReleased();
+        }
+    }
+
+    function _checkReleaseStartAllowed(IGateSeal gateSeal) internal virtual;
+}
+
+contract SealBreakerDualGovernance is SealBreaker {
+    IDualGovernance public immutable DUAL_GOVERNANCE;
+
+    error GovernanceIsLocked();
+
+    constructor(uint256 releaseDelay, address owner, address dualGovernance) SealBreaker(releaseDelay, owner) {
+        DUAL_GOVERNANCE = IDualGovernance(dualGovernance);
+    }
+
+    function _checkReleaseStartAllowed(IGateSeal /* gateSeal */ ) internal view override {
+        if (!DUAL_GOVERNANCE.isExecutionEnabled()) {
+            revert GovernanceIsLocked();
+        }
+    }
+}
