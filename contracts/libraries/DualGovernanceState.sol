@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
-import {IConfiguration} from "../interfaces/IConfiguration.sol";
+import {IDualGovernanceConfiguration as IConfiguration} from "../interfaces/IConfiguration.sol";
 
 import {timestamp} from "../utils/time.sol";
 

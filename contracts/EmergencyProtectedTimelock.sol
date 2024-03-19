@@ -38,9 +38,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
 
     function execute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeNotActivated();
-        uint256 afterScheduleDelay =
-            _emergencyProtection.isEmergencyProtectionEnabled() ? CONFIG.AFTER_SCHEDULE_DELAY() : 0;
-        _proposals.execute(proposalId, afterScheduleDelay);
+        _proposals.execute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
     }
 
     function cancelAll() external {
@@ -86,7 +84,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         _emergencyProtection.checkEmergencyCommittee(msg.sender);
         _emergencyProtection.reset();
         _proposals.cancelAll();
-        _setGovernance(CONFIG.EMERGENCY_CONTROLLER());
+        _setGovernance(CONFIG.EMERGENCY_GOVERNANCE());
     }
 
     function setEmergencyProtection(
@@ -127,9 +125,8 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     // ---
 
     function canExecute(uint256 proposalId) external view returns (bool) {
-        uint256 afterScheduleDelay =
-            _emergencyProtection.isEmergencyProtectionEnabled() ? CONFIG.AFTER_SCHEDULE_DELAY() : 0;
-        return !_emergencyProtection.isEmergencyModeActivated() && _proposals.canExecute(proposalId, afterScheduleDelay);
+        return !_emergencyProtection.isEmergencyModeActivated()
+            && _proposals.canExecute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
     }
 
     function canSchedule(uint256 proposalId) external view returns (bool) {

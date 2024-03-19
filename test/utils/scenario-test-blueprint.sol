@@ -11,8 +11,8 @@ import {
 
 import {Escrow} from "contracts/Escrow.sol";
 import {BurnerVault} from "contracts/BurnerVault.sol";
+import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
-import {Configuration} from "contracts/DualGovernanceConfiguration.sol";
 
 import {
     ExecutorCall,
@@ -65,8 +65,8 @@ contract ScenarioTestBlueprint is Test {
 
     TargetMock internal _target;
 
-    Configuration internal _config;
-    Configuration internal _configImpl;
+    IConfiguration internal _config;
+    IConfiguration internal _configImpl;
     ProxyAdmin internal _configProxyAdmin;
     TransparentUpgradeableProxy internal _configProxy;
 
