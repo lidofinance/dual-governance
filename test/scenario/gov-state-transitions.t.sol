@@ -11,7 +11,7 @@ import {
     DualGovernance,
     IDangerousContract,
     ExecutorCallHelpers,
-    DualGovernanceStatus,
+    GovernanceState,
     ScenarioTestBlueprint
 } from "../utils/scenario-test-blueprint.sol";
 
@@ -31,66 +31,66 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
     }
 
     function test_signalling_state_min_duration() public {
-        assertEq(dualGov.currentState(), DualGovernanceStatus.Normal);
+        assertEq(dualGov.currentState(), GovernanceState.Normal);
 
         updateVetoSupportInPercent(3 * 10 ** 16);
         updateVetoSupport(1);
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignalling);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
 
         uint256 signallingDuration = _config.SIGNALLING_MIN_DURATION();
 
         vm.warp(block.timestamp + (signallingDuration / 2));
         updateVetoSupport(1);
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignalling);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
 
         vm.warp(block.timestamp + signallingDuration / 2);
         updateVetoSupport(1);
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignallingDeactivation);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignallingDeactivation);
     }
 
     function test_signalling_state_max_duration() public {
-        assertEq(dualGov.currentState(), DualGovernanceStatus.Normal);
+        assertEq(dualGov.currentState(), GovernanceState.Normal);
 
         updateVetoSupportInPercent(15 * 10 ** 16);
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignalling);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
 
         uint256 signallingDuration = _config.SIGNALLING_MAX_DURATION();
 
         vm.warp(block.timestamp + (signallingDuration / 2));
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignalling);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
 
         vm.warp(block.timestamp + signallingDuration / 2 + 1000);
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.RageQuit);
+        assertEq(dualGov.currentState(), GovernanceState.RageQuit);
     }
 
     function test_signalling_to_normal() public {
-        assertEq(dualGov.currentState(), DualGovernanceStatus.Normal);
+        assertEq(dualGov.currentState(), GovernanceState.Normal);
 
         updateVetoSupportInPercent(3 * 10 ** 16 + 1);
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignalling);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
 
         uint256 signallingDuration = _config.SIGNALLING_MIN_DURATION();
 
         vm.warp(block.timestamp + signallingDuration);
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignallingDeactivation);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignallingDeactivation);
 
         uint256 signallingDeactivationDuration = _config.SIGNALLING_DEACTIVATION_DURATION();
 
         vm.warp(block.timestamp + signallingDeactivationDuration);
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoCooldown);
+        assertEq(dualGov.currentState(), GovernanceState.VetoCooldown);
 
         uint256 signallingCooldownDuration = _config.SIGNALLING_COOLDOWN_DURATION();
 
@@ -101,51 +101,51 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         vm.warp(block.timestamp + signallingCooldownDuration);
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.Normal);
+        assertEq(dualGov.currentState(), GovernanceState.Normal);
     }
 
     function test_signalling_non_stop() public {
-        assertEq(dualGov.currentState(), DualGovernanceStatus.Normal);
+        assertEq(dualGov.currentState(), GovernanceState.Normal);
 
         updateVetoSupportInPercent(3 * 10 ** 16 + 1);
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignalling);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
 
         uint256 signallingDuration = _config.SIGNALLING_MIN_DURATION();
 
         vm.warp(block.timestamp + signallingDuration);
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignallingDeactivation);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignallingDeactivation);
 
         uint256 signallingDeactivationDuration = _config.SIGNALLING_DEACTIVATION_DURATION();
 
         vm.warp(block.timestamp + signallingDeactivationDuration);
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoCooldown);
+        assertEq(dualGov.currentState(), GovernanceState.VetoCooldown);
 
         uint256 signallingCooldownDuration = _config.SIGNALLING_COOLDOWN_DURATION();
 
         vm.warp(block.timestamp + signallingCooldownDuration);
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignalling);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
     }
 
     function test_signalling_to_rage_quit() public {
-        assertEq(dualGov.currentState(), DualGovernanceStatus.Normal);
+        assertEq(dualGov.currentState(), GovernanceState.Normal);
 
         updateVetoSupportInPercent(15 * 10 ** 16);
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.VetoSignalling);
+        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
 
         uint256 signallingDuration = _config.SIGNALLING_MAX_DURATION();
 
         vm.warp(block.timestamp + signallingDuration);
         dualGov.activateNextState();
 
-        assertEq(dualGov.currentState(), DualGovernanceStatus.RageQuit);
+        assertEq(dualGov.currentState(), GovernanceState.RageQuit);
     }
 
     function updateVetoSupportInPercent(uint256 supportInPercent) internal {

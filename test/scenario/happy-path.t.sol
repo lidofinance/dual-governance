@@ -38,9 +38,14 @@ contract HappyPathTest is ScenarioTestBlueprint {
         // wait till the first phase of timelock passes
         vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
-        // now proposal may be executed (in the same block with scheduling, because emergency protection is disabled)
-        _assertCanScheduleAndExecute(_dualGovernance, proposalId);
-        _scheduleAndExecuteProposal(_dualGovernance, proposalId);
+        _assertCanSchedule(_dualGovernance, proposalId, true);
+        _scheduleProposal(_dualGovernance, proposalId);
+        _assertProposalScheduled(proposalId);
+
+        _waitAfterScheduleDelayPassed();
+
+        _assertCanExecute(proposalId, true);
+        _executeProposal(proposalId);
 
         _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
     }
@@ -74,9 +79,14 @@ contract HappyPathTest is ScenarioTestBlueprint {
         // wait till the DG-enforced timelock elapses
         _wait(_config.AFTER_SUBMIT_DELAY() / 2 + 1);
 
-        // now proposal may be executed (in the same block with scheduling, because emergency protection is disabled)
-        _assertCanScheduleAndExecute(_dualGovernance, proposalId);
-        _scheduleAndExecuteProposal(_dualGovernance, proposalId);
+        _assertCanSchedule(_dualGovernance, proposalId, true);
+        _scheduleProposal(_dualGovernance, proposalId);
+        _assertProposalScheduled(proposalId);
+
+        _waitAfterScheduleDelayPassed();
+
+        _assertCanExecute(proposalId, true);
+        _executeProposal(proposalId);
 
         address[] memory senders = new address[](2);
         senders[0] = DAO_AGENT;

@@ -3,7 +3,7 @@ pragma solidity 0.8.23;
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {IConfiguration} from "../interfaces/IConfiguration.sol";
+import {IAdminExecutorConfiguration as IConfiguration} from "../interfaces/IConfiguration.sol";
 
 struct Proposer {
     bool isAdmin;

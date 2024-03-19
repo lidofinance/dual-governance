@@ -9,7 +9,7 @@ contract Configuration is IConfiguration {
     error MaxSealablesLimitOverflow(uint256 count, uint256 limit);
 
     address public immutable ADMIN_EXECUTOR;
-    address public immutable EMERGENCY_CONTROLLER;
+    address public immutable EMERGENCY_GOVERNANCE;
 
     uint256 public immutable AFTER_SUBMIT_DELAY = 3 days;
     uint256 public immutable AFTER_SCHEDULE_DELAY = 2 days;
@@ -39,9 +39,9 @@ contract Configuration is IConfiguration {
     address private immutable SEALABLE_3;
     address private immutable SEALABLE_4;
 
-    constructor(address adminExecutor, address emergencyController, address[] memory sealableWithdrawalBlockers_) {
+    constructor(address adminExecutor, address emergencyGovernance, address[] memory sealableWithdrawalBlockers_) {
         ADMIN_EXECUTOR = adminExecutor;
-        EMERGENCY_CONTROLLER = emergencyController;
+        EMERGENCY_GOVERNANCE = emergencyGovernance;
 
         if (sealableWithdrawalBlockers_.length > MAX_SELABLES_COUNT) {
             revert MaxSealablesLimitOverflow(sealableWithdrawalBlockers_.length, MAX_SELABLES_COUNT);

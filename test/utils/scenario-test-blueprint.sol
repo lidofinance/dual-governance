@@ -11,8 +11,8 @@ import {
 
 import {Escrow} from "contracts/Escrow.sol";
 import {BurnerVault} from "contracts/BurnerVault.sol";
+import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
-import {Configuration} from "contracts/DualGovernanceConfiguration.sol";
 
 import {
     ExecutorCall,
@@ -22,7 +22,7 @@ import {
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
-import {DualGovernance, DualGovernanceStatus} from "contracts/DualGovernance.sol";
+import {DualGovernance, GovernanceState} from "contracts/DualGovernance.sol";
 
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
@@ -65,8 +65,8 @@ contract ScenarioTestBlueprint is Test {
 
     TargetMock internal _target;
 
-    Configuration internal _config;
-    Configuration internal _configImpl;
+    IConfiguration internal _config;
+    IConfiguration internal _configImpl;
     ProxyAdmin internal _configProxyAdmin;
     TransparentUpgradeableProxy internal _configProxy;
 
@@ -263,19 +263,19 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignalling));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoSignalling));
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoSignallingDeactivation));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoSignallingDeactivation));
     }
 
     function _assertRageQuitState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.RageQuit));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.RageQuit));
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(DualGovernanceStatus.VetoCooldown));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoCooldown));
     }
 
     function _assertNoTargetCalls() internal {
@@ -475,7 +475,7 @@ contract ScenarioTestBlueprint is Test {
         assertEq(uint256(a), uint256(b), message);
     }
 
-    function assertEq(DualGovernanceStatus a, DualGovernanceStatus b) internal {
+    function assertEq(GovernanceState a, GovernanceState b) internal {
         assertEq(uint256(a), uint256(b));
     }
 }

@@ -160,9 +160,14 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _activateNextState();
             _assertVetoCooldownState();
 
-            // and proposal can be scheduled
-            _assertCanScheduleAndExecute(_dualGovernance, proposalId);
-            _scheduleAndExecuteProposal(_dualGovernance, proposalId);
+            _assertCanSchedule(_dualGovernance, proposalId, true);
+            _scheduleProposal(_dualGovernance, proposalId);
+            _assertProposalScheduled(proposalId);
+
+            _waitAfterScheduleDelayPassed();
+
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
 
             _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }

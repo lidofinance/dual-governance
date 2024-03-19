@@ -7,11 +7,11 @@ import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
-import {DualGovernanceState, Status as DualGovernanceStatus} from "./libraries/DualGovernanceState.sol";
+import {DualGovernanceState, State as GovernanceState} from "./libraries/DualGovernanceState.sol";
 
 contract DualGovernance is IGovernance, ConfigurationProvider {
     using Proposers for Proposers.State;
-    using DualGovernanceState for DualGovernanceState.State;
+    using DualGovernanceState for DualGovernanceState.Store;
 
     event TiebreakerSet(address tiebreakCommittee);
     event ProposalScheduled(uint256 proposalId);
@@ -24,7 +24,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     address internal _tiebreaker;
 
     Proposers.State internal _proposers;
-    DualGovernanceState.State internal _dgState;
+    DualGovernanceState.Store internal _dgState;
     EmergencyProtection.State internal _emergencyProtection;
     mapping(uint256 proposalId => uint256 executableAfter) internal _scheduledProposals;
 
@@ -81,7 +81,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _dgState.activateNextState(CONFIG);
     }
 
-    function currentState() external view returns (DualGovernanceStatus) {
+    function currentState() external view returns (GovernanceState) {
         return _dgState.currentState();
     }
 
