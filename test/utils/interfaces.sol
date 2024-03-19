@@ -76,3 +76,25 @@ interface IWithdrawalQueue {
     function getLastFinalizedRequestId() external view returns (uint256);
     function finalize(uint256 _lastRequestIdToBeFinalized, uint256 _maxShareRate) external payable;
 }
+
+interface INodeOperatorsRegistry {
+    function getNodeOperator(
+        uint256 _id,
+        bool _fullInfo
+    )
+        external
+        view
+        returns (
+            bool active,
+            string memory name,
+            address rewardAddress,
+            uint64 stakingLimit,
+            uint64 stoppedValidators,
+            uint64 totalSigningKeys,
+            uint64 usedSigningKeys
+        );
+
+    function getNodeOperatorsCount() external view returns (uint256);
+    function getActiveNodeOperatorsCount() external view returns (uint256);
+    function getNodeOperatorIsActive(uint256 _nodeOperatorId) external view returns (bool);
+}

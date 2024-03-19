@@ -13,14 +13,15 @@ contract Tiebreaker is IEmergencyExecutor {
     error SenderIsNotOwner();
     error IsNotMember();
     error ProposalIsNotSupported();
+    error ProposalAlreadySupported();
     error ProposalAlreadyExecuted(uint256 proposalId);
     error ZeroQuorum();
 
     address executor;
 
-    mapping(address => bool) members;
+    mapping(address => bool) public members;
     address public owner;
-    address[] membersList;
+    address[] public membersList;
 
     struct ProposalState {
         address[] supportersList;
@@ -34,9 +35,17 @@ contract Tiebreaker is IEmergencyExecutor {
         owner = _owner;
         membersList = _members;
         executor = _executor;
+
+        for (uint256 i = 0; i < _members.length; ++i) {
+            members[_members[i]] = true;
+        }
     }
 
     function emergencyExecute(uint256 _proposalId) public onlyMember {
+        if (proposals[_proposalId].supporters[msg.sender] == true) {
+            revert ProposalAlreadySupported();
+        }
+
         proposals[_proposalId].supportersList.push(msg.sender);
         proposals[_proposalId].supporters[msg.sender] = true;
     }
