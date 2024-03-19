@@ -12,7 +12,7 @@ interface IPausableUntil {
     function isPaused() external view returns (bool);
 }
 
-enum Status {
+enum State {
     Normal,
     VetoSignalling,
     VetoSignallingDeactivation,
@@ -21,8 +21,8 @@ enum Status {
 }
 
 library DualGovernanceState {
-    struct State {
-        Status status;
+    struct Store {
+        State state;
         uint40 enteredAt;
         uint40 signallingActivatedAt;
         uint40 lastAdoptableStateExitedAt;
@@ -37,81 +37,81 @@ library DualGovernanceState {
     error ProposalsAdoptionSuspended();
 
     event NewSignallingEscrowDeployed(address indexed escrow);
-    event DualGovernanceStateChanged(Status oldState, Status newState);
+    event DualGovernanceStateChanged(State oldState, State newState);
 
-    function initialize(State storage self, address escrowMasterCopy) internal {
+    function initialize(Store storage self, address escrowMasterCopy) internal {
         if (address(self.signallingEscrow) != address(0)) {
             revert AlreadyInitialized();
         }
         _deployNewSignallingEscrow(self, escrowMasterCopy);
     }
 
-    function activateNextState(State storage self, IConfiguration config) internal returns (Status newStatus) {
-        Status oldStatus = self.status;
-        if (oldStatus == Status.Normal) {
-            newStatus = _fromNormalState(self, config);
-        } else if (oldStatus == Status.VetoSignalling) {
-            newStatus = _fromVetoSignallingState(self, config);
-        } else if (oldStatus == Status.VetoSignallingDeactivation) {
-            newStatus = _fromVetoSignallingDeactivationState(self, config);
-        } else if (oldStatus == Status.VetoCooldown) {
-            newStatus = _fromVetoCooldownState(self, config);
-        } else if (oldStatus == Status.RageQuit) {
-            newStatus = _fromRageQuitState(self, config);
+    function activateNextState(Store storage self, IConfiguration config) internal returns (State newState) {
+        State oldState = self.state;
+        if (oldState == State.Normal) {
+            newState = _fromNormalState(self, config);
+        } else if (oldState == State.VetoSignalling) {
+            newState = _fromVetoSignallingState(self, config);
+        } else if (oldState == State.VetoSignallingDeactivation) {
+            newState = _fromVetoSignallingDeactivationState(self, config);
+        } else if (oldState == State.VetoCooldown) {
+            newState = _fromVetoCooldownState(self, config);
+        } else if (oldState == State.RageQuit) {
+            newState = _fromRageQuitState(self, config);
         } else {
             assert(false);
         }
 
-        if (oldStatus != newStatus) {
-            _setStatus(self, oldStatus, newStatus);
-            _handleStatusTransitionSideEffects(self, oldStatus, newStatus);
-            emit DualGovernanceStateChanged(oldStatus, newStatus);
+        if (oldState != newState) {
+            _setState(self, oldState, newState);
+            _handleStateTransitionSideEffects(self, oldState, newState);
+            emit DualGovernanceStateChanged(oldState, newState);
         }
     }
 
-    function setLastProposalCreationTimestamp(State storage self) internal {
+    function setLastProposalCreationTimestamp(Store storage self) internal {
         self.lastProposalCreatedAt = timestamp();
     }
 
-    function checkProposalsCreationAllowed(State storage self) internal view {
+    function checkProposalsCreationAllowed(Store storage self) internal view {
         if (!isProposalsCreationAllowed(self)) {
             revert ProposalsCreationSuspended();
         }
     }
 
-    function checkProposalsAdoptionAllowed(State storage self) internal view {
+    function checkProposalsAdoptionAllowed(Store storage self) internal view {
         if (!isProposalsAdoptionAllowed(self)) {
             revert ProposalsAdoptionSuspended();
         }
     }
 
-    function checkTiebreak(State storage self, IConfiguration config) internal view {
+    function checkTiebreak(Store storage self, IConfiguration config) internal view {
         if (!isTiebreak(self, config)) {
             revert NotTie();
         }
     }
 
-    function currentState(State storage self) internal view returns (Status) {
-        return self.status;
+    function currentState(Store storage self) internal view returns (State) {
+        return self.state;
     }
 
-    function isProposalsCreationAllowed(State storage self) internal view returns (bool) {
-        Status status = self.status;
-        return status != Status.VetoSignallingDeactivation && status != Status.VetoCooldown;
+    function isProposalsCreationAllowed(Store storage self) internal view returns (bool) {
+        State state = self.state;
+        return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
     }
 
-    function isProposalsAdoptionAllowed(State storage self) internal view returns (bool) {
-        Status status = self.status;
-        return status == Status.Normal || status == Status.VetoCooldown;
+    function isProposalsAdoptionAllowed(Store storage self) internal view returns (bool) {
+        State state = self.state;
+        return state == State.Normal || state == State.VetoCooldown;
     }
 
-    function isTiebreak(State storage self, IConfiguration config) internal view returns (bool) {
+    function isTiebreak(Store storage self, IConfiguration config) internal view returns (bool) {
         if (isProposalsAdoptionAllowed(self)) return false;
 
         // for the governance is locked for long period of time
         if (block.timestamp - self.lastAdoptableStateExitedAt >= config.TIE_BREAK_ACTIVATION_TIMEOUT()) return true;
 
-        if (self.status != Status.RageQuit) return false;
+        if (self.state != State.RageQuit) return false;
 
         address[] memory sealableWithdrawalBlockers = config.sealableWithdrawalBlockers();
         for (uint256 i = 0; i < sealableWithdrawalBlockers.length; ++i) {
@@ -121,16 +121,16 @@ library DualGovernanceState {
     }
 
     function getVetoSignallingState(
-        State storage self,
+        Store storage self,
         IConfiguration config
     ) internal view returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) {
-        isActive = self.status == Status.VetoSignalling;
+        isActive = self.state == State.VetoSignalling;
         duration = isActive ? getVetoSignallingDuration(self, config) : 0;
         enteredAt = isActive ? self.enteredAt : 0;
         activatedAt = isActive ? self.signallingActivatedAt : 0;
     }
 
-    function getVetoSignallingDuration(State storage self, IConfiguration config) internal view returns (uint256) {
+    function getVetoSignallingDuration(Store storage self, IConfiguration config) internal view returns (uint256) {
         (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
         return _calcVetoSignallingTargetDuration(config, totalSupport);
     }
@@ -141,16 +141,16 @@ library DualGovernanceState {
     }
 
     function getVetoSignallingDeactivationState(
-        State storage self,
+        Store storage self,
         IConfiguration config
     ) internal view returns (bool isActive, uint256 duration, uint256 enteredAt) {
-        isActive = self.status == Status.VetoSignallingDeactivation;
+        isActive = self.state == State.VetoSignallingDeactivation;
         duration = getVetoSignallingDeactivationDuration(self, config);
         enteredAt = isActive ? self.enteredAt : 0;
     }
 
     function getVetoSignallingDeactivationDuration(
-        State storage self,
+        Store storage self,
         IConfiguration config
     ) internal view returns (uint256) {
         return self.lastProposalCreatedAt >= self.signallingActivatedAt
@@ -159,36 +159,36 @@ library DualGovernanceState {
     }
 
     // ---
-    // State Transitions
+    // Store Transitions
     // ---
 
-    function _fromNormalState(State storage self, IConfiguration config) private view returns (Status) {
+    function _fromNormalState(Store storage self, IConfiguration config) private view returns (State) {
         (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
-        return totalSupport >= config.FIRST_SEAL_THRESHOLD() ? Status.VetoSignalling : Status.Normal;
+        return totalSupport >= config.FIRST_SEAL_THRESHOLD() ? State.VetoSignalling : State.Normal;
     }
 
-    function _fromVetoSignallingState(State storage self, IConfiguration config) private view returns (Status) {
+    function _fromVetoSignallingState(Store storage self, IConfiguration config) private view returns (State) {
         (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
 
         if (totalSupport < config.FIRST_SEAL_THRESHOLD()) {
-            return Status.VetoSignallingDeactivation;
+            return State.VetoSignallingDeactivation;
         }
 
         uint256 currentDuration = block.timestamp - self.signallingActivatedAt;
         uint256 targetDuration = _calcVetoSignallingTargetDuration(config, totalSupport);
 
         if (currentDuration < targetDuration) {
-            return Status.VetoSignalling;
+            return State.VetoSignalling;
         }
 
-        return _isSecondThresholdReached(self, config) ? Status.RageQuit : Status.VetoSignallingDeactivation;
+        return _isSecondThresholdReached(self, config) ? State.RageQuit : State.VetoSignallingDeactivation;
     }
 
     function _fromVetoSignallingDeactivationState(
-        State storage self,
+        Store storage self,
         IConfiguration config
-    ) private view returns (Status) {
-        if (_isVetoSignallingDeactivationPhasePassed(self, config)) return Status.VetoCooldown;
+    ) private view returns (State) {
+        if (_isVetoSignallingDeactivationPhasePassed(self, config)) return State.VetoCooldown;
 
         (uint256 totalSupport, uint256 rageQuitSupport) = self.signallingEscrow.getSignallingState();
         uint256 currentSignallingDuration = block.timestamp - self.signallingActivatedAt;
@@ -196,50 +196,50 @@ library DualGovernanceState {
 
         if (currentSignallingDuration >= targetSignallingDuration) {
             if (rageQuitSupport >= config.SECOND_SEAL_THRESHOLD()) {
-                return Status.RageQuit;
+                return State.RageQuit;
             }
         } else if (totalSupport >= config.FIRST_SEAL_THRESHOLD()) {
-            return Status.VetoSignalling;
+            return State.VetoSignalling;
         }
-        return Status.VetoSignallingDeactivation;
+        return State.VetoSignallingDeactivation;
     }
 
-    function _fromVetoCooldownState(State storage self, IConfiguration config) private view returns (Status) {
+    function _fromVetoCooldownState(Store storage self, IConfiguration config) private view returns (State) {
         uint256 duration_ = block.timestamp - self.enteredAt;
         if (duration_ < config.SIGNALLING_COOLDOWN_DURATION()) {
-            return Status.VetoCooldown;
+            return State.VetoCooldown;
         }
-        return _isFirstThresholdReached(self, config) ? Status.VetoSignalling : Status.Normal;
+        return _isFirstThresholdReached(self, config) ? State.VetoSignalling : State.Normal;
     }
 
-    function _fromRageQuitState(State storage self, IConfiguration config) private view returns (Status) {
+    function _fromRageQuitState(Store storage self, IConfiguration config) private view returns (State) {
         if (!self.rageQuitEscrow.isRageQuitFinalized()) {
-            return Status.RageQuit;
+            return State.RageQuit;
         }
-        return _isFirstThresholdReached(self, config) ? Status.VetoSignalling : Status.Normal;
+        return _isFirstThresholdReached(self, config) ? State.VetoSignalling : State.Normal;
     }
 
-    function _setStatus(State storage self, Status oldStatus, Status newStatus) private {
-        assert(oldStatus != newStatus);
-        assert(self.status == oldStatus);
+    function _setState(Store storage self, State oldState, State newState) private {
+        assert(oldState != newState);
+        assert(self.state == oldState);
 
-        self.status = newStatus;
+        self.state = newState;
 
         uint40 currentTime = timestamp();
         self.enteredAt = currentTime;
     }
 
-    function _handleStatusTransitionSideEffects(State storage self, Status oldStatus, Status newStatus) private {
+    function _handleStateTransitionSideEffects(Store storage self, State oldState, State newState) private {
         uint40 currentTime = timestamp();
         // track the time when the governance state allowed execution
-        if (oldStatus == Status.Normal || oldStatus == Status.VetoCooldown) {
+        if (oldState == State.Normal || oldState == State.VetoCooldown) {
             self.lastAdoptableStateExitedAt = currentTime;
         }
 
-        if (newStatus == Status.VetoSignalling && oldStatus != Status.VetoSignallingDeactivation) {
+        if (newState == State.VetoSignalling && oldState != State.VetoSignallingDeactivation) {
             self.signallingActivatedAt = currentTime;
         }
-        if (newStatus == Status.RageQuit) {
+        if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
             signallingEscrow.startRageQuit();
             self.rageQuitEscrow = signallingEscrow;
@@ -251,12 +251,12 @@ library DualGovernanceState {
     // Helper Methods
     // ---
 
-    function _isFirstThresholdReached(State storage self, IConfiguration config) private view returns (bool) {
+    function _isFirstThresholdReached(Store storage self, IConfiguration config) private view returns (bool) {
         (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
         return totalSupport >= config.FIRST_SEAL_THRESHOLD();
     }
 
-    function _isSecondThresholdReached(State storage self, IConfiguration config) private view returns (bool) {
+    function _isSecondThresholdReached(Store storage self, IConfiguration config) private view returns (bool) {
         (, uint256 rageQuitSupport) = self.signallingEscrow.getSignallingState();
         return rageQuitSupport >= config.SECOND_SEAL_THRESHOLD();
     }
@@ -281,7 +281,7 @@ library DualGovernanceState {
     }
 
     function _isVetoSignallingDeactivationPhasePassed(
-        State storage self,
+        Store storage self,
         IConfiguration config
     ) private view returns (bool) {
         uint256 currentDeactivationDuration = block.timestamp - self.enteredAt;
@@ -294,7 +294,7 @@ library DualGovernanceState {
             : true;
     }
 
-    function _deployNewSignallingEscrow(State storage self, address escrowMasterCopy) private {
+    function _deployNewSignallingEscrow(Store storage self, address escrowMasterCopy) private {
         IEscrow clone = IEscrow(Clones.clone(escrowMasterCopy));
         clone.initialize(address(this));
         self.signallingEscrow = clone;
