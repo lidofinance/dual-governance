@@ -1,72 +1,74 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-interface IEmergencyExecutor {
-    function emergencyExecute(uint256 proposalId) external;
-}
-
 /**
- * A contract provides ability to execute locked proposals.
+ * A contract provides ability to execute .
  */
-contract Tiebreaker is IEmergencyExecutor {
+abstract contract Tiebreaker {
+    event HashApproved(bytes32 indexed approvedHash, address indexed owner);
+    event ExecutionSuccess(bytes32 txHash);
+    event MemberAdded(address indexed newMember);
+
+    error Initialized();
+    error IsNotMember();
+    error ZeroQuorum();
+    error NoQourum();
     error SenderIsNotMember();
     error SenderIsNotOwner();
-    error IsNotMember();
-    error ProposalIsNotSupported();
-    error ProposalAlreadySupported();
-    error ProposalAlreadyExecuted(uint256 proposalId);
-    error ZeroQuorum();
 
-    address executor;
+    bool isInitialized;
 
-    mapping(address => bool) public members;
     address public owner;
-    address[] public membersList;
 
-    struct ProposalState {
-        address[] supportersList;
-        mapping(address => bool) supporters;
-        bool isExecuted;
-    }
+    address[] membersList;
+    mapping(address => bool) members;
+    uint256 quorum;
 
-    mapping(uint256 => ProposalState) proposals;
+    mapping(address => mapping(bytes32 => bool)) public approves;
+    mapping(bytes32 => address[]) signers;
 
-    constructor(address _owner, address[] memory _members, address _executor) {
-        owner = _owner;
-        membersList = _members;
-        executor = _executor;
+    uint256 public nonce;
 
-        for (uint256 i = 0; i < _members.length; ++i) {
-            members[_members[i]] = true;
+    function initialize(address[] memory _members, uint256 _quorum) public {
+        if (isInitialized) {
+            revert Initialized();
+        }
+
+        isInitialized = true;
+
+        quorum = _quorum;
+
+        for (uint256 i = 0; i < _members.length; i++) {
+            _addMember(_members[i]);
         }
     }
 
-    function emergencyExecute(uint256 _proposalId) public onlyMember {
-        if (proposals[_proposalId].supporters[msg.sender] == true) {
-            revert ProposalAlreadySupported();
+    function execTransaction(address _to, bytes calldata _data) public payable returns (bool, bytes memory) {
+        nonce++;
+        bytes32 txHash = getTransactionHash(_to, _data, nonce);
+
+        if (signers[txHash].length < quorum) {
+            revert NoQourum();
         }
 
-        proposals[_proposalId].supportersList.push(msg.sender);
-        proposals[_proposalId].supporters[msg.sender] = true;
+        (bool success, bytes memory data) = _to.call(_data);
+
+        emit ExecutionSuccess(txHash);
+
+        return (success, data);
     }
 
-    function forwardExecution(uint256 _proposalId) public {
-        if (!hasQuorum(_proposalId)) {
-            revert ProposalIsNotSupported();
-        }
-
-        if (proposals[_proposalId].isExecuted == true) {
-            revert ProposalAlreadyExecuted(_proposalId);
-        }
-
-        IEmergencyExecutor(executor).emergencyExecute(_proposalId);
-
-        proposals[_proposalId].isExecuted = true;
+    /**
+     * @dev Marks a hash as approved. This can be used to validate a hash that is used by a signature.
+     * @param _hashToApprove The hash that should be marked as approved for signatures that are verified by this contract.
+     */
+    function approveHash(bytes32 _hashToApprove) public onlyMember {
+        approves[msg.sender][_hashToApprove] = true;
+        emit HashApproved(_hashToApprove, msg.sender);
     }
 
     function addMember(address _newMember) public onlyOwner {
-        membersList.push(_newMember);
-        members[_newMember] = true;
+        _addMember(_newMember);
     }
 
     function removeMember(address _member) public onlyOwner {
@@ -83,19 +85,33 @@ contract Tiebreaker is IEmergencyExecutor {
         }
     }
 
-    function hasQuorum(uint256 _proposalId) public view returns (bool) {
+    /// @dev Returns hash to be signed by owners.
+    /// @param _to Destination address.
+    /// @param _data Data payload.
+    /// @param _nonce Transaction nonce.
+    /// @return Transaction hash.
+    function getTransactionHash(address _to, bytes calldata _data, uint256 _nonce) public pure returns (bytes32) {
+        return keccak256(abi.encode(_to, _data, _nonce));
+    }
+
+    function hasQuorum(bytes32 _txHash) public view returns (bool) {
         uint256 supportersCount = 0;
-        uint256 quorum = membersList.length / 2 + 1;
         if (quorum == 0) {
             revert ZeroQuorum();
         }
 
-        for (uint256 i = 0; i < proposals[_proposalId].supportersList.length; ++i) {
-            if (members[proposals[_proposalId].supportersList[i]] == true) {
+        for (uint256 i = 0; i < signers[_txHash].length; ++i) {
+            if (members[signers[_txHash][i]] == true) {
                 supportersCount++;
             }
         }
         return supportersCount >= quorum;
+    }
+
+    function _addMember(address _newMember) internal {
+        membersList.push(_newMember);
+        members[_newMember] = true;
+        emit MemberAdded(_newMember);
     }
 
     modifier onlyMember() {
