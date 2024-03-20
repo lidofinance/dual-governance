@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 /**
  * A contract provides ability to execute .
  */
-abstract contract Tiebreaker {
+contract Tiebreaker {
     event HashApproved(bytes32 indexed approvedHash, address indexed owner);
     event ExecutionSuccess(bytes32 txHash);
     event MemberAdded(address indexed newMember);
@@ -15,6 +15,7 @@ abstract contract Tiebreaker {
     error NoQourum();
     error SenderIsNotMember();
     error SenderIsNotOwner();
+    error ExecutionFailed();
 
     bool isInitialized;
 
@@ -29,7 +30,7 @@ abstract contract Tiebreaker {
 
     uint256 public nonce;
 
-    function initialize(address[] memory _members, uint256 _quorum) public {
+    function initialize(address _owner, address[] memory _members, uint256 _quorum) public {
         if (isInitialized) {
             revert Initialized();
         }
@@ -37,6 +38,7 @@ abstract contract Tiebreaker {
         isInitialized = true;
 
         quorum = _quorum;
+        owner = _owner;
 
         for (uint256 i = 0; i < _members.length; i++) {
             _addMember(_members[i]);
@@ -52,6 +54,9 @@ abstract contract Tiebreaker {
         }
 
         (bool success, bytes memory data) = _to.call(_data);
+        if (success == false) {
+            revert ExecutionFailed();
+        }
 
         emit ExecutionSuccess(txHash);
 
@@ -64,6 +69,7 @@ abstract contract Tiebreaker {
      */
     function approveHash(bytes32 _hashToApprove) public onlyMember {
         approves[msg.sender][_hashToApprove] = true;
+        signers[_hashToApprove].push(msg.sender);
         emit HashApproved(_hashToApprove, msg.sender);
     }
 
