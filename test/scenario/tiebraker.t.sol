@@ -4,6 +4,7 @@ pragma solidity 0.8.23;
 import {Test, console} from "forge-std/Test.sol";
 import {DualGovernanceDeployScript, DualGovernance, EmergencyProtectedTimelock} from "script/Deploy.s.sol";
 import {Tiebreaker} from "contracts/Tiebreaker.sol";
+import {TiebreakerNOR} from "contracts/TiebreakerNOR.sol";
 
 import {Utils} from "../utils/utils.sol";
 import {INodeOperatorsRegistry} from "../utils/interfaces.sol";
@@ -14,7 +15,7 @@ contract TiebreakerScenarioTest is Test {
 
     Tiebreaker private _coreTiebreaker;
     Tiebreaker private _efTiebraker;
-    Tiebreaker private _norTiebreaker;
+    TiebreakerNOR private _norTiebreaker;
 
     uint256 private _efMembersCount = 5;
     uint256 private _efQuorum = 3;
@@ -35,13 +36,15 @@ contract TiebreakerScenarioTest is Test {
 
         _efTiebraker = new Tiebreaker();
 
-        _norTiebreaker = new Tiebreaker();
+        _norTiebreaker = new TiebreakerNOR();
 
         _efTiebraker.initialize(address(this), _efTiebrakerMembers, _efQuorum);
-
         _coreTiebrakerMembers.push(address(_efTiebraker));
 
-        _coreTiebreaker.initialize(address(this), _coreTiebrakerMembers, 1);
+        _norTiebreaker.initialize(NODE_OPERATORS_REGISTRY);
+        _coreTiebrakerMembers.push(address(_norTiebreaker));
+
+        _coreTiebreaker.initialize(address(this), _coreTiebrakerMembers, 2);
     }
 
     function test_proposal_execution() external {
@@ -67,35 +70,36 @@ contract TiebreakerScenarioTest is Test {
             address(_coreTiebreaker), abi.encodeWithSignature("approveHash(bytes32)", execProposalHash)
         );
 
-        // assert(_coreTiebreaker.hasQuorum(proposalIdToExecute) == false);
+        assert(_coreTiebreaker.hasQuorum(execProposalHash) == false);
 
-        // uint256 participatedNOCount = 0;
-        // uint256 requiredOperatorsCount =
-        //     INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getActiveNodeOperatorsCount() / 2 + 1;
+        uint256 participatedNOCount = 0;
+        uint256 requiredOperatorsCount =
+            INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getActiveNodeOperatorsCount() / 2 + 1;
 
-        // for (uint256 i = 0; i < INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getNodeOperatorsCount(); i++) {
-        //     (
-        //         bool active,
-        //         , //string memory name,
-        //         address rewardAddress,
-        //         , //uint64 stakingLimit,
-        //         , //uint64 stoppedValidators,
-        //         , //uint64 totalSigningKeys,
-        //             //uint64 usedSigningKeys
-        //     ) = INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getNodeOperator(i, false);
-        //     if (active) {
-        //         vm.prank(rewardAddress);
-        //         _norTiebreaker.emergencyExecute(proposalIdToExecute, i);
+        for (uint256 i = 0; i < INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getNodeOperatorsCount(); i++) {
+            (
+                bool active,
+                , //string memory name,
+                address rewardAddress,
+                , //uint64 stakingLimit,
+                , //uint64 stoppedValidators,
+                , //uint64 totalSigningKeys,
+                    //uint64 usedSigningKeys
+            ) = INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getNodeOperator(i, false);
+            if (active) {
+                vm.prank(rewardAddress);
+                _norTiebreaker.approveHash(execApproveHash, i);
 
-        //         participatedNOCount++;
-        //     }
-        //     if (participatedNOCount >= requiredOperatorsCount) break;
-        // }
+                participatedNOCount++;
+            }
+            if (participatedNOCount >= requiredOperatorsCount) break;
+        }
 
-        // assert(_norTiebreaker.hasQuorum(proposalIdToExecute) == true);
+        assert(_norTiebreaker.hasQuorum(execApproveHash) == true);
 
-        // _norTiebreaker.forwardExecution(proposalIdToExecute);
-
+        _norTiebreaker.execTransaction(
+            address(_coreTiebreaker), abi.encodeWithSignature("approveHash(bytes32)", execProposalHash)
+        );
         assert(_coreTiebreaker.hasQuorum(execProposalHash) == true);
 
         _coreTiebreaker.execTransaction(

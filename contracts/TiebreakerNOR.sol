@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-interface IEmergencyExecutor {
-    function emergencyExecute(uint256 proposalId) external;
-}
-
 interface INodeOperatorsRegistry {
     function getNodeOperator(
         uint256 _id,
@@ -31,61 +27,80 @@ interface INodeOperatorsRegistry {
  * A contract provides ability to execute locked proposals.
  */
 contract TiebreakerNOR {
-    error SenderIsNotMember();
-    error ProposalIsNotSupported();
-    error ProposalSupported();
-    error ProposalAlreadyExecuted(uint256 proposalId);
+    event HashApproved(bytes32 indexed approvedHash, uint256 nodeOperatorId, address indexed owner);
+    event ExecutionSuccess(bytes32 txHash);
+    event MemberAdded(address indexed newMember);
 
-    address public executor;
+    error Initialized();
+    error IsNotMember();
+    error ZeroQuorum();
+    error NoQourum();
+    error SenderIsNotMember();
+    error SenderIsNotOwner();
+    error ExecutionFailed();
+
+    bool isInitialized;
     address public nodeOperatorsRegistry;
 
-    struct ProposalState {
-        uint256[] supportersList;
-        mapping(address => bool) supporters;
-        bool isExecuted;
-    }
+    mapping(uint256 => mapping(bytes32 => bool)) public approves;
+    mapping(bytes32 => uint256[]) signers;
 
-    mapping(uint256 => ProposalState) proposals;
+    uint256 public nonce;
 
-    constructor(address _nodeOperatorsRegistry, address _executor) {
+    function initialize(address _nodeOperatorsRegistry) public {
+        if (isInitialized) {
+            revert Initialized();
+        }
+
+        isInitialized = true;
         nodeOperatorsRegistry = _nodeOperatorsRegistry;
-        executor = _executor;
     }
 
-    function emergencyExecute(uint256 _proposalId, uint256 _nodeOperatorId) public onlyNodeOperator(_nodeOperatorId) {
-        if (proposals[_proposalId].supporters[msg.sender] == true) {
-            revert ProposalSupported();
+    function execTransaction(address _to, bytes calldata _data) public payable returns (bool, bytes memory) {
+        nonce++;
+        bytes32 txHash = getTransactionHash(_to, _data, nonce);
+
+        if (hasQuorum(txHash) == false) {
+            revert NoQourum();
         }
-        proposals[_proposalId].supportersList.push(_nodeOperatorId);
-        proposals[_proposalId].supporters[msg.sender] = true;
+
+        (bool success, bytes memory data) = _to.call(_data);
+        if (success == false) {
+            revert ExecutionFailed();
+        }
+
+        emit ExecutionSuccess(txHash);
+
+        return (success, data);
     }
 
-    function forwardExecution(uint256 _proposalId) public {
-        if (!hasQuorum(_proposalId)) {
-            revert ProposalIsNotSupported();
-        }
-
-        if (proposals[_proposalId].isExecuted == true) {
-            revert ProposalAlreadyExecuted(_proposalId);
-        }
-
-        IEmergencyExecutor(executor).emergencyExecute(_proposalId);
-
-        proposals[_proposalId].isExecuted = true;
+    /**
+     * @dev Marks a hash as approved. This can be used to validate a hash that is used by a signature.
+     * @param _hashToApprove The hash that should be marked as approved for signatures that are verified by this contract.
+     */
+    function approveHash(bytes32 _hashToApprove, uint256 _nodeOperatorId) public onlyNodeOperator(_nodeOperatorId) {
+        approves[_nodeOperatorId][_hashToApprove] = true;
+        signers[_hashToApprove].push(_nodeOperatorId);
+        emit HashApproved(_hashToApprove, _nodeOperatorId, msg.sender);
     }
 
-    function hasQuorum(uint256 _proposalId) public view returns (bool) {
+    /// @dev Returns hash to be signed by owners.
+    /// @param _to Destination address.
+    /// @param _data Data payload.
+    /// @param _nonce Transaction nonce.
+    /// @return Transaction hash.
+    function getTransactionHash(address _to, bytes calldata _data, uint256 _nonce) public pure returns (bytes32) {
+        return keccak256(abi.encode(_to, _data, _nonce));
+    }
+
+    function hasQuorum(bytes32 _txHash) public view returns (bool) {
         uint256 activeNOCount = INodeOperatorsRegistry(nodeOperatorsRegistry).getActiveNodeOperatorsCount();
         uint256 quorum = activeNOCount / 2 + 1;
 
         uint256 supportersCount = 0;
 
-        for (uint256 i = 0; i < proposals[_proposalId].supportersList.length; ++i) {
-            if (
-                INodeOperatorsRegistry(nodeOperatorsRegistry).getNodeOperatorIsActive(
-                    proposals[_proposalId].supportersList[i]
-                ) == true
-            ) {
+        for (uint256 i = 0; i < signers[_txHash].length; ++i) {
+            if (INodeOperatorsRegistry(nodeOperatorsRegistry).getNodeOperatorIsActive(signers[_txHash][i]) == true) {
                 supportersCount++;
             }
         }
