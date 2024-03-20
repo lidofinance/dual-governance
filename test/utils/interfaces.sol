@@ -94,3 +94,25 @@ interface IWithdrawalQueue {
     function hasRole(bytes32 role, address account) external view returns (bool);
     function isPaused() external view returns (bool);
 }
+
+interface INodeOperatorsRegistry {
+    function getNodeOperator(
+        uint256 _id,
+        bool _fullInfo
+    )
+        external
+        view
+        returns (
+            bool active,
+            string memory name,
+            address rewardAddress,
+            uint64 stakingLimit,
+            uint64 stoppedValidators,
+            uint64 totalSigningKeys,
+            uint64 usedSigningKeys
+        );
+
+    function getNodeOperatorsCount() external view returns (uint256);
+    function getActiveNodeOperatorsCount() external view returns (uint256);
+    function getNodeOperatorIsActive(uint256 _nodeOperatorId) external view returns (bool);
+}
