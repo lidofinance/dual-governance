@@ -17,7 +17,6 @@ contract Configuration {
     uint256 public immutable secondSealThreshold = 15 * PERCENT;
     uint256 public immutable signallingMinDuration = 3 days;
     uint256 public immutable signallingMaxDuration = 30 days;
-    uint256 public immutable tieBreakerActivationTimeout = 365 days;
 
     constructor(address adminProposer_) {
         adminProposer = adminProposer_;
