@@ -29,13 +29,20 @@ contract GateSeal {
 
     uint256 internal constant INFINITE_DURATION = type(uint256).max;
 
-    uint256 public immutable SEAL_DURATION;
+    uint256 public immutable MIN_SEAL_DURATION_SECONDS = 14 days; // Refers to the original gate seal value
+    uint256 public immutable SEAL_DURATION_SECONDS;
+    uint256 public immutable MAX_SEAL_DURATION_SECONDS = INFINITE_DURATION;
     address public immutable SEALING_COMMITTEE;
     IGovernanceState public immutable GOV_STATE;
 
+    uint256 internal _activatedAt;
+
     address[] internal _sealables;
+    address[] internal _sealed;
+
     uint256 internal _expiryTimestamp;
     uint256 internal _releaseTimestamp;
+    
 
     function isTriggered() external view returns (bool) {
         return _releaseTimestamp != 0;
@@ -53,7 +60,7 @@ contract GateSeal {
         address[] memory sealables
     ) {
         GOV_STATE = IGovernanceState(govState);
-        SEAL_DURATION = sealDuration;
+        SEAL_DURATION_SECONDS = sealDuration;
         SEALING_COMMITTEE = sealingCommittee;
         _sealables = sealables;
         _expiryTimestamp = block.timestamp + lifetime;
@@ -64,7 +71,16 @@ contract GateSeal {
             revert GateSealExpired();
         }
         _expiryTimestamp = block.timestamp;
-        _releaseTimestamp = block.timestamp + SEAL_DURATION;
+        _activatedAt = block.timestamp;
+        
+        _sealed = _sealables;
+
+        if (SEAL_DURATION_SECONDS == INFINITE_DURATION) {
+            _releaseTimestamp = INFINITE_DURATION;
+        } else {
+            _releaseTimestamp = block.timestamp + SEAL_DURATION_SECONDS;
+        }
+
         for (uint256 i = 0; i < sealables.length; ++i) {
             IPausableUntil(sealables[i]).pauseFor(INFINITE_DURATION);
             assert(IPausableUntil(sealables[i]).isPaused());
@@ -94,10 +110,18 @@ contract GateSeal {
         }
     }
 
+    function getSealed() external view returns (address[] memory) {
+        return _sealed;
+    }
+
     function _assertSealingCommittee() internal view {
         if (msg.sender != SEALING_COMMITTEE) {
             revert NotSealingCommittee();
         }
+    }
+
+    function activatedAt() public view returns (uint256) {
+        return _activatedAt;
     }
 
     modifier onlySealingCommittee() {

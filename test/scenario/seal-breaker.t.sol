@@ -3,49 +3,45 @@ pragma solidity 0.8.23;
 
 import {Test} from "forge-std/Test.sol";
 
+import {
+    Utils,
+    ExecutorCall,
+    IDangerousContract,
+    ExecutorCallHelpers,
+    ScenarioTestBlueprint
+} from "../utils/scenario-test-blueprint.sol";
+
 import {Escrow} from "contracts/Escrow.sol";
-import {DualGovernanceDeployScript, DualGovernance, EmergencyProtectedTimelock} from "script/Deploy.s.sol";
-import {GateSeal, SealBreaker, IGovernanceState, SealBreakerDualGovernance} from "contracts/SealBreaker.sol";
+import {SealBreaker, IGovernanceState, SealBreakerDualGovernance, IGateSeal} from "contracts/SealBreaker.sol";
+import {GateSeal} from "contracts/GateSeal.sol";
 
 import {Utils} from "../utils/utils.sol";
 import {IWithdrawalQueue, IERC20} from "../utils/interfaces.sol";
 import {DAO_AGENT, DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER} from "../utils/mainnet-addresses.sol";
 
-contract SealBreakerScenarioTest is Test {
+contract SealBreakerScenarioTest is ScenarioTestBlueprint {
     uint256 private immutable _DELAY = 3 days;
     uint256 private immutable _SEAL_DURATION = type(uint256).max;
     uint256 private immutable _MIN_SEAL_DURATION = 14 days;
-    uint256 private immutable _EMERGENCY_MODE_DURATION = 180 days;
-    uint256 private immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
-    address private immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
     uint256 internal immutable _RELEASE_DELAY = 5 days;
     uint256 internal immutable _RELEASE_TIMELOCK = 14 days;
-    uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
-    address private immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
 
-    GateSeal private _gateSeal;
+    IGateSeal private _gateSeal;
     address[] private _sealables;
     SealBreakerDualGovernance private _sealBreaker;
-    DualGovernance private _dualGovernance;
-    EmergencyProtectedTimelock private _timelock;
-    DualGovernanceDeployScript private _dualGovernanceDeployScript;
 
     function setUp() external {
-        Utils.selectFork();
-        _dualGovernanceDeployScript =
-            new DualGovernanceDeployScript(ST_ETH, WST_ETH, BURNER, DAO_VOTING, WITHDRAWAL_QUEUE);
-
-        (_dualGovernance, _timelock,) = _dualGovernanceDeployScript.deploy(
-            DAO_VOTING, _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION
-        );
+        _selectFork();
+        _deployTarget();
+        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
 
         _sealables.push(WITHDRAWAL_QUEUE);
 
-        _gateSeal = new GateSeal(
-            _SEALING_COMMITTEE, _SEALING_COMMITTEE_LIFETIME, _SEAL_DURATION, _MIN_SEAL_DURATION, _sealables
-        );
+        _gateSeal = IGateSeal(address(new GateSeal(
+            address(_dualGovernance), _SEALING_COMMITTEE, _SEALING_COMMITTEE_LIFETIME, _SEAL_DURATION, _sealables
+        )));
 
-        _sealBreaker = new SealBreakerDualGovernance(_RELEASE_DELAY, address(this), address(_dualGovernance.state()));
+        _sealBreaker = new SealBreakerDualGovernance(_RELEASE_DELAY, address(this), address(_dualGovernance));
 
         _sealBreaker.register(_gateSeal);
 
@@ -101,7 +97,7 @@ contract SealBreakerScenarioTest is Test {
         vm.warp(block.timestamp + 14 days);
         _dualGovernance.activateNextState();
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoSignallingDeactivation));
-        vm.warp(block.timestamp + _dualGovernance.CONFIG().signallingDeactivationDuration() + 1);
+        vm.warp(block.timestamp + _dualGovernance.CONFIG().SIGNALLING_DEACTIVATION_DURATION() + 1);
         _dualGovernance.activateNextState();
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoCooldown));
 
@@ -162,7 +158,7 @@ contract SealBreakerScenarioTest is Test {
         vm.warp(block.timestamp + 14 days);
         _dualGovernance.activateNextState();
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoSignallingDeactivation));
-        vm.warp(block.timestamp + _dualGovernance.CONFIG().signallingDeactivationDuration() + 1);
+        vm.warp(block.timestamp + _dualGovernance.CONFIG().SIGNALLING_DEACTIVATION_DURATION() + 1);
         _dualGovernance.activateNextState();
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoCooldown));
 
@@ -170,7 +166,7 @@ contract SealBreakerScenarioTest is Test {
         vm.prank(stEthWhale);
         escrow.unlockStEth();
 
-        vm.warp(block.timestamp + _dualGovernance.CONFIG().signallingCooldownDuration() + 1);
+        vm.warp(block.timestamp + _dualGovernance.CONFIG().SIGNALLING_COOLDOWN_DURATION() + 1);
         _dualGovernance.activateNextState();
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.Normal));
 

@@ -135,6 +135,10 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         return _proposers.isExecutor(account);
     }
 
+    function isExecutionEnabled() external view returns (bool) {
+        return _dgState.isProposalsAdoptionAllowed();
+    }
+
     // ---
     // Tiebreaker Protection
     // ---
