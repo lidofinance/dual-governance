@@ -3,17 +3,33 @@ pragma solidity 0.8.23;
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
+import {IAdminExecutorConfiguration as IConfiguration} from "../interfaces/IConfiguration.sol";
+
 struct Proposer {
+    bool isAdmin;
     address account;
     address executor;
+}
+
+struct ProposerData {
+    address proposer;
+    address executor;
+    bool isAdmin;
 }
 
 library Proposers {
     using SafeCast for uint256;
 
+    error NotProposer(address account);
+    error NotAssignedExecutor(address account, address actualExecutor, address expectedExecutor);
+    error NotAdminProposer(address account);
     error ProposerNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
+    error InvalidAdminExecutor(address executor);
+    error ExecutorNotRegistered(address account);
+    error LastAdminProposerRemoval();
 
+    event AdminExecutorSet(address indexed adminExecutor);
     event ProposerRegistered(address indexed proposer, address indexed executor);
     event ProposerUnregistered(address indexed proposer, address indexed executor);
 
@@ -25,6 +41,7 @@ library Proposers {
     struct State {
         address[] proposers;
         mapping(address proposer => ExecutorData) executors;
+        mapping(address executor => uint256 usagesCount) executorRefsCounts;
     }
 
     function register(State storage self, address proposer, address executor) internal {
@@ -33,10 +50,11 @@ library Proposers {
         }
         self.proposers.push(proposer);
         self.executors[proposer] = ExecutorData(self.proposers.length.toUint8(), executor);
+        self.executorRefsCounts[executor] += 1;
         emit ProposerRegistered(proposer, executor);
     }
 
-    function unregister(State storage self, address proposer) internal {
+    function unregister(State storage self, IConfiguration config, address proposer) internal {
         uint256 proposerIndexToDelete;
         ExecutorData memory executorData = self.executors[proposer];
         unchecked {
@@ -52,7 +70,14 @@ library Proposers {
         }
         self.proposers.pop();
         delete self.executors[proposer];
-        emit ProposerUnregistered(proposer, executorData.executor);
+
+        address executor = executorData.executor;
+        if (executor == config.ADMIN_EXECUTOR() && self.executorRefsCounts[executor] == 1) {
+            revert LastAdminProposerRemoval();
+        }
+
+        self.executorRefsCounts[executor] -= 1;
+        emit ProposerUnregistered(proposer, executor);
     }
 
     function all(State storage self) internal view returns (Proposer[] memory proposers) {
@@ -71,7 +96,37 @@ library Proposers {
         proposer.executor = executorData.executor;
     }
 
-    function isProposer(State storage self, address proposer) internal view returns (bool) {
-        return self.executors[proposer].proposerIndexOneBased != 0;
+    function isProposer(State storage self, address account) internal view returns (bool) {
+        return self.executors[account].proposerIndexOneBased != 0;
+    }
+
+    function isAdminProposer(State storage self, IConfiguration config, address account) internal view returns (bool) {
+        ExecutorData memory executorData = self.executors[account];
+        return executorData.proposerIndexOneBased != 0 && executorData.executor == config.ADMIN_EXECUTOR();
+    }
+
+    function isExecutor(State storage self, address account) internal view returns (bool) {
+        return self.executorRefsCounts[account] > 0;
+    }
+
+    function checkProposer(State storage self, address account) internal view {
+        if (!isProposer(self, account)) {
+            revert NotProposer(account);
+        }
+    }
+
+    function checkExecutor(State storage self, address account, address executor) internal view {
+        checkProposer(self, account);
+        ExecutorData memory executorData = self.executors[account];
+        if (executor != executorData.executor) {
+            revert NotAssignedExecutor(account, executor, executorData.executor);
+        }
+    }
+
+    function checkAdminProposer(State storage self, IConfiguration config, address account) internal view {
+        checkProposer(self, account);
+        if (!isAdminProposer(self, config, account)) {
+            revert NotAdminProposer(account);
+        }
     }
 }

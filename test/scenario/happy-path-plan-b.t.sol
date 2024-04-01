@@ -1,102 +1,79 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Test} from "forge-std/Test.sol";
-
-import {Utils, TargetMock} from "../utils/utils.sol";
-import {ExecutorCallHelpers, ExecutorCall} from "../utils/executor-calls.sol";
-import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER} from "../utils/mainnet-addresses.sol";
-
 import {
     EmergencyState,
     EmergencyProtection,
-    ScheduledCallsBatch,
-    ScheduledCallsBatches,
-    EmergencyProtectedTimelock
-} from "contracts/EmergencyProtectedTimelock.sol";
+    IDangerousContract,
+    ScenarioTestBlueprint,
+    ExecutorCall,
+    ExecutorCallHelpers,
+    DualGovernance
+} from "../utils/scenario-test-blueprint.sol";
 
-import {Proposals, Proposal} from "contracts/libraries/Proposals.sol";
+import {Proposals} from "contracts/libraries/Proposals.sol";
 
-import {DualGovernanceDeployScript, DualGovernance} from "script/Deploy.s.sol";
-
-interface IDangerousContract {
-    function doRegularStaff(uint256 magic) external;
-    function doRugPool() external;
-}
-
-contract PlanBSetup is Test {
-    uint256 private immutable _DELAY = 3 days;
-    uint256 private immutable _EMERGENCY_MODE_DURATION = 180 days;
-    uint256 private immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
-    address private immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
-
-    TargetMock private _target;
-    DualGovernance private _dualGovernance;
-    EmergencyProtectedTimelock private _timelock;
-    DualGovernanceDeployScript private _dualGovernanceDeployScript;
-
+contract PlanBSetup is ScenarioTestBlueprint {
     function setUp() external {
-        Utils.selectFork();
-        _target = new TargetMock();
-
-        _dualGovernanceDeployScript =
-            new DualGovernanceDeployScript(ST_ETH, WST_ETH, BURNER, DAO_VOTING, WITHDRAWAL_QUEUE);
-
-        (_timelock,) = _dualGovernanceDeployScript.deployEmergencyProtectedTimelock(
-            _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION
-        );
+        _selectFork();
+        _deployTarget();
+        _deploySingleGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
     }
 
     function testFork_PlanB_Scenario() external {
-        bytes memory regularStaffCalldata = abi.encodeCall(IDangerousContract.doRegularStaff, (42));
-        ExecutorCall[] memory regularStaffCalls = ExecutorCallHelpers.create(address(_target), regularStaffCalldata);
+        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         // ---
         // ACT 1. 📈 DAO OPERATES AS USUALLY
         // ---
         {
-            uint256 proposalId = 1;
-            _scheduleViaVoting(
-                proposalId,
-                "DAO does regular staff on potentially dangerous contract",
-                _timelock.ADMIN_EXECUTOR(),
-                regularStaffCalls
+            uint256 proposalId = _submitProposal(
+                _singleGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
             );
 
-            // wait until scheduled call becomes executable
-            _waitFor(proposalId);
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStaffCalls);
+            _assertCanSchedule(_singleGovernance, proposalId, false);
 
-            // call successfully executed
-            _execute(proposalId);
-            _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), regularStaffCalls);
+            _waitAfterSubmitDelayPassed();
+
+            _assertCanSchedule(_singleGovernance, proposalId, true);
+            _scheduleProposal(_singleGovernance, proposalId);
+            _assertProposalScheduled(proposalId);
+
+            _waitAfterScheduleDelayPassed();
+
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
+
+            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
 
         // ---
         // ACT 2. 😱 DAO IS UNDER ATTACK
         // ---
-        uint256 maliciousProposalId = 666;
+        uint256 maliciousProposalId;
         EmergencyState memory emergencyState;
         {
             // Malicious vote was proposed by the attacker with huge LDO wad (but still not the majority)
-            bytes memory maliciousStaffCalldata = abi.encodeCall(IDangerousContract.doRugPool, ());
-            ExecutorCall[] memory maliciousCalls = ExecutorCallHelpers.create(address(_target), maliciousStaffCalldata);
+            ExecutorCall[] memory maliciousCalls =
+                ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
 
-            _scheduleViaVoting(maliciousProposalId, "Rug Pool attempt", _timelock.ADMIN_EXECUTOR(), maliciousCalls);
+            maliciousProposalId = _submitProposal(_singleGovernance, "Rug Pool attempt", maliciousCalls);
 
             // the call isn't executable until the delay has passed
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
+            _assertProposalSubmitted(maliciousProposalId);
+            _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
 
             // some time required to assemble the emergency committee and activate emergency mode
-            vm.warp(block.timestamp + _DELAY / 2);
+            _wait(_config.AFTER_SUBMIT_DELAY() / 2);
 
-            // malicious call still not executable
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
-            vm.expectRevert(abi.encodeWithSelector(ScheduledCallsBatches.DelayNotExpired.selector, maliciousProposalId));
-            _timelock.execute(maliciousProposalId);
+            // malicious call still can't be scheduled
+            _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
 
             // emergency committee activates emergency mode
             vm.prank(_EMERGENCY_COMMITTEE);
-            _timelock.emergencyModeActivate();
+            _timelock.emergencyActivate();
 
             // emergency mode was successfully activated
             uint256 expectedEmergencyModeEndTimestamp = block.timestamp + _EMERGENCY_MODE_DURATION;
@@ -104,11 +81,20 @@ contract PlanBSetup is Test {
             assertTrue(emergencyState.isEmergencyModeActivated);
             assertEq(emergencyState.emergencyModeEndsAfter, expectedEmergencyModeEndTimestamp);
 
-            // now only emergency committee may execute scheduled calls
-            vm.warp(block.timestamp + _DELAY / 2 + 1);
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyCommittee.selector, address(this)));
-            _timelock.execute(maliciousProposalId);
+            // after the submit delay has passed, the call still may be scheduled, but executed
+            // only the emergency committee
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
+
+            _assertCanSchedule(_singleGovernance, maliciousProposalId, true);
+            _scheduleProposal(_singleGovernance, maliciousProposalId);
+
+            _waitAfterScheduleDelayPassed();
+
+            // but the call still not executable
+            _assertCanExecute(maliciousProposalId, false);
+
+            vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
+            _executeProposal(maliciousProposalId);
         }
 
         // ---
@@ -117,21 +103,21 @@ contract PlanBSetup is Test {
         {
             // Lido contributors work hard to implement and ship the Dual Governance mechanism
             // before the emergency mode is over
-            vm.warp(block.timestamp + _EMERGENCY_MODE_DURATION / 2);
+            vm.warp(block.timestamp + _EMERGENCY_PROTECTION_DURATION / 2);
 
             // Time passes but malicious proposal still on hold
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
+            _assertCanExecute(maliciousProposalId, false);
 
             // Dual Governance is deployed into mainnet
-            _dualGovernance = _dualGovernanceDeployScript.deployDualGovernance(address(_timelock), DAO_VOTING);
+            _deployDualGovernance();
 
             ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
                 address(_timelock),
                 [
                     // Only Dual Governance contract can call the Timelock contract
-                    abi.encodeCall(_timelock.setGovernanceAndDelay, (address(_dualGovernance), _DELAY)),
+                    abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance))),
                     // Now the emergency mode may be deactivated (all scheduled calls will be canceled)
-                    abi.encodeCall(_timelock.emergencyModeDeactivate, ()),
+                    abi.encodeCall(_timelock.emergencyDeactivate, ()),
                     // Setup emergency committee for some period of time until the Dual Governance is battle tested
                     abi.encodeCall(
                         _timelock.setEmergencyProtection, (_EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, 30 days)
@@ -140,122 +126,70 @@ contract PlanBSetup is Test {
             );
 
             // The vote to launch Dual Governance is launched and reached the quorum (the major part of LDO holder still have power)
-            uint256 dualGovernanceLunchProposalId = 777;
-            _scheduleViaVoting(
-                dualGovernanceLunchProposalId,
-                "Launch the Dual Governance",
-                _timelock.ADMIN_EXECUTOR(),
-                dualGovernanceLaunchCalls
-            );
+            uint256 dualGovernanceLunchProposalId =
+                _submitProposal(_singleGovernance, "Launch the Dual Governance", dualGovernanceLaunchCalls);
 
-            // Anticipated vote will be executed soon...
-            _waitFor(dualGovernanceLunchProposalId);
+            // wait until the after submit delay has passed
+            _waitAfterSubmitDelayPassed();
 
-            // The malicious vote still on hold
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
+            _assertCanSchedule(_singleGovernance, dualGovernanceLunchProposalId, true);
+            _scheduleProposal(_singleGovernance, dualGovernanceLunchProposalId);
+            _assertProposalScheduled(dualGovernanceLunchProposalId);
 
-            // Emergency Committee executes vote and enables Dual Governance
-            _execute(dualGovernanceLunchProposalId, _EMERGENCY_COMMITTEE);
+            _waitAfterScheduleDelayPassed();
 
-            // the deployed configuration is correct
+            // now emergency committee may execute the proposal
+            vm.prank(_EMERGENCY_COMMITTEE);
+            _timelock.emergencyExecute(dualGovernanceLunchProposalId);
+
             assertEq(_timelock.getGovernance(), address(_dualGovernance));
-            // and the malicious call was marked as cancelled
-            assertTrue(_timelock.getIsCanceled(maliciousProposalId));
-            // and can NEVER be executed
-            assertFalse(_timelock.getIsExecutable(maliciousProposalId));
+            // TODO: check emergency protection also was applied
 
-            // anyone can remove malicious calls batch now
-            _timelock.removeCanceledCallsBatch(maliciousProposalId);
-            assertEq(_timelock.getScheduledCallBatchesCount(), 0);
+            // malicious proposal now cancelled
+            _assertProposalCanceled(maliciousProposalId);
         }
 
         // ---
-        // ACT 4. 🫡 EMERGENCY COMMITTEE DISBANDED
+        // ACT 4. 🫡 EMERGENCY COMMITTEE LIFETIME IS ENDED
         // ---
         {
-            // Time passes and there were no vulnerabilities reported. Emergency Committee may be dissolved now
-            // Thank you for your service, sirs!
+            vm.warp(block.timestamp + _EMERGENCY_PROTECTION_DURATION + 1);
+            assertFalse(_timelock.isEmergencyProtectionEnabled());
 
-            ExecutorCall[] memory disbandEmergencyCommitteeCalls = ExecutorCallHelpers.create(
-                address(_timelock),
-                [
-                    // disable emergency protection
-                    abi.encodeCall(_timelock.setEmergencyProtection, (address(0), 0, 0)),
-                    // turn off the scheduling and allow calls relaying
-                    abi.encodeCall(_timelock.setDelay, (0))
-                ]
+            uint256 proposalId = _submitProposal(
+                _dualGovernance, "DAO continues regular staff on potentially dangerous contract", regularStaffCalls
             );
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
-            uint256 disbandEmergencyCommitteeProposalId =
-                _propose("Disband Emergency Committee & turn off the calls delaying", disbandEmergencyCommitteeCalls);
+            _waitAfterSubmitDelayPassed();
 
-            // until the DG timelock has passed the proposal can't be scheduled
-            vm.expectRevert(
-                abi.encodeWithSelector(Proposals.ProposalNotExecutable.selector, disbandEmergencyCommitteeProposalId)
-            );
-            _dualGovernance.schedule(disbandEmergencyCommitteeProposalId);
+            _assertCanSchedule(_dualGovernance, proposalId, true);
+            _scheduleProposal(_dualGovernance, proposalId);
 
-            // wait until the proposal is executable
-            vm.warp(block.timestamp + _dualGovernance.CONFIG().minProposalExecutionTimelock() + 1);
+            _waitAfterScheduleDelayPassed();
 
-            // schedule the proposal
-            _scheduleViaDualGovernance(
-                disbandEmergencyCommitteeProposalId, _timelock.ADMIN_EXECUTOR(), disbandEmergencyCommitteeCalls
-            );
+            // but the call still not executable
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
 
-            // wait until the calls batch is executable
-            _waitFor(disbandEmergencyCommitteeProposalId);
-
-            // execute the proposal
-            _execute(disbandEmergencyCommitteeProposalId);
-
-            // validate the proposal was applied correctly:
-
-            //   - emergency protection disabled
-            emergencyState = _timelock.getEmergencyState();
-            assertEq(emergencyState.committee, address(0));
-            assertFalse(emergencyState.isEmergencyModeActivated);
-            assertEq(emergencyState.emergencyModeDuration, 0);
-            assertEq(emergencyState.emergencyModeEndsAfter, 0);
-
-            //  - delay was set to 0
-            assertEq(_timelock.getDelay(), 0);
+            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
 
         // ---
-        // ACT 5. 📆 DAO CONTINUES THEIR REGULAR DUTIES (PROTECTED BY DUAL GOVERNANCE)
-        // ---
-        {
-            uint256 regularStaffProposalId = _propose("Make regular staff with help of DG", regularStaffCalls);
-
-            // wait until the proposal is executable
-            vm.warp(block.timestamp + _dualGovernance.CONFIG().minProposalExecutionTimelock() + 1);
-
-            // scheduling is disabled after delay set to 0, so schedule call expectedly fails
-            vm.expectRevert(ScheduledCallsBatches.SchedulingDisabled.selector);
-            _dualGovernance.schedule(regularStaffProposalId);
-
-            // Use relay method to execute the proposal
-            _relayViaDualGovernance(regularStaffProposalId);
-
-            // validate the proposal was executed correctly
-            _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), regularStaffCalls);
-        }
-
-        // ---
-        // ACT 6. 🔜 NEW DUAL GOVERNANCE VERSION IS COMING
+        // ACT 5. 🔜 NEW DUAL GOVERNANCE VERSION IS COMING
         // ---
         {
             // some time later, the major Dual Governance update release is ready to be launched
             vm.warp(block.timestamp + 365 days);
             DualGovernance dualGovernanceV2 =
-                _dualGovernanceDeployScript.deployDualGovernance(address(_timelock), DAO_VOTING);
+                new DualGovernance(address(_config), address(_timelock), address(_escrowMasterCopy), _ADMIN_PROPOSER);
 
             ExecutorCall[] memory dualGovernanceUpdateCalls = ExecutorCallHelpers.create(
                 address(_timelock),
                 [
-                    // Update the governance in the Timelock
-                    abi.encodeCall(_timelock.setGovernanceAndDelay, (address(dualGovernanceV2), _DELAY)),
+                    // Update the controller for timelock
+                    abi.encodeCall(_timelock.setGovernance, address(dualGovernanceV2)),
                     // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
                     abi.encodeCall(
                         _timelock.setEmergencyProtection, (_EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, 30 days)
@@ -263,28 +197,31 @@ contract PlanBSetup is Test {
                 ]
             );
 
-            uint256 updateDualGovernanceProposalId = _propose("Update Dual Governance to V2", dualGovernanceUpdateCalls);
+            uint256 updateDualGovernanceProposalId =
+                _submitProposal(_dualGovernance, "Update Dual Governance to V2", dualGovernanceUpdateCalls);
 
-            // wait until the proposal is executable
-            vm.warp(block.timestamp + _dualGovernance.CONFIG().minProposalExecutionTimelock() + 1);
+            _waitAfterSubmitDelayPassed();
 
-            // relay the proposal
-            _relayViaDualGovernance(updateDualGovernanceProposalId);
+            _assertCanSchedule(_dualGovernance, updateDualGovernanceProposalId, true);
+            _scheduleProposal(_dualGovernance, updateDualGovernanceProposalId);
 
-            // validate the proposal was applied correctly:
+            _waitAfterScheduleDelayPassed();
+
+            // but the call still not executable
+            _assertCanExecute(updateDualGovernanceProposalId, true);
+            _executeProposal(updateDualGovernanceProposalId);
 
             // new version of dual governance attached to timelock
             assertEq(_timelock.getGovernance(), address(dualGovernanceV2));
 
-            //   - emergency protection disabled
+            // - emergency protection enabled
+            assertTrue(_timelock.isEmergencyProtectionEnabled());
+
             emergencyState = _timelock.getEmergencyState();
             assertEq(emergencyState.committee, _EMERGENCY_COMMITTEE);
             assertFalse(emergencyState.isEmergencyModeActivated);
             assertEq(emergencyState.emergencyModeDuration, 30 days);
             assertEq(emergencyState.emergencyModeEndsAfter, 0);
-
-            //  - delay was set correctly
-            assertEq(_timelock.getDelay(), _DELAY);
 
             // use the new version of the dual governance in the future calls
             _dualGovernance = dualGovernanceV2;
@@ -294,45 +231,51 @@ contract PlanBSetup is Test {
         // ACT 7. 📆 DAO CONTINUES THEIR REGULAR DUTIES (PROTECTED BY DUAL GOVERNANCE V2)
         // ---
         {
-            uint256 regularStaffProposalId = _propose("Make regular staff with help of DG V2", regularStaffCalls);
+            uint256 proposalId = _submitProposal(
+                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            );
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
-            // wait until the proposal is executable
-            vm.warp(block.timestamp + _dualGovernance.CONFIG().minProposalExecutionTimelock() + 1);
+            _waitAfterSubmitDelayPassed();
 
-            // the timelock emergency protection is enabled, so schedule calls instead of relaying
-            _scheduleViaDualGovernance(regularStaffProposalId, _timelock.ADMIN_EXECUTOR(), regularStaffCalls);
+            _assertCanSchedule(_dualGovernance, proposalId, true);
+            _scheduleProposal(_dualGovernance, proposalId);
+            _assertProposalScheduled(proposalId);
 
-            // wait until the proposal is executable
-            _waitFor(regularStaffProposalId);
+            // wait while the after schedule delay has passed
+            _waitAfterScheduleDelayPassed();
 
-            // execute scheduled calls
-            _execute(regularStaffProposalId);
+            // execute the proposal
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
+            _assertProposalExecuted(proposalId);
 
-            // validate the proposal was executed correctly
-            _assertTargetMockCalls(_timelock.ADMIN_EXECUTOR(), regularStaffCalls);
+            // call successfully executed
+            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
     }
 
-    function testFork_ScheduledCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
-        uint256 maliciousProposalId = 666;
+    function testFork_SubmittedCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
         ExecutorCall[] memory maliciousCalls =
             ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
-        // schedule some malicious call
-        {
-            _scheduleViaVoting(maliciousProposalId, "Rug Pool attempt", _timelock.ADMIN_EXECUTOR(), maliciousCalls);
 
-            // call can't be executed before the delay is passed
-            vm.expectRevert(abi.encodeWithSelector(ScheduledCallsBatches.DelayNotExpired.selector, maliciousProposalId));
-            _timelock.execute(maliciousProposalId);
+        // schedule some malicious call
+        uint256 maliciousProposalId;
+        {
+            maliciousProposalId = _submitProposal(_singleGovernance, "Rug Pool attempt", maliciousCalls);
+
+            // malicious calls can't be executed until the delays have passed
+            _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
         }
 
         // activate emergency mode
         EmergencyState memory emergencyState;
         {
-            vm.warp(block.timestamp + _DELAY / 2);
+            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
             vm.prank(_EMERGENCY_COMMITTEE);
-            _timelock.emergencyModeActivate();
+            _timelock.emergencyActivate();
 
             emergencyState = _timelock.getEmergencyState();
             assertTrue(emergencyState.isEmergencyModeActivated);
@@ -340,30 +283,41 @@ contract PlanBSetup is Test {
 
         // delay for malicious proposal has passed, but it can't be executed because of emergency mode was activated
         {
-            vm.warp(block.timestamp + _DELAY / 2 + 1);
-            ScheduledCallsBatch memory batch = _timelock.getScheduledCallsBatch(maliciousProposalId);
-            assertTrue(block.timestamp > batch.executableAfter);
+            // the after submit delay has passed, and proposal can be scheduled, but not executed
+            _wait(_config.AFTER_SUBMIT_DELAY() + 1);
+            _assertCanSchedule(_singleGovernance, maliciousProposalId, true);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyCommittee.selector, address(this)));
-            _timelock.execute(maliciousProposalId);
+            _scheduleProposal(_singleGovernance, maliciousProposalId);
+
+            _wait(_config.AFTER_SCHEDULE_DELAY() + 1);
+            _assertCanExecute(maliciousProposalId, false);
+
+            vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
+            _executeProposal(maliciousProposalId);
         }
 
         // another malicious call is scheduled during the emergency mode also can't be executed
-        uint256 maliciousProposalId2 = 667;
+        uint256 anotherMaliciousProposalId;
         {
             vm.warp(block.timestamp + _EMERGENCY_MODE_DURATION / 2);
+
             // emergency mode still active
             assertTrue(emergencyState.emergencyModeEndsAfter > block.timestamp);
 
-            _scheduleViaVoting(maliciousProposalId2, "Rug Pool attempt 2", _timelock.ADMIN_EXECUTOR(), maliciousCalls);
+            anotherMaliciousProposalId = _submitProposal(_singleGovernance, "Another Rug Pool attempt", maliciousCalls);
 
-            vm.warp(block.timestamp + _DELAY + 1);
-            ScheduledCallsBatch memory batch = _timelock.getScheduledCallsBatch(maliciousProposalId2);
-            assertTrue(block.timestamp > batch.executableAfter);
+            // malicious calls can't be executed until the delays have passed
+            _assertCanExecute(anotherMaliciousProposalId, false);
 
-            // new malicious proposal also can't be executed
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyCommittee.selector, address(this)));
-            _timelock.execute(maliciousProposalId2);
+            // the after submit delay has passed, and proposal can not be executed
+            _wait(_config.AFTER_SUBMIT_DELAY() + 1);
+            _assertCanSchedule(_singleGovernance, anotherMaliciousProposalId, true);
+
+            _wait(_config.AFTER_SCHEDULE_DELAY() + 1);
+            _assertCanExecute(anotherMaliciousProposalId, false);
+
+            vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
+            _executeProposal(anotherMaliciousProposalId);
         }
 
         // emergency mode is over but proposals can't be executed until the emergency mode turned off manually
@@ -371,82 +325,62 @@ contract PlanBSetup is Test {
             vm.warp(block.timestamp + _EMERGENCY_MODE_DURATION / 2);
             assertTrue(emergencyState.emergencyModeEndsAfter < block.timestamp);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyCommittee.selector, address(this)));
-            _timelock.execute(maliciousProposalId);
+            vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
+            _executeProposal(maliciousProposalId);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyCommittee.selector, address(this)));
-            _timelock.execute(maliciousProposalId2);
+            vm.expectRevert(EmergencyProtection.EmergencyModeActive.selector);
+            _executeProposal(anotherMaliciousProposalId);
         }
 
         // anyone can deactivate emergency mode when it's over
         {
-            _timelock.emergencyModeDeactivate();
+            _timelock.emergencyDeactivate();
 
             emergencyState = _timelock.getEmergencyState();
             assertFalse(emergencyState.isEmergencyModeActivated);
+            assertFalse(_timelock.isEmergencyProtectionEnabled());
         }
 
         // all malicious calls is canceled now and can't be executed
         {
-            assertTrue(_timelock.getIsCanceled(maliciousProposalId));
-            vm.expectRevert(
-                abi.encodeWithSelector(ScheduledCallsBatches.CallsBatchCanceled.selector, (maliciousProposalId))
-            );
-            _timelock.execute(maliciousProposalId);
+            _assertProposalCanceled(maliciousProposalId);
+            _assertProposalCanceled(anotherMaliciousProposalId);
 
-            assertTrue(_timelock.getIsCanceled(maliciousProposalId));
-            vm.expectRevert(
-                abi.encodeWithSelector(ScheduledCallsBatches.CallsBatchCanceled.selector, (maliciousProposalId2))
-            );
-            _timelock.execute(maliciousProposalId2);
-        }
+            vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotScheduled.selector, maliciousProposalId));
+            _executeProposal(maliciousProposalId);
 
-        // but they can be removed now
-        {
-            _timelock.removeCanceledCallsBatch(maliciousProposalId);
-            _timelock.removeCanceledCallsBatch(maliciousProposalId2);
-
-            assertEq(_timelock.getScheduledCallBatchesCount(), 0);
-
-            vm.expectRevert(
-                abi.encodeWithSelector(ScheduledCallsBatches.BatchNotScheduled.selector, (maliciousProposalId))
-            );
-            _timelock.execute(maliciousProposalId);
-
-            vm.expectRevert(
-                abi.encodeWithSelector(ScheduledCallsBatches.BatchNotScheduled.selector, (maliciousProposalId2))
-            );
-            _timelock.execute(maliciousProposalId2);
+            vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotScheduled.selector, anotherMaliciousProposalId));
+            _executeProposal(anotherMaliciousProposalId);
         }
     }
 
     function testFork_EmergencyResetGovernance() external {
         // deploy dual governance full setup
         {
-            (_dualGovernance, _timelock,) = _dualGovernanceDeployScript.deploy(
-                DAO_VOTING, _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION
-            );
+            _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+            assertNotEq(_timelock.getGovernance(), _config.EMERGENCY_GOVERNANCE());
         }
 
         // emergency committee activates emergency mode
         EmergencyState memory emergencyState;
         {
             vm.prank(_EMERGENCY_COMMITTEE);
-            _timelock.emergencyModeActivate();
+            _timelock.emergencyActivate();
 
             emergencyState = _timelock.getEmergencyState();
             assertTrue(emergencyState.isEmergencyModeActivated);
         }
 
-        // before the end of the emergency mode emergency committee can reset governance to DAO
+        // before the end of the emergency mode emergency committee can reset the controller to
+        // disable dual governance
         {
             vm.warp(block.timestamp + _EMERGENCY_MODE_DURATION / 2);
             assertTrue(emergencyState.emergencyModeEndsAfter > block.timestamp);
 
             vm.prank(_EMERGENCY_COMMITTEE);
-            _timelock.emergencyResetGovernance();
+            _timelock.emergencyReset();
 
-            assertEq(_timelock.getGovernance(), DAO_VOTING);
+            assertEq(_timelock.getGovernance(), _config.EMERGENCY_GOVERNANCE());
 
             emergencyState = _timelock.getEmergencyState();
             assertEq(emergencyState.committee, address(0));
@@ -459,9 +393,8 @@ contract PlanBSetup is Test {
     function testFork_ExpiredEmergencyCommitteeHasNoPower() external {
         // deploy dual governance full setup
         {
-            (_dualGovernance, _timelock,) = _dualGovernanceDeployScript.deploy(
-                DAO_VOTING, _DELAY, _EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION
-            );
+            _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+            assertNotEq(_timelock.getGovernance(), _config.EMERGENCY_GOVERNANCE());
         }
 
         // wait till the protection duration passes
@@ -473,142 +406,7 @@ contract PlanBSetup is Test {
         {
             vm.expectRevert(EmergencyProtection.EmergencyCommitteeExpired.selector);
             vm.prank(_EMERGENCY_COMMITTEE);
-            _timelock.emergencyModeActivate();
+            _timelock.emergencyActivate();
         }
-    }
-
-    function _execute(uint256 proposalId) internal {
-        _execute(proposalId, address(this));
-    }
-
-    function _execute(uint256 proposalId, address sender) internal {
-        uint256 scheduledCallBatchesCountBefore = _timelock.getScheduledCallBatchesCount();
-        if (sender != address(this)) {
-            vm.prank(sender);
-        }
-        _timelock.execute(proposalId);
-
-        assertEq(_timelock.getScheduledCallBatchesCount(), scheduledCallBatchesCountBefore - 1);
-    }
-
-    function _assertTargetMockCalls(address executor, ExecutorCall[] memory calls) internal {
-        TargetMock.Call[] memory called = _target.getCalls();
-        assertEq(called.length, calls.length);
-
-        for (uint256 i = 0; i < calls.length; ++i) {
-            assertEq(called[i].sender, executor);
-            assertEq(called[i].value, calls[i].value);
-            assertEq(called[i].data, calls[i].payload);
-            assertEq(called[i].blockNumber, block.number);
-        }
-        _target.reset();
-    }
-
-    function _propose(string memory description, ExecutorCall[] memory calls) internal returns (uint256 proposalId) {
-        bytes memory script =
-            Utils.encodeEvmCallScript(address(_dualGovernance), abi.encodeCall(_dualGovernance.propose, (calls)));
-
-        uint256 proposalsCountBefore = _dualGovernance.getProposalsCount();
-
-        uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
-        Utils.executeVote(DAO_VOTING, voteId);
-
-        uint256 proposalsCountAfter = _dualGovernance.getProposalsCount();
-        // proposal was created
-        assertEq(proposalsCountAfter, proposalsCountBefore + 1);
-        proposalId = proposalsCountAfter;
-
-        // and with correct data
-        Proposal memory proposal = _dualGovernance.getProposal(proposalId);
-        assertEq(proposal.id, proposalId);
-        assertEq(proposal.proposer, DAO_VOTING);
-        assertEq(proposal.executor, _timelock.ADMIN_EXECUTOR());
-        assertEq(proposal.proposedAt, block.timestamp);
-        assertEq(proposal.adoptedAt, 0);
-
-        assertEq(proposal.calls.length, calls.length);
-        for (uint256 i = 0; i < calls.length; ++i) {
-            assertEq(proposal.calls[i].value, calls[i].value);
-            assertEq(proposal.calls[i].target, calls[i].target);
-            assertEq(proposal.calls[i].payload, calls[i].payload);
-        }
-    }
-
-    function _relayViaDualGovernance(uint256 proposalId) internal {
-        _dualGovernance.relay(proposalId);
-        Proposal memory proposal = _dualGovernance.getProposal(proposalId);
-        assertEq(proposal.adoptedAt, block.timestamp);
-    }
-
-    function _scheduleViaDualGovernance(uint256 proposalId, address executor, ExecutorCall[] memory calls) internal {
-        uint256 scheduledCallsCountBefore = _timelock.getScheduledCallBatchesCount();
-
-        _dualGovernance.schedule(proposalId);
-        Proposal memory proposal = _dualGovernance.getProposal(proposalId);
-        assertEq(proposal.adoptedAt, block.timestamp);
-
-        // new call is scheduled but has not executable yet
-        assertEq(_timelock.getScheduledCallBatchesCount(), scheduledCallsCountBefore + 1);
-
-        // validate the correct batch was created
-        _assertScheduledCallsBatch(proposalId, executor, calls);
-    }
-
-    function _scheduleViaVoting(
-        uint256 proposalId,
-        string memory description,
-        address executor,
-        ExecutorCall[] memory calls
-    ) internal {
-        uint256 scheduledCallsCountBefore = _timelock.getScheduledCallBatchesCount();
-
-        bytes memory script = Utils.encodeEvmCallScript(
-            address(_timelock), abi.encodeCall(_timelock.schedule, (proposalId, executor, calls))
-        );
-        uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
-
-        // The scheduled calls count is the same until the vote is enacted
-        assertEq(_timelock.getScheduledCallBatchesCount(), scheduledCallsCountBefore);
-
-        // executing the vote
-        Utils.executeVote(DAO_VOTING, voteId);
-
-        // new call is scheduled but has not executable yet
-        assertEq(_timelock.getScheduledCallBatchesCount(), scheduledCallsCountBefore + 1);
-
-        // validate the correct batch was created
-        _assertScheduledCallsBatch(proposalId, executor, calls);
-    }
-
-    function _assertScheduledCallsBatch(uint256 proposalId, address executor, ExecutorCall[] memory calls) internal {
-        ScheduledCallsBatch memory batch = _timelock.getScheduledCallsBatch(proposalId);
-        assertEq(batch.id, proposalId, "unexpected batch id");
-        assertFalse(batch.isCanceled, "batch is canceled");
-        assertEq(batch.executor, executor, "unexpected executor");
-        assertEq(batch.scheduledAt, block.timestamp, "unexpected scheduledAt");
-        assertEq(batch.executableAfter, block.timestamp + _DELAY, "unexpected executableAfter");
-        assertEq(batch.calls.length, calls.length, "unexpected calls length");
-
-        for (uint256 i = 0; i < batch.calls.length; ++i) {
-            ExecutorCall memory expected = calls[i];
-            ExecutorCall memory actual = batch.calls[i];
-
-            assertEq(actual.value, expected.value);
-            assertEq(actual.target, expected.target);
-            assertEq(actual.payload, expected.payload);
-        }
-    }
-
-    function _waitFor(uint256 proposalId) internal {
-        // the call is not executable until the delay has passed
-        assertFalse(
-            _timelock.getScheduledCallsBatch(proposalId).executableAfter <= block.timestamp, "proposal is executable"
-        );
-
-        // wait until scheduled call becomes executable
-        vm.warp(block.timestamp + _DELAY + 1);
-        assertFalse(
-            _timelock.getScheduledCallsBatch(proposalId).executableAfter > block.timestamp, "proposal is executable"
-        );
     }
 }

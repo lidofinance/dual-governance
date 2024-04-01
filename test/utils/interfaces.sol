@@ -48,6 +48,18 @@ interface IStEth {
     function removeStakingLimit() external;
     function getSharesByPooledEth(uint256 ethAmount) external view returns (uint256);
     function getPooledEthByShares(uint256 sharesAmount) external view returns (uint256);
+    function getStakeLimitFullInfo()
+        external
+        view
+        returns (
+            bool isStakingPaused,
+            bool isStakingLimitSet,
+            uint256 currentStakeLimit,
+            uint256 maxStakeLimit,
+            uint256 maxStakeLimitGrowthBlocks,
+            uint256 prevStakeLimit,
+            uint256 prevStakeBlockNumber
+        );
 }
 
 interface IWstETH {
