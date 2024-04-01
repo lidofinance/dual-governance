@@ -35,13 +35,10 @@ contract TiebreakerScenarioTest is Test {
         }
 
         _efTiebraker = new Tiebreaker();
-
-        _norTiebreaker = new TiebreakerNOR();
-
         _efTiebraker.initialize(address(this), _efTiebrakerMembers, _efQuorum);
         _coreTiebrakerMembers.push(address(_efTiebraker));
 
-        _norTiebreaker.initialize(NODE_OPERATORS_REGISTRY);
+        _norTiebreaker = new TiebreakerNOR(NODE_OPERATORS_REGISTRY);
         _coreTiebrakerMembers.push(address(_norTiebreaker));
 
         _coreTiebreaker.initialize(address(this), _coreTiebrakerMembers, 2);
@@ -67,7 +64,7 @@ contract TiebreakerScenarioTest is Test {
         assert(_efTiebraker.hasQuorum(execApproveHash) == true);
 
         _efTiebraker.execTransaction(
-            address(_coreTiebreaker), abi.encodeWithSignature("approveHash(bytes32)", execProposalHash)
+            address(_coreTiebreaker), abi.encodeWithSignature("approveHash(bytes32)", execProposalHash), 0
         );
 
         assert(_coreTiebreaker.hasQuorum(execProposalHash) == false);
@@ -98,19 +95,19 @@ contract TiebreakerScenarioTest is Test {
         assert(_norTiebreaker.hasQuorum(execApproveHash) == true);
 
         _norTiebreaker.execTransaction(
-            address(_coreTiebreaker), abi.encodeWithSignature("approveHash(bytes32)", execProposalHash)
+            address(_coreTiebreaker), abi.encodeWithSignature("approveHash(bytes32)", execProposalHash), 0
         );
         assert(_coreTiebreaker.hasQuorum(execProposalHash) == true);
 
         _coreTiebreaker.execTransaction(
-            address(_emergencyExecutor), abi.encodeWithSignature("tiebreaExecute(uint256)", proposalIdToExecute)
+            address(_emergencyExecutor), abi.encodeWithSignature("tiebreaExecute(uint256)", proposalIdToExecute), 0
         );
 
         assert(_emergencyExecutor.proposals(proposalIdToExecute) == true);
     }
 
     function _prepareApproveHashHash(address _to, bytes32 _hash, uint256 _nonce) public view returns (bytes32) {
-        return _efTiebraker.getTransactionHash(_to, abi.encodeWithSignature("approveHash(bytes32)", _hash), _nonce);
+        return _efTiebraker.getTransactionHash(_to, abi.encodeWithSignature("approveHash(bytes32)", _hash), 0, _nonce);
     }
 
     function _prepareExecuteProposalHash(
@@ -119,7 +116,7 @@ contract TiebreakerScenarioTest is Test {
         uint256 _nonce
     ) public view returns (bytes32) {
         return _coreTiebreaker.getTransactionHash(
-            _to, abi.encodeWithSignature("tiebreaExecute(uint256)", _proposalId), _nonce
+            _to, abi.encodeWithSignature("tiebreaExecute(uint256)", _proposalId), 0, _nonce
         );
     }
 }
