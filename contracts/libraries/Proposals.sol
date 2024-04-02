@@ -3,7 +3,7 @@ pragma solidity 0.8.23;
 
 import {IExecutor, ExecutorCall} from "../interfaces/IExecutor.sol";
 
-import {timestamp} from "../utils/time.sol";
+import {TimeUtils} from "../utils/time.sol";
 
 enum Status {
     NotExist,
@@ -70,7 +70,7 @@ library Proposals {
         newProposal.executor = executor;
 
         newProposal.executedAt = 0;
-        newProposal.submittedAt = timestamp();
+        newProposal.submittedAt = TimeUtils.timestamp();
 
         // copying of arrays of custom types from calldata to storage has not been supported by the
         // Solidity compiler yet, so insert item by item
@@ -85,7 +85,7 @@ library Proposals {
     function schedule(State storage self, uint256 proposalId, uint256 afterSubmitDelay) internal {
         _checkProposalSubmitted(self, proposalId);
         _checkAfterSubmitDelayPassed(self, proposalId, afterSubmitDelay);
-        _packed(self, proposalId).scheduledAt = timestamp();
+        _packed(self, proposalId).scheduledAt = TimeUtils.timestamp();
         emit ProposalScheduled(proposalId);
     }
 
@@ -137,7 +137,7 @@ library Proposals {
 
     function _executeProposal(State storage self, uint256 proposalId) private returns (bytes[] memory results) {
         ProposalPacked storage packed = _packed(self, proposalId);
-        packed.executedAt = timestamp();
+        packed.executedAt = TimeUtils.timestamp();
 
         ExecutorCall[] memory calls = packed.calls;
         uint256 callsCount = calls.length;

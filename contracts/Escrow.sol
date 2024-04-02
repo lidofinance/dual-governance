@@ -5,6 +5,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
+import {IConfiguration} from "./interfaces/IConfiguration.sol";
 
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
@@ -48,6 +49,8 @@ contract Escrow is IEscrow {
     IWstETH public immutable WST_ETH;
     IWithdrawalQueue public immutable WITHDRAWAL_QUEUE;
 
+    IConfiguration public immutable CONFIG;
+
     EscrowState internal _escrowState;
     IDualGovernance private _dualGovernance;
     AssetsAccounting.State private _accounting;
@@ -58,11 +61,12 @@ contract Escrow is IEscrow {
     uint256 internal _rageQuitWithdrawalsTimelock;
     uint256 internal _rageQuitTimelockStartedAt;
 
-    constructor(address stETH, address wstETH, address withdrawalQueue) {
+    constructor(address stETH, address wstETH, address withdrawalQueue, address config) {
         ST_ETH = IStETH(stETH);
         WST_ETH = IWstETH(wstETH);
         WITHDRAWAL_QUEUE = IWithdrawalQueue(withdrawalQueue);
         MASTER_COPY = address(this);
+        CONFIG = IConfiguration(config);
     }
 
     function initialize(address dualGovernance) external {
@@ -87,7 +91,7 @@ contract Escrow is IEscrow {
     }
 
     function unlockStETH() external {
-        uint256 sharesUnlocked = _accounting.accountStETHUnlock(msg.sender);
+        uint256 sharesUnlocked = _accounting.accountStETHUnlock(CONFIG.ESCROW_ASSETS_UNLOCK_DELAY(), msg.sender);
         ST_ETH.transferShares(msg.sender, sharesUnlocked);
         _activateNextGovernanceState();
     }
@@ -103,7 +107,7 @@ contract Escrow is IEscrow {
     }
 
     function unlockWstETH() external returns (uint256 wstETHUnlocked) {
-        wstETHUnlocked = _accounting.accountWstETHUnlock(msg.sender);
+        wstETHUnlocked = _accounting.accountWstETHUnlock(CONFIG.ESCROW_ASSETS_UNLOCK_DELAY(), msg.sender);
         WST_ETH.transfer(msg.sender, wstETHUnlocked);
         _activateNextGovernanceState();
     }
@@ -122,7 +126,7 @@ contract Escrow is IEscrow {
     }
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
-        _accounting.accountUnstETHUnlock(msg.sender, unstETHIds);
+        _accounting.accountUnstETHUnlock(CONFIG.ESCROW_ASSETS_UNLOCK_DELAY(), msg.sender, unstETHIds);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             WITHDRAWAL_QUEUE.transferFrom(address(this), msg.sender, unstETHIds[i]);

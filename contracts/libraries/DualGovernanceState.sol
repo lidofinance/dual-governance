@@ -6,7 +6,7 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IEscrow} from "../interfaces/IEscrow.sol";
 import {IDualGovernanceConfiguration as IConfiguration} from "../interfaces/IConfiguration.sol";
 
-import {timestamp} from "../utils/time.sol";
+import {TimeUtils} from "../utils/time.sol";
 
 interface IPausableUntil {
     function isPaused() external view returns (bool);
@@ -73,7 +73,7 @@ library DualGovernanceState {
     }
 
     function setLastProposalCreationTimestamp(Store storage self) internal {
-        self.lastProposalCreatedAt = timestamp();
+        self.lastProposalCreatedAt = TimeUtils.timestamp();
     }
 
     function checkProposalsCreationAllowed(Store storage self) internal view {
@@ -228,7 +228,7 @@ library DualGovernanceState {
 
         self.state = newState;
 
-        uint40 currentTime = timestamp();
+        uint40 currentTime = TimeUtils.timestamp();
         self.enteredAt = currentTime;
     }
 
@@ -238,7 +238,7 @@ library DualGovernanceState {
         State oldState,
         State newState
     ) private {
-        uint40 currentTime = timestamp();
+        uint40 currentTime = TimeUtils.timestamp();
         // track the time when the governance state allowed execution
         if (oldState == State.Normal || oldState == State.VetoCooldown) {
             self.lastAdoptableStateExitedAt = currentTime;

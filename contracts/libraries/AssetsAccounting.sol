@@ -5,6 +5,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
 
+import {TimeUtils} from "../utils/time.sol";
 import {ArrayUtils} from "../utils/arrays.sol";
 
 enum WithdrawalRequestState {
@@ -81,6 +82,7 @@ library AssetsAccounting {
     error InvalidWithdrawlRequestState(uint256 id, WithdrawalRequestState actual, WithdrawalRequestState expected);
     error InvalidWithdrawalBatchesOffset(uint256 actual, uint256 expected);
     error InvalidWithdrawalBatchesCount(uint256 actual, uint256 expected);
+    error AssetsUnlockDelayNotPassed(uint256 unlockTimelockExpiresAt);
 
     struct State {
         LockedAssetsTotals totals;
@@ -100,13 +102,19 @@ library AssetsAccounting {
         _checkNonZeroSharesLock(vetoer, shares);
         uint128 sharesUint128 = shares.toUint128();
         self.assets[vetoer].stETHShares += sharesUint128;
+        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
         self.totals.shares += sharesUint128;
         emit StETHLocked(vetoer, shares);
     }
 
-    function accountStETHUnlock(State storage self, address vetoer) internal returns (uint128 sharesUnlocked) {
+    function accountStETHUnlock(
+        State storage self,
+        uint256 assetsUnlockDelay,
+        address vetoer
+    ) internal returns (uint128 sharesUnlocked) {
         sharesUnlocked = self.assets[vetoer].stETHShares;
         _checkNonZeroSharesUnlock(vetoer, sharesUnlocked);
+        _checkAssetsUnlockDelayPassed(self, assetsUnlockDelay, vetoer);
         self.assets[vetoer].stETHShares = 0;
         self.totals.shares -= sharesUnlocked;
         emit StETHUnlocked(vetoer, sharesUnlocked);
@@ -128,13 +136,19 @@ library AssetsAccounting {
         _checkNonZeroSharesLock(vetoer, shares);
         uint128 sharesUint128 = shares.toUint128();
         self.assets[vetoer].wstETHShares += sharesUint128;
+        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
         self.totals.shares += sharesUint128;
         emit WstETHLocked(vetoer, shares);
     }
 
-    function accountWstETHUnlock(State storage self, address vetoer) internal returns (uint128 sharesUnlocked) {
+    function accountWstETHUnlock(
+        State storage self,
+        uint256 assetsUnlockDelay,
+        address vetoer
+    ) internal returns (uint128 sharesUnlocked) {
         sharesUnlocked = self.assets[vetoer].wstETHShares;
         _checkNonZeroSharesUnlock(vetoer, sharesUnlocked);
+        _checkAssetsUnlockDelayPassed(self, assetsUnlockDelay, vetoer);
         self.totals.shares -= sharesUnlocked;
         self.assets[vetoer].wstETHShares = 0;
         emit WstETHUnlocked(vetoer, sharesUnlocked);
@@ -185,26 +199,30 @@ library AssetsAccounting {
         }
         uint128 totalUnstETHSharesLockedUint128 = totalUnstETHSharesLocked.toUint128();
         self.assets[vetoer].unstETHShares += totalUnstETHSharesLockedUint128;
+        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
         self.totals.shares += totalUnstETHSharesLockedUint128;
         emit UnstETHLocked(vetoer, unstETHIds, totalUnstETHSharesLocked);
     }
 
-    function accountUnstETHUnlock(State storage self, address vetoer, uint256[] memory unstETHIds) internal {
-        uint256 unstETHId;
-        uint256 sharesToUnlock;
+    function accountUnstETHUnlock(
+        State storage self,
+        uint256 assetsUnlockDelay,
+        address vetoer,
+        uint256[] memory unstETHIds
+    ) internal {
+        _checkAssetsUnlockDelayPassed(self, assetsUnlockDelay, vetoer);
+
         uint256 totalUnstETHSharesToUnlock;
         uint256 totalFinalizedSharesToUnlock;
         uint256 totalFinalizedAmountToUnlock;
-        WithdrawalRequest storage request;
-        uint256 unstETHIdsCount = unstETHIds.length;
-        for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            unstETHId = unstETHIds[i];
-            request = self.requests[unstETHId];
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            uint256 unstETHId = unstETHIds[i];
+            WithdrawalRequest storage request = self.requests[unstETHId];
 
             _checkWithdrawalRequestOwner(request, vetoer);
             _checkWithdrawalRequestWasLocked(request, unstETHId);
 
-            sharesToUnlock = request.shares;
+            uint256 sharesToUnlock = request.shares;
             if (request.state == WithdrawalRequestState.Finalized) {
                 totalFinalizedSharesToUnlock += sharesToUnlock;
                 totalFinalizedAmountToUnlock += request.claimableAmount;
@@ -223,17 +241,13 @@ library AssetsAccounting {
             totalUnstETHSharesToUnlock += sharesToUnlock;
         }
 
-        uint128 totalUnstETHSharesToUnlockUint128 = totalUnstETHSharesToUnlock.toUint128();
-        uint128 totalFinalizedSharesToUnlockUint128 = totalFinalizedSharesToUnlock.toUint128();
-        uint128 totalFinalizedAmountToUnlockUint128 = totalFinalizedAmountToUnlock.toUint128();
+        self.assets[vetoer].unstETHShares -= totalUnstETHSharesToUnlock.toUint128();
+        self.assets[vetoer].sharesFinalized -= totalFinalizedSharesToUnlock.toUint128();
+        self.assets[vetoer].amountFinalized -= totalFinalizedAmountToUnlock.toUint128();
 
-        self.assets[vetoer].unstETHShares -= totalUnstETHSharesToUnlockUint128;
-        self.assets[vetoer].sharesFinalized -= totalFinalizedSharesToUnlockUint128;
-        self.assets[vetoer].amountFinalized -= totalFinalizedAmountToUnlockUint128;
-
-        self.totals.shares -= totalUnstETHSharesToUnlockUint128;
-        self.totals.amountFinalized -= totalFinalizedSharesToUnlockUint128;
-        self.totals.sharesFinalized -= totalFinalizedAmountToUnlockUint128;
+        self.totals.shares -= totalUnstETHSharesToUnlock.toUint128();
+        self.totals.amountFinalized -= totalFinalizedSharesToUnlock.toUint128();
+        self.totals.sharesFinalized -= totalFinalizedAmountToUnlock.toUint128();
         emit UnstETHUnlocked(
             vetoer, unstETHIds, totalUnstETHSharesToUnlock, totalFinalizedSharesToUnlock, totalFinalizedAmountToUnlock
         );
@@ -467,6 +481,16 @@ library AssetsAccounting {
     function _checkNonZeroSharesWithdraw(address vetoer, uint256 shares) private pure {
         if (shares == 0) {
             revert InvalidSharesWithdraw(vetoer, 0);
+        }
+    }
+
+    function _checkAssetsUnlockDelayPassed(
+        State storage self,
+        uint256 assetsUnlockDelay,
+        address vetoer
+    ) private view {
+        if (block.timestamp <= self.assets[vetoer].lastAssetsLockTimestamp + assetsUnlockDelay) {
+            revert AssetsUnlockDelayNotPassed(self.assets[vetoer].lastAssetsLockTimestamp + assetsUnlockDelay);
         }
     }
 }

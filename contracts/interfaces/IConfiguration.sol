@@ -31,6 +31,7 @@ interface IDualGovernanceConfiguration {
     function RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() external view returns (uint256);
 
     function MIN_STATE_DURATION() external view returns (uint256);
+    function ESCROW_ASSETS_UNLOCK_DELAY() external view returns (uint256);
 
     function sealableWithdrawalBlockers() external view returns (address[] memory);
 

@@ -503,7 +503,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deployEscrowMasterCopy() internal {
-        _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE);
+        _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_config));
     }
 
     function _finishTimelockSetup(address governance, bool isEmergencyProtectionEnabled) internal {
