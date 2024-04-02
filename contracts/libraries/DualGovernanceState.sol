@@ -29,6 +29,7 @@ library DualGovernanceState {
         IEscrow signallingEscrow;
         IEscrow rageQuitEscrow;
         uint40 lastProposalCreatedAt;
+        uint8 rageQuitRound;
     }
 
     error NotTie();
@@ -64,7 +65,7 @@ library DualGovernanceState {
 
         if (oldState != newState) {
             _setState(self, oldState, newState);
-            _handleStateTransitionSideEffects(self, oldState, newState);
+            _handleStateTransitionSideEffects(self, config, oldState, newState);
             emit DualGovernanceStateChanged(oldState, newState);
         }
     }
@@ -131,7 +132,7 @@ library DualGovernanceState {
     }
 
     function getVetoSignallingDuration(Store storage self, IConfiguration config) internal view returns (uint256) {
-        (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
+        uint256 totalSupport = self.signallingEscrow.getRageQuitSupport();
         return _calcVetoSignallingTargetDuration(config, totalSupport);
     }
 
@@ -163,12 +164,12 @@ library DualGovernanceState {
     // ---
 
     function _fromNormalState(Store storage self, IConfiguration config) private view returns (State) {
-        (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
-        return totalSupport >= config.FIRST_SEAL_THRESHOLD() ? State.VetoSignalling : State.Normal;
+        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
+        return rageQuitSupport >= config.FIRST_SEAL_THRESHOLD() ? State.VetoSignalling : State.Normal;
     }
 
     function _fromVetoSignallingState(Store storage self, IConfiguration config) private view returns (State) {
-        (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
+        uint256 totalSupport = self.signallingEscrow.getRageQuitSupport();
 
         if (totalSupport < config.FIRST_SEAL_THRESHOLD()) {
             return State.VetoSignallingDeactivation;
@@ -190,15 +191,15 @@ library DualGovernanceState {
     ) private view returns (State) {
         if (_isVetoSignallingDeactivationPhasePassed(self, config)) return State.VetoCooldown;
 
-        (uint256 totalSupport, uint256 rageQuitSupport) = self.signallingEscrow.getSignallingState();
+        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
         uint256 currentSignallingDuration = block.timestamp - self.signallingActivatedAt;
-        uint256 targetSignallingDuration = _calcVetoSignallingTargetDuration(config, totalSupport);
+        uint256 targetSignallingDuration = _calcVetoSignallingTargetDuration(config, rageQuitSupport);
 
         if (currentSignallingDuration >= targetSignallingDuration) {
             if (rageQuitSupport >= config.SECOND_SEAL_THRESHOLD()) {
                 return State.RageQuit;
             }
-        } else if (totalSupport >= config.FIRST_SEAL_THRESHOLD()) {
+        } else if (rageQuitSupport >= config.FIRST_SEAL_THRESHOLD()) {
             return State.VetoSignalling;
         }
         return State.VetoSignallingDeactivation;
@@ -229,21 +230,31 @@ library DualGovernanceState {
         self.enteredAt = currentTime;
     }
 
-    function _handleStateTransitionSideEffects(Store storage self, State oldState, State newState) private {
+    function _handleStateTransitionSideEffects(
+        Store storage self,
+        IConfiguration config,
+        State oldState,
+        State newState
+    ) private {
         uint40 currentTime = timestamp();
         // track the time when the governance state allowed execution
         if (oldState == State.Normal || oldState == State.VetoCooldown) {
             self.lastAdoptableStateExitedAt = currentTime;
         }
-
+        if (newState == State.Normal && self.rageQuitRound != 0) {
+            self.rageQuitRound = 0;
+        }
         if (newState == State.VetoSignalling && oldState != State.VetoSignallingDeactivation) {
             self.signallingActivatedAt = currentTime;
         }
         if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
-            signallingEscrow.startRageQuit();
+            signallingEscrow.startRageQuit(
+                config.RAGE_QUIT_EXTRA_TIMELOCK(), _calcRageQuitWithdrawalsTimelock(config, self.rageQuitRound)
+            );
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, signallingEscrow.MASTER_COPY());
+            self.rageQuitRound += 1;
         }
     }
 
@@ -252,12 +263,12 @@ library DualGovernanceState {
     // ---
 
     function _isFirstThresholdReached(Store storage self, IConfiguration config) private view returns (bool) {
-        (uint256 totalSupport,) = self.signallingEscrow.getSignallingState();
-        return totalSupport >= config.FIRST_SEAL_THRESHOLD();
+        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
+        return rageQuitSupport >= config.FIRST_SEAL_THRESHOLD();
     }
 
     function _isSecondThresholdReached(Store storage self, IConfiguration config) private view returns (bool) {
-        (, uint256 rageQuitSupport) = self.signallingEscrow.getSignallingState();
+        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
         return rageQuitSupport >= config.SECOND_SEAL_THRESHOLD();
     }
 
@@ -299,5 +310,13 @@ library DualGovernanceState {
         clone.initialize(address(this));
         self.signallingEscrow = clone;
         emit NewSignallingEscrowDeployed(address(clone));
+    }
+
+    function _calcRageQuitWithdrawalsTimelock(
+        IConfiguration config,
+        uint256 rageQuitRound
+    ) private view returns (uint256) {
+        // TODO: implement proper function
+        return config.RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() * config.RAGE_QUIT_EXTENSION_DELAY() * rageQuitRound;
     }
 }

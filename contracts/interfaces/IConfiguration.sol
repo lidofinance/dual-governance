@@ -26,6 +26,10 @@ interface IDualGovernanceConfiguration {
 
     function TIE_BREAK_ACTIVATION_TIMEOUT() external view returns (uint256);
 
+    function RAGE_QUIT_EXTRA_TIMELOCK() external view returns (uint256);
+    function RAGE_QUIT_EXTENSION_DELAY() external view returns (uint256);
+    function RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() external view returns (uint256);
+
     function sealableWithdrawalBlockers() external view returns (address[] memory);
 
     function getSignallingThresholdData()
