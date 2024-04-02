@@ -30,6 +30,8 @@ interface IDualGovernanceConfiguration {
     function RAGE_QUIT_EXTENSION_DELAY() external view returns (uint256);
     function RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() external view returns (uint256);
 
+    function MIN_STATE_DURATION() external view returns (uint256);
+
     function sealableWithdrawalBlockers() external view returns (address[] memory);
 
     function getSignallingThresholdData()

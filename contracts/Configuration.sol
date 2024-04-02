@@ -31,6 +31,7 @@ contract Configuration is IConfiguration {
     uint256 public immutable RAGE_QUIT_EXTRA_TIMELOCK = 14 days;
     uint256 public immutable RAGE_QUIT_EXTENSION_DELAY = 7 days;
     uint256 public immutable RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK = 60 days;
+    uint256 public immutable MIN_STATE_DURATION = 5 hours;
 
     // Sealables Array Representation
     uint256 private immutable MAX_SELABLES_COUNT = 5;

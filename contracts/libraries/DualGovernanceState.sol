@@ -49,7 +49,9 @@ library DualGovernanceState {
 
     function activateNextState(Store storage self, IConfiguration config) internal returns (State newState) {
         State oldState = self.state;
-        if (oldState == State.Normal) {
+        if (block.timestamp < self.enteredAt + config.MIN_STATE_DURATION()) {
+            newState = oldState;
+        } else if (oldState == State.Normal) {
             newState = _fromNormalState(self, config);
         } else if (oldState == State.VetoSignalling) {
             newState = _fromVetoSignallingState(self, config);
