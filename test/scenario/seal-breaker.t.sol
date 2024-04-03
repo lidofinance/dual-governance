@@ -13,7 +13,7 @@ import {
 
 import {Escrow} from "contracts/Escrow.sol";
 import {SealBreaker, IGovernanceState, SealBreakerDualGovernance, IGateSeal} from "contracts/SealBreaker.sol";
-import {GateSeal} from "contracts/GateSeal.sol";
+import {GateSealMock} from "contracts/mocks/GateSealMock.sol";
 
 import {Utils} from "../utils/utils.sol";
 import {IWithdrawalQueue, IERC20} from "../utils/interfaces.sol";
@@ -37,13 +37,13 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
 
         _sealables.push(WITHDRAWAL_QUEUE);
 
-        _gateSeal = IGateSeal(address(new GateSeal(
+        _gateSeal = IGateSeal(address(new GateSealMock(
             address(_dualGovernance), _SEALING_COMMITTEE, _SEALING_COMMITTEE_LIFETIME, _SEAL_DURATION, _sealables
         )));
 
         _sealBreaker = new SealBreakerDualGovernance(_RELEASE_DELAY, address(this), address(_dualGovernance));
 
-        _sealBreaker.register(_gateSeal);
+        _sealBreaker.registerGateSeal(_gateSeal);
 
         // grant rights to gate seal to pause/resume the withdrawal queue
         vm.startPrank(DAO_AGENT);

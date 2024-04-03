@@ -69,9 +69,9 @@ library SealableCalls {
 }
 
 interface IGateSeal {
-    function MIN_SEAL_DURATION_SECONDS() external view returns (uint256);
-    function activatedAt() external view returns (uint256);
-    function getSealed() external view returns (address[] memory);
+    function get_min_seal_duration() external view returns (uint256);
+    function get_expiry_timestamp() external view returns (uint256);
+    function sealed_sealables() external view returns (address[] memory);
     function seal(address[] calldata sealables) external;
 }
 
@@ -110,7 +110,7 @@ abstract contract SealBreaker is Ownable {
 
     mapping(IGateSeal gateSeal => GateSealState) internal _gateSeals;
 
-    function register(IGateSeal gateSeal) external {
+    function registerGateSeal(IGateSeal gateSeal) external {
         _checkOwner();
         if (_gateSeals[gateSeal].registeredAt != 0) {
             revert GateSealAlreadyRegistered(gateSeal, _gateSeals[gateSeal].registeredAt);
@@ -140,7 +140,7 @@ abstract contract SealBreaker is Ownable {
 
         _gateSeals[gateSeal].releaseEnactedAt = block.timestamp.toUint40();
 
-        address[] memory sealed_ = gateSeal.getSealed();
+        address[] memory sealed_ = gateSeal.sealed_sealables();
 
         for (uint256 i = 0; i < sealed_.length; ++i) {
             ISealable sealable = ISealable(sealed_[i]);
@@ -166,15 +166,14 @@ abstract contract SealBreaker is Ownable {
     }
 
     function _checkGateSealActivated(IGateSeal gateSeal) internal view {
-        uint256 gateSealActivatedAt = gateSeal.activatedAt();
-        if (gateSealActivatedAt == 0) {
+        address[] memory sealed_ = gateSeal.sealed_sealables();
+        if (sealed_.length == 0) {
             revert GateSealNotActivated();
         }
     }
 
     function _checkMinSealDurationPassed(IGateSeal gateSeal) internal view {
-        uint256 gateSealActivatedAt = gateSeal.activatedAt();
-        if (block.timestamp < gateSealActivatedAt + gateSeal.MIN_SEAL_DURATION_SECONDS()) {
+        if (block.timestamp < gateSeal.get_expiry_timestamp() + gateSeal.get_min_seal_duration()) {
             revert MinSealDurationNotPassed();
         }
     }

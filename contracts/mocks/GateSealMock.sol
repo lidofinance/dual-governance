@@ -20,7 +20,7 @@ interface IGovernanceState {
     function currentState() external view returns (State);
 }
 
-contract GateSeal {
+contract GateSealMock {
     error GateSealExpired();
     error GovernanceIsBlocked();
     error GateSealNotActivated();
@@ -29,28 +29,17 @@ contract GateSeal {
 
     uint256 internal constant INFINITE_DURATION = type(uint256).max;
 
-    uint256 public immutable MIN_SEAL_DURATION_SECONDS = 14 days; // Refers to the original gate seal value
-    uint256 public immutable SEAL_DURATION_SECONDS;
-    uint256 public immutable MAX_SEAL_DURATION_SECONDS = INFINITE_DURATION;
-    address public immutable SEALING_COMMITTEE;
-    IGovernanceState public immutable GOV_STATE;
-
-    uint256 internal _activatedAt;
+    uint256 internal immutable MIN_SEAL_DURATION_SECONDS = 14 days;
+    uint256 internal immutable SEAL_DURATION_SECONDS;
+    uint256 internal immutable MAX_SEAL_DURATION_SECONDS = INFINITE_DURATION;
+    address internal immutable SEALING_COMMITTEE;
+    IGovernanceState internal immutable GOV_STATE;
 
     address[] internal _sealables;
     address[] internal _sealed;
 
     uint256 internal _expiryTimestamp;
     uint256 internal _releaseTimestamp;
-    
-
-    function isTriggered() external view returns (bool) {
-        return _releaseTimestamp != 0;
-    }
-
-    function expiryTimestamp() external view returns (uint256) {
-        return _expiryTimestamp;
-    }
 
     constructor(
         address govState,
@@ -71,8 +60,6 @@ contract GateSeal {
             revert GateSealExpired();
         }
         _expiryTimestamp = block.timestamp;
-        _activatedAt = block.timestamp;
-        
         _sealed = _sealables;
 
         if (SEAL_DURATION_SECONDS == INFINITE_DURATION) {
@@ -87,30 +74,15 @@ contract GateSeal {
         }
     }
 
-    // when the sealable was paused forever, this method may unlock it if the pause was
-    function release(address[] calldata sealables) external {
-        if (_expiryTimestamp == 0) {
-            revert GateSealNotActivated();
-        }
-
-        IGovernanceState.State govState = GOV_STATE.currentState();
-        // TODO: check is it safe to allow release seal in the veto cooldown state
-        if (govState != IGovernanceState.State.Normal && govState != IGovernanceState.State.VetoCooldown) {
-            revert GovernanceIsBlocked();
-        }
-        if (block.timestamp < _releaseTimestamp) {
-            revert SealDurationNotPassed();
-        }
-
-        for (uint256 i = 0; i < sealables.length; ++i) {
-            IPausableUntil sealable = IPausableUntil(sealables[i]);
-            assert(IPausableUntil(sealable).isPaused());
-            IPausableUntil(sealable).resume();
-            assert(!IPausableUntil(sealable).isPaused());
-        }
+    function get_expiry_timestamp() external view returns (uint256) {
+        return _expiryTimestamp;
     }
 
-    function getSealed() external view returns (address[] memory) {
+    function get_min_seal_duration() external pure returns (uint256) {
+        return MIN_SEAL_DURATION_SECONDS;
+    }
+
+    function sealed_sealables() external view returns (address[] memory) {
         return _sealed;
     }
 
@@ -118,10 +90,6 @@ contract GateSeal {
         if (msg.sender != SEALING_COMMITTEE) {
             revert NotSealingCommittee();
         }
-    }
-
-    function activatedAt() public view returns (uint256) {
-        return _activatedAt;
     }
 
     modifier onlySealingCommittee() {
