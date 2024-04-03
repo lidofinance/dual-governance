@@ -19,9 +19,9 @@ enum WithdrawalRequestState {
 struct WithdrawalRequest {
     address owner;
     uint96 claimableAmount;
-    WithdrawalRequestState state;
-    uint64 vetoerUnstETHIndexOneBased;
     uint128 shares;
+    uint64 vetoerUnstETHIndexOneBased;
+    WithdrawalRequestState state;
 }
 
 struct LockedAssetsStats {
@@ -61,10 +61,10 @@ library AssetsAccounting {
     );
     event UnstETHFinalized(uint256[] ids, uint256 finalizedSharesIncrement, uint256 finalizedAmountIncrement);
     event UnstETHClaimed(uint256[] ids, uint256 ethAmount);
+    event UnstETHWithdrawn(uint256[] ids, uint256 ethAmount);
 
     event WithdrawalBatchCreated(uint256[] ids);
     event WithdrawalBatchesClaimed(uint256 offset, uint256 count);
-    event WithdrawalRequestWithdrawn(uint256 indexed id, uint256 ethAmount);
 
     error NoBatchesToClaim();
     error EmptyWithdrawalBatch();
@@ -174,28 +174,10 @@ library AssetsAccounting {
     ) internal {
         assert(unstETHIds.length == statuses.length);
 
-        uint256 unstETHId;
-        uint256 amountOfShares;
         uint256 totalUnstETHSharesLocked;
-        WithdrawalRequest storage request;
         uint256 unstETHcount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHcount; ++i) {
-            unstETHId = unstETHIds[i];
-            request = self.requests[unstETHId];
-
-            _checkWithdrawalRequestNotLocked(self, unstETHId);
-            _checkWithdrawalRequestStatusNotFinalized(statuses[i], unstETHId);
-
-            self.vetoersUnstETHIds[vetoer].push(unstETHId);
-
-            request.owner = vetoer;
-            request.state = WithdrawalRequestState.Locked;
-            request.vetoerUnstETHIndexOneBased = self.vetoersUnstETHIds[vetoer].length.toUint64();
-            amountOfShares = statuses[i].amountOfShares;
-            request.shares = amountOfShares.toUint128();
-            assert(request.claimableAmount == 0);
-
-            totalUnstETHSharesLocked += amountOfShares;
+            totalUnstETHSharesLocked += _addWithdrawalRequest(self, vetoer, unstETHIds[i], statuses[i]);
         }
         uint128 totalUnstETHSharesLockedUint128 = totalUnstETHSharesLocked.toUint128();
         self.assets[vetoer].unstETHShares += totalUnstETHSharesLockedUint128;
@@ -212,44 +194,33 @@ library AssetsAccounting {
     ) internal {
         _checkAssetsUnlockDelayPassed(self, assetsUnlockDelay, vetoer);
 
-        uint256 totalUnstETHSharesToUnlock;
-        uint256 totalFinalizedSharesToUnlock;
-        uint256 totalFinalizedAmountToUnlock;
-        for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            uint256 unstETHId = unstETHIds[i];
-            WithdrawalRequest storage request = self.requests[unstETHId];
+        uint256 totalUnstETHSharesUnlocked;
+        uint256 totalFinalizedSharesUnlocked;
+        uint256 totalFinalizedAmountUnlocked;
 
-            _checkWithdrawalRequestOwner(request, vetoer);
-            _checkWithdrawalRequestWasLocked(request, unstETHId);
-
-            uint256 sharesToUnlock = request.shares;
-            if (request.state == WithdrawalRequestState.Finalized) {
-                totalFinalizedSharesToUnlock += sharesToUnlock;
-                totalFinalizedAmountToUnlock += request.claimableAmount;
-            }
-
-            uint256[] storage vetoerUnstETHIds = self.vetoersUnstETHIds[vetoer];
-            uint256 unstETHIdIndex = request.vetoerUnstETHIndexOneBased - 1;
-            uint256 lastUnstETHIdIndex = vetoerUnstETHIds.length - 1;
-            if (lastUnstETHIdIndex != unstETHIdIndex) {
-                uint256 lastUnstETHId = vetoerUnstETHIds[lastUnstETHIdIndex];
-                vetoerUnstETHIds[unstETHIdIndex] = lastUnstETHId;
-                self.requests[lastUnstETHId].vetoerUnstETHIndexOneBased = (unstETHIdIndex + 1).toUint64();
-            }
-            vetoerUnstETHIds.pop();
-            delete self.requests[unstETHId];
-            totalUnstETHSharesToUnlock += sharesToUnlock;
+        uint256 unstETHIdsCount = unstETHIds.length;
+        for (uint256 i = 0; i < unstETHIdsCount; ++i) {
+            (uint256 sharesUnlocked, uint256 finalizedSharesUnlocked, uint256 finalizedAmountUnlocked) =
+                _removeWithdrawalRequest(self, vetoer, unstETHIds[i]);
+            totalUnstETHSharesUnlocked += sharesUnlocked;
+            totalFinalizedSharesUnlocked += finalizedSharesUnlocked;
+            totalFinalizedAmountUnlocked += finalizedAmountUnlocked;
         }
 
-        self.assets[vetoer].unstETHShares -= totalUnstETHSharesToUnlock.toUint128();
-        self.assets[vetoer].sharesFinalized -= totalFinalizedSharesToUnlock.toUint128();
-        self.assets[vetoer].amountFinalized -= totalFinalizedAmountToUnlock.toUint128();
+        uint128 totalUnstETHSharesUnlockedUint128 = totalUnstETHSharesUnlocked.toUint128();
+        uint128 totalFinalizedSharesUnlockedUint128 = totalFinalizedSharesUnlocked.toUint128();
+        uint128 totalFinalizedAmountUnlockedUint128 = totalFinalizedAmountUnlocked.toUint128();
 
-        self.totals.shares -= totalUnstETHSharesToUnlock.toUint128();
-        self.totals.amountFinalized -= totalFinalizedSharesToUnlock.toUint128();
-        self.totals.sharesFinalized -= totalFinalizedAmountToUnlock.toUint128();
+        self.assets[vetoer].unstETHShares -= totalUnstETHSharesUnlockedUint128;
+        self.assets[vetoer].sharesFinalized -= totalFinalizedSharesUnlockedUint128;
+        self.assets[vetoer].amountFinalized -= totalFinalizedAmountUnlockedUint128;
+
+        self.totals.shares -= totalUnstETHSharesUnlockedUint128;
+        self.totals.amountFinalized -= totalFinalizedSharesUnlockedUint128;
+        self.totals.sharesFinalized -= totalFinalizedAmountUnlockedUint128;
+
         emit UnstETHUnlocked(
-            vetoer, unstETHIds, totalUnstETHSharesToUnlock, totalFinalizedSharesToUnlock, totalFinalizedAmountToUnlock
+            vetoer, unstETHIds, totalUnstETHSharesUnlocked, totalFinalizedSharesUnlocked, totalFinalizedAmountUnlocked
         );
     }
 
@@ -258,30 +229,24 @@ library AssetsAccounting {
         uint256[] memory unstETHIds,
         uint256[] memory claimableAmounts
     ) internal {
-        uint256 claimableAmount;
+        assert(claimableAmounts.length == unstETHIds.length);
+
         uint256 totalSharesFinalized;
         uint256 totalAmountFinalized;
-        WithdrawalRequest storage request;
-
-        assert(claimableAmounts.length == unstETHIds.length);
 
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            request = self.requests[unstETHIds[i]];
-            claimableAmount = claimableAmounts[i];
-            if (claimableAmount == 0 || request.state != WithdrawalRequestState.Locked) {
-                continue;
-            }
-            request.state = WithdrawalRequestState.Finalized;
-            request.claimableAmount = claimableAmount.toUint96();
-            totalSharesFinalized += request.shares;
-            totalAmountFinalized += claimableAmount;
+            (uint256 sharesFinalized, uint256 amountFinalized) =
+                _finalizeWithdrawalRequest(self, unstETHIds[i], claimableAmounts[i]);
+            totalSharesFinalized += sharesFinalized;
+            totalAmountFinalized += amountFinalized;
         }
         uint128 totalSharesFinalizedUint128 = totalSharesFinalized.toUint128();
         uint128 totalAmountFinalizedUint128 = totalAmountFinalized.toUint128();
 
         self.totals.sharesFinalized += totalSharesFinalizedUint128;
         self.totals.amountFinalized += totalAmountFinalizedUint128;
+
         emit UnstETHFinalized(unstETHIds, totalSharesFinalized, totalAmountFinalized);
     }
 
@@ -290,25 +255,9 @@ library AssetsAccounting {
         uint256[] memory unstETHIds,
         uint256[] memory claimableAmounts
     ) internal returns (uint256 totalAmountClaimed) {
-        uint256 unstETHId;
-        uint256 claimableAmount;
-        WithdrawalRequest storage request;
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            unstETHId = unstETHIds[i];
-            claimableAmount = claimableAmounts[i];
-            request = self.requests[unstETHId];
-
-            if (request.state != WithdrawalRequestState.Locked && request.state != WithdrawalRequestState.Finalized) {
-                revert WithdrawalRequestNotClaimable(unstETHId, request.state);
-            }
-            if (request.state == WithdrawalRequestState.Finalized && request.claimableAmount != claimableAmount) {
-                revert ClaimableAmountChanged(unstETHId, claimableAmount, request.claimableAmount);
-            } else {
-                request.claimableAmount = claimableAmount.toUint96();
-            }
-            request.state = WithdrawalRequestState.Claimed;
-            totalAmountClaimed += claimableAmount;
+            totalAmountClaimed += _claimWithdrawalRequest(self, unstETHIds[i], claimableAmounts[i]);
         }
         self.totals.amountClaimed += totalAmountClaimed.toUint128();
         emit UnstETHClaimed(unstETHIds, totalAmountClaimed);
@@ -318,24 +267,12 @@ library AssetsAccounting {
         State storage self,
         address vetoer,
         uint256[] calldata unstETHIds
-    ) internal returns (uint256 ethAmount) {
-        uint256 unstETHId;
-        WithdrawalRequest storage request;
+    ) internal returns (uint256 amountWithdrawn) {
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            unstETHId = unstETHIds[i];
-            request = self.requests[unstETHId];
-
-            if (request.owner != vetoer) {
-                revert NotWithdrawalRequestOwner(unstETHId, vetoer, request.owner);
-            }
-            if (request.state != WithdrawalRequestState.Claimed) {
-                revert InvalidWithdrawlRequestState(unstETHId, request.state, WithdrawalRequestState.Claimed);
-            }
-            request.state = WithdrawalRequestState.Withdrawn;
-            ethAmount += request.claimableAmount;
-            emit WithdrawalRequestWithdrawn(unstETHId, ethAmount);
+            amountWithdrawn += _withdrawWithdrawalRequest(self, vetoer, unstETHIds[i]);
         }
+        emit UnstETHWithdrawn(unstETHIds, amountWithdrawn);
     }
 
     // ---
@@ -437,6 +374,107 @@ library AssetsAccounting {
     // Private Methods
     // ---
 
+    function _addWithdrawalRequest(
+        State storage self,
+        address vetoer,
+        uint256 unstETHId,
+        WithdrawalRequestStatus memory status
+    ) private returns (uint256 amountOfShares) {
+        amountOfShares = status.amountOfShares;
+        WithdrawalRequest storage request = self.requests[unstETHId];
+
+        _checkWithdrawalRequestNotLocked(request, unstETHId);
+        _checkWithdrawalRequestStatusNotFinalized(status, unstETHId);
+
+        self.vetoersUnstETHIds[vetoer].push(unstETHId);
+
+        request.owner = vetoer;
+        request.state = WithdrawalRequestState.Locked;
+        request.vetoerUnstETHIndexOneBased = self.vetoersUnstETHIds[vetoer].length.toUint64();
+        request.shares = amountOfShares.toUint128();
+        assert(request.claimableAmount == 0);
+    }
+
+    function _removeWithdrawalRequest(
+        State storage self,
+        address vetoer,
+        uint256 unstETHId
+    ) private returns (uint256 sharesUnlocked, uint256 finalizedSharesUnlocked, uint256 finalizedAmountUnlocked) {
+        WithdrawalRequest storage request = self.requests[unstETHId];
+
+        _checkWithdrawalRequestOwner(request, vetoer);
+        _checkWithdrawalRequestWasLocked(request, unstETHId);
+
+        sharesUnlocked = request.shares;
+        if (request.state == WithdrawalRequestState.Finalized) {
+            finalizedSharesUnlocked = sharesUnlocked;
+            finalizedAmountUnlocked = request.claimableAmount;
+        }
+
+        uint256[] storage vetoerUnstETHIds = self.vetoersUnstETHIds[vetoer];
+        uint256 unstETHIdIndex = request.vetoerUnstETHIndexOneBased - 1;
+        uint256 lastUnstETHIdIndex = vetoerUnstETHIds.length - 1;
+        if (lastUnstETHIdIndex != unstETHIdIndex) {
+            uint256 lastUnstETHId = vetoerUnstETHIds[lastUnstETHIdIndex];
+            vetoerUnstETHIds[unstETHIdIndex] = lastUnstETHId;
+            self.requests[lastUnstETHId].vetoerUnstETHIndexOneBased = (unstETHIdIndex + 1).toUint64();
+        }
+        vetoerUnstETHIds.pop();
+        delete self.requests[unstETHId];
+    }
+
+    function _finalizeWithdrawalRequest(
+        State storage self,
+        uint256 unstETHId,
+        uint256 claimableAmount
+    ) private returns (uint256 sharesFinalized, uint256 amountFinalized) {
+        WithdrawalRequest storage request = self.requests[unstETHId];
+        if (claimableAmount == 0 || request.state != WithdrawalRequestState.Locked) {
+            return (0, 0);
+        }
+        request.state = WithdrawalRequestState.Finalized;
+        request.claimableAmount = claimableAmount.toUint96();
+
+        sharesFinalized = request.shares;
+        amountFinalized = claimableAmount;
+    }
+
+    function _claimWithdrawalRequest(
+        State storage self,
+        uint256 unstETHId,
+        uint256 claimableAmount
+    ) private returns (uint256 amountClaimed) {
+        WithdrawalRequest storage request = self.requests[unstETHId];
+
+        if (request.state != WithdrawalRequestState.Locked && request.state != WithdrawalRequestState.Finalized) {
+            revert WithdrawalRequestNotClaimable(unstETHId, request.state);
+        }
+        if (request.state == WithdrawalRequestState.Finalized && request.claimableAmount != claimableAmount) {
+            revert ClaimableAmountChanged(unstETHId, claimableAmount, request.claimableAmount);
+        } else {
+            request.claimableAmount = claimableAmount.toUint96();
+        }
+        request.state = WithdrawalRequestState.Claimed;
+        amountClaimed = claimableAmount;
+    }
+
+    function _withdrawWithdrawalRequest(
+        State storage self,
+        address vetoer,
+        uint256 unstETHId
+    ) private returns (uint256 amountWithdrawn) {
+        WithdrawalRequest storage request = self.requests[unstETHId];
+
+        if (request.owner != vetoer) {
+            revert NotWithdrawalRequestOwner(unstETHId, vetoer, request.owner);
+        }
+        if (request.state != WithdrawalRequestState.Claimed) {
+            revert InvalidWithdrawlRequestState(unstETHId, request.state, WithdrawalRequestState.Claimed);
+        }
+        request.state = WithdrawalRequestState.Withdrawn;
+        amountWithdrawn = request.claimableAmount;
+    }
+
     function _checkWithdrawalRequestOwner(WithdrawalRequest storage request, address account) private view {
         if (request.owner != account) {
             revert InvalidUnstETHOwner(account, request.owner);
@@ -454,8 +492,8 @@ library AssetsAccounting {
         assert(!status.isClaimed);
     }
 
-    function _checkWithdrawalRequestNotLocked(State storage self, uint256 unstETHId) private view {
-        if (self.requests[unstETHId].vetoerUnstETHIndexOneBased != 0) {
+    function _checkWithdrawalRequestNotLocked(WithdrawalRequest storage request, uint256 unstETHId) private view {
+        if (request.vetoerUnstETHIndexOneBased != 0) {
             revert WithdrawalRequestAlreadyLocked(unstETHId);
         }
     }
