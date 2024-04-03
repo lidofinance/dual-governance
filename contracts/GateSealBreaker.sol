@@ -9,10 +9,10 @@ import {ISealable} from "./interfaces/ISealable.sol";
 import {SealableCalls} from "./libraries/SealableCalls.sol";
 
 interface IDualGovernance {
-    function isExecutionEnabled() external view returns (bool);
+    function isSchedulingEnabled() external view returns (bool);
 }
 
-abstract contract GateSealBreaker is Ownable {
+contract GateSealBreaker is Ownable {
     using SafeCast for uint256;
     using SealableCalls for ISealable;
 
@@ -22,6 +22,7 @@ abstract contract GateSealBreaker is Ownable {
         uint40 releaseEnactedAt;
     }
 
+    error GovernanceLocked();
     error ReleaseNotStarted();
     error GateSealNotActivated();
     error ReleaseDelayNotPassed();
@@ -36,9 +37,11 @@ abstract contract GateSealBreaker is Ownable {
     event ReleaseIsPausedCheckFailed(ISealable sealable, bytes lowLevelError);
 
     uint256 public immutable RELEASE_DELAY;
+    IDualGovernance public immutable DUAL_GOVERNANCE;
 
-    constructor(uint256 releaseDelay, address owner) Ownable(owner) {
+    constructor(uint256 releaseDelay, address owner, address dualGovernance) Ownable(owner) {
         RELEASE_DELAY = releaseDelay;
+        DUAL_GOVERNANCE = IDualGovernance(dualGovernance);
     }
 
     mapping(IGateSeal gateSeal => GateSealState) internal _gateSeals;
@@ -56,7 +59,7 @@ abstract contract GateSealBreaker is Ownable {
         _checkGateSealActivated(gateSeal);
         _checkMinSealDurationPassed(gateSeal);
         _checkGateSealNotReleased(gateSeal);
-        _checkReleaseStartAllowed(gateSeal);
+        _checkGovernanceNotLocked();
 
         _gateSeals[gateSeal].releaseStartedAt = block.timestamp.toUint40();
     }
@@ -67,7 +70,7 @@ abstract contract GateSealBreaker is Ownable {
         if (gateSealState.releaseStartedAt == 0) {
             revert ReleaseNotStarted();
         }
-        if (block.timestamp < gateSealState.releaseStartedAt + RELEASE_DELAY) {
+        if (block.timestamp <= gateSealState.releaseStartedAt + RELEASE_DELAY) {
             revert ReleaseDelayNotPassed();
         }
 
@@ -117,21 +120,9 @@ abstract contract GateSealBreaker is Ownable {
         }
     }
 
-    function _checkReleaseStartAllowed(IGateSeal gateSeal) internal virtual;
-}
-
-contract GateSealBreakerDualGovernance is GateSealBreaker {
-    IDualGovernance public immutable DUAL_GOVERNANCE;
-
-    error GovernanceIsLocked();
-
-    constructor(uint256 releaseDelay, address owner, address dualGovernance) GateSealBreaker(releaseDelay, owner) {
-        DUAL_GOVERNANCE = IDualGovernance(dualGovernance);
-    }
-
-    function _checkReleaseStartAllowed(IGateSeal /* gateSeal */ ) internal view override {
-        if (!DUAL_GOVERNANCE.isExecutionEnabled()) {
-            revert GovernanceIsLocked();
+    function _checkGovernanceNotLocked() internal view {
+        if (!DUAL_GOVERNANCE.isSchedulingEnabled()) {
+            revert GovernanceLocked();
         }
     }
 }

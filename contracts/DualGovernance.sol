@@ -105,6 +105,10 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         return _dgState.getVetoSignallingDuration(CONFIG);
     }
 
+    function isSchedulingEnabled() external view returns (bool) {
+        return _dgState.isProposalsAdoptionAllowed();
+    }
+
     // ---
     // Proposers & Executors Management
     // ---
@@ -133,10 +137,6 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function isExecutor(address account) external view returns (bool) {
         return _proposers.isExecutor(account);
-    }
-
-    function isExecutionEnabled() external view returns (bool) {
-        return _dgState.isProposalsAdoptionAllowed();
     }
 
     // ---
