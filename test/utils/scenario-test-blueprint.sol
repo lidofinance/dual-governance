@@ -55,7 +55,8 @@ contract ScenarioTestBlueprint is Test {
     address internal immutable _ADMIN_PROPOSER = DAO_VOTING;
     uint256 internal immutable _EMERGENCY_MODE_DURATION = 180 days;
     uint256 internal immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
-    address internal immutable _EMERGENCY_COMMITTEE = makeAddr("EMERGENCY_COMMITTEE");
+    address internal immutable _EMERGENCY_ACTIVATION_COMMITTEE = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
+    address internal immutable _EMERGENCY_EXECUTION_COMMITTEE = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
 
     uint256 internal immutable _SEALING_DURATION = 14 days;
     uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
@@ -405,7 +406,12 @@ contract ScenarioTestBlueprint is Test {
                 0,
                 abi.encodeCall(
                     _timelock.setEmergencyProtection,
-                    (_EMERGENCY_COMMITTEE, _EMERGENCY_PROTECTION_DURATION, _EMERGENCY_MODE_DURATION)
+                    (
+                        _EMERGENCY_ACTIVATION_COMMITTEE,
+                        _EMERGENCY_EXECUTION_COMMITTEE,
+                        _EMERGENCY_PROTECTION_DURATION,
+                        _EMERGENCY_MODE_DURATION
+                    )
                 )
             );
         }
