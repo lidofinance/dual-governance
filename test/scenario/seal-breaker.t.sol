@@ -12,7 +12,7 @@ import {
 } from "../utils/scenario-test-blueprint.sol";
 
 import {Escrow} from "contracts/Escrow.sol";
-import {SealBreaker, IGovernanceState, SealBreakerDualGovernance, IGateSeal} from "contracts/SealBreaker.sol";
+import {GateSealBreaker, IGovernanceState, GateSealBreakerDualGovernance, IGateSeal} from "contracts/GateSealBreaker.sol";
 import {GateSealMock} from "contracts/mocks/GateSealMock.sol";
 
 import {Utils} from "../utils/utils.sol";
@@ -28,7 +28,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
 
     IGateSeal private _gateSeal;
     address[] private _sealables;
-    SealBreakerDualGovernance private _sealBreaker;
+    GateSealBreakerDualGovernance private _sealBreaker;
 
     function setUp() external {
         _selectFork();
@@ -41,7 +41,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
             address(_dualGovernance), _SEALING_COMMITTEE, _SEALING_COMMITTEE_LIFETIME, _SEAL_DURATION, _sealables
         )));
 
-        _sealBreaker = new SealBreakerDualGovernance(_RELEASE_DELAY, address(this), address(_dualGovernance));
+        _sealBreaker = new GateSealBreakerDualGovernance(_RELEASE_DELAY, address(this), address(_dualGovernance));
 
         _sealBreaker.registerGateSeal(_gateSeal);
 
@@ -78,7 +78,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _gateSeal.seal(_sealables);
 
         // seal can't be released before the min sealing duration has passed
-        vm.expectRevert(SealBreaker.MinSealDurationNotPassed.selector);
+        vm.expectRevert(GateSealBreaker.MinSealDurationNotPassed.selector);
         _sealBreaker.startRelease(_gateSeal);
 
         // validate Withdrawal Queue was paused
@@ -90,7 +90,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoSignalling));
 
         // seal can't be released before the governance returns to Normal state
-        vm.expectRevert(SealBreakerDualGovernance.GovernanceIsLocked.selector);
+        vm.expectRevert(GateSealBreakerDualGovernance.GovernanceIsLocked.selector);
         _sealBreaker.startRelease(_gateSeal);
 
         // wait the governance returns to normal state
@@ -105,7 +105,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealBreaker.startRelease(_gateSeal);
 
         // reverts until timelock
-        vm.expectRevert(SealBreaker.ReleaseDelayNotPassed.selector);
+        vm.expectRevert(GateSealBreaker.ReleaseDelayNotPassed.selector);
         _sealBreaker.enactRelease(_gateSeal);
 
         // anyone may release the seal after timelock
@@ -145,13 +145,13 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         assertEq(uint256(_dualGovernance.currentState()), uint256(IGovernanceState.State.VetoSignalling));
 
         // seal can't be released before the min sealing duration has passed
-        vm.expectRevert(SealBreaker.MinSealDurationNotPassed.selector);
+        vm.expectRevert(GateSealBreaker.MinSealDurationNotPassed.selector);
         _sealBreaker.startRelease(_gateSeal);
 
         vm.warp(block.timestamp + _MIN_SEAL_DURATION + 1);
 
         // seal can't be released before the governance returns to Normal state
-        vm.expectRevert(SealBreakerDualGovernance.GovernanceIsLocked.selector);
+        vm.expectRevert(GateSealBreakerDualGovernance.GovernanceIsLocked.selector);
         _sealBreaker.startRelease(_gateSeal);
 
         // wait the governance returns to normal state
@@ -174,7 +174,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealBreaker.startRelease(_gateSeal);
 
         // reverts until timelock
-        vm.expectRevert(SealBreaker.ReleaseDelayNotPassed.selector);
+        vm.expectRevert(GateSealBreaker.ReleaseDelayNotPassed.selector);
         _sealBreaker.enactRelease(_gateSeal);
 
         // anyone may release the seal after timelock
@@ -195,7 +195,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         assertTrue(IWithdrawalQueue(WITHDRAWAL_QUEUE).isPaused());
 
         // seal can't be released before the min sealing duration has passed
-        vm.expectRevert(SealBreaker.MinSealDurationNotPassed.selector);
+        vm.expectRevert(GateSealBreaker.MinSealDurationNotPassed.selector);
         _sealBreaker.startRelease(_gateSeal);
 
         vm.warp(block.timestamp + _MIN_SEAL_DURATION + 1);
@@ -204,7 +204,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealBreaker.startRelease(_gateSeal);
 
         // reverts until timelock
-        vm.expectRevert(SealBreaker.ReleaseDelayNotPassed.selector);
+        vm.expectRevert(GateSealBreaker.ReleaseDelayNotPassed.selector);
         _sealBreaker.enactRelease(_gateSeal);
 
         // anyone may release the seal after timelock
@@ -225,7 +225,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         assertTrue(IWithdrawalQueue(WITHDRAWAL_QUEUE).isPaused());
 
         // seal can't be released before the min sealing duration has passed
-        vm.expectRevert(SealBreaker.MinSealDurationNotPassed.selector);
+        vm.expectRevert(GateSealBreaker.MinSealDurationNotPassed.selector);
         _sealBreaker.startRelease(_gateSeal);
 
         vm.warp(block.timestamp + _MIN_SEAL_DURATION + 1);
@@ -234,7 +234,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealBreaker.startRelease(_gateSeal);
 
         // An attempt to release same gate seal the second time fails
-        vm.expectRevert(SealBreaker.GateSealAlreadyReleased.selector);
+        vm.expectRevert(GateSealBreaker.GateSealAlreadyReleased.selector);
         _sealBreaker.startRelease(_gateSeal);
     }
 }

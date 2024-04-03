@@ -79,7 +79,7 @@ interface IDualGovernance {
     function isExecutionEnabled() external view returns (bool);
 }
 
-abstract contract SealBreaker is Ownable {
+abstract contract GateSealBreaker is Ownable {
     using SafeCast for uint256;
     using SealableCalls for ISealable;
 
@@ -187,12 +187,12 @@ abstract contract SealBreaker is Ownable {
     function _checkReleaseStartAllowed(IGateSeal gateSeal) internal virtual;
 }
 
-contract SealBreakerDualGovernance is SealBreaker {
+contract GateSealBreakerDualGovernance is GateSealBreaker {
     IDualGovernance public immutable DUAL_GOVERNANCE;
 
     error GovernanceIsLocked();
 
-    constructor(uint256 releaseDelay, address owner, address dualGovernance) SealBreaker(releaseDelay, owner) {
+    constructor(uint256 releaseDelay, address owner, address dualGovernance) GateSealBreaker(releaseDelay, owner) {
         DUAL_GOVERNANCE = IDualGovernance(dualGovernance);
     }
 
