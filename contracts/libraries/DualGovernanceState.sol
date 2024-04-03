@@ -219,7 +219,7 @@ library DualGovernanceState {
         if (!self.rageQuitEscrow.isRageQuitFinalized()) {
             return State.RageQuit;
         }
-        return _isFirstThresholdReached(self, config) ? State.VetoSignalling : State.Normal;
+        return _isFirstThresholdReached(self, config) ? State.VetoSignalling : State.VetoCooldown;
     }
 
     function _setState(Store storage self, State oldState, State newState) private {
