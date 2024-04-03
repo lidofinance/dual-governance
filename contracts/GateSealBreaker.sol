@@ -4,76 +4,9 @@ pragma solidity 0.8.23;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-interface IGovernanceState {
-    enum State {
-        Normal,
-        VetoSignalling,
-        VetoSignallingDeactivation,
-        VetoCooldown,
-        RageQuit
-    }
-
-    function currentState() external view returns (State);
-}
-
-interface ISealable {
-    function resume() external;
-    function pauseFor(uint256 duration) external;
-    function isPaused() external view returns (bool);
-}
-
-struct SealFailure {
-    address sealable;
-    bytes lowLevelError;
-}
-
-library SealableCalls {
-    function callPauseFor(
-        ISealable sealable,
-        uint256 sealDuration
-    ) internal returns (bool success, bytes memory lowLevelError) {
-        try sealable.pauseFor(sealDuration) {
-            (bool isPausedCallSuccess, bytes memory isPausedLowLevelError, bool isPaused) = callIsPaused(sealable);
-            success = isPausedCallSuccess && isPaused;
-            lowLevelError = isPausedLowLevelError;
-        } catch (bytes memory pauseForLowLevelError) {
-            success = false;
-            lowLevelError = pauseForLowLevelError;
-        }
-    }
-
-    function callIsPaused(ISealable sealable)
-        internal
-        view
-        returns (bool success, bytes memory lowLevelError, bool isPaused)
-    {
-        try sealable.isPaused() returns (bool isPausedResult) {
-            success = true;
-            isPaused = isPausedResult;
-        } catch (bytes memory isPausedLowLevelError) {
-            success = false;
-            lowLevelError = isPausedLowLevelError;
-        }
-    }
-
-    function callResume(ISealable sealable) internal returns (bool success, bytes memory lowLevelError) {
-        try sealable.resume() {
-            (bool isPausedCallSuccess, bytes memory isPausedLowLevelError, bool isPaused) = callIsPaused(sealable);
-            success = isPausedCallSuccess && isPaused;
-            lowLevelError = isPausedLowLevelError;
-        } catch (bytes memory resumeLowLevelError) {
-            success = false;
-            lowLevelError = resumeLowLevelError;
-        }
-    }
-}
-
-interface IGateSeal {
-    function get_min_seal_duration() external view returns (uint256);
-    function get_expiry_timestamp() external view returns (uint256);
-    function sealed_sealables() external view returns (address[] memory);
-    function seal(address[] calldata sealables) external;
-}
+import {IGateSeal} from "./interfaces/IGateSeal.sol";
+import {ISealable} from "./interfaces/ISealable.sol";
+import {SealableCalls} from "./libraries/SealableCalls.sol";
 
 interface IDualGovernance {
     function isExecutionEnabled() external view returns (bool);

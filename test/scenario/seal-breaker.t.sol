@@ -12,11 +12,12 @@ import {
 } from "../utils/scenario-test-blueprint.sol";
 
 import {Escrow} from "contracts/Escrow.sol";
-import {GateSealBreaker, IGovernanceState, GateSealBreakerDualGovernance, IGateSeal} from "contracts/GateSealBreaker.sol";
+import {GateSealBreaker, GateSealBreakerDualGovernance, IGateSeal} from "contracts/GateSealBreaker.sol";
 import {GateSealMock} from "contracts/mocks/GateSealMock.sol";
 
 import {Utils} from "../utils/utils.sol";
 import {IWithdrawalQueue, IERC20} from "../utils/interfaces.sol";
+import {IGovernanceState} from "../../contracts/interfaces/IGovernanceState.sol";
 import {DAO_AGENT, DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER} from "../utils/mainnet-addresses.sol";
 
 contract SealBreakerScenarioTest is ScenarioTestBlueprint {

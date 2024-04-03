@@ -1,23 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {IGovernanceState} from "../interfaces/IGovernanceState.sol";
+
 interface IPausableUntil {
     function resume() external;
     function pauseFor(uint256 duration) external;
     function pauseUntil(uint256 _pauseUntilInclusive) external;
     function isPaused() external view returns (bool);
-}
-
-interface IGovernanceState {
-    enum State {
-        Normal,
-        VetoSignalling,
-        VetoSignallingDeactivation,
-        VetoCooldown,
-        RageQuit
-    }
-
-    function currentState() external view returns (State);
 }
 
 contract GateSealMock {
