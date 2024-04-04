@@ -26,7 +26,7 @@ import {DualGovernance, GovernanceState} from "contracts/DualGovernance.sol";
 
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
-import {IERC20} from "../utils/interfaces.sol";
+import {IERC20, IStEth, IWstETH, IWithdrawalQueue} from "../utils/interfaces.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
 
@@ -62,6 +62,10 @@ contract ScenarioTestBlueprint is Test {
     address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
 
     address internal immutable _TIEBREAK_COMMITTEE = makeAddr("TIEBREAK_COMMITTEE");
+
+    IStEth public immutable _ST_ETH = IStEth(ST_ETH);
+    IWstETH public immutable _WST_ETH = IWstETH(WST_ETH);
+    IWithdrawalQueue public immutable _WITHDRAWAL_QUEUE = IWithdrawalQueue(WITHDRAWAL_QUEUE);
 
     TargetMock internal _target;
 
@@ -260,6 +264,10 @@ contract ScenarioTestBlueprint is Test {
 
     function _assertProposalCanceled(uint256 proposalId) internal {
         assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Canceled, "Proposal not in 'Canceled' state");
+    }
+
+    function _assertNormalState() internal {
+        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.Normal));
     }
 
     function _assertVetoSignalingState() internal {
