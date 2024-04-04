@@ -49,6 +49,8 @@ library DualGovernanceState {
 
     function activateNextState(Store storage self, IConfiguration config) internal returns (State newState) {
         State oldState = self.state;
+        // TODO: Currently doesn't match spec precisely because not only Normal or VetoSignalling states are bounded.
+        // But it seems like there are no states that may last shorter than MIN_STATE_DURATION
         if (block.timestamp < self.enteredAt + config.MIN_STATE_DURATION()) {
             newState = oldState;
         } else if (oldState == State.Normal) {
