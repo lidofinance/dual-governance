@@ -3,8 +3,8 @@ pragma solidity 0.8.23;
 
 import {Test, console} from "forge-std/Test.sol";
 import {DualGovernanceDeployScript, DualGovernance, EmergencyProtectedTimelock} from "script/Deploy.s.sol";
-import {Tiebreaker} from "contracts/Tiebreaker.sol";
-import {TiebreakerNOR} from "contracts/TiebreakerNOR.sol";
+import {TiebreakerCore} from "contracts/TiebreakerCore.sol";
+import {TiebreakerSubDAO} from "contracts/TiebreakerSubDAO.sol";
 
 import {Utils} from "../utils/utils.sol";
 import {INodeOperatorsRegistry} from "../utils/interfaces.sol";
@@ -13,111 +13,98 @@ import {NODE_OPERATORS_REGISTRY} from "../utils/mainnet-addresses.sol";
 contract TiebreakerScenarioTest is Test {
     Executor__mock private _emergencyExecutor;
 
-    Tiebreaker private _coreTiebreaker;
-    Tiebreaker private _efTiebraker;
-    TiebreakerNOR private _norTiebreaker;
+    TiebreakerCore private _coreTiebreaker;
+    TiebreakerSubDAO private _efTiebreaker;
+    TiebreakerSubDAO private _nosTiebreaker;
 
     uint256 private _efMembersCount = 5;
     uint256 private _efQuorum = 3;
 
-    address[] private _efTiebrakerMembers;
-    address[] private _coreTiebrakerMembers;
+    uint256 private _nosMembersCount = 10;
+    uint256 private _nosQuorum = 7;
+
+    address[] private _efTiebreakerMembers;
+    address[] private _nosTiebreakerMembers;
+    address[] private _coreTiebreakerMembers;
 
     function setUp() external {
         Utils.selectFork();
 
-        _coreTiebreaker = new Tiebreaker();
+        _emergencyExecutor = new Executor__mock();
+        _coreTiebreaker = new TiebreakerCore(address(this), new address[](0), 0, address(_emergencyExecutor));
 
-        _emergencyExecutor = new Executor__mock(address(_coreTiebreaker));
+        _emergencyExecutor.setCommittee(address(_coreTiebreaker));
 
+        // EF sub DAO
+        _efTiebreaker = new TiebreakerSubDAO(address(this), new address[](0), 0, address(_coreTiebreaker));
         for (uint256 i = 0; i < _efMembersCount; i++) {
-            _efTiebrakerMembers.push(makeAddr(string(abi.encode(i + 65))));
+            _efTiebreakerMembers.push(makeAddr(string(abi.encode(i + 65))));
+            _efTiebreaker.addMember(_efTiebreakerMembers[i], _efQuorum);
         }
+        _coreTiebreakerMembers.push(address(_efTiebreaker));
+        _coreTiebreaker.addMember(address(_efTiebreaker), _efQuorum);
 
-        _efTiebraker = new Tiebreaker();
-        _efTiebraker.initialize(address(this), _efTiebrakerMembers, _efQuorum);
-        _coreTiebrakerMembers.push(address(_efTiebraker));
-
-        _norTiebreaker = new TiebreakerNOR(NODE_OPERATORS_REGISTRY);
-        _coreTiebrakerMembers.push(address(_norTiebreaker));
-
-        _coreTiebreaker.initialize(address(this), _coreTiebrakerMembers, 2);
+        // NOs sub DAO
+        _nosTiebreaker = new TiebreakerSubDAO(address(this), new address[](0), 0, address(_coreTiebreaker));
+        for (uint256 i = 0; i < _nosMembersCount; i++) {
+            _nosTiebreakerMembers.push(makeAddr(string(abi.encode(i + 65))));
+            _nosTiebreaker.addMember(_nosTiebreakerMembers[i], _nosQuorum);
+        }
+        _coreTiebreakerMembers.push(address(_nosTiebreaker));
+        _coreTiebreaker.addMember(address(_nosTiebreaker), 2);
     }
 
     function test_proposal_execution() external {
         uint256 proposalIdToExecute = 1;
+        uint256 quorum;
+        uint256 support;
+        bool isExecuted;
 
         assert(_emergencyExecutor.proposals(proposalIdToExecute) == false);
 
-        bytes32 execProposalHash = _prepareExecuteProposalHash(address(_emergencyExecutor), proposalIdToExecute, 1);
-        bytes32 execApproveHash = _prepareApproveHashHash(address(_coreTiebreaker), execProposalHash, 1);
-
+        // EF sub DAO
         for (uint256 i = 0; i < _efQuorum - 1; i++) {
-            vm.prank(_efTiebrakerMembers[i]);
-            _efTiebraker.approveHash(execApproveHash);
-            assert(_efTiebraker.hasQuorum(execApproveHash) == false);
+            vm.prank(_efTiebreakerMembers[i]);
+            _efTiebreaker.voteApproveProposal(proposalIdToExecute, true);
+            (support, quorum, isExecuted) = _efTiebreaker.getApproveProposalState(proposalIdToExecute);
+            assert(support < quorum);
+            assert(isExecuted == false);
         }
 
-        vm.prank(_efTiebrakerMembers[_efTiebrakerMembers.length - 1]);
-        _efTiebraker.approveHash(execApproveHash);
+        vm.prank(_efTiebreakerMembers[_efTiebreakerMembers.length - 1]);
+        _efTiebreaker.voteApproveProposal(proposalIdToExecute, true);
+        (support, quorum, isExecuted) = _efTiebreaker.getApproveProposalState(proposalIdToExecute);
+        assert(support == quorum);
+        assert(isExecuted == false);
 
-        assert(_efTiebraker.hasQuorum(execApproveHash) == true);
+        _efTiebreaker.approveProposal(proposalIdToExecute);
+        (support, quorum, isExecuted) = _coreTiebreaker.getApproveProposalState(proposalIdToExecute);
+        assert(support < quorum);
 
-        _efTiebraker.execTransaction(
-            address(_coreTiebreaker), abi.encodeWithSignature("approveHash(bytes32)", execProposalHash), 0
-        );
+        // NOs sub DAO
 
-        assert(_coreTiebreaker.hasQuorum(execProposalHash) == false);
-
-        uint256 participatedNOCount = 0;
-        uint256 requiredOperatorsCount =
-            INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getActiveNodeOperatorsCount() / 2 + 1;
-
-        for (uint256 i = 0; i < INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getNodeOperatorsCount(); i++) {
-            (
-                bool active,
-                , //string memory name,
-                address rewardAddress,
-                , //uint64 stakingLimit,
-                , //uint64 stoppedValidators,
-                , //uint64 totalSigningKeys,
-                    //uint64 usedSigningKeys
-            ) = INodeOperatorsRegistry(NODE_OPERATORS_REGISTRY).getNodeOperator(i, false);
-            if (active) {
-                vm.prank(rewardAddress);
-                _norTiebreaker.approveHash(execApproveHash, i);
-
-                participatedNOCount++;
-            }
-            if (participatedNOCount >= requiredOperatorsCount) break;
+        for (uint256 i = 0; i < _nosQuorum - 1; i++) {
+            vm.prank(_nosTiebreakerMembers[i]);
+            _nosTiebreaker.voteApproveProposal(proposalIdToExecute, true);
+            (support, quorum, isExecuted) = _nosTiebreaker.getApproveProposalState(proposalIdToExecute);
+            assert(support < quorum);
+            assert(isExecuted == false);
         }
 
-        assert(_norTiebreaker.hasQuorum(execApproveHash) == true);
+        vm.prank(_nosTiebreakerMembers[_nosTiebreakerMembers.length - 1]);
+        _nosTiebreaker.voteApproveProposal(proposalIdToExecute, true);
 
-        _norTiebreaker.execTransaction(
-            address(_coreTiebreaker), abi.encodeWithSignature("approveHash(bytes32)", execProposalHash), 0
-        );
-        assert(_coreTiebreaker.hasQuorum(execProposalHash) == true);
+        (support, quorum, isExecuted) = _nosTiebreaker.getApproveProposalState(proposalIdToExecute);
+        assert(support == quorum);
+        assert(isExecuted == false);
 
-        _coreTiebreaker.execTransaction(
-            address(_emergencyExecutor), abi.encodeWithSignature("tiebreaExecute(uint256)", proposalIdToExecute), 0
-        );
+        _nosTiebreaker.approveProposal(proposalIdToExecute);
+        (support, quorum, isExecuted) = _coreTiebreaker.getApproveProposalState(proposalIdToExecute);
+        assert(support == quorum);
+
+        _coreTiebreaker.approveProposal(proposalIdToExecute);
 
         assert(_emergencyExecutor.proposals(proposalIdToExecute) == true);
-    }
-
-    function _prepareApproveHashHash(address _to, bytes32 _hash, uint256 _nonce) public view returns (bytes32) {
-        return _efTiebraker.getTransactionHash(_to, abi.encodeWithSignature("approveHash(bytes32)", _hash), 0, _nonce);
-    }
-
-    function _prepareExecuteProposalHash(
-        address _to,
-        uint256 _proposalId,
-        uint256 _nonce
-    ) public view returns (bytes32) {
-        return _coreTiebreaker.getTransactionHash(
-            _to, abi.encodeWithSignature("tiebreaExecute(uint256)", _proposalId), 0, _nonce
-        );
     }
 }
 
@@ -128,11 +115,11 @@ contract Executor__mock {
     mapping(uint256 => bool) public proposals;
     address private committee;
 
-    constructor(address _committee) {
+    function setCommittee(address _committee) public {
         committee = _committee;
     }
 
-    function tiebreaExecute(uint256 _proposalId) public {
+    function tiebreakerApproveProposal(uint256 _proposalId) public {
         if (proposals[_proposalId] == true) {
             revert ProposalAlreadyExecuted();
         }
