@@ -12,10 +12,12 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
+    error InvalidGovernance(address governance);
     error NotGovernance(address account, address governance);
     error SchedulingDisabled();
     error UnscheduledExecutionForbidden();
 
+    event GovernanceSet(address governance);
     event ProposalLaunched(address indexed proposer, address indexed executor, uint256 indexed proposalId);
 
     address internal _governance;
@@ -37,7 +39,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     }
 
     function execute(uint256 proposalId) external {
-        _emergencyProtection.checkEmergencyModeNotActivated();
+        _emergencyProtection.checkEmergencyModeActive(false);
         _proposals.execute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
     }
 
@@ -61,17 +63,19 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     // ---
 
     function emergencyActivate() external {
-        _emergencyProtection.checkEmergencyCommittee(msg.sender);
+        _emergencyProtection.checkActivationCommittee(msg.sender);
+        _emergencyProtection.checkEmergencyModeActive(false);
         _emergencyProtection.activate();
     }
 
     function emergencyExecute(uint256 proposalId) external {
-        _emergencyProtection.checkEmergencyModeActivated();
-        _emergencyProtection.checkEmergencyCommittee(msg.sender);
+        _emergencyProtection.checkEmergencyModeActive(true);
+        _emergencyProtection.checkExecutionCommittee(msg.sender);
         _proposals.execute(proposalId, /* afterScheduleDelay */ 0);
     }
 
     function emergencyDeactivate() external {
+        _emergencyProtection.checkEmergencyModeActive(true);
         if (!_emergencyProtection.isEmergencyModePassed()) {
             _checkAdminExecutor(msg.sender);
         }
@@ -80,20 +84,21 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     }
 
     function emergencyReset() external {
-        _emergencyProtection.checkEmergencyModeActivated();
-        _emergencyProtection.checkEmergencyCommittee(msg.sender);
-        _emergencyProtection.reset();
-        _proposals.cancelAll();
+        _emergencyProtection.checkEmergencyModeActive(true);
+        _emergencyProtection.checkExecutionCommittee(msg.sender);
+        _emergencyProtection.deactivate();
         _setGovernance(CONFIG.EMERGENCY_GOVERNANCE());
+        _proposals.cancelAll();
     }
 
     function setEmergencyProtection(
-        address committee,
+        address activator,
+        address enactor,
         uint256 protectionDuration,
         uint256 emergencyModeDuration
     ) external {
         _checkAdminExecutor(msg.sender);
-        _emergencyProtection.setup(committee, protectionDuration, emergencyModeDuration);
+        _emergencyProtection.setup(activator, enactor, protectionDuration, emergencyModeDuration);
     }
 
     function isEmergencyProtectionEnabled() external view returns (bool) {
@@ -138,10 +143,12 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     // ---
 
     function _setGovernance(address newGovernance) internal {
-        address prevController = _governance;
-        if (prevController != newGovernance) {
-            _governance = newGovernance;
+        address prevGovernance = _governance;
+        if (newGovernance == prevGovernance || newGovernance == address(0)) {
+            revert InvalidGovernance(newGovernance);
         }
+        _governance = newGovernance;
+        emit GovernanceSet(newGovernance);
     }
 
     function _checkGovernance(address account) internal view {
