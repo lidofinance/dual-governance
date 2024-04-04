@@ -39,7 +39,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ---
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         {
-            _lockStEth(maliciousActor, percents(12, 0));
+            _lockStETH(maliciousActor, percents("12.0"));
             _assertVetoSignalingState();
             _logVetoSignallingState();
 
@@ -72,7 +72,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ACT 4. MALICIOUS ACTOR UNLOCK FUNDS FROM ESCROW
         // ---
         {
-            _unlockStEth(maliciousActor);
+            _unlockStETH(maliciousActor);
             _logVetoSignallingDeactivationState();
             _assertVetoSignalingDeactivationState();
         }
@@ -82,7 +82,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ---
         address stEthWhale = makeAddr("STETH_WHALE");
         {
-            _lockStEth(stEthWhale, percents(10, 0));
+            _lockStETH(stEthWhale, percents("10.0"));
             _logVetoSignallingDeactivationState();
             _assertVetoSignalingDeactivationState();
         }
@@ -104,7 +104,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             vm.warp(block.timestamp + _config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION() / 2);
 
             // stEth holders reach the rage quit threshold
-            _lockStEth(maliciousActor, percents(10, 0));
+            _lockStETH(maliciousActor, percents("10.0"));
 
             // the dual governance immediately transfers to the Rage Quit state
             _assertRageQuitState();
@@ -137,7 +137,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         {
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
-            _lockStEth(maliciousActor, percents(12, 0));
+            _lockStETH(maliciousActor, percents("12.0"));
             _assertVetoSignalingState();
 
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);

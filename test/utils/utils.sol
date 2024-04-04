@@ -87,14 +87,17 @@ library Utils {
         vm.warp(block.timestamp + 15);
     }
 
-    function setupStEthWhale(address addr) internal {
+    function setupStETHWhale(address addr) internal {
         // 15% of total stETH supply
-        setupStEthWhale(addr, 30 * 10 ** 16);
+        setupStETHWhale(addr, 30 * 10 ** 16);
     }
 
-    function setupStEthWhale(address addr, uint256 totalSupplyPercentage) internal {
+    function setupStETHWhale(address addr, uint256 totalSupplyPercentage) internal {
+        uint256 ST_ETH_TRANSFERS_SHARE_LOST_COMPENSATION = 8; // TODO: evaluate min enough value
         // bal / (totalSupply + bal) = percentage => bal = totalSupply * percentage / (1 - percentage)
-        uint256 ethBalance = IERC20(ST_ETH).totalSupply() * totalSupplyPercentage / (10 ** 18 - totalSupplyPercentage);
+        uint256 shares = IStEth(ST_ETH).getTotalShares() * totalSupplyPercentage / (10 ** 18 - totalSupplyPercentage);
+        // to compensate StETH wei lost on submit/transfers, generate slightly larger eth amount
+        uint256 ethBalance = IStEth(ST_ETH).getPooledEthByShares(shares + ST_ETH_TRANSFERS_SHARE_LOST_COMPENSATION);
         // solhint-disable-next-line
         console.log("setting ETH balance of address %x to %d ETH", addr, ethBalance / 10 ** 18);
         vm.deal(addr, ethBalance);

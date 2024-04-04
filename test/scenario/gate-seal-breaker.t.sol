@@ -42,7 +42,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         assertFalse(_WITHDRAWAL_QUEUE.isPaused());
         _assertNormalState();
 
-        _lockStEth(_VETOER, percents(10, 0));
+        _lockStETH(_VETOER, percents("10.0"));
         _assertVetoSignalingState();
 
         // sealing committee seals Withdrawal Queue
@@ -102,7 +102,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         // wait some time, before dual governance enters veto signaling state
         _wait(_MIN_SEAL_DURATION / 2);
 
-        _lockStEth(_VETOER, percents(10, 0));
+        _lockStETH(_VETOER, percents("10.0"));
         _assertVetoSignalingState();
 
         // seal can't be released before the min sealing duration has passed
@@ -125,7 +125,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _assertVetoCooldownState();
 
         // the stETH whale takes his funds back from Escrow
-        _unlockStEth(_VETOER);
+        _unlockStETH(_VETOER);
 
         _wait(_dualGovernance.CONFIG().SIGNALLING_COOLDOWN_DURATION() + 1);
         _activateNextState();

@@ -47,6 +47,7 @@ interface IStEth is IERC20 {
     function STAKING_CONTROL_ROLE() external view returns (bytes32);
     function submit(address referral) external payable returns (uint256);
     function removeStakingLimit() external;
+    function sharesOf(address account) external view returns (uint256);
     function getSharesByPooledEth(uint256 ethAmount) external view returns (uint256);
     function getPooledEthByShares(uint256 sharesAmount) external view returns (uint256);
     function getStakeLimitFullInfo()
@@ -61,6 +62,7 @@ interface IStEth is IERC20 {
             uint256 prevStakeLimit,
             uint256 prevStakeBlockNumber
         );
+    function getTotalShares() external view returns (uint256);
 }
 
 interface IWstETH is IERC20 {
@@ -72,6 +74,15 @@ interface IWithdrawalQueue is IERC721 {
     function PAUSE_ROLE() external pure returns (bytes32);
     function RESUME_ROLE() external pure returns (bytes32);
 
+    /// @notice Returns amount of ether available for claim for each provided request id
+    /// @param _requestIds array of request ids
+    /// @param _hints checkpoint hints. can be found with `findCheckpointHints(_requestIds, 1, getLastCheckpointIndex())`
+    /// @return claimableEthValues amount of claimable ether for each request, amount is equal to 0 if request
+    ///  is not finalized or already claimed
+    function getClaimableEther(
+        uint256[] calldata _requestIds,
+        uint256[] calldata _hints
+    ) external view returns (uint256[] memory claimableEthValues);
     function getWithdrawalStatus(uint256[] calldata _requestIds)
         external
         view

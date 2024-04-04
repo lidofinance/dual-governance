@@ -1,173 +1,110 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {
-    Utils,
-    Escrow,
-    IERC20,
-    ST_ETH,
-    console,
-    ExecutorCall,
-    DualGovernance,
-    IDangerousContract,
-    ExecutorCallHelpers,
-    GovernanceState,
-    ScenarioTestBlueprint
-} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint, percents} from "../utils/scenario-test-blueprint.sol";
 
 contract GovernanceStateTransitions is ScenarioTestBlueprint {
-    address internal stEthWhale;
-    DualGovernance internal dualGov;
+    address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
         _selectFork();
-        _deployTarget();
         _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
-        dualGov = _dualGovernance;
-
-        Utils.removeLidoStakingLimit();
-        stEthWhale = makeAddr("steth_whale");
-        Utils.setupStEthWhale(stEthWhale);
     }
 
     function test_signalling_state_min_duration() public {
-        assertEq(dualGov.currentState(), GovernanceState.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(3 * 10 ** 16);
-        updateVetoSupport(1);
+        _lockStETH(_VETOER, percents("3.00"));
+        _assertVetoSignalingState();
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
+        _wait(_config.SIGNALLING_MIN_DURATION() / 2);
 
-        uint256 signallingDuration = _config.SIGNALLING_MIN_DURATION();
+        _activateNextState();
+        _assertVetoSignalingState();
 
-        vm.warp(block.timestamp + (signallingDuration / 2));
-        updateVetoSupport(1);
+        _wait(_config.SIGNALLING_MIN_DURATION() / 2 + 1);
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
-
-        vm.warp(block.timestamp + signallingDuration / 2);
-        updateVetoSupport(1);
-
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignallingDeactivation);
+        _activateNextState();
+        _assertVetoSignalingDeactivationState();
     }
 
     function test_signalling_state_max_duration() public {
-        assertEq(dualGov.currentState(), GovernanceState.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(15 * 10 ** 16);
+        _lockStETH(_VETOER, percents("15.0"));
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
+        _assertVetoSignalingState();
 
-        uint256 signallingDuration = _config.SIGNALLING_MAX_DURATION();
+        _wait(_config.SIGNALLING_MAX_DURATION() / 2);
+        _activateNextState();
 
-        vm.warp(block.timestamp + (signallingDuration / 2));
-        dualGov.activateNextState();
+        _assertVetoSignalingState();
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
+        _wait(_config.SIGNALLING_MAX_DURATION() / 2 + 1);
+        _activateNextState();
 
-        vm.warp(block.timestamp + signallingDuration / 2 + 1000);
-        dualGov.activateNextState();
-
-        assertEq(dualGov.currentState(), GovernanceState.RageQuit);
+        _assertRageQuitState();
     }
 
     function test_signalling_to_normal() public {
-        assertEq(dualGov.currentState(), GovernanceState.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(3 * 10 ** 16 + 1);
+        _lockStETH(_VETOER, percents("3.00"));
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
+        _assertVetoSignalingState();
 
-        uint256 signallingDuration = _config.SIGNALLING_MIN_DURATION();
+        _wait(_config.SIGNALLING_MIN_DURATION());
+        _activateNextState();
 
-        vm.warp(block.timestamp + signallingDuration);
-        dualGov.activateNextState();
+        _assertVetoSignalingDeactivationState();
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignallingDeactivation);
+        _wait(_config.SIGNALLING_DEACTIVATION_DURATION());
+        _activateNextState();
 
-        uint256 signallingDeactivationDuration = _config.SIGNALLING_DEACTIVATION_DURATION();
+        _assertVetoCooldownState();
 
-        vm.warp(block.timestamp + signallingDeactivationDuration);
-        dualGov.activateNextState();
+        vm.startPrank(_VETOER);
+        _getSignallingEscrow().unlockStETH();
+        vm.stopPrank();
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoCooldown);
+        _wait(_config.SIGNALLING_COOLDOWN_DURATION());
+        _activateNextState();
 
-        uint256 signallingCooldownDuration = _config.SIGNALLING_COOLDOWN_DURATION();
-
-        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
-        vm.prank(stEthWhale);
-        signallingEscrow.unlockStEth();
-
-        vm.warp(block.timestamp + signallingCooldownDuration);
-        dualGov.activateNextState();
-
-        assertEq(dualGov.currentState(), GovernanceState.Normal);
+        _assertNormalState();
     }
 
     function test_signalling_non_stop() public {
-        assertEq(dualGov.currentState(), GovernanceState.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(3 * 10 ** 16 + 1);
+        _lockStETH(_VETOER, percents("3.00"));
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
+        _assertVetoSignalingState();
 
-        uint256 signallingDuration = _config.SIGNALLING_MIN_DURATION();
+        _wait(_config.SIGNALLING_MIN_DURATION());
+        _activateNextState();
 
-        vm.warp(block.timestamp + signallingDuration);
-        dualGov.activateNextState();
+        _assertVetoSignalingDeactivationState();
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignallingDeactivation);
+        _wait(_config.SIGNALLING_DEACTIVATION_DURATION());
+        _activateNextState();
 
-        uint256 signallingDeactivationDuration = _config.SIGNALLING_DEACTIVATION_DURATION();
+        _assertVetoCooldownState();
 
-        vm.warp(block.timestamp + signallingDeactivationDuration);
-        dualGov.activateNextState();
+        _wait(_config.SIGNALLING_COOLDOWN_DURATION());
+        _activateNextState();
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoCooldown);
-
-        uint256 signallingCooldownDuration = _config.SIGNALLING_COOLDOWN_DURATION();
-
-        vm.warp(block.timestamp + signallingCooldownDuration);
-        dualGov.activateNextState();
-
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
+        _assertVetoSignalingState();
     }
 
     function test_signalling_to_rage_quit() public {
-        assertEq(dualGov.currentState(), GovernanceState.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(15 * 10 ** 16);
+        _lockStETH(_VETOER, percents("15.00"));
+        _assertVetoSignalingState();
 
-        assertEq(dualGov.currentState(), GovernanceState.VetoSignalling);
+        _wait(_config.SIGNALLING_MAX_DURATION());
+        _activateNextState();
 
-        uint256 signallingDuration = _config.SIGNALLING_MAX_DURATION();
-
-        vm.warp(block.timestamp + signallingDuration);
-        dualGov.activateNextState();
-
-        assertEq(dualGov.currentState(), GovernanceState.RageQuit);
-    }
-
-    function updateVetoSupportInPercent(uint256 supportInPercent) internal {
-        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
-        uint256 newVetoSupport = (supportInPercent * IERC20(ST_ETH).totalSupply()) / 10 ** 18;
-
-        vm.prank(stEthWhale);
-        // signallingEscrow.unlockStEth();
-
-        updateVetoSupport(newVetoSupport);
-        vm.stopPrank();
-
-        (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
-        // solhint-disable-next-line
-        console.log("veto totalSupport %d, rageQuitSupport %d", totalSupport, rageQuitSupport);
-    }
-
-    function updateVetoSupport(uint256 amount) internal {
-        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
-        vm.startPrank(stEthWhale);
-        IERC20(ST_ETH).approve(address(signallingEscrow), amount);
-        signallingEscrow.lockStEth(amount);
-        vm.stopPrank();
+        _assertRageQuitState();
     }
 }

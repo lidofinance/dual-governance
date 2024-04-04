@@ -9,8 +9,7 @@ import {
     ProxyAdmin
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {Escrow} from "contracts/Escrow.sol";
-import {BurnerVault} from "contracts/BurnerVault.sol";
+import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
 
@@ -26,11 +25,19 @@ import {DualGovernance, GovernanceState} from "contracts/DualGovernance.sol";
 
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
-import {IERC20, IStEth, IWstETH, IWithdrawalQueue} from "../utils/interfaces.sol";
+import {Percents, percents} from "../utils/percents.sol";
+import {IERC20, IStEth, IWstETH, IWithdrawalQueue, WithdrawalRequestStatus} from "../utils/interfaces.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
 
-import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, BURNER} from "../utils/mainnet-addresses.sol";
+import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE} from "../utils/mainnet-addresses.sol";
+
+struct Balances {
+    uint256 stETHAmount;
+    uint256 stETHShares;
+    uint256 wstETHAmount;
+    uint256 wstETHShares;
+}
 
 uint256 constant PERCENTS_PRECISION = 16;
 
@@ -38,11 +45,6 @@ function countDigits(uint256 number) pure returns (uint256 digitsCount) {
     do {
         digitsCount++;
     } while (number / 10 != 0);
-}
-
-function percents(uint256 integerPart, uint256 fractionalPart) pure returns (uint256) {
-    return integerPart * 10 ** PERCENTS_PRECISION
-        + fractionalPart * 10 ** (PERCENTS_PRECISION - countDigits(fractionalPart));
 }
 
 interface IDangerousContract {
@@ -76,7 +78,6 @@ contract ScenarioTestBlueprint is Test {
     TransparentUpgradeableProxy internal _configProxy;
 
     Escrow internal _escrowMasterCopy;
-    BurnerVault internal _burnerVault;
 
     OwnableExecutor internal _adminExecutor;
 
@@ -113,23 +114,123 @@ contract ScenarioTestBlueprint is Test {
     }
 
     // ---
+    // Balances Manipulation
+    // ---
+
+    function _setupStETHWhale(address vetoer) internal {
+        Utils.removeLidoStakingLimit();
+        Utils.setupStETHWhale(vetoer, percents("10.0").value);
+    }
+
+    function _setupStETHWhale(address vetoer, Percents memory vetoPowerInPercents) internal {
+        Utils.removeLidoStakingLimit();
+        Utils.setupStETHWhale(vetoer, vetoPowerInPercents.value);
+    }
+
+    function _getBalances(address vetoer) internal view returns (Balances memory balances) {
+        uint256 stETHAmount = _ST_ETH.balanceOf(vetoer);
+        uint256 wstETHShares = _WST_ETH.balanceOf(vetoer);
+        balances = Balances({
+            stETHAmount: stETHAmount,
+            stETHShares: _ST_ETH.getSharesByPooledEth(stETHAmount),
+            wstETHAmount: _ST_ETH.getPooledEthByShares(wstETHShares),
+            wstETHShares: wstETHShares
+        });
+    }
+
+    // ---
     // Escrow Manipulation
     // ---
-    function _lockStEth(address vetoer, uint256 vetoPowerInPercents) internal {
+    function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal {
         Utils.removeLidoStakingLimit();
-        Utils.setupStEthWhale(vetoer, vetoPowerInPercents);
-        uint256 vetoerBalance = IERC20(ST_ETH).balanceOf(vetoer);
+        Utils.setupStETHWhale(vetoer, vetoPowerInPercents.value);
+        _lockStETH(vetoer, IERC20(ST_ETH).balanceOf(vetoer));
+    }
 
+    function _lockStETH(address vetoer, uint256 amount) internal {
+        Escrow escrow = _getSignallingEscrow();
         vm.startPrank(vetoer);
-        IERC20(ST_ETH).approve(address(_getSignallingEscrow()), vetoerBalance);
-        _getSignallingEscrow().lockStEth(vetoerBalance);
+        if (_ST_ETH.allowance(vetoer, address(escrow)) < amount) {
+            _ST_ETH.approve(address(escrow), amount);
+        }
+        escrow.lockStETH(amount);
         vm.stopPrank();
     }
 
-    function _unlockStEth(address vetoer) internal {
+    function _unlockStETH(address vetoer) internal {
         vm.startPrank(vetoer);
-        _getSignallingEscrow().unlockStEth();
+        _getSignallingEscrow().unlockStETH();
         vm.stopPrank();
+    }
+
+    function _lockWstETH(address vetoer, uint256 amount) internal {
+        Escrow escrow = _getSignallingEscrow();
+        vm.startPrank(vetoer);
+        if (_WST_ETH.allowance(vetoer, address(escrow)) < amount) {
+            _WST_ETH.approve(address(escrow), amount);
+        }
+        escrow.lockWstETH(amount);
+        vm.stopPrank();
+    }
+
+    function _unlockWstETH(address vetoer) internal {
+        Escrow escrow = _getSignallingEscrow();
+        uint256 wstETHBalanceBefore = _WST_ETH.balanceOf(vetoer);
+        uint256 vetoerWstETHSharesBefore = escrow.getVetoerState(vetoer).wstETHShares;
+
+        vm.startPrank(vetoer);
+        uint256 wstETHUnlocked = escrow.unlockWstETH();
+        vm.stopPrank();
+
+        assertEq(wstETHUnlocked, vetoerWstETHSharesBefore);
+        assertEq(_WST_ETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerWstETHSharesBefore);
+    }
+
+    function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
+        Escrow escrow = _getSignallingEscrow();
+        uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
+        uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
+
+        uint256 unstETHTotalSharesLocked = 0;
+        WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            unstETHTotalSharesLocked += statuses[i].amountOfShares;
+        }
+
+        vm.startPrank(vetoer);
+        _WITHDRAWAL_QUEUE.setApprovalForAll(address(escrow), true);
+        escrow.lockUnstETH(unstETHIds);
+        _WITHDRAWAL_QUEUE.setApprovalForAll(address(escrow), false);
+        vm.stopPrank();
+
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), address(escrow));
+        }
+
+        assertEq(escrow.getVetoerState(vetoer).unstETHShares, vetoerUnstETHSharesBefore + unstETHTotalSharesLocked);
+        assertEq(escrow.getLockedAssetsTotals().shares, totalSharesBefore + unstETHTotalSharesLocked);
+    }
+
+    function _unlockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
+        Escrow escrow = _getSignallingEscrow();
+        uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
+        uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
+
+        uint256 unstETHTotalSharesLocked = 0;
+        WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            unstETHTotalSharesLocked += statuses[i].amountOfShares;
+        }
+
+        vm.prank(vetoer);
+        escrow.unlockUnstETH(unstETHIds);
+
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), vetoer);
+        }
+
+        assertEq(escrow.getVetoerState(vetoer).unstETHShares, vetoerUnstETHSharesBefore - unstETHTotalSharesLocked);
+        assertEq(escrow.getLockedAssetsTotals().shares, totalSharesBefore - unstETHTotalSharesLocked);
     }
 
     // ---
@@ -403,8 +504,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deployEscrowMasterCopy() internal {
-        _burnerVault = new BurnerVault(BURNER, ST_ETH, WST_ETH);
-        _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_burnerVault));
+        _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_config));
     }
 
     function _finishTimelockSetup(address governance, bool isEmergencyProtectionEnabled) internal {
@@ -491,5 +591,14 @@ contract ScenarioTestBlueprint is Test {
 
     function assertEq(GovernanceState a, GovernanceState b) internal {
         assertEq(uint256(a), uint256(b));
+    }
+
+    function assertEq(Balances memory b1, Balances memory b2, uint256 stETHSharesEpsilon) internal {
+        assertEq(b1.wstETHShares, b2.wstETHShares);
+        assertEq(b1.wstETHAmount, b2.wstETHAmount);
+
+        uint256 stETHAmountEpsilon = _ST_ETH.getPooledEthByShares(stETHSharesEpsilon);
+        assertApproxEqAbs(b1.stETHShares, b2.stETHShares, stETHSharesEpsilon);
+        assertApproxEqAbs(b1.stETHAmount, b2.stETHAmount, stETHAmountEpsilon);
     }
 }
