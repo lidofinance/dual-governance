@@ -8,7 +8,7 @@ A proposal by [sam](https://twitter.com/_skozin), [pshe](https://twitter.com/Psh
 
 Currently, the Lido protocol governance consists of the Lido DAO that uses LDO voting to approve DAO proposals, along with an optimistic voting subsystem called Easy Tracks that is used for routine changes of low-impact parameters and falls back to LDO voting given any objection from LDO holders.
 
-Additionally, there is a Gate Seal emergency committee that allows pausing certain protocol functionality (e.g. withdrawals) for a pre-configured amount of time sufficient for the DAO to vote on and execute a proposal. Gate Seal committee can only enact a pause once before losing its power (so it has to be re-elected by the DAO after that).
+Additionally, there is a Gate Seal emergency committee that allows pausing certain protocol functionality (e.g. withdrawals) for a pre-configured amount of time sufficient for the DAO to vote on and execute a proposal. The Gate Seal committee can only enact a pause once before losing its power (so it has to be re-elected by the DAO after that).
 
 The Dual governance mechanism (DG) is an iteration on the protocol governance that gives stakers a say by allowing them to block DAO decisions and providing a negotiation device between stakers and the DAO.
 
@@ -21,11 +21,11 @@ Another way of looking at dual governance is that it implements 1) a dynamic use
     2. a fungibility layer distributing ETH between node operators and issuing stakers a fungible deposit receipt token (stETH).
 * **Protocol governance:** the mechanism allowing to change the Lido protocol parameters and upgrade non-ossified (mutable) parts of the protocol code.
 * **LDO:** the fungible governance token of the Lido DAO.
-* **Lido DAO:** code deployed on the Ethereum blockchain implementing a DAO that receives a fee taken from the staking rewards to its treasury and allows LDO holders to collectively vote on spending the treasury, changing parameters of the Lido protocol and upgrading the non-ossified parts of the Lido protocol code. Referred to as just **DAO** thoughout this document.
+* **Lido DAO:** code deployed on the Ethereum blockchain implementing a DAO that receives a fee taken from the staking rewards to its treasury and allows LDO holders to collectively vote on spending the treasury, changing parameters of the Lido protocol and upgrading the non-ossified parts of the Lido protocol code. Referred to as just **DAO** throughout this document.
 * **DAO proposal:** a specific change in the onchain state of the Lido protocol or the Lido DAO proposed by LDO holders. Proposals have to be approved via onchain voting between LDO holders to become executable.
 * **stETH:** the fungible deposit receipt token of the Lido protocol. Allows the holder to withdraw the deposited ETH plus all accrued rewards (minus the fees) and penalties. Rewards/penalties accrual is expressed by periodic rebases of the token balances.
 * **wstETH:** a non-rebasable, immutable, and trustless wrapper around stETH deployed as an integral part of the Lido protocol. At any moment in time, there is a fixed wstETH/stETH rate effective for wrapping and unwrapping. The rate changes on each stETH rebase.
-* **Withdrawal NFT:** a non-fungible token minted by the Lido withdrawal queue contract as part of the (w)stETH withdrawal to ETH, parametrized by the underlying (w)stETH amount and the position in queue. Gives holder the right to claim the corresponding ETH amount after the withdrawal is complete. Doesn't entitle the holder to receive staking rewards.
+* **Withdrawal NFT:** a non-fungible token minted by the Lido withdrawal queue contract as part of the (w)stETH withdrawal to ETH, parametrized by the underlying (w)stETH amount and the position in the queue. Gives the holder the right to claim the corresponding ETH amount after the withdrawal is complete. Doesn't entitle the holder to receive staking rewards.
 * **Stakers:** EOAs and smart contract wallets that hold stETH, wstETH tokens, and withdrawal NFTs or deposit them into various deFi protocols and ceFi platforms: DEXes, CEXes, lending and stablecoin protocols, custodies, etc.
 * **Node operators:** parties registered in the Lido protocol willing to run Ethereum validators using the delegated ETH in exchange for a fee taken from the staking rewards. Node operators generate validator keys and at any time remain their sole holders, having full and exclusive control over Ethereum validators. Node operators are required to set their validators' withdrawal credentials to point to the specific Lido protocol smart contract.
 
@@ -42,7 +42,7 @@ Instead of making the in-scope changes directly, the DAO voting script should su
 After submission to the DG, a proposal can exist in one of the following states:
 
 * **Pending**: a proposal approved by the DAO was submitted to the DG subsystem, starting the dynamic execution timelock.
-* **Cancelled**: the DAO votes for cancelling the pending proposal. This is the terminal state.
+* **Cancelled**: the DAO votes for canceling the pending proposal. This is the terminal state.
 * **Executed**: the dynamic timelock of a pending proposal has elapsed and the proposal was executed. This is the terminal state.
 
 
@@ -106,7 +106,7 @@ The DG mechanism can be described as a state machine defining the global governa
 
 Let's now define these states and transitions.
 
-> Note: when a state has multiple outgoing transitions, their conditions are avaluated in the order they're listed in the text. If a condition evaluates to true, the further evaluation stops and the corresponsing transition is triggered.
+> Note: when a state has multiple outgoing transitions, their conditions are evaluated in the order they're listed in the text. If a condition evaluates to true, the further evaluation stops and the corresponding transition is triggered.
 
 
 ### Normal state
@@ -138,7 +138,7 @@ The Veto Signalling state's purpose is two-fold:
 
 In this state, the DAO can submit approved proposals to the DG but cannot execute them, including the proposals that were pending prior to the governance entering this state, effectively extending the timelock on all such proposals.
 
-The only proposal that can be executed by the DAO is the special $CancelAllPendingProposals$ action that cancels all proposals that were pending at the moment of this execution, making them forever unexecutable. This mechanism provides a way for the DAO and stakers to negotiate and de-escalate if consensus is reached.
+The only proposal that can be executed by the DAO is the special $CancelAllPendingProposals$ action that cancels all proposals that were pending at the moment of this execution, making them forever unexecutable. This mechanism provides a way for the DAO and stakers to negotiate and de-escalate if a consensus is reached.
 
 To define transitions from this state, let's first introduce several time values.
 
@@ -146,7 +146,7 @@ The **time of activation** of the Veto Signalling state  $t^S_{act}$ is the time
 
 The **time of re-activation** of the Veto Signalling state  $t^S_{react}$ is the time the Deactivation sub-state was last exited without exiting the parent Veto Signalling state.
 
-The **time of last proposal submission** $t_{prop}$ is the time the last proposal was submitted to the DG subsystem.
+The **time of last proposal submission** $t_{prop}$ is the last time a proposal was submitted to the DG subsystem.
 
 The **dynamic timelock duration** $T_{lock}(R)$ depends on the current rage quit support $R = R(t)$ and can be calculated as follows:
 
@@ -197,7 +197,7 @@ SecondSealRageQuitSupport = 0.1
 
 #### Deactivation sub-state
 
-The sub-state's purpose is to allow all stakers to observe the Veto Signalling being deactivated and react accordingly before non-cancelled proposals can be executed. In this sub-state, the DAO cannot submit proposals to the DG or execute pending proposals.
+The sub-state's purpose is to allow all stakers to observe the Veto Signalling being deactivated and react accordingly before non-canceled proposals can be executed. In this sub-state, the DAO cannot submit proposals to the DG or execute pending proposals.
 
 **Transition to the parent state**. If, while the sub-state is active, the following condition becomes true:
 
@@ -248,7 +248,7 @@ VetoCooldownDuration = 5 hours
 
 ### Rage Quit state
 
-The Rage Quit state allows all stakers who elected to leave the protocol via rage quit to fully withdraw their ETH without being subject to any new or pending DAO decisions. Entering this state means that stakers and the DAO weren't able to resolve the dispute so the DAO is misaligned with a significant part of stakers.
+The Rage Quit state allows all stakers who elected to leave the protocol via rage quit to fully withdraw their ETH without being subject to any new or pending DAO decisions. Entering this state means that the stakers and the DAO weren't able to resolve the dispute so the DAO is misaligned with a significant part of the stakers.
 
 Upon entry into the Rage Quit state, three things happen:
 
@@ -256,13 +256,13 @@ Upon entry into the Rage Quit state, three things happen:
 2. All stETH and wstETH held by the rage quit escrow are sent for withdrawal via the regular Lido Withdrawal Queue mechanism, generating a set of batch withdrawal NFTs held by the rage quit escrow.
 3. A new instance of the veto signalling escrow smart contract is deployed. This way, at any point in time, there is only one veto signalling escrow but there may be multiple rage quit escrows from previous rage quits.
 
-In this state, the DAO is allowed submit proposals to the DG but cannot execute any pending proposals. Stakers are not allowed to lock (w)stETH or withdrawal NFTs into the rage quit escrow so joining the ongoing rage quit is not possible. However, they can lock their tokens that are not part of the ongoing rage quit process to the newly-deployed veto signalling escrow to potentially trigger a new rage quit later.
+In this state, the DAO is allowed to submit proposals to the DG but cannot execute any pending proposals. Stakers are not allowed to lock (w)stETH or withdrawal NFTs into the rage quit escrow so joining the ongoing rage quit is not possible. However, they can lock their tokens that are not part of the ongoing rage quit process to the newly-deployed veto signalling escrow to potentially trigger a new rage quit later.
 
 The state lasts until the withdrawal started in 2) is complete, i.e. until all batch withdrawal NFTs generated from (w)stETH that was locked in the escrow are fulfilled and claimed, plus `RageQuitExtensionDelay` days.
 
-If, prior to the Rage Quit state being entered, a staker locked a withdrawal NFT into the signalling escrow, this NFT remains locked in the rage quit escrow. When such an NFT becomes fulfilled, the staker is allowed to burn this NFT and convert it to plain ETH, although still locked in the escrow. This allows stakers to derisk their ETH as early as possible by removing any dependence on the DAO-controlled code (remember that the withdrawal NFT contract is potentially upgradeable by the DAO but the rage quit escrow is immutable).
+If a staker locks a withdrawal NFT into the signalling escrow before the Rage Quit state is entered, this NFT remains locked in the rage quit escrow. When such an NFT becomes fulfilled, the staker is allowed to burn this NFT and convert it to plain ETH, although still locked in the escrow. This allows stakers to derisk their ETH as early as possible by removing any dependence on the DAO-controlled code (remember that the withdrawal NFT contract is potentially upgradeable by the DAO but the rage quit escrow is immutable).
 
-Since batch withdrawal NFTs are generated after the NFTs that were locked by stakers into the escrow directly, the withdrawal queue mechanism (external to the DG) guarantees that, by the time batch NFTs are fulfilled, all individually locked NFTs are fulfilled as well and can be claimed. Together with the extension delay, this guarantees that any staker having a withdrawal NFT locked in the rage quit escrow has at least `RageQuitExtensionDelay` days to convert it to escrow-locked ETH before the DAO execution is unblocked.
+Since batch withdrawal NFTs are generated after the NFTs that were locked by stakers into the escrow directly, the withdrawal queue mechanism (external to the DG) guarantees that by the time batch NFTs are fulfilled, all individually locked NFTs are fulfilled as well and can be claimed. Together with the extension delay, this guarantees that any staker having a withdrawal NFT locked in the rage quit escrow has at least `RageQuitExtensionDelay` days to convert it to escrow-locked ETH before the DAO execution is unblocked.
 
 When the withdrawal is complete and the extension delay elapses, two things happen simultaneously:
 
@@ -296,7 +296,7 @@ RageQuitEthClaimTimelockGrowthCoeffs = (0, TODO, TODO)
 ```
 
 
-### Gate Seal behavior and Tiebreaker Committee
+### Gate Seal behaviour and Tiebreaker Committee
 
 The [Gate Seal](https://docs.lido.fi/contracts/gate-seal) is an existing circuit breaker mechanism designed to be activated in the event of a zero-day vulnerability in the protocol contracts being found or exploited and empowering a DAO-elected committee to pause certain protocol functionality, including withdrawals, for a predefined duration enough for the DAO to vote for and execute a remediation. When this happens, the committee immediately loses its power. If this never happens, the committee's power also expires after a pre-configured amount of time passes since its election.
 
@@ -328,7 +328,7 @@ Specifically, the Tiebreaker committee can execute any pending proposal submitte
 * **Tiebreaker Condition A**: (governance state is Rage Quit) $\land$ (protocol withdrawals are paused by a Gate Seal).
 * **Tiebreaker Condition B**: (governance state is Rage Quit) $\land$ (last time governance exited Normal or Veto Cooldown state was more than `TiebreakerActivationTimeout` days ago).
 
-The Tiebreaker committee should be composed of multiple sub-committees covering different interest groups within the Ethereum community (e.g. largest DAOs, EF, L2s, node operators, OGs) and should require approval from a supermajority of sub-committees in order to execute a pending proposal. The approval by each sub-committee should require the majority support within the sub-committee. No sub-committee should contain more than $1/4$ of the members that are also members of the withdrawals Gate Seal committee.
+The Tiebreaker committee should be composed of multiple sub-committees covering different interest groups within the Ethereum community (e.g. largest DAOs, EF, L2s, node operators, OGs) and should require approval from a supermajority of sub-committees to execute a pending proposal. The approval by each sub-committee should require the majority support within the sub-committee. No sub-committee should contain more than $1/4$ of the members that are also members of the withdrawals Gate Seal committee.
 
 The composition of the Tiebreaker committee should be set by a DAO vote (subject to DG) and reviewed at least once a year.
 
@@ -347,7 +347,7 @@ Dual governance should cover any DAO proposal that could potentially affect the 
 * Changing the global protocol parameters and safety limits.
 * Changing the parameters of:
   * The withdrawal queue.
-  * The staking router, including addition and removal of staking modules.
+  * The staking router, including the addition and removal of staking modules.
   * Staking modules, including addition and removal of node operators within the curated staking module.
 * Adding, removing, and replacing the oracle committee members.
 * Adding, removing, and replacing the deposit security committee members.
@@ -364,9 +364,9 @@ Dual governance should not cover:
 
 ### 2024-04-10
 
-* Redesigned the Veto Signalling exit conditions and the Deactivation phase transitions: the Deactivation duration is now constant but Veto Signalling duration gets extended each time a new proposal is submitted.
+* Redesigned the Veto Signalling exit conditions and the Deactivation phase transitions: the Deactivation duration is now constant but the Veto Signalling duration gets extended each time a new proposal is submitted.
 
-    > The extension of Veto Signalling better expresses one of the first design principles of the DG: stakers should have adequate time to react to any DAO proposal, disagree with the DAO and potentially exit the protocol, and the more stakers disagree with the DAO, the longer the allowed reaction time should be.
+    > The extension of Veto Signalling better expresses one of the first design principles of the DG: stakers should have adequate time to react to any DAO proposal, disagree with the DAO, and potentially exit the protocol, and the more stakers disagree with the DAO, the longer the allowed reaction time should be.
     >
     > Also, these changes prevent the following DoS attack:
     >
