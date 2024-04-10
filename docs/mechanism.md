@@ -266,6 +266,7 @@ RageQuitEthClaimTimelockGrowthStartSeqNumber = 2
 RageQuitEthClaimTimelockGrowthCoeffs = (0, TODO, TODO)
 ```
 
+
 ### Gate Seal behavior and Tiebreaker Committee
 
 The [Gate Seal](https://docs.lido.fi/contracts/gate-seal) is an existing circuit breaker mechanism designed to be activated in the event of a zero-day vulnerability in the protocol contracts being found or exploited and empowering a DAO-elected committee to pause certain protocol functionality, including withdrawals, for a predefined duration enough for the DAO to vote for and execute a remediation. When this happens, the committee immediately loses its power. If this never happens, the committee's power also expires after a pre-configured amount of time passes since its election.
@@ -308,6 +309,7 @@ TiebreakerExecutionTimelock = 1 month
 TieBreakerActivationTimeout = 1 year
 ```
 
+
 ## Dual governance scope
 
 Dual governance should cover any DAO proposal that could potentially affect the protocol users, including:
@@ -327,3 +329,84 @@ Dual governance should not cover:
 
 * Emergency actions triggered by circuit breaker committees and contracts, including activation of any Gate Seal. These actions must be limited in scope and time and must be unable to change any protocol code.
 * DAO decisions related to spending and managing the DAO treasury.
+
+
+## Changelog
+
+### 2024-04-02
+
+* Added a minimum lock time of (w)stETH/wNFTs in the signalling escrow to prevent triggering state transitions using flash loans.
+
+    > An example attack:
+    > 1. Take a flash loan of `FirstSealRageQuitSupport` stETH, lock into the signalling escrow, and unlock in the same transaction.
+    > 2. This triggers the Veto Signalling state that will last for `VetoSignallingMinDuration` followed by the Veto Cooldown.
+    > 3. At the block the Veto Cooldown transitions to Normal, frontrun any transition-triggering transaction with a bundle that performs the transition and includes the transaction from step 1. Go to 2.
+
+* Added a lower limit on the Normal state duration to prevent `Veto Signalling -> Normal -> Veto Signalling` cycling attacks by front-running the DAO execution.
+
+    > An example attack: the same steps as in the previous item but use own/borrowed capital instead of the flash-borrowed one.
+
+* Added a lower limit on the time between exiting the Veto Signalling Deactivation sub-state and re-entering it (as well as transitioning to the Rage Quit) to prevent `(Veto Signalling, Deactivation) -> Veto Signalling -> (Veto Signalling, Deactivation)` cycling attacks by gradually locking stETH in the signalling escrow and thus blocking submission of new DAO proposals.
+
+    > An example attack:
+    > 1. An attacker controls `SecondSealRageQuitSupport` stETH. They divide these tokens into N parts so that the first part generates the `FirstSealRageQuitSupport` rage quit support and with each next part added, the Veto Signalling duration is increased by exactly `VetoSignallingDeactivationMinDuration` plus one block.
+    > 2. The attacker locks the first part of stETH into signalling escrow, triggering transition to Veto Signalling.
+    > 3. The attacker waits until the Veto Signalling Deactivation sub-state gets entered, and then waits for `VetoSignallingDeactivationMinDuration` minus one block.
+    > 4. The attacker locks the next stETH part into the signalling escrow, exiting the Deactivation state. After one block, the Deactivation state gets entered once again. Go to 3 (if not all stETH parts are locked yet).
+
+    > This way, the attacker can deprive the DAO of the ability to submit proposals (which is impossible in the Deactivation sub-state) for almost the whole `VetoSignallingMaxDuration` except a limited number of blocks.
+
+* Replaced the `Rage Quit -> Normal` transition with the `Rage Quit -> Veto Cooldown` transition to prevent front-running the DAO to sequentially enter Veto Signalling without incrementing the rage quit sequence number and thus increasing the rage quit ETH claim lock time.
+
+    > An example attack:
+    >
+    > 1. An attacker controls `2 * SecondSealRageQuitSupport` stETH. They lock the first half into the signalling escrow, triggering Rage Quit.
+    > 2. In the beginning of the block the Rage Quit ends, the attacker includes a bundle with two transaction: the first triggers the Rage Quit -> Normal transition, the second locks the unused half of stETH into the signalling escrow, triggering the Normal -> Rage Quit transition.
+    > 3. While Rage Quit is in progress, wait until ETH claim timelock ends for the other half of stETH, claim them to ETH and stake/swap to stETH. Go to 2.
+
+* Decreased the proposed Veto Cooldown state duration from 1 day to 5 hours.
+
+    > The new proposed time should be enough for the DAO (or anyone since execution is permissionless) to trigger proposal execution. At the same time, given the changes from the previous item, the DAO submitting a proposal at the end of Rage Quit now leads to the proposal's min execution timelock being effectively reduced by the veto cooldown duration so the latter should be set to a minumally viable value.
+    >
+    > An example attack:
+    >
+    > 0. If `VetoCooldownDuration >= ProposalExecutionMinTimelock`, the DAO can submit a proposal at the block preceding the one in which the Rage Quit ends. Since Rage Quit transitions to Veto Cooldown that allows proposal execution, the proposal will inevitably become executable after `ProposalExecutionMinTimelock` without stakers having the ability to extend its timelock and potentially leave before the proposal becomes executable.
+    > 1. If `VetoCooldownDuration < ProposalExecutionMinTimelock`, the DAO can submit a proposal `ProposalExecutionMinTimelock - VetoCooldownDuration - one_block` seconds before the Rage Quit ends.
+    > 2. Now, in order to extend the execution timelock of this proposal, stakers have the time until Rage Quit ends to lock enough stETH into the signalling escrow to generate `FirstSealRageQuitThreshold`. Otherwise, the proposal will become executable while the Veto Cooldown state lasts without stakers having the ability to extend its timelock and potentially leave before the proposal becomes executable.
+    > 3. This way, the effective execution timelock of the proposal is reduced by `VetoCooldownDuration`. That's ok if `VetoCooldownDuration << ProposalExecutionMinTimelock` but is not ok if they're comparable.
+
+### [2024-03-22](https://github.com/skozin/hackmd-notes/blob/35a2190a130ed6c92c231255be9bffd1f0d07a6c/dual-governance-design.md)
+
+* Made the Veto Signalling Deactivation state duration dependent on the last time a proposal was submitted during Veto Signalling.
+
+    > An example attack:
+    > 1. A malicious DAO actor locks `SecondSealRageQuitSupport` tokens in the veto signalling escrow, triggering the transition to Veto Signalling.
+    > 2. Waits until the `VetoSignallingMaxDuration` minus one block passes, submits a malicious proposal, and withdraws their tokens. This triggers the entrance of the Deactivation state.
+    > 3. Now, honest stakers have only the `VetoSignallingDeactivationDuration` to enter the signalling escrow with no less than the `SecondSealRageQuitSupport` tokens and trigger rage quit. Otherwise, the Veto Cooldown state gets activated and the malicious proposal becomes executable.
+
+* Added the Tiebreaker execution timelock.
+* Renamed parameters and changed some terms for clarity.
+
+### [2024-02-09](https://github.com/skozin/hackmd-notes/blob/22dbd2f22a35de44cca8d9cdfc556e6d0ce17c25/dual-governance-design.md)
+
+* Removed the Rage Quit Accumulation state since it allowed a sophisticated actor to bypass locking (w)stETH in the escrow while still blocking the DAO execution (which, in turn, significantly reduced the cost of the "constant veto" DoS attack on the governance).
+* Added details on veto signalling and rage quit escrows.
+* Changed the post-rage quit ETH withdrawal timelock to be dynamic instead of static to further increase the cost of the "constant veto" DoS attack while keeping the default timelock adequate.
+
+### [2023-12-05](https://github.com/skozin/hackmd-notes/blob/9a4eba7eb48de2915321e7875fbb7285ebb46949/dual-governance-design.md)
+
+* Removed the stETH balance snapshotting mechanism since the Tiebreaker Committee already allows recovering from an infinite stETH mint vulnerability.
+* Added support for using withdrawal NFTs in the veto escrow.
+
+### [2023-10-23](https://github.com/skozin/hackmd-notes/blob/e84727ec658983761fa9c6a897de00a11f42edfe/dual-governance-design.md)
+
+A major re-work of the DG mechanism (previous version [here](https://hackmd.io/@lido/BJKmFkM-i)).
+
+* Replaced the global settlement mechanism with the rage quit mechanism (i.e. local settlement, a protected exit from the protocol). Removed states: Global Settlement; added states: Rage Quit Accumulation, Rage Quit.
+* Removed the veto lift voting mechanism.
+* Re-worked the DG activation and negotiation mechanism, replacing Veto Voting and Veto Negotiation states with the Veto Signalling state.
+* Added the Veto Cooldown state.
+* Added the $KillAllPendingProposals$ DAO decision.
+* Added stETH balance snapshotting mechanism.
+* Specified inter-operation between the Gate Seal mechanism and DG.
+* Added the Tiebreaker Committee.
