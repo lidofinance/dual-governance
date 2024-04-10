@@ -40,6 +40,19 @@ struct LockedAssetsTotals {
     uint128 amountClaimed;
 }
 
+struct VetoerState {
+    uint256 stETHShares;
+    uint256 wstETHShares;
+    uint256 unstETHShares;
+}
+
+struct TotalsState {
+    uint256 shares;
+    uint256 sharesFinalized;
+    uint256 amountFinalized;
+    uint256 amountClaimed;
+}
+
 library AssetsAccounting {
     using SafeCast for uint256;
 
@@ -69,6 +82,7 @@ library AssetsAccounting {
     error NoBatchesToClaim();
     error EmptyWithdrawalBatch();
     error WithdrawalBatchesFormed();
+    error InvalidVetoer(address vetoer);
     error NotWithdrawalRequestOwner(uint256 id, address actual, address expected);
     error InvalidSharesLock(address vetoer, uint256 shares);
     error InvalidSharesUnlock(address vetoer, uint256 shares);
@@ -99,6 +113,7 @@ library AssetsAccounting {
     // ---
 
     function accountStETHLock(State storage self, address vetoer, uint256 shares) internal {
+        _checkNonZeroVetoer(vetoer);
         _checkNonZeroSharesLock(vetoer, shares);
         uint128 sharesUint128 = shares.toUint128();
         self.assets[vetoer].stETHShares += sharesUint128;
@@ -112,6 +127,7 @@ library AssetsAccounting {
         uint256 assetsUnlockDelay,
         address vetoer
     ) internal returns (uint128 sharesUnlocked) {
+        _checkNonZeroVetoer(vetoer);
         sharesUnlocked = self.assets[vetoer].stETHShares;
         _checkNonZeroSharesUnlock(vetoer, sharesUnlocked);
         _checkAssetsUnlockDelayPassed(self, assetsUnlockDelay, vetoer);
@@ -355,6 +371,20 @@ library AssetsAccounting {
     // Getters
     // ---
 
+    function getVetoerState(State storage self, address vetoer) internal view returns (VetoerState memory state) {
+        state.stETHShares = self.assets[vetoer].stETHShares;
+        state.wstETHShares = self.assets[vetoer].wstETHShares;
+        state.unstETHShares = self.assets[vetoer].unstETHShares;
+    }
+
+    function getTotalsState(State storage self) internal view returns (TotalsState memory state) {
+        LockedAssetsTotals memory totals = self.totals;
+        state.shares = totals.shares;
+        state.amountClaimed = totals.amountClaimed;
+        state.sharesFinalized = totals.sharesFinalized;
+        state.amountFinalized = totals.amountFinalized;
+    }
+
     function getLocked(State storage self) internal view returns (uint256 rebaseableShares, uint256 finalizedAmount) {
         rebaseableShares = self.totals.shares - self.totals.sharesFinalized;
         finalizedAmount = self.totals.amountFinalized;
@@ -501,6 +531,12 @@ library AssetsAccounting {
     function _checkWithdrawalRequestWasLocked(WithdrawalRequest storage request, uint256 id) private view {
         if (request.vetoerUnstETHIndexOneBased == 0) {
             revert WithdrawalRequestWasNotLocked(id);
+        }
+    }
+
+    function _checkNonZeroVetoer(address vetoer) private pure {
+        if (vetoer == address(0)) {
+            revert InvalidVetoer(vetoer);
         }
     }
 
