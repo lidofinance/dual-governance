@@ -1,4 +1,4 @@
-**Working draft**, the latest version is published at https://hackmd.io/@skozin/SkjuZAuip.
+**Working draft**
 
 ---
 
@@ -8,9 +8,9 @@ Dual Governance (DG) is a governance subsystem that sits between the Lido DAO, r
 
 This document provides the system description on the code architecture level. A detailed description on the mechanism level can be found in the [Dual Governance mechanism design overview][mech design] document which should be considered an integral part of this specification.
 
-[mech design]: https://hackmd.io/@skozin/rkD1eUzja
+[mech design]: mechanism.md
 
-[mech design - tiebreaker]: https://hackmd.io/@skozin/rkD1eUzja#Tiebreaker-Committee
+[mech design - tiebreaker]: mechanism.md#Tiebreaker-Committee
 
 
 ## System overview
@@ -64,7 +64,7 @@ By the time the dynamic timelock described above elapses, one of the following o
 
 The proposal execution flow comes after the dynamic timelock elapses and the proposal is scheduled for execution. The system can function in two deployment modes which affect the flow.
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/6252bc65-269f-447d-b215-6a59188b8a94)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/7a0f0330-6ef5-4985-8fd4-ac8f1f95d229)
 
 #### Regular deployment mode
 
@@ -116,7 +116,7 @@ These transitions are enabled by three processes (see the [mechanism design docu
 2. Protocol withdrawals processing (in the `RageQuit` state);
 3. Time passing.
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/570141e8-4d66-45a2-9d18-3435806f1831)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/118c26ef-5187-469f-a5ab-aea945fdb6aa)
 
 
 ## Rage quit
@@ -131,7 +131,7 @@ At any time, only one instance of the rage quit process can be active.
 
 From the stakers' point of view, opposition to the DAO and the rage quit process can be described by the following diagram:
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/419f5621-7f83-4360-8f81-d3ced27b9fcc)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/f0f3647d-e251-458c-8556-2c481c2df35b)
 
 
 ## Tiebreaker committee
