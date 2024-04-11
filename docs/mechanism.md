@@ -373,7 +373,7 @@ Dual governance should not cover:
     > 1. A malicious actor front-runs submission of a proposal to the DG with a transaction that locks enough tokens in the signalling escrow to generate `FirstSealRageQuitSupport`, and immediately initiates the unlock. The governance is transitioned into the Veto Signalling state.
     > 2. As soon as the `SignallingEscrowMinLockTime` passes, the actor unlocks their tokens from the escrow. This transitions the governance into the Veto Signalling Deactivation state that lasts `VetoSignallingMaxDuration`.
 
-    > As one can see, the actor was able to delay the governance execution by `SignallingEscrowMinLockTime + VetoSignallingMaxDuration` while controlling tokens only enough to generate `FirstSealRageQuitSupport` and locking them for only the `SignallingEscrowMinLockTime` which makes for a rather cheap and efficient DoS attack.
+    > As one can see, the actor was able to delay the governance execution by `VetoSignallingMaxDuration` while controlling tokens only enough to generate `FirstSealRageQuitSupport` and locking them for only the `SignallingEscrowMinLockTime` which makes for a rather cheap and efficient DoS attack.
 
 * Specified the transition conditions more rigorously.
 
