@@ -14,6 +14,23 @@ The Dual governance mechanism (DG) is an iteration on the protocol governance th
 
 Another way of looking at dual governance is that it implements 1) a dynamic user-extensible timelock on DAO decisions and 2) a rage quit mechanism for stakers taking into account the specifics of how Ethereum withdrawals work.
 
+
+## Navigation
+
+* [Definitions](#definitions)
+* [Mechanism description](#mechanism-description)
+  + [Proposal lifecycle](#proposal-lifecycle)
+  + [Signalling Escrow](#signalling-escrow)
+  + [Global governance state](#global-governance-state)
+  + [Normal state](#normal-state)
+  + [Veto Signalling state](#veto-signalling-state)
+  + [Veto Cooldown state](#veto-cooldown-state)
+  + [Rage Quit state](#rage-quit-state)
+  + [Gate Seal behaviour and Tiebreaker Committee](#gate-seal-behaviour-and-tiebreaker-committee)
+* [Dual governance scope](#dual-governance-scope)
+* [Changelog](#changelog)
+
+
 ## Definitions
 
 * **Lido protocol:** code deployed on the Ethereum blockchain implementing:

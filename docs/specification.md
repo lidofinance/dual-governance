@@ -13,6 +13,26 @@ This document provides the system description on the code architecture level. A 
 [mech design - tiebreaker]: mechanism.md#Tiebreaker-Committee
 
 
+## Navigation
+
+* [System overview](#system-overview)
+* [Proposal flow](#proposal-flow)
+  + [Dynamic timelock](#dynamic-timelock)
+  + [Proposal execution and deployment modes](#proposal-execution-and-deployment-modes)
+* [Governance state](#governance-state)
+* [Rage quit](#rage-quit)
+* [Tiebreaker committee](#tiebreaker-committee)
+* [Administrative actions](#administrative-actions)
+* [Common types](#common-types)
+* [Contract: DualGovernance.sol](#contract-dualgovernancesol)
+* [Contract: Executor.sol](#contract-executorsol)
+* [Contract: Escrow.sol](#contract-escrowsol)
+* [Contract: EmergencyProtectedTimelock.sol](#contract-emergencyprotectedtimelocksol)
+* [Contract: GateSealBreaker.sol](#contract-gatesealbreakersol)
+* [Contract: Configuration.sol](#contract-configurationsol)
+* [Upgrade flow description](#upgrade-flow-description)
+
+
 ## System overview
 
 ![image](https://github.com/lidofinance/dual-governance/assets/1699593/8b1f119c-2a61-4d66-969c-acab2b66c16e)
