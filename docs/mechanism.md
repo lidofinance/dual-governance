@@ -213,7 +213,7 @@ then the Deactivation sub-state is exited so only the parent Veto Signalling sta
 t - t^{SD}_{act} > \, T^{SD}_{max}
 ```
 
-where $t^{SD}_{act}$ is the time the Deactivation sub-state was entered and $T^{SD}_{max}$ is `VetoSignallingDeactivationMaxDuration`, then the Deactivation sub-state is exited along with its parent Veto Signalling state and the Veto Cooldown state is entered.
+where $`t^{SD}_{act}`$ is the time the Deactivation sub-state was entered and $`T^{SD}_{max}`$ is `VetoSignallingDeactivationMaxDuration`, then the Deactivation sub-state is exited along with its parent Veto Signalling state and the Veto Cooldown state is entered.
 
 ```env
 # Proposed values, to be modeled and refined
