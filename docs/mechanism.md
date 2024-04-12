@@ -130,7 +130,7 @@ Let's now define these states and transitions.
 
 ### Normal state
 
-The Normal state is the state the mechanism is designed to spend the most time within. The DAO can submit the approved proposals to the DG and execute them after the standard timelock of `ProposalExecutionMinTimelock` days passes since the proposal's submission.
+The Normal state is the state the mechanism is designed to spend the most time within. The DAO can submit the approved proposals to the DG and execute them provided that the proposal being executed is not cancelled and was submitted more than `ProposalExecutionMinTimelock` days ago.
 
 **Transition to Veto Signalling**. If, while the state is active, the following condition becomes true:
 
@@ -241,7 +241,7 @@ VetoSignallingDeactivationMaxDuration = 3 days
 
 ### Veto Cooldown state
 
-In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can execute pending non-cancelled proposals. It exists to guarantee that no staker possessing enough stETH to generate `FirstSealRageQuitSupport` can lock the governance indefinitely without rage quitting the protocol.
+In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can execute pending non-cancelled proposals, provided that the proposal being executed was submitted more than `ProposalExecutionMinTimelock` days ago. This state exists to guarantee that no staker possessing enough stETH to generate `FirstSealRageQuitSupport` can lock the governance indefinitely without rage quitting the protocol.
 
 **Transition to Veto Signalling**. If, while the state is active, the following condition becomes true:
 
