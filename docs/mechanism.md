@@ -132,19 +132,18 @@ Let's now define these states and transitions.
 
 The Normal state is the state the mechanism is designed to spend the most time within. The DAO can submit the approved proposals to the DG and execute them provided that the proposal being executed is not cancelled and was submitted more than `ProposalExecutionMinTimelock` days ago.
 
-**Transition to Veto Signalling**. If, while the state is active, the following condition becomes true:
+**Transition to Veto Signalling**. If, while the state is active, the following expression becomes true:
 
 ```math
-\big( R(t) > R_1 \big) \, \land \, \big( t - t^N_{act} > T^N_{min} \big)
+R > R_1
 ```
 
-where $R_1$ is `FirstSealRageQuitSupport`, $t^N_{act}$ is the time the Normal state was entered, and $T^N_{min}$ is `NormalStateMinDuration`, the Normal state is exited and the Veto Signalling state is entered.
+where $R_1$ is `FirstSealRageQuitSupport`, the Normal state is exited and the Veto Signalling state is entered.
 
 ```env
 # Proposed values, to be modeled and refined
 ProposalExecutionMinTimelock = 3 days
 FirstSealRageQuitSupport = 0.01
-NormalStateMinDuration = 5 hours
 ```
 
 
@@ -380,6 +379,10 @@ Dual governance should not cover:
 
 
 ## Changelog
+
+### 2024-04-12
+
+* Removed the lower boundary on the Normal state duration since it's not needed anymore: flash loan attacks are prevented by the signalling escrow min lock time and governance liveliness is ensured by the Veto Cooldown.
 
 ### 2024-04-10
 
