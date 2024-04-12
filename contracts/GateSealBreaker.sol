@@ -22,6 +22,11 @@ contract GateSealBreaker is Ownable {
         uint40 releaseEnactedAt;
     }
 
+    struct FailedSealable {
+        uint40 releaseFailedAt;
+        bool isReleased;
+    }
+
     error GovernanceLocked();
     error ReleaseNotStarted();
     error GateSealNotActivated();
@@ -31,6 +36,11 @@ contract GateSealBreaker is Ownable {
     error MinSealDurationNotPassed();
     error GateSealIsNotRegistered(IGateSeal gateSeal);
     error GateSealAlreadyRegistered(IGateSeal gateSeal, uint256 registeredAt);
+    error RetryReleaseWindowHasPassed(ISealable sealable);
+    error RetryReleaseCallFailed(ISealable sealable, bytes error);
+    error RetryReleaseIsPausedCheckFailed(ISealable sealable, bytes lowLevelError);
+    error RetryReleaseIsPausedConditionNotMet(ISealable sealable);
+    error SealableAlreadyReleased(ISealable sealable);
 
     event ReleaseIsPausedConditionNotMet(ISealable sealable);
     event ReleaseResumeCallFailed(ISealable sealable, bytes lowLevelError);
@@ -39,12 +49,15 @@ contract GateSealBreaker is Ownable {
     uint256 public immutable RELEASE_DELAY;
     IDualGovernance public immutable DUAL_GOVERNANCE;
 
+    uint256 public constant RETRY_RELEASE_WINDOW = 1 days;
+
     constructor(uint256 releaseDelay, address owner, address dualGovernance) Ownable(owner) {
         RELEASE_DELAY = releaseDelay;
         DUAL_GOVERNANCE = IDualGovernance(dualGovernance);
     }
 
     mapping(IGateSeal gateSeal => GateSealState) internal _gateSeals;
+    mapping(ISealable sealable => FailedSealable) internal _failedSealables;
 
     function registerGateSeal(IGateSeal gateSeal) external {
         _checkOwner();
@@ -91,8 +104,28 @@ contract GateSealBreaker is Ownable {
             (bool resumeCallSuccess, bytes memory lowLevelError) = sealable.callResume();
             if (!resumeCallSuccess) {
                 emit ReleaseResumeCallFailed(sealable, lowLevelError);
+
+                _failedSealables[sealable] =
+                    FailedSealable({releaseFailedAt: block.timestamp.toUint40(), isReleased: false});
             }
         }
+    }
+
+    function retryRelease(ISealable sealable) external {
+        FailedSealable memory sealable_ = _failedSealables[sealable];
+
+        if (sealable_.isReleased) {
+            revert SealableAlreadyReleased(sealable);
+        }
+        if (sealable_.releaseFailedAt + RETRY_RELEASE_WINDOW < block.timestamp) {
+            revert RetryReleaseWindowHasPassed(sealable);
+        }
+        if (!sealable.isPaused()) {
+            revert RetryReleaseIsPausedConditionNotMet(sealable);
+        }
+
+        _failedSealables[sealable].isReleased = true;
+        sealable.resume();
     }
 
     function _checkGateSealRegistered(IGateSeal gateSeal) internal view {

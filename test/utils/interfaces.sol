@@ -2,6 +2,7 @@ pragma solidity 0.8.23;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/interfaces/IERC721.sol";
+import {ISealable} from "contracts/interfaces/ISealable.sol";
 
 struct WithdrawalRequestStatus {
     uint256 amountOfStETH;
@@ -70,7 +71,7 @@ interface IWstETH is IERC20 {
     function unwrap(uint256 wstETHAmount) external returns (uint256);
 }
 
-interface IWithdrawalQueue is IERC721 {
+interface IWithdrawalQueue is IERC721, ISealable {
     function PAUSE_ROLE() external pure returns (bytes32);
     function RESUME_ROLE() external pure returns (bytes32);
 

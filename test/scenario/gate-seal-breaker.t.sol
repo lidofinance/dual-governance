@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {percents, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
-
-import {GateSealMock} from "../mocks/GateSealMock.sol";
+import {ISealable} from "contracts/interfaces/ISealable.sol";
 import {GateSealBreaker, IGateSeal} from "contracts/GateSealBreaker.sol";
+import {GateSealMock} from "../mocks/GateSealMock.sol";
 
+import {percents, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 import {DAO_AGENT} from "../utils/mainnet-addresses.sol";
 
 contract SealBreakerScenarioTest is ScenarioTestBlueprint {
@@ -26,7 +26,6 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealables.push(address(_WITHDRAWAL_QUEUE));
 
         _gateSeal = new GateSealMock(_MIN_SEAL_DURATION, _SEALING_COMMITTEE_LIFETIME);
-
         _sealBreaker = new GateSealBreaker(_RELEASE_DELAY, address(this), address(_dualGovernance));
 
         _sealBreaker.registerGateSeal(_gateSeal);
@@ -198,5 +197,58 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         // An attempt to release same gate seal the second time fails
         vm.expectRevert(GateSealBreaker.GateSealAlreadyReleased.selector);
         _sealBreaker.startRelease(_gateSeal);
+    }
+
+    function testFork_GateSealBreakerMightNotReleaseSealable() external {
+        // revoke role for gate seal breaker to resume withdrawal queue
+        vm.startPrank(DAO_AGENT);
+        _WITHDRAWAL_QUEUE.revokeRole(_WITHDRAWAL_QUEUE.RESUME_ROLE(), address(_sealBreaker));
+        vm.stopPrank();
+
+        assertFalse(_WITHDRAWAL_QUEUE.isPaused());
+        _assertNormalState();
+
+        // sealing committee seals Withdrawal Queue
+        vm.prank(_SEALING_COMMITTEE);
+        _gateSeal.seal(_sealables);
+
+        // validate Withdrawal Queue was paused
+        assertTrue(_WITHDRAWAL_QUEUE.isPaused());
+
+        _wait(_MIN_SEAL_DURATION + 1);
+
+        // seal may be released
+        _sealBreaker.startRelease(_gateSeal);
+
+        _wait(_RELEASE_DELAY + 1);
+
+        // exit bus oracle can't be resumed due to lack of role
+        _sealBreaker.enactRelease(_gateSeal);
+
+        assertTrue(_WITHDRAWAL_QUEUE.isPaused());
+
+        _wait(1);
+
+        // retry to release the withrawal queue
+        vm.expectRevert();
+        _sealBreaker.retryRelease(_WITHDRAWAL_QUEUE);
+        
+        assertTrue(_WITHDRAWAL_QUEUE.isPaused());
+
+        _wait(1);
+
+        // grant role to gate seal breaker to resume the withdrawal queue
+        vm.startPrank(DAO_AGENT);
+        _WITHDRAWAL_QUEUE.grantRole(_WITHDRAWAL_QUEUE.RESUME_ROLE(), address(_sealBreaker));
+        vm.stopPrank();
+
+        assertTrue(_WITHDRAWAL_QUEUE.hasRole(_WITHDRAWAL_QUEUE.RESUME_ROLE(), address(_sealBreaker)));
+
+        _sealBreaker.retryRelease(_WITHDRAWAL_QUEUE);
+
+        assertFalse(_WITHDRAWAL_QUEUE.isPaused());
+
+        vm.expectRevert(abi.encodeWithSelector(GateSealBreaker.SealableAlreadyReleased.selector, _WITHDRAWAL_QUEUE));
+        _sealBreaker.retryRelease(_WITHDRAWAL_QUEUE);
     }
 }
