@@ -124,6 +124,8 @@ The DG mechanism can be described as a state machine defining the global governa
 Let's now define these states and transitions.
 
 > Note: when a state has multiple outgoing transitions, their conditions are evaluated in the order they're listed in the text. If a condition evaluates to true, the further evaluation stops and the corresponding transition is triggered.
+>
+> Multiple state transitions can be sequentially triggered at the same timestamp, provided that each subsequent transition's condition is re-evaluated and holds true after the preceding transition is triggered.
 
 
 ### Normal state
