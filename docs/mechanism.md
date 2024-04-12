@@ -124,25 +124,26 @@ The DG mechanism can be described as a state machine defining the global governa
 Let's now define these states and transitions.
 
 > Note: when a state has multiple outgoing transitions, their conditions are evaluated in the order they're listed in the text. If a condition evaluates to true, the further evaluation stops and the corresponding transition is triggered.
+>
+> Multiple state transitions can be sequentially triggered at the same timestamp, provided that each subsequent transition's condition is re-evaluated and holds true after the preceding transition is triggered.
 
 
 ### Normal state
 
-The Normal state is the state the mechanism is designed to spend the most time within. The DAO can submit the approved proposals to the DG and execute them after the standard timelock of `ProposalExecutionMinTimelock` days passes since the proposal's submission.
+The Normal state is the state the mechanism is designed to spend the most time within. The DAO can submit the approved proposals to the DG and execute them provided that the proposal being executed is not cancelled and was submitted more than `ProposalExecutionMinTimelock` days ago.
 
-**Transition to Veto Signalling**. If, while the state is active, the following condition becomes true:
+**Transition to Veto Signalling**. If, while the state is active, the following expression becomes true:
 
 ```math
-\big( R(t) > R_1 \big) \, \land \, \big( t - t^N_{act} > T^N_{min} \big)
+R > R_1
 ```
 
-where $R_1$ is `FirstSealRageQuitSupport`, $t^N_{act}$ is the time the Normal state was entered, and $T^N_{min}$ is `NormalStateMinDuration`, the Normal state is exited and the Veto Signalling state is entered.
+where $R_1$ is `FirstSealRageQuitSupport`, the Normal state is exited and the Veto Signalling state is entered.
 
 ```env
 # Proposed values, to be modeled and refined
 ProposalExecutionMinTimelock = 3 days
 FirstSealRageQuitSupport = 0.01
-NormalStateMinDuration = 5 hours
 ```
 
 
@@ -239,7 +240,7 @@ VetoSignallingDeactivationMaxDuration = 3 days
 
 ### Veto Cooldown state
 
-In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can execute pending non-cancelled proposals. It exists to guarantee that no staker possessing enough stETH to generate `FirstSealRageQuitSupport` can lock the governance indefinitely without rage quitting the protocol.
+In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can execute pending non-cancelled proposals, provided that the proposal being executed was submitted more than `ProposalExecutionMinTimelock` days ago. This state exists to guarantee that no staker possessing enough stETH to generate `FirstSealRageQuitSupport` can lock the governance indefinitely without rage quitting the protocol.
 
 **Transition to Veto Signalling**. If, while the state is active, the following condition becomes true:
 
@@ -378,6 +379,10 @@ Dual governance should not cover:
 
 
 ## Changelog
+
+### 2024-04-12
+
+* Removed the lower boundary on the Normal state duration since it's not needed anymore: flash loan attacks are prevented by the signalling escrow min lock time and governance liveliness is ensured by the Veto Cooldown.
 
 ### 2024-04-10
 
