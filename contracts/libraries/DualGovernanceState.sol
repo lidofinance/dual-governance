@@ -24,13 +24,17 @@ library DualGovernanceState {
     struct Store {
         State state;
         uint40 enteredAt;
-        uint40 signallingActivatedAt;
+        //
+        uint40 vetoSignallingFirstActivation;
+        uint40 vetoSignallingLastActivation;
+        //
         uint40 lastAdoptableStateExitedAt;
         IEscrow signallingEscrow;
         IEscrow rageQuitEscrow;
-        uint40 lastProposalCreatedAt;
         uint8 rageQuitRound;
     }
+    // uint40 vetoAccumulationDuration;
+    // uint40 vetoDeactivationDuration;
 
     error NotTie();
     error AlreadyInitialized();
@@ -74,8 +78,41 @@ library DualGovernanceState {
         }
     }
 
+    // TODO: Consider this code as possible option. Delete if not needed
+    // function onNewProposal(Store storage self, IConfiguration config) internal {
+    //     uint256 accumulationMaxDuration = config.SIGNALLING_MAX_DURATION();
+    //     uint256 deactivationMinDuration = config.SIGNALLING_DEACTIVATION_DURATION();
+
+    //     if (self.state == State.Normal || self.state == State.RageQuit) {
+    //         self.vetoAccumulationDuration = TimeUtils.timestamp(accumulationMaxDuration);
+    //         self.vetoDeactivationDuration = TimeUtils.timestamp(deactivationMinDuration);
+    //     } else if (self.state == State.VetoAccumulation) {
+    //         // when the proposal submitted during the veto accumulation phase
+    //         uint256 enteredAt = self.enteredAt;
+    //         uint256 vetoAccumulationDurationPassed = block.timestamp - enteredAt;
+    //         // now we have to decrease veto accumulation duration on passed time and increase the
+    //         // deactivation duration
+    //         uint256 vetoAccumulationDurationNew = self.vetoAccumulationDuration > vetoAccumulationDurationPassed
+    //             ? self.vetoAccumulationDuration - vetoAccumulationDurationPassed
+    //             : 0;
+    //         uint256 vetoDeactivationDurationNew =
+    //             deactivationMinDuration + accumulationMaxDuration - vetoAccumulationDurationNew;
+
+    //         self.vetoAccumulationDuration = TimeUtils.timestamp(vetoAccumulationDurationNew);
+    //         self.vetoDeactivationDuration = TimeUtils.timestamp(vetoDeactivationDurationNew);
+    //         // when the durations were updated, assuming that vet signalling was reactivated
+    //         // at this point.
+    //         self.enteredAt = TimeUtils.timestamp();
+    //     } else {
+    //         // in any other cases, proposal can't be submitted
+    //         assert(false);
+    //     }
+    // }
+
     function setLastProposalCreationTimestamp(Store storage self) internal {
-        self.lastProposalCreatedAt = TimeUtils.timestamp();
+        if (self.state == State.VetoSignalling) {
+            self.vetoSignallingLastActivation = TimeUtils.timestamp();
+        }
     }
 
     function checkProposalsCreationAllowed(Store storage self) internal view {
@@ -132,7 +169,7 @@ library DualGovernanceState {
         isActive = self.state == State.VetoSignalling;
         duration = isActive ? getVetoSignallingDuration(self, config) : 0;
         enteredAt = isActive ? self.enteredAt : 0;
-        activatedAt = isActive ? self.signallingActivatedAt : 0;
+        activatedAt = isActive ? self.vetoSignallingLastActivation : 0;
     }
 
     function getVetoSignallingDuration(Store storage self, IConfiguration config) internal view returns (uint256) {
@@ -150,17 +187,8 @@ library DualGovernanceState {
         IConfiguration config
     ) internal view returns (bool isActive, uint256 duration, uint256 enteredAt) {
         isActive = self.state == State.VetoSignallingDeactivation;
-        duration = getVetoSignallingDeactivationDuration(self, config);
+        duration = config.SIGNALLING_DEACTIVATION_DURATION();
         enteredAt = isActive ? self.enteredAt : 0;
-    }
-
-    function getVetoSignallingDeactivationDuration(
-        Store storage self,
-        IConfiguration config
-    ) internal view returns (uint256) {
-        return self.lastProposalCreatedAt >= self.signallingActivatedAt
-            ? config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION()
-            : config.SIGNALLING_DEACTIVATION_DURATION();
     }
 
     // ---
@@ -173,40 +201,47 @@ library DualGovernanceState {
     }
 
     function _fromVetoSignallingState(Store storage self, IConfiguration config) private view returns (State) {
-        uint256 totalSupport = self.signallingEscrow.getRageQuitSupport();
+        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (totalSupport < config.FIRST_SEAL_THRESHOLD()) {
+        if (rageQuitSupport < config.FIRST_SEAL_THRESHOLD()) {
             return State.VetoSignallingDeactivation;
         }
 
-        uint256 currentDuration = block.timestamp - self.signallingActivatedAt;
-        uint256 targetDuration = _calcVetoSignallingTargetDuration(config, totalSupport);
+        uint256 vetoSignallingTotalDuration = block.timestamp - self.vetoSignallingFirstActivation;
 
-        if (currentDuration < targetDuration) {
-            return State.VetoSignalling;
+        if (vetoSignallingTotalDuration >= config.SIGNALLING_MAX_DURATION() && _isSecondThresholdReached(self, config))
+        {
+            return State.RageQuit;
         }
 
-        return _isSecondThresholdReached(self, config) ? State.RageQuit : State.VetoSignallingDeactivation;
+        uint256 vetoSignallingCurrentDuration = block.timestamp - self.vetoSignallingLastActivation;
+        uint256 targetDuration = _calcVetoSignallingTargetDuration(config, rageQuitSupport);
+
+        // spent in the VetoAccumulation state longer than needed
+        if (vetoSignallingCurrentDuration >= targetDuration) {
+            return State.VetoSignallingDeactivation;
+        }
+
+        return State.VetoSignalling;
     }
 
     function _fromVetoSignallingDeactivationState(
         Store storage self,
         IConfiguration config
     ) private view returns (State) {
-        if (_isVetoSignallingDeactivationPhasePassed(self, config)) return State.VetoCooldown;
-
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
-        uint256 currentSignallingDuration = block.timestamp - self.signallingActivatedAt;
-        uint256 targetSignallingDuration = _calcVetoSignallingTargetDuration(config, rageQuitSupport);
+        uint256 vetoSignallingCurrentDuration = block.timestamp - self.vetoSignallingLastActivation;
+        uint256 targetDuration = _calcVetoSignallingTargetDuration(config, rageQuitSupport);
 
-        if (currentSignallingDuration >= targetSignallingDuration) {
-            if (rageQuitSupport >= config.SECOND_SEAL_THRESHOLD()) {
-                return State.RageQuit;
-            }
-        } else if (rageQuitSupport >= config.FIRST_SEAL_THRESHOLD()) {
+        if (targetDuration > vetoSignallingCurrentDuration) {
             return State.VetoSignalling;
         }
-        return State.VetoSignallingDeactivation;
+
+        if (block.timestamp - self.enteredAt <= config.SIGNALLING_DEACTIVATION_DURATION()) {
+            return State.VetoSignallingDeactivation;
+        }
+
+        return _isSecondThresholdReached(self, config) ? State.RageQuit : State.VetoCooldown;
     }
 
     function _fromVetoCooldownState(Store storage self, IConfiguration config) private view returns (State) {
@@ -249,7 +284,8 @@ library DualGovernanceState {
             self.rageQuitRound = 0;
         }
         if (newState == State.VetoSignalling && oldState != State.VetoSignallingDeactivation) {
-            self.signallingActivatedAt = currentTime;
+            self.vetoSignallingFirstActivation = currentTime;
+            self.vetoSignallingLastActivation = currentTime;
         }
         if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
@@ -293,20 +329,6 @@ library DualGovernanceState {
 
         duration_ = minDuration
             + (totalSupport - firstSealThreshold) * (maxDuration - minDuration) / (secondSealThreshold - firstSealThreshold);
-    }
-
-    function _isVetoSignallingDeactivationPhasePassed(
-        Store storage self,
-        IConfiguration config
-    ) private view returns (bool) {
-        uint256 currentDeactivationDuration = block.timestamp - self.enteredAt;
-
-        if (currentDeactivationDuration < config.SIGNALLING_DEACTIVATION_DURATION()) return false;
-
-        uint256 lastProposalCreatedAt = self.lastProposalCreatedAt;
-        return lastProposalCreatedAt >= self.signallingActivatedAt
-            ? block.timestamp - lastProposalCreatedAt >= config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION()
-            : true;
     }
 
     function _deployNewSignallingEscrow(Store storage self, address escrowMasterCopy) private {
