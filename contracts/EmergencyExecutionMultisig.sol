@@ -9,66 +9,58 @@ interface IEmergencyProtectedTimelock {
 }
 
 contract EmergencyExecutionMultisig is RestrictedMultisigBase {
-    uint256 public constant EXECUTE_PROPOSAL = 1;
-    uint256 public constant RESET_GOVERNANCE = 2;
-
-    address emergencyProtectedTimelock;
+    address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
     constructor(
-        address _owner,
-        address[] memory _members,
-        uint256 _quorum,
-        address _emergencyProtectedTimelock
-    ) RestrictedMultisigBase(_owner, _members, _quorum) {
-        emergencyProtectedTimelock = _emergencyProtectedTimelock;
+        address OWNER,
+        address[] memory multisigMembers,
+        uint256 executionQuorum,
+        address emergencyProtectedTimelock
+    ) RestrictedMultisigBase(OWNER, multisigMembers, executionQuorum) {
+        EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
-    // Proposal Execution
-    function voteExecuteProposal(uint256 _proposalId, bool _supports) public onlyMember {
-        _vote(_buildExecuteProposalAction(_proposalId), _supports);
+    // Emergency Execution
+
+    function voteEmergencyExecute(uint256 _proposalId, bool _supports) public onlyMember {
+        _vote(_buildEmergencyExecuteAction(_proposalId), _supports);
     }
 
-    function getExecuteProposalState(uint256 _proposalId)
+    function getEmergencyExecuteState(uint256 _proposalId)
         public
-        returns (uint256 support, uint256 ExecutionQuorum, bool isExecuted)
+        view
+        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getState(_buildExecuteProposalAction(_proposalId));
+        return getActionState(_buildEmergencyExecuteAction(_proposalId));
     }
 
-    function executeProposal(uint256 _proposalId) public {
-        _execute(_buildExecuteProposalAction(_proposalId));
+    function executeEmergencyExecute(uint256 _proposalId) public {
+        _execute(_buildEmergencyExecuteAction(_proposalId));
     }
 
     // Governance reset
 
-    function voteGoveranaceReset() public onlyMember {
-        _vote(_buildResetGovAction(), true);
+    function approveEmergencyReset() public onlyMember {
+        _vote(_buildEmergencyResetAction(), true);
     }
 
-    function getGovernanceResetState() public returns (uint256 support, uint256 ExecutionQuorum, bool isExecuted) {
-        return _getState(_buildResetGovAction());
+    function getEmergencyResetState()
+        public
+        view
+        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+    {
+        return getActionState(_buildEmergencyResetAction());
     }
 
-    function resetGovernance() external {
-        _execute(_buildResetGovAction());
+    function executeEmergencyReset() external {
+        _execute(_buildEmergencyResetAction());
     }
 
-    function _issueCalls(Action memory _action) internal override {
-        if (_action.actionType == EXECUTE_PROPOSAL) {
-            uint256 proposalIdToExecute = abi.decode(_action.data, (uint256));
-            IEmergencyProtectedTimelock(emergencyProtectedTimelock).emergencyExecute(proposalIdToExecute);
-        } else if (_action.actionType == RESET_GOVERNANCE) {
-            IEmergencyProtectedTimelock(emergencyProtectedTimelock).emergencyReset();
-        } else {
-            assert(false);
-        }
+    function _buildEmergencyResetAction() internal view returns (Action memory) {
+        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyReset()"));
     }
 
-    function _buildResetGovAction() internal view returns (Action memory) {
-        return Action(RESET_GOVERNANCE, new bytes(0), false, new address[](0));
-    }
-
-    function _buildExecuteProposalAction(uint256 proposalId) internal view returns (Action memory) {
-        return Action(EXECUTE_PROPOSAL, abi.encode(proposalId), false, new address[](0));
+    function _buildEmergencyExecuteAction(uint256 proposalId) internal view returns (Action memory) {
+        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyExecute(uint256)", proposalId));
     }
 }

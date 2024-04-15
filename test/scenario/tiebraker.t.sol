@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import {Test, console} from "forge-std/Test.sol";
 import {DualGovernanceDeployScript, DualGovernance, EmergencyProtectedTimelock} from "script/Deploy.s.sol";
 import {TiebreakerCore} from "contracts/TiebreakerCore.sol";
-import {TiebreakerSubDAO} from "contracts/TiebreakerSubDAO.sol";
+import {TiebreakerSubCommittee} from "contracts/TiebreakerSubCommittee.sol";
 
 import {Utils} from "../utils/utils.sol";
 import {INodeOperatorsRegistry} from "../utils/interfaces.sol";
@@ -14,8 +14,8 @@ contract TiebreakerScenarioTest is Test {
     Executor__mock private _emergencyExecutor;
 
     TiebreakerCore private _coreTiebreaker;
-    TiebreakerSubDAO private _efTiebreaker;
-    TiebreakerSubDAO private _nosTiebreaker;
+    TiebreakerSubCommittee private _efTiebreaker;
+    TiebreakerSubCommittee private _nosTiebreaker;
 
     uint256 private _efMembersCount = 5;
     uint256 private _efQuorum = 3;
@@ -36,7 +36,7 @@ contract TiebreakerScenarioTest is Test {
         _emergencyExecutor.setCommittee(address(_coreTiebreaker));
 
         // EF sub DAO
-        _efTiebreaker = new TiebreakerSubDAO(address(this), new address[](0), 0, address(_coreTiebreaker));
+        _efTiebreaker = new TiebreakerSubCommittee(address(this), new address[](0), 0, address(_coreTiebreaker));
         for (uint256 i = 0; i < _efMembersCount; i++) {
             _efTiebreakerMembers.push(makeAddr(string(abi.encode(i + 65))));
             _efTiebreaker.addMember(_efTiebreakerMembers[i], _efQuorum);
@@ -45,7 +45,7 @@ contract TiebreakerScenarioTest is Test {
         _coreTiebreaker.addMember(address(_efTiebreaker), _efQuorum);
 
         // NOs sub DAO
-        _nosTiebreaker = new TiebreakerSubDAO(address(this), new address[](0), 0, address(_coreTiebreaker));
+        _nosTiebreaker = new TiebreakerSubCommittee(address(this), new address[](0), 0, address(_coreTiebreaker));
         for (uint256 i = 0; i < _nosMembersCount; i++) {
             _nosTiebreakerMembers.push(makeAddr(string(abi.encode(i + 65))));
             _nosTiebreaker.addMember(_nosTiebreakerMembers[i], _nosQuorum);
@@ -77,7 +77,7 @@ contract TiebreakerScenarioTest is Test {
         assert(support == quorum);
         assert(isExecuted == false);
 
-        _efTiebreaker.approveProposal(proposalIdToExecute);
+        _efTiebreaker.executeApproveProposal(proposalIdToExecute);
         (support, quorum, isExecuted) = _coreTiebreaker.getApproveProposalState(proposalIdToExecute);
         assert(support < quorum);
 
@@ -98,11 +98,11 @@ contract TiebreakerScenarioTest is Test {
         assert(support == quorum);
         assert(isExecuted == false);
 
-        _nosTiebreaker.approveProposal(proposalIdToExecute);
+        _nosTiebreaker.executeApproveProposal(proposalIdToExecute);
         (support, quorum, isExecuted) = _coreTiebreaker.getApproveProposalState(proposalIdToExecute);
         assert(support == quorum);
 
-        _coreTiebreaker.approveProposal(proposalIdToExecute);
+        _coreTiebreaker.executeApproveProposal(proposalIdToExecute);
 
         assert(_emergencyExecutor.proposals(proposalIdToExecute) == true);
     }

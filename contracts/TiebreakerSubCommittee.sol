@@ -3,20 +3,20 @@ pragma solidity 0.8.23;
 
 import {RestrictedMultisigBase} from "./RestrictedMultisigBase.sol";
 
-contract TiebreakerCore is RestrictedMultisigBase {
-    address immutable DUAL_GOVERNANCE;
+contract TiebreakerSubCommittee is RestrictedMultisigBase {
+    address immutable TIEBREAKER_CORE;
 
     constructor(
         address owner,
         address[] memory multisigMembers,
         uint256 executionQuorum,
-        address dualGovernance
+        address tiebreakerCore
     ) RestrictedMultisigBase(owner, multisigMembers, executionQuorum) {
-        DUAL_GOVERNANCE = dualGovernance;
+        TIEBREAKER_CORE = tiebreakerCore;
     }
 
-    function approveProposal(uint256 _proposalId) public onlyMember {
-        _vote(_buildApproveProposalAction(_proposalId), true);
+    function voteApproveProposal(uint256 _proposalId, bool _supports) public onlyMember {
+        _vote(_buildApproveProposalAction(_proposalId), _supports);
     }
 
     function getApproveProposalState(uint256 _proposalId)
@@ -32,6 +32,6 @@ contract TiebreakerCore is RestrictedMultisigBase {
     }
 
     function _buildApproveProposalAction(uint256 _proposalId) internal view returns (Action memory) {
-        return Action(DUAL_GOVERNANCE, abi.encodeWithSignature("tiebreakerApproveProposal(uint256)", _proposalId));
+        return Action(TIEBREAKER_CORE, abi.encodeWithSignature("approveProposal(uint256)", _proposalId));
     }
 }

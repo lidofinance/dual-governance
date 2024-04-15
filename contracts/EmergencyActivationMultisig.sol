@@ -3,45 +3,35 @@ pragma solidity 0.8.23;
 
 import {RestrictedMultisigBase} from "./RestrictedMultisigBase.sol";
 
-interface IEmergencyProtectedTimelock {
-    function emergencyActivate() external;
-}
-
 contract EmergencyActivationMultisig is RestrictedMultisigBase {
-    uint256 public constant EMERGENCY_ACTIVATE = 1;
-
-    address emergencyProtectedTimelock;
+    address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
     constructor(
-        address _owner,
-        address[] memory _members,
-        uint256 _quorum,
-        address _emergencyProtectedTimelock
-    ) RestrictedMultisigBase(_owner, _members, _quorum) {
-        emergencyProtectedTimelock = _emergencyProtectedTimelock;
+        address OWNER,
+        address[] memory multisigMembers,
+        uint256 executionQuorum,
+        address emergencyProtectedTimelock
+    ) RestrictedMultisigBase(OWNER, multisigMembers, executionQuorum) {
+        EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
-    function voteEmergencyActivate() public onlyMember {
+    function approveEmergencyActivate() public onlyMember {
         _vote(_buildEmergencyActivateAction(), true);
     }
 
-    function getEmergencyActivateState() public returns (uint256 support, uint256 ExecutionQuorum, bool isExecuted) {
-        return _getState(_buildEmergencyActivateAction());
+    function getEmergencyActivateState()
+        public
+        view
+        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+    {
+        return getActionState(_buildEmergencyActivateAction());
     }
 
-    function emergencyActivate() external {
+    function executeEmergencyActivate() external {
         _execute(_buildEmergencyActivateAction());
     }
 
-    function _issueCalls(Action memory _action) internal override {
-        if (_action.actionType == EMERGENCY_ACTIVATE) {
-            IEmergencyProtectedTimelock(emergencyProtectedTimelock).emergencyActivate();
-        } else {
-            assert(false);
-        }
-    }
-
     function _buildEmergencyActivateAction() internal view returns (Action memory) {
-        return Action(EMERGENCY_ACTIVATE, new bytes(0), false, new address[](0));
+        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyActivate()"));
     }
 }
