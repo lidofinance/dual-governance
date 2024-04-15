@@ -200,16 +200,18 @@ the Veto Signalling state is exited and the Rage Quit state is entered.
 **Transition to Deactivation**. If, while Veto Signalling is active and the Deactivation sub-state is not active, the following expression becomes true:
 
 ```math
-\left( t - \max \left\{ t^S_{act} \,,\, t_{prop} \right\} > T_{lock}(R) \right) \, \land \, \left( t - t^S_{react} > T^{Sr}_{min} \right)
+\left( t - \max \left\{ t^S_{act} \,,\, t_{prop} \right\} > T_{lock}(R) \right) \, \land \, \left( t - \max \left\{ t^S_{act} \,,\, t^S_{react} \right\} > T^{Sa}_{min} \right)
 ```
 
-where $T^{Sr}_{min}$ is `VetoSignallingMinReactivationDuration`, then the Deactivation sub-state of the Veto Signalling state is entered without exiting the parent Veto Signalling state.
+where $T^{Sa}_{min}$ is `VetoSignallingMinActiveDuration`, then the Deactivation sub-state of the Veto Signalling state is entered without exiting the parent Veto Signalling state.
+
+The right part of the condition limits how fast the Deactivation sub-state can be entered and re-entered. It's needed make it impossible to keep the governance in the Deactivation sub-state (where the DAO cannot submit proposals) by front-running state transitions and locking/unlocking tokens from the signalling escrow.
 
 ```env
 # Proposed values, to be modeled and refined
 DynamicTimelockMinDuration = 5 days
 DynamicTimelockMaxDuration = 45 days
-VetoSignallingMinReactivationDuration = 5 hours
+VetoSignallingMinActiveDuration = 5 hours
 SecondSealRageQuitSupport = 0.1
 ```
 
@@ -381,6 +383,24 @@ Dual governance should not cover:
 ## Changelog
 
 ### 2024-04-12
+
+* Limited the time between Veto Signalling state entrance and the Deactivation sub-state entrance to prevent the front-running attack allowing to keep the governance in the Deactivation sub-state (`T` is `FirstSealRageQuitSupport` and `P` is `SignallingEscrowMinLockTime`):
+
+     ```
+     1. t = 0: lock T/2, initiate unlock
+     2. t = P: execute bundle:
+          - lock T/2, initiate unlock => Veto Signalling is entered
+          - unlock T/2 =>  Deactivation is entered
+     3. t = 2P: unlock T/2
+     4. t = [Veto Cooldown end] - P: lock T/2, initiate unlock
+     5. t = X = [Veto Cooldown end]: execute bundle:
+          - state transition: Normal is entered
+          - lock T/2, initiate unlock => Veto Signalling is entered
+          - unlock T/2 from prev lock => Deactivation is entered
+     6. t = X + P: unlock T/2
+
+     repeat from 4
+     ```
 
 * Removed the lower boundary on the Normal state duration since it's not needed anymore: flash loan attacks are prevented by the signalling escrow min lock time and governance liveliness is ensured by the Veto Cooldown.
 
