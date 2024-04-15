@@ -92,7 +92,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         //        WAS SUBMITTED ON VETO SIGNALLING PHASE
         // ---
         {
-            vm.warp(block.timestamp + _config.SIGNALLING_DEACTIVATION_DURATION() + 1);
+            vm.warp(block.timestamp + _config.VETO_SIGNALLING_DEACTIVATION_DURATION() + 1);
 
             // the veto signalling deactivation duration is passed, but proposal will be executed
             // only when the _config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION() from the last proposal
@@ -152,10 +152,10 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         }
 
         // ---
-        // ACT 3. THE VETO SIGNALLING DEACTIVATION DURATION EQUALS TO "SIGNALLING_DEACTIVATION_DURATION" DAYS
+        // ACT 3. THE VETO SIGNALLING DEACTIVATION DURATION EQUALS TO "VETO_SIGNALLING_DEACTIVATION_DURATION" DAYS
         // ---
         {
-            vm.warp(block.timestamp + _config.SIGNALLING_DEACTIVATION_DURATION() + 1);
+            vm.warp(block.timestamp + _config.VETO_SIGNALLING_DEACTIVATION_DURATION() + 1);
 
             _activateNextState();
             _assertVetoCooldownState();

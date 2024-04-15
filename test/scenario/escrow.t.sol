@@ -99,7 +99,7 @@ contract EscrowHappyPath is TestHelpers {
         _lockStETH(_VETOER_2, 3 * 10 ** 18);
         _lockWstETH(_VETOER_2, 5 * 10 ** 18);
 
-        _wait(_config.ESCROW_ASSETS_UNLOCK_DELAY() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
 
         _unlockStETH(_VETOER_1);
         _unlockWstETH(_VETOER_1);
@@ -136,7 +136,7 @@ contract EscrowHappyPath is TestHelpers {
         uint256 secondVetoerStETHSharesAfterRebase = _ST_ETH.sharesOf(_VETOER_2);
         uint256 secondVetoerWstETHBalanceAfterRebase = _WST_ETH.balanceOf(_VETOER_2);
 
-        _wait(_config.ESCROW_ASSETS_UNLOCK_DELAY() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
 
         _unlockStETH(_VETOER_1);
         _unlockWstETH(_VETOER_1);
@@ -180,7 +180,7 @@ contract EscrowHappyPath is TestHelpers {
 
         rebase(-100);
 
-        _wait(_config.ESCROW_ASSETS_UNLOCK_DELAY() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
 
         _unlockStETH(_VETOER_1);
         _unlockWstETH(_VETOER_1);
@@ -206,7 +206,7 @@ contract EscrowHappyPath is TestHelpers {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        _wait(_config.ESCROW_ASSETS_UNLOCK_DELAY() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
 
         _unlockUnstETH(_VETOER_1, unstETHIds);
     }

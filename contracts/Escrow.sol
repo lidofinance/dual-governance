@@ -91,7 +91,7 @@ contract Escrow is IEscrow {
     }
 
     function unlockStETH() external {
-        uint256 sharesUnlocked = _accounting.accountStETHUnlock(CONFIG.ESCROW_ASSETS_UNLOCK_DELAY(), msg.sender);
+        uint256 sharesUnlocked = _accounting.accountStETHUnlock(CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME(), msg.sender);
         ST_ETH.transferShares(msg.sender, sharesUnlocked);
         _activateNextGovernanceState();
     }
@@ -107,7 +107,7 @@ contract Escrow is IEscrow {
     }
 
     function unlockWstETH() external returns (uint256 wstETHUnlocked) {
-        wstETHUnlocked = _accounting.accountWstETHUnlock(CONFIG.ESCROW_ASSETS_UNLOCK_DELAY(), msg.sender);
+        wstETHUnlocked = _accounting.accountWstETHUnlock(CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME(), msg.sender);
         WST_ETH.transfer(msg.sender, wstETHUnlocked);
         _activateNextGovernanceState();
     }
@@ -126,7 +126,7 @@ contract Escrow is IEscrow {
     }
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
-        _accounting.accountUnstETHUnlock(CONFIG.ESCROW_ASSETS_UNLOCK_DELAY(), msg.sender, unstETHIds);
+        _accounting.accountUnstETHUnlock(CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME(), msg.sender, unstETHIds);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             WITHDRAWAL_QUEUE.transferFrom(address(this), msg.sender, unstETHIds[i]);

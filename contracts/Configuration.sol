@@ -16,15 +16,15 @@ contract Configuration is IConfiguration {
 
     uint256 public immutable RAGE_QUIT_ETH_WITHDRAWAL_TIMELOCK = 30 days;
 
-    uint256 public immutable SIGNALLING_COOLDOWN_DURATION = 4 days;
-    uint256 public immutable SIGNALLING_DEACTIVATION_DURATION = 5 days;
+    uint256 public immutable VETO_COOLDOWN_DURATION = 4 days;
+    uint256 public immutable VETO_SIGNALLING_DEACTIVATION_DURATION = 5 days;
     uint256 public immutable SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION = 30 days;
 
-    uint256 public immutable SIGNALLING_MIN_DURATION = 3 days;
-    uint256 public immutable SIGNALLING_MAX_DURATION = 30 days;
+    uint256 public immutable DYNAMIC_TIMELOCK_MIN_DURATION = 3 days;
+    uint256 public immutable DYNAMIC_TIMELOCK_MAX_DURATION = 30 days;
 
-    uint256 public immutable FIRST_SEAL_THRESHOLD = 3 * PERCENT;
-    uint256 public immutable SECOND_SEAL_THRESHOLD = 15 * PERCENT;
+    uint256 public immutable FIRST_SEAL_RAGE_QUIT_SUPPORT = 3 * PERCENT;
+    uint256 public immutable SECOND_SEAL_RAGE_QUIT_SUPPORT = 15 * PERCENT;
 
     uint256 public immutable TIE_BREAK_ACTIVATION_TIMEOUT = 365 days;
 
@@ -32,7 +32,7 @@ contract Configuration is IConfiguration {
     uint256 public immutable RAGE_QUIT_EXTENSION_DELAY = 7 days;
     uint256 public immutable RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK = 60 days;
     uint256 public immutable MIN_STATE_DURATION = 5 hours;
-    uint256 public immutable ESCROW_ASSETS_UNLOCK_DELAY = 5 hours;
+    uint256 public immutable SIGNALLING_ESCROW_MIN_LOCK_TIME = 5 hours;
 
     // Sealables Array Representation
     uint256 private immutable MAX_SELABLES_COUNT = 5;
@@ -74,15 +74,15 @@ contract Configuration is IConfiguration {
         external
         view
         returns (
-            uint256 firstSealThreshold,
-            uint256 secondSealThreshold,
-            uint256 signallingMinDuration,
-            uint256 signallingMaxDuration
+            uint256 firstSealRageQuitSupport,
+            uint256 secondSealRageQuitSupport,
+            uint256 dynamicTimelockMinDuration,
+            uint256 dynamicTimelockMaxDuration
         )
     {
-        firstSealThreshold = FIRST_SEAL_THRESHOLD;
-        secondSealThreshold = SECOND_SEAL_THRESHOLD;
-        signallingMinDuration = SIGNALLING_MIN_DURATION;
-        signallingMaxDuration = SIGNALLING_MAX_DURATION;
+        firstSealRageQuitSupport = FIRST_SEAL_RAGE_QUIT_SUPPORT;
+        secondSealRageQuitSupport = SECOND_SEAL_RAGE_QUIT_SUPPORT;
+        dynamicTimelockMinDuration = DYNAMIC_TIMELOCK_MIN_DURATION;
+        dynamicTimelockMaxDuration = DYNAMIC_TIMELOCK_MAX_DURATION;
     }
 }
