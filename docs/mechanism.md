@@ -341,9 +341,12 @@ Given the updated Gate Seal behaviour, the system allows for reaching a deadlock
 
 Apart from the Gate Seal being activated, withdrawals can become dysfunctional due to a bug in the protocol code. If this happens while the Rage Quit state is active, it would also trigger the deadlock since a DAO proposal fixing the bug cannot be executed until the Rage Quit state is exited.
 
-To resolve the potential deadlock, the mechanism contains a third-party arbiter **Tiebreaker Committee** elected by the DAO. The committee gains its power only under the specific conditions of the deadlock (see below), and the power is limited by bypassing the DG dynamic timelock for pending proposals approved by the DAO.
+To resolve the potential deadlock, the mechanism contains a third-party arbiter **Tiebreaker Committee** elected by the DAO. The committee gains its power only under the specific conditions of the deadlock (see below), and can only perform the following actions:
 
-Specifically, the Tiebreaker committee can execute any pending proposal submitted by the DAO to DG, subject to a timelock of `TiebreakerExecutionTimelock` days, iff any of the following two conditions is true:
+* Execute any pending proposal submitted by the DAO to DG (i.e. bypass the DG dynamic timelock).
+* Unpause any of the paused protocol contracts.
+
+The Tiebreaker committee can perform the above actions, subject to a timelock of `TiebreakerExecutionTimelock` days, iff any of the following two conditions is true:
 
 * **Tiebreaker Condition A**: (governance state is Rage Quit) $\land$ (protocol withdrawals are paused by a Gate Seal).
 * **Tiebreaker Condition B**: (governance state is Rage Quit) $\land$ (last time governance exited Normal or Veto Cooldown state was more than `TiebreakerActivationTimeout` days ago).
@@ -383,6 +386,10 @@ Dual governance should not cover:
 ## Changelog
 
 ### 2024-04-12
+
+* Allowed the Tiebreaker committee to unpause protocol contracts.
+
+    > Without this, a collusion between a malicious DAO and the Gate Seal committee (which has to be fast and thus limited in the number of participants) would allow them to indefinitely delay a rage quit by pausing certain contracts (e.g. withdrawal queue or validator exit bus) and blackmail rage quit participants.
 
 * Limited the time between Veto Signalling state entrance and the Deactivation sub-state entrance to prevent the front-running attack allowing to keep the governance in the Deactivation sub-state (`T` is `FirstSealRageQuitSupport` and `P` is `SignallingEscrowMinLockTime`):
 

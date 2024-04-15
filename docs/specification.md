@@ -35,7 +35,7 @@ This document provides the system description on the code architecture level. A 
 
 ## System overview
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/8b1f119c-2a61-4d66-969c-acab2b66c16e)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/e043530a-d898-4089-8e2d-c58f00436264)
 
 The system is composed of the following main contracts:
 
@@ -158,11 +158,14 @@ From the stakers' point of view, opposition to the DAO and the rage quit process
 
 The mechanism design allows for a deadlock where the system is stuck in the `RageQuit` state while protocol withdrawals are paused or dysfunctional and require a DAO vote to resume, and includes a third-party arbiter Tiebreaker committee for resolving it.
 
-The committee gains the power to bypass the DG dynamic timelock and execute pending proposals under the specific conditions of the deadlock. The detailed Tiebreaker mechanism design can be found in the [Dual Governance mechanism design overview][mech design - tiebreaker] document.
+The committee gains the power to execute pending proposals, bypassing the DG dynamic timelock, and unpause withdrawals (if they're paused by a Gate Seal) under the specific conditions of the deadlock. The detailed Tiebreaker mechanism design can be found in the [Dual Governance mechanism design overview][mech design - tiebreaker] document.
 
 The Tiebreaker committee is represented in the system by its address which can be configured via the admin executor calling the [`DualGovernance.setTiebreakerCommittee`](#Function-DualGovernancesetTiebreakerCommittee) function.
 
-While the deadlock conditions are met, the tiebreaker committee address is allowed to approve execution of any pending proposal by calling [`DualGovernance.tiebreakerApproveProposal`](#Function-DualGovernancetiebreakerApproveProposal) so that its execution can be scheduled after the tiebreaker execution timelock passes by calling [`DualGovernance.tiebreakerScheduleProposal`](#Function-DualGovernancetiebreakerScheduleProposal).
+While the deadlock conditions are met, the tiebreaker committee address is allowed to:
+
+1. Approve execution of any pending proposal by calling [`DualGovernance.tiebreakerApproveProposal`] so that its execution can be scheduled by calling [`DualGovernance.tiebreakerScheduleProposal`] after the tiebreaker execution timelock passes.
+2. Approve the unpause of a pausable ("sealable") protocol contract by calling [`DualGovernance.tiebreakerApproveSealableResume`] so that it can be unpaused by calling [`DualGovernance.tiebreakerScheduleSealableResume`] after the tiebreaker execution timelock passes.
 
 
 ## Administrative actions
@@ -255,7 +258,7 @@ Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimeloc
 
 #### Preconditions
 
-* The proposal with the given id MUST be already submitted.
+* The proposal with the given id MUST be already submitted using the `DualGovernance.submitProposal` call (the proposal MUST NOT be submitted as the result of the [`DualGovernance.tiebreakerApproveSealableResume`] call).
 * The proposal MUST NOT be scheduled.
 * The proposal's dynamic timelock MUST have elapsed.
 * The proposal MUST NOT be cancelled.
@@ -264,6 +267,8 @@ Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimeloc
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
 ### Function: DualGovernance.tiebreakerApproveProposal
+
+[`DualGovernance.tiebreakerApproveProposal`]: #Function-DualGovernancetiebreakerApproveProposal
 
 ```solidity
 function tiebreakerApproveProposal(uint256 proposalId)
@@ -284,6 +289,8 @@ Triggers a transition of the current governance state (if one is possible) befor
 
 ### Function: DualGovernance.tiebreakerScheduleProposal
 
+[`DualGovernance.tiebreakerScheduleProposal`]: #Function-DualGovernancetiebreakerScheduleProposal
+
 ```solidity
 function tiebreakerScheduleProposal(uint256 proposalId)
 ```
@@ -293,10 +300,51 @@ Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimeloc
 #### Preconditions
 
 * Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
-* The proposal MUST be already submitted.
+* The proposal with the given id MUST be already submitted using the `DualGovernance.submitProposal` call (the proposal MUST NOT be submitted as the result of the [`DualGovernance.tiebreakerApproveSealableResume`] call).
 * The proposal MUST NOT be cancelled.
 * The proposal with the specified id MUST be approved by the Tiebreaker committee.
 * The current block timestamp MUST be at least `TIEBREAKER_EXECUTION_TIMELOCK` seconds greater than the timestamp of the block in which the proposal was approved by the Tiebreaker committee.
+
+Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
+
+
+### Function: DualGovernance.tiebreakerApproveSealableResume
+
+[`DualGovernance.tiebreakerApproveSealableResume`]: #Function-DualGovernancetiebreakerApproveSealableResume
+
+```solidity
+function tiebreakerApproveSealableResume(address sealable)
+```
+
+Submits a proposal on issuing the `ISealable(sealable).resume()` call from the admin executor contract by calling `EmergencyProtectedTimelock.submit` on the `EmergencyProtectedTimelock` singleton instance. Starts a timelock with the `TIEBREAKER_EXECUTION_TIMELOCK` duration on scheduling this proposal.
+
+#### Branches
+
+If the last proposal submitted by calling this function with the same `sealable` parameter is not executed and not cancelled, then does nothing.
+
+#### Preconditions
+
+* MUST be called by the [Tiebreaker committee address](#Function-DualGovernancesetTiebreakerCommittee).
+* Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
+
+Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
+
+
+### Function: DualGovernance.tiebreakerScheduleSealableResume
+
+[`DualGovernance.tiebreakerScheduleSealableResume`]: #Function-DualGovernancetiebreakerScheduleSealableResume
+
+```solidity
+function tiebreakerScheduleSealableResume(address sealable)
+```
+
+Schedules the proposal on issuing the `ISealable(sealable).resume()` call that was previously submitted by calling the [`DualGovernance.tiebreakerApproveSealableResume`] function, given that the timelock on its scheduling has elapsed.
+
+#### Preconditions
+
+* Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
+* The last proposal submitted by calling the [`DualGovernance.tiebreakerApproveSealableResume`] function with the same `sealable` parameter MUST be pending, i.e. not scheduled, not executed, and not cancelled.
+* The timelock on scheduling that proposal MUST be elapsed.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
@@ -314,6 +362,7 @@ Triggers a transition of the current governance state, if one is possible.
 #### Preconditions
 
 * MUST be called by an [admin proposer](#Administrative-actions).
+* The current governance state MUST NOT equal `Normal`, `VetoCooldown`, or `RageQuit`.
 
 
 ### Function: DualGovernance.registerProposer
