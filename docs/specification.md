@@ -114,17 +114,19 @@ The state machine is specified in the [Dual Governance mechanism design][mech de
 * `Normal` allows proposal submission and scheduling for execution.
 * `VetoSignalling` only allows proposal submission.
     * `VetoSignallingDeactivation` sub-state (doesn't deactivate the parent state upon entry) doesn't allow proposal submission or scheduling for execution.
+    * `VetoSignallingRqAccumulation` sub-state (doesn't deactivate the parent state upon entry) only allows proposal submission.
 * `VetoCooldown` only allows scheduling already submitted proposals for execution.
 * `RageQuit` only allows proposal submission.
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/44c2b253-6ea2-4aac-a1c6-fd54cec92887)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/f1a4b822-d5bd-4fd6-9824-d2ed5f19a602)
 
 Possible state transitions:
 
 * `Normal` → `VetoSignalling`
-* `VetoSignalling` → `RageQuit`
 * `VetoSignallingDeactivation` sub-state entry and exit (while the parent `VetoSignalling` state is active)
+* `VetoSignallingRqAccumulation` sub-state entry and exit (while the parent `VetoSignalling` state is active)
 * `VetoSignallingDeactivation` → `VetoCooldown`
+* `VetoSignallingRqAccumulation` → `RageQuit`
 * `VetoCooldown` → `Normal`
 * `VetoCooldown` → `VetoSignalling`
 * `RageQuit` → `VetoCooldown`
@@ -217,6 +219,7 @@ enum State {
     Normal,
     VetoSignalling,
     VetoSignallingDeactivation,
+    VetoSignallingRqAccumulation,
     VetoCooldown,
     RageQuit
 }
@@ -243,7 +246,7 @@ The id of the successfully registered proposal.
 #### Preconditions
 
 * The calling address MUST be [registered as a proposer](#Function-DualGovernanceregisterProposer).
-* The current governance state MUST be either of: `Normal`, `VetoSignalling`, `RageQuit`.
+* The current governance state MUST be either of: `Normal`, `VetoSignalling`, `VetoSignallingRqAccumulation`, `RageQuit`.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 

@@ -112,14 +112,15 @@ SignallingEscrowMinLockTime = 5 hours
 The DG mechanism can be described as a state machine defining the global governance state, with each particular state imposing different limitations on the actions the DAO can perform, and state transitions being driven by stakers' actions and (w)stETH withdrawals processing.
 
 |State |DAO can submit proposals|DAO can execute proposals|
-|-------------------------------|---|---|
-|Normal                         | ✓ | ✓ |
-|Veto Signalling                | ✓ |   |
-|Veto Signalling (deactivation) |   |   |
-|Veto Cooldown                  |   | ✓ |
-|Rage Quit                      | ✓ |   |
+|----------------------------------|---|---|
+|Normal                            | ✓ | ✓ |
+|Veto Signalling                   | ✓ |   |
+|Veto Signalling: RQ Accumulation  | ✓ |   |
+|Veto Signalling: Deactivation     |   |   |
+|Veto Cooldown                     |   | ✓ |
+|Rage Quit                         | ✓ |   |
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/862b3f11-ea79-4e75-8c56-ff56f94d0a6f)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/f1a4b822-d5bd-4fd6-9824-d2ed5f19a602)
 
 Let's now define these states and transitions.
 
@@ -189,15 +190,15 @@ When the current rage quit support changes due to stakers locking or unlocking t
 
 Let's now define the outgoing transitions.
 
-**Transition to Rage Quit**. If, while Veto Signalling is active (including while the Deactivation sub-state is active), the following expression becomes true:
+**Transition to RQ Accumulation**. If, while Veto Signalling is active but none of the sub-states are active, the following expression becomes true:
 
 ```math
 \big( t - t^S_{act} > L_{max} \big) \, \land \, \big( R > R_2 \big)
 ```
 
-the Veto Signalling state is exited and the Rage Quit state is entered.
+the RQ Accumulation sub-state is entered without exiting the parent Veto Signalling state.
 
-**Transition to Deactivation**. If, while Veto Signalling is active and the Deactivation sub-state is not active, the following expression becomes true:
+**Transition to Deactivation**. If, while Veto Signalling is active but none of the sub-states are active, the following expression becomes true:
 
 ```math
 \left( t - \max \left\{ t^S_{act} \,,\, t_{prop} \right\} > T_{lock}(R) \right) \, \land \, \left( t - \max \left\{ t^S_{act} \,,\, t^S_{react} \right\} > T^{Sa}_{min} \right)
@@ -215,7 +216,7 @@ VetoSignallingMinActiveDuration = 5 hours
 SecondSealRageQuitSupport = 0.1
 ```
 
-#### Deactivation sub-state
+### Veto Signalling: Deactivation sub-state
 
 The sub-state's purpose is to allow all stakers to observe the Veto Signalling being deactivated and react accordingly before non-canceled proposals can be executed. In this sub-state, the DAO cannot submit proposals to the DG or execute pending proposals.
 
@@ -239,6 +240,32 @@ where $`t^{SD}_{act}`$ is the time the Deactivation sub-state was entered and $`
 # Proposed values, to be modeled and refined
 VetoSignallingDeactivationMaxDuration = 3 days
 ```
+
+### Veto Signalling: RQ Accumulation sub-state
+
+The RQ Accumulation sub-state provides an additional delay before the rage quit starts, allowing more stakers to join. In this state, the DAO can submit proposals but cannot execute them.
+
+**Transition to the parent state**. If, while this sub-state is active, the following expression becomes true:
+
+```math
+R \leq R_2
+```
+
+then the sub-state is exited so only the parent Veto Signalling state remains active.
+
+**Transition to Rage Quit**. If, while this sub-state is active, the following expression becomes true:
+
+```math
+\big( t - t^{SA}_{act} > T^{SA}_{max} \big) \, \land \, \big( R > R_2 \big)
+```
+
+where $`t^{SA}_{act}`$ is the time the RQ Accumulation sub-state was entered and $`T^{SA}_{max}`$ is `VetoSignallingRqAccumulationMaxDuration`, then the RQ Accumulation sub-state is exited along with its parent Veto Signalling state and the Rage Quit state is entered.
+
+```env
+# Proposed values, to be modeled and refined
+VetoSignallingRqAccumulationMaxDuration = 3 days
+```
+
 
 ### Veto Cooldown state
 
@@ -410,6 +437,14 @@ Dual governance should not cover:
      ```
 
 * Removed the lower boundary on the Normal state duration since it's not needed anymore: flash loan attacks are prevented by the signalling escrow min lock time and governance liveliness is ensured by the Veto Cooldown.
+
+* Added Veto Signalling: RQ Accumulation sub-state.
+
+    > The sub-state delays Rage Quit activation and thus allows more stakers to join the rage quit.
+    >
+    > The difference between this new state and the Rage Quit Accumulation state that was in the spec few versions ago is that, at the point the Rage Quit Accumulation state was entered, the rage quit was guaranteed and thus it didn't make sense for stakers to exit via rage quit and be subject to the ETH claim timelock it induces; instead, they could just withdraw directly and still have the guarantee that the DAO execution will be unblocked only after their withdrawal completes (due to the withdrawal queue mechanics and the fact that rage quit withdrawals are initiated later, when the Rage Quit state is entered).
+    >
+    > The new state, in contrast, doesn't guarantee the rage quit happening since it allows unlocking tokens from the signalling escrow and can be exited without transitioning to Rage Quit.
 
 ### 2024-04-10
 
