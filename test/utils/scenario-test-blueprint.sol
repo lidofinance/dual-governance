@@ -388,7 +388,7 @@ contract ScenarioTestBlueprint is Test {
         assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoCooldown));
     }
 
-    function _assertNoTargetCalls() internal {
+    function _assertNoTargetMockCalls() internal {
         assertEq(_target.getCalls().length, 0, "Unexpected target calls count");
     }
 

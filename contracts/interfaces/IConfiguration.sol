@@ -14,15 +14,15 @@ interface ITimelockConfiguration {
 interface IDualGovernanceConfiguration {
     function RAGE_QUIT_ETH_WITHDRAWAL_TIMELOCK() external view returns (uint256);
 
-    function SIGNALLING_COOLDOWN_DURATION() external view returns (uint256);
-    function SIGNALLING_DEACTIVATION_DURATION() external view returns (uint256);
+    function VETO_COOLDOWN_DURATION() external view returns (uint256);
+    function VETO_SIGNALLING_DEACTIVATION_DURATION() external view returns (uint256);
     function SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION() external view returns (uint256);
 
-    function SIGNALLING_MIN_DURATION() external view returns (uint256);
-    function SIGNALLING_MAX_DURATION() external view returns (uint256);
+    function DYNAMIC_TIMELOCK_MIN_DURATION() external view returns (uint256);
+    function DYNAMIC_TIMELOCK_MAX_DURATION() external view returns (uint256);
 
-    function FIRST_SEAL_THRESHOLD() external view returns (uint256);
-    function SECOND_SEAL_THRESHOLD() external view returns (uint256);
+    function FIRST_SEAL_RAGE_QUIT_SUPPORT() external view returns (uint256);
+    function SECOND_SEAL_RAGE_QUIT_SUPPORT() external view returns (uint256);
 
     function TIE_BREAK_ACTIVATION_TIMEOUT() external view returns (uint256);
 
@@ -31,7 +31,7 @@ interface IDualGovernanceConfiguration {
     function RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() external view returns (uint256);
 
     function MIN_STATE_DURATION() external view returns (uint256);
-    function ESCROW_ASSETS_UNLOCK_DELAY() external view returns (uint256);
+    function SIGNALLING_ESCROW_MIN_LOCK_TIME() external view returns (uint256);
 
     function sealableWithdrawalBlockers() external view returns (address[] memory);
 

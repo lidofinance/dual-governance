@@ -187,7 +187,7 @@ library DualGovernanceState {
         IConfiguration config
     ) internal view returns (bool isActive, uint256 duration, uint256 enteredAt) {
         isActive = self.state == State.VetoSignallingDeactivation;
-        duration = config.SIGNALLING_DEACTIVATION_DURATION();
+        duration = config.VETO_SIGNALLING_DEACTIVATION_DURATION();
         enteredAt = isActive ? self.enteredAt : 0;
     }
 
@@ -197,20 +197,22 @@ library DualGovernanceState {
 
     function _fromNormalState(Store storage self, IConfiguration config) private view returns (State) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
-        return rageQuitSupport >= config.FIRST_SEAL_THRESHOLD() ? State.VetoSignalling : State.Normal;
+        return rageQuitSupport >= config.FIRST_SEAL_RAGE_QUIT_SUPPORT() ? State.VetoSignalling : State.Normal;
     }
 
     function _fromVetoSignallingState(Store storage self, IConfiguration config) private view returns (State) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (rageQuitSupport < config.FIRST_SEAL_THRESHOLD()) {
+        if (rageQuitSupport < config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) {
             return State.VetoSignallingDeactivation;
         }
 
         uint256 vetoSignallingTotalDuration = block.timestamp - self.vetoSignallingFirstActivation;
 
-        if (vetoSignallingTotalDuration >= config.SIGNALLING_MAX_DURATION() && _isSecondThresholdReached(self, config))
-        {
+        if (
+            vetoSignallingTotalDuration >= config.DYNAMIC_TIMELOCK_MAX_DURATION()
+                && _isSecondThresholdReached(self, config)
+        ) {
             return State.RageQuit;
         }
 
@@ -237,7 +239,7 @@ library DualGovernanceState {
             return State.VetoSignalling;
         }
 
-        if (block.timestamp - self.enteredAt <= config.SIGNALLING_DEACTIVATION_DURATION()) {
+        if (block.timestamp - self.enteredAt <= config.VETO_SIGNALLING_DEACTIVATION_DURATION()) {
             return State.VetoSignallingDeactivation;
         }
 
@@ -246,7 +248,7 @@ library DualGovernanceState {
 
     function _fromVetoCooldownState(Store storage self, IConfiguration config) private view returns (State) {
         uint256 duration_ = block.timestamp - self.enteredAt;
-        if (duration_ < config.SIGNALLING_COOLDOWN_DURATION()) {
+        if (duration_ < config.VETO_COOLDOWN_DURATION()) {
             return State.VetoCooldown;
         }
         return _isFirstThresholdReached(self, config) ? State.VetoSignalling : State.Normal;
@@ -304,12 +306,12 @@ library DualGovernanceState {
 
     function _isFirstThresholdReached(Store storage self, IConfiguration config) private view returns (bool) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
-        return rageQuitSupport >= config.FIRST_SEAL_THRESHOLD();
+        return rageQuitSupport >= config.FIRST_SEAL_RAGE_QUIT_SUPPORT();
     }
 
     function _isSecondThresholdReached(Store storage self, IConfiguration config) private view returns (bool) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
-        return rageQuitSupport >= config.SECOND_SEAL_THRESHOLD();
+        return rageQuitSupport >= config.SECOND_SEAL_RAGE_QUIT_SUPPORT();
     }
 
     function _calcVetoSignallingTargetDuration(

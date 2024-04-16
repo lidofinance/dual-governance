@@ -13,57 +13,48 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
     function testFork_AgentTimelockHappyPath() external {
         ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
         // ---
-        // ACT 1. The proposal is submitted via Aragon voting
+        // 1. THE PROPOSAL IS SUBMITTED
         // ---
         uint256 proposalId;
         {
             proposalId = _submitProposal(
                 _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
-            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
 
-            // proposal can't be scheduled until the AFTER_SUBMIT_DELAY has passed
+            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
             _assertCanSchedule(_dualGovernance, proposalId, false);
         }
 
         // ---
-        // ACT 2. THE PROPOSAL IS SCHEDULED
+        // 2. THE PROPOSAL IS SCHEDULED
         // ---
         {
-            // wait until the delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
-
-            // when the first delay is passed and the is no opposition from the stETH holders
-            // the proposal can be scheduled
+            _waitAfterSubmitDelayPassed();
             _assertCanSchedule(_dualGovernance, proposalId, true);
-
             _scheduleProposal(_dualGovernance, proposalId);
 
-            // proposal can't be executed until the second delay has ended
             _assertProposalScheduled(proposalId);
             _assertCanExecute(proposalId, false);
         }
 
         // ---
-        // ACT 3. THE PROPOSAL CAN BE EXECUTED
+        // 3. THE PROPOSAL CAN BE EXECUTED
         // ---
         {
             // wait until the second delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
+            _waitAfterScheduleDelayPassed();
 
             // Now proposal can be executed
-            _assertProposalScheduled(proposalId);
             _assertCanExecute(proposalId, true);
 
-            // before the proposal is executed there are no calls to target
-            _assertNoTargetCalls();
+            _assertNoTargetMockCalls();
 
             _executeProposal(proposalId);
-
-            // check the proposal was executed correctly
             _assertProposalExecuted(proposalId);
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+
             _assertCanExecute(proposalId, false);
+            _assertCanSchedule(_dualGovernance, proposalId, false);
+
             _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
     }
@@ -72,7 +63,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         // ---
-        // ACT 1. THE PROPOSAL IS CREATED
+        // 1. THE PROPOSAL IS SUBMITTED
         // ---
         uint256 proposalId;
         {
@@ -86,7 +77,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         }
 
         // ---
-        // ACT 2. THE PROPOSAL IS SCHEDULED
+        // 2. THE PROPOSAL IS SCHEDULED
         // ---
         {
             // wait until the delay has passed
@@ -104,7 +95,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         }
 
         // ---
-        // ACT 3. EMERGENCY MODE ACTIVATED &  GOVERNANCE RESET
+        // 3. EMERGENCY MODE ACTIVATED &  GOVERNANCE RESET
         // ---
         {
             // some time passes and emergency committee activates emergency mode
