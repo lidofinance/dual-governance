@@ -1,28 +1,88 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-contract Configuration {
-    uint256 internal constant DAY = 60 * 60 * 24;
-    uint256 internal constant PERCENT = 10 ** 16;
+import {IConfiguration} from "./interfaces/IConfiguration.sol";
 
-    address public immutable adminProposer;
+uint256 constant PERCENT = 10 ** 16;
 
-    uint256 public immutable minProposalExecutionTimelock = 3 * DAY;
-    
-    uint256 public immutable signallingDeactivationDuration = 5 * DAY;
-    uint256 public immutable signallingCooldownDuration = 4 * DAY;
-    uint256 public immutable rageQuitEthWithdrawalTimelock = 30 * DAY;
+contract Configuration is IConfiguration {
+    error MaxSealablesLimitOverflow(uint256 count, uint256 limit);
 
-    uint256 public immutable firstSealThreshold = 3 * PERCENT;
-    uint256 public immutable secondSealThreshold = 15 * PERCENT;
-    uint256 public immutable signallingMinDuration = 3 days;
-    uint256 public immutable signallingMaxDuration = 30 days;
+    address public immutable ADMIN_EXECUTOR;
+    address public immutable EMERGENCY_GOVERNANCE;
 
-    constructor(address adminProposer_) {
-        adminProposer = adminProposer_;
+    uint256 public immutable AFTER_SUBMIT_DELAY = 3 days;
+    uint256 public immutable AFTER_SCHEDULE_DELAY = 2 days;
+
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWAL_TIMELOCK = 30 days;
+
+    uint256 public immutable SIGNALLING_COOLDOWN_DURATION = 4 days;
+    uint256 public immutable SIGNALLING_DEACTIVATION_DURATION = 5 days;
+    uint256 public immutable SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION = 30 days;
+
+    uint256 public immutable SIGNALLING_MIN_DURATION = 3 days;
+    uint256 public immutable SIGNALLING_MAX_DURATION = 30 days;
+
+    uint256 public immutable FIRST_SEAL_THRESHOLD = 3 * PERCENT;
+    uint256 public immutable SECOND_SEAL_THRESHOLD = 15 * PERCENT;
+
+    uint256 public immutable TIE_BREAK_ACTIVATION_TIMEOUT = 365 days;
+
+    uint256 public immutable RAGE_QUIT_EXTRA_TIMELOCK = 14 days;
+    uint256 public immutable RAGE_QUIT_EXTENSION_DELAY = 7 days;
+    uint256 public immutable RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK = 60 days;
+    uint256 public immutable MIN_STATE_DURATION = 5 hours;
+    uint256 public immutable ESCROW_ASSETS_UNLOCK_DELAY = 5 hours;
+
+    // Sealables Array Representation
+    uint256 private immutable MAX_SELABLES_COUNT = 5;
+
+    uint256 private immutable SEALABLES_COUNT;
+
+    address private immutable SEALABLE_0;
+    address private immutable SEALABLE_1;
+    address private immutable SEALABLE_2;
+    address private immutable SEALABLE_3;
+    address private immutable SEALABLE_4;
+
+    constructor(address adminExecutor, address emergencyGovernance, address[] memory sealableWithdrawalBlockers_) {
+        ADMIN_EXECUTOR = adminExecutor;
+        EMERGENCY_GOVERNANCE = emergencyGovernance;
+
+        if (sealableWithdrawalBlockers_.length > MAX_SELABLES_COUNT) {
+            revert MaxSealablesLimitOverflow(sealableWithdrawalBlockers_.length, MAX_SELABLES_COUNT);
+        }
+
+        SEALABLES_COUNT = sealableWithdrawalBlockers_.length;
+        if (SEALABLES_COUNT > 0) SEALABLE_0 = sealableWithdrawalBlockers_[0];
+        if (SEALABLES_COUNT > 1) SEALABLE_1 = sealableWithdrawalBlockers_[1];
+        if (SEALABLES_COUNT > 2) SEALABLE_2 = sealableWithdrawalBlockers_[2];
+        if (SEALABLES_COUNT > 3) SEALABLE_3 = sealableWithdrawalBlockers_[3];
+        if (SEALABLES_COUNT > 4) SEALABLE_4 = sealableWithdrawalBlockers_[4];
     }
 
-    function getSignallingThresholdData() external view returns (uint256, uint256, uint256, uint256) {
-        return (firstSealThreshold, secondSealThreshold, signallingMinDuration, signallingMaxDuration);
+    function sealableWithdrawalBlockers() external view returns (address[] memory sealableWithdrawalBlockers_) {
+        sealableWithdrawalBlockers_ = new address[](SEALABLES_COUNT);
+        if (SEALABLES_COUNT > 0) sealableWithdrawalBlockers_[0] = SEALABLE_0;
+        if (SEALABLES_COUNT > 1) sealableWithdrawalBlockers_[1] = SEALABLE_1;
+        if (SEALABLES_COUNT > 2) sealableWithdrawalBlockers_[2] = SEALABLE_2;
+        if (SEALABLES_COUNT > 3) sealableWithdrawalBlockers_[3] = SEALABLE_3;
+        if (SEALABLES_COUNT > 4) sealableWithdrawalBlockers_[4] = SEALABLE_4;
+    }
+
+    function getSignallingThresholdData()
+        external
+        view
+        returns (
+            uint256 firstSealThreshold,
+            uint256 secondSealThreshold,
+            uint256 signallingMinDuration,
+            uint256 signallingMaxDuration
+        )
+    {
+        firstSealThreshold = FIRST_SEAL_THRESHOLD;
+        secondSealThreshold = SECOND_SEAL_THRESHOLD;
+        signallingMinDuration = SIGNALLING_MIN_DURATION;
+        signallingMaxDuration = SIGNALLING_MAX_DURATION;
     }
 }

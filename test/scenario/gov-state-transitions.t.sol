@@ -1,190 +1,110 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import {ScenarioTestBlueprint, percents} from "../utils/scenario-test-blueprint.sol";
 
-import {DualGovernance} from "contracts/DualGovernance.sol";
-import {Escrow} from "contracts/Escrow.sol";
-
-import {DualGovernanceSetup} from "./setup.sol";
-import {DualGovernanceUtils} from "./happy-path.t.sol";
-import {TestHelpers} from './escrow.t.sol';
-import "../utils/utils.sol";
-
-contract GovernanceStateTransitions is TestHelpers {
-    DualGovernance internal dualGov;
-
-    address internal ldoWhale;
-    address internal stEthWhale;
+contract GovernanceStateTransitions is ScenarioTestBlueprint {
+    address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
-        Utils.selectFork();
-        Utils.removeLidoStakingLimit();
-
-        ldoWhale = makeAddr("ldo_whale");
-        Utils.setupLdoWhale(ldoWhale);
-
-        stEthWhale = makeAddr("steth_whale");
-        Utils.setupStEthWhale(stEthWhale);
-
-        uint256 timelockDuration = 0;
-        address timelockEmergencyMultisig = address(0);
-        uint256 timelockEmergencyMultisigActiveFor = 0;
-
-        DualGovernanceSetup.Deployed memory deployed = deployDG(
-            ST_ETH,
-            WST_ETH,
-            WITHDRAWAL_QUEUE,
-            BURNER,
-            DAO_VOTING,
-            timelockDuration,
-            timelockEmergencyMultisig,
-            timelockEmergencyMultisigActiveFor
-        );
-
-        dualGov = deployed.dualGov;
+        _selectFork();
+        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
     }
 
     function test_signalling_state_min_duration() public {
-        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(3 * 10 ** 16);
-        updateVetoSupport(1);
+        _lockStETH(_VETOER, percents("3.00"));
+        _assertVetoSignalingState();
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+        _wait(_config.SIGNALLING_MIN_DURATION() / 2);
 
-        uint256 signallingDuration = dualGov.CONFIG().signallingMinDuration();
+        _activateNextState();
+        _assertVetoSignalingState();
 
-        vm.warp(block.timestamp + (signallingDuration / 2));
-        updateVetoSupport(1);
+        _wait(_config.SIGNALLING_MIN_DURATION() / 2 + 1);
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
-
-        vm.warp(block.timestamp + signallingDuration / 2);
-        updateVetoSupport(1);
-
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
+        _activateNextState();
+        _assertVetoSignalingDeactivationState();
     }
 
     function test_signalling_state_max_duration() public {
-        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(15 * 10 ** 16);
+        _lockStETH(_VETOER, percents("15.0"));
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+        _assertVetoSignalingState();
 
-        uint256 signallingDuration = dualGov.CONFIG().signallingMaxDuration();
+        _wait(_config.SIGNALLING_MAX_DURATION() / 2);
+        _activateNextState();
 
-        vm.warp(block.timestamp + (signallingDuration / 2));
-        dualGov.activateNextState();
+        _assertVetoSignalingState();
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+        _wait(_config.SIGNALLING_MAX_DURATION() / 2 + 1);
+        _activateNextState();
 
-        vm.warp(block.timestamp + signallingDuration / 2 + 1000);
-        dualGov.activateNextState();
-
-        assertEq(dualGov.currentState(), GovernanceState.State.RageQuit);
+        _assertRageQuitState();
     }
 
     function test_signalling_to_normal() public {
-        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(3 * 10 ** 16 + 1);
+        _lockStETH(_VETOER, percents("3.00"));
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+        _assertVetoSignalingState();
 
-        uint256 signallingDuration = dualGov.CONFIG().signallingMinDuration();
+        _wait(_config.SIGNALLING_MIN_DURATION());
+        _activateNextState();
 
-        vm.warp(block.timestamp + signallingDuration);
-        dualGov.activateNextState();
+        _assertVetoSignalingDeactivationState();
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
+        _wait(_config.SIGNALLING_DEACTIVATION_DURATION());
+        _activateNextState();
 
-        uint256 signallingDeactivationDuration = dualGov.CONFIG().signallingDeactivationDuration();
+        _assertVetoCooldownState();
 
-        vm.warp(block.timestamp + signallingDeactivationDuration);
-        dualGov.activateNextState();
+        vm.startPrank(_VETOER);
+        _getSignallingEscrow().unlockStETH();
+        vm.stopPrank();
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoCooldown);
+        _wait(_config.SIGNALLING_COOLDOWN_DURATION());
+        _activateNextState();
 
-        uint256 signallingCooldownDuration = dualGov.CONFIG().signallingCooldownDuration();
-
-        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
-        vm.prank(stEthWhale);
-        signallingEscrow.unlockStEth();
-
-        vm.warp(block.timestamp + signallingCooldownDuration);
-        dualGov.activateNextState();
-
-        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+        _assertNormalState();
     }
 
     function test_signalling_non_stop() public {
-        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(3 * 10 ** 16 + 1);
+        _lockStETH(_VETOER, percents("3.00"));
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+        _assertVetoSignalingState();
 
-        uint256 signallingDuration = dualGov.CONFIG().signallingMinDuration();
+        _wait(_config.SIGNALLING_MIN_DURATION());
+        _activateNextState();
 
-        vm.warp(block.timestamp + signallingDuration);
-        dualGov.activateNextState();
+        _assertVetoSignalingDeactivationState();
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignallingDeactivation);
+        _wait(_config.SIGNALLING_DEACTIVATION_DURATION());
+        _activateNextState();
 
-        uint256 signallingDeactivationDuration = dualGov.CONFIG().signallingDeactivationDuration();
+        _assertVetoCooldownState();
 
-        vm.warp(block.timestamp + signallingDeactivationDuration);
-        dualGov.activateNextState();
+        _wait(_config.SIGNALLING_COOLDOWN_DURATION());
+        _activateNextState();
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoCooldown);
-
-        uint256 signallingCooldownDuration = dualGov.CONFIG().signallingCooldownDuration();
-
-        vm.warp(block.timestamp + signallingCooldownDuration);
-        dualGov.activateNextState();
-
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+        _assertVetoSignalingState();
     }
 
     function test_signalling_to_rage_quit() public {
-        assertEq(dualGov.currentState(), GovernanceState.State.Normal);
+        _assertNormalState();
 
-        updateVetoSupportInPercent(15 * 10 ** 16);
+        _lockStETH(_VETOER, percents("15.00"));
+        _assertVetoSignalingState();
 
-        assertEq(dualGov.currentState(), GovernanceState.State.VetoSignalling);
+        _wait(_config.SIGNALLING_MAX_DURATION());
+        _activateNextState();
 
-        uint256 signallingDuration = dualGov.CONFIG().signallingMaxDuration();
-
-        vm.warp(block.timestamp + signallingDuration);
-        dualGov.activateNextState();
-
-        assertEq(dualGov.currentState(), GovernanceState.State.RageQuit);
-    }
-
-
-    function updateVetoSupportInPercent(uint256 supportInPercent) internal {
-        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
-        uint256 newVetoSupport = (supportInPercent * IERC20(ST_ETH).totalSupply()) / 10 ** 18;
-
-        vm.prank(stEthWhale);
-        // signallingEscrow.unlockStEth();
-
-        updateVetoSupport(newVetoSupport);
-        vm.stopPrank();
-
-        (uint256 totalSupport, uint256 rageQuitSupport) = signallingEscrow.getSignallingState();
-        // solhint-disable-next-line
-        console.log("veto totalSupport %d, rageQuitSupport %d", totalSupport, rageQuitSupport);
-    }
-
-    function updateVetoSupport(uint256 amount) internal {
-        Escrow signallingEscrow = Escrow(payable(dualGov.signallingEscrow()));
-        vm.startPrank(stEthWhale);
-        IERC20(ST_ETH).approve(address(signallingEscrow), amount);
-        signallingEscrow.lockStEth(amount);
-        vm.stopPrank();
+        _assertRageQuitState();
     }
 }
