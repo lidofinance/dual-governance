@@ -23,6 +23,7 @@ abstract contract RestrictedMultisigBase {
     struct Action {
         address to;
         bytes data;
+        bytes extraData;
     }
 
     struct ActionState {
@@ -174,7 +175,7 @@ abstract contract RestrictedMultisigBase {
     }
 
     function _hashAction(Action memory action) internal pure returns (bytes32) {
-        return keccak256(abi.encode(action.to, action.data));
+        return keccak256(abi.encode(action.to, action.data, action.extraData));
     }
 
     modifier onlyMember() {

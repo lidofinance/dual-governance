@@ -57,10 +57,12 @@ contract EmergencyExecutionMultisig is RestrictedMultisigBase {
     }
 
     function _buildEmergencyResetAction() internal view returns (Action memory) {
-        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyReset()"));
+        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyReset()"), new bytes(0));
     }
 
     function _buildEmergencyExecuteAction(uint256 proposalId) internal view returns (Action memory) {
-        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyExecute(uint256)", proposalId));
+        return Action(
+            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyExecute(uint256)", proposalId), new bytes(0)
+        );
     }
 }

@@ -32,6 +32,6 @@ contract EmergencyActivationMultisig is RestrictedMultisigBase {
     }
 
     function _buildEmergencyActivateAction() internal view returns (Action memory) {
-        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyActivate()"));
+        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyActivate()"), new bytes(0));
     }
 }
