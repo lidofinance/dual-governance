@@ -31,24 +31,24 @@ contract TiebreakerScenarioTest is Test {
         Utils.selectFork();
 
         _emergencyExecutor = new Executor__mock();
-        _coreTiebreaker = new TiebreakerCore(address(this), new address[](0), 0, address(_emergencyExecutor));
+        _coreTiebreaker = new TiebreakerCore(address(this), new address[](0), 1, address(_emergencyExecutor));
 
         _emergencyExecutor.setCommittee(address(_coreTiebreaker));
 
         // EF sub DAO
-        _efTiebreaker = new TiebreakerSubCommittee(address(this), new address[](0), 0, address(_coreTiebreaker));
+        _efTiebreaker = new TiebreakerSubCommittee(address(this), new address[](0), 1, address(_coreTiebreaker));
         for (uint256 i = 0; i < _efMembersCount; i++) {
             _efTiebreakerMembers.push(makeAddr(string(abi.encode(i + 65))));
-            _efTiebreaker.addMember(_efTiebreakerMembers[i], _efQuorum);
+            _efTiebreaker.addMember(_efTiebreakerMembers[i], i + 1 < _efQuorum ? i + 1 : _efQuorum);
         }
         _coreTiebreakerMembers.push(address(_efTiebreaker));
-        _coreTiebreaker.addMember(address(_efTiebreaker), _efQuorum);
+        _coreTiebreaker.addMember(address(_efTiebreaker), 1);
 
         // NOs sub DAO
-        _nosTiebreaker = new TiebreakerSubCommittee(address(this), new address[](0), 0, address(_coreTiebreaker));
+        _nosTiebreaker = new TiebreakerSubCommittee(address(this), new address[](0), 1, address(_coreTiebreaker));
         for (uint256 i = 0; i < _nosMembersCount; i++) {
             _nosTiebreakerMembers.push(makeAddr(string(abi.encode(i + 65))));
-            _nosTiebreaker.addMember(_nosTiebreakerMembers[i], _nosQuorum);
+            _nosTiebreaker.addMember(_nosTiebreakerMembers[i], i + 1 < _nosQuorum ? i + 1 : _nosQuorum);
         }
         _coreTiebreakerMembers.push(address(_nosTiebreaker));
         _coreTiebreaker.addMember(address(_nosTiebreaker), 2);

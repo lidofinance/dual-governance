@@ -4,10 +4,21 @@ pragma solidity 0.8.23;
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 abstract contract RestrictedMultisigBase {
+    event MemberAdded(address indexed member);
+    event MemberRemoved(address indexed member);
+    event QuorumSet(uint256 quorum);
+    event ActionProposed(address indexed to, bytes data);
+    event ActionExecuted(address indexed to, bytes data);
+    event ActionVoted(address indexed signer, bool support, address indexed to, bytes data);
+
     error IsNotMember();
     error SenderIsNotMember();
     error SenderIsNotOwner();
     error DataIsNotEqual();
+    error ActionAlreadyExecuted();
+    error QuorumIsNotReached();
+    error InvalidQuorum();
+    error ActionMismatch();
 
     struct Action {
         address to;
@@ -30,7 +41,12 @@ abstract contract RestrictedMultisigBase {
     mapping(address signer => mapping(bytes32 actionHash => bool support)) public approves;
 
     constructor(address owner, address[] memory newMembers, uint256 executionQuorum) {
+        if (executionQuorum == 0) {
+            revert InvalidQuorum();
+        }
         quorum = executionQuorum;
+        emit QuorumSet(executionQuorum);
+
         OWNER = owner;
 
         for (uint256 i = 0; i < newMembers.length; ++i) {
@@ -42,6 +58,7 @@ abstract contract RestrictedMultisigBase {
         bytes32 actionHash = _hashAction(action);
         if (actionsStates[actionHash].action.to == address(0)) {
             actionsStates[actionHash].action = action;
+            emit ActionProposed(action.to, action.data);
         } else {
             _getAndCheckStoredActionState(action);
         }
@@ -51,6 +68,7 @@ abstract contract RestrictedMultisigBase {
         }
 
         approves[msg.sender][actionHash] = support;
+        emit ActionVoted(msg.sender, support, action.to, action.data);
         if (support == true) {
             actionsStates[actionHash].signers.push(msg.sender);
         } else {
@@ -68,12 +86,18 @@ abstract contract RestrictedMultisigBase {
     function _execute(Action memory action) internal {
         (ActionState memory actionState, bytes32 actionHash) = _getAndCheckStoredActionState(action);
 
-        require(actionState.isExecuted == false);
-        require(_getState(actionHash) >= quorum);
+        if (actionState.isExecuted == true) {
+            revert ActionAlreadyExecuted();
+        }
+        if (_getSupport(actionHash) < quorum) {
+            revert QuorumIsNotReached();
+        }
 
         Address.functionCall(actionState.action.to, actionState.action.data);
 
         actionsStates[actionHash].isExecuted = true;
+
+        emit ActionExecuted(action.to, action.data);
     }
 
     function getActionState(Action memory action)
@@ -83,14 +107,19 @@ abstract contract RestrictedMultisigBase {
     {
         (ActionState memory actionState, bytes32 actionHash) = _getAndCheckStoredActionState(action);
 
-        support = _getState(actionHash);
+        support = _getSupport(actionHash);
         execuitionQuorum = quorum;
         isExecuted = actionState.isExecuted;
     }
 
     function addMember(address newMember, uint256 newQuorum) public onlyOwner {
         _addMember(newMember);
+
+        if (newQuorum == 0 || newQuorum > membersList.length) {
+            revert InvalidQuorum();
+        }
         quorum = newQuorum;
+        emit QuorumSet(newQuorum);
     }
 
     function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner {
@@ -105,18 +134,22 @@ abstract contract RestrictedMultisigBase {
                 break;
             }
         }
+        emit MemberRemoved(memberToRemove);
 
-        require(newQuorum > 0);
-        require(newQuorum <= membersList.length);
+        if (newQuorum == 0 || newQuorum > membersList.length) {
+            revert InvalidQuorum();
+        }
         quorum = newQuorum;
+        emit QuorumSet(newQuorum);
     }
 
     function _addMember(address newMember) internal {
         membersList.push(newMember);
         members[newMember] = true;
+        emit MemberAdded(newMember);
     }
 
-    function _getState(bytes32 actionHash) internal view returns (uint256 support) {
+    function _getSupport(bytes32 actionHash) internal view returns (uint256 support) {
         for (uint256 i = 0; i < actionsStates[actionHash].signers.length; ++i) {
             if (members[actionsStates[actionHash].signers[i]] == true) {
                 support++;
@@ -127,14 +160,17 @@ abstract contract RestrictedMultisigBase {
     function _getAndCheckStoredActionState(Action memory action)
         internal
         view
-        returns (ActionState memory storedAction, bytes32 actionHash)
+        returns (ActionState memory storedActionState, bytes32 actionHash)
     {
         actionHash = _hashAction(action);
 
-        storedAction = actionsStates[actionHash];
-        require(storedAction.action.to == action.to);
-        require(storedAction.action.data.length == action.data.length);
-        require(storedAction.isExecuted == false);
+        storedActionState = actionsStates[actionHash];
+        if (storedActionState.action.to != action.to || storedActionState.action.data.length != action.data.length) {
+            revert ActionMismatch();
+        }
+        if (storedActionState.isExecuted == true) {
+            revert ActionAlreadyExecuted();
+        }
     }
 
     function _hashAction(Action memory action) internal pure returns (bytes32) {
