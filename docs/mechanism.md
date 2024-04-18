@@ -121,11 +121,11 @@ The DG mechanism can be described as a state machine defining the global governa
 
 ![image](https://github.com/lidofinance/dual-governance/assets/1699593/862b3f11-ea79-4e75-8c56-ff56f94d0a6f)
 
-Let's now define these states and transitions.
+When a state has multiple outgoing transitions, their conditions are evaluated in the order they're listed in the text. If a condition evaluates to true, the further evaluation stops and the corresponding transition is triggered.
 
-> Note: when a state has multiple outgoing transitions, their conditions are evaluated in the order they're listed in the text. If a condition evaluates to true, the further evaluation stops and the corresponding transition is triggered.
->
-> Multiple state transitions can be sequentially triggered at the same timestamp, provided that each subsequent transition's condition is re-evaluated and holds true after the preceding transition is triggered.
+If a state transition A, being triggered, makes a condition for state transition B from the new state hold true at the same timestamp, the transition B must be triggered together with A. In other words, **if there's a sequence of state transitions where each preceding transition enables each subsequent one, the whole sequence must be triggered atomically**.
+
+Let's now define these states and transitions.
 
 
 ### Normal state
