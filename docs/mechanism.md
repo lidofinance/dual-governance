@@ -205,7 +205,7 @@ the Veto Signalling state is exited and the Rage Quit state is entered.
 
 where $T^{Sa}_{min}$ is `VetoSignallingMinActiveDuration`, then the Deactivation sub-state of the Veto Signalling state is entered without exiting the parent Veto Signalling state.
 
-The right part of the condition limits how fast the Deactivation sub-state can be entered and re-entered. It's needed make it impossible to keep the governance in the Deactivation sub-state (where the DAO cannot submit proposals) by front-running state transitions and locking/unlocking tokens from the signalling escrow.
+The right part of the condition limits how fast the Deactivation sub-state can be entered and re-entered. It's needed to make it impossible to keep the governance in the Deactivation sub-state (where the DAO cannot submit proposals) by front-running state transitions and locking/unlocking tokens from the signalling escrow.
 
 ```env
 # Proposed values, to be modeled and refined
