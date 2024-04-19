@@ -171,9 +171,9 @@ The **dynamic timelock duration** $T_{lock}(R)$ depends on the current rage quit
 ```math
 T_{lock}(R) =
 \left\{ \begin{array}{lr}
-    0, & \text{if } R \lt R_1 \\
-    L(R), & \text{if } R_1 \leq R \leq R_2 \\
-    L_{max}, & \text{if } R \gt R_2
+    0, & \text{if } R \leq R_1 \\
+    L(R), & \text{if } R_1 < R < R_2 \\
+    L_{max}, & \text{if } R \geq R_2
 \end{array} \right.
 ```
 
