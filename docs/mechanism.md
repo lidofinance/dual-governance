@@ -26,7 +26,7 @@ Another way of looking at dual governance is that it implements 1) a dynamic use
   + [Veto Signalling state](#veto-signalling-state)
   + [Veto Cooldown state](#veto-cooldown-state)
   + [Rage Quit state](#rage-quit-state)
-  + [Gate Seal behaviour and Tiebreaker Committee](#gate-seal-behaviour-and-tiebreaker-committee)
+  + [Contracts pausability and Tiebreaker Committee](#contracts-pausability-and-tiebreaker-committee)
 * [Dual governance scope](#dual-governance-scope)
 * [Changelog](#changelog)
 
@@ -316,30 +316,42 @@ RageQuitEthClaimTimelockGrowthCoeffs = (0, TODO, TODO)
 ```
 
 
-### Gate Seal behaviour and Tiebreaker Committee
+### Contracts pausability and Tiebreaker Committee
 
-The [Gate Seal](https://docs.lido.fi/contracts/gate-seal) is an existing circuit breaker mechanism designed to be activated in the event of a zero-day vulnerability in the protocol contracts being found or exploited and empowering a DAO-elected committee to pause certain protocol functionality, including withdrawals, for a predefined duration enough for the DAO to vote for and execute a remediation. When this happens, the committee immediately loses its power. If this never happens, the committee's power also expires after a pre-configured amount of time passes since its election.
+#### Gate Seal
+
+The [Gate Seal](https://docs.lido.fi/contracts/gate-seal) is an existing circuit breaker mechanism designed to be activated in the event of a zero-day vulnerability in the protocol contracts being found or exploited and empowering a DAO-elected committee to pause certain protocol functionality, including withdrawals, for a predefined duration enough for the DAO to vote for and execute a remediation (let's call this state an "ephemeral pause"). When this happens, the committee immediately loses its power. If this never happens, the committee's power also expires after a pre-configured amount of time passes since its election.
 
 The pre-defined pause duration currently works since all DAO proposals have a fixed execution timelock so it's possible to configure the pause in a way that would ensure the DAO has enough time to vote on a fix, wait until the execution timelock expires, and execute the proposal before the pause ends.
 
-The DG mechanism introduces a dynamic timelock on DAO proposals dependent on stakers' actions and protocol withdrawals processing which, in turn, requires making the Gate Seal pause duration also dynamic for the Gate Seal to remain an efficient circuit-breaker.
+The DG mechanism introduces a dynamic timelock on DAO proposals dependent on stakers' actions and protocol withdrawals processing which, in turn, requires either modifying the Gate Seal mechanism to make its pause dynamic or introducing an additional mechanism for extending the pause.
 
-#### Gate Seal behaviour (updated)
+Making the Gate Seal pause dynamic has several downsides. First, it significantly increases the damage a malicious Gate Seal committee can do to the protocol, from pausing contracts for a few days to potentially pausing them for a very long duration. Second, the dynamic pause would require an explicit unpause transaction, making the mechanism significantly more complex and fragile. Thus, the Gate Seal mechanism is kept intact but an additional Reseal Committee is introduced.
 
-If, at any moment in time, two conditions become true simultaneously:
+#### Reseal Committee
 
-1. any DAO-managed contract functionality is paused by a Gate Seal;
-2. the DAO execution is blocked by the DG mechanism (i.e. the global governance state is Veto Signalling, Veto Signalling Deactivation, or Rage Quit),
+The **Reseal Committee** is a multisig that has exactly one right: given the DAO proposal submission or execution is currently blocked by the Dual Governance mechanism, the committee is allowed to turn an ephemeral pause of a protocol contract into a full one, i.e. until the DAO explicitly unpases the contract.
 
-then the Gate Seal-induced pause is prolonged until the DAO execution is unblocked by the DG, i.e. until the global governance state becomes Normal or Veto Cooldown.
+Specifically, the Reseal Committee has the right to pause an [ephemerally pausable contract](https://github.com/lidofinance/lido-dao/blob/master/contracts/0.8.9/utils/PausableUntil.sol) for an indefinite duration if two conditions become true simultaneously:
 
-Otherwise, the Gate Seal-induced pause lasts for a pre-defined fixed duration.
+1. the contract is ephemerally paused, i.e. its unpause time is above the current block timestamp and below the `PAUSE_INFINITELY` value ($2^{256} - 1$);
+2. the current governance state is different from Normal.
+
+The committee should have more members and a higher quorum value than the Gate Seal committee due to the higher potential damage to the protocol in the case of misuse.
+
+The intended scenario for this committee is the following:
+
+1. A vulnerability in a protocol contract is discovered and communicated to the Gate Seal and Reseal committees.
+2. The Gate Seal committee pauses the contract for a fixed duration.
+3. The governance occurs in a non-Normal state, either because it was in a non-Normal state at the moment the pause was triggered or because it exited the Normal state during the pause.
+4. The Reseal committee pauses the contract for an indefinite duration.
+5. When the DAO execution is unblocked, the DAO votes for and executes a proposal that fixes the vulnerability and unpauses the contract.
 
 #### Tiebreaker Committee
 
-Given the updated Gate Seal behaviour, the system allows for reaching a deadlock state: if the protocol withdrawals functionality gets paused by the Gate Seal committee while the governance state is Rage Quit, or if it gets paused before and remains paused until the Rage Quit starts, then withdrawals should remain paused until the Rage Quit state is exited and the DAO execution is unblocked. But the Rage Quit state lasts until all staked ETH participating in the rage quit is withdrawn to ETH, which cannot happen while withdrawals are paused.
+Given the pausability of protocol contracts, the system allows for reaching a deadlock state: if the protocol withdrawals functionality gets permanently paused before the Rage Quit state is entered or while it's active, the rage quit process won't be able to finish until the pause is lifted. But a permanently paused contract can only be unpaused by the DAO, and the DAO execution is blocked until the rage quit process is finished and the Rage Quit state is exited.
 
-Apart from the Gate Seal being activated, withdrawals can become dysfunctional due to a bug in the protocol code. If this happens while the Rage Quit state is active, it would also trigger the deadlock since a DAO proposal fixing the bug cannot be executed until the Rage Quit state is exited.
+Apart from being paused, withdrawals can become dysfunctional due to a bug in the protocol code. If this happens while the Rage Quit state is active, it would also trigger the deadlock since a DAO proposal fixing the bug cannot be executed until the Rage Quit state is exited.
 
 To resolve the potential deadlock, the mechanism contains a third-party arbiter **Tiebreaker Committee** elected by the DAO. The committee gains its power only under the specific conditions of the deadlock (see below), and can only perform the following actions:
 
@@ -348,10 +360,10 @@ To resolve the potential deadlock, the mechanism contains a third-party arbiter 
 
 The Tiebreaker committee can perform the above actions, subject to a timelock of `TiebreakerExecutionTimelock` days, iff any of the following two conditions is true:
 
-* **Tiebreaker Condition A**: (governance state is Rage Quit) $\land$ (protocol withdrawals are paused by a Gate Seal).
+* **Tiebreaker Condition A**: (governance state is Rage Quit) $\land$ (protocol withdrawals are paused for a duration exceeding `TiebreakerActivationTimeout`).
 * **Tiebreaker Condition B**: (governance state is Rage Quit) $\land$ (last time governance exited Normal or Veto Cooldown state was more than `TiebreakerActivationTimeout` days ago).
 
-The Tiebreaker committee should be composed of multiple sub-committees covering different interest groups within the Ethereum community (e.g. largest DAOs, EF, L2s, node operators, OGs) and should require approval from a supermajority of sub-committees to execute a pending proposal. The approval by each sub-committee should require the majority support within the sub-committee. No sub-committee should contain more than $1/4$ of the members that are also members of the withdrawals Gate Seal committee.
+The Tiebreaker committee should be composed of multiple sub-committees covering different interest groups within the Ethereum community (e.g. largest DAOs, EF, L2s, node operators, OGs) and should require approval from a supermajority of sub-committees to execute a pending proposal. The approval by each sub-committee should require the majority support within the sub-committee. No sub-committee should contain more than $1/4$ of the members that are also members of the Reseal committee.
 
 The composition of the Tiebreaker committee should be set by a DAO vote (subject to DG) and reviewed at least once a year.
 
@@ -384,6 +396,12 @@ Dual governance should not cover:
 
 
 ## Changelog
+
+### 2024-04-19
+
+* Replaced the dynamic Gate Seal pause mechanism with the Reseal Committee.
+
+    > A dynamic Gate Seal pause has several issues, including the conflict between the requirement for a very fast committee reaction time and the requirement for its increased safety due to higher potential damage under the DG, as well as increased complexity and operational fragility of the resulting mechanism. Keeping the Gate Seal pause static and introducing the additional committee provides for both the quick and impact-limited Gate Seal committee and a safer Reseal Committee by allowing the latter for a slower reaction time (and thus a larger quorum value) and imposing limitations on the conditions under which it can be activated.
 
 ### 2024-04-12
 
