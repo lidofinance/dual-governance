@@ -171,9 +171,9 @@ The **dynamic timelock duration** $T_{lock}(R)$ depends on the current rage quit
 ```math
 T_{lock}(R) =
 \left\{ \begin{array}{lr}
-    0, & \text{if } R \lt R_1 \\
-    L(R), & \text{if } R_1 \leq R \leq R_2 \\
-    L_{max}, & \text{if } R \gt R_2
+    0, & \text{if } R \leq R_1 \\
+    L(R), & \text{if } R_1 < R < R_2 \\
+    L_{max}, & \text{if } R \geq R_2
 \end{array} \right.
 ```
 
@@ -189,7 +189,7 @@ When the current rage quit support changes due to stakers locking or unlocking t
 
 Let's now define the outgoing transitions.
 
-**Transition to Rage Quit**. If, while Veto Signalling is active (including while the Deactivation sub-state is active), the following expression becomes true:
+**Transition to Rage Quit**. If, while Veto Signalling is active and the Deactivation sub-state is not active, the following expression becomes true:
 
 ```math
 \big( t - t^S_{act} > L_{max} \big) \, \land \, \big( R > R_2 \big)
@@ -222,7 +222,7 @@ The sub-state's purpose is to allow all stakers to observe the Veto Signalling b
 **Transition to the parent state**. If, while the sub-state is active, the following condition becomes true:
 
 ```math
-t - \max \left\{ t^S_{act} \,,\, t_{prop} \right\} \leq \, T_{lock}(R)
+\big( t - \max \left\{ t^S_{act} \,,\, t_{prop} \right\} \leq \, T_{lock}(R) \big) \,\lor\, \big( R > R_2 \big)
 ```
 
 then the Deactivation sub-state is exited so only the parent Veto Signalling state remains active.
