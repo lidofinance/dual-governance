@@ -21,7 +21,7 @@ import {
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
-import {DualGovernance, GovernanceState} from "contracts/DualGovernance.sol";
+import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernance.sol";
 
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
@@ -117,14 +117,24 @@ contract ScenarioTestBlueprint is Test {
     // Balances Manipulation
     // ---
 
-    function _setupStETHWhale(address vetoer) internal {
-        Utils.removeLidoStakingLimit();
-        Utils.setupStETHWhale(vetoer, percents("10.0").value);
+    function _depositStETH(
+        address account,
+        uint256 amountToMint
+    ) internal returns (uint256 sharesMinted, uint256 amountMinted) {
+        return Utils.depositStETH(account, amountToMint);
     }
 
-    function _setupStETHWhale(address vetoer, Percents memory vetoPowerInPercents) internal {
+    function _setupStETHWhale(address vetoer) internal returns (uint256 shares, uint256 amount) {
         Utils.removeLidoStakingLimit();
-        Utils.setupStETHWhale(vetoer, vetoPowerInPercents.value);
+        return Utils.setupStETHWhale(vetoer, percents("10.0"));
+    }
+
+    function _setupStETHWhale(
+        address vetoer,
+        Percents memory vetoPowerInPercents
+    ) internal returns (uint256 shares, uint256 amount) {
+        Utils.removeLidoStakingLimit();
+        return Utils.setupStETHWhale(vetoer, vetoPowerInPercents);
     }
 
     function _getBalances(address vetoer) internal view returns (Balances memory balances) {
@@ -142,9 +152,8 @@ contract ScenarioTestBlueprint is Test {
     // Escrow Manipulation
     // ---
     function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal {
-        Utils.removeLidoStakingLimit();
-        Utils.setupStETHWhale(vetoer, vetoPowerInPercents.value);
-        _lockStETH(vetoer, IERC20(ST_ETH).balanceOf(vetoer));
+        (, uint256 amount) = _setupStETHWhale(vetoer, vetoPowerInPercents);
+        _lockStETH(vetoer, amount);
     }
 
     function _lockStETH(address vetoer, uint256 amount) internal {
@@ -369,23 +378,23 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertNormalState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.Normal));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.Normal));
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoSignalling));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoSignalling));
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoSignallingDeactivation));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoSignallingDeactivation));
     }
 
     function _assertRageQuitState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.RageQuit));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.RageQuit));
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoCooldown));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoCooldown));
     }
 
     function _assertNoTargetMockCalls() internal {
@@ -589,7 +598,7 @@ contract ScenarioTestBlueprint is Test {
         assertEq(uint256(a), uint256(b), message);
     }
 
-    function assertEq(GovernanceState a, GovernanceState b) internal {
+    function assertEq(State a, State b) internal {
         assertEq(uint256(a), uint256(b));
     }
 

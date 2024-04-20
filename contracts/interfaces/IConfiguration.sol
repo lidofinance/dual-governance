@@ -1,6 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+struct DualGovernanceConfig {
+    uint256 firstSealRageQuitSupport;
+    uint256 secondSealRageQuitSupport;
+    // TODO: consider dynamicDelayMaxDuration
+    uint256 dynamicTimelockMaxDuration;
+    uint256 dynamicTimelockMinDuration;
+    uint256 vetoSignallingMinActiveDuration;
+    uint256 vetoSignallingDeactivationMaxDuration;
+    uint256 vetoCooldownDuration;
+    uint256 rageQuitExtraTimelock;
+    uint256 rageQuitExtensionDelay;
+    uint256 rageQuitEthClaimMinTimelock;
+}
+
 interface IAdminExecutorConfiguration {
     function ADMIN_EXECUTOR() external view returns (address);
 }
@@ -12,11 +26,12 @@ interface ITimelockConfiguration {
 }
 
 interface IDualGovernanceConfiguration {
-    function RAGE_QUIT_ETH_WITHDRAWAL_TIMELOCK() external view returns (uint256);
+    function TIE_BREAK_ACTIVATION_TIMEOUT() external view returns (uint256);
 
     function VETO_COOLDOWN_DURATION() external view returns (uint256);
-    function VETO_SIGNALLING_DEACTIVATION_DURATION() external view returns (uint256);
-    function SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION() external view returns (uint256);
+    function VETO_SIGNALLING_MIN_ACTIVE_DURATION() external view returns (uint256);
+
+    function VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() external view returns (uint256);
 
     function DYNAMIC_TIMELOCK_MIN_DURATION() external view returns (uint256);
     function DYNAMIC_TIMELOCK_MAX_DURATION() external view returns (uint256);
@@ -24,13 +39,11 @@ interface IDualGovernanceConfiguration {
     function FIRST_SEAL_RAGE_QUIT_SUPPORT() external view returns (uint256);
     function SECOND_SEAL_RAGE_QUIT_SUPPORT() external view returns (uint256);
 
-    function TIE_BREAK_ACTIVATION_TIMEOUT() external view returns (uint256);
-
     function RAGE_QUIT_EXTRA_TIMELOCK() external view returns (uint256);
     function RAGE_QUIT_EXTENSION_DELAY() external view returns (uint256);
     function RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() external view returns (uint256);
+    function RAGE_QUIT_ACCUMULATION_MAX_DURATION() external view returns (uint256);
 
-    function MIN_STATE_DURATION() external view returns (uint256);
     function SIGNALLING_ESCROW_MIN_LOCK_TIME() external view returns (uint256);
 
     function sealableWithdrawalBlockers() external view returns (address[] memory);
@@ -44,6 +57,8 @@ interface IDualGovernanceConfiguration {
             uint256 signallingMinDuration,
             uint256 signallingMaxDuration
         );
+
+    function getDualGovernanceConfig() external view returns (DualGovernanceConfig memory config);
 }
 
 interface IConfiguration is IAdminExecutorConfiguration, ITimelockConfiguration, IDualGovernanceConfiguration {}
