@@ -428,6 +428,73 @@ contract EscrowHappyPath is TestHelpers {
         vm.stopPrank();
     }
 
+    function test_request_st_eth_wst_eth_withdrawals() external {
+        uint256 firstVetoerStETHAmount = 10 ether;
+        uint256 firstVetoerWstETHAmount = 11 ether;
+
+        uint256 firstVetoerStETHShares = _ST_ETH.getSharesByPooledEth(firstVetoerStETHAmount);
+        uint256 totalSharesLocked = firstVetoerWstETHAmount + firstVetoerStETHShares;
+
+        _lockStETH(_VETOER_1, firstVetoerStETHAmount);
+        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).stETHShares, firstVetoerStETHShares, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, firstVetoerStETHShares, 1);
+
+        _lockWstETH(_VETOER_1, firstVetoerWstETHAmount);
+        assertEq(escrow.getVetoerState(_VETOER_1).wstETHShares, firstVetoerWstETHAmount);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
+
+        uint256[] memory stETHWithdrawalRequestAmounts = new uint256[](1);
+        stETHWithdrawalRequestAmounts[0] = firstVetoerStETHAmount;
+
+        vm.prank(_VETOER_1);
+        uint256[] memory stETHWithdrawalRequestIds = escrow.requestWithdrawalsStETH(stETHWithdrawalRequestAmounts);
+
+        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, firstVetoerStETHShares, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+
+        uint256[] memory wstETHWithdrawalRequestAmounts = new uint256[](1);
+        wstETHWithdrawalRequestAmounts[0] = firstVetoerWstETHAmount;
+
+        vm.prank(_VETOER_1);
+        uint256[] memory wstETHWithdrawalRequestIds = escrow.requestWithdrawalsWstETH(wstETHWithdrawalRequestAmounts);
+
+        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+
+        finalizeWQ(wstETHWithdrawalRequestIds[0]);
+
+        escrow.markUnstETHFinalized(
+            stETHWithdrawalRequestIds,
+            _WITHDRAWAL_QUEUE.findCheckpointHints(
+                stETHWithdrawalRequestIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex()
+            )
+        );
+        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+
+        escrow.markUnstETHFinalized(
+            wstETHWithdrawalRequestIds,
+            _WITHDRAWAL_QUEUE.findCheckpointHints(
+                wstETHWithdrawalRequestIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex()
+            )
+        );
+        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
+
+        vm.prank(_VETOER_1);
+        escrow.unlockUnstETH(stETHWithdrawalRequestIds);
+
+        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, firstVetoerWstETHAmount, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, firstVetoerWstETHAmount, 1);
+
+        vm.prank(_VETOER_1);
+        escrow.unlockUnstETH(wstETHWithdrawalRequestIds);
+    }
+
     function externalLockUnstETH(address vetoer, uint256[] memory unstETHIds) external {
         _lockUnstETH(vetoer, unstETHIds);
     }

@@ -13,6 +13,8 @@ import {IWithdrawalQueue, WithdrawalRequestStatus} from "./interfaces/IWithdrawa
 
 import {AssetsAccounting, LockedAssetsStats, LockedAssetsTotals} from "./libraries/AssetsAccounting.sol";
 
+import {ArrayUtils} from "./utils/arrays.sol";
+
 interface IDualGovernance {
     function activateNextState() external;
 }
@@ -77,6 +79,9 @@ contract Escrow is IEscrow {
 
         _escrowState = EscrowState.SignallingEscrow;
         _dualGovernance = IDualGovernance(dualGovernance);
+
+        ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
+        WST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
     }
 
     // ---
@@ -91,9 +96,22 @@ contract Escrow is IEscrow {
     }
 
     function unlockStETH() external {
-        uint256 sharesUnlocked = _accounting.accountStETHUnlock(CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME(), msg.sender);
+        _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
+        uint256 sharesUnlocked = _accounting.accountStETHUnlock(msg.sender);
         ST_ETH.transferShares(msg.sender, sharesUnlocked);
         _activateNextGovernanceState();
+    }
+
+    function requestWithdrawalsStETH(uint256[] calldata amounts) external returns (uint256[] memory unstETHIds) {
+        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(amounts, address(this));
+        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+
+        uint256 sharesTotal = 0;
+        for (uint256 i = 0; i < statuses.length; ++i) {
+            sharesTotal += statuses[i].amountOfShares;
+        }
+        _accounting.accountStETHUnlock(msg.sender, sharesTotal);
+        _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
     }
 
     // ---
@@ -107,9 +125,17 @@ contract Escrow is IEscrow {
     }
 
     function unlockWstETH() external returns (uint256 wstETHUnlocked) {
-        wstETHUnlocked = _accounting.accountWstETHUnlock(CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME(), msg.sender);
+        _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
+        wstETHUnlocked = _accounting.accountWstETHUnlock(msg.sender);
         WST_ETH.transfer(msg.sender, wstETHUnlocked);
         _activateNextGovernanceState();
+    }
+
+    function requestWithdrawalsWstETH(uint256[] calldata amounts) external returns (uint256[] memory unstETHIds) {
+        uint256 totalAmount = ArrayUtils.sum(amounts);
+        _accounting.accountWstETHUnlock(msg.sender, totalAmount);
+        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawalsWstETH(amounts, address(this));
+        _accounting.accountUnstETHLock(msg.sender, unstETHIds, WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds));
     }
 
     // ---
