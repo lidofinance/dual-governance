@@ -6,7 +6,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IExecutor} from "./interfaces/IExecutor.sol";
 
-contract OwnableExecutor is IExecutor, Ownable {
+contract Executor is IExecutor, Ownable {
     constructor(address owner) Ownable(owner) {}
 
     function execute(

@@ -11,7 +11,7 @@ import {
 
 import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 import {IConfiguration, Configuration} from "contracts/Configuration.sol";
-import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
+import {Executor} from "contracts/Executor.sol";
 
 import {
     ExecutorCall,
@@ -79,7 +79,7 @@ contract ScenarioTestBlueprint is Test {
 
     Escrow internal _escrowMasterCopy;
 
-    OwnableExecutor internal _adminExecutor;
+    Executor internal _adminExecutor;
 
     EmergencyProtectedTimelock internal _timelock;
     SingleGovernance internal _singleGovernance;
@@ -486,7 +486,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deployAdminExecutor(address owner) internal {
-        _adminExecutor = new OwnableExecutor(owner);
+        _adminExecutor = new Executor(owner);
     }
 
     function _deployConfigImpl() internal {
