@@ -207,7 +207,7 @@ library DualGovernanceStateTransitions {
         if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
             signallingEscrow.startRageQuit(
-                config.rageQuitExtraTimelock, _calcRageQuitWithdrawalsTimelock(config, self.rageQuitRound)
+                config.rageQuitExtensionDelay, _calcRageQuitWithdrawalsTimelock(config, self.rageQuitRound)
             );
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, signallingEscrow.MASTER_COPY());
@@ -278,8 +278,15 @@ library DualGovernanceStateTransitions {
         DualGovernanceConfig memory config,
         uint256 rageQuitRound
     ) private pure returns (uint256) {
-        // TODO: implement proper function
-        return config.rageQuitEthClaimMinTimelock + config.rageQuitExtensionDelay * rageQuitRound;
+        if (rageQuitRound < config.rageQuitEthClaimTimelockGrowthStartSeqNumber) {
+            return config.rageQuitEthClaimMinTimelock;
+        }
+        return config.rageQuitEthClaimMinTimelock
+            + (
+                config.rageQuitEthClaimTimelockGrowthCoeffs[0] * rageQuitRound * rageQuitRound
+                    + config.rageQuitEthClaimTimelockGrowthCoeffs[1] * rageQuitRound
+                    + config.rageQuitEthClaimTimelockGrowthCoeffs[2]
+            ) / 10 ** 18; // TODO: rewrite in a prettier way
     }
 }
 

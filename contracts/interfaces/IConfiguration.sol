@@ -13,6 +13,8 @@ struct DualGovernanceConfig {
     uint256 rageQuitExtraTimelock;
     uint256 rageQuitExtensionDelay;
     uint256 rageQuitEthClaimMinTimelock;
+    uint256 rageQuitEthClaimTimelockGrowthStartSeqNumber;
+    uint256[3] rageQuitEthClaimTimelockGrowthCoeffs;
 }
 
 interface IAdminExecutorConfiguration {
@@ -39,10 +41,14 @@ interface IDualGovernanceConfiguration {
     function FIRST_SEAL_RAGE_QUIT_SUPPORT() external view returns (uint256);
     function SECOND_SEAL_RAGE_QUIT_SUPPORT() external view returns (uint256);
 
-    function RAGE_QUIT_EXTRA_TIMELOCK() external view returns (uint256);
     function RAGE_QUIT_EXTENSION_DELAY() external view returns (uint256);
     function RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() external view returns (uint256);
     function RAGE_QUIT_ACCUMULATION_MAX_DURATION() external view returns (uint256);
+    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_START_SEQ_NUMBER() external view returns (uint256);
+
+    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_A() external view returns (uint256);
+    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_B() external view returns (uint256);
+    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_C() external view returns (uint256);
 
     function SIGNALLING_ESCROW_MIN_LOCK_TIME() external view returns (uint256);
 
