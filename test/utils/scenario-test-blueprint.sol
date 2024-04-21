@@ -90,8 +90,8 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Helper Getters
     // ---
-    function _getSignallingEscrow() internal view returns (Escrow) {
-        return Escrow(payable(_dualGovernance.signallingEscrow()));
+    function _getVetoSignallingEscrow() internal view returns (Escrow) {
+        return Escrow(payable(_dualGovernance.vetoSignallingEscrow()));
     }
 
     function _getTargetRegularStaffCalls() internal view returns (ExecutorCall[] memory) {
@@ -157,7 +157,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _lockStETH(address vetoer, uint256 amount) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         vm.startPrank(vetoer);
         if (_ST_ETH.allowance(vetoer, address(escrow)) < amount) {
             _ST_ETH.approve(address(escrow), amount);
@@ -168,12 +168,12 @@ contract ScenarioTestBlueprint is Test {
 
     function _unlockStETH(address vetoer) internal {
         vm.startPrank(vetoer);
-        _getSignallingEscrow().unlockStETH();
+        _getVetoSignallingEscrow().unlockStETH();
         vm.stopPrank();
     }
 
     function _lockWstETH(address vetoer, uint256 amount) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         vm.startPrank(vetoer);
         if (_WST_ETH.allowance(vetoer, address(escrow)) < amount) {
             _WST_ETH.approve(address(escrow), amount);
@@ -183,7 +183,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _unlockWstETH(address vetoer) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         uint256 wstETHBalanceBefore = _WST_ETH.balanceOf(vetoer);
         uint256 vetoerWstETHSharesBefore = escrow.getVetoerState(vetoer).wstETHShares;
 
@@ -196,7 +196,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
         uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
 
@@ -221,7 +221,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _unlockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
         uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
 

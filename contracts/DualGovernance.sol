@@ -62,12 +62,12 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         emit ProposalScheduled(proposalId);
     }
 
-    function cancelAll() external {
+    function cancelAllPendingProposals() external {
         _proposers.checkAdminProposer(CONFIG, msg.sender);
-        TIMELOCK.cancelAll();
+        TIMELOCK.cancelAllNonExecutedProposals();
     }
 
-    function signallingEscrow() external view returns (address) {
+    function vetoSignallingEscrow() external view returns (address) {
         return address(_dgState.signallingEscrow);
     }
 

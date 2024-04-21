@@ -78,7 +78,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _assertVetoCooldownState();
 
         vm.startPrank(_VETOER);
-        _getSignallingEscrow().unlockStETH();
+        _getVetoSignallingEscrow().unlockStETH();
         vm.stopPrank();
 
         _wait(_config.VETO_COOLDOWN_DURATION() + 1);

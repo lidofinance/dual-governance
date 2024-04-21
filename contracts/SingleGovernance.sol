@@ -30,9 +30,9 @@ contract SingleGovernance is IGovernance, ConfigurationProvider {
         return TIMELOCK.canSchedule(proposalId);
     }
 
-    function cancelAll() external {
+    function cancelAllPendingProposals() external {
         _checkGovernance(msg.sender);
-        TIMELOCK.cancelAll();
+        TIMELOCK.cancelAllNonExecutedProposals();
     }
 
     function _checkGovernance(address account) internal view {

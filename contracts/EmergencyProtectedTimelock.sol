@@ -43,7 +43,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         _proposals.execute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
     }
 
-    function cancelAll() external {
+    function cancelAllNonExecutedProposals() external {
         _checkGovernance(msg.sender);
         _proposals.cancelAll();
     }

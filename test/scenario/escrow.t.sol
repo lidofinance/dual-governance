@@ -60,7 +60,7 @@ contract EscrowHappyPath is TestHelpers {
         _selectFork();
         _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
 
-        escrow = _getSignallingEscrow();
+        escrow = _getVetoSignallingEscrow();
 
         _setupStETHWhale(_VETOER_1);
         vm.startPrank(_VETOER_1);
