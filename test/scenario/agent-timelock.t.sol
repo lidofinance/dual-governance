@@ -104,7 +104,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
 
             // committee resets governance
             vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
-            _timelock.emergencyActivate();
+            _timelock.activateEmergencyMode();
 
             vm.prank(_EMERGENCY_EXECUTION_COMMITTEE);
             _timelock.emergencyReset();
