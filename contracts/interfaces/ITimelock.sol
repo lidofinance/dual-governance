@@ -5,7 +5,7 @@ import {ExecutorCall} from "./IExecutor.sol";
 
 interface IGovernance {
     function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId);
-    function schedule(uint256 proposalId) external;
+    function scheduleProposal(uint256 proposalId) external;
     function cancelAllPendingProposals() external;
 
     function canSchedule(uint256 proposalId) external view returns (bool);

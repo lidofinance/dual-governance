@@ -275,7 +275,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _scheduleProposal(IGovernance governance, uint256 proposalId) internal {
-        governance.schedule(proposalId);
+        governance.scheduleProposal(proposalId);
     }
 
     function _executeProposal(uint256 proposalId) internal {

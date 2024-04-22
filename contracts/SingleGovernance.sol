@@ -22,7 +22,7 @@ contract SingleGovernance is IGovernance, ConfigurationProvider {
         return TIMELOCK.submit(CONFIG.ADMIN_EXECUTOR(), calls);
     }
 
-    function schedule(uint256 proposalId) external {
+    function scheduleProposal(uint256 proposalId) external {
         TIMELOCK.schedule(proposalId);
     }
 

@@ -55,7 +55,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         proposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
-    function schedule(uint256 proposalId) external {
+    function scheduleProposal(uint256 proposalId) external {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
         _dgState.checkProposalsAdoptionAllowed();
         TIMELOCK.schedule(proposalId);
@@ -151,6 +151,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function tiebreakerScheduleProposal(uint256 proposalId) external {
         _checkTiebreakerCommittee(msg.sender);
+        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
         _dgState.checkTiebreak(CONFIG);
         TIMELOCK.schedule(proposalId);
     }
