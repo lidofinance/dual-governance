@@ -185,7 +185,7 @@ contract Escrow is IEscrow {
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
     }
 
-    function requestWithdrawalsBatch(uint256 maxWithdrawalRequestsCount) external {
+    function requestNextWithdrawalsBatch(uint256 maxWithdrawalRequestsCount) external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
 
         uint256[] memory requestAmounts = _accounting.formWithdrawalBatch(

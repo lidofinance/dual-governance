@@ -329,11 +329,11 @@ contract EscrowHappyPath is TestHelpers {
         uint256 expectedWithdrawalBatchesCount = escrowStETHBalance / requestAmount + 1;
         assertEq(_WITHDRAWAL_QUEUE.balanceOf(address(escrow)), 10);
 
-        escrow.requestWithdrawalsBatch(10);
+        escrow.requestNextWithdrawalsBatch(10);
 
         assertEq(_WITHDRAWAL_QUEUE.balanceOf(address(escrow)), 20);
 
-        escrow.requestWithdrawalsBatch(200);
+        escrow.requestNextWithdrawalsBatch(200);
 
         assertEq(_WITHDRAWAL_QUEUE.balanceOf(address(escrow)), 10 + expectedWithdrawalBatchesCount);
         assertEq(escrow.isRageQuitFinalized(), false);
