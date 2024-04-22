@@ -236,7 +236,7 @@ contract Escrow is IEscrow {
         Address.sendValue(payable(msg.sender), _accounting.accountStETHWithdraw(msg.sender));
     }
 
-    function withdrawWstETH() external {
+    function withdrawWstETHAsETH() external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
         _checkWithdrawalsTimelockPassed();
         Address.sendValue(payable(msg.sender), _accounting.accountWstETHWithdraw(msg.sender));
