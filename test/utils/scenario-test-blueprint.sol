@@ -537,7 +537,7 @@ contract ScenarioTestBlueprint is Test {
             _adminExecutor.execute(
                 address(_dualGovernance),
                 0,
-                abi.encodeCall(_dualGovernance.setTiebreakerProtection, (_TIEBREAK_COMMITTEE))
+                abi.encodeCall(_dualGovernance.setTiebreakerCommittee, (_TIEBREAK_COMMITTEE))
             );
         }
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (governance)));

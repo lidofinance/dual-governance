@@ -155,7 +155,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK.schedule(proposalId);
     }
 
-    function setTiebreakerProtection(address newTiebreaker) external {
+    function setTiebreakerCommittee(address newTiebreaker) external {
         _checkAdminExecutor(msg.sender);
         address oldTiebreaker = _tiebreaker;
         if (newTiebreaker != oldTiebreaker) {
