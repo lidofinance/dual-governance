@@ -44,7 +44,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _logVetoSignallingState();
 
             // almost all veto signalling period has passed
-            vm.warp(block.timestamp + 20 days);
+            _wait(20 days);
             _activateNextState();
             _assertVetoSignalingState();
             _logVetoSignallingState();
@@ -72,39 +72,33 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ACT 4. MALICIOUS ACTOR UNLOCK FUNDS FROM ESCROW
         // ---
         {
+            _wait(12 seconds);
             _unlockStETH(maliciousActor);
-            _logVetoSignallingDeactivationState();
             _assertVetoSignalingDeactivationState();
         }
 
         // ---
-        // ACT 5. STETH HOLDERS TRY ACQUIRE QUORUM, DURING THE DEACTIVATION PERIOD BUT UNSUCCESSFULLY
+        // ACT 5. STETH HOLDERS MAY ACQUIRE QUORUM BECAUSE THE VETO SIGNALLING PERIOD RESTARTED
         // ---
         address stEthWhale = makeAddr("STETH_WHALE");
         {
-            _lockStETH(stEthWhale, percents("10.0"));
+            _depositStETH(stEthWhale, 1 ether);
+            _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION());
+            _lockStETH(stEthWhale, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
             _logVetoSignallingDeactivationState();
-            _assertVetoSignalingDeactivationState();
+            _assertVetoSignalingState();
+            _logVetoSignallingState();
         }
 
         // ---
-        // ACT 6. BUT THE DEACTIVATION PHASE IS PROLONGED BECAUSE THE MALICIOUS VOTE
-        //        WAS SUBMITTED ON VETO SIGNALLING PHASE
+        // ACT 6. STETH HOLDER MAY EXIT TO RAGE QUIT WHEN THE SECOND SEAL THRESHOLD REACHED
         // ---
         {
-            vm.warp(block.timestamp + _config.VETO_SIGNALLING_DEACTIVATION_DURATION() + 1);
+            _lockStETH(stEthWhale, 1 gwei);
+            _assertVetoSignalingState();
 
-            // the veto signalling deactivation duration is passed, but proposal will be executed
-            // only when the _config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION() from the last proposal
-            // submission is passed.
-
+            _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() + 1);
             _activateNextState();
-            _assertVetoSignalingDeactivationState();
-
-            vm.warp(block.timestamp + _config.SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION() / 2);
-
-            // stEth holders reach the rage quit threshold
-            _lockStETH(maliciousActor, percents("10.0"));
 
             // the dual governance immediately transfers to the Rage Quit state
             _assertRageQuitState();
@@ -152,10 +146,10 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         }
 
         // ---
-        // ACT 3. THE VETO SIGNALLING DEACTIVATION DURATION EQUALS TO "VETO_SIGNALLING_DEACTIVATION_DURATION" DAYS
+        // ACT 3. THE VETO SIGNALLING DEACTIVATION DURATION EQUALS TO "VETO_SIGNALLING_DEACTIVATION_MAX_DURATION" DAYS
         // ---
         {
-            vm.warp(block.timestamp + _config.VETO_SIGNALLING_DEACTIVATION_DURATION() + 1);
+            vm.warp(block.timestamp + _config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() + 1);
 
             _activateNextState();
             _assertVetoCooldownState();
