@@ -120,7 +120,7 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        // 1. Transition to RageQuitAccumulation
+        // 1. Transition to RageQuit
         if (_isDynamicTimelockMaxDurationPassed(self, config)) {
             if (_isSecondSealRageQuitSupportCrossed(config, rageQuitSupport)) {
                 return State.RageQuit;
@@ -146,6 +146,12 @@ library DualGovernanceStateTransitions {
 
         if (!_isDynamicTimelockDurationPassed(self, config, rageQuitSupport)) {
             return State.VetoSignalling;
+        }
+
+        if (_isDynamicTimelockMaxDurationPassed(self, config)) {
+            if (_isSecondSealRageQuitSupportCrossed(config, rageQuitSupport)) {
+                return State.RageQuit;
+            }
         }
 
         if (_isVetoSignallingDeactivationMaxDurationPassed(self, config)) {
