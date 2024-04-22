@@ -17,7 +17,7 @@ contract SingleGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK = ITimelock(timelock);
     }
 
-    function submit(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
         _checkGovernance(msg.sender);
         return TIMELOCK.submit(CONFIG.ADMIN_EXECUTOR(), calls);
     }

@@ -46,7 +46,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
     }
 
-    function submit(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
         _proposers.checkProposer(msg.sender);
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
         _dgState.checkProposalsCreationAllowed();

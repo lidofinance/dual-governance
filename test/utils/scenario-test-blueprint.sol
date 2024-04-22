@@ -260,7 +260,7 @@ contract ScenarioTestBlueprint is Test {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
         bytes memory script =
-            Utils.encodeEvmCallScript(address(governance), abi.encodeCall(IGovernance.submit, (calls)));
+            Utils.encodeEvmCallScript(address(governance), abi.encodeCall(IGovernance.submitProposal, (calls)));
         uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
 
         // The scheduled calls count is the same until the vote is enacted

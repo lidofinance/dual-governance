@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import {ExecutorCall} from "./IExecutor.sol";
 
 interface IGovernance {
-    function submit(ExecutorCall[] calldata calls) external returns (uint256 proposalId);
+    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId);
     function schedule(uint256 proposalId) external;
     function cancelAllPendingProposals() external;
 
