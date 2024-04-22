@@ -214,7 +214,7 @@ contract Escrow is IEscrow {
         }
     }
 
-    function claimWithdrawalRequests(uint256[] calldata unstETHIds, uint256[] calldata hints) external {
+    function claimUnstETH(uint256[] calldata unstETHIds, uint256[] calldata hints) external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
         uint256[] memory claimableAmounts = WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints);
 

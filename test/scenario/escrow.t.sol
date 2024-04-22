@@ -365,7 +365,7 @@ contract EscrowHappyPath is TestHelpers {
         {
             uint256[] memory hints =
                 _WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex());
-            escrow.claimWithdrawalRequests(unstETHIds, hints);
+            escrow.claimUnstETH(unstETHIds, hints);
 
             // but it can't be withdrawn before withdrawal timelock has passed
             vm.expectRevert();
@@ -414,7 +414,7 @@ contract EscrowHappyPath is TestHelpers {
         uint256[] memory hints =
             _WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex());
 
-        escrow.claimWithdrawalRequests(unstETHIds, hints);
+        escrow.claimUnstETH(unstETHIds, hints);
 
         assertEq(escrow.isRageQuitFinalized(), false);
 
