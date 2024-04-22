@@ -149,7 +149,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     // Tiebreaker Protection
     // ---
 
-    function tiebreakerSchedule(uint256 proposalId) external {
+    function tiebreakerScheduleProposal(uint256 proposalId) external {
         _checkTiebreakerCommittee(msg.sender);
         _dgState.checkTiebreak(CONFIG);
         TIMELOCK.schedule(proposalId);
