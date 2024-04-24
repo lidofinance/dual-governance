@@ -220,10 +220,6 @@ library DualGovernanceStateTransitions {
             self.vetoSignallingReactivationTime = timestamp;
         }
 
-        if (oldState == State.VetoCooldown && newState == State.Normal) {
-            self.vetoSignallingActivationTime = 0;
-        }
-
         if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
             signallingEscrow.startRageQuit(
@@ -346,10 +342,12 @@ library DualGovernanceStateViews {
         DualGovernanceState storage self,
         uint256 proposalSubmissionTime
     ) internal view returns (bool) {
-        if (!isProposalsAdoptionAllowed(self)) {
-            return false;
+        State state = self.state;
+        if (state == State.Normal) return true;
+        if (state == State.VetoCooldown) {
+            return proposalSubmissionTime <= self.vetoSignallingActivationTime;
         }
-        return self.vetoSignallingActivationTime == 0 || proposalSubmissionTime <= self.vetoSignallingActivationTime;
+        return false;
     }
 
     function isProposalsCreationAllowed(DualGovernanceState storage self) internal view returns (bool) {
