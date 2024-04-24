@@ -164,8 +164,6 @@ The **time of activation** of the Veto Signalling state  $t^S_{act}$ is the time
 
 The **time of re-activation** of the Veto Signalling state  $t^S_{react}$ is the time the Deactivation sub-state was last exited without exiting the parent Veto Signalling state.
 
-The **time of last proposal submission** $t_{prop}$ is the last time a proposal was submitted to the DG subsystem.
-
 The **dynamic timelock duration** $T_{lock}(R)$ depends on the current rage quit support $R = R(t)$ and can be calculated as follows:
 
 ```math
@@ -200,7 +198,7 @@ the Veto Signalling state is exited and the Rage Quit state is entered.
 **Transition to Deactivation**. If, while Veto Signalling is active and the Deactivation sub-state is not active, the following expression becomes true:
 
 ```math
-\left( t - \max \left\{ t^S_{act} \,,\, t_{prop} \right\} > T_{lock}(R) \right) \, \land \, \left( t - \max \left\{ t^S_{act} \,,\, t^S_{react} \right\} > T^{Sa}_{min} \right)
+\left( t - t^S_{act} > T_{lock}(R) \right) \, \land \, \left( t - \max \left\{ t^S_{act} \,,\, t^S_{react} \right\} > T^{Sa}_{min} \right)
 ```
 
 where $T^{Sa}_{min}$ is `VetoSignallingMinActiveDuration`, then the Deactivation sub-state of the Veto Signalling state is entered without exiting the parent Veto Signalling state.
@@ -222,7 +220,7 @@ The sub-state's purpose is to allow all stakers to observe the Veto Signalling b
 **Transition to the parent state**. If, while the sub-state is active, the following condition becomes true:
 
 ```math
-\big( t - \max \left\{ t^S_{act} \,,\, t_{prop} \right\} \leq \, T_{lock}(R) \big) \,\lor\, \big( R > R_2 \big)
+\big( t - t^S_{act} \leq \, T_{lock}(R) \big) \,\lor\, \big( R > R_2 \big)
 ```
 
 then the Deactivation sub-state is exited so only the parent Veto Signalling state remains active.
@@ -242,7 +240,7 @@ VetoSignallingDeactivationMaxDuration = 3 days
 
 ### Veto Cooldown state
 
-In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can execute pending non-cancelled proposals, provided that the proposal being executed was submitted more than `ProposalExecutionMinTimelock` days ago. This state exists to guarantee that no staker possessing enough stETH to generate `FirstSealRageQuitSupport` can lock the governance indefinitely without rage quitting the protocol.
+In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can execute pending non-canceled proposals, provided that the proposal being executed was submitted more than `ProposalExecutionMinTimelock` days ago and before the Veto Signalling state was entered the last time. This state exists to guarantee that no staker possessing enough stETH to generate `FirstSealRageQuitSupport` can lock the governance indefinitely without rage quitting the protocol.
 
 **Transition to Veto Signalling**. If, while the state is active, the following condition becomes true:
 
@@ -396,6 +394,26 @@ Dual governance should not cover:
 
 
 ## Changelog
+
+### 2024-04-24
+
+* Removed the logic with the extension of the Veto Signalling duration upon new proposal submission.
+* Added new condition for proposal execution in the Veto Cooldown state: the proposal must be submitted before the Veto Signalling state was entered for the last time.
+
+    > This change simplifies the transition conditions for Veto Signalling and mitigates the main disadvantage of the extendable Veto Signalling approach: the potentially "unexpected" transition from Veto Signalling to the Rage Quit state.
+    A possible scenario how such transition may be triggered:
+    > - A malicious DAO submits a "non-malicious" proposal and transitions the DG into the Veto Signalling state, locking the `SecondSealRageQuitSupport` amount of the funds.
+    > - Before the end of the `DynamicTimelockMaxDuration`, the malicious DAO submits a malicious proposal and withdraws funds from the Veto Signalling Escrow.
+    >
+    > Previously, the submission of any proposal during the Veto Signalling phase would prolong this phase, allowing up to `DynamicTimelockMaxDuration` for users to gather the `SecondSealRageQuitSupport` amount. However, the transition to the Rage Quit state may occur before the `DynamicTimelockMaxDuration` time has passed, as soon as the `SecondSealRageQuitSupport` is accumulated. This potentially decreases the number of users who may join the initiated Rage Quit round but still allows for the accumulation of stETH in the veto signalling escrow contract to begin a new Rage Quit after the current one ends.
+    >
+    > With the new approach, after the submission of a malicious proposal, it will not be executable after the end of the Veto Signalling initiated by the malicious DAO due to the addition of new restriction on proposals that may be executed in the Veto Cooldown state.
+    >
+    > In the new design, users will still have a `max(SignallingEscrowMinLockTime, VetoSignallingDeactivationMaxDuration + VetoCooldownDuration)` to accumulate enough funds to transfer the system into the Veto Signalling state and eventually trigger the Rage Quit. In contrast to the previous approach, the Rage Quit will not start before the `DynamicTimelockMaxDuration` time has passed, allowing more users to join the Rage Quit.
+    >
+    > A notable limitation identified with this new approach is the potential to double the maximum delay of proposal execution, facilitated by the combined duration of `DynamicTimelockMaxDuration` and `VetoDeactivationMaxDuration`. A malicious actor with a significant portion of the stETH total supply may lock at least the `FirstSealRageQuitSupport` in the Veto Signalling Escrow just before the proposal is submitted to DualGovernance. After this, the submitted proposal will be affected by two sequences of transitions: Veto Signalling -> Veto Signalling Deactivation -> Veto Cooldown. Such an action may effectively increase the duration of the DualGovernance lock with the same amount of funds. Therefore, it must be considered during the parameter selection process.
+    >
+    > Considering the limitations and benefits of both approaches, the newer model was chosen as it provides better guarantees for Lido stakers to exit the protocol during Rage Quit, a more crucial factor than the potential delay in proposal execution, which can be partially mitigated by optimizing system parameters.
 
 ### 2024-04-19
 
