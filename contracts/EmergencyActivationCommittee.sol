@@ -8,10 +8,10 @@ contract EmergencyActivationCommittee is ExecutiveCommittee {
 
     constructor(
         address OWNER,
-        address[] memory multisigMembers,
+        address[] memory committeeMembers,
         uint256 executionQuorum,
         address emergencyProtectedTimelock
-    ) ExecutiveCommittee(OWNER, multisigMembers, executionQuorum) {
+    ) ExecutiveCommittee(OWNER, committeeMembers, executionQuorum) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 

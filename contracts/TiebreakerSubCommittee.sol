@@ -12,10 +12,10 @@ contract TiebreakerSubCommittee is ExecutiveCommittee {
 
     constructor(
         address owner,
-        address[] memory multisigMembers,
+        address[] memory committeeMembers,
         uint256 executionQuorum,
         address tiebreakerCore
-    ) ExecutiveCommittee(owner, multisigMembers, executionQuorum) {
+    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum) {
         TIEBREAKER_CORE = tiebreakerCore;
     }
 
