@@ -21,19 +21,36 @@ enum State {
     RageQuit
 }
 
+/*
+// The previous version of the state (3 slots)
 struct DualGovernanceState {
-    State state;
-    uint8 rageQuitRound;
-    uint40 enteredAt;
+    State state; // [0, 8]
+    uint8 rageQuitRound; // [0, 16]
+    uint40 enteredAt; // [0, 56]
     // the time the veto signalling state was entered
-    uint40 vetoSignallingActivationTime;
+    uint40 vetoSignallingActivationTime; // [0, 96]
+    IEscrow signallingEscrow; // [0, 256]
     // the time the Deactivation sub-state was last exited without exiting the parent Veto Signalling state
-    uint40 vetoSignallingReactivationTime;
-    IEscrow signallingEscrow;
+    uint40 vetoSignallingReactivationTime; // [1, 40]
     // the last time a proposal was submitted to the DG subsystem
-    uint40 lastProposalSubmissionTime;
-    uint40 lastAdoptableStateExitedAt;
-    IEscrow rageQuitEscrow;
+    uint40 lastProposalSubmissionTime; // [1, 80]
+    uint40 lastAdoptableStateExitedAt; // [1, 120]
+    IEscrow rageQuitEscrow; // [2, 160]
+}
+*/
+
+struct DualGovernanceState {
+    State state; // [0, 8]
+    uint8 rageQuitRound; // [0, 16]
+    uint40 enteredAt; // [0, 56]
+    // the time the veto signalling state was entered
+    uint40 vetoSignallingActivationTime; // [0, 96]
+    IEscrow signallingEscrow; // [0, 256]
+    // the time the Deactivation sub-state was last exited without exiting the parent Veto Signalling state
+    uint40 vetoSignallingReactivationTime; // [1, 40]
+    // the last time a proposal was submitted to the DG subsystem
+    uint40 lastAdoptableStateExitedAt; // [1, 80]
+    IEscrow rageQuitEscrow; // [1, 240]
 }
 
 function dynamicTimelockDuration(
@@ -97,10 +114,6 @@ library DualGovernanceStateTransitions {
         }
     }
 
-    function setLastProposalCreationTimestamp(DualGovernanceState storage self) internal {
-        self.lastProposalSubmissionTime = TimeUtils.timestamp();
-    }
-
     // ---
     // State Transitions
     // ---
@@ -120,22 +133,17 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        // 1. Transition to RageQuit
-        if (_isDynamicTimelockMaxDurationPassed(self, config)) {
-            if (_isSecondSealRageQuitSupportCrossed(config, rageQuitSupport)) {
-                return State.RageQuit;
-            }
+        if (!_isDynamicTimelockDurationPassed(self, config, rageQuitSupport)) {
+            return State.VetoSignalling;
         }
 
-        // 2. Transition to VetoSignallingDeactivation
-
-        if (_isDynamicTimelockDurationPassed(self, config, rageQuitSupport)) {
-            if (_isVetoSignallingReactivationDurationPassed(self, config)) {
-                return State.VetoSignallingDeactivation;
-            }
+        if (_isSecondSealRageQuitSupportCrossed(config, rageQuitSupport)) {
+            return State.RageQuit;
         }
 
-        return State.VetoSignalling;
+        return _isVetoSignallingReactivationDurationPassed(self, config)
+            ? State.VetoSignallingDeactivation
+            : State.VetoSignalling;
     }
 
     function _fromVetoSignallingDeactivationState(
@@ -148,10 +156,8 @@ library DualGovernanceStateTransitions {
             return State.VetoSignalling;
         }
 
-        if (_isDynamicTimelockMaxDurationPassed(self, config)) {
-            if (_isSecondSealRageQuitSupportCrossed(config, rageQuitSupport)) {
-                return State.RageQuit;
-            }
+        if (_isSecondSealRageQuitSupportCrossed(config, rageQuitSupport)) {
+            return State.RageQuit;
         }
 
         if (_isVetoSignallingDeactivationMaxDurationPassed(self, config)) {
@@ -201,15 +207,23 @@ library DualGovernanceStateTransitions {
         if (oldState == State.Normal || oldState == State.VetoCooldown) {
             self.lastAdoptableStateExitedAt = timestamp;
         }
+
         if (newState == State.Normal && self.rageQuitRound != 0) {
             self.rageQuitRound = 0;
         }
+
         if (newState == State.VetoSignalling && oldState != State.VetoSignallingDeactivation) {
             self.vetoSignallingActivationTime = timestamp;
         }
+
         if (oldState == State.VetoSignallingDeactivation && newState == State.VetoSignalling) {
             self.vetoSignallingReactivationTime = timestamp;
         }
+
+        if (oldState == State.VetoCooldown && newState == State.Normal) {
+            self.vetoSignallingActivationTime = 0;
+        }
+
         if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
             signallingEscrow.startRageQuit(
@@ -247,8 +261,7 @@ library DualGovernanceStateTransitions {
         DualGovernanceConfig memory config,
         uint256 rageQuitSupport
     ) private view returns (bool) {
-        uint256 vetoSignallingDurationPassed =
-            block.timestamp - Math.max(self.vetoSignallingActivationTime, self.lastProposalSubmissionTime);
+        uint256 vetoSignallingDurationPassed = block.timestamp - self.vetoSignallingActivationTime;
         return vetoSignallingDurationPassed > dynamicTimelockDuration(config, rageQuitSupport);
     }
 
@@ -313,6 +326,12 @@ library DualGovernanceStateViews {
         }
     }
 
+    function checkCanScheduleProposal(DualGovernanceState storage self, uint256 proposalSubmittedAt) internal view {
+        if (!canScheduleProposal(self, proposalSubmittedAt)) {
+            revert ProposalsAdoptionSuspended();
+        }
+    }
+
     function checkTiebreak(DualGovernanceState storage self, IConfiguration config) internal view {
         if (!isTiebreak(self, config)) {
             revert NotTie();
@@ -321,6 +340,16 @@ library DualGovernanceStateViews {
 
     function currentState(DualGovernanceState storage self) internal view returns (State) {
         return self.state;
+    }
+
+    function canScheduleProposal(
+        DualGovernanceState storage self,
+        uint256 proposalSubmissionTime
+    ) internal view returns (bool) {
+        if (!isProposalsAdoptionAllowed(self)) {
+            return false;
+        }
+        return self.vetoSignallingActivationTime == 0 || proposalSubmissionTime <= self.vetoSignallingActivationTime;
     }
 
     function isProposalsCreationAllowed(DualGovernanceState storage self) internal view returns (bool) {

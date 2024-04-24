@@ -21,7 +21,7 @@ import {
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
-import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernance.sol";
+import {DualGovernance, DualGovernanceState, DualGovernanceStateViews, State} from "contracts/DualGovernance.sol";
 
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
@@ -410,7 +410,7 @@ contract ScenarioTestBlueprint is Test {
             _dualGovernance.getVetoSignallingState();
 
         if (!isActive) {
-            console.log("VetoSignalling state is not active");
+            console.log("VetoSignalling state is not active\n");
             return;
         }
 
@@ -418,12 +418,12 @@ contract ScenarioTestBlueprint is Test {
         console.log("Veto signalling entered at %d (activated at %d)", enteredAt, activatedAt);
         if (block.timestamp > activatedAt + duration) {
             console.log(
-                "Veto signalling has ended %s ago",
+                "Veto signalling has ended %s ago\n",
                 _formatDuration(_toDuration(block.timestamp - activatedAt - duration))
             );
         } else {
             console.log(
-                "Veto signalling will end after %s",
+                "Veto signalling will end after %s\n",
                 _formatDuration(_toDuration(activatedAt + duration - block.timestamp))
             );
         }
@@ -435,7 +435,7 @@ contract ScenarioTestBlueprint is Test {
         (bool isActive, uint256 duration, uint256 enteredAt) = _dualGovernance.getVetoSignallingDeactivationState();
 
         if (!isActive) {
-            console.log("VetoSignallingDeactivation state is not active");
+            console.log("VetoSignallingDeactivation state is not active\n");
             return;
         }
 
@@ -445,12 +445,12 @@ contract ScenarioTestBlueprint is Test {
         console.log("VetoSignallingDeactivation entered at %d", enteredAt);
         if (block.timestamp > enteredAt + duration) {
             console.log(
-                "VetoSignallingDeactivation has ended %s ago",
+                "VetoSignallingDeactivation has ended %s ago\n",
                 _formatDuration(_toDuration(block.timestamp - enteredAt - duration))
             );
         } else {
             console.log(
-                "VetoSignallingDeactivation will end after %s",
+                "VetoSignallingDeactivation will end after %s\n",
                 _formatDuration(_toDuration(enteredAt + duration - block.timestamp))
             );
         }
@@ -547,6 +547,11 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Utils Methods
     // ---
+
+    function _step(string memory text) internal {
+        // solhint-disable-next-line
+        console.log(string.concat(">>> ", text, " <<<"));
+    }
 
     function _wait(uint256 duration) internal {
         vm.warp(block.timestamp + duration);

@@ -50,15 +50,14 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _proposers.checkProposer(msg.sender);
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
         _dgState.checkProposalsCreationAllowed();
-        _dgState.setLastProposalCreationTimestamp();
         Proposer memory proposer = _proposers.get(msg.sender);
         proposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
     function scheduleProposal(uint256 proposalId) external {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
-        _dgState.checkProposalsAdoptionAllowed();
-        TIMELOCK.schedule(proposalId);
+        uint256 proposalSubmissionTime = TIMELOCK.schedule(proposalId);
+        _dgState.checkCanScheduleProposal(proposalSubmissionTime);
         emit ProposalScheduled(proposalId);
     }
 

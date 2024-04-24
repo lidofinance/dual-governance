@@ -12,10 +12,9 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
 
     function testFork_AgentTimelockHappyPath() external {
         ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
-        // ---
-        // 1. THE PROPOSAL IS SUBMITTED
-        // ---
+
         uint256 proposalId;
+        _step("1. THE PROPOSAL IS SUBMITTED");
         {
             proposalId = _submitProposal(
                 _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
@@ -25,9 +24,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _assertCanSchedule(_dualGovernance, proposalId, false);
         }
 
-        // ---
-        // 2. THE PROPOSAL IS SCHEDULED
-        // ---
+        _step("2. THE PROPOSAL IS SCHEDULED");
         {
             _waitAfterSubmitDelayPassed();
             _assertCanSchedule(_dualGovernance, proposalId, true);
@@ -37,9 +34,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _assertCanExecute(proposalId, false);
         }
 
-        // ---
-        // 3. THE PROPOSAL CAN BE EXECUTED
-        // ---
+        _step("3. THE PROPOSAL CAN BE EXECUTED");
         {
             // wait until the second delay has passed
             _waitAfterScheduleDelayPassed();
