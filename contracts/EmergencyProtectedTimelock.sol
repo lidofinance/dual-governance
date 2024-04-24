@@ -14,11 +14,8 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
 
     error InvalidGovernance(address governance);
     error NotGovernance(address account, address governance);
-    error SchedulingDisabled();
-    error UnscheduledExecutionForbidden();
 
     event GovernanceSet(address governance);
-    event ProposalLaunched(address indexed proposer, address indexed executor, uint256 indexed proposalId);
 
     address internal _governance;
 
@@ -30,7 +27,6 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
         _checkGovernance(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
-        emit ProposalLaunched(msg.sender, executor, newProposalId);
     }
 
     function schedule(uint256 proposalId) external {

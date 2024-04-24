@@ -10,7 +10,7 @@ enum Status {
     Submitted,
     Scheduled,
     Executed,
-    Canceled
+    Cancelled
 }
 
 struct Proposal {
@@ -34,12 +34,12 @@ library Proposals {
 
     struct State {
         // any proposals with ids less or equal to the given one cannot be executed
-        uint256 lastCanceledProposalId;
+        uint256 lastCancelledProposalId;
         ProposalPacked[] proposals;
     }
 
     error EmptyCalls();
-    error ProposalCanceled(uint256 proposalId);
+    error ProposalCancelled(uint256 proposalId);
     error ProposalNotFound(uint256 proposalId);
     error ProposalNotScheduled(uint256 proposalId);
     error ProposalNotSubmitted(uint256 proposalId);
@@ -49,7 +49,7 @@ library Proposals {
     event ProposalScheduled(uint256 indexed id);
     event ProposalSubmitted(uint256 indexed id, address indexed executor, ExecutorCall[] calls);
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
-    event ProposalsCanceledTill(uint256 proposalId);
+    event ProposalsCancelledTill(uint256 proposalId);
 
     // The id of the first proposal
     uint256 private constant PROPOSAL_ID_OFFSET = 1;
@@ -97,8 +97,8 @@ library Proposals {
 
     function cancelAll(State storage self) internal {
         uint256 lastProposalId = self.proposals.length;
-        self.lastCanceledProposalId = lastProposalId;
-        emit ProposalsCanceledTill(lastProposalId);
+        self.lastCancelledProposalId = lastProposalId;
+        emit ProposalsCancelledTill(lastProposalId);
     }
 
     function get(State storage self, uint256 proposalId) internal view returns (Proposal memory proposal) {
@@ -109,6 +109,7 @@ library Proposals {
         proposal.status = _getProposalStatus(self, proposalId);
         proposal.executor = packed.executor;
         proposal.submittedAt = packed.submittedAt;
+        proposal.scheduledAt = packed.scheduledAt;
         proposal.executedAt = packed.executedAt;
         proposal.calls = packed.calls;
     }
@@ -202,7 +203,7 @@ library Proposals {
         ProposalPacked storage packed = _packed(self, proposalId);
 
         if (packed.executedAt != 0) return Status.Executed;
-        if (proposalId <= self.lastCanceledProposalId) return Status.Canceled;
+        if (proposalId <= self.lastCancelledProposalId) return Status.Cancelled;
         if (packed.scheduledAt != 0) return Status.Scheduled;
         if (packed.submittedAt != 0) return Status.Submitted;
         assert(false);

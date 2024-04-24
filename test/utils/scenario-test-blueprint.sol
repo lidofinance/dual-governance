@@ -26,7 +26,7 @@ import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernan
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
 import {Percents, percents} from "../utils/percents.sol";
-import {IERC20, IStEth, IWstETH, IWithdrawalQueue, WithdrawalRequestStatus} from "../utils/interfaces.sol";
+import {IERC20, IStEth, IWstETH, IWithdrawalQueue, WithdrawalRequestStatus, IDangerousContract} from "../utils/interfaces.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
 
@@ -45,12 +45,6 @@ function countDigits(uint256 number) pure returns (uint256 digitsCount) {
     do {
         digitsCount++;
     } while (number / 10 != 0);
-}
-
-interface IDangerousContract {
-    function doRegularStaff(uint256 magic) external;
-    function doRugPool() external;
-    function doControversialStaff() external;
 }
 
 contract ScenarioTestBlueprint is Test {
@@ -374,7 +368,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertProposalCanceled(uint256 proposalId) internal {
-        assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Canceled, "Proposal not in 'Canceled' state");
+        assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Cancelled, "Proposal not in 'Canceled' state");
     }
 
     function _assertNormalState() internal {
