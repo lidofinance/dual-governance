@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {RestrictedMultisigBase} from "./RestrictedMultisigBase.sol";
+import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
 interface ITiebreakerCore {
     function getSealableResumeNonce(address sealable) external view returns (uint256 nonce);
 }
 
-contract TiebreakerSubCommittee is RestrictedMultisigBase {
+contract TiebreakerSubCommittee is ExecutiveCommittee {
     address immutable TIEBREAKER_CORE;
 
     constructor(
@@ -15,7 +15,7 @@ contract TiebreakerSubCommittee is RestrictedMultisigBase {
         address[] memory multisigMembers,
         uint256 executionQuorum,
         address tiebreakerCore
-    ) RestrictedMultisigBase(owner, multisigMembers, executionQuorum) {
+    ) ExecutiveCommittee(owner, multisigMembers, executionQuorum) {
         TIEBREAKER_CORE = tiebreakerCore;
     }
 
@@ -39,7 +39,7 @@ contract TiebreakerSubCommittee is RestrictedMultisigBase {
 
     // Approve unpause sealable
 
-    function voteApproveSealableResume(address sealable, bool support) external {
+    function voteApproveSealableResume(address sealable, bool support) public {
         _vote(_buildApproveSealableResumeAction(sealable), support);
     }
 
@@ -51,7 +51,7 @@ contract TiebreakerSubCommittee is RestrictedMultisigBase {
         return getActionState(_buildApproveSealableResumeAction(sealable));
     }
 
-    function executeApproveSealableResume(address sealable) external {
+    function executeApproveSealableResume(address sealable) public {
         _execute(_buildApproveSealableResumeAction(sealable));
     }
 

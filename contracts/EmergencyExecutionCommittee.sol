@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {RestrictedMultisigBase} from "./RestrictedMultisigBase.sol";
+import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
 interface IEmergencyProtectedTimelock {
     function emergencyExecute(uint256 proposalId) external;
     function emergencyReset() external;
 }
 
-contract EmergencyExecutionMultisig is RestrictedMultisigBase {
+contract EmergencyExecutiveCommittee is ExecutiveCommittee {
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
     constructor(
@@ -16,7 +16,7 @@ contract EmergencyExecutionMultisig is RestrictedMultisigBase {
         address[] memory multisigMembers,
         uint256 executionQuorum,
         address emergencyProtectedTimelock
-    ) RestrictedMultisigBase(OWNER, multisigMembers, executionQuorum) {
+    ) ExecutiveCommittee(OWNER, multisigMembers, executionQuorum) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 

@@ -3,7 +3,7 @@ pragma solidity 0.8.23;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-abstract contract RestrictedMultisigBase {
+abstract contract ExecutiveCommittee {
     event MemberAdded(address indexed member);
     event MemberRemoved(address indexed member);
     event QuorumSet(uint256 quorum);

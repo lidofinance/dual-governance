@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {RestrictedMultisigBase} from "./RestrictedMultisigBase.sol";
+import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
-contract TiebreakerCore is RestrictedMultisigBase {
+contract TiebreakerCore is ExecutiveCommittee {
     error ResumeSealableNonceMismatch();
 
     address immutable DUAL_GOVERNANCE;
 
-    mapping(address => uint256) public _sealableResumeNonces;
+    mapping(address => uint256) private _sealableResumeNonces;
 
     constructor(
         address owner,
         address[] memory multisigMembers,
         uint256 executionQuorum,
         address dualGovernance
-    ) RestrictedMultisigBase(owner, multisigMembers, executionQuorum) {
+    ) ExecutiveCommittee(owner, multisigMembers, executionQuorum) {
         DUAL_GOVERNANCE = dualGovernance;
     }
 
@@ -43,7 +43,7 @@ contract TiebreakerCore is RestrictedMultisigBase {
         return _sealableResumeNonces[sealable];
     }
 
-    function approveSealableResume(address sealable, uint256 nonce) public {
+    function approveSealableResume(address sealable, uint256 nonce) public onlyMember {
         if (nonce != _sealableResumeNonces[sealable]) {
             revert ResumeSealableNonceMismatch();
         }
