@@ -930,6 +930,18 @@ This function extends pause of `sealables`. Can be called by committee address.
 - Contracts are paused until timestamp after current timestamp and not for infinite time.
 - The DAO governance is blocked by `DualGovernance`.
 
+### Function ResealExecutor.setResealCommittee
+
+```solidity
+function setResealCommittee(address newResealCommittee)
+```
+
+This function set `resealCommittee` address to `newResealCommittee`. Can be called by owner.
+
+#### Preconditions
+
+- Can be called by `OWNER`.
+
 ## Contract: Configuration.sol
 
 `Configuration.sol` is the smart contract encompassing all the constants in the Dual Governance design & providing the interfaces for getting access to them. It implements interfaces `IAdminExecutorConfiguration`, `ITimelockConfiguration`, `IDualGovernanceConfiguration` covering for relevant "parameters domains".
