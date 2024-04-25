@@ -42,7 +42,10 @@ The system is composed of the following main contracts:
 * [`EmergencyProtectedTimelock.sol`](#Contract-EmergencyProtectedTimelocksol) is a singleton that stores submitted proposals and provides an interface for their execution. In addition, it implements an optional temporary protection from a zero-day vulnerability in the dual governance contracts following the initial deployment or upgrade of the system. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and disable the dual governance.
 * [`Executor.sol`](#Contract-Executorsol) contract instances make calls resulting from governance proposals' execution. Every protocol permission or role protected by the DG, as well as the permission to manage this role/permission, should be assigned exclusively to one of the instances of this contract (in contrast with being assigned directly to a DAO voting system).
 * [`Escrow.sol`](#Contract-Escrowsol) is a contract that can hold stETH, wstETH, withdrawal NFTs, and plain ETH. It can exist in two states, each serving a different purpose: either an oracle for users' opposition to DAO proposals or an immutable and ungoverned accumulator for the ETH withdrawn as a result of the [rage quit](#Rage-quit).
-
+* [`TiebreakerCore.sol`](#contract-tiebreakercoresol) allows to approve proposals for execution and release protocol withdrawals in case of DAO execution ability is locked by `DualGovernance`. Consists of set of `TiebreakerSubCommittee` appointed by the DAO.
+* [`TiebreakerSubCommittee.sol`](#contract-tiebreakersubcommitteesol) provides ability to participate in `TiebreakerCore` for external actors.
+* [`EmergencyActivationCommittee`](#contract-emergencyactivationcommitteesol) contract that can activate the Emergency Mode, while only `EmergencyExecutionCommittee` can perform proposal execution. Requires to get quorum from committee members.
+* [`EmergencyExecutionCommittee`](#contract-emergencyexecutioncommitteesol) contract provides ability to execute proposals in case of the Emergency Mode or renounce renounce further execution rights, by getting quorum of committee members.
 
 ## Proposal flow
 
@@ -973,6 +976,10 @@ The contract has the interface for managing the configuration related to emergen
 
 `Configuration.sol` is the smart contract encompassing all the constants in the Dual Governance design & providing the interfaces for getting access to them. It implements interfaces `IAdminExecutorConfiguration`, `ITimelockConfiguration`, `IDualGovernanceConfiguration` covering for relevant "parameters domains".
 
+## Contract: TiebreakerCore.sol
+## Contract: TiebreakerSubCommittee.sol
+## Contract: EmergencyActivationCommittee.sol
+## Contract: EmergencyExecutionCommittee.sol
 
 ## Upgrade flow description
 
