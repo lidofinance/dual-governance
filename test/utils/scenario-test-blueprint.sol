@@ -543,9 +543,27 @@ contract ScenarioTestBlueprint is Test {
         }
     }
 
-    function _deployEmergencyActivationCommittee() internal {}
+    function _deployEmergencyActivationCommittee() internal {
+        uint256 quorum = 3;
+        uint256 membersCount = 5;
+        address[] memory committeeMembers = new address[](membersCount);
+        for (uint256 i = 0; i < membersCount; ++i) {
+            committeeMembers[i] = makeAddr(string(abi.encode(0xFE + i * membersCount + 65)));
+        }
+        _emergencyActivationCommittee =
+            new EmergencyActivationCommittee(address(_adminExecutor), committeeMembers, quorum, address(_timelock));
+    }
 
-    function _deployEmergencyExecutionCommittee() internal {}
+    function _deployEmergencyExecutionCommittee() internal {
+        uint256 quorum = 3;
+        uint256 membersCount = 5;
+        address[] memory committeeMembers = new address[](membersCount);
+        for (uint256 i = 0; i < membersCount; ++i) {
+            committeeMembers[i] = makeAddr(string(abi.encode(0xFD + i * membersCount + 65)));
+        }
+        _emergencyExecutionCommittee =
+            new EmergencyExecutionCommittee(address(_adminExecutor), committeeMembers, quorum, address(_timelock));
+    }
 
     function _finishTimelockSetup(address governance, bool isEmergencyProtectionEnabled) internal {
         if (isEmergencyProtectionEnabled) {
@@ -589,6 +607,33 @@ contract ScenarioTestBlueprint is Test {
 
     function _waitAfterScheduleDelayPassed() internal {
         _wait(_config.AFTER_SCHEDULE_DELAY() + 1);
+    }
+
+    function _executeEmergencyActivate() internal {
+        address[] memory members = _emergencyActivationCommittee.getMembers();
+        for (uint256 i = 0; i < _emergencyActivationCommittee.quorum(); ++i) {
+            vm.prank(members[i]);
+            _emergencyActivationCommittee.approveEmergencyActivate();
+        }
+        _emergencyActivationCommittee.executeEmergencyActivate();
+    }
+
+    function _executeEmergencyExecute(uint256 proposalId) internal {
+        address[] memory members = _emergencyExecutionCommittee.getMembers();
+        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
+            vm.prank(members[i]);
+            _emergencyExecutionCommittee.voteEmergencyExecute(proposalId, true);
+        }
+        _emergencyExecutionCommittee.executeEmergencyExecute(proposalId);
+    }
+
+    function _executeEmergencyReset() internal {
+        address[] memory members = _emergencyExecutionCommittee.getMembers();
+        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
+            vm.prank(members[i]);
+            _emergencyExecutionCommittee.approveEmergencyReset();
+        }
+        _emergencyExecutionCommittee.executeEmergencyReset();
     }
 
     struct Duration {

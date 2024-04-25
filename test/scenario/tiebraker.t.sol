@@ -5,8 +5,6 @@ import {
     ScenarioTestBlueprint, percents, ExecutorCall, ExecutorCallHelpers
 } from "../utils/scenario-test-blueprint.sol";
 
-import {TiebreakerCore} from "contracts/TiebreakerCore.sol";
-import {TiebreakerSubCommittee} from "contracts/TiebreakerSubCommittee.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
 import {DAO_AGENT} from "../utils/mainnet-addresses.sol";

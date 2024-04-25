@@ -6,7 +6,6 @@ import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {ExecutorCall} from "./libraries/Proposals.sol";
-import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 import {DualGovernanceState, State as GovernanceState} from "./libraries/DualGovernanceState.sol";
 
 contract DualGovernance is IGovernance, ConfigurationProvider {
@@ -35,7 +34,6 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     Proposers.State internal _proposers;
     DualGovernanceState.Store internal _dgState;
-    EmergencyProtection.State internal _emergencyProtection;
     mapping(uint256 proposalId => uint256 executableAfter) internal _scheduledProposals;
 
     constructor(

@@ -72,8 +72,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
 
             // emergency committee activates emergency mode
-            vm.prank(address(_emergencyActivationCommittee));
-            _timelock.emergencyActivate();
+            _executeEmergencyActivate();
 
             // emergency mode was successfully activated
             uint256 expectedEmergencyModeEndTimestamp = block.timestamp + _EMERGENCY_MODE_DURATION;
@@ -147,8 +146,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _waitAfterScheduleDelayPassed();
 
             // now emergency committee may execute the proposal
-            vm.prank(address(_emergencyExecutionCommittee));
-            _timelock.emergencyExecute(dualGovernanceLunchProposalId);
+            _executeEmergencyExecute(dualGovernanceLunchProposalId);
 
             assertEq(_timelock.getGovernance(), address(_dualGovernance));
             // TODO: check emergency protection also was applied
@@ -289,8 +287,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         {
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
-            vm.prank(address(_emergencyActivationCommittee));
-            _timelock.emergencyActivate();
+            _executeEmergencyActivate();
 
             emergencyState = _timelock.getEmergencyState();
             assertTrue(emergencyState.isEmergencyModeActivated);
@@ -387,8 +384,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // emergency committee activates emergency mode
         EmergencyState memory emergencyState;
         {
-            vm.prank(address(_emergencyActivationCommittee));
-            _timelock.emergencyActivate();
+            _executeEmergencyActivate();
 
             emergencyState = _timelock.getEmergencyState();
             assertTrue(emergencyState.isEmergencyModeActivated);
@@ -400,8 +396,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             vm.warp(block.timestamp + _EMERGENCY_MODE_DURATION / 2);
             assertTrue(emergencyState.emergencyModeEndsAfter > block.timestamp);
 
-            vm.prank(address(_emergencyExecutionCommittee));
-            _timelock.emergencyReset();
+            _executeEmergencyReset();
 
             assertEq(_timelock.getGovernance(), _config.EMERGENCY_GOVERNANCE());
 
