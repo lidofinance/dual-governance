@@ -13,6 +13,11 @@ import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
 
+import {EmergencyActivationCommittee} from "contracts/EmergencyActivationCommittee.sol";
+import {EmergencyExecutionCommittee} from "contracts/EmergencyExecutionCommittee.sol";
+import {TiebreakerCore} from "contracts/TiebreakerCore.sol";
+import {TiebreakerSubCommittee} from "contracts/TiebreakerSubCommittee.sol";
+
 import {
     ExecutorCall,
     EmergencyState,
@@ -57,18 +62,19 @@ contract ScenarioTestBlueprint is Test {
     address internal immutable _ADMIN_PROPOSER = DAO_VOTING;
     uint256 internal immutable _EMERGENCY_MODE_DURATION = 180 days;
     uint256 internal immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
-    address internal immutable _EMERGENCY_ACTIVATION_COMMITTEE = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
-    address internal immutable _EMERGENCY_EXECUTION_COMMITTEE = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
 
     uint256 internal immutable _SEALING_DURATION = 14 days;
     uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
     address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
 
-    address internal immutable _TIEBREAK_COMMITTEE = makeAddr("TIEBREAK_COMMITTEE");
-
     IStEth public immutable _ST_ETH = IStEth(ST_ETH);
     IWstETH public immutable _WST_ETH = IWstETH(WST_ETH);
     IWithdrawalQueue public immutable _WITHDRAWAL_QUEUE = IWithdrawalQueue(WITHDRAWAL_QUEUE);
+
+    EmergencyActivationCommittee internal _emergencyActivationCommittee;
+    EmergencyExecutionCommittee internal _emergencyExecutionCommittee;
+    TiebreakerCore internal _tiebreakerCommittee;
+    TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
 
     TargetMock internal _target;
 
@@ -459,6 +465,9 @@ contract ScenarioTestBlueprint is Test {
         _deployEscrowMasterCopy();
         _deployUngovernedTimelock();
         _deployDualGovernance();
+        _deployEmergencyActivationCommittee();
+        _deployEmergencyExecutionCommittee();
+        _deployTiebreaker();
         _finishTimelockSetup(address(_dualGovernance), isEmergencyProtectionEnabled);
     }
 
@@ -469,6 +478,9 @@ contract ScenarioTestBlueprint is Test {
         _deployEscrowMasterCopy();
         _deployUngovernedTimelock();
         _deploySingleGovernance();
+        _deployEmergencyActivationCommittee();
+        _deployEmergencyExecutionCommittee();
+        _deployTiebreaker();
         _finishTimelockSetup(address(_singleGovernance), isEmergencyProtectionEnabled);
     }
 
@@ -507,6 +519,52 @@ contract ScenarioTestBlueprint is Test {
         _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_config));
     }
 
+    function _deployTiebreaker() internal {
+        uint256 subCommitteeMembersCount = 5;
+        uint256 subCommitteeQuorum = 5;
+        uint256 subCommitteesCount = 2;
+
+        _tiebreakerCommittee =
+            new TiebreakerCore(address(_adminExecutor), new address[](0), 1, address(_dualGovernance));
+
+        for (uint256 i = 0; i < subCommitteesCount; ++i) {
+            address[] memory committeeMembers = new address[](subCommitteeMembersCount);
+            for (uint256 j = 0; j < subCommitteeMembersCount; j++) {
+                committeeMembers[j] = makeAddr(string(abi.encode(i + j * subCommitteeMembersCount + 65)));
+            }
+            _tiebreakerSubCommittees.push(
+                new TiebreakerSubCommittee(
+                    address(_adminExecutor), committeeMembers, subCommitteeQuorum, address(_tiebreakerCommittee)
+                )
+            );
+
+            vm.prank(address(_adminExecutor));
+            _tiebreakerCommittee.addMember(address(_tiebreakerSubCommittees[i]), i + 1);
+        }
+    }
+
+    function _deployEmergencyActivationCommittee() internal {
+        uint256 quorum = 3;
+        uint256 membersCount = 5;
+        address[] memory committeeMembers = new address[](membersCount);
+        for (uint256 i = 0; i < membersCount; ++i) {
+            committeeMembers[i] = makeAddr(string(abi.encode(0xFE + i * membersCount + 65)));
+        }
+        _emergencyActivationCommittee =
+            new EmergencyActivationCommittee(address(_adminExecutor), committeeMembers, quorum, address(_timelock));
+    }
+
+    function _deployEmergencyExecutionCommittee() internal {
+        uint256 quorum = 3;
+        uint256 membersCount = 5;
+        address[] memory committeeMembers = new address[](membersCount);
+        for (uint256 i = 0; i < membersCount; ++i) {
+            committeeMembers[i] = makeAddr(string(abi.encode(0xFD + i * membersCount + 65)));
+        }
+        _emergencyExecutionCommittee =
+            new EmergencyExecutionCommittee(address(_adminExecutor), committeeMembers, quorum, address(_timelock));
+    }
+
     function _finishTimelockSetup(address governance, bool isEmergencyProtectionEnabled) internal {
         if (isEmergencyProtectionEnabled) {
             _adminExecutor.execute(
@@ -515,8 +573,8 @@ contract ScenarioTestBlueprint is Test {
                 abi.encodeCall(
                     _timelock.setEmergencyProtection,
                     (
-                        _EMERGENCY_ACTIVATION_COMMITTEE,
-                        _EMERGENCY_EXECUTION_COMMITTEE,
+                        address(_emergencyActivationCommittee),
+                        address(_emergencyExecutionCommittee),
                         _EMERGENCY_PROTECTION_DURATION,
                         _EMERGENCY_MODE_DURATION
                     )
@@ -528,7 +586,7 @@ contract ScenarioTestBlueprint is Test {
             _adminExecutor.execute(
                 address(_dualGovernance),
                 0,
-                abi.encodeCall(_dualGovernance.setTiebreakerProtection, (_TIEBREAK_COMMITTEE))
+                abi.encodeCall(_dualGovernance.setTiebreakerProtection, (address(_tiebreakerCommittee)))
             );
         }
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (governance)));
@@ -549,6 +607,33 @@ contract ScenarioTestBlueprint is Test {
 
     function _waitAfterScheduleDelayPassed() internal {
         _wait(_config.AFTER_SCHEDULE_DELAY() + 1);
+    }
+
+    function _executeEmergencyActivate() internal {
+        address[] memory members = _emergencyActivationCommittee.getMembers();
+        for (uint256 i = 0; i < _emergencyActivationCommittee.quorum(); ++i) {
+            vm.prank(members[i]);
+            _emergencyActivationCommittee.approveEmergencyActivate();
+        }
+        _emergencyActivationCommittee.executeEmergencyActivate();
+    }
+
+    function _executeEmergencyExecute(uint256 proposalId) internal {
+        address[] memory members = _emergencyExecutionCommittee.getMembers();
+        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
+            vm.prank(members[i]);
+            _emergencyExecutionCommittee.voteEmergencyExecute(proposalId, true);
+        }
+        _emergencyExecutionCommittee.executeEmergencyExecute(proposalId);
+    }
+
+    function _executeEmergencyReset() internal {
+        address[] memory members = _emergencyExecutionCommittee.getMembers();
+        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
+            vm.prank(members[i]);
+            _emergencyExecutionCommittee.approveEmergencyReset();
+        }
+        _emergencyExecutionCommittee.executeEmergencyReset();
     }
 
     struct Duration {

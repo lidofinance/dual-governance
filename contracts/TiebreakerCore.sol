@@ -57,11 +57,8 @@ contract TiebreakerCore is ExecutiveCommittee {
         return getActionState(_buildSealableResumeAction(sealable, nonce));
     }
 
-    function executeSealableResume(address sealable, uint256 nonce) external {
-        if (nonce != _sealableResumeNonces[sealable]) {
-            revert ResumeSealableNonceMismatch();
-        }
-        _execute(_buildSealableResumeAction(sealable, nonce));
+    function executeSealableResume(address sealable) external {
+        _execute(_buildSealableResumeAction(sealable, getSealableResumeNonce(sealable)));
         _sealableResumeNonces[sealable]++;
     }
 
@@ -74,7 +71,7 @@ contract TiebreakerCore is ExecutiveCommittee {
     function _buildSealableResumeAction(address sealable, uint256 nonce) internal view returns (Action memory) {
         return Action(
             DUAL_GOVERNANCE,
-            abi.encodeWithSignature("tiebreakerApproveSealableResume(uint256)", sealable),
+            abi.encodeWithSignature("tiebreakerApproveSealableResume(address)", sealable),
             abi.encode(nonce)
         );
     }

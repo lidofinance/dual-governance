@@ -70,7 +70,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
 
     function emergencyExecute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeActive(true);
-        _emergencyProtection.checkExecutiveCommittee(msg.sender);
+        _emergencyProtection.checkExecutionCommittee(msg.sender);
         _proposals.execute(proposalId, /* afterScheduleDelay */ 0);
     }
 
@@ -85,7 +85,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
 
     function emergencyReset() external {
         _emergencyProtection.checkEmergencyModeActive(true);
-        _emergencyProtection.checkExecutiveCommittee(msg.sender);
+        _emergencyProtection.checkExecutionCommittee(msg.sender);
         _emergencyProtection.deactivate();
         _setGovernance(CONFIG.EMERGENCY_GOVERNANCE());
         _proposals.cancelAll();
