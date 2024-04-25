@@ -23,7 +23,7 @@ library EmergencyProtection {
     event EmergencyModeDeactivated();
     event EmergencyGovernanceReset();
     event EmergencyActivationCommitteeSet(address indexed activationCommittee);
-    event EmergencyExecutiveCommitteeSet(address indexed executionCommittee);
+    event EmergencyExecutionCommitteeSet(address indexed executionCommittee);
     event EmergencyModeDurationSet(uint256 emergencyModeDuration);
     event EmergencyCommitteeProtectedTillSet(uint256 protectedTill);
 
@@ -51,10 +51,10 @@ library EmergencyProtection {
             emit EmergencyActivationCommitteeSet(activationCommittee);
         }
 
-        address prevExecutiveCommittee = self.executionCommittee;
-        if (executionCommittee != prevExecutiveCommittee) {
+        address prevExecutionCommittee = self.executionCommittee;
+        if (executionCommittee != prevExecutionCommittee) {
             self.executionCommittee = executionCommittee;
-            emit EmergencyExecutiveCommitteeSet(executionCommittee);
+            emit EmergencyExecutionCommitteeSet(executionCommittee);
         }
 
         uint256 prevProtectedTill = self.protectedTill;
@@ -117,7 +117,7 @@ library EmergencyProtection {
         }
     }
 
-    function checkExecutiveCommittee(State storage self, address account) internal view {
+    function checkExecutionCommittee(State storage self, address account) internal view {
         if (self.executionCommittee != account) {
             revert NotEmergencyEnactor(account);
         }

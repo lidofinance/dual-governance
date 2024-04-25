@@ -8,7 +8,7 @@ interface IEmergencyProtectedTimelock {
     function emergencyReset() external;
 }
 
-contract EmergencyExecutiveCommittee is ExecutiveCommittee {
+contract EmergencyExecutionCommittee is ExecutiveCommittee {
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
     constructor(
