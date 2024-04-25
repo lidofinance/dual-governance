@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Test, console} from "forge-std/Test.sol";
-import {DualGovernanceDeployScript, DualGovernance, EmergencyProtectedTimelock} from "script/Deploy.s.sol";
+import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+
 import {TiebreakerCore} from "contracts/TiebreakerCore.sol";
 import {TiebreakerSubCommittee} from "contracts/TiebreakerSubCommittee.sol";
 
-import {Utils} from "../utils/utils.sol";
-import {INodeOperatorsRegistry} from "../utils/interfaces.sol";
-import {NODE_OPERATORS_REGISTRY} from "../utils/mainnet-addresses.sol";
-
-contract TiebreakerScenarioTest is Test {
+contract TiebreakerScenarioTest is ScenarioTestBlueprint {
     Executor__mock private _emergencyExecutor;
 
     TiebreakerCore private _coreTiebreaker;
@@ -28,7 +24,9 @@ contract TiebreakerScenarioTest is Test {
     address[] private _coreTiebreakerMembers;
 
     function setUp() external {
-        Utils.selectFork();
+        _selectFork();
+        _deployTarget();
+        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
 
         _emergencyExecutor = new Executor__mock();
         _coreTiebreaker = new TiebreakerCore(address(this), new address[](0), 1, address(_emergencyExecutor));
