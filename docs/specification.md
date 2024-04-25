@@ -1,4 +1,4 @@
-**Working draft**, the latest version is published at https://hackmd.io/@skozin/SkjuZAuip.
+**Working draft**
 
 ---
 
@@ -8,14 +8,33 @@ Dual Governance (DG) is a governance subsystem that sits between the Lido DAO, r
 
 This document provides the system description on the code architecture level. A detailed description on the mechanism level can be found in the [Dual Governance mechanism design overview][mech design] document which should be considered an integral part of this specification.
 
-[mech design]: https://hackmd.io/@skozin/rkD1eUzja
+[mech design]: mechanism.md
 
-[mech design - tiebreaker]: https://hackmd.io/@skozin/rkD1eUzja#Tiebreaker-Committee
+[mech design - tiebreaker]: mechanism.md#Tiebreaker-Committee
+
+
+## Navigation
+
+* [System overview](#system-overview)
+* [Proposal flow](#proposal-flow)
+  + [Dynamic timelock](#dynamic-timelock)
+  + [Proposal execution and deployment modes](#proposal-execution-and-deployment-modes)
+* [Governance state](#governance-state)
+* [Rage quit](#rage-quit)
+* [Tiebreaker committee](#tiebreaker-committee)
+* [Administrative actions](#administrative-actions)
+* [Common types](#common-types)
+* [Contract: DualGovernance.sol](#contract-dualgovernancesol)
+* [Contract: Executor.sol](#contract-executorsol)
+* [Contract: Escrow.sol](#contract-escrowsol)
+* [Contract: EmergencyProtectedTimelock.sol](#contract-emergencyprotectedtimelocksol)
+* [Contract: Configuration.sol](#contract-configurationsol)
+* [Upgrade flow description](#upgrade-flow-description)
 
 
 ## System overview
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/8b1f119c-2a61-4d66-969c-acab2b66c16e)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/0ca7686c-63bb-489a-bc6a-59d8b9982969)
 
 The system is composed of the following main contracts:
 
@@ -23,7 +42,6 @@ The system is composed of the following main contracts:
 * [`EmergencyProtectedTimelock.sol`](#Contract-EmergencyProtectedTimelocksol) is a singleton that stores submitted proposals and provides an interface for their execution. In addition, it implements an optional temporary protection from a zero-day vulnerability in the dual governance contracts following the initial deployment or upgrade of the system. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and disable the dual governance.
 * [`Executor.sol`](#Contract-Executorsol) contract instances make calls resulting from governance proposals' execution. Every protocol permission or role protected by the DG, as well as the permission to manage this role/permission, should be assigned exclusively to one of the instances of this contract (in contrast with being assigned directly to a DAO voting system).
 * [`Escrow.sol`](#Contract-Escrowsol) is a contract that can hold stETH, wstETH, withdrawal NFTs, and plain ETH. It can exist in two states, each serving a different purpose: either an oracle for users' opposition to DAO proposals or an immutable and ungoverned accumulator for the ETH withdrawn as a result of the [rage quit](#Rage-quit).
-* [`GateSealBreaker.sol`](#contract-gatesealbreakersol) is a singleton that allows anyone to unpause the protocol contracts that were put into an emergency pause by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals), given that the minimum pause duration has passed and that the DAO execution is not currently blocked by the DG system.
 
 
 ## Proposal flow
@@ -64,7 +82,7 @@ By the time the dynamic timelock described above elapses, one of the following o
 
 The proposal execution flow comes after the dynamic timelock elapses and the proposal is scheduled for execution. The system can function in two deployment modes which affect the flow.
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/6252bc65-269f-447d-b215-6a59188b8a94)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/7a0f0330-6ef5-4985-8fd4-ac8f1f95d229)
 
 #### Regular deployment mode
 
@@ -116,7 +134,7 @@ These transitions are enabled by three processes (see the [mechanism design docu
 2. Protocol withdrawals processing (in the `RageQuit` state);
 3. Time passing.
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/570141e8-4d66-45a2-9d18-3435806f1831)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/118c26ef-5187-469f-a5ab-aea945fdb6aa)
 
 
 ## Rage quit
@@ -131,18 +149,21 @@ At any time, only one instance of the rage quit process can be active.
 
 From the stakers' point of view, opposition to the DAO and the rage quit process can be described by the following diagram:
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/419f5621-7f83-4360-8f81-d3ced27b9fcc)
+![image](https://github.com/lidofinance/dual-governance/assets/1699593/f0f3647d-e251-458c-8556-2c481c2df35b)
 
 
 ## Tiebreaker committee
 
 The mechanism design allows for a deadlock where the system is stuck in the `RageQuit` state while protocol withdrawals are paused or dysfunctional and require a DAO vote to resume, and includes a third-party arbiter Tiebreaker committee for resolving it.
 
-The committee gains the power to bypass the DG dynamic timelock and execute pending proposals under the specific conditions of the deadlock. The detailed Tiebreaker mechanism design can be found in the [Dual Governance mechanism design overview][mech design - tiebreaker] document.
+The committee gains the power to execute pending proposals, bypassing the DG dynamic timelock, and unpause any protocol contract under the specific conditions of the deadlock. The detailed Tiebreaker mechanism design can be found in the [Dual Governance mechanism design overview][mech design - tiebreaker] document.
 
 The Tiebreaker committee is represented in the system by its address which can be configured via the admin executor calling the [`DualGovernance.setTiebreakerCommittee`](#Function-DualGovernancesetTiebreakerCommittee) function.
 
-While the deadlock conditions are met, the tiebreaker committee address is allowed to approve execution of any pending proposal by calling [`DualGovernance.tiebreakerApproveProposal`](#Function-DualGovernancetiebreakerApproveProposal) so that its execution can be scheduled after the tiebreaker execution timelock passes by calling [`DualGovernance.tiebreakerScheduleProposal`](#Function-DualGovernancetiebreakerScheduleProposal).
+While the deadlock conditions are met, the Tiebreaker committee address is allowed to:
+
+1. Approve execution of any pending proposal by calling [`DualGovernance.tiebreakerApproveProposal`] so that its execution can be scheduled by calling [`DualGovernance.tiebreakerScheduleProposal`] after the tiebreaker execution timelock passes.
+2. Approve the unpause of a pausable ("sealable") protocol contract by calling [`DualGovernance.tiebreakerApproveSealableResume`] so that it can be unpaused by calling [`DualGovernance.tiebreakerScheduleSealableResume`] after the tiebreaker execution timelock passes.
 
 
 ## Administrative actions
@@ -235,7 +256,7 @@ Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimeloc
 
 #### Preconditions
 
-* The proposal with the given id MUST be already submitted.
+* The proposal with the given id MUST be already submitted using the `DualGovernance.submitProposal` call (the proposal MUST NOT be submitted as the result of the [`DualGovernance.tiebreakerApproveSealableResume`] call).
 * The proposal MUST NOT be scheduled.
 * The proposal's dynamic timelock MUST have elapsed.
 * The proposal MUST NOT be cancelled.
@@ -244,6 +265,8 @@ Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimeloc
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
 ### Function: DualGovernance.tiebreakerApproveProposal
+
+[`DualGovernance.tiebreakerApproveProposal`]: #Function-DualGovernancetiebreakerApproveProposal
 
 ```solidity
 function tiebreakerApproveProposal(uint256 proposalId)
@@ -264,6 +287,8 @@ Triggers a transition of the current governance state (if one is possible) befor
 
 ### Function: DualGovernance.tiebreakerScheduleProposal
 
+[`DualGovernance.tiebreakerScheduleProposal`]: #Function-DualGovernancetiebreakerScheduleProposal
+
 ```solidity
 function tiebreakerScheduleProposal(uint256 proposalId)
 ```
@@ -273,10 +298,51 @@ Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimeloc
 #### Preconditions
 
 * Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
-* The proposal MUST be already submitted.
+* The proposal with the given id MUST be already submitted using the `DualGovernance.submitProposal` call (the proposal MUST NOT be submitted as the result of the [`DualGovernance.tiebreakerApproveSealableResume`] call).
 * The proposal MUST NOT be cancelled.
 * The proposal with the specified id MUST be approved by the Tiebreaker committee.
 * The current block timestamp MUST be at least `TIEBREAKER_EXECUTION_TIMELOCK` seconds greater than the timestamp of the block in which the proposal was approved by the Tiebreaker committee.
+
+Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
+
+
+### Function: DualGovernance.tiebreakerApproveSealableResume
+
+[`DualGovernance.tiebreakerApproveSealableResume`]: #Function-DualGovernancetiebreakerApproveSealableResume
+
+```solidity
+function tiebreakerApproveSealableResume(address sealable)
+```
+
+Submits a proposal on issuing the `ISealable(sealable).resume()` call from the admin executor contract by calling `EmergencyProtectedTimelock.submit` on the `EmergencyProtectedTimelock` singleton instance. Starts a timelock with the `TIEBREAKER_EXECUTION_TIMELOCK` duration on scheduling this proposal.
+
+#### Branches
+
+If the last proposal submitted by calling this function with the same `sealable` parameter is not executed and not cancelled, then does nothing.
+
+#### Preconditions
+
+* MUST be called by the [Tiebreaker committee address](#Function-DualGovernancesetTiebreakerCommittee).
+* Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
+
+Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
+
+
+### Function: DualGovernance.tiebreakerScheduleSealableResume
+
+[`DualGovernance.tiebreakerScheduleSealableResume`]: #Function-DualGovernancetiebreakerScheduleSealableResume
+
+```solidity
+function tiebreakerScheduleSealableResume(address sealable)
+```
+
+Schedules the proposal on issuing the `ISealable(sealable).resume()` call that was previously submitted by calling the [`DualGovernance.tiebreakerApproveSealableResume`] function, given that the timelock on its scheduling has elapsed.
+
+#### Preconditions
+
+* Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
+* The last proposal submitted by calling the [`DualGovernance.tiebreakerApproveSealableResume`] function with the same `sealable` parameter MUST be pending, i.e. not scheduled, not executed, and not cancelled.
+* The timelock on scheduling that proposal MUST be elapsed.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
@@ -294,6 +360,7 @@ Triggers a transition of the current governance state, if one is possible.
 #### Preconditions
 
 * MUST be called by an [admin proposer](#Administrative-actions).
+* The current governance state MUST NOT equal `Normal`, `VetoCooldown`, or `RageQuit`.
 
 
 ### Function: DualGovernance.registerProposer
@@ -901,81 +968,6 @@ Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in t
 
 The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtection`) and general system wiring (`transferExecutorOwnership`, `setGovernance`). These functions MUST be called by the [Admin Executor](#Administrative-actions) address, basically routing any such changes through the Dual Governance mechanics.
 
-
-## Contract: GateSealBreaker.sol
-
-In the Lido protocol, specific critical components (`WithdrawalQueue` and `ValidatorsExitBus`) are safeguarded by the `GateSeal` contract instance. According to the gate seals [documentation](https://github.com/lidofinance/gate-seals?tab=readme-ov-file#what-is-a-gateseal):
-
->*"A GateSeal is a contract that allows the designated account to instantly put a set of contracts on pause (i.e. seal) for a limited duration.  This will give the Lido DAO the time to come up with a solution, hold a vote, implement changes, etc.".*
-
-However, the effectiveness of this approach is contingent upon the predictability of the DAO's solution adoption timeframe. With the dual governance system, proposal execution may experience significant delays based on the current state of the `DualGovernance` contract. There's a risk that `GateSeal`'s pause period may expire before the Lido DAO can implement the necessary fixes.
-
-To address this compatibility challenge between gate seals and dual governance, the `GateSealBreaker` contract is introduced. The `GateSealBreaker` enables the trustless unpause of contracts sealed by a `GateSeal` instance, but only under specific conditions:
-- The minimum delay defined in the `GateSeal` contract has elapsed.
-- Proposal execution is allowed within the dual governance system.
-
-For seamless integration with the `DualGovernance` and `GateSealBreaker` contracts, the `GateSeal` instance will be configured as follows:
-
-- `MAX_SEAL_DURATION_SECONDS` and `SEAL_DURATION_SECONDS` are set to `type(uint256).max`, what equivalent to `PAUSE_INFINITELY`, for the [PausableUntil.sol](https://github.com/lidofinance/core/blob/master/contracts/0.8.9/utils/PausableUntil.sol) contract.
-- `MIN_SEAL_DURATION_SECONDS` is set to a finite duration, allowing the Lido DAO sufficient time to respond and adopt proposals when the `DualGovernance` contract is in the `Normal` state.
-
-With such settings, the `GateSeal` instance seals the contracts indefinitely. However, anyone can initiate the process of "breaking the seal" by calling the `GateSealBreaker.startRelease(address gateSeal)` function, provided both requirements are met:
-
-- The `MIN_SEAL_DURATION_SECONDS` has elapsed since the committee activated the `GateSeal`.
-- The `DualGovernance` is currently in the `Normal` or `VetoCooldown` state, allowing proposals scheduling.
-
-The `GateSealBreaker.startRelease()` function can be called only once for each activated `GateSeal` contract registered in the `GateSealBreaker`. This function effectively begins the countdown to release the seal, starting the `RELEASE_DELAY`.
-
-During the `RELEASE_DELAY`, the sealed contracts remain paused, providing the Lido DAO time to schedule proposals within the dual governance system (the scheduling is allowed, which is guaranteed by the governance state precondition of the `GateSealBreaker.startRelease` function).
-
-Upon completion of the `RELEASE_DELAY`, the `GateSealBreaker.enactRelease(address gateSeal)` function can be called to unpause the sealed contracts. This function is trustless and may only be called once. It does not revert even if some or all attempts to unpause the sealed contracts fail.
-
-### Function GateSealBreaker.registerGateSeal
-
-```solidity
-function registerGateSeal(IGateSeal gateSeal)
-```
-
-This function should be invoked by the Lido DAO during the setup of the `GateSeal` instance. Upon registration in the contract, an activated `GateSeal` instance becomes eligible for release using the `startRelease()`/`enactRelease()` methods.
-
-#### Preconditions
-
-- MUST be called by the contract owner (supposed to be set to Lido DAO).
-- The `GateSeal` instance being registered MUST NOT have been previously registered.
-
-### Function GateSealBreaker.startRelease
-
-```solidity
-function startRelease(IGateSeal gateSeal)
-```
-
-Initiates the release process for the activated `GateSeal` instance registered in the contract. Records the release initiation timestamp and starts the `RELEASE_DELAY` period for the specific `gateSeal`.
-
-#### Preconditions
-
-- The specified `gateSeal` MUST be registered in the contract.
-- The `gateSeal` MUST be activated by the gate seal committee.
-- The `MIN_SEAL_DURATION_SECONDS` MUST have passed since the activation of the `gateSeal`.
-- The `gateSeal` MUST NOT be already released.
-- The `DualGovernance` contract MUST be in either the `Normal` or `VetoCooldown` state.
-
-### Function GateSealBreaker.enactRelease
-
-```solidity
-function enactRelease(IGateSeal gateSeal)
-```
-
-Unpauses all contracts sealed by the specified `gateSeal` once the `RELEASE_DELAY` has elapsed since the release initiation.
-
-Retrieves all sealed contracts via the `GateSeal.sealed_sealables()` view function and calls `IPausableUntil(sealable).resume()` for each sealed contract.
-
-If any call to a sealable, including the `resume()` call, fails during the execution, the transaction WILL NOT revert but will emit the `ErrorWhileResuming(sealable, lowLevelError)` event for each contract that failed to unpause.
-
-#### Preconditions
-
-- The `GateSealBreaker.startRelease()` function MUST be called for the specified `gateSeal`.
-- The `RELEASE_DELAY` for the specified `gateSeal` MUST have elapsed since the release initiation.
-- The `GateSealBreaker` contract SHOULD have been granted rights to unpause the sealed contracts.
 
 ## Contract: Configuration.sol
 
