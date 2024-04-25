@@ -44,12 +44,6 @@ struct Balances {
     uint256 wstETHShares;
 }
 
-struct TiebreakerSubCommitteeEntity {
-    TiebreakerSubCommittee committee;
-    address[] members;
-    uint256 quorum;
-}
-
 uint256 constant PERCENTS_PRECISION = 16;
 
 function countDigits(uint256 number) pure returns (uint256 digitsCount) {
@@ -80,7 +74,7 @@ contract ScenarioTestBlueprint is Test {
     EmergencyActivationCommittee internal _emergencyActivationCommittee;
     EmergencyExecutionCommittee internal _emergencyExecutionCommittee;
     TiebreakerCore internal _tiebreakerCommittee;
-    TiebreakerSubCommitteeEntity[] internal _tiebreakerSubCommittees;
+    TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
 
     TargetMock internal _target;
 
@@ -539,17 +533,13 @@ contract ScenarioTestBlueprint is Test {
                 committeeMembers[j] = makeAddr(string(abi.encode(i + j * subCommitteeMembersCount + 65)));
             }
             _tiebreakerSubCommittees.push(
-                TiebreakerSubCommitteeEntity(
-                    new TiebreakerSubCommittee(
-                        address(_adminExecutor), committeeMembers, subCommitteeQuorum, address(_tiebreakerCommittee)
-                    ),
-                    committeeMembers,
-                    subCommitteeQuorum
+                new TiebreakerSubCommittee(
+                    address(_adminExecutor), committeeMembers, subCommitteeQuorum, address(_tiebreakerCommittee)
                 )
             );
 
             vm.prank(address(_adminExecutor));
-            _tiebreakerCommittee.addMember(address(_tiebreakerSubCommittees[i].committee), i + 1);
+            _tiebreakerCommittee.addMember(address(_tiebreakerSubCommittees[i]), i + 1);
         }
     }
 

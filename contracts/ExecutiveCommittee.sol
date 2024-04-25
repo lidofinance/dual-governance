@@ -144,6 +144,10 @@ abstract contract ExecutiveCommittee {
         emit QuorumSet(newQuorum);
     }
 
+    function getMembers() public view returns (address[] memory) {
+        return membersList;
+    }
+
     function _addMember(address newMember) internal {
         membersList.push(newMember);
         members[newMember] = true;

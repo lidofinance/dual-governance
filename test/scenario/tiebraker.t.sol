@@ -25,6 +25,8 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         uint256 support;
         bool isExecuted;
 
+        address[] memory members;
+
         // Tiebreak activation
         _assertNormalState();
         _lockStETH(_VETOER, percents("15.00"));
@@ -38,45 +40,43 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         uint256 proposalIdToExecute = _submitProposal(_dualGovernance, "Proposal for execution", proposalCalls);
 
         // Tiebreaker subcommittee 0
-        for (uint256 i = 0; i < _tiebreakerSubCommittees[0].quorum - 1; i++) {
-            vm.prank(_tiebreakerSubCommittees[0].members[i]);
-            _tiebreakerSubCommittees[0].committee.voteApproveProposal(proposalIdToExecute, true);
-            (support, quorum, isExecuted) =
-                _tiebreakerSubCommittees[0].committee.getApproveProposalState(proposalIdToExecute);
+        members = _tiebreakerSubCommittees[0].getMembers();
+        for (uint256 i = 0; i < _tiebreakerSubCommittees[0].quorum() - 1; i++) {
+            vm.prank(members[i]);
+            _tiebreakerSubCommittees[0].voteApproveProposal(proposalIdToExecute, true);
+            (support, quorum, isExecuted) = _tiebreakerSubCommittees[0].getApproveProposalState(proposalIdToExecute);
             assert(support < quorum);
             assert(isExecuted == false);
         }
 
-        vm.prank(_tiebreakerSubCommittees[0].members[_tiebreakerSubCommittees[0].members.length - 1]);
-        _tiebreakerSubCommittees[0].committee.voteApproveProposal(proposalIdToExecute, true);
-        (support, quorum, isExecuted) =
-            _tiebreakerSubCommittees[0].committee.getApproveProposalState(proposalIdToExecute);
+        vm.prank(members[members.length - 1]);
+        _tiebreakerSubCommittees[0].voteApproveProposal(proposalIdToExecute, true);
+        (support, quorum, isExecuted) = _tiebreakerSubCommittees[0].getApproveProposalState(proposalIdToExecute);
         assert(support == quorum);
         assert(isExecuted == false);
 
-        _tiebreakerSubCommittees[0].committee.executeApproveProposal(proposalIdToExecute);
+        _tiebreakerSubCommittees[0].executeApproveProposal(proposalIdToExecute);
         (support, quorum, isExecuted) = _tiebreakerCommittee.getApproveProposalState(proposalIdToExecute);
         assert(support < quorum);
 
         // Tiebreaker subcommittee 1
-        for (uint256 i = 0; i < _tiebreakerSubCommittees[1].quorum - 1; i++) {
-            vm.prank(_tiebreakerSubCommittees[1].members[i]);
-            _tiebreakerSubCommittees[1].committee.voteApproveProposal(proposalIdToExecute, true);
-            (support, quorum, isExecuted) =
-                _tiebreakerSubCommittees[1].committee.getApproveProposalState(proposalIdToExecute);
+        members = _tiebreakerSubCommittees[1].getMembers();
+        for (uint256 i = 0; i < _tiebreakerSubCommittees[1].quorum() - 1; i++) {
+            vm.prank(members[i]);
+            _tiebreakerSubCommittees[1].voteApproveProposal(proposalIdToExecute, true);
+            (support, quorum, isExecuted) = _tiebreakerSubCommittees[1].getApproveProposalState(proposalIdToExecute);
             assert(support < quorum);
             assert(isExecuted == false);
         }
 
-        vm.prank(_tiebreakerSubCommittees[1].members[_tiebreakerSubCommittees[1].members.length - 1]);
-        _tiebreakerSubCommittees[1].committee.voteApproveProposal(proposalIdToExecute, true);
-        (support, quorum, isExecuted) =
-            _tiebreakerSubCommittees[1].committee.getApproveProposalState(proposalIdToExecute);
+        vm.prank(members[members.length - 1]);
+        _tiebreakerSubCommittees[1].voteApproveProposal(proposalIdToExecute, true);
+        (support, quorum, isExecuted) = _tiebreakerSubCommittees[1].getApproveProposalState(proposalIdToExecute);
         assert(support == quorum);
         assert(isExecuted == false);
 
         // Approve proposal for scheduling
-        _tiebreakerSubCommittees[1].committee.executeApproveProposal(proposalIdToExecute);
+        _tiebreakerSubCommittees[1].executeApproveProposal(proposalIdToExecute);
         (support, quorum, isExecuted) = _tiebreakerCommittee.getApproveProposalState(proposalIdToExecute);
         assert(support == quorum);
 
@@ -93,6 +93,8 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         uint256 support;
         bool isExecuted;
 
+        address[] memory members;
+
         // Tiebreak activation
         _assertNormalState();
         _lockStETH(_VETOER, percents("15.00"));
@@ -106,47 +108,49 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _activateNextState();
 
         // Tiebreaker subcommittee 0
-        for (uint256 i = 0; i < _tiebreakerSubCommittees[0].quorum - 1; i++) {
-            vm.prank(_tiebreakerSubCommittees[0].members[i]);
-            _tiebreakerSubCommittees[0].committee.voteApproveSealableResume(address(_WITHDRAWAL_QUEUE), true);
+        members = _tiebreakerSubCommittees[0].getMembers();
+        for (uint256 i = 0; i < _tiebreakerSubCommittees[0].quorum() - 1; i++) {
+            vm.prank(members[i]);
+            _tiebreakerSubCommittees[0].voteApproveSealableResume(address(_WITHDRAWAL_QUEUE), true);
             (support, quorum, isExecuted) =
-                _tiebreakerSubCommittees[0].committee.getApproveSealableResumeState(address(_WITHDRAWAL_QUEUE));
+                _tiebreakerSubCommittees[0].getApproveSealableResumeState(address(_WITHDRAWAL_QUEUE));
             assert(support < quorum);
             assert(isExecuted == false);
         }
 
-        vm.prank(_tiebreakerSubCommittees[0].members[_tiebreakerSubCommittees[0].members.length - 1]);
-        _tiebreakerSubCommittees[0].committee.voteApproveSealableResume(address(_WITHDRAWAL_QUEUE), true);
+        vm.prank(members[members.length - 1]);
+        _tiebreakerSubCommittees[0].voteApproveSealableResume(address(_WITHDRAWAL_QUEUE), true);
         (support, quorum, isExecuted) =
-            _tiebreakerSubCommittees[0].committee.getApproveSealableResumeState(address(_WITHDRAWAL_QUEUE));
+            _tiebreakerSubCommittees[0].getApproveSealableResumeState(address(_WITHDRAWAL_QUEUE));
         assert(support == quorum);
         assert(isExecuted == false);
 
-        _tiebreakerSubCommittees[0].committee.executeApproveSealableResume(address(_WITHDRAWAL_QUEUE));
+        _tiebreakerSubCommittees[0].executeApproveSealableResume(address(_WITHDRAWAL_QUEUE));
         (support, quorum, isExecuted) = _tiebreakerCommittee.getSealableResumeState(
             address(_WITHDRAWAL_QUEUE), _tiebreakerCommittee.getSealableResumeNonce(address(_WITHDRAWAL_QUEUE))
         );
         assert(support < quorum);
 
         // Tiebreaker subcommittee 1
-        for (uint256 i = 0; i < _tiebreakerSubCommittees[1].quorum - 1; i++) {
-            vm.prank(_tiebreakerSubCommittees[1].members[i]);
-            _tiebreakerSubCommittees[1].committee.voteApproveSealableResume(address(_WITHDRAWAL_QUEUE), true);
+        members = _tiebreakerSubCommittees[1].getMembers();
+        for (uint256 i = 0; i < _tiebreakerSubCommittees[1].quorum() - 1; i++) {
+            vm.prank(members[i]);
+            _tiebreakerSubCommittees[1].voteApproveSealableResume(address(_WITHDRAWAL_QUEUE), true);
             (support, quorum, isExecuted) =
-                _tiebreakerSubCommittees[1].committee.getApproveSealableResumeState(address(_WITHDRAWAL_QUEUE));
+                _tiebreakerSubCommittees[1].getApproveSealableResumeState(address(_WITHDRAWAL_QUEUE));
             assert(support < quorum);
             assert(isExecuted == false);
         }
 
-        vm.prank(_tiebreakerSubCommittees[1].members[_tiebreakerSubCommittees[1].members.length - 1]);
-        _tiebreakerSubCommittees[1].committee.voteApproveSealableResume(address(_WITHDRAWAL_QUEUE), true);
+        vm.prank(members[members.length - 1]);
+        _tiebreakerSubCommittees[1].voteApproveSealableResume(address(_WITHDRAWAL_QUEUE), true);
         (support, quorum, isExecuted) =
-            _tiebreakerSubCommittees[1].committee.getApproveSealableResumeState(address(_WITHDRAWAL_QUEUE));
+            _tiebreakerSubCommittees[1].getApproveSealableResumeState(address(_WITHDRAWAL_QUEUE));
         assert(support == quorum);
         assert(isExecuted == false);
 
         // Approve proposal for scheduling
-        _tiebreakerSubCommittees[1].committee.executeApproveSealableResume(address(_WITHDRAWAL_QUEUE));
+        _tiebreakerSubCommittees[1].executeApproveSealableResume(address(_WITHDRAWAL_QUEUE));
         (support, quorum, isExecuted) = _tiebreakerCommittee.getSealableResumeState(
             address(_WITHDRAWAL_QUEUE), _tiebreakerCommittee.getSealableResumeNonce(address(_WITHDRAWAL_QUEUE))
         );
