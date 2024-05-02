@@ -550,7 +550,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_is_emergency_protection_enabled_deactivate() external {
         EmergencyProtectedTimelock _localTimelock = new EmergencyProtectedTimelock(address(_config));
-        
+
         assertEq(_localTimelock.isEmergencyProtectionEnabled(), false);
 
         vm.prank(_adminExecutor);
@@ -573,7 +573,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_is_emergency_protection_enabled_reset() external {
         EmergencyProtectedTimelock _localTimelock = new EmergencyProtectedTimelock(address(_config));
-        
+
         assertEq(_localTimelock.isEmergencyProtectionEnabled(), false);
 
         vm.prank(_adminExecutor);
@@ -600,7 +600,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         EmergencyProtectedTimelock _localTimelock = new EmergencyProtectedTimelock(address(_config));
 
         EmergencyState memory state = _localTimelock.getEmergencyState();
-        
+
         assertEq(state.isEmergencyModeActivated, false);
         assertEq(state.activationCommittee, address(0));
         assertEq(state.executionCommittee, address(0));
@@ -785,7 +785,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_can_execute() external {
         assertEq(_timelock.canExecute(1), false);
-        _submitProposal();        
+        _submitProposal();
         assertEq(_timelock.canExecute(1), false);
 
         _wait(_config.AFTER_SUBMIT_DELAY());
@@ -808,7 +808,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_can_schedule() external {
         assertEq(_timelock.canExecute(1), false);
-        _submitProposal();        
+        _submitProposal();
         assertEq(_timelock.canSchedule(1), false);
 
         _wait(_config.AFTER_SUBMIT_DELAY());
