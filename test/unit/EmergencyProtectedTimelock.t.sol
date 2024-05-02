@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import {Vm} from "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Executor} from "contracts/Executor.sol";
@@ -12,11 +12,12 @@ import {Executor} from "contracts/Executor.sol";
 import {Proposal, Proposals, ExecutorCall, Status} from "contracts/libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "contracts/libraries/EmergencyProtection.sol";
 
+import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/utils.sol";
 import {ExecutorCallHelpers} from "test/utils/executor-calls.sol";
 import {IDangerousContract} from "test/utils/interfaces.sol";
 
-contract EmergencyProtectedTimelockUnitTests is Test {
+contract EmergencyProtectedTimelockUnitTests is UnitTest {
     EmergencyProtectedTimelock private _timelock;
     Configuration private _config;
     TargetMock private _targetMock;
@@ -78,7 +79,7 @@ contract EmergencyProtectedTimelockUnitTests is Test {
 
         assertEq(_timelock.getProposalsCount(), 1);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
 
         _scheduleProposal(1);
 
@@ -111,11 +112,11 @@ contract EmergencyProtectedTimelockUnitTests is Test {
         _submitProposal();
         assertEq(_timelock.getProposalsCount(), 1);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
 
         _scheduleProposal(1);
 
-        vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY());
+        _wait(_config.AFTER_SCHEDULE_DELAY());
 
         vm.prank(stranger);
         _timelock.execute(1);
@@ -129,10 +130,10 @@ contract EmergencyProtectedTimelockUnitTests is Test {
 
         assertEq(_timelock.getProposalsCount(), 1);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
         _scheduleProposal(1);
 
-        vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY());
+        _wait(_config.AFTER_SCHEDULE_DELAY());
 
         _activateEmergencyMode();
 
@@ -148,14 +149,12 @@ contract EmergencyProtectedTimelockUnitTests is Test {
     // EmergencyProtectedTimelock.cancelAllNonExecutedProposals()
 
     function test_governance_can_cancel_all_non_executed_proposals() external {
-        ExecutorCall[] memory executorCalls = _getTargetRegularStaffCalls();
-
         _submitProposal();
         _submitProposal();
 
         assertEq(_timelock.getProposalsCount(), 2);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
 
         _scheduleProposal(1);
 
@@ -299,11 +298,11 @@ contract EmergencyProtectedTimelockUnitTests is Test {
 
         assertEq(_timelock.getProposalsCount(), 1);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
 
         _scheduleProposal(1);
 
-        vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY());
+        _wait(_config.AFTER_SCHEDULE_DELAY());
 
         _activateEmergencyMode();
 
@@ -322,10 +321,10 @@ contract EmergencyProtectedTimelockUnitTests is Test {
 
         assertEq(_timelock.getProposalsCount(), 1);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
         _timelock.schedule(1);
 
-        vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY());
+        _wait(_config.AFTER_SCHEDULE_DELAY());
         vm.stopPrank();
 
         EmergencyState memory state = _timelock.getEmergencyState();
@@ -346,11 +345,11 @@ contract EmergencyProtectedTimelockUnitTests is Test {
 
         assertEq(_timelock.getProposalsCount(), 1);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
 
         _scheduleProposal(1);
 
-        vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY());
+        _wait(_config.AFTER_SCHEDULE_DELAY());
 
         _activateEmergencyMode();
 
@@ -396,7 +395,7 @@ contract EmergencyProtectedTimelockUnitTests is Test {
         EmergencyState memory state = _timelock.getEmergencyState();
         assertEq(_isEmergencyStateActivated(), true);
 
-        vm.warp(state.emergencyModeEndsAfter + 1);
+        _wait(state.emergencyModeDuration + 1);
 
         vm.prank(stranger);
         _timelock.deactivateEmergencyMode();
@@ -707,7 +706,7 @@ contract EmergencyProtectedTimelockUnitTests is Test {
         assertEq(submittedProposal.calls[0].target, executorCalls[0].target);
         assertEq(submittedProposal.calls[0].payload, executorCalls[0].payload);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
 
         _timelock.schedule(1);
         uint256 scheduleTimestamp = block.timestamp;
@@ -726,7 +725,7 @@ contract EmergencyProtectedTimelockUnitTests is Test {
         assertEq(scheduledProposal.calls[0].target, executorCalls[0].target);
         assertEq(scheduledProposal.calls[0].payload, executorCalls[0].payload);
 
-        vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY());
+        _wait(_config.AFTER_SCHEDULE_DELAY());
 
         _timelock.execute(1);
 
@@ -786,20 +785,16 @@ contract EmergencyProtectedTimelockUnitTests is Test {
 
     function test_can_execute() external {
         assertEq(_timelock.canExecute(1), false);
-
-        _submitProposal();
-
-        Proposal memory proposal = _timelock.getProposal(1);
-        
+        _submitProposal();        
         assertEq(_timelock.canExecute(1), false);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
 
         _scheduleProposal(1);
 
         assertEq(_timelock.canExecute(1), false);
 
-        vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY());
+        _wait(_config.AFTER_SCHEDULE_DELAY());
 
         assertEq(_timelock.canExecute(1), true);
 
@@ -813,14 +808,10 @@ contract EmergencyProtectedTimelockUnitTests is Test {
 
     function test_can_schedule() external {
         assertEq(_timelock.canExecute(1), false);
-
-        _submitProposal();
-
-        Proposal memory proposal = _timelock.getProposal(1);
-        
+        _submitProposal();        
         assertEq(_timelock.canSchedule(1), false);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY());
+        _wait(_config.AFTER_SUBMIT_DELAY());
 
         assertEq(_timelock.canSchedule(1), true);
 
