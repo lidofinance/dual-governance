@@ -57,7 +57,7 @@ library Proposals {
     function submit(
         State storage self,
         address executor,
-        ExecutorCall[] calldata calls
+        ExecutorCall[] memory calls
     ) internal returns (uint256 newProposalId) {
         if (calls.length == 0) {
             revert EmptyCalls();
@@ -67,9 +67,8 @@ library Proposals {
 
         self.proposals.push();
         ProposalPacked storage newProposal = self.proposals[newProposalIndex];
-        newProposal.executor = executor;
 
-        newProposal.executedAt = 0;
+        newProposal.executor = executor;
         newProposal.submittedAt = TimeUtils.timestamp();
 
         // copying of arrays of custom types from calldata to storage has not been supported by the
@@ -136,7 +135,7 @@ library Proposals {
             && block.timestamp >= _packed(self, proposalId).submittedAt + afterSubmitDelay;
     }
 
-    function _executeProposal(State storage self, uint256 proposalId) private returns (bytes[] memory results) {
+    function _executeProposal(State storage self, uint256 proposalId) private {
         ProposalPacked storage packed = _packed(self, proposalId);
         packed.executedAt = TimeUtils.timestamp();
 
@@ -146,7 +145,7 @@ library Proposals {
         assert(callsCount > 0);
 
         address executor = packed.executor;
-        results = new bytes[](callsCount);
+        bytes[] memory results = new bytes[](callsCount);
         for (uint256 i = 0; i < callsCount; ++i) {
             results[i] = IExecutor(payable(executor)).execute(calls[i].target, calls[i].value, calls[i].payload);
         }
@@ -197,7 +196,7 @@ library Proposals {
         }
     }
 
-    function _getProposalStatus(State storage self, uint256 proposalId) private view returns (Status) {
+    function _getProposalStatus(State storage self, uint256 proposalId) private view returns (Status status) {
         if (proposalId < PROPOSAL_ID_OFFSET || proposalId > self.proposals.length) return Status.NotExist;
 
         ProposalPacked storage packed = _packed(self, proposalId);
