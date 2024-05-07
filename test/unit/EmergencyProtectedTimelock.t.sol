@@ -64,7 +64,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_governance_can_submit_proposal() external {
         vm.prank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getTargetRegularStaffCalls());
+        _timelock.submit(_adminExecutor, _getTargetRegularStaffCalls(address(_targetMock)));
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -317,7 +317,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_cannot_emergency_execute_proposal_if_mode_not_activated() external {
         vm.startPrank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getTargetRegularStaffCalls());
+        _timelock.submit(_adminExecutor, _getTargetRegularStaffCalls(address(_targetMock)));
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -686,7 +686,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.getProposalsCount(), 0);
 
         vm.startPrank(_dualGovernance);
-        ExecutorCall[] memory executorCalls = _getTargetRegularStaffCalls();
+        ExecutorCall[] memory executorCalls = _getTargetRegularStaffCalls(address(_targetMock));
         _timelock.submit(_adminExecutor, executorCalls);
         _timelock.submit(_adminExecutor, executorCalls);
 
@@ -829,7 +829,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function _submitProposal() internal {
         vm.prank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getTargetRegularStaffCalls());
+        _timelock.submit(_adminExecutor, _getTargetRegularStaffCalls(address(_targetMock)));
     }
 
     function _scheduleProposal(uint256 proposalId) internal {
@@ -852,9 +852,5 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.prank(_adminExecutor);
         _timelock.deactivateEmergencyMode();
         assertEq(_isEmergencyStateActivated(), false);
-    }
-
-    function _getTargetRegularStaffCalls() internal view returns (ExecutorCall[] memory) {
-        return ExecutorCallHelpers.create(address(_targetMock), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
     }
 }

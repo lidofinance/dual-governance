@@ -26,6 +26,10 @@ contract SingleGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK.schedule(proposalId);
     }
 
+    function executeProposal(uint256 proposalId) external {
+        TIMELOCK.execute(proposalId);
+    }
+
     function canSchedule(uint256 proposalId) external view returns (bool) {
         return TIMELOCK.canSchedule(proposalId);
     }

@@ -33,7 +33,7 @@ contract ProposalsUnitTests is UnitTest {
     function test_submit_proposal() external {
         uint256 proposalsCount = _proposals.count();
 
-        ExecutorCall[] memory calls = _getTargetRegularStaffCalls();
+        ExecutorCall[] memory calls = _getTargetRegularStaffCalls(address(_targetMock));
 
         vm.expectEmit();
         emit Proposals.ProposalSubmitted(proposalsCount + PROPOSAL_ID_OFFSET, address(_executor), calls);
@@ -65,7 +65,7 @@ contract ProposalsUnitTests is UnitTest {
     function testFuzz_schedule_proposal(uint256 delay) external {
         vm.assume(delay > 0 && delay < type(uint40).max);
 
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         Proposals.ProposalPacked memory proposal = _proposals.proposals[0];
 
         uint256 submittedAt = block.timestamp;
@@ -97,7 +97,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_cannot_schedule_proposal_twice() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = 1;
         Proposals.schedule(_proposals, proposalId, 0);
 
@@ -108,7 +108,7 @@ contract ProposalsUnitTests is UnitTest {
     function testFuzz_cannot_schedule_proposal_before_delay_passed(uint256 delay) external {
         vm.assume(delay > 0 && delay < type(uint40).max);
 
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
 
         _wait(delay - 1);
 
@@ -117,7 +117,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_cannot_schedule_cancelled_proposal() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         Proposals.cancelAll(_proposals);
 
         uint256 proposalId = _proposals.count();
@@ -129,7 +129,7 @@ contract ProposalsUnitTests is UnitTest {
     function testFuzz_execute_proposal(uint256 delay) external {
         vm.assume(delay > 0 && delay < type(uint40).max);
 
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
         Proposals.schedule(_proposals, proposalId, 0);
 
@@ -163,7 +163,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_cannot_execute_unscheduled_proposal() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
 
         vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotScheduled.selector, proposalId));
@@ -171,7 +171,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_cannot_execute_twice() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
         Proposals.schedule(_proposals, proposalId, 0);
         Proposals.execute(_proposals, proposalId, 0);
@@ -181,7 +181,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_cannot_execute_cancelled_proposal() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
         Proposals.schedule(_proposals, proposalId, 0);
         Proposals.cancelAll(_proposals);
@@ -192,7 +192,7 @@ contract ProposalsUnitTests is UnitTest {
 
     function testFuzz_cannot_execute_before_delay_passed(uint256 delay) external {
         vm.assume(delay > 0 && delay < type(uint40).max);
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
         Proposals.schedule(_proposals, proposalId, 0);
 
@@ -203,8 +203,8 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_cancel_all_proposals() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
 
         uint256 proposalsCount = _proposals.count();
 
@@ -218,7 +218,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_get_proposal() external {
-        ExecutorCall[] memory calls = _getTargetRegularStaffCalls();
+        ExecutorCall[] memory calls = _getTargetRegularStaffCalls(address(_targetMock));
         Proposals.submit(_proposals, address(_executor), calls);
         uint256 proposalId = _proposals.count();
 
@@ -282,7 +282,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_get_cancelled_proposal() external {
-        ExecutorCall[] memory calls = _getTargetRegularStaffCalls();
+        ExecutorCall[] memory calls = _getTargetRegularStaffCalls(address(_targetMock));
         Proposals.submit(_proposals, address(_executor), calls);
         uint256 proposalId = _proposals.count();
 
@@ -331,16 +331,16 @@ contract ProposalsUnitTests is UnitTest {
     function test_count_proposals() external {
         assertEq(_proposals.count(), 0);
 
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         assertEq(_proposals.count(), 1);
 
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         assertEq(_proposals.count(), 2);
 
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         assertEq(_proposals.count(), 3);
 
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         assertEq(_proposals.count(), 4);
 
         Proposals.schedule(_proposals, 1, 0);
@@ -357,7 +357,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_can_execute_proposal() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
 
         assert(!_proposals.canExecute(proposalId, 0));
@@ -376,7 +376,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_can_not_execute_cancelled_proposal() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
         Proposals.schedule(_proposals, proposalId, 0);
 
@@ -387,7 +387,7 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_can_schedule_proposal() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
         assert(!_proposals.canSchedule(proposalId, 100));
 
@@ -402,16 +402,12 @@ contract ProposalsUnitTests is UnitTest {
     }
 
     function test_can_not_schedule_cancelled_proposal() external {
-        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls());
+        Proposals.submit(_proposals, address(_executor), _getTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.count();
         assert(_proposals.canSchedule(proposalId, 0));
 
         Proposals.cancelAll(_proposals);
 
         assert(!_proposals.canSchedule(proposalId, 0));
-    }
-
-    function _getTargetRegularStaffCalls() internal view returns (ExecutorCall[] memory) {
-        return ExecutorCallHelpers.create(address(_targetMock), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
     }
 }
