@@ -94,6 +94,11 @@ contract ScenarioTestBlueprint is Test {
         return Escrow(payable(_dualGovernance.vetoSignallingEscrow()));
     }
 
+    function _getRageQuitEscrow() internal view returns (Escrow) {
+        address rageQuitEscrow = _dualGovernance.rageQuitEscrow();
+        return Escrow(payable(rageQuitEscrow));
+    }
+
     function _getTargetRegularStaffCalls() internal view returns (ExecutorCall[] memory) {
         return ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
     }
@@ -151,8 +156,8 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Escrow Manipulation
     // ---
-    function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal {
-        (, uint256 amount) = _setupStETHWhale(vetoer, vetoPowerInPercents);
+    function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal returns (uint256 amount) {
+        (, amount) = _setupStETHWhale(vetoer, vetoPowerInPercents);
         _lockStETH(vetoer, amount);
     }
 

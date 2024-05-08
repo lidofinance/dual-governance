@@ -70,6 +70,10 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         return address(_dgState.signallingEscrow);
     }
 
+    function rageQuitEscrow() external view returns (address) {
+        return address(_dgState.rageQuitEscrow);
+    }
+
     function isScheduled(uint256 proposalId) external view returns (bool) {
         return _scheduledProposals[proposalId] != 0;
     }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
@@ -21,36 +20,18 @@ enum State {
     RageQuit
 }
 
-/*
-// The previous version of the state (3 slots)
 struct DualGovernanceState {
-    State state; // [0, 8]
-    uint8 rageQuitRound; // [0, 16]
-    uint40 enteredAt; // [0, 56]
+    State state;
+    uint8 rageQuitRound;
+    uint40 enteredAt;
     // the time the veto signalling state was entered
-    uint40 vetoSignallingActivationTime; // [0, 96]
-    IEscrow signallingEscrow; // [0, 256]
+    uint40 vetoSignallingActivationTime;
+    IEscrow signallingEscrow;
     // the time the Deactivation sub-state was last exited without exiting the parent Veto Signalling state
-    uint40 vetoSignallingReactivationTime; // [1, 40]
+    uint40 vetoSignallingReactivationTime;
     // the last time a proposal was submitted to the DG subsystem
-    uint40 lastProposalSubmissionTime; // [1, 80]
-    uint40 lastAdoptableStateExitedAt; // [1, 120]
-    IEscrow rageQuitEscrow; // [2, 160]
-}
-*/
-
-struct DualGovernanceState {
-    State state; // [0, 8]
-    uint8 rageQuitRound; // [0, 16]
-    uint40 enteredAt; // [0, 56]
-    // the time the veto signalling state was entered
-    uint40 vetoSignallingActivationTime; // [0, 96]
-    IEscrow signallingEscrow; // [0, 256]
-    // the time the Deactivation sub-state was last exited without exiting the parent Veto Signalling state
-    uint40 vetoSignallingReactivationTime; // [1, 40]
-    // the last time a proposal was submitted to the DG subsystem
-    uint40 lastAdoptableStateExitedAt; // [1, 80]
-    IEscrow rageQuitEscrow; // [1, 240]
+    uint40 lastAdoptableStateExitedAt;
+    IEscrow rageQuitEscrow;
 }
 
 function dynamicTimelockDuration(
