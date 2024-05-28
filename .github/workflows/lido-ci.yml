@@ -1,0 +1,46 @@
+---
+  name: "Test Proofs"
+  on:
+    workflow_dispatch:
+    pull_request:
+      branches:
+        - main
+  jobs:
+    test:
+      runs-on: [self-hosted, linux, flyweight]
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            ref: ${{ github.event.pull_request.head.sha }}
+
+        - name: Run Proofs in KaaS
+          run: |
+            sha=$(git rev-parse HEAD)
+            branch_name=$(git rev-parse --abbrev-ref HEAD)
+            response=$(curl -X POST \
+              -w "%{http_code}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.KAAS_COMPUTE_TOKEN }}" \
+              https://api.github.com/repos/runtimeverification/_kaas_lidofinance_dual-governance/actions/workflows/lido-ci.yml/dispatches \
+              -d '{
+                "ref": "master",
+                "inputs": {
+                "branch_name": "'"${{ github.event.pull_request.head.sha || github.sha }}"'",
+                "extra_args": "script",
+                "statuses_sha": "'$sha'",
+                "org": "runtimeverification",
+                "repository": "_audits_lidofinance_dual-governance",
+                "auth_token": "'"${{ secrets.KAAS_COMPUTE_TOKEN }}"'"
+                }
+              }')
+
+              if [ "$response" -ge 200 ] && [ "$response" -lt 300 ]; then
+                echo "The request was successful"
+              elif [ "$response" -ge 400 ] && [ "$response" -lt 500 ]; then
+                echo "There was a client error: $response"
+                exit 1
+              else
+                echo "There was a server error: $response"
+                exit 1
+              fi
