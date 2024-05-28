@@ -8,6 +8,8 @@ import {EmergencyProtection, EmergencyState} from "contracts/libraries/Emergency
 import {UnitTest} from "test/utils/unit-test.sol";
 
 contract EmergencyProtectionUnitTests is UnitTest {
+    using EmergencyProtection for EmergencyProtection.State;
+
     EmergencyProtection.State internal _emergencyProtection;
 
     function testFuzz_setup_emergency_protection(
@@ -32,9 +34,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
 
         vm.recordLogs();
 
-        EmergencyProtection.setup(
-            _emergencyProtection, activationCommittee, executionCommittee, protectedTill, duration
-        );
+        _emergencyProtection.setup(activationCommittee, executionCommittee, protectedTill, duration);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 4);
@@ -49,17 +49,17 @@ contract EmergencyProtectionUnitTests is UnitTest {
     function test_setup_same_activation_committee() external {
         address activationCommittee = makeAddr("activationCommittee");
 
-        EmergencyProtection.setup(_emergencyProtection, activationCommittee, address(0x2), 100, 100);
+        _emergencyProtection.setup(activationCommittee, address(0x2), 100, 100);
 
         vm.expectEmit();
         emit EmergencyProtection.EmergencyExecutionCommitteeSet(address(0x3));
         vm.expectEmit();
         emit EmergencyProtection.EmergencyCommitteeProtectedTillSet(block.timestamp + 200);
         vm.expectEmit();
-        emit EmergencyProtection.EmergencyModeDurationSet(200);
+        emit EmergencyProtection.EmergencyModeDurationSet(300);
 
         vm.recordLogs();
-        EmergencyProtection.setup(_emergencyProtection, activationCommittee, address(0x3), 200, 200);
+        _emergencyProtection.setup(activationCommittee, address(0x3), 200, 300);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 3);
@@ -67,24 +67,24 @@ contract EmergencyProtectionUnitTests is UnitTest {
         assertEq(_emergencyProtection.activationCommittee, activationCommittee);
         assertEq(_emergencyProtection.executionCommittee, address(0x3));
         assertEq(_emergencyProtection.protectedTill, block.timestamp + 200);
-        assertEq(_emergencyProtection.emergencyModeDuration, 200);
+        assertEq(_emergencyProtection.emergencyModeDuration, 300);
         assertEq(_emergencyProtection.emergencyModeEndsAfter, 0);
     }
 
     function test_setup_same_execution_committee() external {
         address executionCommittee = makeAddr("executionCommittee");
 
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), executionCommittee, 100, 100);
+        _emergencyProtection.setup(address(0x1), executionCommittee, 100, 100);
 
         vm.expectEmit();
         emit EmergencyProtection.EmergencyActivationCommitteeSet(address(0x2));
         vm.expectEmit();
         emit EmergencyProtection.EmergencyCommitteeProtectedTillSet(block.timestamp + 200);
         vm.expectEmit();
-        emit EmergencyProtection.EmergencyModeDurationSet(200);
+        emit EmergencyProtection.EmergencyModeDurationSet(300);
 
         vm.recordLogs();
-        EmergencyProtection.setup(_emergencyProtection, address(0x2), executionCommittee, 200, 200);
+        _emergencyProtection.setup(address(0x2), executionCommittee, 200, 300);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 3);
@@ -92,12 +92,12 @@ contract EmergencyProtectionUnitTests is UnitTest {
         assertEq(_emergencyProtection.activationCommittee, address(0x2));
         assertEq(_emergencyProtection.executionCommittee, executionCommittee);
         assertEq(_emergencyProtection.protectedTill, block.timestamp + 200);
-        assertEq(_emergencyProtection.emergencyModeDuration, 200);
+        assertEq(_emergencyProtection.emergencyModeDuration, 300);
         assertEq(_emergencyProtection.emergencyModeEndsAfter, 0);
     }
 
     function test_setup_same_protected_till() external {
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), 100, 100);
+        _emergencyProtection.setup(address(0x1), address(0x2), 100, 100);
 
         vm.expectEmit();
         emit EmergencyProtection.EmergencyActivationCommitteeSet(address(0x3));
@@ -107,7 +107,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
         emit EmergencyProtection.EmergencyModeDurationSet(200);
 
         vm.recordLogs();
-        EmergencyProtection.setup(_emergencyProtection, address(0x3), address(0x4), 100, 200);
+        _emergencyProtection.setup(address(0x3), address(0x4), 100, 200);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 3);
@@ -120,7 +120,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
     }
 
     function test_setup_same_emergency_mode_duration() external {
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), 100, 100);
+        _emergencyProtection.setup(address(0x1), address(0x2), 100, 100);
 
         vm.expectEmit();
         emit EmergencyProtection.EmergencyActivationCommitteeSet(address(0x3));
@@ -130,7 +130,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
         emit EmergencyProtection.EmergencyCommitteeProtectedTillSet(block.timestamp + 200);
 
         vm.recordLogs();
-        EmergencyProtection.setup(_emergencyProtection, address(0x3), address(0x4), 200, 100);
+        _emergencyProtection.setup(address(0x3), address(0x4), 200, 100);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 3);
@@ -143,14 +143,14 @@ contract EmergencyProtectionUnitTests is UnitTest {
     }
 
     function test_activate_emergency_mode() external {
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), 100, 100);
+        _emergencyProtection.setup(address(0x1), address(0x2), 100, 100);
 
         vm.expectEmit();
         emit EmergencyProtection.EmergencyModeActivated(block.timestamp);
 
         vm.recordLogs();
 
-        EmergencyProtection.activate(_emergencyProtection);
+        _emergencyProtection.activate();
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
@@ -160,7 +160,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
 
     function test_cannot_activate_emergency_mode_if_protected_till_expired() external {
         uint256 protectedTill = 100;
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), protectedTill, 100);
+        _emergencyProtection.setup(address(0x1), address(0x2), protectedTill, 100);
 
         _wait(protectedTill + 1);
 
@@ -170,7 +170,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
                 [block.timestamp, _emergencyProtection.protectedTill]
             )
         );
-        EmergencyProtection.activate(_emergencyProtection);
+        _emergencyProtection.activate();
     }
 
     function testFuzz_deactivate_emergency_mode(
@@ -184,17 +184,15 @@ contract EmergencyProtectionUnitTests is UnitTest {
         vm.assume(activationCommittee != address(0));
         vm.assume(executionCommittee != address(0));
 
-        EmergencyProtection.setup(
-            _emergencyProtection, activationCommittee, executionCommittee, protectedTill, duration
-        );
-        EmergencyProtection.activate(_emergencyProtection);
+        _emergencyProtection.setup(activationCommittee, executionCommittee, protectedTill, duration);
+        _emergencyProtection.activate();
 
         vm.expectEmit();
         emit EmergencyProtection.EmergencyModeDeactivated(block.timestamp);
 
         vm.recordLogs();
 
-        EmergencyProtection.deactivate(_emergencyProtection);
+        _emergencyProtection.deactivate();
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 1);
@@ -207,7 +205,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
     }
 
     function test_get_emergency_state() external {
-        EmergencyState memory state = EmergencyProtection.getEmergencyState(_emergencyProtection);
+        EmergencyState memory state = _emergencyProtection.getEmergencyState();
 
         assertEq(state.activationCommittee, address(0));
         assertEq(state.executionCommittee, address(0));
@@ -216,31 +214,31 @@ contract EmergencyProtectionUnitTests is UnitTest {
         assertEq(state.emergencyModeEndsAfter, 0);
         assertEq(state.isEmergencyModeActivated, false);
 
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), 100, 100);
+        _emergencyProtection.setup(address(0x1), address(0x2), 100, 200);
 
-        state = EmergencyProtection.getEmergencyState(_emergencyProtection);
+        state = _emergencyProtection.getEmergencyState();
 
         assertEq(state.activationCommittee, address(0x1));
         assertEq(state.executionCommittee, address(0x2));
         assertEq(state.protectedTill, block.timestamp + 100);
-        assertEq(state.emergencyModeDuration, 100);
+        assertEq(state.emergencyModeDuration, 200);
         assertEq(state.emergencyModeEndsAfter, 0);
         assertEq(state.isEmergencyModeActivated, false);
 
-        EmergencyProtection.activate(_emergencyProtection);
+        _emergencyProtection.activate();
 
-        state = EmergencyProtection.getEmergencyState(_emergencyProtection);
+        state = _emergencyProtection.getEmergencyState();
 
         assertEq(state.activationCommittee, address(0x1));
         assertEq(state.executionCommittee, address(0x2));
         assertEq(state.protectedTill, block.timestamp + 100);
-        assertEq(state.emergencyModeDuration, 100);
-        assertEq(state.emergencyModeEndsAfter, block.timestamp + 100);
+        assertEq(state.emergencyModeDuration, 200);
+        assertEq(state.emergencyModeEndsAfter, block.timestamp + 200);
         assertEq(state.isEmergencyModeActivated, true);
 
-        EmergencyProtection.deactivate(_emergencyProtection);
+        _emergencyProtection.deactivate();
 
-        state = EmergencyProtection.getEmergencyState(_emergencyProtection);
+        state = _emergencyProtection.getEmergencyState();
 
         assertEq(state.activationCommittee, address(0));
         assertEq(state.executionCommittee, address(0));
@@ -251,52 +249,52 @@ contract EmergencyProtectionUnitTests is UnitTest {
     }
 
     function test_is_emergency_mode_activated() external {
-        assertEq(EmergencyProtection.isEmergencyModeActivated(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyModeActivated(), false);
 
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), 100, 100);
+        _emergencyProtection.setup(address(0x1), address(0x2), 100, 100);
 
-        assertEq(EmergencyProtection.isEmergencyModeActivated(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyModeActivated(), false);
 
-        EmergencyProtection.activate(_emergencyProtection);
+        _emergencyProtection.activate();
 
-        assertEq(EmergencyProtection.isEmergencyModeActivated(_emergencyProtection), true);
+        assertEq(_emergencyProtection.isEmergencyModeActivated(), true);
 
-        EmergencyProtection.deactivate(_emergencyProtection);
+        _emergencyProtection.deactivate();
 
-        assertEq(EmergencyProtection.isEmergencyModeActivated(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyModeActivated(), false);
     }
 
     function test_is_emergency_mode_passed() external {
-        assertEq(EmergencyProtection.isEmergencyModePassed(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyModePassed(), false);
 
-        uint256 duration = 100;
+        uint256 duration = 200;
 
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), 100, duration);
+        _emergencyProtection.setup(address(0x1), address(0x2), 100, duration);
 
-        assertEq(EmergencyProtection.isEmergencyModePassed(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyModePassed(), false);
 
-        EmergencyProtection.activate(_emergencyProtection);
+        _emergencyProtection.activate();
 
-        assertEq(EmergencyProtection.isEmergencyModePassed(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyModePassed(), false);
 
         _wait(duration + 1);
 
-        assertEq(EmergencyProtection.isEmergencyModePassed(_emergencyProtection), true);
+        assertEq(_emergencyProtection.isEmergencyModePassed(), true);
 
-        EmergencyProtection.deactivate(_emergencyProtection);
+        _emergencyProtection.deactivate();
 
-        assertEq(EmergencyProtection.isEmergencyModePassed(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyModePassed(), false);
     }
 
     function test_is_emergency_protection_enabled() external {
         uint256 protectedTill = 100;
-        uint256 duration = 100;
+        uint256 duration = 200;
 
-        assertEq(EmergencyProtection.isEmergencyProtectionEnabled(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyProtectionEnabled(), false);
 
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), protectedTill, duration);
+        _emergencyProtection.setup(address(0x1), address(0x2), protectedTill, duration);
 
-        assertEq(EmergencyProtection.isEmergencyProtectionEnabled(_emergencyProtection), true);
+        assertEq(_emergencyProtection.isEmergencyProtectionEnabled(), true);
 
         _wait(protectedTill - block.timestamp);
 
@@ -304,88 +302,62 @@ contract EmergencyProtectionUnitTests is UnitTest {
 
         _wait(duration);
 
-        assertEq(EmergencyProtection.isEmergencyProtectionEnabled(_emergencyProtection), true);
+        assertEq(_emergencyProtection.isEmergencyProtectionEnabled(), true);
 
         _wait(100);
 
-        assertEq(EmergencyProtection.isEmergencyProtectionEnabled(_emergencyProtection), true);
+        assertEq(_emergencyProtection.isEmergencyProtectionEnabled(), true);
 
         EmergencyProtection.deactivate(_emergencyProtection);
 
-        assertEq(EmergencyProtection.isEmergencyProtectionEnabled(_emergencyProtection), false);
+        assertEq(_emergencyProtection.isEmergencyProtectionEnabled(), false);
     }
 
     function testFuzz_check_activation_committee(address committee, address stranger) external {
         vm.assume(committee != address(0));
         vm.assume(stranger != address(0) && stranger != committee);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                EmergencyProtection.NotEmergencyActivator.selector,
-                [stranger]
-            )
-        );
-        EmergencyProtection.checkActivationCommittee(_emergencyProtection, stranger);
-        EmergencyProtection.checkActivationCommittee(_emergencyProtection, address(0));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyActivator.selector, [stranger]));
+        _emergencyProtection.checkActivationCommittee(stranger);
+        _emergencyProtection.checkActivationCommittee(address(0));
 
-        EmergencyProtection.setup(_emergencyProtection, committee, address(0x2), 100, 100);
+        _emergencyProtection.setup(committee, address(0x2), 100, 100);
 
-        EmergencyProtection.checkActivationCommittee(_emergencyProtection, committee);
+        _emergencyProtection.checkActivationCommittee(committee);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                EmergencyProtection.NotEmergencyActivator.selector,
-                [stranger]
-            )
-        );
-        EmergencyProtection.checkActivationCommittee(_emergencyProtection, stranger);
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyActivator.selector, [stranger]));
+        _emergencyProtection.checkActivationCommittee(stranger);
     }
 
     function testFuzz_check_execution_committee(address committee, address stranger) external {
         vm.assume(committee != address(0));
         vm.assume(stranger != address(0) && stranger != committee);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                EmergencyProtection.NotEmergencyEnactor.selector,
-                [stranger]
-            )
-        );
-        EmergencyProtection.checkExecutionCommittee(_emergencyProtection, stranger);
-        EmergencyProtection.checkExecutionCommittee(_emergencyProtection, address(0));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyEnactor.selector, [stranger]));
+        _emergencyProtection.checkExecutionCommittee(stranger);
+        _emergencyProtection.checkExecutionCommittee(address(0));
 
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), committee, 100, 100);
+        _emergencyProtection.setup(address(0x1), committee, 100, 100);
 
-        EmergencyProtection.checkExecutionCommittee(_emergencyProtection, committee);
+        _emergencyProtection.checkExecutionCommittee(committee);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                EmergencyProtection.NotEmergencyEnactor.selector,
-                [stranger]
-            )
-        );
-        EmergencyProtection.checkExecutionCommittee(_emergencyProtection, stranger);
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.NotEmergencyEnactor.selector, [stranger]));
+        _emergencyProtection.checkExecutionCommittee(stranger);
     }
 
     function test_check_emergency_mode_active() external {
         vm.expectRevert(
-            abi.encodeWithSelector(
-                EmergencyProtection.InvalidEmergencyModeActiveValue.selector,
-                [false, true]
-            )
+            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [false, true])
         );
-        EmergencyProtection.checkEmergencyModeActive(_emergencyProtection, true);
-        EmergencyProtection.checkEmergencyModeActive(_emergencyProtection, false);
+        _emergencyProtection.checkEmergencyModeActive(true);
+        _emergencyProtection.checkEmergencyModeActive(false);
 
-        EmergencyProtection.setup(_emergencyProtection, address(0x1), address(0x2), 100, 100);
-        EmergencyProtection.activate(_emergencyProtection);
+        _emergencyProtection.setup(address(0x1), address(0x2), 100, 100);
+        _emergencyProtection.activate();
 
-        EmergencyProtection.checkEmergencyModeActive(_emergencyProtection, true);
+        _emergencyProtection.checkEmergencyModeActive(true);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                EmergencyProtection.InvalidEmergencyModeActiveValue.selector,
-                [true, false]
-            )
+            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [true, false])
         );
     }
 }
