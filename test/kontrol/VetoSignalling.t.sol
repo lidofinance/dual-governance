@@ -157,6 +157,18 @@ contract VetoSignallingTest is Test, KontrolCheats {
         vm.store(contractAddress, bytes32(slot), bytes32(uint256(uint160(value))));
     }
 
+    /**
+     * Test that the Normal state transitions to VetoSignalling if the total
+     * veto power in the signalling escrow exceeds the first seal threshold.
+     */
+    function testTransitionNormalToVetoSignalling() external {
+        uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
+        vm.assume(rageQuitSupport > dualGovernance.FIRST_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(dualGovernance.currentState() == DualGovernance.State.Normal);
+        dualGovernance.activateNextState();
+        assert(dualGovernance.currentState() == DualGovernance.State.VetoSignalling);
+    }
+
     struct StateRecord {
         DualGovernance.State state;
         uint256 timestamp;
