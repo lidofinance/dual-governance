@@ -117,6 +117,7 @@ contract VetoSignallingTest is Test, KontrolCheats {
         _storeAddress(address(signallingEscrow), 1, address(fakeETH));
         // Slot 3
         uint256 totalStaked = kevm.freshUInt(32); // ?WORD6
+        vm.assume(totalStaked < ethUpperBound);
         _storeUInt256(address(signallingEscrow), 3, totalStaked);
         // Slot 5
         uint256 totalClaimedEthAmount = kevm.freshUInt(32); // ?WORD7
@@ -138,6 +139,7 @@ contract VetoSignallingTest is Test, KontrolCheats {
         _storeAddress(address(rageQuitEscrow), 1, address(fakeETH));
         // Slot 3
         uint256 totalStaked = kevm.freshUInt(32); // ?WORD8
+        vm.assume(totalStaked < ethUpperBound);
         _storeUInt256(address(rageQuitEscrow), 3, totalStaked);
         // Slot 5
         uint256 totalClaimedEthAmount = kevm.freshUInt(32); // ?WORD9
