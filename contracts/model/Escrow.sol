@@ -88,7 +88,7 @@ contract Escrow {
 
     // Returns total rage quit support as a percentage of the total supply.
     function getRageQuitSupport() external view returns (uint256) {
-        return totalStaked / fakeETH.totalSupply();
+        return totalStaked * 10 ** 18 / fakeETH.totalSupply();
     }
 
     // Transitions the escrow to the RageQuitEscrow state and initiates withdrawal processes.

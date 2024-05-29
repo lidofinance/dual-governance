@@ -36,8 +36,8 @@ contract DualGovernance {
     uint256 public rageQuitSequenceNumber;
 
     // Constants
-    uint256 public constant FIRST_SEAL_RAGE_QUIT_SUPPORT = 1; // Threshold required for transition from Normal to Veto Signalling state.
-    uint256 public constant SECOND_SEAL_RAGE_QUIT_SUPPORT = 10; // Transition to Rage Quit occurs if t - t^S_{act} > DynamicTimelockMaxDuration and R > SecondSealRageQuitSupport.
+    uint256 public constant FIRST_SEAL_RAGE_QUIT_SUPPORT = 10 ** 16; // Threshold required for transition from Normal to Veto Signalling state (1%).
+    uint256 public constant SECOND_SEAL_RAGE_QUIT_SUPPORT = 10 ** 17; // Transition to Rage Quit occurs if t - t^S_{act} > DynamicTimelockMaxDuration and R > SecondSealRageQuitSupport (10%).
     uint256 public constant DYNAMIC_TIMELOCK_MIN_DURATION = 5 days; // L_min; minimum duration for the dynamic timelock, which extends based on the level of dissent or rage quit support.
     uint256 public constant DYNAMIC_TIMELOCK_MAX_DURATION = 45 days; // L_max; maximum possible duration for dynamic timelocks, applied under conditions of extreme dissent to delay proposal execution.
     uint256 public constant VETO_SIGNALLING_MIN_ACTIVE_DURATION = 5 hours; // Minimum time Veto Signalling must be active before before transitioning to the Deactivation sub-state can be considered.
