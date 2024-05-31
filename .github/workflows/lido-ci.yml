@@ -28,8 +28,8 @@
                 "branch_name": "'"${{ github.event.pull_request.head.sha || github.sha }}"'",
                 "extra_args": "script",
                 "statuses_sha": "'$sha'",
-                "org": "runtimeverification",
-                "repository": "_audits_lidofinance_dual-governance",
+                "org": "lidofinance",
+                "repository": "dual-governance",
                 "auth_token": "'"${{ secrets.LIDO_STATUS_TOKEN }}"'"
                 }
               }')
