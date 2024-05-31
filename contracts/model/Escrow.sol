@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * Simplified abstract model of the Escrow contract. Includes the following simplifications:
@@ -30,7 +30,7 @@ contract Escrow {
     State public currentState;
 
     address public dualGovernance;
-    IERC20 public fakeETH;
+    ERC20 public fakeETH;
     mapping(address => uint256) public balances;
     uint256 public totalStaked;
     uint256 public totalWithdrawalRequestAmount;
@@ -59,7 +59,7 @@ contract Escrow {
     constructor(address _dualGovernance, address _fakeETH) {
         currentState = State.SignallingEscrow;
         dualGovernance = _dualGovernance;
-        fakeETH = IERC20(_fakeETH);
+        fakeETH = ERC20(_fakeETH);
     }
 
     // Locks a specified amount of tokens.
