@@ -123,6 +123,9 @@ contract VetoSignallingTest is Test, KontrolCheats {
         uint256 totalClaimedEthAmount = kevm.freshUInt(32); // ?WORD7
         vm.assume(totalClaimedEthAmount <= totalStaked);
         _storeUInt256(address(signallingEscrow), 5, totalClaimedEthAmount);
+        // Slot 11
+        uint256 rageQuitExtensionDelayPeriodEnd = 0; // since SignallingEscrow
+        _storeUInt256(address(signallingEscrow), 11, rageQuitExtensionDelayPeriodEnd);
     }
 
     function _rageQuitEscrowStorageSetup() internal {
@@ -145,6 +148,9 @@ contract VetoSignallingTest is Test, KontrolCheats {
         uint256 totalClaimedEthAmount = kevm.freshUInt(32); // ?WORD9
         vm.assume(totalClaimedEthAmount <= totalStaked);
         _storeUInt256(address(rageQuitEscrow), 5, totalClaimedEthAmount);
+        // Slot 11
+        uint256 rageQuitExtensionDelayPeriodEnd = kevm.freshUInt(32); // ?WORD10
+        _storeUInt256(address(signallingEscrow), 11, rageQuitExtensionDelayPeriodEnd);
     }
 
     function _storeBytes32(address contractAddress, uint256 slot, bytes32 value) internal {
@@ -318,9 +324,9 @@ contract VetoSignallingTest is Test, KontrolCheats {
         StateRecord memory sr = _recordCurrentState(0);
 
         // Consider only the case where we have transitioned to Veto Signalling
-        vm.assume(sr.state == DualGovernance.State.VetoSignalling);
-
-        _vetoSignallingInvariants(Mode.Assert, sr);
+        if (sr.state == DualGovernance.State.VetoSignalling) {
+            _vetoSignallingInvariants(Mode.Assert, sr);
+        }
     }
 
     /**
