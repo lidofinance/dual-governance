@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/utils/math/Math.sol";
+
 import "./EmergencyProtectedTimelock.sol";
 import "./Escrow.sol";
 
@@ -84,8 +86,9 @@ contract DualGovernance {
             "Proposals can only be scheduled in Normal or Veto Cooldown states."
         );
         if (currentState == State.VetoCooldown) {
+            uint256 submissionTime = emergencyProtectedTimelock.proposals(proposalId).submissionTime;
             require(
-                block.timestamp < lastVetoSignallingTime,
+                submissionTime < lastVetoSignallingTime,
                 "Proposal submitted after the last time Veto Signalling state was entered."
             );
         }
@@ -174,10 +177,6 @@ contract DualGovernance {
         currentState = parentState;
     }
 
-    function max(uint256 a, uint256 b) private pure returns (uint256) {
-        return a > b ? a : b;
-    }
-
     // State Transitions
 
     function activateNextState() public {
@@ -231,7 +230,7 @@ contract DualGovernance {
             transitionState(State.RageQuit);
         } else if (
             block.timestamp - lastStateChangeTime > calculateDynamicTimelock(rageQuitSupport)
-                && block.timestamp - max(lastStateChangeTime, lastStateReactivationTime)
+                && block.timestamp - Math.max(lastStateChangeTime, lastStateReactivationTime)
                     > VETO_SIGNALLING_MIN_ACTIVE_DURATION
         ) {
             enterSubState(State.VetoSignallingDeactivation);
