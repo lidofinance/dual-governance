@@ -67,7 +67,7 @@ contract Escrow {
         require(currentState == State.SignallingEscrow, "Cannot lock in current state.");
         require(amount > 0, "Amount must be greater than zero.");
         require(fakeETH.allowance(msg.sender, address(this)) >= amount, "Need allowance to transfer tokens.");
-        require(fakeETH.balanceOf(msg.sender) <= amount, "Not enough balance.");
+        require(fakeETH.balanceOf(msg.sender) >= amount, "Not enough balance.");
         fakeETH.transferFrom(msg.sender, address(this), amount);
         balances[msg.sender] += amount;
         totalStaked += amount;
