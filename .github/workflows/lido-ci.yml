@@ -23,13 +23,13 @@
               -H "Authorization: Bearer ${{ secrets.RV_COMPUTE_TOKEN }}" \
               https://api.github.com/repos/runtimeverification/_kaas_lidofinance_dual-governance/actions/workflows/lido-ci.yml/dispatches \
               -d '{
-                "ref": "develop",
+                "ref": "rvdevelop",
                 "inputs": {
                 "branch_name": "'"${{ github.event.pull_request.head.sha || github.sha }}"'",
                 "extra_args": "script",
                 "statuses_sha": "'$sha'",
-                "org": "${{ github.repository_owner }}",
-                "repository": "${{ github.event.repository.name }}",
+                "org": "runtimeverification",
+                "repository": "_audits_lidofinance_dual-governance_fork",
                 "auth_token": "'"${{ secrets.LIDO_STATUS_TOKEN }}"'"
                 }
               }')
