@@ -4,6 +4,7 @@
     push:
       branches:
         - develop
+        - rvdevelop
   jobs:
     test:
       runs-on: ubuntu-latest
