@@ -2,8 +2,11 @@
 pragma solidity 0.8.23;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 abstract contract ExecutiveCommittee {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     event MemberAdded(address indexed member);
     event MemberRemoved(address indexed member);
     event QuorumSet(uint256 quorum);
@@ -19,11 +22,12 @@ abstract contract ExecutiveCommittee {
     error QuorumIsNotReached();
     error InvalidQuorum();
     error ActionMismatch();
+    error DuplicatedMember(address member);
 
     struct Action {
         address to;
         bytes data;
-        bytes extraData;
+        bytes salt;
     }
 
     struct ActionState {
@@ -34,11 +38,10 @@ abstract contract ExecutiveCommittee {
 
     address public immutable OWNER;
 
-    address[] public membersList;
-    mapping(address => bool) public members;
+    EnumerableSet.AddressSet private members;
     uint256 public quorum;
 
-    mapping(bytes32 actionHash => ActionState) actionsStates;
+    mapping(bytes32 actionHash => ActionState) public actionsStates;
     mapping(address signer => mapping(bytes32 actionHash => bool support)) public approves;
 
     constructor(address owner, address[] memory newMembers, uint256 executionQuorum) {
@@ -51,33 +54,36 @@ abstract contract ExecutiveCommittee {
         OWNER = owner;
 
         for (uint256 i = 0; i < newMembers.length; ++i) {
+            if (members.contains(newMembers[i])) {
+                revert DuplicatedMember(newMembers[i]);
+            }
             _addMember(newMembers[i]);
         }
     }
 
     function _vote(Action memory action, bool support) internal {
-        bytes32 actionHash = _hashAction(action);
-        if (actionsStates[actionHash].action.to == address(0)) {
-            actionsStates[actionHash].action = action;
+        bytes32 digest = _hashAction(action);
+        if (actionsStates[digest].action.to == address(0)) {
+            actionsStates[digest].action = action;
             emit ActionProposed(action.to, action.data);
         } else {
             _getAndCheckStoredActionState(action);
         }
 
-        if (approves[msg.sender][actionHash] == support) {
+        if (approves[msg.sender][digest] == support) {
             return;
         }
 
-        approves[msg.sender][actionHash] = support;
+        approves[msg.sender][digest] = support;
         emit ActionVoted(msg.sender, support, action.to, action.data);
         if (support == true) {
-            actionsStates[actionHash].signers.push(msg.sender);
+            actionsStates[digest].signers.push(msg.sender);
         } else {
-            uint256 signersLength = actionsStates[actionHash].signers.length;
+            uint256 signersLength = actionsStates[digest].signers.length;
             for (uint256 i = 0; i < signersLength; ++i) {
-                if (actionsStates[actionHash].signers[i] == msg.sender) {
-                    actionsStates[actionHash].signers[i] = actionsStates[actionHash].signers[signersLength - 1];
-                    actionsStates[actionHash].signers.pop();
+                if (actionsStates[digest].signers[i] == msg.sender) {
+                    actionsStates[digest].signers[i] = actionsStates[digest].signers[signersLength - 1];
+                    actionsStates[digest].signers.pop();
                     break;
                 }
             }
@@ -94,9 +100,9 @@ abstract contract ExecutiveCommittee {
             revert QuorumIsNotReached();
         }
 
-        Address.functionCall(actionState.action.to, actionState.action.data);
-
         actionsStates[actionHash].isExecuted = true;
+
+        Address.functionCall(actionState.action.to, actionState.action.data);
 
         emit ActionExecuted(action.to, action.data);
     }
@@ -116,7 +122,7 @@ abstract contract ExecutiveCommittee {
     function addMember(address newMember, uint256 newQuorum) public onlyOwner {
         _addMember(newMember);
 
-        if (newQuorum == 0 || newQuorum > membersList.length) {
+        if (newQuorum == 0 || newQuorum > members.length()) {
             revert InvalidQuorum();
         }
         quorum = newQuorum;
@@ -124,20 +130,13 @@ abstract contract ExecutiveCommittee {
     }
 
     function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner {
-        if (members[memberToRemove] == false) {
+        if (!members.contains(memberToRemove)) {
             revert IsNotMember();
         }
-        members[memberToRemove] = false;
-        for (uint256 i = 0; i < membersList.length; ++i) {
-            if (membersList[i] == memberToRemove) {
-                membersList[i] = membersList[membersList.length - 1];
-                membersList.pop();
-                break;
-            }
-        }
+        members.remove(memberToRemove);
         emit MemberRemoved(memberToRemove);
 
-        if (newQuorum == 0 || newQuorum > membersList.length) {
+        if (newQuorum == 0 || newQuorum > members.length()) {
             revert InvalidQuorum();
         }
         quorum = newQuorum;
@@ -145,18 +144,17 @@ abstract contract ExecutiveCommittee {
     }
 
     function getMembers() public view returns (address[] memory) {
-        return membersList;
+        return members.values();
     }
 
     function _addMember(address newMember) internal {
-        membersList.push(newMember);
-        members[newMember] = true;
+        members.add(newMember);
         emit MemberAdded(newMember);
     }
 
     function _getSupport(bytes32 actionHash) internal view returns (uint256 support) {
         for (uint256 i = 0; i < actionsStates[actionHash].signers.length; ++i) {
-            if (members[actionsStates[actionHash].signers[i]] == true) {
+            if (members.contains(actionsStates[actionHash].signers[i])) {
                 support++;
             }
         }
@@ -179,11 +177,11 @@ abstract contract ExecutiveCommittee {
     }
 
     function _hashAction(Action memory action) internal pure returns (bytes32) {
-        return keccak256(abi.encode(action.to, action.data, action.extraData));
+        return keccak256(abi.encode(action.to, action.data, action.salt));
     }
 
     modifier onlyMember() {
-        if (members[msg.sender] == false) {
+        if (!members.contains(msg.sender)) {
             revert SenderIsNotMember();
         }
         _;

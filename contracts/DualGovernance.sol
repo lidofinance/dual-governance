@@ -2,6 +2,7 @@
 pragma solidity 0.8.23;
 
 import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
+import {ISealable} from "./interfaces/ISealable.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
@@ -13,7 +14,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     using DualGovernanceState for DualGovernanceState.Store;
 
     event TiebreakerSet(address tiebreakCommittee);
-    event ProposalApprovedForExecition(uint256 proposalId);
+    event ProposalApprovedForExecution(uint256 proposalId);
     event ProposalScheduled(uint256 proposalId);
     event SealableResumeApproved(address sealable);
 
@@ -159,7 +160,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         }
 
         _tiebreakerProposalApprovalTimestamp[proposalId] = block.timestamp;
-        emit ProposalApprovedForExecition(proposalId);
+        emit ProposalApprovedForExecution(proposalId);
     }
 
     function tiebreakerApproveSealableResume(address sealable) external {
@@ -167,10 +168,10 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _dgState.checkTiebreak(CONFIG);
         Proposer memory proposer = _proposers.get(msg.sender);
         ExecutorCall[] memory calls = new ExecutorCall[](1);
-        calls[0] = ExecutorCall(sealable, 0, abi.encodeWithSignature("resume()"));
+        calls[0] = ExecutorCall(sealable, 0, abi.encodeWithSelector(ISealable.resume.selector));
         uint256 proposalId = TIMELOCK.submit(proposer.executor, calls);
         _tiebreakerProposalApprovalTimestamp[proposalId] = block.timestamp;
-        emit ProposalApprovedForExecition(proposalId);
+        emit ProposalApprovedForExecution(proposalId);
         emit SealableResumeApproved(sealable);
     }
 
