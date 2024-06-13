@@ -86,7 +86,7 @@ contract DualGovernance {
             "Proposals can only be scheduled in Normal or Veto Cooldown states."
         );
         if (currentState == State.VetoCooldown) {
-            uint256 submissionTime = emergencyProtectedTimelock.proposals(proposalId).submissionTime;
+            (,,,uint256 submissionTime,) = emergencyProtectedTimelock.proposals(proposalId);
             require(
                 submissionTime < lastVetoSignallingTime,
                 "Proposal submitted after the last time Veto Signalling state was entered."
