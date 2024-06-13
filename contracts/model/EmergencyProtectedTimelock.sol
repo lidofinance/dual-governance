@@ -55,8 +55,6 @@ contract EmergencyProtectedTimelock {
     function submit(address executor, ExecutorCall[] memory calls) external returns (uint256 proposalId) {
         // Ensure that only the governance can submit new proposals.
         require(msg.sender == governance, "Only governance can submit proposal.");
-        // Establish the minimum timelock duration for the proposal's execution.
-        uint256 executionDelay = PROPOSAL_EXECUTION_MIN_TIMELOCK;
 
         proposals[nextProposalId].id = nextProposalId;
         proposals[nextProposalId].proposer = executor;

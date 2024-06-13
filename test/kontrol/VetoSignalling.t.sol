@@ -26,7 +26,7 @@ contract VetoSignallingTest is Test, KontrolCheats {
     // Note: there are lemmas dependent on `ethUpperBound`
     uint256 constant ethMaxWidth = 96;
     uint256 constant ethUpperBound = 2 ** ethMaxWidth;
-    uint256 constant timeUpperBound = 2 ** 40 - 1;
+    uint256 constant timeUpperBound = 2 ** 40;
 
     enum Mode {
         Assume,
@@ -150,7 +150,7 @@ contract VetoSignallingTest is Test, KontrolCheats {
         _storeUInt256(address(rageQuitEscrow), 5, totalClaimedEthAmount);
         // Slot 11
         uint256 rageQuitExtensionDelayPeriodEnd = kevm.freshUInt(32); // ?WORD10
-        _storeUInt256(address(signallingEscrow), 11, rageQuitExtensionDelayPeriodEnd);
+        _storeUInt256(address(rageQuitEscrow), 11, rageQuitExtensionDelayPeriodEnd);
     }
 
     function _storeBytes32(address contractAddress, uint256 slot, bytes32 value) internal {
@@ -345,15 +345,6 @@ contract VetoSignallingTest is Test, KontrolCheats {
         vm.assume(previousRageQuitSupport < ethUpperBound);
         vm.assume(maxRageQuitSupport < ethUpperBound);
 
-        // Temporary assumptions
-        vm.assume(previousRageQuitSupport <= 1);
-        vm.assume(10 <= maxRageQuitSupport);
-        vm.assume(
-            lastInteractionTimestamp
-                <= dualGovernance.lastStateChangeTime() + dualGovernance.calculateDynamicTimelock(previousRageQuitSupport)
-        );
-        // Temparary assumptions
-
         StateRecord memory previous =
             _recordPreviousState(lastInteractionTimestamp, previousRageQuitSupport, maxRageQuitSupport);
 
@@ -385,9 +376,12 @@ contract VetoSignallingTest is Test, KontrolCheats {
         uint256 previousRageQuitSupport,
         uint256 maxRageQuitSupport
     ) external {
+        vm.assume(block.timestamp < timeUpperBound);
+
         StateRecord memory previous =
             _recordPreviousState(lastInteractionTimestamp, previousRageQuitSupport, maxRageQuitSupport);
 
+        vm.assume(previous.maxRageQuitSupport <= dualGovernance.SECOND_SEAL_RAGE_QUIT_SUPPORT());
         vm.assume(_maxDeactivationDelayPassed(previous));
         vm.assume(signallingEscrow.getRageQuitSupport() <= previous.maxRageQuitSupport);
 
