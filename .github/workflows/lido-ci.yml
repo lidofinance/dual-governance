@@ -1,6 +1,7 @@
 ---
   name: "Test Proofs"
   on:
+    workflow_dispatch:
     push:
       branches:
         - develop
