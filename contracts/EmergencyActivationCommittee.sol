@@ -24,7 +24,7 @@ contract EmergencyActivationCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return getActionState(_buildEmergencyActivateAction());
+        return _getActionState(_buildEmergencyActivateAction());
     }
 
     function executeEmergencyActivate() external {

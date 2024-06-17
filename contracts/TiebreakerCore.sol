@@ -30,7 +30,7 @@ contract TiebreakerCore is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return getActionState(_buildApproveProposalAction(_proposalId));
+        return _getActionState(_buildApproveProposalAction(_proposalId));
     }
 
     function executeApproveProposal(uint256 _proposalId) public {
@@ -54,7 +54,7 @@ contract TiebreakerCore is ExecutiveCommittee {
         address sealable,
         uint256 nonce
     ) public view returns (uint256 support, uint256 execuitionQuorum, bool isExecuted) {
-        return getActionState(_buildSealableResumeAction(sealable, nonce));
+        return _getActionState(_buildSealableResumeAction(sealable, nonce));
     }
 
     function executeSealableResume(address sealable) external {

@@ -33,7 +33,6 @@ abstract contract ExecutiveCommittee {
     struct ActionState {
         Action action;
         bool isExecuted;
-        address[] signers;
     }
 
     address public immutable OWNER;
@@ -76,18 +75,6 @@ abstract contract ExecutiveCommittee {
 
         approves[msg.sender][digest] = support;
         emit ActionVoted(msg.sender, support, action.to, action.data);
-        if (support == true) {
-            actionsStates[digest].signers.push(msg.sender);
-        } else {
-            uint256 signersLength = actionsStates[digest].signers.length;
-            for (uint256 i = 0; i < signersLength; ++i) {
-                if (actionsStates[digest].signers[i] == msg.sender) {
-                    actionsStates[digest].signers[i] = actionsStates[digest].signers[signersLength - 1];
-                    actionsStates[digest].signers.pop();
-                    break;
-                }
-            }
-        }
     }
 
     function _execute(Action memory action) internal {
@@ -107,8 +94,8 @@ abstract contract ExecutiveCommittee {
         emit ActionExecuted(action.to, action.data);
     }
 
-    function getActionState(Action memory action)
-        public
+    function _getActionState(Action memory action)
+        internal
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
@@ -147,14 +134,21 @@ abstract contract ExecutiveCommittee {
         return members.values();
     }
 
+    function isMember(address member) public view returns (bool) {
+        return members.contains(member);
+    }
+
     function _addMember(address newMember) internal {
+        if (members.contains(newMember)) {
+            revert DuplicatedMember(newMember);
+        }
         members.add(newMember);
         emit MemberAdded(newMember);
     }
 
     function _getSupport(bytes32 actionHash) internal view returns (uint256 support) {
-        for (uint256 i = 0; i < actionsStates[actionHash].signers.length; ++i) {
-            if (members.contains(actionsStates[actionHash].signers[i])) {
+        for (uint256 i = 0; i < members.length(); ++i) {
+            if (approves[members.at(i)][actionHash]) {
                 support++;
             }
         }

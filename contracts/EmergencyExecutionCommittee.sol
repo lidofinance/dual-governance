@@ -31,7 +31,7 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return getActionState(_buildEmergencyExecuteAction(_proposalId));
+        return _getActionState(_buildEmergencyExecuteAction(_proposalId));
     }
 
     function executeEmergencyExecute(uint256 _proposalId) public {
@@ -49,7 +49,7 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return getActionState(_buildEmergencyResetAction());
+        return _getActionState(_buildEmergencyResetAction());
     }
 
     function executeEmergencyReset() external {
