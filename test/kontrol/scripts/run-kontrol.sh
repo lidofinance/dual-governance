@@ -98,7 +98,10 @@ regen=
 test_list=()
 if [ "$SCRIPT_TESTS" == true ]; then
     # Here go the list of tests to execute with the `script` option
-    test_list=( "VetoSignallingTest.testTransitionNormalToVetoSignalling" )
+    test_list=(
+        "VetoSignallingTest.testTransitionNormalToVetoSignalling"
+        "VetoSignallingTest.testVetoSignallingInvariantsHoldInitially"
+    )
 elif [ "$CUSTOM_TESTS" != 0 ]; then
     test_list=( "${@:${CUSTOM_TESTS}}" )
 fi
