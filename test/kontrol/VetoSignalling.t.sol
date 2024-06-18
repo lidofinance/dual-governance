@@ -4,19 +4,17 @@ import "forge-std/Vm.sol";
 import "forge-std/Test.sol";
 import "kontrol-cheatcodes/KontrolCheats.sol";
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "contracts/model/DualGovernance.sol";
 import "contracts/model/EmergencyProtectedTimelock.sol";
 import "contracts/model/Escrow.sol";
-
-contract FakeETH is ERC20("fakeETH", "fETH") {}
+import "contracts/model/StETH.sol";
 
 contract VetoSignallingTest is Test, KontrolCheats {
     DualGovernance dualGovernance;
     EmergencyProtectedTimelock timelock;
-    ERC20 fakeETH;
+    StETH stEth;
     Escrow signallingEscrow;
     Escrow rageQuitEscrow;
 
@@ -42,26 +40,36 @@ contract VetoSignallingTest is Test, KontrolCheats {
     }
 
     function setUp() public {
-        fakeETH = new FakeETH();
+        stEth = new StETH();
         uint256 emergencyProtectionTimelock = 0; // Regular deployment mode
-        dualGovernance = new DualGovernance(address(fakeETH), emergencyProtectionTimelock);
+        dualGovernance = new DualGovernance(address(stEth), emergencyProtectionTimelock);
         timelock = dualGovernance.emergencyProtectedTimelock();
         signallingEscrow = dualGovernance.signallingEscrow();
-        rageQuitEscrow = new Escrow(address(dualGovernance), address(fakeETH));
+        rageQuitEscrow = new Escrow(address(dualGovernance), address(stEth));
 
-        _fakeETHStorageSetup();
+        _stEthStorageSetup();
         _dualGovernanceStorageSetup();
         _signallingEscrowStorageSetup();
         _rageQuitEscrowStorageSetup();
         kevm.symbolicStorage(address(timelock)); // ?STORAGE3
     }
 
-    function _fakeETHStorageSetup() internal {
-        kevm.symbolicStorage(address(fakeETH)); // ?STORAGE
+    function _stEthStorageSetup() internal {
+        kevm.symbolicStorage(address(stEth)); // ?STORAGE
+        // Slot 0
+        uint256 totalPooledEther = kevm.freshUInt(32); // ?WORD
+        vm.assume(0 < totalPooledEther);
+        vm.assume(totalPooledEther < ethUpperBound);
+        stEth.setTotalPooledEther(totalPooledEther);
+        // Slot 1
+        uint256 totalShares = kevm.freshUInt(32); // ?WORD0
+        vm.assume(0 < totalShares);
+        vm.assume(totalShares < ethUpperBound);
+        stEth.setTotalShares(totalShares);
         // Slot 2
-        uint256 totalSupply = kevm.freshUInt(32); // ?WORD
-        vm.assume(0 < totalSupply);
-        _storeUInt256(address(fakeETH), 2, totalSupply);
+        uint256 shares = kevm.freshUInt(32); // ?WORD1
+        vm.assume(shares < totalShares);
+        stEth.setShares(address(signallingEscrow), shares);
     }
 
     function _dualGovernanceStorageSetup() internal {
@@ -73,32 +81,36 @@ contract VetoSignallingTest is Test, KontrolCheats {
         // Slot 2
         _storeAddress(address(dualGovernance), 2, address(rageQuitEscrow));
         // Slot 3
-        uint8 state = uint8(kevm.freshUInt(1)); // ?WORD0
+        uint8 state = uint8(kevm.freshUInt(1)); // ?WORD2
         vm.assume(state <= 4);
-        bytes memory slot_3_abi_encoding = abi.encodePacked(uint88(0), state, address(fakeETH));
+        bytes memory slot_3_abi_encoding = abi.encodePacked(uint88(0), state, address(stEth));
         bytes32 slot_3_for_storage;
         assembly {
             slot_3_for_storage := mload(add(slot_3_abi_encoding, 0x20))
         }
         _storeBytes32(address(dualGovernance), 3, slot_3_for_storage);
         // Slot 6
-        uint256 lastStateChangeTime = kevm.freshUInt(32); // ?WORD1
+        uint256 lastStateChangeTime = kevm.freshUInt(32); // ?WORD3
         vm.assume(lastStateChangeTime <= block.timestamp);
+        vm.assume(lastStateChangeTime < timeUpperBound);
         _storeUInt256(address(dualGovernance), 6, lastStateChangeTime);
         // Slot 7
-        uint256 lastSubStateActivationTime = kevm.freshUInt(32); // ?WORD2
+        uint256 lastSubStateActivationTime = kevm.freshUInt(32); // ?WORD4
         vm.assume(lastSubStateActivationTime <= block.timestamp);
+        vm.assume(lastSubStateActivationTime < timeUpperBound);
         _storeUInt256(address(dualGovernance), 7, lastSubStateActivationTime);
         // Slot 8
-        uint256 lastStateReactivationTime = kevm.freshUInt(32); // ?WORD3
+        uint256 lastStateReactivationTime = kevm.freshUInt(32); // ?WORD5
         vm.assume(lastStateReactivationTime <= block.timestamp);
+        vm.assume(lastStateReactivationTime < timeUpperBound);
         _storeUInt256(address(dualGovernance), 8, lastStateReactivationTime);
         // Slot 9
-        uint256 lastVetoSignallingTime = kevm.freshUInt(32); // ?WORD4
+        uint256 lastVetoSignallingTime = kevm.freshUInt(32); // ?WORD6
         vm.assume(lastVetoSignallingTime <= block.timestamp);
+        vm.assume(lastVetoSignallingTime < timeUpperBound);
         _storeUInt256(address(dualGovernance), 9, lastVetoSignallingTime);
         // Slot 10
-        uint256 rageQuitSequenceNumber = kevm.freshUInt(32); // ?WORD5
+        uint256 rageQuitSequenceNumber = kevm.freshUInt(32); // ?WORD7
         vm.assume(rageQuitSequenceNumber < type(uint256).max);
         _storeUInt256(address(dualGovernance), 10, rageQuitSequenceNumber);
     }
@@ -114,14 +126,14 @@ contract VetoSignallingTest is Test, KontrolCheats {
         }
         _storeBytes32(address(signallingEscrow), 0, slot_0_for_storage);
         // Slot 1
-        _storeAddress(address(signallingEscrow), 1, address(fakeETH));
+        _storeAddress(address(signallingEscrow), 1, address(stEth));
         // Slot 3
-        uint256 totalStaked = kevm.freshUInt(32); // ?WORD6
-        vm.assume(totalStaked < ethUpperBound);
-        _storeUInt256(address(signallingEscrow), 3, totalStaked);
+        uint256 totalStakedShares = kevm.freshUInt(32); // ?WORD8
+        vm.assume(totalStakedShares < ethUpperBound);
+        _storeUInt256(address(signallingEscrow), 3, totalStakedShares);
         // Slot 5
-        uint256 totalClaimedEthAmount = kevm.freshUInt(32); // ?WORD7
-        vm.assume(totalClaimedEthAmount <= totalStaked);
+        uint256 totalClaimedEthAmount = kevm.freshUInt(32); // ?WORD9
+        vm.assume(totalClaimedEthAmount <= totalStakedShares);
         _storeUInt256(address(signallingEscrow), 5, totalClaimedEthAmount);
         // Slot 11
         uint256 rageQuitExtensionDelayPeriodEnd = 0; // since SignallingEscrow
@@ -139,18 +151,18 @@ contract VetoSignallingTest is Test, KontrolCheats {
         }
         _storeBytes32(address(rageQuitEscrow), 0, slot_0_for_storage);
         // Slot 1
-        _storeAddress(address(rageQuitEscrow), 1, address(fakeETH));
+        _storeAddress(address(rageQuitEscrow), 1, address(stEth));
         // Slot 3
-        uint256 totalStaked = kevm.freshUInt(32); // ?WORD8
-        vm.assume(totalStaked < ethUpperBound);
-        _storeUInt256(address(rageQuitEscrow), 3, totalStaked);
+        uint256 totalStakedShares = kevm.freshUInt(32); // ?WORD10
+        vm.assume(totalStakedShares < ethUpperBound);
+        _storeUInt256(address(rageQuitEscrow), 3, totalStakedShares);
         // Slot 5
-        uint256 totalClaimedEthAmount = kevm.freshUInt(32); // ?WORD9
-        vm.assume(totalClaimedEthAmount <= totalStaked);
+        uint256 totalClaimedEthAmount = kevm.freshUInt(32); // ?WORD11
+        vm.assume(totalClaimedEthAmount <= totalStakedShares);
         _storeUInt256(address(rageQuitEscrow), 5, totalClaimedEthAmount);
         // Slot 11
-        uint256 rageQuitExtensionDelayPeriodEnd = kevm.freshUInt(32); // ?WORD10
-        _storeUInt256(address(rageQuitEscrow), 11, rageQuitExtensionDelayPeriodEnd);
+        uint256 rageQUitExtensionDelayPeriodEnd = kevm.freshUInt(32); // ?WORD12
+        _storeUInt256(address(rageQuitEscrow), 11, rageQUitExtensionDelayPeriodEnd);
     }
 
     function _storeBytes32(address contractAddress, uint256 slot, bytes32 value) internal {
