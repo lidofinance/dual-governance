@@ -115,7 +115,7 @@ done
 #########################
 max_depth=10000
 max_iterations=10000
-smt_timeout=100000
+smt_timeout=1000
 max_workers=16 # Should be at most (M - 8) / 8 in a machine with M GB of RAM
 # workers is the minimum between max_workers and the length of test_list
 # unless no test arguments are provided, in which case we default to max_workers
