@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "test/kontrol/mocks/StETHMock.sol";
+import "contracts/model/StETH.sol";
 
 /**
  * Simplified abstract model of the Escrow contract. Includes the following simplifications:
@@ -30,7 +30,7 @@ contract Escrow {
     State public currentState;
 
     address public dualGovernance;
-    StETHMock public stEthMock;
+    StETH public stEth;
     mapping(address => uint256) public shares;
     uint256 public totalSharesLocked;
     uint256 public totalWithdrawalRequestAmount;
@@ -58,21 +58,21 @@ contract Escrow {
     uint256 public constant MIN_WITHDRAWAL_AMOUNT = 100;
     uint256 public constant MAX_WITHDRAWAL_AMOUNT = 1000 * 1e18;
 
-    constructor(address _dualGovernance, address _stETH) {
+    constructor(address _dualGovernance, address _stEth) {
         currentState = State.SignallingEscrow;
         dualGovernance = _dualGovernance;
-        stEthMock = StETHMock(_stETH);
+        stEth = StETH(_stEth);
     }
 
     // Locks a specified amount of tokens.
     function lock(uint256 amount) external {
         require(currentState == State.SignallingEscrow, "Cannot lock in current state.");
         require(amount > 0, "Amount must be greater than zero.");
-        require(stEthMock.allowance(msg.sender, address(this)) >= amount, "Need allowance to transfer tokens.");
-        require(stEthMock.balanceOf(msg.sender) >= amount, "Not enough balance.");
+        require(stEth.allowance(msg.sender, address(this)) >= amount, "Need allowance to transfer tokens.");
+        require(stEth.balanceOf(msg.sender) >= amount, "Not enough balance.");
 
-        stEthMock.transferFrom(msg.sender, address(this), amount);
-        uint256 sharesAmount = stEthMock.getSharesByPooledEth(amount);
+        stEth.transferFrom(msg.sender, address(this), amount);
+        uint256 sharesAmount = stEth.getSharesByPooledEth(amount);
         shares[msg.sender] += sharesAmount;
         totalSharesLocked += sharesAmount;
         lastLockedTimes[msg.sender] = block.timestamp;
@@ -86,16 +86,16 @@ contract Escrow {
         );
         require(shares[msg.sender] >= sharesAmount, "Insufficient shares.");
 
-        uint256 amount = stEthMock.getPooledEthByShares(sharesAmount);
-        stEthMock.transfer(msg.sender, amount);
+        uint256 amount = stEth.getPooledEthByShares(sharesAmount);
+        stEth.transfer(msg.sender, amount);
         shares[msg.sender] -= sharesAmount;
         totalSharesLocked -= sharesAmount;
     }
 
     // Returns total rage quit support as a percentage of the total supply.
     function getRageQuitSupport() external view returns (uint256) {
-        uint256 totalPooledEth = stEthMock.getPooledEthByShares(totalSharesLocked);
-        return (totalPooledEth * 10 ** 18) / stEthMock.totalSupply();
+        uint256 totalPooledEth = stEth.getPooledEthByShares(totalSharesLocked);
+        return (totalPooledEth * 10 ** 18) / stEth.totalSupply();
     }
 
     // Transitions the escrow to the RageQuitEscrow state and initiates withdrawal processes.
@@ -112,7 +112,7 @@ contract Escrow {
     // Initiates a withdrawal request.
     function requestNextWithdrawal() external {
         require(currentState == State.RageQuitEscrow, "Withdrawal only allowed in RageQuit state.");
-        uint256 remainingLockedEth = stEthMock.getPooledEthByShares(totalSharesLocked) - totalWithdrawalRequestAmount;
+        uint256 remainingLockedEth = stEth.getPooledEthByShares(totalSharesLocked) - totalWithdrawalRequestAmount;
         require(remainingLockedEth >= MIN_WITHDRAWAL_AMOUNT, "Withdrawal requests already concluded.");
 
         uint256 amount = min(remainingLockedEth, MAX_WITHDRAWAL_AMOUNT);
@@ -188,7 +188,7 @@ contract Escrow {
         uint256 stakedShares = shares[msg.sender];
         require(stakedShares > 0, "No funds to withdraw.");
         uint256 totalEth = address(this).balance; // Total ETH held by contract
-        uint256 amount = stEthMock.getPooledEthByShares(stakedShares);
+        uint256 amount = stEth.getPooledEthByShares(stakedShares);
         require(totalEth >= amount, "Not enough balance.");
 
         shares[msg.sender] = 0;
