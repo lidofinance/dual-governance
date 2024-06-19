@@ -26,7 +26,6 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     Proposers.State internal _proposers;
     DualGovernanceState.Store internal _dgState;
     EmergencyProtection.State internal _emergencyProtection;
-    mapping(uint256 proposalId => uint256 executableAfter) internal _scheduledProposals;
 
     constructor(
         address config,
@@ -66,10 +65,6 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function rageQuitEscrow() external view returns (address) {
         return address(_dgState.rageQuitEscrow);
-    }
-
-    function isScheduled(uint256 proposalId) external view returns (bool) {
-        return _scheduledProposals[proposalId] != 0;
     }
 
     function canSchedule(uint256 proposalId) external view returns (bool) {
