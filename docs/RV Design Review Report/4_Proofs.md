@@ -5,30 +5,30 @@
 ### Property
 
 Suppose that at time $t^S_{act}$ the Dual Governance protocol enters the Veto Signalling state. Then, if a rage quit isn't triggered, and assuming that state transitions are activated as soon as they becomes enabled, the protocol will transition to the Veto Cooldown state at a time $t^C_{act} > t^S_{act}$ such that
-$$
+```math
 t^C_{act} \leq t^S_{act} + T_{lock}(R_{max}) + T^{Sa}_{min} + T^{SD}_{max} + 2
-$$
+```
 where $R_{max}$ is the maximum rage quit support between $t^S_{act}$ and $t^C_{act}$.
 
 ### Proof
 
 **Observation 1:** First note that if we are in the Deactivation sub-state at any time after $t^S_{act} + T_{lock}(R_{max})$, we will not exit the sub-state until we transition to Veto Cooldown. To exit back to the parent state, one of the following would have to be true for some $t > t^S_{act} + T_{lock}(R_{max})$:
-1. $t \leq t^S_{act} + T_{lock}(R(t))$. Since $R_{max} \geq R(t)$ for all $t$ between $t^S_{act}$ and $t^{C}_{act}$, and $T_{lock}(R)$ is monotonic, this is not possible once $t > t^S_{act} + T_{lock}(R_{max})$.
+1. $t \leq t^S_{act} + T_{lock}(R(t))$. Since $R_{max} \geq R(t)$ for all $t$ between $t^S_{act}$ and $`t^{C}_{act}`$, and $T_{lock}(R)$ is monotonic, this is not possible once $t > t^S_{act} + T_{lock}(R_{max})$.
 2. $R(t) > R_2$. This would imply $R_{max} \geq R(t) > R_2$, and therefore $T_{lock}(R_{max}) = L_{max}$. Since $t - t^S_{act} > T_{lock}(R_{max}) = L_{max}$ and $R(t) > R_2$, after exiting the Deactivation sub-state a rage quit would be immediately triggered. Since we are only considering scenarios where no rage quit happens, this case is also impossible.
 
-Now, let $t^{SD}_{act}$ be the last time the Deactivation sub-state is entered before $t^C_{act}$. We will first prove that $t^{SD}_{act} \leq t^S_{act} + T_{lock}(R_{max}) + T^{Sa}_{min} + 1$:
-* **Case 1:** If $t^{SD}_{act} \leq t^S_{act} + T_{lock}(R_{max}) + 1$, we are done.
+Now, let $`t^{SD}_{act}`$ be the last time the Deactivation sub-state is entered before $t^C_{act}$. We will first prove that $`t^{SD}_{act} \leq t^S_{act} + T_{lock}(R_{max}) + T^{Sa}_{min} + 1`$:
+* **Case 1:** If $`t^{SD}_{act} \leq t^S_{act} + T_{lock}(R_{max}) + 1`$, we are done.
 * **Case 2:** Otherwise, $t^S_{act} + T_{lock}(R_{max}) + 1 < t^{SD}_{act}$.
     * Then, from Observation 1 above, at $t_1 = t^S_{act} + T_{lock}(R_{max}) + 1$ we cannot be in the Deactivation sub-state (since we wouldn't be able to exit the sub-state to enter again at $t^{SD}_{act}$).
-    * Since this is the case even though $t_1 - t^S_{act} > T_{lock}(R(t_1))$, it must be because $t_1 - \max \{ t^S_{act}, t^S_{react} \} \leq T^{Sa}_{min}$, where $t^S_{react} < t_1$ was the last time the Deactivation sub-state was exited, or 0 if it has never been entered (note that $t_1$ must be strictly greater than $t^S_{react}$, since it would impossible to transition back to the parent state at $t^S_{act} + T_{lock}(R_{max}) + 1$).
-    * In this case, as $t - t^S_{act} > T_{lock}(R(t))$ will remain true for any future $t > t_1$, the transition at $t^{SD}_{act}$ must happen as soon as $t - \max \{ t^S_{act}, t^S_{react} \} > T^{Sa}_{min}$ becomes true.
-    * Since $t_1$ is strictly greater than $\max \{ t^S_{act}, t^S_{react} \}$, the latest this can happen is at $t_1 + T^{Sa}_{min} = t^S_{act} + T_{lock}(R_{max}) + T^{Sa}_{min} + 1$.
+    * Since this is the case even though $t_1 - t^S_{act} > T_{lock}(R(t_1))$, it must be because $`t_1 - \max \{ t^S_{act}, t^S_{react} \} \leq T^{Sa}_{min}`$, where $t^S_{react} < t_1$ was the last time the Deactivation sub-state was exited, or 0 if it has never been entered (note that $t_1$ must be strictly greater than $t^S_{react}$, since it would impossible to transition back to the parent state at $t^S_{act} + T_{lock}(R_{max}) + 1$).
+    * In this case, as $t - t^S_{act} > T_{lock}(R(t))$ will remain true for any future $t > t_1$, the transition at $`t^{SD}_{act}`$ must happen as soon as $t - \max \{ t^S_{act}, t^S_{react} \} > T^{Sa}_{min}$ becomes true.
+    * Since $t_1$ is strictly greater than $\max \{ t^S_{act}, t^S_{react} \}$, the latest this can happen is at $`t_1 + T^{Sa}_{min} = t^S_{act} + T_{lock}(R_{max}) + T^{Sa}_{min} + 1`$.
 
-Finally, since the Deactivation sub-state does not return to the parent state after $t^{SD}_{act}$, and no rage quit is triggered, it will transition to Veto Cooldown as soon as $t - t^{SD}_{act} > T^{SD}_{max}$. Therefore, $t^C_{act} = t^{SD}_{act} + T^{SD}_{max} + 1 \leq t^S_{act} + T_{lock}(R_{max}) + T^{Sa}_{min} + T^{SD}_{max} + 2$.
+Finally, since the Deactivation sub-state does not return to the parent state after $`t^{SD}_{act}`$, and no rage quit is triggered, it will transition to Veto Cooldown as soon as $`t - t^{SD}_{act} > T^{SD}_{max}`$. Therefore, $`t^C_{act} = t^{SD}_{act} + T^{SD}_{max} + 1 \leq t^S_{act} + T_{lock}(R_{max}) + T^{Sa}_{min} + T^{SD}_{max} + 2`$.
 
 ### Caveats
 
-* This proof assumes that the transitions at $t^{SD}_{act}$ and $t^C_{act}$ happen immediately as soon as they are enabled. Any delay $d$ in performing either of these transitions gets added to the upper bound. For instance, if the last transition to the Deactivation sub-state is only performed at $t^{SD}_{act} + d$, then the earliest that Veto Cooldown can be entered is $t^{SD}_{act} + d + T^{SD}_{max} + 1$. On the other hand, any delay in performing previous transitions between the Deactivation sub-state and the parent state (before the last one at $t^{SD}_{act}$) does not increase the upper bound, since it does not change the time $t_0 + T_{lock}(R_{max}) + 1$.
+* This proof assumes that the transitions at $`t^{SD}_{act}`$ and $t^C_{act}$ happen immediately as soon as they are enabled. Any delay $d$ in performing either of these transitions gets added to the upper bound. For instance, if the last transition to the Deactivation sub-state is only performed at $`t^{SD}_{act} + d`$, then the earliest that Veto Cooldown can be entered is $`t^{SD}_{act} + d + T^{SD}_{max} + 1`$. On the other hand, any delay in performing previous transitions between the Deactivation sub-state and the parent state (before the last one at $`t^{SD}_{act}`$) does not increase the upper bound, since it does not change the time $t_0 + T_{lock}(R_{max}) + 1$.
 
 ## Staker Reaction Time
 
