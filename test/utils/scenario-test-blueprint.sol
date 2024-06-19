@@ -21,7 +21,7 @@ import {
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
-import {DualGovernance, DualGovernanceState, DualGovernanceStateViews, State} from "contracts/DualGovernance.sol";
+import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernance.sol";
 
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 

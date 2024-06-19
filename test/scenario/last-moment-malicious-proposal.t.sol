@@ -6,7 +6,7 @@ import {
     ScenarioTestBlueprint,
     ExecutorCall,
     ExecutorCallHelpers,
-    DualGovernanceStateViews
+    DualGovernanceState
 } from "../utils/scenario-test-blueprint.sol";
 
 interface IDangerousContract {
@@ -96,7 +96,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _executeProposal(proposalId);
             _assertProposalExecuted(proposalId);
 
-            vm.expectRevert(DualGovernanceStateViews.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
             this.scheduleProposalExternal(maliciousProposalId);
 
             _assertProposalSubmitted(maliciousProposalId);
@@ -119,7 +119,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _activateNextState();
             _assertRageQuitState();
 
-            vm.expectRevert(DualGovernanceStateViews.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
             this.scheduleProposalExternal(maliciousProposalId);
         }
     }
@@ -215,7 +215,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _activateNextState();
             _assertVetoCooldownState();
 
-            vm.expectRevert(DualGovernanceStateViews.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
             this.scheduleProposalExternal(proposalId);
         }
 
@@ -269,7 +269,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _activateNextState();
             _assertVetoCooldownState();
 
-            vm.expectRevert(DualGovernanceStateViews.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
             this.scheduleProposalExternal(proposalId);
         }
 
@@ -280,7 +280,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _assertVetoSignalingState();
             _logVetoSignallingState();
 
-            vm.expectRevert(DualGovernanceStateViews.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
             this.scheduleProposalExternal(proposalId);
         }
 

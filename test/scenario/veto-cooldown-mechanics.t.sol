@@ -6,8 +6,8 @@ import {
     percents,
     ExecutorCall,
     ExecutorCallHelpers,
-    ScenarioTestBlueprint,
-    DualGovernanceStateViews
+    DualGovernanceState,
+    ScenarioTestBlueprint
 } from "../utils/scenario-test-blueprint.sol";
 
 interface IDangerousContract {
@@ -105,7 +105,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             _activateNextState();
             _assertVetoCooldownState();
 
-            vm.expectRevert(DualGovernanceStateViews.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
             this.scheduleProposalExternal(anotherProposalId);
         }
     }
