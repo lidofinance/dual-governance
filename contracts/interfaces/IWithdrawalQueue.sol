@@ -14,8 +14,6 @@ interface IWithdrawalQueue {
     function MIN_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
     function MAX_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
 
-    function requestWithdrawalsWstETH(uint256[] calldata amounts, address owner) external returns (uint256[] memory);
-
     function claimWithdrawals(uint256[] calldata requestIds, uint256[] calldata hints) external;
 
     function getLastFinalizedRequestId() external view returns (uint256);
@@ -42,6 +40,11 @@ interface IWithdrawalQueue {
     function balanceOf(address owner) external view returns (uint256);
 
     function requestWithdrawals(
+        uint256[] calldata _amounts,
+        address _owner
+    ) external returns (uint256[] memory requestIds);
+
+    function requestWithdrawalsWstETH(
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds);

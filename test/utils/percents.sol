@@ -10,6 +10,11 @@ struct Percents {
 
 uint256 constant PRECISION = 16;
 
+function percents(uint256 value) pure returns (Percents memory result) {
+    result.value = value;
+    result.precision = PRECISION;
+}
+
 function percents(string memory value) pure returns (Percents memory result) {
     result = percents(value, PRECISION);
 }

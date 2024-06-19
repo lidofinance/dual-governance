@@ -7,6 +7,8 @@ import "forge-std/Test.sol";
 
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
+import {Percents, percents} from "../utils/percents.sol";
+
 import "./mainnet-addresses.sol";
 import "./interfaces.sol";
 
@@ -87,24 +89,42 @@ library Utils {
         vm.warp(block.timestamp + 15);
     }
 
-    function setupStETHWhale(address addr) internal {
+    function setupStETHWhale(address addr) internal returns (uint256 shares, uint256 balance) {
         // 15% of total stETH supply
-        setupStETHWhale(addr, 30 * 10 ** 16);
+        return setupStETHWhale(addr, percents("30.00"));
     }
 
-    function setupStETHWhale(address addr, uint256 totalSupplyPercentage) internal {
-        uint256 ST_ETH_TRANSFERS_SHARE_LOST_COMPENSATION = 8; // TODO: evaluate min enough value
+    function setupStETHWhale(
+        address addr,
+        Percents memory totalSupplyPercentage
+    ) internal returns (uint256 shares, uint256 balance) {
+        uint256 ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
         // bal / (totalSupply + bal) = percentage => bal = totalSupply * percentage / (1 - percentage)
-        uint256 shares = IStEth(ST_ETH).getTotalShares() * totalSupplyPercentage / (10 ** 18 - totalSupplyPercentage);
+        shares = ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION
+            + IStEth(ST_ETH).getTotalShares() * totalSupplyPercentage.value
+                / (100 * 10 ** totalSupplyPercentage.precision - totalSupplyPercentage.value);
         // to compensate StETH wei lost on submit/transfers, generate slightly larger eth amount
-        uint256 ethBalance = IStEth(ST_ETH).getPooledEthByShares(shares + ST_ETH_TRANSFERS_SHARE_LOST_COMPENSATION);
+        return depositStETH(addr, IStEth(ST_ETH).getPooledEthByShares(shares));
+    }
+
+    function depositStETH(
+        address addr,
+        uint256 amountToMint
+    ) internal returns (uint256 sharesMinted, uint256 amountMinted) {
+        uint256 sharesBalanceBefore = IStEth(ST_ETH).sharesOf(addr);
+        uint256 amountBalanceBefore = IStEth(ST_ETH).balanceOf(addr);
+
         // solhint-disable-next-line
-        console.log("setting ETH balance of address %x to %d ETH", addr, ethBalance / 10 ** 18);
-        vm.deal(addr, ethBalance);
+        console.log("setting ETH balance of address %x to %d ETH", addr, amountToMint / 10 ** 18);
+        vm.deal(addr, amountToMint);
         vm.prank(addr);
-        IStEth(ST_ETH).submit{value: ethBalance}(address(0));
+        IStEth(ST_ETH).submit{value: amountToMint}(address(0));
+
+        sharesMinted = IStEth(ST_ETH).sharesOf(addr) - sharesBalanceBefore;
+        amountMinted = IStEth(ST_ETH).balanceOf(addr) - amountBalanceBefore;
+
         // solhint-disable-next-line
-        console.log("stETH balance of address %x: %d stETH", addr, IERC20(ST_ETH).balanceOf(addr) / 10 ** 18);
+        console.log("stETH balance of address %x: %d stETH", addr, (amountMinted) / 10 ** 18);
     }
 
     function removeLidoStakingLimit() external {

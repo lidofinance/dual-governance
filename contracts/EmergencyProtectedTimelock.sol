@@ -33,9 +33,9 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         emit ProposalLaunched(msg.sender, executor, newProposalId);
     }
 
-    function schedule(uint256 proposalId) external {
+    function schedule(uint256 proposalId) external returns (uint256 submittedAt) {
         _checkGovernance(msg.sender);
-        _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
+        submittedAt = _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
     }
 
     function execute(uint256 proposalId) external {
@@ -43,7 +43,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         _proposals.execute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
     }
 
-    function cancelAll() external {
+    function cancelAllNonExecutedProposals() external {
         _checkGovernance(msg.sender);
         _proposals.cancelAll();
     }
@@ -62,7 +62,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     // Emergency Protection Functionality
     // ---
 
-    function emergencyActivate() external {
+    function activateEmergencyMode() external {
         _emergencyProtection.checkActivationCommittee(msg.sender);
         _emergencyProtection.checkEmergencyModeActive(false);
         _emergencyProtection.activate();
@@ -74,7 +74,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         _proposals.execute(proposalId, /* afterScheduleDelay */ 0);
     }
 
-    function emergencyDeactivate() external {
+    function deactivateEmergencyMode() external {
         _emergencyProtection.checkEmergencyModeActive(true);
         if (!_emergencyProtection.isEmergencyModePassed()) {
             _checkAdminExecutor(msg.sender);
