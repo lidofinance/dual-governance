@@ -82,10 +82,18 @@ library Proposals {
         emit ProposalSubmitted(newProposalId, executor, calls);
     }
 
-    function schedule(State storage self, uint256 proposalId, uint256 afterSubmitDelay) internal {
+    function schedule(
+        State storage self,
+        uint256 proposalId,
+        uint256 afterSubmitDelay
+    ) internal returns (uint256 submittedAt) {
         _checkProposalSubmitted(self, proposalId);
         _checkAfterSubmitDelayPassed(self, proposalId, afterSubmitDelay);
-        _packed(self, proposalId).scheduledAt = TimeUtils.timestamp();
+        ProposalPacked storage proposal = _packed(self, proposalId);
+
+        submittedAt = proposal.submittedAt;
+        proposal.scheduledAt = TimeUtils.timestamp();
+
         emit ProposalScheduled(proposalId);
     }
 

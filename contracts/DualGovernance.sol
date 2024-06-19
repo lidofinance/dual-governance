@@ -7,17 +7,11 @@ import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
-import {
-    State,
-    DualGovernanceState,
-    DualGovernanceStateTransitions,
-    DualGovernanceStateViews
-} from "./libraries/DualGovernanceState.sol";
+import {State, DualGovernanceState} from "./libraries/DualGovernanceState.sol";
 
 contract DualGovernance is IGovernance, ConfigurationProvider {
     using Proposers for Proposers.State;
-    using DualGovernanceStateViews for DualGovernanceState;
-    using DualGovernanceStateTransitions for DualGovernanceState;
+    using DualGovernanceState for DualGovernanceState.Store;
 
     event TiebreakerSet(address tiebreakCommittee);
     event ProposalScheduled(uint256 proposalId);
@@ -30,7 +24,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     address internal _tiebreaker;
 
     Proposers.State internal _proposers;
-    DualGovernanceState internal _dgState;
+    DualGovernanceState.Store internal _dgState;
     EmergencyProtection.State internal _emergencyProtection;
     mapping(uint256 proposalId => uint256 executableAfter) internal _scheduledProposals;
 
@@ -50,15 +44,14 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _proposers.checkProposer(msg.sender);
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
         _dgState.checkProposalsCreationAllowed();
-        _dgState.setLastProposalCreationTimestamp();
         Proposer memory proposer = _proposers.get(msg.sender);
         proposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
     function scheduleProposal(uint256 proposalId) external {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
-        _dgState.checkProposalsAdoptionAllowed();
-        TIMELOCK.schedule(proposalId);
+        uint256 proposalSubmissionTime = TIMELOCK.schedule(proposalId);
+        _dgState.checkCanScheduleProposal(proposalSubmissionTime);
         emit ProposalScheduled(proposalId);
     }
 
@@ -69,6 +62,10 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function vetoSignallingEscrow() external view returns (address) {
         return address(_dgState.signallingEscrow);
+    }
+
+    function rageQuitEscrow() external view returns (address) {
+        return address(_dgState.rageQuitEscrow);
     }
 
     function isScheduled(uint256 proposalId) external view returns (bool) {

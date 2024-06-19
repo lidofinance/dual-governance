@@ -94,6 +94,11 @@ contract ScenarioTestBlueprint is Test {
         return Escrow(payable(_dualGovernance.vetoSignallingEscrow()));
     }
 
+    function _getRageQuitEscrow() internal view returns (Escrow) {
+        address rageQuitEscrow = _dualGovernance.rageQuitEscrow();
+        return Escrow(payable(rageQuitEscrow));
+    }
+
     function _getTargetRegularStaffCalls() internal view returns (ExecutorCall[] memory) {
         return ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
     }
@@ -151,8 +156,8 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Escrow Manipulation
     // ---
-    function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal {
-        (, uint256 amount) = _setupStETHWhale(vetoer, vetoPowerInPercents);
+    function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal returns (uint256 amount) {
+        (, amount) = _setupStETHWhale(vetoer, vetoPowerInPercents);
         _lockStETH(vetoer, amount);
     }
 
@@ -410,7 +415,7 @@ contract ScenarioTestBlueprint is Test {
             _dualGovernance.getVetoSignallingState();
 
         if (!isActive) {
-            console.log("VetoSignalling state is not active");
+            console.log("VetoSignalling state is not active\n");
             return;
         }
 
@@ -418,12 +423,12 @@ contract ScenarioTestBlueprint is Test {
         console.log("Veto signalling entered at %d (activated at %d)", enteredAt, activatedAt);
         if (block.timestamp > activatedAt + duration) {
             console.log(
-                "Veto signalling has ended %s ago",
+                "Veto signalling has ended %s ago\n",
                 _formatDuration(_toDuration(block.timestamp - activatedAt - duration))
             );
         } else {
             console.log(
-                "Veto signalling will end after %s",
+                "Veto signalling will end after %s\n",
                 _formatDuration(_toDuration(activatedAt + duration - block.timestamp))
             );
         }
@@ -435,7 +440,7 @@ contract ScenarioTestBlueprint is Test {
         (bool isActive, uint256 duration, uint256 enteredAt) = _dualGovernance.getVetoSignallingDeactivationState();
 
         if (!isActive) {
-            console.log("VetoSignallingDeactivation state is not active");
+            console.log("VetoSignallingDeactivation state is not active\n");
             return;
         }
 
@@ -445,12 +450,12 @@ contract ScenarioTestBlueprint is Test {
         console.log("VetoSignallingDeactivation entered at %d", enteredAt);
         if (block.timestamp > enteredAt + duration) {
             console.log(
-                "VetoSignallingDeactivation has ended %s ago",
+                "VetoSignallingDeactivation has ended %s ago\n",
                 _formatDuration(_toDuration(block.timestamp - enteredAt - duration))
             );
         } else {
             console.log(
-                "VetoSignallingDeactivation will end after %s",
+                "VetoSignallingDeactivation will end after %s\n",
                 _formatDuration(_toDuration(enteredAt + duration - block.timestamp))
             );
         }
@@ -547,6 +552,11 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Utils Methods
     // ---
+
+    function _step(string memory text) internal {
+        // solhint-disable-next-line
+        console.log(string.concat(">>> ", text, " <<<"));
+    }
 
     function _wait(uint256 duration) internal {
         vm.warp(block.timestamp + duration);

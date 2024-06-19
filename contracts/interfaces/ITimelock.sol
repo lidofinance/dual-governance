@@ -13,7 +13,7 @@ interface IGovernance {
 
 interface ITimelock {
     function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId);
-    function schedule(uint256 proposalId) external;
+    function schedule(uint256 proposalId) external returns (uint256 submittedAt);
     function execute(uint256 proposalId) external;
     function cancelAllNonExecutedProposals() external;
 

@@ -33,9 +33,9 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         emit ProposalLaunched(msg.sender, executor, newProposalId);
     }
 
-    function schedule(uint256 proposalId) external {
+    function schedule(uint256 proposalId) external returns (uint256 submittedAt) {
         _checkGovernance(msg.sender);
-        _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
+        submittedAt = _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
     }
 
     function execute(uint256 proposalId) external {
