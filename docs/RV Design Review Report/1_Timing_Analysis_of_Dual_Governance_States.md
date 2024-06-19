@@ -27,33 +27,33 @@ Once the Veto Signalling state is entered, it can be exited in two ways: either 
 
 While in the Veto Signalling state, the protocol can enter and exit the Deactivation sub-state depending on the current value of the dynamic timelock duration $T_{lock}(R)$, a monotonic function on the current rage quit support $R$.
 
-When first entering the Veto Signalling state, and again whenever the Deactivation sub-state is exited, there is a waiting period of `VetoSignallingMinActiveDuration` ($T^{Sa}_{min}$) when the Deactivation sub-state cannot be entered. Outside of this window (as long as a rage quit is not triggered), the protocol will be in the Deactivation sub-state if the time $\Delta t$ since entering the Veto Signalling state is greater than the current value of $T_{lock}(R)$, and will be in the Veto Signalling parent state otherwise. If the Deactivation sub-state is not exited within `VetoSignallingDeactivationMaxDuration` ($T^{SD}_{max}$) of being entered, it transitions to the Veto Cooldown state.
+When first entering the Veto Signalling state, and again whenever the Deactivation sub-state is exited, there is a waiting period of `VetoSignallingMinActiveDuration` ($`T^{Sa}_{min}`$) when the Deactivation sub-state cannot be entered. Outside of this window (as long as a rage quit is not triggered), the protocol will be in the Deactivation sub-state if the time $\Delta t$ since entering the Veto Signalling state is greater than the current value of $T_{lock}(R)$, and will be in the Veto Signalling parent state otherwise. If the Deactivation sub-state is not exited within `VetoSignallingDeactivationMaxDuration` ($T^{SD}_{max}$) of being entered, it transitions to the Veto Cooldown state.
 
 With this, we can calculate bounds on the time spent in the Veto Signalling state (including the Deactivation sub-state) before transitioning into Veto Cooldown:
 
-* For the lower bound, the earliest we can transition to the Deactivation sub-state is $T^{Sa}_{min} + 1$ after Veto Signalling is entered, and then the transition to Veto Cooldown happens $T^{SD}_{max} + 1$ after that, giving us $T^{Sa}_{min} + T^{SD}_{max} + 2$.
+* For the lower bound, the earliest we can transition to the Deactivation sub-state is $`T^{Sa}_{min} + 1`$ after Veto Signalling is entered, and then the transition to Veto Cooldown happens $T^{SD}_{max} + 1$ after that, giving us $`T^{Sa}_{min} + T^{SD}_{max} + 2`$.
 * For the upper bound, we can use the insight that, if $R_{max}$ is the highest rage quit support during the time we are in the Veto Signalling state, then it's impossible to exit the Deactivation sub-state (without triggering a rage quit) after $T_{lock}(R_{max})$ has passed since entering Veto Signalling (see "Veto Signalling Maximum Timelock" in the "Proofs" section for details). Therefore, for a given $R_{max}$, the longest delay happens in the following scenario:
     1. $R_{max}$ is locked in escrow, making the dynamic timelock duration $T_{lock}(R_{max})$.
     2. Shortly before $\Delta t = T_{lock}(R_{max})$ has passed, the rage quit support decreases, and the Deactivation sub-state is entered.
     3. At exactly $\Delta t = T_{lock}(R_{max})$, the rage quit support returns to $R_{max}$, and the Deactivation sub-state is exited.
     4. At $\Delta t = T_{lock}(R_{max}) + T^{Sa}_{min} + 1$, the waiting period ends and the Deactivation sub-state is entered again.
-    5. At $\Delta t = T_{lock}(R_{max}) + T^{Sa}_{min} + 1 + T^{SD}_{max} + 1$, the state transitions to Veto Cooldown.
+    5. At $`\Delta t = T_{lock}(R_{max}) + T^{Sa}_{min} + 1 + T^{SD}_{max} + 1`$, the state transitions to Veto Cooldown.
 
 In summary, the above analysis gives us the following bounds:
 
-$$
+```math
 T^{Sa}_{min} + T^{SD}_{max} + 2 \leq t_{exit} - t_{enter} \leq T_{lock}(R_{max}) + T^{Sa}_{min} + T^{SD}_{max} + 2
-$$
+```
 
-Note that the maximum value of $T_{lock}(R)$ is `DynamicTimelockMaxDuration` ($L_{max}$), so the upper bound can be at most $L_{max} + T^{Sa}_{min} + T^{SD}_{max} + 2$. However, writing it in terms of $R_{max}$ highlights an important security property: the delay in deactivating the Veto Signalling state depends only on the *highest* value of the rage quit support, and cannot be increased further by locking and unlocking funds in the signalling escrow at different times. In other words, the amount of delay an attacker is able to achieve is limited by the amount of stETH they control.
+Note that the maximum value of $T_{lock}(R)$ is `DynamicTimelockMaxDuration` ($L_{max}$), so the upper bound can be at most $`L_{max} + T^{Sa}_{min} + T^{SD}_{max} + 2`$. However, writing it in terms of $R_{max}$ highlights an important security property: the delay in deactivating the Veto Signalling state depends only on the *highest* value of the rage quit support, and cannot be increased further by locking and unlocking funds in the signalling escrow at different times. In other words, the amount of delay an attacker is able to achieve is limited by the amount of stETH they control.
 
 ### To Rage Quit
 
-The Veto Signalling state can transition to the Rage Quit state at any point after $L_{max}$ has passed, as long as the rage quit support surpasses `SecondSealRageQuitSupport` ($R_2$). This gives us a lower bound of $L_{max}$. For the upper bound, we can adapt the analysis of the Veto Cooldown transition above. Note that if $R_{max} = R_2$, it's possible to delay the transition to the Veto Cooldown state for the maximum time of $L_{max} + T^{Sa}_{min} + T^{SD}_{max} + 2$ before triggering a rage quit at the last possible moment by increasing the rage quit support above $R_2$. Therefore,
+The Veto Signalling state can transition to the Rage Quit state at any point after $L_{max}$ has passed, as long as the rage quit support surpasses `SecondSealRageQuitSupport` ($R_2$). This gives us a lower bound of $L_{max}$. For the upper bound, we can adapt the analysis of the Veto Cooldown transition above. Note that if $R_{max} = R_2$, it's possible to delay the transition to the Veto Cooldown state for the maximum time of $`L_{max} + T^{Sa}_{min} + T^{SD}_{max} + 2`$ before triggering a rage quit at the last possible moment by increasing the rage quit support above $R_2$. Therefore,
 
-$$
+```math
 L_{max} < t_{exit} - t_{enter} \leq L_{max} + T^{Sa}_{min} + T^{SD}_{max} + 2
-$$
+```
 
 ## Veto Cooldown
 
