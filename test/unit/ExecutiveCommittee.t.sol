@@ -3,6 +3,8 @@ pragma solidity 0.8.23;
 
 import {UnitTest} from "test/utils/unit-test.sol";
 
+import {Vm} from "forge-std/Test.sol";
+
 import {ExecutiveCommittee} from "../../contracts/ExecutiveCommittee.sol";
 
 abstract contract ExecutiveCommitteeUnitTest is UnitTest {
@@ -156,5 +158,270 @@ abstract contract ExecutiveCommitteeUnitTest is UnitTest {
         for (uint256 i = 0; i < committeeMembers.length; ++i) {
             assertNotEq(committeeMembers[i], memberToRemove);
         }
+    }
+}
+
+contract ExecutiveCommitteeWrapper is ExecutiveCommittee {
+    constructor(
+        address owner,
+        address[] memory newMembers,
+        uint256 executionQuorum
+    ) ExecutiveCommittee(owner, newMembers, executionQuorum) {}
+
+    function vote(Action memory action, bool support) public {
+        _vote(action, support);
+    }
+
+    function execute(Action memory action) public {
+        _execute(action);
+    }
+
+    function getActionState(Action memory action)
+        public
+        view
+        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+    {
+        return _getActionState(action);
+    }
+
+    function getSupport(bytes32 actionHash) public view returns (uint256 support) {
+        return _getSupport(actionHash);
+    }
+
+    function getAndCheckStoredActionState(Action memory action)
+        public
+        view
+        returns (ActionState memory storedActionState, bytes32 actionHash)
+    {
+        return _getAndCheckStoredActionState(action);
+    }
+
+    function hashAction(Action memory action) public pure returns (bytes32) {
+        return _hashAction(action);
+    }
+}
+
+contract Target {
+    event Executed();
+
+    function trigger() public {
+        emit Executed();
+    }
+}
+
+contract ExecutiveCommitteeInternalUnitTest is ExecutiveCommitteeUnitTest {
+    ExecutiveCommitteeWrapper internal _executiveCommitteeWrapper;
+    Target internal _target;
+
+    function setUp() public {
+        _target = new Target();
+        _executiveCommitteeWrapper = new ExecutiveCommitteeWrapper(_owner, _committeeMembers, _quorum);
+        _executiveCommittee = ExecutiveCommittee(_executiveCommitteeWrapper);
+    }
+
+    function test_hashAction() public {
+        ExecutiveCommittee.Action memory action = ExecutiveCommittee.Action(address(1), new bytes(10), new bytes(100));
+
+        bytes32 actionHash = keccak256(abi.encode(action.to, action.data, action.salt));
+
+        assertEq(_executiveCommitteeWrapper.hashAction(action), actionHash);
+    }
+
+    function test_getSupport() public {
+        ExecutiveCommittee.Action memory action = ExecutiveCommittee.Action(address(1), new bytes(10), new bytes(100));
+        bytes32 actionHash = keccak256(abi.encode(action.to, action.data, action.salt));
+
+        assertEq(_executiveCommitteeWrapper.getSupport(actionHash), 0);
+
+        for (uint256 i = 0; i < _membersCount; ++i) {
+            assertEq(_executiveCommitteeWrapper.getSupport(actionHash), i);
+            vm.prank(_committeeMembers[i]);
+            _executiveCommitteeWrapper.vote(action, true);
+            assertEq(_executiveCommitteeWrapper.getSupport(actionHash), i + 1);
+        }
+
+        assertEq(_executiveCommitteeWrapper.getSupport(actionHash), _membersCount);
+
+        for (uint256 i = 0; i < _membersCount; ++i) {
+            assertEq(_executiveCommitteeWrapper.getSupport(actionHash), _membersCount - i);
+            vm.prank(_committeeMembers[i]);
+            _executiveCommitteeWrapper.vote(action, false);
+            assertEq(_executiveCommitteeWrapper.getSupport(actionHash), _membersCount - i - 1);
+        }
+
+        assertEq(_executiveCommitteeWrapper.getSupport(actionHash), 0);
+    }
+
+    function test_getAndCheckActionState() public {
+        address to = address(_target);
+        bytes memory data = abi.encodeWithSelector(Target.trigger.selector);
+        bytes memory salt = abi.encodePacked(hex"beaf");
+
+        ExecutiveCommittee.Action memory action = ExecutiveCommittee.Action(to, data, salt);
+        bytes32 actionHash = keccak256(abi.encode(action.to, action.data, action.salt));
+
+        ExecutiveCommittee.ActionState memory storedActionStateFromContract;
+        bytes32 actionHashFromContract;
+
+        vm.expectRevert(abi.encodeWithSignature("ActionMismatch()"));
+        _executiveCommitteeWrapper.getAndCheckStoredActionState(action);
+
+        vm.prank(_committeeMembers[0]);
+        _executiveCommitteeWrapper.vote(action, false);
+
+        (storedActionStateFromContract, actionHashFromContract) =
+            _executiveCommitteeWrapper.getAndCheckStoredActionState(action);
+        assertEq(storedActionStateFromContract.isExecuted, false);
+        assertEq(storedActionStateFromContract.action.to, to);
+        assertEq(storedActionStateFromContract.action.data, data);
+        assertEq(storedActionStateFromContract.action.salt, salt);
+        assertEq(actionHashFromContract, actionHash);
+
+        for (uint256 i = 0; i < _membersCount; ++i) {
+            vm.prank(_committeeMembers[i]);
+            _executiveCommitteeWrapper.vote(action, true);
+        }
+
+        _executiveCommitteeWrapper.execute(action);
+
+        vm.expectRevert(abi.encodeWithSignature("ActionAlreadyExecuted()"));
+        _executiveCommitteeWrapper.getAndCheckStoredActionState(action);
+    }
+
+    function test_getActionState() public {
+        address to = address(_target);
+        bytes memory data = abi.encodeWithSelector(Target.trigger.selector);
+        bytes memory salt = abi.encodePacked(hex"beaf");
+
+        ExecutiveCommittee.Action memory action = ExecutiveCommittee.Action(to, data, salt);
+
+        vm.prank(_committeeMembers[0]);
+        _executiveCommitteeWrapper.vote(action, false);
+
+        uint256 support;
+        uint256 execuitionQuorum;
+        bool isExecuted;
+
+        (support, execuitionQuorum, isExecuted) = _executiveCommitteeWrapper.getActionState(action);
+        assertEq(support, 0);
+        assertEq(execuitionQuorum, _quorum);
+        assertEq(isExecuted, false);
+
+        for (uint256 i = 0; i < _membersCount; ++i) {
+            (support, execuitionQuorum, isExecuted) = _executiveCommitteeWrapper.getActionState(action);
+            assertEq(support, i);
+            assertEq(execuitionQuorum, _quorum);
+            assertEq(isExecuted, false);
+
+            vm.prank(_committeeMembers[i]);
+            _executiveCommitteeWrapper.vote(action, true);
+
+            (support, execuitionQuorum, isExecuted) = _executiveCommitteeWrapper.getActionState(action);
+            assertEq(support, i + 1);
+            assertEq(execuitionQuorum, _quorum);
+            assertEq(isExecuted, false);
+        }
+
+        (support, execuitionQuorum, isExecuted) = _executiveCommitteeWrapper.getActionState(action);
+        assertEq(support, _membersCount);
+        assertEq(execuitionQuorum, _quorum);
+        assertEq(isExecuted, false);
+
+        _executiveCommitteeWrapper.execute(action);
+
+        vm.expectRevert(abi.encodeWithSignature("ActionAlreadyExecuted()"));
+        _executiveCommitteeWrapper.getActionState(action);
+    }
+
+    function test_vote() public {
+        address to = address(_target);
+        bytes memory data = abi.encodeWithSelector(Target.trigger.selector);
+        bytes memory salt = abi.encodePacked(hex"beaf");
+
+        ExecutiveCommittee.Action memory action = ExecutiveCommittee.Action(to, data, salt);
+        bytes32 actionHash = keccak256(abi.encode(action.to, action.data, action.salt));
+
+        assertEq(_executiveCommitteeWrapper.approves(_committeeMembers[0], actionHash), false);
+
+        vm.prank(_committeeMembers[0]);
+        vm.expectEmit(address(_executiveCommitteeWrapper));
+        emit ExecutiveCommittee.ActionVoted(_committeeMembers[0], true, to, data);
+        _executiveCommitteeWrapper.vote(action, true);
+        assertEq(_executiveCommitteeWrapper.approves(_committeeMembers[0], actionHash), true);
+
+        vm.prank(_committeeMembers[0]);
+        vm.recordLogs();
+        _executiveCommitteeWrapper.vote(action, true);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 0);
+        assertEq(_executiveCommitteeWrapper.approves(_committeeMembers[0], actionHash), true);
+
+        vm.prank(_committeeMembers[0]);
+        vm.expectEmit(address(_executiveCommitteeWrapper));
+        emit ExecutiveCommittee.ActionVoted(_committeeMembers[0], false, to, data);
+        _executiveCommitteeWrapper.vote(action, false);
+        assertEq(_executiveCommitteeWrapper.approves(_committeeMembers[0], actionHash), false);
+
+        vm.prank(_committeeMembers[0]);
+        vm.recordLogs();
+        _executiveCommitteeWrapper.vote(action, false);
+        logs = vm.getRecordedLogs();
+        assertEq(logs.length, 0);
+        assertEq(_executiveCommitteeWrapper.approves(_committeeMembers[0], actionHash), false);
+    }
+
+    function test_vote_reverts_on_executed() public {
+        address to = address(_target);
+        bytes memory data = abi.encodeWithSelector(Target.trigger.selector);
+        bytes memory salt = abi.encodePacked(hex"beaf");
+
+        ExecutiveCommittee.Action memory action = ExecutiveCommittee.Action(to, data, salt);
+
+        for (uint256 i = 0; i < _quorum; ++i) {
+            vm.prank(_committeeMembers[i]);
+            _executiveCommitteeWrapper.vote(action, true);
+        }
+
+        _executiveCommitteeWrapper.execute(action);
+
+        vm.prank(_committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSignature("ActionAlreadyExecuted()"));
+        _executiveCommitteeWrapper.vote(action, true);
+    }
+
+    function test_execute_events() public {
+        address to = address(_target);
+        bytes memory data = abi.encodeWithSelector(Target.trigger.selector);
+        bytes memory salt = abi.encodePacked(hex"beaf");
+
+        ExecutiveCommittee.Action memory action = ExecutiveCommittee.Action(to, data, salt);
+
+        vm.prank(_stranger);
+        vm.expectRevert(abi.encodeWithSignature("ActionMismatch()"));
+        _executiveCommitteeWrapper.execute(action);
+
+        vm.prank(_committeeMembers[0]);
+        _executiveCommitteeWrapper.vote(action, true);
+
+        vm.prank(_stranger);
+        vm.expectRevert(abi.encodeWithSignature("QuorumIsNotReached()"));
+        _executiveCommitteeWrapper.execute(action);
+
+        for (uint256 i = 0; i < _quorum; ++i) {
+            vm.prank(_committeeMembers[i]);
+            _executiveCommitteeWrapper.vote(action, true);
+        }
+
+        vm.prank(_stranger);
+        vm.expectEmit(address(_target));
+        emit Target.Executed();
+        vm.expectEmit(address(_executiveCommitteeWrapper));
+        emit ExecutiveCommittee.ActionExecuted(to, data);
+
+        _executiveCommitteeWrapper.execute(action);
+
+        vm.prank(_stranger);
+        vm.expectRevert(abi.encodeWithSignature("ActionAlreadyExecuted()"));
+        _executiveCommitteeWrapper.execute(action);
     }
 }
