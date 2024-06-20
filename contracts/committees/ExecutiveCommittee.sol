@@ -77,7 +77,7 @@ abstract contract ExecutiveCommittee {
         emit ActionVoted(msg.sender, support, action.to, action.data);
     }
 
-    function _execute(Action memory action) internal {
+    function _markExecuted(Action memory action) internal {
         (ActionState memory actionState, bytes32 actionHash) = _getAndCheckStoredActionState(action);
 
         if (actionState.isExecuted == true) {
@@ -88,8 +88,6 @@ abstract contract ExecutiveCommittee {
         }
 
         actionsStates[actionHash].isExecuted = true;
-
-        Address.functionCall(actionState.action.to, actionState.action.data);
 
         emit ActionExecuted(action.to, action.data);
     }
@@ -162,9 +160,7 @@ abstract contract ExecutiveCommittee {
         actionHash = _hashAction(action);
 
         storedActionState = actionsStates[actionHash];
-        if (storedActionState.action.to != action.to || storedActionState.action.data.length != action.data.length) {
-            revert ActionMismatch();
-        }
+
         if (storedActionState.isExecuted == true) {
             revert ActionAlreadyExecuted();
         }

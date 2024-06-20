@@ -1,24 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {OwnableExecutor, Address} from "./OwnableExecutor.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ISealable} from "./interfaces/ISealable.sol";
 
-interface IDualGovernanace {
-    enum GovernanceState {
-        Normal,
-        VetoSignalling,
-        VetoSignallingDeactivation,
-        VetoCooldown,
-        RageQuit
-    }
-
-    function currentState() external view returns (GovernanceState);
-}
-
-contract ResealExecutor is OwnableExecutor {
-    event ResealCommitteeSet(address indexed newResealCommittee);
-
+contract ResealExecutor is Ownable {
     error SenderIsNotCommittee();
     error DualGovernanceInNormalState();
     error SealableWrongPauseState();
@@ -28,15 +14,12 @@ contract ResealExecutor is OwnableExecutor {
 
     address public resealCommittee;
 
-    constructor(address owner, address dualGovernance, address resealCommitteeAddress) OwnableExecutor(owner) {
+    constructor(address owner, address dualGovernance) OwnableExecutor(owner) {
         DUAL_GOVERNANCE = dualGovernance;
         resealCommittee = resealCommitteeAddress;
     }
 
     function reseal(address[] memory sealables) public onlyCommittee {
-        if (IDualGovernanace(DUAL_GOVERNANCE).currentState() == IDualGovernanace.GovernanceState.Normal) {
-            revert DualGovernanceInNormalState();
-        }
         for (uint256 i = 0; i < sealables.length; ++i) {
             uint256 sealableResumeSinceTimestamp = ISealable(sealables[i]).getResumeSinceTimestamp();
             if (sealableResumeSinceTimestamp < block.timestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {
@@ -45,17 +28,5 @@ contract ResealExecutor is OwnableExecutor {
             Address.functionCall(sealables[i], abi.encodeWithSelector(ISealable.resume.selector));
             Address.functionCall(sealables[i], abi.encodeWithSelector(ISealable.pauseFor.selector, PAUSE_INFINITELY));
         }
-    }
-
-    function setResealCommittee(address newResealCommittee) public onlyOwner {
-        resealCommittee = newResealCommittee;
-        emit ResealCommitteeSet(newResealCommittee);
-    }
-
-    modifier onlyCommittee() {
-        if (msg.sender != resealCommittee) {
-            revert SenderIsNotCommittee();
-        }
-        _;
     }
 }
