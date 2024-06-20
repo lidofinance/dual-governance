@@ -5,7 +5,7 @@ import {ExecutorCall} from "contracts/libraries/Proposals.sol";
 
 contract TimelockMock {
     uint8 public constant OFFSET = 1;
-    
+
     mapping(uint256 => bool) public canScheduleProposal;
 
     uint256[] public submittedProposals;
@@ -20,22 +20,28 @@ contract TimelockMock {
         canScheduleProposal[newProposalId] = false;
         return newProposalId;
     }
-    function schedule(uint256 proposalId) external {
+
+    function schedule(uint256 proposalId) external returns (uint256 submittedAt) {
         if (canScheduleProposal[proposalId] == false) {
             revert();
         }
 
         scheduledProposals.push(proposalId);
+        return 0;
     }
+
     function execute(uint256 proposalId) external {
         executedProposals.push(proposalId);
     }
-    function canSchedule(uint256 proposalId) external view returns (bool) { 
+
+    function canSchedule(uint256 proposalId) external view returns (bool) {
         return canScheduleProposal[proposalId];
-     }
+    }
+
     function cancelAllNonExecutedProposals() external {
         lastCancelledProposalId = submittedProposals[submittedProposals.length - 1];
     }
+
     function setSchedule(uint256 proposalId) external {
         canScheduleProposal[proposalId] = true;
     }
@@ -43,12 +49,15 @@ contract TimelockMock {
     function getSubmittedProposals() external view returns (uint256[] memory) {
         return submittedProposals;
     }
+
     function getScheduledProposals() external view returns (uint256[] memory) {
         return scheduledProposals;
     }
+
     function getExecutedProposals() external view returns (uint256[] memory) {
         return executedProposals;
     }
+
     function getLastCancelledProposalId() external view returns (uint256) {
         return lastCancelledProposalId;
     }
