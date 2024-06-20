@@ -26,7 +26,6 @@ struct WithdrawalRequest {
 
 struct LockedAssetsStats {
     uint128 stETHShares;
-    uint128 wstETHShares;
     uint128 unstETHShares;
     uint128 sharesFinalized;
     uint128 amountFinalized;
@@ -46,10 +45,6 @@ library AssetsAccounting {
     event StETHLocked(address indexed vetoer, uint256 shares);
     event StETHUnlocked(address indexed vetoer, uint256 shares);
     event StETHWithdrawn(address indexed vetoer, uint256 stETHShares, uint256 ethAmount);
-
-    event WstETHLocked(address indexed vetoer, uint256 shares);
-    event WstETHUnlocked(address indexed vetoer, uint256 shares);
-    event WstETHWithdrawn(address indexed vetoer, uint256 wstETHShares, uint256 ethAmount);
 
     event UnstETHLocked(address indexed vetoer, uint256[] ids, uint256 shares);
     event UnstETHUnlocked(
@@ -99,7 +94,7 @@ library AssetsAccounting {
     // stETH Operations Accounting
     // ---
 
-    function accountStETHLock(State storage self, address vetoer, uint256 shares) internal {
+    function accountStETHSharesLock(State storage self, address vetoer, uint256 shares) internal {
         _checkNonZeroSharesLock(vetoer, shares);
         uint128 sharesUint128 = shares.toUint128();
         self.assets[vetoer].stETHShares += sharesUint128;
@@ -108,11 +103,11 @@ library AssetsAccounting {
         emit StETHLocked(vetoer, shares);
     }
 
-    function accountStETHUnlock(State storage self, address vetoer) internal returns (uint128 sharesUnlocked) {
-        sharesUnlocked = accountStETHUnlock(self, vetoer, self.assets[vetoer].stETHShares);
+    function accountStETHSharesUnlock(State storage self, address vetoer) internal returns (uint128 sharesUnlocked) {
+        sharesUnlocked = accountStETHSharesUnlock(self, vetoer, self.assets[vetoer].stETHShares);
     }
 
-    function accountStETHUnlock(
+    function accountStETHSharesUnlock(
         State storage self,
         address vetoer,
         uint256 shares
@@ -124,7 +119,7 @@ library AssetsAccounting {
         emit StETHUnlocked(vetoer, sharesUnlocked);
     }
 
-    function accountStETHWithdraw(State storage self, address vetoer) internal returns (uint256 ethAmount) {
+    function accountStETHSharesWithdraw(State storage self, address vetoer) internal returns (uint256 ethAmount) {
         uint256 stETHShares = self.assets[vetoer].stETHShares;
         _checkNonZeroSharesWithdraw(vetoer, stETHShares);
         self.assets[vetoer].stETHShares = 0;
@@ -138,39 +133,6 @@ library AssetsAccounting {
 
     function checkAssetsUnlockDelayPassed(State storage self, address vetoer, uint256 delay) internal view {
         _checkAssetsUnlockDelayPassed(self, delay, vetoer);
-    }
-
-    function accountWstETHLock(State storage self, address vetoer, uint256 shares) internal {
-        _checkNonZeroSharesLock(vetoer, shares);
-        uint128 sharesUint128 = shares.toUint128();
-        self.assets[vetoer].wstETHShares += sharesUint128;
-        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
-        self.totals.shares += sharesUint128;
-        emit WstETHLocked(vetoer, shares);
-    }
-
-    function accountWstETHUnlock(State storage self, address vetoer) internal returns (uint128 sharesUnlocked) {
-        sharesUnlocked = accountWstETHUnlock(self, vetoer, self.assets[vetoer].wstETHShares);
-    }
-
-    function accountWstETHUnlock(
-        State storage self,
-        address vetoer,
-        uint256 shares
-    ) internal returns (uint128 sharesUnlocked) {
-        _checkNonZeroSharesUnlock(vetoer, shares);
-        sharesUnlocked = shares.toUint128();
-        self.totals.shares -= sharesUnlocked;
-        self.assets[vetoer].wstETHShares -= sharesUnlocked;
-        emit WstETHUnlocked(vetoer, sharesUnlocked);
-    }
-
-    function accountWstETHWithdraw(State storage self, address vetoer) internal returns (uint256 ethAmount) {
-        uint256 wstETHShares = self.assets[vetoer].wstETHShares;
-        _checkNonZeroSharesWithdraw(vetoer, wstETHShares);
-        self.assets[vetoer].wstETHShares = 0;
-        ethAmount = self.totals.amountClaimed * wstETHShares / self.totals.shares;
-        emit WstETHWithdrawn(vetoer, wstETHShares, ethAmount);
     }
 
     // ---

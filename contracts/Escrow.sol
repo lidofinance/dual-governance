@@ -27,7 +27,6 @@ enum EscrowState {
 
 struct VetoerState {
     uint256 stETHShares;
-    uint256 wstETHShares;
     uint256 unstETHShares;
 }
 
@@ -80,6 +79,7 @@ contract Escrow is IEscrow {
         _escrowState = EscrowState.SignallingEscrow;
         _dualGovernance = IDualGovernance(dualGovernance);
 
+        ST_ETH.approve(address(WST_ETH), type(uint256).max);
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
         WST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
     }
@@ -90,28 +90,16 @@ contract Escrow is IEscrow {
 
     function lockStETH(uint256 amount) external {
         uint256 shares = ST_ETH.getSharesByPooledEth(amount);
-        _accounting.accountStETHLock(msg.sender, shares);
+        _accounting.accountStETHSharesLock(msg.sender, shares);
         ST_ETH.transferSharesFrom(msg.sender, address(this), shares);
         _activateNextGovernanceState();
     }
 
     function unlockStETH() external {
         _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
-        uint256 sharesUnlocked = _accounting.accountStETHUnlock(msg.sender);
+        uint256 sharesUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
         ST_ETH.transferShares(msg.sender, sharesUnlocked);
         _activateNextGovernanceState();
-    }
-
-    function requestWithdrawalsStETH(uint256[] calldata amounts) external returns (uint256[] memory unstETHIds) {
-        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(amounts, address(this));
-        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
-
-        uint256 sharesTotal = 0;
-        for (uint256 i = 0; i < statuses.length; ++i) {
-            sharesTotal += statuses[i].amountOfShares;
-        }
-        _accounting.accountStETHUnlock(msg.sender, sharesTotal);
-        _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
     }
 
     // ---
@@ -119,23 +107,18 @@ contract Escrow is IEscrow {
     // ---
 
     function lockWstETH(uint256 amount) external {
-        _accounting.accountWstETHLock(msg.sender, amount);
         WST_ETH.transferFrom(msg.sender, address(this), amount);
+        uint256 stETHAmount = WST_ETH.unwrap(amount);
+        _accounting.accountStETHSharesLock(msg.sender, ST_ETH.getSharesByPooledEth(stETHAmount));
         _activateNextGovernanceState();
     }
 
     function unlockWstETH() external returns (uint256 wstETHUnlocked) {
         _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
-        wstETHUnlocked = _accounting.accountWstETHUnlock(msg.sender);
-        WST_ETH.transfer(msg.sender, wstETHUnlocked);
+        wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
+        uint256 wstETHAmount = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked));
+        WST_ETH.transfer(msg.sender, wstETHAmount);
         _activateNextGovernanceState();
-    }
-
-    function requestWithdrawalsWstETH(uint256[] calldata amounts) external returns (uint256[] memory unstETHIds) {
-        uint256 totalAmount = ArrayUtils.sum(amounts);
-        _accounting.accountWstETHUnlock(msg.sender, totalAmount);
-        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawalsWstETH(amounts, address(this));
-        _accounting.accountUnstETHLock(msg.sender, unstETHIds, WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds));
     }
 
     // ---
@@ -164,6 +147,22 @@ contract Escrow is IEscrow {
 
         uint256[] memory claimableAmounts = WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints);
         _accounting.accountUnstETHFinalized(unstETHIds, claimableAmounts);
+    }
+
+    // ---
+    // Convert to NFT
+    // ---
+
+    function requestWithdrawals(uint256[] calldata stEthAmounts) external returns (uint256[] memory unstETHIds) {
+        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stEthAmounts, address(this));
+        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+
+        uint256 sharesTotal = 0;
+        for (uint256 i = 0; i < statuses.length; ++i) {
+            sharesTotal += statuses[i].amountOfShares;
+        }
+        _accounting.accountStETHSharesUnlock(msg.sender, sharesTotal);
+        _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
     }
 
     // ---
@@ -230,19 +229,13 @@ contract Escrow is IEscrow {
     // Withdraw Logic
     // ---
 
-    function withdrawStETHAsETH() external {
+    function withdrawETH() external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
         _checkWithdrawalsTimelockPassed();
-        Address.sendValue(payable(msg.sender), _accounting.accountStETHWithdraw(msg.sender));
+        Address.sendValue(payable(msg.sender), _accounting.accountStETHSharesWithdraw(msg.sender));
     }
 
-    function withdrawWstETHAsETH() external {
-        _checkEscrowState(EscrowState.RageQuitEscrow);
-        _checkWithdrawalsTimelockPassed();
-        Address.sendValue(payable(msg.sender), _accounting.accountWstETHWithdraw(msg.sender));
-    }
-
-    function withdrawUnstETHAsETH(uint256[] calldata unstETHIds) external {
+    function withdrawETH(uint256[] calldata unstETHIds) external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
         _checkWithdrawalsTimelockPassed();
         Address.sendValue(payable(msg.sender), _accounting.accountUnstETHWithdraw(msg.sender, unstETHIds));
@@ -259,7 +252,6 @@ contract Escrow is IEscrow {
     function getVetoerState(address vetoer) external view returns (VetoerState memory vetoerState) {
         LockedAssetsStats memory stats = _accounting.assets[vetoer];
         vetoerState.stETHShares = stats.stETHShares;
-        vetoerState.wstETHShares = stats.wstETHShares;
         vetoerState.unstETHShares = stats.unstETHShares;
     }
 

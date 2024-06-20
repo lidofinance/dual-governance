@@ -26,7 +26,14 @@ import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernan
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
 import {Percents, percents} from "../utils/percents.sol";
-import {IERC20, IStEth, IWstETH, IWithdrawalQueue, WithdrawalRequestStatus, IDangerousContract} from "../utils/interfaces.sol";
+import {
+    IERC20,
+    IStEth,
+    IWstETH,
+    IWithdrawalQueue,
+    WithdrawalRequestStatus,
+    IDangerousContract
+} from "../utils/interfaces.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
 
@@ -184,14 +191,16 @@ contract ScenarioTestBlueprint is Test {
     function _unlockWstETH(address vetoer) internal {
         Escrow escrow = _getVetoSignallingEscrow();
         uint256 wstETHBalanceBefore = _WST_ETH.balanceOf(vetoer);
-        uint256 vetoerWstETHSharesBefore = escrow.getVetoerState(vetoer).wstETHShares;
+        uint256 vetoerWstETHSharesBefore = escrow.getVetoerState(vetoer).stETHShares;
 
         vm.startPrank(vetoer);
         uint256 wstETHUnlocked = escrow.unlockWstETH();
         vm.stopPrank();
 
-        assertEq(wstETHUnlocked, vetoerWstETHSharesBefore);
-        assertEq(_WST_ETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerWstETHSharesBefore);
+        // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
+        // sending funds to the user
+        assertApproxEqAbs(wstETHUnlocked, vetoerWstETHSharesBefore, 1);
+        assertApproxEqAbs(_WST_ETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerWstETHSharesBefore, 1);
     }
 
     function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
