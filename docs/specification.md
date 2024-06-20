@@ -41,11 +41,14 @@ The system is composed of the following main contracts:
 * [`DualGovernance.sol`](#Contract-DualGovernancesol) is a singleton that provides an interface for submitting governance proposals and scheduling their execution, as well as managing the list of supported proposers (DAO voting systems). Implements a state machine tracking the current global governance state which, in turn, determines whether proposal submission and execution is currently allowed.
 * [`EmergencyProtectedTimelock.sol`](#Contract-EmergencyProtectedTimelocksol) is a singleton that stores submitted proposals and provides an interface for their execution. In addition, it implements an optional temporary protection from a zero-day vulnerability in the dual governance contracts following the initial deployment or upgrade of the system. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and disable the dual governance.
 * [`Executor.sol`](#Contract-Executorsol) contract instances make calls resulting from governance proposals' execution. Every protocol permission or role protected by the DG, as well as the permission to manage this role/permission, should be assigned exclusively to one of the instances of this contract (in contrast with being assigned directly to a DAO voting system).
+* [`ResealExecutor.sol`](#Contract-ResealExecutorsol) contract instances make calls to extend protocol withdrawals pause in case of contracts were put into an emergency pause by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals) and the DAO governance is currently blocked by the DG system. Has pause and resume roles for all protocols withdrawals contracts.
 * [`Escrow.sol`](#Contract-Escrowsol) is a contract that can hold stETH, wstETH, withdrawal NFTs, and plain ETH. It can exist in two states, each serving a different purpose: either an oracle for users' opposition to DAO proposals or an immutable and ungoverned accumulator for the ETH withdrawn as a result of the [rage quit](#Rage-quit).
 * [`TiebreakerCore.sol`](#contract-tiebreakercoresol) allows to approve proposals for execution and release protocol withdrawals in case of DAO execution ability is locked by `DualGovernance`. Consists of set of `TiebreakerSubCommittee` appointed by the DAO.
 * [`TiebreakerSubCommittee.sol`](#contract-tiebreakersubcommitteesol) provides ability to participate in `TiebreakerCore` for external actors.
 * [`EmergencyActivationCommittee`](#contract-emergencyactivationcommitteesol) contract that can activate the Emergency Mode, while only `EmergencyExecutionCommittee` can perform proposal execution. Requires to get quorum from committee members.
 * [`EmergencyExecutionCommittee`](#contract-emergencyexecutioncommitteesol) contract provides ability to execute proposals in case of the Emergency Mode or renounce renounce further execution rights, by getting quorum of committee members.
+* [`ResealExecutor`]
+
 
 ## Proposal flow
 
@@ -442,6 +445,46 @@ The result of the call.
 
 * MUST be called by the contract owner (which SHOULD be the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance).
 
+## Contract: ResealExecutor.sol
+
+In the Lido protocol, specific critical components (`WithdrawalQueue` and `ValidatorsExitBus`) are safeguarded by the `GateSeal` contract instance. According to the gate seals [documentation](https://github.com/lidofinance/gate-seals?tab=readme-ov-file#what-is-a-gateseal):
+
+>*"A GateSeal is a contract that allows the designated account to instantly put a set of contracts on pause (i.e. seal) for a limited duration.  This will give the Lido DAO the time to come up with a solution, hold a vote, implement changes, etc.".*
+
+However, the effectiveness of this approach is contingent upon the predictability of the DAO's solution adoption timeframe. With the dual governance system, proposal execution may experience significant delays based on the current state of the `DualGovernance` contract. There's a risk that `GateSeal`'s pause period may expire before the Lido DAO can implement the necessary fixes.
+
+To address this compatibility challenge between gate seals and dual governance, the `ResealExecutor` contract is introduced. The `ResealExecutor` allows to extend pause of temporarily paused contracts to permanent pause, if conditions are met:
+- `ResealExecutor` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
+- Contracts are paused until timestamp after current timestamp and not for infinite time.
+- The DAO governance is blocked by `DualGovernance`.
+
+It inherits `OwnableExecutor` and provides ability to extend contracts pause for committee set by DAO.
+
+### Function ResealExecutor.reseal
+
+```solidity
+function reseal(address[] memory sealables)
+```
+
+This function extends pause of `sealables`. Can be called by committee address.
+
+#### Preconditions
+
+- `ResealExecutor` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
+- Contracts are paused until timestamp after current timestamp and not for infinite time.
+- The DAO governance is blocked by `DualGovernance`.
+
+### Function ResealExecutor.setResealCommittee
+
+```solidity
+function setResealCommittee(address newResealCommittee)
+```
+
+This function set `resealCommittee` address to `newResealCommittee`. Can be called by owner.
+
+#### Preconditions
+
+- Can be called by `OWNER`.
 
 ## Contract: Escrow.sol
 
@@ -980,6 +1023,7 @@ The contract has the interface for managing the configuration related to emergen
 ## Contract: TiebreakerSubCommittee.sol
 ## Contract: EmergencyActivationCommittee.sol
 ## Contract: EmergencyExecutionCommittee.sol
+## Contract: ResealCommittee.sol
 
 ## Upgrade flow description
 

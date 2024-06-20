@@ -107,4 +107,5 @@ interface IWithdrawalQueue is IERC721 {
     function isPaused() external view returns (bool);
     function resume() external;
     function pauseFor(uint256 duration) external;
+    function getResumeSinceTimestamp() external view returns (uint256);
 }
