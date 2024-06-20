@@ -2,13 +2,14 @@
 pragma solidity 0.8.23;
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
 
 import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 
-contract EmergencyProtectedTimelock is ConfigurationProvider {
+contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 

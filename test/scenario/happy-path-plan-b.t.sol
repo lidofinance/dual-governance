@@ -426,9 +426,17 @@ contract PlanBSetup is ScenarioTestBlueprint {
             vm.warp(block.timestamp + _EMERGENCY_PROTECTION_DURATION + 1);
         }
 
+        EmergencyState memory emergencyState = _timelock.getEmergencyState();
+
         // attempt to activate emergency protection fails
         {
-            vm.expectRevert(EmergencyProtection.EmergencyCommitteeExpired.selector);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    EmergencyProtection.EmergencyCommitteeExpired.selector,
+                    block.timestamp,
+                    emergencyState.protectedTill
+                )
+            );
             vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
             _timelock.activateEmergencyMode();
         }
