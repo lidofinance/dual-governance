@@ -7,7 +7,7 @@ import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
-import {DualGovernanceState, State as GovernanceState} from "./libraries/DualGovernanceState.sol";
+import {State, DualGovernanceState} from "./libraries/DualGovernanceState.sol";
 
 contract DualGovernance is IGovernance, ConfigurationProvider {
     using Proposers for Proposers.State;
@@ -26,7 +26,6 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     Proposers.State internal _proposers;
     DualGovernanceState.Store internal _dgState;
     EmergencyProtection.State internal _emergencyProtection;
-    mapping(uint256 proposalId => uint256 executableAfter) internal _scheduledProposals;
 
     constructor(
         address config,
@@ -40,33 +39,32 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
     }
 
-    function submit(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
         _proposers.checkProposer(msg.sender);
-        _dgState.activateNextState(CONFIG);
+        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
         _dgState.checkProposalsCreationAllowed();
-        _dgState.setLastProposalCreationTimestamp();
         Proposer memory proposer = _proposers.get(msg.sender);
         proposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
-    function schedule(uint256 proposalId) external {
-        _dgState.activateNextState(CONFIG);
-        _dgState.checkProposalsAdoptionAllowed();
-        TIMELOCK.schedule(proposalId);
+    function scheduleProposal(uint256 proposalId) external {
+        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
+        uint256 proposalSubmissionTime = TIMELOCK.schedule(proposalId);
+        _dgState.checkCanScheduleProposal(proposalSubmissionTime);
         emit ProposalScheduled(proposalId);
     }
 
-    function cancelAll() external {
+    function cancelAllPendingProposals() external {
         _proposers.checkAdminProposer(CONFIG, msg.sender);
-        TIMELOCK.cancelAll();
+        TIMELOCK.cancelAllNonExecutedProposals();
     }
 
-    function signallingEscrow() external view returns (address) {
+    function vetoSignallingEscrow() external view returns (address) {
         return address(_dgState.signallingEscrow);
     }
 
-    function isScheduled(uint256 proposalId) external view returns (bool) {
-        return _scheduledProposals[proposalId] != 0;
+    function rageQuitEscrow() external view returns (address) {
+        return address(_dgState.rageQuitEscrow);
     }
 
     function canSchedule(uint256 proposalId) external view returns (bool) {
@@ -78,10 +76,10 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     // ---
 
     function activateNextState() external {
-        _dgState.activateNextState(CONFIG);
+        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
     }
 
-    function currentState() external view returns (GovernanceState) {
+    function currentState() external view returns (State) {
         return _dgState.currentState();
     }
 
@@ -90,7 +88,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        (isActive, duration, activatedAt, enteredAt) = _dgState.getVetoSignallingState(CONFIG);
+        (isActive, duration, activatedAt, enteredAt) = _dgState.getVetoSignallingState(CONFIG.getDualGovernanceConfig());
     }
 
     function getVetoSignallingDeactivationState()
@@ -98,11 +96,11 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         view
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
-        (isActive, duration, enteredAt) = _dgState.getVetoSignallingDeactivationState(CONFIG);
+        (isActive, duration, enteredAt) = _dgState.getVetoSignallingDeactivationState(CONFIG.getDualGovernanceConfig());
     }
 
     function getVetoSignallingDuration() external view returns (uint256) {
-        return _dgState.getVetoSignallingDuration(CONFIG);
+        return _dgState.getVetoSignallingDuration(CONFIG.getDualGovernanceConfig());
     }
 
     function isSchedulingEnabled() external view returns (bool) {
@@ -143,13 +141,14 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     // Tiebreaker Protection
     // ---
 
-    function tiebreakerSchedule(uint256 proposalId) external {
+    function tiebreakerScheduleProposal(uint256 proposalId) external {
         _checkTiebreakerCommittee(msg.sender);
+        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
         _dgState.checkTiebreak(CONFIG);
         TIMELOCK.schedule(proposalId);
     }
 
-    function setTiebreakerProtection(address newTiebreaker) external {
+    function setTiebreakerCommittee(address newTiebreaker) external {
         _checkAdminExecutor(msg.sender);
         address oldTiebreaker = _tiebreaker;
         if (newTiebreaker != oldTiebreaker) {

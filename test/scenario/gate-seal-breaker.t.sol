@@ -70,7 +70,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _activateNextState();
         _assertVetoSignalingDeactivationState();
 
-        _wait(_config.SIGNALLING_DEACTIVATION_DURATION() + 1);
+        _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() + 1);
         _activateNextState();
         _assertVetoCooldownState();
 
@@ -120,14 +120,14 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _activateNextState();
         _assertVetoSignalingDeactivationState();
 
-        _wait(_dualGovernance.CONFIG().SIGNALLING_DEACTIVATION_DURATION() + 1);
+        _wait(_dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() + 1);
         _activateNextState();
         _assertVetoCooldownState();
 
         // the stETH whale takes his funds back from Escrow
         _unlockStETH(_VETOER);
 
-        _wait(_dualGovernance.CONFIG().SIGNALLING_COOLDOWN_DURATION() + 1);
+        _wait(_dualGovernance.CONFIG().VETO_COOLDOWN_DURATION() + 1);
         _activateNextState();
         _assertNormalState();
 

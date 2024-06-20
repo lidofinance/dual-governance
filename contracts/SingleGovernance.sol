@@ -17,12 +17,12 @@ contract SingleGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK = ITimelock(timelock);
     }
 
-    function submit(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
         _checkGovernance(msg.sender);
         return TIMELOCK.submit(CONFIG.ADMIN_EXECUTOR(), calls);
     }
 
-    function schedule(uint256 proposalId) external {
+    function scheduleProposal(uint256 proposalId) external {
         TIMELOCK.schedule(proposalId);
     }
 
@@ -30,9 +30,9 @@ contract SingleGovernance is IGovernance, ConfigurationProvider {
         return TIMELOCK.canSchedule(proposalId);
     }
 
-    function cancelAll() external {
+    function cancelAllPendingProposals() external {
         _checkGovernance(msg.sender);
-        TIMELOCK.cancelAll();
+        TIMELOCK.cancelAllNonExecutedProposals();
     }
 
     function _checkGovernance(address account) internal view {
