@@ -106,3 +106,9 @@ interface IWithdrawalQueue is IERC721 {
     function hasRole(bytes32 role, address account) external view returns (bool);
     function isPaused() external view returns (bool);
 }
+
+interface IDangerousContract {
+    function doRegularStaff(uint256 magic) external;
+    function doRugPool() external;
+    function doControversialStaff() external;
+}

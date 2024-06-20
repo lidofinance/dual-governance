@@ -15,13 +15,11 @@ struct EmergencyState {
 library EmergencyProtection {
     error NotEmergencyActivator(address account);
     error NotEmergencyEnactor(address account);
-    error EmergencyPeriodFinished();
-    error EmergencyCommitteeExpired();
+    error EmergencyCommitteeExpired(uint256 timestamp, uint256 protectedTill);
     error InvalidEmergencyModeActiveValue(bool actual, bool expected);
 
-    event EmergencyModeActivated();
-    event EmergencyModeDeactivated();
-    event EmergencyGovernanceReset();
+    event EmergencyModeActivated(uint256 timestamp);
+    event EmergencyModeDeactivated(uint256 timestamp);
     event EmergencyActivationCommitteeSet(address indexed activationCommittee);
     event EmergencyExecutionCommitteeSet(address indexed executionCommittee);
     event EmergencyModeDurationSet(uint256 emergencyModeDuration);
@@ -74,10 +72,10 @@ library EmergencyProtection {
 
     function activate(State storage self) internal {
         if (block.timestamp > self.protectedTill) {
-            revert EmergencyCommitteeExpired();
+            revert EmergencyCommitteeExpired(block.timestamp, self.protectedTill);
         }
         self.emergencyModeEndsAfter = SafeCast.toUint40(block.timestamp + self.emergencyModeDuration);
-        emit EmergencyModeActivated();
+        emit EmergencyModeActivated(block.timestamp);
     }
 
     function deactivate(State storage self) internal {
@@ -86,7 +84,7 @@ library EmergencyProtection {
         self.protectedTill = 0;
         self.emergencyModeDuration = 0;
         self.emergencyModeEndsAfter = 0;
-        emit EmergencyModeDeactivated();
+        emit EmergencyModeDeactivated(block.timestamp);
     }
 
     function getEmergencyState(State storage self) internal view returns (EmergencyState memory res) {
