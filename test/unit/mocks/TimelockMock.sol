@@ -28,6 +28,7 @@ contract TimelockMock is ITimelock {
         }
 
         scheduledProposals.push(proposalId);
+        return 0;
     }
 
     function execute(uint256 proposalId) external {
