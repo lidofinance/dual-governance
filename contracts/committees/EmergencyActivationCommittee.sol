@@ -3,6 +3,10 @@ pragma solidity 0.8.23;
 
 import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
+interface IEmergencyProtectedTimelock {
+    function emergencyActivate() external;
+}
+
 contract EmergencyActivationCommittee is ExecutiveCommittee {
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
@@ -16,7 +20,7 @@ contract EmergencyActivationCommittee is ExecutiveCommittee {
     }
 
     function approveEmergencyActivate() public onlyMember {
-        _vote(_buildEmergencyActivateAction(), true);
+        _vote(_hashEmergencyActivateAction(), true);
     }
 
     function getEmergencyActivateState()
@@ -24,14 +28,15 @@ contract EmergencyActivationCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getActionState(_buildEmergencyActivateAction());
+        return _getActionState(_hashEmergencyActivateAction());
     }
 
     function executeEmergencyActivate() external {
-        _execute(_buildEmergencyActivateAction());
+        _markExecute(_hashEmergencyActivateAction());
+        IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).emergencyActivate();
     }
 
-    function _buildEmergencyActivateAction() internal view returns (Action memory) {
-        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyActivate()"), new bytes(0));
+    function _hashEmergencyActivateAction() internal view returns (Action memory) {
+        return keccak256("EMERGENCY_ACTIVATE");
     }
 }

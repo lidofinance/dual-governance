@@ -13,10 +13,10 @@ import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
 
-import {EmergencyActivationCommittee} from "contracts/EmergencyActivationCommittee.sol";
-import {EmergencyExecutionCommittee} from "contracts/EmergencyExecutionCommittee.sol";
-import {TiebreakerCore} from "contracts/TiebreakerCore.sol";
-import {TiebreakerSubCommittee} from "contracts/TiebreakerSubCommittee.sol";
+import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
+import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
+import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
 import {
     ExecutorCall,

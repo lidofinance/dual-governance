@@ -10,38 +10,24 @@ abstract contract ExecutiveCommittee {
     event MemberAdded(address indexed member);
     event MemberRemoved(address indexed member);
     event QuorumSet(uint256 quorum);
-    event ActionProposed(address indexed to, bytes data);
-    event ActionExecuted(address indexed to, bytes data);
-    event ActionVoted(address indexed signer, bool support, address indexed to, bytes data);
+    event VoteExecuted(address indexed to, bytes data);
+    event Voted(address indexed signer, bool support, address indexed to, bytes data);
 
     error IsNotMember();
     error SenderIsNotMember();
     error SenderIsNotOwner();
-    error DataIsNotEqual();
-    error ActionAlreadyExecuted();
+    error VoteAlreadyExecuted();
     error QuorumIsNotReached();
     error InvalidQuorum();
-    error ActionMismatch();
     error DuplicatedMember(address member);
-
-    struct Action {
-        address to;
-        bytes data;
-        bytes salt;
-    }
-
-    struct ActionState {
-        Action action;
-        bool isExecuted;
-    }
 
     address public immutable OWNER;
 
     EnumerableSet.AddressSet private members;
     uint256 public quorum;
 
-    mapping(bytes32 actionHash => ActionState) public actionsStates;
-    mapping(address signer => mapping(bytes32 actionHash => bool support)) public approves;
+    mapping(bytes32 digest => bool isEecuted) public voteStates;
+    mapping(address signer => mapping(bytes32 digest => bool support)) public approves;
 
     constructor(address owner, address[] memory newMembers, uint256 executionQuorum) {
         if (executionQuorum == 0) {
@@ -60,13 +46,9 @@ abstract contract ExecutiveCommittee {
         }
     }
 
-    function _vote(Action memory action, bool support) internal {
-        bytes32 digest = _hashAction(action);
-        if (actionsStates[digest].action.to == address(0)) {
-            actionsStates[digest].action = action;
-            emit ActionProposed(action.to, action.data);
-        } else {
-            _getAndCheckStoredActionState(action);
+    function _vote(bytes32 digest, bool support) internal {
+        if (voteStates[digest] == true) {
+            revert VoteAlreadyExecuted();
         }
 
         if (approves[msg.sender][digest] == support) {
@@ -74,34 +56,30 @@ abstract contract ExecutiveCommittee {
         }
 
         approves[msg.sender][digest] = support;
-        emit ActionVoted(msg.sender, support, action.to, action.data);
+        emit Voted(msg.sender, digest);
     }
 
-    function _markExecuted(Action memory action) internal {
-        (ActionState memory actionState, bytes32 actionHash) = _getAndCheckStoredActionState(action);
-
-        if (actionState.isExecuted == true) {
-            revert ActionAlreadyExecuted();
+    function _markExecuted(bytes32 digest) internal {
+        if (voteStates[digest] == true) {
+            revert VoteAlreadyExecuted();
         }
-        if (_getSupport(actionHash) < quorum) {
+        if (_getSupport(digest) < quorum) {
             revert QuorumIsNotReached();
         }
 
-        actionsStates[actionHash].isExecuted = true;
+        voteStates[digest] = true;
 
-        emit ActionExecuted(action.to, action.data);
+        emit VoteExecuted(digest);
     }
 
-    function _getActionState(Action memory action)
+    function _getVoteState(bytes32 digest)
         internal
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        (ActionState memory actionState, bytes32 actionHash) = _getAndCheckStoredActionState(action);
-
-        support = _getSupport(actionHash);
+        support = _getSupport(digest);
         execuitionQuorum = quorum;
-        isExecuted = actionState.isExecuted;
+        isExecuted = voteStates[digest];
     }
 
     function addMember(address newMember, uint256 newQuorum) public onlyOwner {
@@ -144,30 +122,12 @@ abstract contract ExecutiveCommittee {
         emit MemberAdded(newMember);
     }
 
-    function _getSupport(bytes32 actionHash) internal view returns (uint256 support) {
+    function _getSupport(bytes32 digest) internal view returns (uint256 support) {
         for (uint256 i = 0; i < members.length(); ++i) {
-            if (approves[members.at(i)][actionHash]) {
+            if (approves[members.at(i)][digest]) {
                 support++;
             }
         }
-    }
-
-    function _getAndCheckStoredActionState(Action memory action)
-        internal
-        view
-        returns (ActionState memory storedActionState, bytes32 actionHash)
-    {
-        actionHash = _hashAction(action);
-
-        storedActionState = actionsStates[actionHash];
-
-        if (storedActionState.isExecuted == true) {
-            revert ActionAlreadyExecuted();
-        }
-    }
-
-    function _hashAction(Action memory action) internal pure returns (bytes32) {
-        return keccak256(abi.encode(action.to, action.data, action.salt));
     }
 
     modifier onlyMember() {

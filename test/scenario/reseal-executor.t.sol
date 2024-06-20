@@ -5,7 +5,7 @@ import {percents, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.
 
 import {GateSealMock} from "../mocks/GateSealMock.sol";
 import {ResealExecutor} from "contracts/ResealExecutor.sol";
-import {ResealCommittee} from "contracts/ResealCommittee.sol";
+import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {IGateSeal} from "contracts/interfaces/IGateSeal.sol";
 
 import {DAO_AGENT} from "../utils/mainnet-addresses.sol";

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ISealable} from "./interfaces/ISealable.sol";
 
@@ -12,14 +13,11 @@ contract ResealExecutor is Ownable {
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
     address public immutable DUAL_GOVERNANCE;
 
-    address public resealCommittee;
-
-    constructor(address owner, address dualGovernance) OwnableExecutor(owner) {
+    constructor(address owner, address dualGovernance) Ownable(owner) {
         DUAL_GOVERNANCE = dualGovernance;
-        resealCommittee = resealCommitteeAddress;
     }
 
-    function reseal(address[] memory sealables) public onlyCommittee {
+    function reseal(address[] memory sealables) public onlyOwner {
         for (uint256 i = 0; i < sealables.length; ++i) {
             uint256 sealableResumeSinceTimestamp = ISealable(sealables[i]).getResumeSinceTimestamp();
             if (sealableResumeSinceTimestamp < block.timestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {

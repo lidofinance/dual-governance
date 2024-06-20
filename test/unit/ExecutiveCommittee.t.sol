@@ -5,7 +5,7 @@ import {UnitTest} from "test/utils/unit-test.sol";
 
 import {Vm} from "forge-std/Test.sol";
 
-import {ExecutiveCommittee} from "../../contracts/ExecutiveCommittee.sol";
+import {ExecutiveCommittee} from "../../contracts/committees/ExecutiveCommittee.sol";
 
 abstract contract ExecutiveCommitteeUnitTest is UnitTest {
     ExecutiveCommittee internal _executiveCommittee;

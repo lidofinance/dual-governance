@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {EmergencyActivationCommittee} from "../../contracts/EmergencyActivationCommittee.sol";
+import {EmergencyActivationCommittee} from "../../contracts/committees/EmergencyActivationCommittee.sol";
 
 import {ExecutiveCommitteeUnitTest, ExecutiveCommittee} from "./ExecutiveCommittee.t.sol";
 
