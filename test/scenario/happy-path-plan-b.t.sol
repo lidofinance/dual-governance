@@ -72,7 +72,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
 
             // emergency committee activates emergency mode
-            _executeEmergencyActivate();
+            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            _timelock.activateEmergencyMode();
 
             // emergency mode was successfully activated
             uint256 expectedEmergencyModeEndTimestamp = block.timestamp + _EMERGENCY_MODE_DURATION;
@@ -118,7 +119,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
                     // Only Dual Governance contract can call the Timelock contract
                     abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance))),
                     // Now the emergency mode may be deactivated (all scheduled calls will be canceled)
-                    abi.encodeCall(_timelock.emergencyDeactivate, ()),
+                    abi.encodeCall(_timelock.deactivateEmergencyMode, ()),
                     // Setup emergency committee for some period of time until the Dual Governance is battle tested
                     abi.encodeCall(
                         _timelock.setEmergencyProtection,
@@ -287,7 +288,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
         {
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
-            _executeEmergencyActivate();
+            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            _timelock.activateEmergencyMode();
 
             emergencyState = _timelock.getEmergencyState();
             assertTrue(emergencyState.isEmergencyModeActivated);
@@ -354,7 +356,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
         // anyone can deactivate emergency mode when it's over
         {
-            _timelock.emergencyDeactivate();
+            _timelock.deactivateEmergencyMode();
 
             emergencyState = _timelock.getEmergencyState();
             assertFalse(emergencyState.isEmergencyModeActivated);
@@ -384,7 +386,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // emergency committee activates emergency mode
         EmergencyState memory emergencyState;
         {
-            _executeEmergencyActivate();
+            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            _timelock.activateEmergencyMode();
 
             emergencyState = _timelock.getEmergencyState();
             assertTrue(emergencyState.isEmergencyModeActivated);
@@ -421,11 +424,19 @@ contract PlanBSetup is ScenarioTestBlueprint {
             vm.warp(block.timestamp + _EMERGENCY_PROTECTION_DURATION + 1);
         }
 
+        EmergencyState memory emergencyState = _timelock.getEmergencyState();
+
         // attempt to activate emergency protection fails
         {
-            vm.expectRevert(EmergencyProtection.EmergencyCommitteeExpired.selector);
-            vm.prank(address(_emergencyActivationCommittee));
-            _timelock.emergencyActivate();
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    EmergencyProtection.EmergencyCommitteeExpired.selector,
+                    block.timestamp,
+                    emergencyState.protectedTill
+                )
+            );
+            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            _timelock.activateEmergencyMode();
         }
     }
 }

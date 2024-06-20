@@ -109,3 +109,9 @@ interface IWithdrawalQueue is IERC721 {
     function pauseFor(uint256 duration) external;
     function getResumeSinceTimestamp() external view returns (uint256);
 }
+
+interface IDangerousContract {
+    function doRegularStaff(uint256 magic) external;
+    function doRugPool() external;
+    function doControversialStaff() external;
+}

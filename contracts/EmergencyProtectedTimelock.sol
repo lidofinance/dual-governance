@@ -2,23 +2,21 @@
 pragma solidity 0.8.23;
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
 
 import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 
-contract EmergencyProtectedTimelock is ConfigurationProvider {
+contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
     error InvalidGovernance(address governance);
     error NotGovernance(address account, address governance);
-    error SchedulingDisabled();
-    error UnscheduledExecutionForbidden();
 
     event GovernanceSet(address governance);
-    event ProposalLaunched(address indexed proposer, address indexed executor, uint256 indexed proposalId);
 
     address internal _governance;
 
@@ -30,12 +28,11 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
         _checkGovernance(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
-        emit ProposalLaunched(msg.sender, executor, newProposalId);
     }
 
-    function schedule(uint256 proposalId) external {
+    function schedule(uint256 proposalId) external returns (uint256 submittedAt) {
         _checkGovernance(msg.sender);
-        _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
+        submittedAt = _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
     }
 
     function execute(uint256 proposalId) external {
@@ -43,7 +40,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         _proposals.execute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
     }
 
-    function cancelAll() external {
+    function cancelAllNonExecutedProposals() external {
         _checkGovernance(msg.sender);
         _proposals.cancelAll();
     }
@@ -62,7 +59,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
     // Emergency Protection Functionality
     // ---
 
-    function emergencyActivate() external {
+    function activateEmergencyMode() external {
         _emergencyProtection.checkActivationCommittee(msg.sender);
         _emergencyProtection.checkEmergencyModeActive(false);
         _emergencyProtection.activate();
@@ -74,7 +71,7 @@ contract EmergencyProtectedTimelock is ConfigurationProvider {
         _proposals.execute(proposalId, /* afterScheduleDelay */ 0);
     }
 
-    function emergencyDeactivate() external {
+    function deactivateEmergencyMode() external {
         _emergencyProtection.checkEmergencyModeActive(true);
         if (!_emergencyProtection.isEmergencyModePassed()) {
             _checkAdminExecutor(msg.sender);

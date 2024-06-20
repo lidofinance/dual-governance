@@ -10,7 +10,7 @@ enum Status {
     Submitted,
     Scheduled,
     Executed,
-    Canceled
+    Cancelled
 }
 
 struct Proposal {
@@ -34,12 +34,12 @@ library Proposals {
 
     struct State {
         // any proposals with ids less or equal to the given one cannot be executed
-        uint256 lastCanceledProposalId;
+        uint256 lastCancelledProposalId;
         ProposalPacked[] proposals;
     }
 
     error EmptyCalls();
-    error ProposalCanceled(uint256 proposalId);
+    error ProposalCancelled(uint256 proposalId);
     error ProposalNotFound(uint256 proposalId);
     error ProposalNotScheduled(uint256 proposalId);
     error ProposalNotSubmitted(uint256 proposalId);
@@ -49,7 +49,7 @@ library Proposals {
     event ProposalScheduled(uint256 indexed id);
     event ProposalSubmitted(uint256 indexed id, address indexed executor, ExecutorCall[] calls);
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
-    event ProposalsCanceledTill(uint256 proposalId);
+    event ProposalsCancelledTill(uint256 proposalId);
 
     // The id of the first proposal
     uint256 private constant PROPOSAL_ID_OFFSET = 1;
@@ -57,7 +57,7 @@ library Proposals {
     function submit(
         State storage self,
         address executor,
-        ExecutorCall[] calldata calls
+        ExecutorCall[] memory calls
     ) internal returns (uint256 newProposalId) {
         if (calls.length == 0) {
             revert EmptyCalls();
@@ -67,9 +67,8 @@ library Proposals {
 
         self.proposals.push();
         ProposalPacked storage newProposal = self.proposals[newProposalIndex];
-        newProposal.executor = executor;
 
-        newProposal.executedAt = 0;
+        newProposal.executor = executor;
         newProposal.submittedAt = TimeUtils.timestamp();
 
         // copying of arrays of custom types from calldata to storage has not been supported by the
@@ -82,10 +81,18 @@ library Proposals {
         emit ProposalSubmitted(newProposalId, executor, calls);
     }
 
-    function schedule(State storage self, uint256 proposalId, uint256 afterSubmitDelay) internal {
+    function schedule(
+        State storage self,
+        uint256 proposalId,
+        uint256 afterSubmitDelay
+    ) internal returns (uint256 submittedAt) {
         _checkProposalSubmitted(self, proposalId);
         _checkAfterSubmitDelayPassed(self, proposalId, afterSubmitDelay);
-        _packed(self, proposalId).scheduledAt = TimeUtils.timestamp();
+        ProposalPacked storage proposal = _packed(self, proposalId);
+
+        submittedAt = proposal.submittedAt;
+        proposal.scheduledAt = TimeUtils.timestamp();
+
         emit ProposalScheduled(proposalId);
     }
 
@@ -97,8 +104,8 @@ library Proposals {
 
     function cancelAll(State storage self) internal {
         uint256 lastProposalId = self.proposals.length;
-        self.lastCanceledProposalId = lastProposalId;
-        emit ProposalsCanceledTill(lastProposalId);
+        self.lastCancelledProposalId = lastProposalId;
+        emit ProposalsCancelledTill(lastProposalId);
     }
 
     function get(State storage self, uint256 proposalId) internal view returns (Proposal memory proposal) {
@@ -109,6 +116,7 @@ library Proposals {
         proposal.status = _getProposalStatus(self, proposalId);
         proposal.executor = packed.executor;
         proposal.submittedAt = packed.submittedAt;
+        proposal.scheduledAt = packed.scheduledAt;
         proposal.executedAt = packed.executedAt;
         proposal.calls = packed.calls;
     }
@@ -135,7 +143,7 @@ library Proposals {
             && block.timestamp >= _packed(self, proposalId).submittedAt + afterSubmitDelay;
     }
 
-    function _executeProposal(State storage self, uint256 proposalId) private returns (bytes[] memory results) {
+    function _executeProposal(State storage self, uint256 proposalId) private {
         ProposalPacked storage packed = _packed(self, proposalId);
         packed.executedAt = TimeUtils.timestamp();
 
@@ -145,7 +153,7 @@ library Proposals {
         assert(callsCount > 0);
 
         address executor = packed.executor;
-        results = new bytes[](callsCount);
+        bytes[] memory results = new bytes[](callsCount);
         for (uint256 i = 0; i < callsCount; ++i) {
             results[i] = IExecutor(payable(executor)).execute(calls[i].target, calls[i].value, calls[i].payload);
         }
@@ -196,13 +204,13 @@ library Proposals {
         }
     }
 
-    function _getProposalStatus(State storage self, uint256 proposalId) private view returns (Status) {
+    function _getProposalStatus(State storage self, uint256 proposalId) private view returns (Status status) {
         if (proposalId < PROPOSAL_ID_OFFSET || proposalId > self.proposals.length) return Status.NotExist;
 
         ProposalPacked storage packed = _packed(self, proposalId);
 
         if (packed.executedAt != 0) return Status.Executed;
-        if (proposalId <= self.lastCanceledProposalId) return Status.Canceled;
+        if (proposalId <= self.lastCancelledProposalId) return Status.Cancelled;
         if (packed.scheduledAt != 0) return Status.Scheduled;
         if (packed.submittedAt != 0) return Status.Submitted;
         assert(false);

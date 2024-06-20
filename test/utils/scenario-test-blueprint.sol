@@ -11,7 +11,7 @@ import {
 
 import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 import {IConfiguration, Configuration} from "contracts/Configuration.sol";
-import {OwnableExecutor} from "contracts/OwnableExecutor.sol";
+import {Executor} from "contracts/Executor.sol";
 
 import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
 import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
@@ -26,12 +26,19 @@ import {
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
-import {DualGovernance, GovernanceState} from "contracts/DualGovernance.sol";
+import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernance.sol";
 
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
 import {Percents, percents} from "../utils/percents.sol";
-import {IERC20, IStEth, IWstETH, IWithdrawalQueue, WithdrawalRequestStatus} from "../utils/interfaces.sol";
+import {
+    IERC20,
+    IStEth,
+    IWstETH,
+    IWithdrawalQueue,
+    WithdrawalRequestStatus,
+    IDangerousContract
+} from "../utils/interfaces.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
 
@@ -50,12 +57,6 @@ function countDigits(uint256 number) pure returns (uint256 digitsCount) {
     do {
         digitsCount++;
     } while (number / 10 != 0);
-}
-
-interface IDangerousContract {
-    function doRegularStaff(uint256 magic) external;
-    function doRugPool() external;
-    function doControversialStaff() external;
 }
 
 contract ScenarioTestBlueprint is Test {
@@ -85,7 +86,7 @@ contract ScenarioTestBlueprint is Test {
 
     Escrow internal _escrowMasterCopy;
 
-    OwnableExecutor internal _adminExecutor;
+    Executor internal _adminExecutor;
 
     EmergencyProtectedTimelock internal _timelock;
     SingleGovernance internal _singleGovernance;
@@ -96,8 +97,13 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Helper Getters
     // ---
-    function _getSignallingEscrow() internal view returns (Escrow) {
-        return Escrow(payable(_dualGovernance.signallingEscrow()));
+    function _getVetoSignallingEscrow() internal view returns (Escrow) {
+        return Escrow(payable(_dualGovernance.vetoSignallingEscrow()));
+    }
+
+    function _getRageQuitEscrow() internal view returns (Escrow) {
+        address rageQuitEscrow = _dualGovernance.rageQuitEscrow();
+        return Escrow(payable(rageQuitEscrow));
     }
 
     function _getTargetRegularStaffCalls() internal view returns (ExecutorCall[] memory) {
@@ -123,14 +129,24 @@ contract ScenarioTestBlueprint is Test {
     // Balances Manipulation
     // ---
 
-    function _setupStETHWhale(address vetoer) internal {
-        Utils.removeLidoStakingLimit();
-        Utils.setupStETHWhale(vetoer, percents("10.0").value);
+    function _depositStETH(
+        address account,
+        uint256 amountToMint
+    ) internal returns (uint256 sharesMinted, uint256 amountMinted) {
+        return Utils.depositStETH(account, amountToMint);
     }
 
-    function _setupStETHWhale(address vetoer, Percents memory vetoPowerInPercents) internal {
+    function _setupStETHWhale(address vetoer) internal returns (uint256 shares, uint256 amount) {
         Utils.removeLidoStakingLimit();
-        Utils.setupStETHWhale(vetoer, vetoPowerInPercents.value);
+        return Utils.setupStETHWhale(vetoer, percents("10.0"));
+    }
+
+    function _setupStETHWhale(
+        address vetoer,
+        Percents memory vetoPowerInPercents
+    ) internal returns (uint256 shares, uint256 amount) {
+        Utils.removeLidoStakingLimit();
+        return Utils.setupStETHWhale(vetoer, vetoPowerInPercents);
     }
 
     function _getBalances(address vetoer) internal view returns (Balances memory balances) {
@@ -147,14 +163,13 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Escrow Manipulation
     // ---
-    function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal {
-        Utils.removeLidoStakingLimit();
-        Utils.setupStETHWhale(vetoer, vetoPowerInPercents.value);
-        _lockStETH(vetoer, IERC20(ST_ETH).balanceOf(vetoer));
+    function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal returns (uint256 amount) {
+        (, amount) = _setupStETHWhale(vetoer, vetoPowerInPercents);
+        _lockStETH(vetoer, amount);
     }
 
     function _lockStETH(address vetoer, uint256 amount) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         vm.startPrank(vetoer);
         if (_ST_ETH.allowance(vetoer, address(escrow)) < amount) {
             _ST_ETH.approve(address(escrow), amount);
@@ -165,12 +180,12 @@ contract ScenarioTestBlueprint is Test {
 
     function _unlockStETH(address vetoer) internal {
         vm.startPrank(vetoer);
-        _getSignallingEscrow().unlockStETH();
+        _getVetoSignallingEscrow().unlockStETH();
         vm.stopPrank();
     }
 
     function _lockWstETH(address vetoer, uint256 amount) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         vm.startPrank(vetoer);
         if (_WST_ETH.allowance(vetoer, address(escrow)) < amount) {
             _WST_ETH.approve(address(escrow), amount);
@@ -180,7 +195,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _unlockWstETH(address vetoer) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         uint256 wstETHBalanceBefore = _WST_ETH.balanceOf(vetoer);
         uint256 vetoerWstETHSharesBefore = escrow.getVetoerState(vetoer).wstETHShares;
 
@@ -193,7 +208,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
         uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
 
@@ -218,7 +233,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _unlockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
-        Escrow escrow = _getSignallingEscrow();
+        Escrow escrow = _getVetoSignallingEscrow();
         uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
         uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
 
@@ -257,7 +272,7 @@ contract ScenarioTestBlueprint is Test {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
         bytes memory script =
-            Utils.encodeEvmCallScript(address(governance), abi.encodeCall(IGovernance.submit, (calls)));
+            Utils.encodeEvmCallScript(address(governance), abi.encodeCall(IGovernance.submitProposal, (calls)));
         uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
 
         // The scheduled calls count is the same until the vote is enacted
@@ -272,7 +287,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _scheduleProposal(IGovernance governance, uint256 proposalId) internal {
-        governance.schedule(proposalId);
+        governance.scheduleProposal(proposalId);
     }
 
     function _executeProposal(uint256 proposalId) internal {
@@ -371,30 +386,30 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertProposalCanceled(uint256 proposalId) internal {
-        assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Canceled, "Proposal not in 'Canceled' state");
+        assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Cancelled, "Proposal not in 'Canceled' state");
     }
 
     function _assertNormalState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.Normal));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.Normal));
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoSignalling));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoSignalling));
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoSignallingDeactivation));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoSignallingDeactivation));
     }
 
     function _assertRageQuitState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.RageQuit));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.RageQuit));
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(GovernanceState.VetoCooldown));
+        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoCooldown));
     }
 
-    function _assertNoTargetCalls() internal {
+    function _assertNoTargetMockCalls() internal {
         assertEq(_target.getCalls().length, 0, "Unexpected target calls count");
     }
 
@@ -407,7 +422,7 @@ contract ScenarioTestBlueprint is Test {
             _dualGovernance.getVetoSignallingState();
 
         if (!isActive) {
-            console.log("VetoSignalling state is not active");
+            console.log("VetoSignalling state is not active\n");
             return;
         }
 
@@ -415,12 +430,12 @@ contract ScenarioTestBlueprint is Test {
         console.log("Veto signalling entered at %d (activated at %d)", enteredAt, activatedAt);
         if (block.timestamp > activatedAt + duration) {
             console.log(
-                "Veto signalling has ended %s ago",
+                "Veto signalling has ended %s ago\n",
                 _formatDuration(_toDuration(block.timestamp - activatedAt - duration))
             );
         } else {
             console.log(
-                "Veto signalling will end after %s",
+                "Veto signalling will end after %s\n",
                 _formatDuration(_toDuration(activatedAt + duration - block.timestamp))
             );
         }
@@ -432,7 +447,7 @@ contract ScenarioTestBlueprint is Test {
         (bool isActive, uint256 duration, uint256 enteredAt) = _dualGovernance.getVetoSignallingDeactivationState();
 
         if (!isActive) {
-            console.log("VetoSignallingDeactivation state is not active");
+            console.log("VetoSignallingDeactivation state is not active\n");
             return;
         }
 
@@ -442,12 +457,12 @@ contract ScenarioTestBlueprint is Test {
         console.log("VetoSignallingDeactivation entered at %d", enteredAt);
         if (block.timestamp > enteredAt + duration) {
             console.log(
-                "VetoSignallingDeactivation has ended %s ago",
+                "VetoSignallingDeactivation has ended %s ago\n",
                 _formatDuration(_toDuration(block.timestamp - enteredAt - duration))
             );
         } else {
             console.log(
-                "VetoSignallingDeactivation will end after %s",
+                "VetoSignallingDeactivation will end after %s\n",
                 _formatDuration(_toDuration(enteredAt + duration - block.timestamp))
             );
         }
@@ -489,7 +504,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deployAdminExecutor(address owner) internal {
-        _adminExecutor = new OwnableExecutor(owner);
+        _adminExecutor = new Executor(owner);
     }
 
     function _deployConfigImpl() internal {
@@ -586,7 +601,7 @@ contract ScenarioTestBlueprint is Test {
             _adminExecutor.execute(
                 address(_dualGovernance),
                 0,
-                abi.encodeCall(_dualGovernance.setTiebreakerProtection, (address(_tiebreakerCommittee)))
+                abi.encodeCall(_dualGovernance.setTiebreakerCommittee, (_TIEBREAK_COMMITTEE))
             );
         }
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (governance)));
@@ -596,6 +611,11 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Utils Methods
     // ---
+
+    function _step(string memory text) internal {
+        // solhint-disable-next-line
+        console.log(string.concat(">>> ", text, " <<<"));
+    }
 
     function _wait(uint256 duration) internal {
         vm.warp(block.timestamp + duration);
@@ -674,7 +694,7 @@ contract ScenarioTestBlueprint is Test {
         assertEq(uint256(a), uint256(b), message);
     }
 
-    function assertEq(GovernanceState a, GovernanceState b) internal {
+    function assertEq(State a, State b) internal {
         assertEq(uint256(a), uint256(b));
     }
 
