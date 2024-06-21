@@ -15,13 +15,13 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     function testTransitionNormalToVetoSignalling() external {
         uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
         vm.assume(rageQuitSupport > dualGovernance.FIRST_SEAL_RAGE_QUIT_SUPPORT());
-        vm.assume(dualGovernance.currentState() == DualGovernance.State.Normal);
+        vm.assume(dualGovernance.currentState() == DualGovernanceModel.State.Normal);
         dualGovernance.activateNextState();
-        assert(dualGovernance.currentState() == DualGovernance.State.VetoSignalling);
+        assert(dualGovernance.currentState() == DualGovernanceModel.State.VetoSignalling);
     }
 
     struct StateRecord {
-        DualGovernance.State state;
+        DualGovernanceModel.State state;
         uint256 timestamp;
         uint256 rageQuitSupport;
         uint256 maxRageQuitSupport;
@@ -35,8 +35,8 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      */
     function _vetoSignallingInvariants(Mode mode, StateRecord memory sr) internal view {
         require(
-            sr.state != DualGovernance.State.Normal && sr.state != DualGovernance.State.VetoCooldown
-                && sr.state != DualGovernance.State.RageQuit,
+            sr.state != DualGovernanceModel.State.Normal && sr.state != DualGovernanceModel.State.VetoCooldown
+                && sr.state != DualGovernanceModel.State.RageQuit,
             "Invariants only apply to the Veto Signalling states."
         );
 
@@ -78,14 +78,14 @@ contract VetoSignallingTest is DualGovernanceSetUp {
 
         // Note: creates three branches in symbolic execution
         if (sr.timestamp <= sr.activationTime + dynamicTimelock) {
-            _establish(mode, sr.state == DualGovernance.State.VetoSignalling);
+            _establish(mode, sr.state == DualGovernanceModel.State.VetoSignalling);
         } else if (
             sr.timestamp
                 <= Math.max(sr.reactivationTime, sr.activationTime) + dualGovernance.VETO_SIGNALLING_MIN_ACTIVE_DURATION()
         ) {
-            _establish(mode, sr.state == DualGovernance.State.VetoSignalling);
+            _establish(mode, sr.state == DualGovernanceModel.State.VetoSignalling);
         } else {
-            _establish(mode, sr.state == DualGovernance.State.VetoSignallingDeactivation);
+            _establish(mode, sr.state == DualGovernanceModel.State.VetoSignallingDeactivation);
         }
     }
 
@@ -102,7 +102,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     function _vetoSignallingMaxDelayInvariant(Mode mode, StateRecord memory sr) internal view {
         // Note: creates two branches in symbolic execution
         if (_maxDeactivationDelayPassed(sr)) {
-            _establish(mode, sr.state == DualGovernance.State.VetoSignallingDeactivation);
+            _establish(mode, sr.state == DualGovernanceModel.State.VetoSignallingDeactivation);
         }
     }
 
@@ -159,15 +159,15 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     function testVetoSignallingInvariantsHoldInitially() external {
         vm.assume(block.timestamp < timeUpperBound);
 
-        vm.assume(dualGovernance.currentState() != DualGovernance.State.VetoSignalling);
-        vm.assume(dualGovernance.currentState() != DualGovernance.State.VetoSignallingDeactivation);
+        vm.assume(dualGovernance.currentState() != DualGovernanceModel.State.VetoSignalling);
+        vm.assume(dualGovernance.currentState() != DualGovernanceModel.State.VetoSignallingDeactivation);
 
         dualGovernance.activateNextState();
 
         StateRecord memory sr = _recordCurrentState(0);
 
         // Consider only the case where we have transitioned to Veto Signalling
-        if (sr.state == DualGovernance.State.VetoSignalling) {
+        if (sr.state == DualGovernanceModel.State.VetoSignalling) {
             _vetoSignallingInvariants(Mode.Assert, sr);
         }
     }
@@ -191,9 +191,9 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         StateRecord memory previous =
             _recordPreviousState(lastInteractionTimestamp, previousRageQuitSupport, maxRageQuitSupport);
 
-        vm.assume(previous.state != DualGovernance.State.Normal);
-        vm.assume(previous.state != DualGovernance.State.VetoCooldown);
-        vm.assume(previous.state != DualGovernance.State.RageQuit);
+        vm.assume(previous.state != DualGovernanceModel.State.Normal);
+        vm.assume(previous.state != DualGovernanceModel.State.VetoCooldown);
+        vm.assume(previous.state != DualGovernanceModel.State.RageQuit);
 
         _vetoSignallingInvariants(Mode.Assume, previous);
         dualGovernance.activateNextState();
@@ -201,8 +201,8 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         StateRecord memory current = _recordCurrentState(maxRageQuitSupport);
 
         if (
-            current.state != DualGovernance.State.Normal && current.state != DualGovernance.State.VetoCooldown
-                && current.state != DualGovernance.State.RageQuit
+            current.state != DualGovernanceModel.State.Normal && current.state != DualGovernanceModel.State.VetoCooldown
+                && current.state != DualGovernanceModel.State.RageQuit
         ) {
             _vetoSignallingInvariants(Mode.Assert, current);
         }
@@ -229,13 +229,13 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         vm.assume(signallingEscrow.getRageQuitSupport() <= previous.maxRageQuitSupport);
 
         vm.assume(
-            previous.state == DualGovernance.State.VetoSignalling
-                || previous.state == DualGovernance.State.VetoSignallingDeactivation
+            previous.state == DualGovernanceModel.State.VetoSignalling
+                || previous.state == DualGovernanceModel.State.VetoSignallingDeactivation
         );
 
         _vetoSignallingInvariants(Mode.Assume, previous);
 
-        assert(previous.state == DualGovernance.State.VetoSignallingDeactivation);
+        assert(previous.state == DualGovernanceModel.State.VetoSignallingDeactivation);
 
         dualGovernance.activateNextState();
 
@@ -247,9 +247,9 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         // The protocol is either in the Deactivation sub-state, or, if the
         // maximum deactivation duration has passed, in the Veto Cooldown state
         if (deactivationEndTime < block.timestamp) {
-            assert(current.state == DualGovernance.State.VetoCooldown);
+            assert(current.state == DualGovernanceModel.State.VetoCooldown);
         } else {
-            assert(current.state == DualGovernance.State.VetoSignallingDeactivation);
+            assert(current.state == DualGovernanceModel.State.VetoSignallingDeactivation);
         }
     }
 }

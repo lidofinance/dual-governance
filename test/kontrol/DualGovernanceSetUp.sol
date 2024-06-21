@@ -4,17 +4,17 @@ import "forge-std/Vm.sol";
 import "forge-std/Test.sol";
 import "kontrol-cheatcodes/KontrolCheats.sol";
 
-import "contracts/model/DualGovernance.sol";
-import "contracts/model/EmergencyProtectedTimelock.sol";
-import "contracts/model/Escrow.sol";
-import "contracts/model/StETH.sol";
+import "contracts/model/DualGovernanceModel.sol";
+import "contracts/model/EmergencyProtectedTimelockModel.sol";
+import "contracts/model/EscrowModel.sol";
+import "contracts/model/StETHModel.sol";
 
 contract DualGovernanceSetUp is Test, KontrolCheats {
-    DualGovernance dualGovernance;
-    EmergencyProtectedTimelock timelock;
-    StETH stEth;
-    Escrow signallingEscrow;
-    Escrow rageQuitEscrow;
+    DualGovernanceModel dualGovernance;
+    EmergencyProtectedTimelockModel timelock;
+    StETHModel stEth;
+    EscrowModel signallingEscrow;
+    EscrowModel rageQuitEscrow;
 
     uint256 constant CURRENT_STATE_SLOT = 3;
     uint256 constant CURRENT_STATE_OFFSET = 160;
@@ -38,12 +38,12 @@ contract DualGovernanceSetUp is Test, KontrolCheats {
     }
 
     function setUp() public {
-        stEth = new StETH();
+        stEth = new StETHModel();
         uint256 emergencyProtectionTimelock = 0; // Regular deployment mode
-        dualGovernance = new DualGovernance(address(stEth), emergencyProtectionTimelock);
+        dualGovernance = new DualGovernanceModel(address(stEth), emergencyProtectionTimelock);
         timelock = dualGovernance.emergencyProtectedTimelock();
         signallingEscrow = dualGovernance.signallingEscrow();
-        rageQuitEscrow = new Escrow(address(dualGovernance), address(stEth));
+        rageQuitEscrow = new EscrowModel(address(dualGovernance), address(stEth));
 
         _stEthStorageSetup();
         _dualGovernanceStorageSetup();

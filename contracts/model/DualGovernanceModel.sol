@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "./EmergencyProtectedTimelock.sol";
-import "./Escrow.sol";
+import "./EmergencyProtectedTimelockModel.sol";
+import "./EscrowModel.sol";
 
 /**
  * @title Dual Governance Mechanism
@@ -13,7 +13,7 @@ import "./Escrow.sol";
  */
 
 // DualGovernance contract to handle proposal submissions and lifecycle management.
-contract DualGovernance {
+contract DualGovernanceModel {
     enum State {
         Normal,
         VetoSignalling,
@@ -22,13 +22,12 @@ contract DualGovernance {
         RageQuit
     }
 
-    EmergencyProtectedTimelock public emergencyProtectedTimelock;
-    Escrow public signallingEscrow;
-    Escrow public rageQuitEscrow;
+    EmergencyProtectedTimelockModel public emergencyProtectedTimelock;
+    EscrowModel public signallingEscrow;
+    EscrowModel public rageQuitEscrow;
     address public fakeETH;
 
     // State Variables
-    State public currentState;
     mapping(address => bool) public proposers;
     mapping(address => bool) public admin_proposers;
     uint256 public lastStateChangeTime;
@@ -36,6 +35,8 @@ contract DualGovernance {
     uint256 public lastStateReactivationTime;
     uint256 public lastVetoSignallingTime;
     uint256 public rageQuitSequenceNumber;
+
+    State public currentState;
 
     // Constants
     uint256 public constant FIRST_SEAL_RAGE_QUIT_SUPPORT = 10 ** 16; // Threshold required for transition from Normal to Veto Signalling state (1%).
@@ -52,8 +53,8 @@ contract DualGovernance {
         currentState = State.Normal;
         lastStateChangeTime = block.timestamp;
         fakeETH = _fakeETH;
-        emergencyProtectedTimelock = new EmergencyProtectedTimelock(address(this), emergencyProtectionTimelock);
-        signallingEscrow = new Escrow(address(this), _fakeETH);
+        emergencyProtectedTimelock = new EmergencyProtectedTimelockModel(address(this), emergencyProtectionTimelock);
+        signallingEscrow = new EscrowModel(address(this), _fakeETH);
     }
 
     // Operations
@@ -86,7 +87,7 @@ contract DualGovernance {
             "Proposals can only be scheduled in Normal or Veto Cooldown states."
         );
         if (currentState == State.VetoCooldown) {
-            (,,,uint256 submissionTime,) = emergencyProtectedTimelock.proposals(proposalId);
+            (,,, uint256 submissionTime,) = emergencyProtectedTimelock.proposals(proposalId);
             require(
                 submissionTime < lastVetoSignallingTime,
                 "Proposal submitted after the last time Veto Signalling state was entered."
@@ -149,7 +150,7 @@ contract DualGovernance {
             signallingEscrow.startRageQuit();
             rageQuitSequenceNumber++;
             rageQuitEscrow = signallingEscrow;
-            signallingEscrow = new Escrow(address(this), fakeETH);
+            signallingEscrow = new EscrowModel(address(this), fakeETH);
         }
 
         lastStateChangeTime = block.timestamp;

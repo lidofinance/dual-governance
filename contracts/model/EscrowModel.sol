@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "contracts/model/StETH.sol";
+import "contracts/model/StETHModel.sol";
 
 /**
  * Simplified abstract model of the Escrow contract. Includes the following simplifications:
@@ -15,7 +15,7 @@ import "contracts/model/StETH.sol";
  * - Replaces requestNextWithdrawalBatch and claimNextWithdrawalBatch with simpler non-batch
  *   requestNextWithdrawal and claimNextWithdrawal functions that process a single request.
  */
-contract Escrow {
+contract EscrowModel {
     enum State {
         SignallingEscrow,
         RageQuitEscrow
@@ -27,10 +27,8 @@ contract Escrow {
         Claimed
     }
 
-    State public currentState;
-
     address public dualGovernance;
-    StETH public stEth;
+    StETHModel public stEth;
     mapping(address => uint256) public shares;
     uint256 public totalSharesLocked;
     uint256 public totalWithdrawalRequestAmount;
@@ -45,6 +43,8 @@ contract Escrow {
     uint256 public rageQuitEthClaimTimelockStart;
     uint256 public claimedWithdrawalRequests;
     bool public lastWithdrawalRequestSubmitted; // Flag indicating the last withdrawal request submitted
+
+    State public currentState;
 
     // Constants
     uint256 public constant RAGE_QUIT_EXTENSION_DELAY = 7 days;
@@ -61,7 +61,7 @@ contract Escrow {
     constructor(address _dualGovernance, address _stEth) {
         currentState = State.SignallingEscrow;
         dualGovernance = _dualGovernance;
-        stEth = StETH(_stEth);
+        stEth = StETHModel(_stEth);
     }
 
     // Locks a specified amount of tokens.

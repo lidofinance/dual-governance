@@ -26,7 +26,7 @@ struct Proposal {
 
 // This contract manages the timelocking of proposals with emergency intervention capabilities.
 // It provides controls for entering and managing emergency states as well as executing proposals under normal and emergency conditions.
-contract EmergencyProtectedTimelock {
+contract EmergencyProtectedTimelockModel {
     // Addresses associated with governance roles and permissions.
     address public governance;
     address public emergencyGovernance;

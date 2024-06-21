@@ -1,6 +1,6 @@
 pragma solidity 0.8.23;
 
-contract StETH {
+contract StETHModel {
     uint256 private totalPooledEther;
     uint256 private totalShares;
     mapping(address => uint256) private shares;

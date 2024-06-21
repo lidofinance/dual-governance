@@ -6,6 +6,7 @@ test = 'test'
 cache_path  = 'cache_forge'
 solc-version = "0.8.23"
 no-match-path = 'test/kontrol/*'
+extra_output = ['storageLayout', 'abi']
 
 [profile.kprove]
 src = 'test/kontrol'
