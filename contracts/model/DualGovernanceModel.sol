@@ -262,7 +262,8 @@ contract DualGovernanceModel {
         uint256 elapsed = block.timestamp - lastSubStateActivationTime;
         // Check the conditions for transitioning to VetoCooldown or back to VetoSignalling
         if (
-            block.timestamp - lastStateChangeTime <= calculateDynamicTimelock(rageQuitSupport)
+            block.timestamp == lastStateChangeTime
+                || block.timestamp - lastStateChangeTime <= calculateDynamicTimelock(rageQuitSupport)
                 || rageQuitSupport > SECOND_SEAL_RAGE_QUIT_SUPPORT
         ) {
             exitSubState(State.VetoSignalling);
@@ -279,7 +280,7 @@ contract DualGovernanceModel {
         require(currentState == State.VetoCooldown, "Must be in Veto Cooldown state.");
 
         // Ensure the Veto Cooldown has lasted for at least the minimum duration.
-        if (block.timestamp - lastStateChangeTime > VETO_COOLDOWN_DURATION) {
+        if (block.timestamp != lastStateChangeTime && block.timestamp - lastStateChangeTime > VETO_COOLDOWN_DURATION) {
             // Depending on the level of rage quit support, transition to Normal or Veto Signalling.
             if (rageQuitSupport <= FIRST_SEAL_RAGE_QUIT_SUPPORT) {
                 transitionState(State.Normal);
