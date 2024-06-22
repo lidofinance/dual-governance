@@ -118,7 +118,7 @@ contract DualGovernanceModel {
     function calculateDynamicTimelock(uint256 rageQuitSupport) public pure returns (uint256) {
         if (rageQuitSupport <= FIRST_SEAL_RAGE_QUIT_SUPPORT) {
             return 0;
-        } else if (rageQuitSupport < SECOND_SEAL_RAGE_QUIT_SUPPORT) {
+        } else if (rageQuitSupport <= SECOND_SEAL_RAGE_QUIT_SUPPORT) {
             return linearInterpolation(rageQuitSupport);
         } else {
             return DYNAMIC_TIMELOCK_MAX_DURATION;
@@ -237,12 +237,14 @@ contract DualGovernanceModel {
 
         // Check the conditions for transitioning to RageQuit or Veto Deactivation based on the time elapsed and support level.
         if (
-            block.timestamp - lastStateChangeTime > DYNAMIC_TIMELOCK_MAX_DURATION
+            block.timestamp != lastStateChangeTime
+                && block.timestamp - lastStateChangeTime > DYNAMIC_TIMELOCK_MAX_DURATION
                 && rageQuitSupport > SECOND_SEAL_RAGE_QUIT_SUPPORT
         ) {
             transitionState(State.RageQuit);
         } else if (
-            block.timestamp - lastStateChangeTime > calculateDynamicTimelock(rageQuitSupport)
+            block.timestamp != lastStateChangeTime
+                && block.timestamp - lastStateChangeTime > calculateDynamicTimelock(rageQuitSupport)
                 && block.timestamp - Math.max(lastStateChangeTime, lastStateReactivationTime)
                     > VETO_SIGNALLING_MIN_ACTIVE_DURATION
         ) {
@@ -292,7 +294,7 @@ contract DualGovernanceModel {
      * Checks if withdrawal process is complete, cooldown period expired.
      * Transitions to VetoCooldown if support has decreased below the threshold; otherwise, transitions to VetoSignalling.
      */
-    function fromRageQuit(uint256 rageQuitSupport) private {
+    function fromRageQuit(uint256 rageQuitSupport) public {
         require(currentState == State.RageQuit, "Must be in Rage Quit state.");
 
         // Check if the withdrawal process is completed and if the RageQuitExtensionDelay has elapsed
