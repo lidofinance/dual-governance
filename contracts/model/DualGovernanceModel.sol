@@ -133,6 +133,13 @@ contract DualGovernanceModel {
     function linearInterpolation(uint256 rageQuitSupport) private pure returns (uint256) {
         uint256 L_min = DYNAMIC_TIMELOCK_MIN_DURATION;
         uint256 L_max = DYNAMIC_TIMELOCK_MAX_DURATION;
+        // Assumption: No underflow
+        require(FIRST_SEAL_RAGE_QUIT_SUPPORT <= rageQuitSupport);
+        // Assumption: No overflow
+        require(
+            ((rageQuitSupport - FIRST_SEAL_RAGE_QUIT_SUPPORT) * (L_max - L_min)) / (L_max - L_min)
+                == (rageQuitSupport - FIRST_SEAL_RAGE_QUIT_SUPPORT)
+        );
         return L_min
             + ((rageQuitSupport - FIRST_SEAL_RAGE_QUIT_SUPPORT) * (L_max - L_min))
                 / (SECOND_SEAL_RAGE_QUIT_SUPPORT - FIRST_SEAL_RAGE_QUIT_SUPPORT);
@@ -181,6 +188,11 @@ contract DualGovernanceModel {
     // State Transitions
 
     function activateNextState() public {
+        // Assumption: various time stamps are in the past
+        require(lastStateChangeTime <= block.timestamp);
+        require(lastSubStateActivationTime <= block.timestamp);
+        require(lastStateReactivationTime <= block.timestamp);
+
         uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
 
         State previousState;

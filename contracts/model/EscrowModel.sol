@@ -31,18 +31,18 @@ contract EscrowModel {
     StETHModel public stEth;
     mapping(address => uint256) public shares;
     uint256 public totalSharesLocked;
-    uint256 public totalWithdrawalRequestAmount;
     uint256 public totalClaimedEthAmount;
+    uint256 public totalWithdrawalRequestAmount;
+    uint256 public withdrawalRequestCount;
+    bool public lastWithdrawalRequestSubmitted; // Flag indicating the last withdrawal request submitted
+    uint256 public claimedWithdrawalRequests;
     uint256 public totalWithdrawnPostRageQuit;
     mapping(address => uint256) public lastLockedTimes; // Track the last time tokens were locked by each user
-    uint256 public withdrawalRequestCount;
     mapping(uint256 => WithdrawalRequestStatus) public withdrawalRequestStatus;
     mapping(uint256 => uint256) public withdrawalRequestAmount;
     uint256 public rageQuitExtensionDelayPeriodEnd;
     uint256 public rageQuitSequenceNumber;
     uint256 public rageQuitEthClaimTimelockStart;
-    uint256 public claimedWithdrawalRequests;
-    bool public lastWithdrawalRequestSubmitted; // Flag indicating the last withdrawal request submitted
 
     State public currentState;
 
@@ -95,6 +95,10 @@ contract EscrowModel {
     // Returns total rage quit support as a percentage of the total supply.
     function getRageQuitSupport() external view returns (uint256) {
         uint256 totalPooledEth = stEth.getPooledEthByShares(totalSharesLocked);
+        // Assumption: No overflow
+        unchecked {
+            require((totalPooledEth * 10 ** 18) / 10 ** 18 == totalPooledEth);
+        }
         return (totalPooledEth * 10 ** 18) / stEth.totalSupply();
     }
 

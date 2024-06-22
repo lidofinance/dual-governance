@@ -9,10 +9,14 @@ contract StETHModel {
     uint256 internal constant INFINITE_ALLOWANCE = type(uint256).max;
 
     function setTotalPooledEther(uint256 _value) external {
+        // Assumption: totalPooledEther is not zero
+        require(_value != 0);
         totalPooledEther = _value;
     }
 
     function setTotalShares(uint256 _value) external {
+        // Assumption: totalShares is not zero
+        require(_value != 0);
         totalShares = _value;
     }
 
@@ -25,10 +29,14 @@ contract StETHModel {
     }
 
     function totalSupply() external view returns (uint256) {
+        // Assumption: totalPooledEther is not zero
+        require(totalPooledEther != 0);
         return totalPooledEther;
     }
 
     function getTotalPooledEther() external view returns (uint256) {
+        // Assumption: totalPooledEther is not zero
+        require(totalPooledEther != 0);
         return totalPooledEther;
     }
 
@@ -69,6 +77,8 @@ contract StETHModel {
     }
 
     function getTotalShares() external view returns (uint256) {
+        // Assumption: totalShares is not zero
+        require(totalShares != 0);
         return totalShares;
     }
 
@@ -77,10 +87,22 @@ contract StETHModel {
     }
 
     function getSharesByPooledEth(uint256 _ethAmount) public view returns (uint256) {
+        // Assumption: totalPooledEther is not zero
+        require(totalPooledEther != 0);
+        // Assumption: no overflow
+        unchecked {
+            require((_ethAmount * totalShares) / _ethAmount == totalShares);
+        }
         return _ethAmount * totalShares / totalPooledEther;
     }
 
     function getPooledEthByShares(uint256 _sharesAmount) public view returns (uint256) {
+        // Assumption: totalShares is not zero
+        require(totalShares != 0);
+        // Assumption: no overflow
+        unchecked {
+            require((totalPooledEther * _sharesAmount) / _sharesAmount == totalPooledEther);
+        }
         return _sharesAmount * totalPooledEther / totalShares;
     }
 

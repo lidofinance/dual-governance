@@ -64,6 +64,10 @@ module LIDO-LEMMAS
       requires #rangeUInt(256, A) andBool #rangeUInt(256, (-1) *Int B)
       [concrete(B), simplification, comm]
 
+    rule chop (0 -Int A) ==Int B => A ==Int (pow256 -Int B) modInt pow256
+      requires #rangeUInt(256, A) andBool #rangeUInt(256, B)
+      [concrete(B), simplification, comm]
+
     // *Int
     rule A *Int B ==Int 0 => A ==Int 0 orBool B ==Int 0 [simplification]
 
@@ -130,6 +134,33 @@ module LIDO-LEMMAS
     rule [memUpdate-concat-in-left]: (B1 +Bytes B2) [ S := B ] => (B1 [S := B]) +Bytes B2
       requires 0 <=Int S andBool S +Int lengthBytes(B) <=Int lengthBytes(B1)
       [simplification(45)]
+
+    //
+    // Equality of +Bytes
+    //
+    rule { B:Bytes #Equals B1:Bytes +Bytes B2:Bytes } =>
+           { #range ( B, 0, lengthBytes(B1) ) #Equals B1 } #And
+           { #range ( B, lengthBytes(B1), lengthBytes(B) -Int lengthBytes(B1) ) #Equals B2 }
+      requires lengthBytes(B1) <=Int lengthBytes(B)
+      [simplification(60), concrete(B, B1)]
+
+    rule { B1:Bytes +Bytes B2:Bytes #Equals B } =>
+           { #range ( B, 0, lengthBytes(B1) ) #Equals B1 } #And
+           { #range ( B, lengthBytes(B1), lengthBytes(B) -Int lengthBytes(B1) ) #Equals B2 }
+      requires lengthBytes(B1) <=Int lengthBytes(B)
+      [simplification(60), concrete(B, B1)]
+
+    rule { B:Bytes #Equals #buf( N, X:Int ) +Bytes B2:Bytes } =>
+           { X #Equals #asWord ( #range ( B, 0, N ) ) } #And
+           { #range ( B, N, lengthBytes(B) -Int N ) #Equals B2 }
+      requires N <=Int lengthBytes(B)
+      [simplification(60), concrete(B, N)]
+
+    rule { #buf( N, X:Int ) +Bytes B2:Bytes #Equals B } =>
+           { X #Equals #asWord ( #range ( B, 0, N ) ) } #And
+           { #range ( B, N, lengthBytes(B) -Int N ) #Equals B2 }
+      requires N <=Int lengthBytes(B)
+      [simplification(60), concrete(B, N)]
 
     //
     // Specific simplifications
