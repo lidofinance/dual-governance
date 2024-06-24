@@ -67,9 +67,9 @@ contract StorageSetup is KontrolTest {
         vm.assume(rageQuitSequenceNumber < type(uint256).max);
         _storeUInt256(address(_dualGovernance), 10, rageQuitSequenceNumber);
         // Slot 11
-        uint256 state = kevm.freshUInt(32);
-        vm.assume(state <= 4);
-        _storeUInt256(address(_dualGovernance), 11, state);
+        uint256 currentState = kevm.freshUInt(32);
+        vm.assume(currentState <= 4);
+        _storeUInt256(address(_dualGovernance), 11, currentState);
     }
 
     function _signallingEscrowStorageSetup(
@@ -107,25 +107,22 @@ contract StorageSetup is KontrolTest {
         uint8 _currentState
     ) internal {
         kevm.symbolicStorage(address(_escrow));
-        // Slot 0: currentState, dualGovernance
-        bytes memory slot_0_abi_encoding = abi.encodePacked(uint88(0), address(_dualGovernance), _currentState);
-        bytes32 slot_0_for_storage;
-        assembly {
-            slot_0_for_storage := mload(add(slot_0_abi_encoding, 0x20))
-        }
-        _storeBytes32(address(_escrow), 0, slot_0_for_storage);
-        // Slot 1
+        // Slot 0: dualGovernance
+        _storeAddress(address(_escrow), 0, address(_dualGovernance));
+        // Slot 1: stEth
         _storeAddress(address(_escrow), 1, address(_stEth));
-        // Slot 3
-        uint256 totalStakedShares = kevm.freshUInt(32);
-        vm.assume(totalStakedShares < ethUpperBound);
-        _storeUInt256(address(_escrow), 3, totalStakedShares);
-        // Slot 5
+        // Slot 3: totalSharesLocked
+        uint256 totalSharesLocked = kevm.freshUInt(32);
+        vm.assume(totalSharesLocked < ethUpperBound);
+        _storeUInt256(address(_escrow), 3, totalSharesLocked);
+        // Slot 4: totalClaimedEthAmount
         uint256 totalClaimedEthAmount = kevm.freshUInt(32);
-        vm.assume(totalClaimedEthAmount <= totalStakedShares);
-        _storeUInt256(address(_escrow), 5, totalClaimedEthAmount);
-        // Slot 11
-        uint256 rageQUitExtensionDelayPeriodEnd = kevm.freshUInt(32);
-        _storeUInt256(address(_escrow), 11, rageQUitExtensionDelayPeriodEnd);
+        vm.assume(totalClaimedEthAmount <= totalSharesLocked);
+        _storeUInt256(address(_escrow), 4, totalClaimedEthAmount);
+        // Slot 13: rageQuitExtensionDelayPeriodEnd
+        uint256 rageQuitExtensionDelayPeriodEnd = kevm.freshUInt(32);
+        _storeUInt256(address(_escrow), 13, rageQuitExtensionDelayPeriodEnd);
+        // Slot 16: currentState
+        _storeUInt256(address(_escrow), 16, uint256(_currentState));
     }
 }
