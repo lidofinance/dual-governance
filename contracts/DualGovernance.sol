@@ -18,6 +18,8 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     event ProposalScheduled(uint256 proposalId);
 
+    error NotTiebreaker(address account, address tiebreakCommittee);
+
     ITimelock public immutable TIMELOCK;
 
     TiebreakerProtection.Tiebreaker internal _tiebreaker;
@@ -139,9 +141,8 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     // Tiebreaker Protection
     // ---
 
-    function tiebreakerScheduleProposal(uint256 proposalId) external {
-        _checkTiebreakerCommittee(msg.sender);
-        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
+    function tiebreakerApproveProposal(uint256 proposalId) external {
+        _tiebreaker.checkTiebreakerCommittee(msg.sender);
         _dgState.checkTiebreak(CONFIG);
         _tiebreaker.approveProposal(proposalId);
     }
@@ -162,7 +163,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK.schedule(proposalId);
     }
 
-    function setTiebreakerCommittee(address newTiebreaker) external {
+    function setTiebreakerProtection(address newTiebreaker) external {
         _checkAdminExecutor(msg.sender);
         if (_tiebreaker.tiebreaker != address(0)) {
             _proposers.unregister(CONFIG, _tiebreaker.tiebreaker);

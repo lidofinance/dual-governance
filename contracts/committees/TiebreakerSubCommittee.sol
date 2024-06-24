@@ -5,6 +5,8 @@ import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
 interface ITiebreakerCore {
     function getSealableResumeNonce(address sealable) external view returns (uint256 nonce);
+    function approveProposal(uint256 _proposalId) external;
+    function approveSealableResume(address sealable, uint256 nonce) external;
 }
 
 contract TiebreakerSubCommittee is ExecutiveCommittee {
@@ -22,7 +24,7 @@ contract TiebreakerSubCommittee is ExecutiveCommittee {
     // Approve proposal
 
     function voteApproveProposal(uint256 proposalId, bool support) public onlyMember {
-        _vote(_buildApproveProposalAction(proposalId), support);
+        _vote(_encodeApproveProposalData(proposalId), support);
     }
 
     function getApproveProposalState(uint256 proposalId)
@@ -30,17 +32,18 @@ contract TiebreakerSubCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getActionState(_buildApproveProposalAction(proposalId));
+        return _getVoteState(_encodeApproveProposalData(proposalId));
     }
 
     function executeApproveProposal(uint256 proposalId) public {
-        _execute(_buildApproveProposalAction(proposalId));
+        _markExecuted(_encodeApproveProposalData(proposalId));
+        ITiebreakerCore(TIEBREAKER_CORE).approveProposal(proposalId);
     }
 
     // Approve unpause sealable
 
     function voteApproveSealableResume(address sealable, bool support) public {
-        _vote(_buildApproveSealableResumeAction(sealable), support);
+        _vote(_encodeApproveSealableResumeData(sealable), support);
     }
 
     function getApproveSealableResumeState(address sealable)
@@ -48,23 +51,21 @@ contract TiebreakerSubCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getActionState(_buildApproveSealableResumeAction(sealable));
+        return _getVoteState(_encodeApproveSealableResumeData(sealable));
     }
 
     function executeApproveSealableResume(address sealable) public {
-        _execute(_buildApproveSealableResumeAction(sealable));
-    }
-
-    function _buildApproveSealableResumeAction(address sealable) internal view returns (Action memory) {
+        _markExecuted(_encodeApproveSealableResumeData(sealable));
         uint256 nonce = ITiebreakerCore(TIEBREAKER_CORE).getSealableResumeNonce(sealable);
-        return Action(
-            TIEBREAKER_CORE,
-            abi.encodeWithSignature("approveSealableResume(address,uint256)", sealable, nonce),
-            new bytes(0)
-        );
+        ITiebreakerCore(TIEBREAKER_CORE).approveSealableResume(sealable, nonce);
     }
 
-    function _buildApproveProposalAction(uint256 proposalId) internal view returns (Action memory) {
-        return Action(TIEBREAKER_CORE, abi.encodeWithSignature("approveProposal(uint256)", proposalId), new bytes(0));
+    function _encodeApproveSealableResumeData(address sealable) internal view returns (bytes memory data) {
+        uint256 nonce = ITiebreakerCore(TIEBREAKER_CORE).getSealableResumeNonce(sealable);
+        data = abi.encode(sealable, nonce);
+    }
+
+    function _encodeApproveProposalData(uint256 proposalId) internal pure returns (bytes memory data) {
+        data = abi.encode(proposalId);
     }
 }

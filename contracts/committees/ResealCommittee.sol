@@ -18,7 +18,7 @@ contract ResealCommittee is ExecutiveCommittee {
     }
 
     function voteReseal(address[] memory sealables, bool support) public onlyMember {
-        _vote(_buildResealAction(sealables), support);
+        _vote(_encodeResealData(sealables), support);
     }
 
     function getResealState(address[] memory sealables)
@@ -26,21 +26,17 @@ contract ResealCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return getActionState(_buildResealAction(sealables));
+        return _getVoteState(_encodeResealData(sealables));
     }
 
     function executeReseal(address[] memory sealables) external {
-        _execute(_buildResealAction(sealables));
+        _markExecuted(_encodeResealData(sealables));
         bytes32 resealNonceHash = keccak256(abi.encode(sealables));
         _resealNonces[resealNonceHash]++;
     }
 
-    function _buildResealAction(address[] memory sealables) internal view returns (Action memory) {
+    function _encodeResealData(address[] memory sealables) internal view returns (bytes memory data) {
         bytes32 resealNonceHash = keccak256(abi.encode(sealables));
-        return Action(
-            RESEAL_EXECUTOR,
-            abi.encodeWithSignature("reseal(address[])", sealables),
-            abi.encode(_resealNonces[resealNonceHash])
-        );
+        data = abi.encode(sealables, _resealNonces[resealNonceHash]);
     }
 }

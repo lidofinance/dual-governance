@@ -20,7 +20,7 @@ contract EmergencyActivationCommittee is ExecutiveCommittee {
     }
 
     function approveEmergencyActivate() public onlyMember {
-        _vote(_hashEmergencyActivateAction(), true);
+        _vote(_encodeEmergencyActivateData(), true);
     }
 
     function getEmergencyActivateState()
@@ -28,15 +28,15 @@ contract EmergencyActivationCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getActionState(_hashEmergencyActivateAction());
+        return _getVoteState(_encodeEmergencyActivateData());
     }
 
     function executeEmergencyActivate() external {
-        _markExecute(_hashEmergencyActivateAction());
+        _markExecuted(_encodeEmergencyActivateData());
         IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).emergencyActivate();
     }
 
-    function _hashEmergencyActivateAction() internal view returns (Action memory) {
-        return keccak256("EMERGENCY_ACTIVATE");
+    function _encodeEmergencyActivateData() internal pure returns (bytes memory data) {
+        data = bytes("EMERGENCY_ACTIVATE");
     }
 }

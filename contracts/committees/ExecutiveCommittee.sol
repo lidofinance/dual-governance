@@ -10,8 +10,8 @@ abstract contract ExecutiveCommittee {
     event MemberAdded(address indexed member);
     event MemberRemoved(address indexed member);
     event QuorumSet(uint256 quorum);
-    event VoteExecuted(address indexed to, bytes data);
-    event Voted(address indexed signer, bool support, address indexed to, bytes data);
+    event VoteExecuted(bytes data);
+    event Voted(address indexed signer, bytes data, bool support);
 
     error IsNotMember();
     error SenderIsNotMember();
@@ -26,7 +26,12 @@ abstract contract ExecutiveCommittee {
     EnumerableSet.AddressSet private members;
     uint256 public quorum;
 
-    mapping(bytes32 digest => bool isEecuted) public voteStates;
+    struct VoteState {
+        bytes data;
+        bool isExecuted;
+    }
+
+    mapping(bytes32 digest => VoteState) public voteStates;
     mapping(address signer => mapping(bytes32 digest => bool support)) public approves;
 
     constructor(address owner, address[] memory newMembers, uint256 executionQuorum) {
@@ -46,8 +51,14 @@ abstract contract ExecutiveCommittee {
         }
     }
 
-    function _vote(bytes32 digest, bool support) internal {
-        if (voteStates[digest] == true) {
+    function _vote(bytes memory data, bool support) internal {
+        bytes32 digest = keccak256(data);
+
+        if (voteStates[digest].data.length == 0) {
+            voteStates[digest].data = data;
+        }
+
+        if (voteStates[digest].isExecuted == true) {
             revert VoteAlreadyExecuted();
         }
 
@@ -56,30 +67,34 @@ abstract contract ExecutiveCommittee {
         }
 
         approves[msg.sender][digest] = support;
-        emit Voted(msg.sender, digest);
+        emit Voted(msg.sender, data, support);
     }
 
-    function _markExecuted(bytes32 digest) internal {
-        if (voteStates[digest] == true) {
+    function _markExecuted(bytes memory data) internal {
+        bytes32 digest = keccak256(data);
+
+        if (voteStates[digest].isExecuted == true) {
             revert VoteAlreadyExecuted();
         }
         if (_getSupport(digest) < quorum) {
             revert QuorumIsNotReached();
         }
 
-        voteStates[digest] = true;
+        voteStates[digest].isExecuted = true;
 
-        emit VoteExecuted(digest);
+        emit VoteExecuted(data);
     }
 
-    function _getVoteState(bytes32 digest)
+    function _getVoteState(bytes memory data)
         internal
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
+        bytes32 digest = keccak256(data);
+
         support = _getSupport(digest);
         execuitionQuorum = quorum;
-        isExecuted = voteStates[digest];
+        isExecuted = voteStates[digest].isExecuted;
     }
 
     function addMember(address newMember, uint256 newQuorum) public onlyOwner {

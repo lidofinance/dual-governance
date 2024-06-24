@@ -23,7 +23,7 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
     // Emergency Execution
 
     function voteEmergencyExecute(uint256 _proposalId, bool _supports) public onlyMember {
-        _vote(_buildEmergencyExecuteAction(_proposalId), _supports);
+        _vote(_encodeEmergencyExecuteData(_proposalId), _supports);
     }
 
     function getEmergencyExecuteState(uint256 _proposalId)
@@ -31,17 +31,18 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getActionState(_buildEmergencyExecuteAction(_proposalId));
+        return _getVoteState(_encodeEmergencyExecuteData(_proposalId));
     }
 
     function executeEmergencyExecute(uint256 _proposalId) public {
-        _execute(_buildEmergencyExecuteAction(_proposalId));
+        _markExecuted(_encodeEmergencyExecuteData(_proposalId));
+        IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).emergencyExecute(_proposalId);
     }
 
     // Governance reset
 
     function approveEmergencyReset() public onlyMember {
-        _vote(_buildEmergencyResetAction(), true);
+        _vote(_dataEmergencyResetData(), true);
     }
 
     function getEmergencyResetState()
@@ -49,20 +50,19 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getActionState(_buildEmergencyResetAction());
+        return _getVoteState(_dataEmergencyResetData());
     }
 
     function executeEmergencyReset() external {
-        _execute(_buildEmergencyResetAction());
+        _markExecuted(_dataEmergencyResetData());
+        IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).emergencyReset();
     }
 
-    function _buildEmergencyResetAction() internal view returns (Action memory) {
-        return Action(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyReset()"), new bytes(0));
+    function _dataEmergencyResetData() internal pure returns (bytes memory data) {
+        data = bytes("EMERGENCY_RESET");
     }
 
-    function _buildEmergencyExecuteAction(uint256 proposalId) internal view returns (Action memory) {
-        return Action(
-            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSignature("emergencyExecute(uint256)", proposalId), new bytes(0)
-        );
+    function _encodeEmergencyExecuteData(uint256 proposalId) internal pure returns (bytes memory data) {
+        data = abi.encode(proposalId);
     }
 }
