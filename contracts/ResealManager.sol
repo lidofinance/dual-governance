@@ -17,7 +17,6 @@ contract ResealExecutor is Ownable {
 
     constructor(address owner, address managerAddress) Ownable(owner) {
         manager = managerAddress;
-
         emit ManagerSet(managerAddress);
     }
 

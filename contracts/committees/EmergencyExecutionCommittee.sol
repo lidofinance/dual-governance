@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
 interface IEmergencyProtectedTimelock {
@@ -22,21 +23,24 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
 
     // Emergency Execution
 
-    function voteEmergencyExecute(uint256 _proposalId, bool _supports) public onlyMember {
-        _vote(_encodeEmergencyExecuteData(_proposalId), _supports);
+    function voteEmergencyExecute(uint256 proposalId, bool _supports) public onlyMember {
+        _vote(_encodeEmergencyExecuteData(proposalId), _supports);
     }
 
-    function getEmergencyExecuteState(uint256 _proposalId)
+    function getEmergencyExecuteState(uint256 proposalId)
         public
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getVoteState(_encodeEmergencyExecuteData(_proposalId));
+        return _getVoteState(_encodeEmergencyExecuteData(proposalId));
     }
 
-    function executeEmergencyExecute(uint256 _proposalId) public {
-        _markExecuted(_encodeEmergencyExecuteData(_proposalId));
-        IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).emergencyExecute(_proposalId);
+    function executeEmergencyExecute(uint256 proposalId) public {
+        _markExecuted(_encodeEmergencyExecuteData(proposalId));
+        Address.functionCall(
+            EMERGENCY_PROTECTED_TIMELOCK,
+            abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyExecute.selector, proposalId)
+        );
     }
 
     // Governance reset
@@ -55,7 +59,9 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
 
     function executeEmergencyReset() external {
         _markExecuted(_dataEmergencyResetData());
-        IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).emergencyReset();
+        Address.functionCall(
+            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyReset.selector)
+        );
     }
 
     function _dataEmergencyResetData() internal pure returns (bytes memory data) {

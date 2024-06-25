@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
 interface IDualGovernance {
@@ -40,7 +41,9 @@ contract TiebreakerCore is ExecutiveCommittee {
 
     function executeApproveProposal(uint256 proposalId) public {
         _markExecuted(_encodeAproveProposalData(proposalId));
-        IDualGovernance(DUAL_GOVERNANCE).tiebreakerApproveProposal(proposalId);
+        Address.functionCall(
+            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerApproveProposal.selector, proposalId)
+        );
     }
 
     // Resume sealable
@@ -66,7 +69,9 @@ contract TiebreakerCore is ExecutiveCommittee {
     function executeSealableResume(address sealable) external {
         _markExecuted(_encodeSealableResumeData(sealable, _sealableResumeNonces[sealable]));
         _sealableResumeNonces[sealable]++;
-        IDualGovernance(DUAL_GOVERNANCE).tiebreakerApproveSealableResume(sealable);
+        Address.functionCall(
+            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerApproveSealableResume.selector, sealable)
+        );
     }
 
     function _encodeAproveProposalData(uint256 proposalId) internal pure returns (bytes memory data) {

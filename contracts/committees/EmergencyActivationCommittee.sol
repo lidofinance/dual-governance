@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
 interface IEmergencyProtectedTimelock {
@@ -33,7 +34,9 @@ contract EmergencyActivationCommittee is ExecutiveCommittee {
 
     function executeEmergencyActivate() external {
         _markExecuted(_encodeEmergencyActivateData());
-        IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).emergencyActivate();
+        Address.functionCall(
+            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyActivate.selector)
+        );
     }
 
     function _encodeEmergencyActivateData() internal pure returns (bytes memory data) {

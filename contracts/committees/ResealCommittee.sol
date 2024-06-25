@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
+interface IDualGovernance {
+    function reseal(address[] memory sealables) external;
+}
+
 contract ResealCommittee is ExecutiveCommittee {
-    address public immutable RESEAL_EXECUTOR;
+    address public immutable DUAL_GOVERNANCE;
 
     mapping(bytes32 => uint256) private _resealNonces;
 
@@ -12,10 +17,10 @@ contract ResealCommittee is ExecutiveCommittee {
         address owner,
         address[] memory committeeMembers,
         uint256 executionQuorum,
-        address resealExecutor,
+        address dualGovernance,
         uint256 timelock
     ) ExecutiveCommittee(owner, committeeMembers, executionQuorum, timelock) {
-        RESEAL_EXECUTOR = resealExecutor;
+        DUAL_GOVERNANCE = dualGovernance;
     }
 
     function voteReseal(address[] memory sealables, bool support) public onlyMember {
@@ -32,6 +37,9 @@ contract ResealCommittee is ExecutiveCommittee {
 
     function executeReseal(address[] memory sealables) external {
         _markExecuted(_encodeResealData(sealables));
+
+        Address.functionCall(DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.reseal.selector, sealables));
+
         bytes32 resealNonceHash = keccak256(abi.encode(sealables));
         _resealNonces[resealNonceHash]++;
     }
