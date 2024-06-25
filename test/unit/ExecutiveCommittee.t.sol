@@ -48,12 +48,12 @@ abstract contract ExecutiveCommitteeUnitTest is UnitTest {
         assertEq(_executiveCommittee.isMember(newMember), false);
 
         vm.prank(_stranger);
-        vm.expectRevert(abi.encodeWithSignature("SenderIsNotOwner()"));
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", _stranger));
         _executiveCommittee.addMember(newMember, _quorum);
 
         for (uint256 i = 0; i < _membersCount; ++i) {
             vm.prank(_committeeMembers[i]);
-            vm.expectRevert(abi.encodeWithSignature("SenderIsNotOwner()"));
+            vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", _committeeMembers[i]));
             _executiveCommittee.addMember(newMember, _quorum);
         }
     }
@@ -106,12 +106,12 @@ abstract contract ExecutiveCommitteeUnitTest is UnitTest {
         assertEq(_executiveCommittee.isMember(memberToRemove), true);
 
         vm.prank(_stranger);
-        vm.expectRevert(abi.encodeWithSignature("SenderIsNotOwner()"));
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", _stranger));
         _executiveCommittee.removeMember(memberToRemove, _quorum);
 
         for (uint256 i = 0; i < _membersCount; ++i) {
             vm.prank(_committeeMembers[i]);
-            vm.expectRevert(abi.encodeWithSignature("SenderIsNotOwner()"));
+            vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", _committeeMembers[i]));
             _executiveCommittee.removeMember(memberToRemove, _quorum);
         }
     }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-abstract contract ExecutiveCommittee {
+abstract contract ExecutiveCommittee is Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     event MemberAdded(address indexed member);
@@ -16,14 +16,11 @@ abstract contract ExecutiveCommittee {
 
     error IsNotMember();
     error SenderIsNotMember();
-    error SenderIsNotOwner();
     error VoteAlreadyExecuted();
     error QuorumIsNotReached();
     error InvalidQuorum();
     error DuplicatedMember(address member);
     error TimelockNotPassed();
-
-    address public immutable OWNER;
 
     EnumerableSet.AddressSet private members;
     uint256 public quorum;
@@ -38,14 +35,12 @@ abstract contract ExecutiveCommittee {
     mapping(bytes32 digest => VoteState) public voteStates;
     mapping(address signer => mapping(bytes32 digest => bool support)) public approves;
 
-    constructor(address owner, address[] memory newMembers, uint256 executionQuorum, uint256 timelock) {
+    constructor(address owner, address[] memory newMembers, uint256 executionQuorum, uint256 timelock) Ownable(owner) {
         if (executionQuorum == 0) {
             revert InvalidQuorum();
         }
         quorum = executionQuorum;
         emit QuorumSet(executionQuorum);
-
-        OWNER = owner;
 
         timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
@@ -168,13 +163,6 @@ abstract contract ExecutiveCommittee {
     modifier onlyMember() {
         if (!members.contains(msg.sender)) {
             revert SenderIsNotMember();
-        }
-        _;
-    }
-
-    modifier onlyOwner() {
-        if (msg.sender != OWNER) {
-            revert SenderIsNotOwner();
         }
         _;
     }
