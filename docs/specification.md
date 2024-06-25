@@ -86,11 +86,11 @@ The proposal execution flow comes after the dynamic timelock elapses and the pro
 
 #### Regular deployment mode
 
-In the regular deployment mode, the emergency protection delay is set to zero and all calls from scheduled proposals are immediately executable by anyone via calling the [`EmergencyProtectedTimelock.execute`](#Function-EmergencyProtectedTimelockexecute) function.
+In the regular deployment mode, the **emergency protection delay** is set to zero and all calls from scheduled proposals are immediately executable by anyone via calling the [`EmergencyProtectedTimelock.execute`](#Function-EmergencyProtectedTimelockexecute) function.
 
 #### Protected deployment mode
 
-The protected deployment mode is a temporary mode designed to be active during an initial period after the deployment or upgrade of the DG contracts. In this mode, scheduled proposals cannot be executed immediately; instead, before calling [`EmergencyProtectedTimelock.execute`](#Funtion-EmergencyProtectedTimelockexecute), one has to wait until an **emergency protection timelock** elapses since the proposal scheduling time.
+The protected deployment mode is a temporary mode designed to be active during an initial period after the deployment or upgrade of the DG contracts. In this mode, scheduled proposals cannot be executed immediately; instead, before calling [`EmergencyProtectedTimelock.execute`](#Funtion-EmergencyProtectedTimelockexecute), one has to wait until an emergency protection delay elapses since the proposal scheduling time.
 
 ![image](https://github.com/lidofinance/dual-governance/assets/1699593/38cb2371-bdb0-4681-9dfd-356fa1ed7959)
 
@@ -373,7 +373,7 @@ Registers the `proposer` address in the system as a valid proposer and associate
 
 #### Preconditions
 
-* MUST be called by the admin executor contract (see `Config.sol`).
+* MUST be called by the admin executor contract (see `Configuration.sol`).
 * The `proposer` address MUST NOT be already registered in the system.
 * The `executor` instance SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
 
@@ -837,14 +837,14 @@ Allows the caller (i.e. `msg.sender`) to withdraw the claimed ETH from the Withd
 For a proposal to be executed, the following steps have to be performed in order:
 
 1. The proposal must be submitted using the `EmergencyProtectedTimelock.submit` function.
-2. The configured post-submit timelock must elapse.
+2. The configured post-submit timelock (`Configuration.AFTER_SUBMIT_DELAY()`) must elapse.
 3. The proposal must be scheduled using the `EmergencyProtectedTimelock.schedule` function.
-4. The configured emergency protection timelock must elapse (can be zero, see below).
+4. The configured emergency protection delay (`Configuration.AFTER_SCHEDULE_DELAY()`) must elapse (can be zero, see below).
 5. The proposal must be executed using the `EmergencyProtectedTimelock.execute` function.
 
 The contract only allows proposal submission and scheduling by the `governance` address. Normally, this address points to the [`DualGovernance`](#Contract-DualGovernancesol) singleton instance. Proposal execution is permissionless, unless Emergency Mode is activated.
 
-If the Emergency Committees are set up and active, the governance proposal gets a separate emergency protection timelock between submitting and scheduling. This additional timelock is implemented in the `EmergencyProtectedTimelock` contract to protect from zero-day vulnerability in the logic of `DualGovenance.sol` and other core DG contracts. If the Emergency Committees aren't set, the proposal flow is the same, but the timelock duration is zero.
+If the Emergency Committees are set up and active, the governance proposal gets a separate emergency protection delay between submitting and scheduling. This additional timelock is implemented in the `EmergencyProtectedTimelock` contract to protect from zero-day vulnerability in the logic of `DualGovenance.sol` and other core DG contracts. If the Emergency Committees aren't set, the proposal flow is the same, but the timelock duration is zero.
 
 Emergency Activation Committee, while active, can enable the Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. It also allows the Emergency Execution Committee to reset the governance, effectively disabling the Dual Governance subsystem.
 
