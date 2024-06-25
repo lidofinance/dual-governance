@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {percents, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {
+    percents, ScenarioTestBlueprint, DurationType, Timestamps, Durations
+} from "../utils/scenario-test-blueprint.sol";
 
 import {GateSealMock} from "../mocks/GateSealMock.sol";
 import {GateSealBreaker, IGateSeal} from "contracts/GateSealBreaker.sol";
@@ -9,8 +11,8 @@ import {GateSealBreaker, IGateSeal} from "contracts/GateSealBreaker.sol";
 import {DAO_AGENT} from "../utils/mainnet-addresses.sol";
 
 contract SealBreakerScenarioTest is ScenarioTestBlueprint {
-    uint256 private immutable _RELEASE_DELAY = 5 days;
-    uint256 private immutable _MIN_SEAL_DURATION = 14 days;
+    DurationType private immutable _RELEASE_DELAY = Durations.from(5 days);
+    DurationType private immutable _MIN_SEAL_DURATION = Durations.from(14 days);
 
     address private immutable _VETOER = makeAddr("VETOER");
 
@@ -25,9 +27,9 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
 
         _sealables.push(address(_WITHDRAWAL_QUEUE));
 
-        _gateSeal = new GateSealMock(_MIN_SEAL_DURATION, _SEALING_COMMITTEE_LIFETIME);
+        _gateSeal = new GateSealMock(_MIN_SEAL_DURATION.toSeconds(), _SEALING_COMMITTEE_LIFETIME.toSeconds());
 
-        _sealBreaker = new GateSealBreaker(_RELEASE_DELAY, address(this), address(_dualGovernance));
+        _sealBreaker = new GateSealBreaker(_RELEASE_DELAY.toSeconds(), address(this), address(_dualGovernance));
 
         _sealBreaker.registerGateSeal(_gateSeal);
 
@@ -56,7 +58,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         // validate Withdrawal Queue was paused
         assertTrue(_WITHDRAWAL_QUEUE.isPaused());
 
-        _wait(_MIN_SEAL_DURATION + 1);
+        _wait(_MIN_SEAL_DURATION.plusSeconds(1));
 
         // validate the dual governance still in the veto signaling state
         _assertVetoSignalingState();
@@ -66,11 +68,11 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealBreaker.startRelease(_gateSeal);
 
         // wait the governance returns to normal state
-        _wait(14 days);
+        _wait(Durations.from(14 days));
         _activateNextState();
         _assertVetoSignalingDeactivationState();
 
-        _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() + 1);
+        _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertVetoCooldownState();
 
@@ -82,7 +84,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealBreaker.enactRelease(_gateSeal);
 
         // anyone may release the seal after timelock
-        _wait(_RELEASE_DELAY + 1);
+        _wait(_RELEASE_DELAY.plusSeconds(1));
         _sealBreaker.enactRelease(_gateSeal);
 
         assertFalse(_WITHDRAWAL_QUEUE.isPaused());
@@ -100,7 +102,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         assertTrue(_WITHDRAWAL_QUEUE.isPaused());
 
         // wait some time, before dual governance enters veto signaling state
-        _wait(_MIN_SEAL_DURATION / 2);
+        _wait(_MIN_SEAL_DURATION.dividedBy(2));
 
         _lockStETH(_VETOER, percents("10.0"));
         _assertVetoSignalingState();
@@ -109,25 +111,25 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         vm.expectRevert(GateSealBreaker.MinSealDurationNotPassed.selector);
         _sealBreaker.startRelease(_gateSeal);
 
-        _wait(_MIN_SEAL_DURATION / 2 + 1);
+        _wait(_MIN_SEAL_DURATION.dividedBy(2).plusSeconds(1));
 
         // seal can't be released before the governance returns to Normal state
         vm.expectRevert(GateSealBreaker.GovernanceLocked.selector);
         _sealBreaker.startRelease(_gateSeal);
 
         // wait the governance returns to normal state
-        _wait(14 days);
+        _wait(Durations.from(14 days));
         _activateNextState();
         _assertVetoSignalingDeactivationState();
 
-        _wait(_dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() + 1);
+        _wait(_dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertVetoCooldownState();
 
         // the stETH whale takes his funds back from Escrow
         _unlockStETH(_VETOER);
 
-        _wait(_dualGovernance.CONFIG().VETO_COOLDOWN_DURATION() + 1);
+        _wait(_dualGovernance.CONFIG().VETO_COOLDOWN_DURATION().plusSeconds(1));
         _activateNextState();
         _assertNormalState();
 
@@ -139,7 +141,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealBreaker.enactRelease(_gateSeal);
 
         // anyone may release the seal after timelock
-        _wait(_RELEASE_DELAY + 1);
+        _wait(_RELEASE_DELAY.plusSeconds(1));
         _sealBreaker.enactRelease(_gateSeal);
         assertFalse(_WITHDRAWAL_QUEUE.isPaused());
     }
@@ -159,7 +161,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         vm.expectRevert(GateSealBreaker.MinSealDurationNotPassed.selector);
         _sealBreaker.startRelease(_gateSeal);
 
-        vm.warp(block.timestamp + _MIN_SEAL_DURATION + 1);
+        _wait(_MIN_SEAL_DURATION.plusSeconds(1));
 
         // now seal may be released
         _sealBreaker.startRelease(_gateSeal);
@@ -169,7 +171,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         _sealBreaker.enactRelease(_gateSeal);
 
         // anyone may release the seal after timelock
-        _wait(_RELEASE_DELAY + 1);
+        _wait(_RELEASE_DELAY.plusSeconds(1));
         _sealBreaker.enactRelease(_gateSeal);
 
         assertFalse(_WITHDRAWAL_QUEUE.isPaused());
@@ -190,7 +192,7 @@ contract SealBreakerScenarioTest is ScenarioTestBlueprint {
         vm.expectRevert(GateSealBreaker.MinSealDurationNotPassed.selector);
         _sealBreaker.startRelease(_gateSeal);
 
-        _wait(_MIN_SEAL_DURATION + 1);
+        _wait(_MIN_SEAL_DURATION.plusSeconds(1));
 
         // now seal may be released
         _sealBreaker.startRelease(_gateSeal);

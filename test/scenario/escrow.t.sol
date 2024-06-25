@@ -2,14 +2,15 @@
 pragma solidity 0.8.23;
 
 import {WithdrawalRequestStatus} from "../utils/interfaces.sol";
-
+import {Duration as DurationType} from "contracts/types/Duration.sol";
 import {
     Escrow,
     Balances,
     VetoerState,
     LockedAssetsTotals,
     WITHDRAWAL_QUEUE,
-    ScenarioTestBlueprint
+    ScenarioTestBlueprint,
+    Durations
 } from "../utils/scenario-test-blueprint.sol";
 
 contract TestHelpers is ScenarioTestBlueprint {
@@ -47,8 +48,8 @@ contract TestHelpers is ScenarioTestBlueprint {
 contract EscrowHappyPath is TestHelpers {
     Escrow internal escrow;
 
-    uint256 internal immutable _RAGE_QUIT_EXTRA_TIMELOCK = 14 days;
-    uint256 internal immutable _RAGE_QUIT_WITHDRAWALS_TIMELOCK = 7 days;
+    DurationType internal immutable _RAGE_QUIT_EXTRA_TIMELOCK = Durations.from(14 days);
+    DurationType internal immutable _RAGE_QUIT_WITHDRAWALS_TIMELOCK = Durations.from(7 days);
 
     address internal immutable _VETOER_1 = makeAddr("VETOER_1");
     address internal immutable _VETOER_2 = makeAddr("VETOER_2");
@@ -99,7 +100,7 @@ contract EscrowHappyPath is TestHelpers {
         _lockStETH(_VETOER_2, 3 * 10 ** 18);
         _lockWstETH(_VETOER_2, 5 * 10 ** 18);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
         _unlockWstETH(_VETOER_1);
@@ -136,7 +137,7 @@ contract EscrowHappyPath is TestHelpers {
         uint256 secondVetoerStETHSharesAfterRebase = _ST_ETH.sharesOf(_VETOER_2);
         uint256 secondVetoerWstETHBalanceAfterRebase = _WST_ETH.balanceOf(_VETOER_2);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
         _unlockWstETH(_VETOER_1);
@@ -180,7 +181,7 @@ contract EscrowHappyPath is TestHelpers {
 
         rebase(-100);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
         _unlockWstETH(_VETOER_1);
@@ -206,7 +207,7 @@ contract EscrowHappyPath is TestHelpers {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         _unlockUnstETH(_VETOER_1, unstETHIds);
     }
@@ -377,10 +378,10 @@ contract EscrowHappyPath is TestHelpers {
         vm.prank(_VETOER_1);
         escrow.withdrawStETHAsETH();
 
-        _wait(_RAGE_QUIT_EXTRA_TIMELOCK + 1);
+        _wait(_RAGE_QUIT_EXTRA_TIMELOCK.plusSeconds(1));
         assertEq(escrow.isRageQuitFinalized(), true);
 
-        _wait(_RAGE_QUIT_WITHDRAWALS_TIMELOCK + 1);
+        _wait(_RAGE_QUIT_WITHDRAWALS_TIMELOCK.plusSeconds(1));
 
         vm.startPrank(_VETOER_1);
         escrow.withdrawStETHAsETH();
@@ -418,10 +419,10 @@ contract EscrowHappyPath is TestHelpers {
 
         assertEq(escrow.isRageQuitFinalized(), false);
 
-        _wait(_RAGE_QUIT_EXTRA_TIMELOCK + 1);
+        _wait(_RAGE_QUIT_EXTRA_TIMELOCK.plusSeconds(1));
         assertEq(escrow.isRageQuitFinalized(), true);
 
-        _wait(_RAGE_QUIT_WITHDRAWALS_TIMELOCK + 1);
+        _wait(_RAGE_QUIT_WITHDRAWALS_TIMELOCK.plusSeconds(1));
 
         vm.startPrank(_VETOER_1);
         escrow.withdrawUnstETHAsETH(unstETHIds);
@@ -443,7 +444,7 @@ contract EscrowHappyPath is TestHelpers {
         assertEq(escrow.getVetoerState(_VETOER_1).wstETHShares, firstVetoerWstETHAmount);
         assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         uint256[] memory stETHWithdrawalRequestAmounts = new uint256[](1);
         stETHWithdrawalRequestAmounts[0] = firstVetoerStETHAmount;
@@ -483,7 +484,7 @@ contract EscrowHappyPath is TestHelpers {
         assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
         assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME() + 1);
+        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         vm.prank(_VETOER_1);
         escrow.unlockUnstETH(stETHWithdrawalRequestIds);

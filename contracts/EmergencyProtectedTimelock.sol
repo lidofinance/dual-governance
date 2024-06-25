@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Duration} from "./types/Duration.sol";
+import {Timestamp} from "./types/Timestamp.sol";
+
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 
@@ -30,7 +33,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
         newProposalId = _proposals.submit(executor, calls);
     }
 
-    function schedule(uint256 proposalId) external returns (uint256 submittedAt) {
+    function schedule(uint256 proposalId) external returns (Timestamp submittedAt) {
         _checkGovernance(msg.sender);
         submittedAt = _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
     }
@@ -68,7 +71,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     function emergencyExecute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeActive(true);
         _emergencyProtection.checkExecutionCommittee(msg.sender);
-        _proposals.execute(proposalId, /* afterScheduleDelay */ 0);
+        _proposals.execute(proposalId, /* afterScheduleDelay */ Duration.wrap(0));
     }
 
     function deactivateEmergencyMode() external {
@@ -91,8 +94,8 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     function setEmergencyProtection(
         address activator,
         address enactor,
-        uint256 protectionDuration,
-        uint256 emergencyModeDuration
+        Duration protectionDuration,
+        Duration emergencyModeDuration
     ) external {
         _checkAdminExecutor(msg.sender);
         _emergencyProtection.setup(activator, enactor, protectionDuration, emergencyModeDuration);

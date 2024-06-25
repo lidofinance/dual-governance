@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {ScenarioTestBlueprint, percents} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint, percents, Durations} from "../utils/scenario-test-blueprint.sol";
 
 contract GovernanceStateTransitions is ScenarioTestBlueprint {
     address internal immutable _VETOER = makeAddr("VETOER");
@@ -21,12 +21,12 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION() / 2);
+        _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION().dividedBy(2));
 
         _activateNextState();
         _assertVetoSignalingState();
 
-        _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION() / 2 + 1);
+        _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION().dividedBy(2).plusSeconds(1));
 
         _activateNextState();
         _assertVetoSignalingDeactivationState();
@@ -39,19 +39,19 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
 
         _assertVetoSignalingState();
 
-        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION() / 2);
+        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().dividedBy(2));
         _activateNextState();
 
         _assertVetoSignalingState();
 
-        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION() / 2);
+        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().dividedBy(2));
         _activateNextState();
 
         _assertVetoSignalingState();
 
         _lockStETH(_VETOER, 1 gwei);
 
-        _wait(1 seconds);
+        _wait(Durations.from(1 seconds));
         _activateNextState();
 
         _assertRageQuitState();
@@ -67,12 +67,12 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION() + 1);
+        _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
         _activateNextState();
 
         _assertVetoSignalingDeactivationState();
 
-        _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() + 1);
+        _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         _activateNextState();
 
         _assertVetoCooldownState();
@@ -81,7 +81,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _getVetoSignallingEscrow().unlockStETH();
         vm.stopPrank();
 
-        _wait(_config.VETO_COOLDOWN_DURATION() + 1);
+        _wait(_config.VETO_COOLDOWN_DURATION().plusSeconds(1));
         _activateNextState();
 
         _assertNormalState();
@@ -96,17 +96,17 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION() + 1);
+        _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
         _activateNextState();
 
         _assertVetoSignalingDeactivationState();
 
-        _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION() + 1);
+        _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         _activateNextState();
 
         _assertVetoCooldownState();
 
-        _wait(_config.VETO_COOLDOWN_DURATION() + 1);
+        _wait(_config.VETO_COOLDOWN_DURATION().plusSeconds(1));
         _activateNextState();
 
         _assertVetoSignalingState();
@@ -126,7 +126,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(1 seconds);
+        _wait(Durations.from(1 seconds));
         _activateNextState();
         _assertRageQuitState();
     }
