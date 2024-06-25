@@ -15,7 +15,7 @@ contract EmergencyActivationCommittee is ExecutiveCommittee {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address emergencyProtectedTimelock
-    ) ExecutiveCommittee(OWNER, committeeMembers, executionQuorum) {
+    ) ExecutiveCommittee(OWNER, committeeMembers, executionQuorum, 0) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 

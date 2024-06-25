@@ -12,6 +12,7 @@ abstract contract ExecutiveCommittee {
     event QuorumSet(uint256 quorum);
     event VoteExecuted(bytes data);
     event Voted(address indexed signer, bytes data, bool support);
+    event TimelockDurationSet(uint256 timelockDuration);
 
     error IsNotMember();
     error SenderIsNotMember();
@@ -20,21 +21,24 @@ abstract contract ExecutiveCommittee {
     error QuorumIsNotReached();
     error InvalidQuorum();
     error DuplicatedMember(address member);
+    error TimelockNotPassed();
 
     address public immutable OWNER;
 
     EnumerableSet.AddressSet private members;
     uint256 public quorum;
+    uint256 public timelockDuration;
 
     struct VoteState {
         bytes data;
+        uint256 quorumAt;
         bool isExecuted;
     }
 
     mapping(bytes32 digest => VoteState) public voteStates;
     mapping(address signer => mapping(bytes32 digest => bool support)) public approves;
 
-    constructor(address owner, address[] memory newMembers, uint256 executionQuorum) {
+    constructor(address owner, address[] memory newMembers, uint256 executionQuorum, uint256 timelock) {
         if (executionQuorum == 0) {
             revert InvalidQuorum();
         }
@@ -42,6 +46,9 @@ abstract contract ExecutiveCommittee {
         emit QuorumSet(executionQuorum);
 
         OWNER = owner;
+
+        timelockDuration = timelock;
+        emit TimelockDurationSet(timelock);
 
         for (uint256 i = 0; i < newMembers.length; ++i) {
             if (members.contains(newMembers[i])) {
@@ -66,6 +73,11 @@ abstract contract ExecutiveCommittee {
             return;
         }
 
+        uint256 heads = _getSupport(digest);
+        if (heads == quorum - 1 && support == true) {
+            voteStates[digest].quorumAt = block.timestamp;
+        }
+
         approves[msg.sender][digest] = support;
         emit Voted(msg.sender, data, support);
     }
@@ -78,6 +90,9 @@ abstract contract ExecutiveCommittee {
         }
         if (_getSupport(digest) < quorum) {
             revert QuorumIsNotReached();
+        }
+        if (block.timestamp < voteStates[digest].quorumAt + timelockDuration) {
+            revert TimelockNotPassed();
         }
 
         voteStates[digest].isExecuted = true;
@@ -127,6 +142,11 @@ abstract contract ExecutiveCommittee {
 
     function isMember(address member) public view returns (bool) {
         return members.contains(member);
+    }
+
+    function setTimelockDuration(uint256 timelock) public onlyOwner {
+        timelockDuration = timelock;
+        emit TimelockDurationSet(timelock);
     }
 
     function _addMember(address newMember) internal {

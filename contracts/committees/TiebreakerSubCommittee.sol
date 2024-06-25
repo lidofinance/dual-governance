@@ -17,7 +17,7 @@ contract TiebreakerSubCommittee is ExecutiveCommittee {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address tiebreakerCore
-    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum) {
+    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum, 0) {
         TIEBREAKER_CORE = tiebreakerCore;
     }
 

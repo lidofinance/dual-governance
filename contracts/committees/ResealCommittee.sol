@@ -12,8 +12,9 @@ contract ResealCommittee is ExecutiveCommittee {
         address owner,
         address[] memory committeeMembers,
         uint256 executionQuorum,
-        address resealExecutor
-    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum) {
+        address resealExecutor,
+        uint256 timelock
+    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum, timelock) {
         RESEAL_EXECUTOR = resealExecutor;
     }
 

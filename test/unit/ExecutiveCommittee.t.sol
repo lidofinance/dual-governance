@@ -176,8 +176,9 @@ contract ExecutiveCommitteeWrapper is ExecutiveCommittee {
         address owner,
         address[] memory newMembers,
         uint256 executionQuorum,
+        uint256 timelock,
         Target target
-    ) ExecutiveCommittee(owner, newMembers, executionQuorum) {
+    ) ExecutiveCommittee(owner, newMembers, executionQuorum, timelock) {
         _target = target;
     }
 
@@ -206,10 +207,12 @@ contract ExecutiveCommitteeWrapper is ExecutiveCommittee {
 contract ExecutiveCommitteeInternalUnitTest is ExecutiveCommitteeUnitTest {
     ExecutiveCommitteeWrapper internal _executiveCommitteeWrapper;
     Target internal _target;
+    uint256 _timelock = 3600;
 
     function setUp() public {
         _target = new Target();
-        _executiveCommitteeWrapper = new ExecutiveCommitteeWrapper(_owner, _committeeMembers, _quorum, _target);
+        _executiveCommitteeWrapper =
+            new ExecutiveCommitteeWrapper(_owner, _committeeMembers, _quorum, _timelock, _target);
         _executiveCommittee = ExecutiveCommittee(_executiveCommitteeWrapper);
     }
 

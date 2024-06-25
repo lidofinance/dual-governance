@@ -20,7 +20,7 @@ contract TiebreakerCore is ExecutiveCommittee {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address dualGovernance
-    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum) {
+    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum, 0) {
         DUAL_GOVERNANCE = dualGovernance;
     }
 
