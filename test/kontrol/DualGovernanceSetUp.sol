@@ -38,13 +38,13 @@ contract DualGovernanceSetUp is StorageSetup {
         _dualGovernanceStorageSetup(dualGovernance, timelock, stEth, signallingEscrow, rageQuitEscrow);
 
         // ?STORAGE1
-        // ?WORD8: totalStakedShares
+        // ?WORD8: totalSharesLocked
         // ?WORD9: totalClaimedEthAmount
         // ?WORD10: rageQuitExtensionDelayPeriodEnd
         _signallingEscrowStorageSetup(signallingEscrow, dualGovernance, stEth);
 
         // ?STORAGE2
-        // ?WORD11: totalStakedShares
+        // ?WORD11: totalSharesLocked
         // ?WORD12: totalClaimedEthAmount
         // ?WORD13: rageQuitExtensionDelayPeriodEnd
         _rageQuitEscrowStorageSetup(rageQuitEscrow, dualGovernance, stEth);
