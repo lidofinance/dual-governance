@@ -12,11 +12,11 @@ contract GateSealMock is IGateSeal {
     uint256 internal constant _INFINITE_DURATION = type(uint256).max;
 
     uint256 internal _expiryTimestamp;
-    uint256 internal _minSealDuration;
+    uint256 internal _seal_duration_seconds;
     address[] internal _sealedSealables;
 
-    constructor(uint256 minSealDuration, uint256 lifetime) {
-        _minSealDuration = minSealDuration;
+    constructor(uint256 sealDurationSeconds, uint256 lifetime) {
+        _seal_duration_seconds = sealDurationSeconds;
         _expiryTimestamp = block.timestamp + lifetime;
     }
 
@@ -28,22 +28,10 @@ contract GateSealMock is IGateSeal {
         _expiryTimestamp = block.timestamp;
 
         for (uint256 i = 0; i < sealables.length; ++i) {
-            ISealable(sealables[i]).pauseFor(_INFINITE_DURATION);
+            ISealable(sealables[i]).pauseFor(_seal_duration_seconds);
             assert(ISealable(sealables[i]).isPaused());
         }
 
         emit SealablesSealed(sealables);
-    }
-
-    function sealed_sealables() external view returns (address[] memory) {
-        return _sealedSealables;
-    }
-
-    function get_min_seal_duration() external view returns (uint256) {
-        return _minSealDuration;
-    }
-
-    function get_expiry_timestamp() external view returns (uint256) {
-        return _expiryTimestamp;
     }
 }
