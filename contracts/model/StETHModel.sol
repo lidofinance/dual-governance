@@ -91,7 +91,7 @@ contract StETHModel {
         require(totalPooledEther != 0);
         // Assumption: no overflow
         unchecked {
-            require((_ethAmount * totalShares) / _ethAmount == totalShares);
+            require((_ethAmount * totalShares) / totalShares == _ethAmount);
         }
         return _ethAmount * totalShares / totalPooledEther;
     }
@@ -101,7 +101,7 @@ contract StETHModel {
         require(totalShares != 0);
         // Assumption: no overflow
         unchecked {
-            require((totalPooledEther * _sharesAmount) / _sharesAmount == totalPooledEther);
+            require((totalPooledEther * _sharesAmount) / totalPooledEther == _sharesAmount);
         }
         return _sharesAmount * totalPooledEther / totalShares;
     }
