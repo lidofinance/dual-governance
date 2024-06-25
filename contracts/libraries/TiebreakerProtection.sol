@@ -8,7 +8,7 @@ interface IResealManger {
 library TiebreakerProtection {
     struct Tiebreaker {
         address tiebreaker;
-        address resealManager;
+        IResealManger resealManager;
         uint256 tiebreakerProposalApprovalTimelock;
         mapping(uint256 proposalId => uint256) tiebreakerProposalApprovalTimestamp;
     }
@@ -16,6 +16,7 @@ library TiebreakerProtection {
     event TiebreakerSet(address tiebreakCommittee);
     event ProposalApprovedForExecution(uint256 proposalId);
     event SealableResumed(address sealable);
+    event ResealManagerSet(address resealManager);
 
     error ProposalNotExecutable(uint256 proposalId);
     error NotTiebreaker(address account, address tiebreakCommittee);
@@ -34,7 +35,7 @@ library TiebreakerProtection {
     }
 
     function resumeSealable(Tiebreaker storage self, address sealable) internal {
-        IResealManger(self.resealManager).resume(sealable);
+        self.resealManager.resume(sealable);
         emit SealableResumed(sealable);
     }
 
@@ -50,13 +51,16 @@ library TiebreakerProtection {
         }
     }
 
-    function setTiebreaker(Tiebreaker storage self, address tiebreaker) internal {
+    function setTiebreaker(Tiebreaker storage self, address tiebreaker, address resealManager) internal {
         if (self.tiebreaker == tiebreaker) {
             revert TieBreakerAddressIsSame();
         }
 
         self.tiebreaker = tiebreaker;
         emit TiebreakerSet(tiebreaker);
+
+        self.resealManager = IResealManger(resealManager);
+        emit ResealManagerSet(resealManager);
     }
 
     function checkTiebreakerCommittee(Tiebreaker storage self, address account) internal view {

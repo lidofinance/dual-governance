@@ -3,6 +3,7 @@ pragma solidity 0.8.23;
 
 import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
 import {ISealable} from "./interfaces/ISealable.sol";
+import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
@@ -18,7 +19,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     event ProposalScheduled(uint256 proposalId);
 
-    error NotTiebreaker(address account, address tiebreakCommittee);
+    error NotResealCommitttee(address account);
 
     ITimelock public immutable TIMELOCK;
 
@@ -26,6 +27,8 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     Proposers.State internal _proposers;
     DualGovernanceState.Store internal _dgState;
     EmergencyProtection.State internal _emergencyProtection;
+    address internal _resealCommittee;
+    IResealManager internal _resealManager;
 
     constructor(
         address config,
@@ -159,12 +162,26 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK.schedule(proposalId);
     }
 
-    function setTiebreakerProtection(address newTiebreaker) external {
+    function setTiebreakerProtection(address newTiebreaker, address resealManager) external {
         _checkAdminExecutor(msg.sender);
-        if (_tiebreaker.tiebreaker != address(0)) {
-            _proposers.unregister(CONFIG, _tiebreaker.tiebreaker);
+        _tiebreaker.setTiebreaker(newTiebreaker, resealManager);
+    }
+
+    // ---
+    // Reseal executor
+    // ---
+
+    function resealSealables(address[] memory sealables) external {
+        if (msg.sender != _resealCommittee) {
+            revert NotResealCommitttee(msg.sender);
         }
-        _proposers.register(newTiebreaker, CONFIG.ADMIN_EXECUTOR()); // TODO: check what executor should be. Reseal executor?
-        _tiebreaker.setTiebreaker(newTiebreaker);
+        _dgState.checkResealState();
+        _resealManager.reseal(sealables);
+    }
+
+    function setReseal(address resealManager, address resealCommittee) external {
+        _checkAdminExecutor(msg.sender);
+        _resealCommittee = resealCommittee;
+        _resealManager = IResealManager(resealManager);
     }
 }
