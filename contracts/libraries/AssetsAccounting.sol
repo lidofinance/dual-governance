@@ -5,7 +5,9 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
 
-import {TimeUtils} from "../utils/time.sol";
+import {Duration} from "../types/Duration.sol";
+import {Timestamps, Timestamp} from "../types/Timestamp.sol";
+
 import {ArrayUtils} from "../utils/arrays.sol";
 
 enum WithdrawalRequestState {
@@ -30,7 +32,7 @@ struct LockedAssetsStats {
     uint128 unstETHShares;
     uint128 sharesFinalized;
     uint128 amountFinalized;
-    uint40 lastAssetsLockTimestamp;
+    Timestamp lastAssetsLockTimestamp;
 }
 
 struct LockedAssetsTotals {
@@ -82,7 +84,7 @@ library AssetsAccounting {
     error InvalidWithdrawlRequestState(uint256 id, WithdrawalRequestState actual, WithdrawalRequestState expected);
     error InvalidWithdrawalBatchesOffset(uint256 actual, uint256 expected);
     error InvalidWithdrawalBatchesCount(uint256 actual, uint256 expected);
-    error AssetsUnlockDelayNotPassed(uint256 unlockTimelockExpiresAt);
+    error AssetsUnlockDelayNotPassed(Timestamp unlockTimelockExpiresAt);
     error NotEnoughStETHToUnlock(uint256 requested, uint256 sharesBalance);
 
     struct State {
@@ -103,7 +105,7 @@ library AssetsAccounting {
         _checkNonZeroSharesLock(vetoer, shares);
         uint128 sharesUint128 = shares.toUint128();
         self.assets[vetoer].stETHShares += sharesUint128;
-        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
+        self.assets[vetoer].lastAssetsLockTimestamp = Timestamps.now();
         self.totals.shares += sharesUint128;
         emit StETHLocked(vetoer, shares);
     }
@@ -136,7 +138,7 @@ library AssetsAccounting {
     // wstETH Operations Accounting
     // ---
 
-    function checkAssetsUnlockDelayPassed(State storage self, address vetoer, uint256 delay) internal view {
+    function checkAssetsUnlockDelayPassed(State storage self, address vetoer, Duration delay) internal view {
         _checkAssetsUnlockDelayPassed(self, delay, vetoer);
     }
 
@@ -144,7 +146,7 @@ library AssetsAccounting {
         _checkNonZeroSharesLock(vetoer, shares);
         uint128 sharesUint128 = shares.toUint128();
         self.assets[vetoer].wstETHShares += sharesUint128;
-        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
+        self.assets[vetoer].lastAssetsLockTimestamp = Timestamps.now();
         self.totals.shares += sharesUint128;
         emit WstETHLocked(vetoer, shares);
     }
@@ -192,14 +194,14 @@ library AssetsAccounting {
         }
         uint128 totalUnstETHSharesLockedUint128 = totalUnstETHSharesLocked.toUint128();
         self.assets[vetoer].unstETHShares += totalUnstETHSharesLockedUint128;
-        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
+        self.assets[vetoer].lastAssetsLockTimestamp = Timestamps.now();
         self.totals.shares += totalUnstETHSharesLockedUint128;
         emit UnstETHLocked(vetoer, unstETHIds, totalUnstETHSharesLocked);
     }
 
     function accountUnstETHUnlock(
         State storage self,
-        uint256 assetsUnlockDelay,
+        Duration assetsUnlockDelay,
         address vetoer,
         uint256[] memory unstETHIds
     ) internal {
@@ -551,11 +553,12 @@ library AssetsAccounting {
 
     function _checkAssetsUnlockDelayPassed(
         State storage self,
-        uint256 assetsUnlockDelay,
+        Duration assetsUnlockDelay,
         address vetoer
     ) private view {
-        if (block.timestamp <= self.assets[vetoer].lastAssetsLockTimestamp + assetsUnlockDelay) {
-            revert AssetsUnlockDelayNotPassed(self.assets[vetoer].lastAssetsLockTimestamp + assetsUnlockDelay);
+        Timestamp assetsUnlockAllowedAfter = assetsUnlockDelay.addTo(self.assets[vetoer].lastAssetsLockTimestamp);
+        if (Timestamps.now() <= assetsUnlockAllowedAfter) {
+            revert AssetsUnlockDelayNotPassed(assetsUnlockAllowedAfter);
         }
     }
 }

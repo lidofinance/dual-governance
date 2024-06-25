@@ -4,6 +4,9 @@ pragma solidity 0.8.23;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
+import {Duration} from "./types/Duration.sol";
+import {Timestamp, Timestamps} from "./types/Timestamp.sol";
+
 import {IEscrow} from "./interfaces/IEscrow.sol";
 import {IConfiguration} from "./interfaces/IConfiguration.sol";
 
@@ -59,9 +62,9 @@ contract Escrow is IEscrow {
 
     uint256[] internal _withdrawalUnstETHIds;
 
-    uint256 internal _rageQuitExtraTimelock;
-    uint256 internal _rageQuitWithdrawalsTimelock;
-    uint256 internal _rageQuitTimelockStartedAt;
+    Duration internal _rageQuitExtraTimelock;
+    Duration internal _rageQuitWithdrawalsTimelock;
+    Timestamp internal _rageQuitTimelockStartedAt;
 
     constructor(address stETH, address wstETH, address withdrawalQueue, address config) {
         ST_ETH = IStETH(stETH);
@@ -170,7 +173,7 @@ contract Escrow is IEscrow {
     // State Updates
     // ---
 
-    function startRageQuit(uint256 rageQuitExtraTimelock, uint256 rageQuitWithdrawalsTimelock) external {
+    function startRageQuit(Duration rageQuitExtraTimelock, Duration rageQuitWithdrawalsTimelock) external {
         _checkDualGovernance(msg.sender);
         _checkEscrowState(EscrowState.SignallingEscrow);
 
@@ -210,7 +213,7 @@ contract Escrow is IEscrow {
             _accounting.accountClaimedETH(ethAmountClaimed);
         }
         if (_accounting.getIsWithdrawalsClaimed()) {
-            _rageQuitTimelockStartedAt = block.timestamp;
+            _rageQuitTimelockStartedAt = Timestamps.now();
         }
     }
 
@@ -284,7 +287,7 @@ contract Escrow is IEscrow {
         return _accounting.getIsWithdrawalsClaimed();
     }
 
-    function getRageQuitTimelockStartedAt() external view returns (uint256) {
+    function getRageQuitTimelockStartedAt() external view returns (Timestamp) {
         return _rageQuitTimelockStartedAt;
     }
 
@@ -295,8 +298,10 @@ contract Escrow is IEscrow {
     }
 
     function isRageQuitFinalized() external view returns (bool) {
-        return _escrowState == EscrowState.RageQuitEscrow && _accounting.getIsWithdrawalsClaimed()
-            && _rageQuitTimelockStartedAt != 0 && block.timestamp > _rageQuitTimelockStartedAt + _rageQuitExtraTimelock;
+        if (_escrowState != EscrowState.RageQuitEscrow) return false;
+        if (!_accounting.getIsWithdrawalsClaimed()) return false;
+        if (_rageQuitTimelockStartedAt.isZero()) return false;
+        return Timestamps.now() > _rageQuitExtraTimelock.addTo(_rageQuitTimelockStartedAt);
     }
 
     // ---
@@ -330,10 +335,11 @@ contract Escrow is IEscrow {
     }
 
     function _checkWithdrawalsTimelockPassed() internal view {
-        if (_rageQuitTimelockStartedAt == 0) {
+        if (_rageQuitTimelockStartedAt.isZero()) {
             revert RageQuitExtraTimelockNotStarted();
         }
-        if (block.timestamp <= _rageQuitTimelockStartedAt + _rageQuitExtraTimelock + _rageQuitWithdrawalsTimelock) {
+        Duration withdrawalsTimelock = _rageQuitExtraTimelock + _rageQuitWithdrawalsTimelock;
+        if (Timestamps.now() <= withdrawalsTimelock.addTo(_rageQuitTimelockStartedAt)) {
             revert WithdrawalsTimelockNotPassed();
         }
     }
