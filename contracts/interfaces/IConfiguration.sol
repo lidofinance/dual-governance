@@ -4,7 +4,6 @@ pragma solidity 0.8.23;
 struct DualGovernanceConfig {
     uint256 firstSealRageQuitSupport;
     uint256 secondSealRageQuitSupport;
-    // TODO: consider dynamicDelayMaxDuration
     uint256 dynamicTimelockMaxDuration;
     uint256 dynamicTimelockMinDuration;
     uint256 vetoSignallingMinActiveDuration;
@@ -12,9 +11,9 @@ struct DualGovernanceConfig {
     uint256 vetoCooldownDuration;
     uint256 rageQuitExtraTimelock;
     uint256 rageQuitExtensionDelay;
-    uint256 rageQuitEthClaimMinTimelock;
-    uint256 rageQuitEthClaimTimelockGrowthStartSeqNumber;
-    uint256[3] rageQuitEthClaimTimelockGrowthCoeffs;
+    uint256 rageQuitEthWithdrawalsMinTimelock;
+    uint256 rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber;
+    uint256[3] rageQuitEthWithdrawalsTimelockGrowthCoeffs;
 }
 
 interface IAdminExecutorConfiguration {
@@ -42,13 +41,13 @@ interface IDualGovernanceConfiguration {
     function SECOND_SEAL_RAGE_QUIT_SUPPORT() external view returns (uint256);
 
     function RAGE_QUIT_EXTENSION_DELAY() external view returns (uint256);
-    function RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK() external view returns (uint256);
     function RAGE_QUIT_ACCUMULATION_MAX_DURATION() external view returns (uint256);
-    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_START_SEQ_NUMBER() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER() external view returns (uint256);
 
-    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_A() external view returns (uint256);
-    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_B() external view returns (uint256);
-    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_C() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_A() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_C() external view returns (uint256);
 
     function SIGNALLING_ESCROW_MIN_LOCK_TIME() external view returns (uint256);
 

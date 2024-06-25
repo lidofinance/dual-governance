@@ -96,7 +96,7 @@ The protected deployment mode is a temporary mode designed to be active during a
 
 In this mode, an **emergency activation committee** has the one-off and time-limited right to activate an adversarial **emergency mode** if they see a scheduled proposal that was created or altered due to a vulnerability in the DG contracts or if governance execution is prevented by such a vulnerability. Once the emergency mode is activated, the emergency activation committee is disabled, i.e. loses the ability to activate the emergency mode again. If the emergency activation committee doesn't activate the emergency mode within the duration of the **emergency protection duration** since the committee was configured by the DAO, it gets automatically disabled as well.
 
-The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect executor contracts from the DG contracts and reconnect them to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
+The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect it to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
 
 If the emergency execution committee doesn't disable the DG until the emergency mode max duration elapses, anyone gets the right to deactivate the emergency mode, switching the system back to the protected mode and disabling the emergency committee.
 
@@ -462,9 +462,9 @@ Once all funds locked in the `Escrow` instance are converted into withdrawal NFT
 
 The purpose of the `RageQuitExtensionDelay` phase is to provide sufficient time to participants who locked withdrawal NFTs to claim them before Lido DAO's proposal execution is unblocked. As soon as a withdrawal NFT is claimed, the user's ETH is no longer affected by any code controlled by the DAO.
 
-When the `RageQuitExtensionDelay` period elapses, the `DualGovernance.activateNextState()` function exits the `RageQuit` state and initiates the `RageQuitEthClaimTimelock`. Throughout this timelock, tokens remain locked within the `Escrow` instance and are inaccessible for withdrawal. Once the timelock expires, participants in the rage quit process can retrieve their ETH by withdrawing it from the `Escrow` instance.
+When the `RageQuitExtensionDelay` period elapses, the `DualGovernance.activateNextState()` function exits the `RageQuit` state and initiates the `RageQuitEthWithdrawalsTimelock`. Throughout this timelock, tokens remain locked within the `Escrow` instance and are inaccessible for withdrawal. Once the timelock expires, participants in the rage quit process can retrieve their ETH by withdrawing it from the `Escrow` instance.
 
-The duration of the `RageQuitEthClaimTimelock` is dynamic and varies based on the number of "continuous" rage quits. A pair of rage quits is considered continuous when `DualGovernance` has not transitioned to the `Normal` or `VetoCooldown` state between them.
+The duration of the `RageQuitEthWithdrawalsTimelock` is dynamic and varies based on the number of "continuous" rage quits. A pair of rage quits is considered continuous when `DualGovernance` has not transitioned to the `Normal` or `VetoCooldown` state between them.
 
 ### Function: Escrow.lockStETH
 
@@ -701,7 +701,7 @@ return 10 ** 18 * (
 function startRageQuit()
 ```
 
-Transits the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state. Following this transition, locked funds become unwithdrawable and are accessible to users only as plain ETH after the completion of the full `RageQuit` process, including the `RageQuitExtensionDelay` and `RageQuitEthClaimTimelock` stages.
+Transits the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state. Following this transition, locked funds become unwithdrawable and are accessible to users only as plain ETH after the completion of the full `RageQuit` process, including the `RageQuitExtensionDelay` and `RageQuitEthWithdrawalsTimelock` stages.
 
 As the initial step of transitioning to the `RageQuitEscrow` state, all locked wstETH is converted into stETH, and the maximum stETH allowance is granted to the `WithdrawalQueue` contract for the upcoming creation of Withdrawal NFTs.
 
@@ -772,7 +772,7 @@ Returns whether the rage quit process has been finalized. The rage quit process 
 function withdrawStEthAsEth()
 ```
 
-Allows the caller (i.e. `msg.sender`) to withdraw all stETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthClaimTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding stETH as withdrawn for the caller.
+Allows the caller (i.e. `msg.sender`) to withdraw all stETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthWithdrawalsTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding stETH as withdrawn for the caller.
 
 The amount of ETH sent to the caller is determined by the proportion of the user's stETH shares compared to the total amount of locked stETH and wstETH shares in the Escrow instance, calculated as follows:
 
@@ -785,7 +785,7 @@ return _totalClaimedEthAmount * _vetoersLockedAssets[msg.sender].stETHShares
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
+- The `RageQuitEthWithdrawalsTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
 - The caller MUST have a non-zero amount of stETH to withdraw.
 - The caller MUST NOT have previously withdrawn stETH.
 
@@ -795,7 +795,7 @@ return _totalClaimedEthAmount * _vetoersLockedAssets[msg.sender].stETHShares
 function withdrawWstEthAsEth() external
 ```
 
-Allows the caller (i.e. `msg.sender`) to withdraw all wstETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthClaimTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding wstETH as withdrawn for the caller.
+Allows the caller (i.e. `msg.sender`) to withdraw all wstETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthWithdrawalsTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding wstETH as withdrawn for the caller.
 
 The amount of ETH sent to the caller is determined by the proportion of the user's wstETH funds compared to the total amount of locked stETH and wstETH shares in the Escrow instance, calculated as follows:
 
@@ -808,7 +808,7 @@ return _totalClaimedEthAmount *
 #### Preconditions
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
+- The `RageQuitEthWithdrawalsTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
 - The caller MUST have a non-zero amount of wstETH to withdraw.
 - The caller MUST NOT have previously withdrawn wstETH.
 
@@ -824,7 +824,7 @@ Allows the caller (i.e. `msg.sender`) to withdraw the claimed ETH from the Withd
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
+- The `RageQuitEthWithdrawalsTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
 - The caller MUST be set as the owner of the provided NFTs.
 - Each Withdrawal NFT MUST have been claimed using the `Escrow.claimUnstETH()` function.
 - Withdrawal NFTs must not have been withdrawn previously.
