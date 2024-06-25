@@ -28,10 +28,12 @@ kontrol_prove() {
   notif "Kontrol Prove"
   # shellcheck disable=SC2086
   run kontrol prove \
+    --verbose \
     --max-depth $max_depth \
     --max-iterations $max_iterations \
     --smt-timeout $smt_timeout \
     --workers $workers \
+    --max-frontier-parallel $max_frontier_parallel \
     $reinit \
     $bug_report \
     $break_on_calls \
@@ -127,6 +129,7 @@ if [ "$CUSTOM_TESTS" == 0 ] && [ "$SCRIPT_TESTS" == false ]; then
 else
     workers=$((${#test_list[@]}>max_workers ? max_workers : ${#test_list[@]}))
 fi
+max_frontier_parallel=6
 reinit=--reinit
 reinit=
 break_on_calls=--no-break-on-calls
