@@ -270,8 +270,8 @@ The Rage Quit state allows all stakers who elected to leave the protocol via rag
 
 Upon entry into the Rage Quit state, three things happen:
 
-1. The veto signalling escrow is irreversibly transformed into the **rage quit escrow**, an immutable smart contract that holds all tokens that are part of the rage quit withdrawal process, i.e. stETH, wstETH, withdrawal NFTs, and the withdrawn ETH, and allows stakers to claim the withdrawn ETH after a certain timelock following the completion of the withdrawal process (with the timelock being determined at the moment of the Rage Quit state entry).
-2. All stETH and wstETH held by the rage quit escrow are sent for withdrawal via the regular Lido Withdrawal Queue mechanism, generating a set of batch withdrawal NFTs held by the rage quit escrow.
+1. The veto signalling escrow is irreversibly transformed into the **rage quit escrow**, an immutable smart contract that holds all tokens that are part of the rage quit withdrawal process, i.e. stETH, wstETH, withdrawal NFTs, and the withdrawn ETH, and allows stakers to retrieve the withdrawn ETH after a certain timelock following the completion of the withdrawal process (with the timelock being determined at the moment of the Rage Quit state entry).
+2. All stETH and wstETH held by the rage quit escrow will be processed for withdrawals through the regular Lido Withdrawal Queue mechanism, generating a set of batch withdrawal NFTs held by the rage quit escrow.
 3. A new instance of the veto signalling escrow smart contract is deployed. This way, at any point in time, there is only one veto signalling escrow but there may be multiple rage quit escrows from previous rage quits.
 
 In this state, the DAO is allowed to submit proposals to the DG but cannot execute any pending proposals. Stakers are not allowed to lock (w)stETH or withdrawal NFTs into the rage quit escrow so joining the ongoing rage quit is not possible. However, they can lock their tokens that are not part of the ongoing rage quit process to the newly-deployed veto signalling escrow to potentially trigger a new rage quit later.
@@ -291,7 +291,7 @@ When the withdrawal is complete and the extension delay elapses, two things happ
 
 **Transition to Veto Cooldown**. If, at the moment of the Rage Quit state exit, $R(t) \leq R_1$, the Veto Cooldown state is entered.
 
-The duration of the ETH claim timelock $W(i)$ is a non-linear function that depends on the rage quit sequence number $i$ (see below):
+The duration of the ETH withdraw timelock $W(i)$ is a non-linear function that depends on the rage quit sequence number $i$ (see below):
 
 ```math
 W(i) = W_{min} +
@@ -301,16 +301,16 @@ W(i) = W_{min} +
 \end{array} \right.
 ```
 
-where $W_{min}$ is `RageQuitEthClaimMinTimelock`, $i_{min}$ is `RageQuitEthClaimTimelockGrowthStartSeqNumber`, and $g_W(x)$ is a quadratic polynomial function with coefficients `RageQuitEthClaimTimelockGrowthCoeffs` (a list of length 3).
+where $W_{min}$ is `RageQuitEthWithdrawalsMinTimelock`, $i_{min}$ is `RageQuitEthWithdrawalsTimelockGrowthStartSeqNumber`, and $g_W(x)$ is a quadratic polynomial function with coefficients `RageQuitEthWithdrawalsTimelockGrowthCoeffs` (a list of length 3).
 
 The rage quit sequence number is calculated as follows: each time the Normal state is entered, the sequence number is set to 0; each time the Rage Quit state is entered, the number is incremented by 1.
 
 ```env
 # Proposed values, to be modeled and refined
 RageQuitExtensionDelay = 7 days
-RageQuitEthClaimMinTimelock = 60 days
-RageQuitEthClaimTimelockGrowthStartSeqNumber = 2
-RageQuitEthClaimTimelockGrowthCoeffs = (0, TODO, TODO)
+RageQuitEthWithdrawalsMinTimelock = 60 days
+RageQuitEthWithdrawalsTimelockGrowthStartSeqNumber = 2
+RageQuitEthWithdrawalsTimelockGrowthCoeffs = (0, TODO, TODO)
 ```
 
 
@@ -394,6 +394,10 @@ Dual governance should not cover:
 
 
 ## Changelog
+
+### 2024-06-25
+- Instead of using the "wNFT" shortcut for the "Lido: stETH Withdrawal NFT" token, the official symbol "unstETH" is now used.
+- For the consistency with the codebase, the `RageQuitEthClaimMinTimelock`, `RageQuitEthClaimTimelockGrowthStartSeqNumber`, `RageQuitEthClaimTimelockGrowthCoeffs` parameters were renamed into `RageQuitEthWithdrawalsMinTimelock`, `RageQuitEthWithdrawalsTimelockGrowthStartSeqNumber`, `RageQuitEthWithdrawalsTimelockGrowthCoeffs`.
 
 ### 2024-04-24
 

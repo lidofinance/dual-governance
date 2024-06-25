@@ -24,12 +24,12 @@ contract Configuration is IConfiguration {
     uint256 public immutable VETO_COOLDOWN_DURATION = 4 days;
 
     uint256 public immutable RAGE_QUIT_EXTENSION_DELAY = 7 days;
-    uint256 public immutable RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK = 60 days;
-    uint256 public immutable RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_START_SEQ_NUMBER = 2;
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK = 60 days;
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER = 2;
 
-    uint256 public immutable RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_A = 0;
-    uint256 public immutable RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_B = 0;
-    uint256 public immutable RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_C = 0;
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_A = 0;
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B = 0;
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_C = 0;
     // ---
 
     address public immutable ADMIN_EXECUTOR;
@@ -103,12 +103,13 @@ contract Configuration is IConfiguration {
         config.vetoSignallingDeactivationMaxDuration = VETO_SIGNALLING_DEACTIVATION_MAX_DURATION;
         config.vetoCooldownDuration = VETO_COOLDOWN_DURATION;
         config.rageQuitExtensionDelay = RAGE_QUIT_EXTENSION_DELAY;
-        config.rageQuitEthClaimMinTimelock = RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK;
-        config.rageQuitEthClaimTimelockGrowthStartSeqNumber = RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_START_SEQ_NUMBER;
-        config.rageQuitEthClaimTimelockGrowthCoeffs = [
-            RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_A,
-            RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_B,
-            RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_C
+        config.rageQuitEthWithdrawalsMinTimelock = RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK;
+        config.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber =
+            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER;
+        config.rageQuitEthWithdrawalsTimelockGrowthCoeffs = [
+            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_A,
+            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B,
+            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_C
         ];
     }
 }
