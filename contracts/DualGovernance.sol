@@ -147,14 +147,10 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _tiebreaker.approveProposal(proposalId);
     }
 
-    function tiebreakerApproveSealableResume(address sealable) external {
+    function tiebreakerResumeSealable(address sealable) external {
         _tiebreaker.checkTiebreakerCommittee(msg.sender);
         _dgState.checkTiebreak(CONFIG);
-        Proposer memory proposer = _proposers.get(msg.sender);
-        ExecutorCall[] memory calls = new ExecutorCall[](1);
-        calls[0] = ExecutorCall(sealable, 0, abi.encodeWithSelector(ISealable.resume.selector));
-        uint256 proposalId = TIMELOCK.submit(proposer.executor, calls);
-        _tiebreaker.approveSealableResume(proposalId, sealable);
+        _tiebreaker.resumeSealable(sealable);
     }
 
     function tiebreakerSchedule(uint256 proposalId) external {

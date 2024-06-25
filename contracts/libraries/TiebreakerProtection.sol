@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+interface IResealManger {
+    function resume(address sealable) external;
+}
+
 library TiebreakerProtection {
     struct Tiebreaker {
         address tiebreaker;
+        address resealManager;
         uint256 tiebreakerProposalApprovalTimelock;
         mapping(uint256 proposalId => uint256) tiebreakerProposalApprovalTimestamp;
     }
 
     event TiebreakerSet(address tiebreakCommittee);
     event ProposalApprovedForExecution(uint256 proposalId);
-    event SealableResumeApproved(address sealable);
+    event SealableResumed(address sealable);
 
     error ProposalNotExecutable(uint256 proposalId);
     error NotTiebreaker(address account, address tiebreakCommittee);
@@ -28,9 +33,9 @@ library TiebreakerProtection {
         _approveProposal(self, proposalId);
     }
 
-    function approveSealableResume(Tiebreaker storage self, uint256 proposalId, address sealable) internal {
-        _approveProposal(self, proposalId);
-        emit SealableResumeApproved(sealable);
+    function resumeSealable(Tiebreaker storage self, address sealable) internal {
+        IResealManger(self.resealManager).resume(sealable);
+        emit SealableResumed(sealable);
     }
 
     function canSchedule(Tiebreaker storage self, uint256 proposalId) internal view {

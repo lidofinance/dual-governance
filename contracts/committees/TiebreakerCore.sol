@@ -6,7 +6,7 @@ import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
 
 interface IDualGovernance {
     function tiebreakerApproveProposal(uint256 proposalId) external;
-    function tiebreakerApproveSealableResume(address sealable) external;
+    function tiebreakerResumeSealable(address sealable) external;
 }
 
 contract TiebreakerCore is ExecutiveCommittee {
@@ -70,7 +70,7 @@ contract TiebreakerCore is ExecutiveCommittee {
         _markExecuted(_encodeSealableResumeData(sealable, _sealableResumeNonces[sealable]));
         _sealableResumeNonces[sealable]++;
         Address.functionCall(
-            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerApproveSealableResume.selector, sealable)
+            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerResumeSealable.selector, sealable)
         );
     }
 
