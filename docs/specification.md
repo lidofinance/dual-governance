@@ -64,7 +64,7 @@ The general proposal flow is the following:
 
 Each submitted proposal requires a minimum timelock before it can be scheduled for execution.
 
-At any time, including while a proposal's timelock is lasting, stakers can signal their opposition to the DAO by locking their (w)stETH or withdrawal NFTs (wNFTs) into the [signalling escrow contract](#Contract-Escrowsol). If the opposition exceeds some minimum threshold, the [global governance state](#Governance-state) gets changed, blocking any DAO execution and thus effectively extending the timelock of all pending (i.e. submitted but not scheduled for execution) proposals.
+At any time, including while a proposal's timelock is lasting, stakers can signal their opposition to the DAO by locking their (w)stETH or stETH Withdrawal NFTs (unstETH) into the [signalling escrow contract](#Contract-Escrowsol). If the opposition exceeds some minimum threshold, the [global governance state](#Governance-state) gets changed, blocking any DAO execution and thus effectively extending the timelock of all pending (i.e. submitted but not scheduled for execution) proposals.
 
 ![image](https://github.com/lidofinance/dual-governance/assets/1699593/98273df0-f3fd-4149-929d-3315a8e81aa8)
 

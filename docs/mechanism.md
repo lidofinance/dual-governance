@@ -395,6 +395,9 @@ Dual governance should not cover:
 
 ## Changelog
 
+### 2024-06-25
+- Instead of using the "wNFT" shortcut for the "Lido: stETH Withdrawal NFT" token, the official symbol "unstETH" is now used.
+
 ### 2024-04-24
 
 * Removed the logic with the extension of the Veto Signalling duration upon new proposal submission.
