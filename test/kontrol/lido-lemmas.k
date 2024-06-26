@@ -1,6 +1,8 @@
+requires "evm.md"
 requires "foundry.md"
 
 module LIDO-LEMMAS
+    imports EVM
     imports FOUNDRY
     imports INT-SYMBOLIC
     imports MAP-SYMBOLIC
@@ -243,6 +245,34 @@ module LIDO-LEMMAS
     rule #asWord ( BUF1 +Bytes BUF2 ) => #asWord ( BUF2 )
         requires #asWord ( BUF1 ) ==Int 0
         [simplification, concrete(BUF1)]
+
+    //
+    // Rules
+    //
+
+    // rule [create-valid-enhanced]:
+    //     <k> CREATE VALUE MEMSTART MEMWIDTH
+    //     => #accessAccounts #newAddr(ACCT, NONCE)
+    //     ~> #checkCreate ACCT VALUE
+    //     ~> #create ACCT #newAddr(ACCT, NONCE) VALUE #range(LM, MEMSTART, MEMWIDTH)
+    //     ~> #codeDeposit #newAddr(ACCT, NONCE)
+    //     ...
+    //     </k>
+    //     <id> ACCT </id>
+    //     <localMem> LM </localMem>
+    //     <accounts>
+    //       <account>
+    //         <acctID> ACCT </acctID>
+    //         <nonce> NONCE </nonce>
+    //         ...
+    //       </account>
+    //       ACCOUNTS_REST
+    //     </accounts>
+    //     <schedule> SCHED </schedule>
+    // requires #hasValidInitCode(MEMWIDTH, SCHED)
+    //   ensures notBool ( #newAddr(ACCT, NONCE) ==Int ACCT )
+    //   andBool notBool ( <acctID> #newAddr(ACCT, NONCE) </acctID> in_keys ( ACCOUNTS_REST:AccountCellMap ) )
+    // [priority(30), preserves-definedness]
 
 endmodule
 

@@ -87,8 +87,9 @@ contract StETHModel {
     }
 
     function getSharesByPooledEth(uint256 _ethAmount) public view returns (uint256) {
-        // Assumption: totalPooledEther is not zero
+        // Assumption: totalPooledEther and totalShares are not zero
         require(totalPooledEther != 0);
+        require(totalShares != 0);
         // Assumption: no overflow
         unchecked {
             require((_ethAmount * totalShares) / totalShares == _ethAmount);
@@ -97,11 +98,12 @@ contract StETHModel {
     }
 
     function getPooledEthByShares(uint256 _sharesAmount) public view returns (uint256) {
-        // Assumption: totalShares is not zero
+        // Assumption: totalPooledEther and totalShares are not zero
+        require(totalPooledEther != 0);
         require(totalShares != 0);
         // Assumption: no overflow
         unchecked {
-            require((totalPooledEther * _sharesAmount) / totalPooledEther == _sharesAmount);
+            require((_sharesAmount * totalPooledEther) / totalPooledEther == _sharesAmount);
         }
         return _sharesAmount * totalPooledEther / totalShares;
     }
