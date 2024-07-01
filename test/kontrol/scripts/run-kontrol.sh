@@ -103,6 +103,10 @@ if [ "$SCRIPT_TESTS" == true ]; then
     test_list=(
         "VetoSignallingTest.testTransitionNormalToVetoSignalling"
         "VetoSignallingTest.testVetoSignallingInvariantsHoldInitially"
+        "EscrowAccountingTest.testRageQuitSupport"
+        "EscrowAccountingTest.testEscrowInvariantsHoldInitially"
+        "EscrowAccountingTest.testLockStEth"
+        "EscrowAccountingTest.testUnlockStEth"
     )
 elif [ "$CUSTOM_TESTS" != 0 ]; then
     test_list=( "${@:${CUSTOM_TESTS}}" )
