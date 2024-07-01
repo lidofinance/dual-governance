@@ -78,17 +78,17 @@ contract EscrowModel {
         lastLockedTimes[msg.sender] = block.timestamp;
     }
 
-    // Unlocks a specified amount of tokens.
-    function unlock(uint256 sharesAmount) external {
+    // Unlocks all of the user's tokens.
+    function unlock() external {
         require(currentState == State.SignallingEscrow, "Cannot unlock in current state.");
         require(
             block.timestamp >= lastLockedTimes[msg.sender] + SIGNALLING_ESCROW_MIN_LOCK_TIME, "Lock period not expired."
         );
-        require(shares[msg.sender] >= sharesAmount, "Insufficient shares.");
 
-        uint256 amount = stEth.getPooledEthByShares(sharesAmount);
-        stEth.transfer(msg.sender, amount);
-        shares[msg.sender] -= sharesAmount;
+        uint256 sharesAmount = shares[msg.sender];
+
+        stEth.transferShares(msg.sender, sharesAmount);
+        shares[msg.sender] = 0;
         totalSharesLocked -= sharesAmount;
     }
 
