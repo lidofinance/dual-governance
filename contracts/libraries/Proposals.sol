@@ -85,12 +85,11 @@ library Proposals {
         State storage self,
         uint256 proposalId,
         uint256 afterSubmitDelay
-    ) internal returns (uint256 submittedAt) {
+    ) internal {
         _checkProposalSubmitted(self, proposalId);
         _checkAfterSubmitDelayPassed(self, proposalId, afterSubmitDelay);
         ProposalPacked storage proposal = _packed(self, proposalId);
 
-        submittedAt = proposal.submittedAt;
         proposal.scheduledAt = TimeUtils.timestamp();
 
         emit ProposalScheduled(proposalId);
@@ -119,6 +118,13 @@ library Proposals {
         proposal.scheduledAt = packed.scheduledAt;
         proposal.executedAt = packed.executedAt;
         proposal.calls = packed.calls;
+    }
+
+    function getProposalSubmissionTime(State storage self, uint256 proposalId) internal view returns (uint256 submittedAt) {
+        _checkProposalExists(self, proposalId);
+        ProposalPacked storage packed = _packed(self, proposalId);
+
+        submittedAt = packed.submittedAt;
     }
 
     function count(State storage self) internal view returns (uint256 count_) {

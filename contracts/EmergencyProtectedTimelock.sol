@@ -30,9 +30,9 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
         newProposalId = _proposals.submit(executor, calls);
     }
 
-    function schedule(uint256 proposalId) external returns (uint256 submittedAt) {
+    function schedule(uint256 proposalId) external {
         _checkGovernance(msg.sender);
-        submittedAt = _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
+        _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
     }
 
     function execute(uint256 proposalId) external {
@@ -120,6 +120,10 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
 
     function getProposalsCount() external view returns (uint256 count) {
         count = _proposals.count();
+    }
+
+    function getProposalSubmissionTime(uint256 proposalId) external view returns (uint256 submittedAt) {
+        submittedAt = _proposals.getProposalSubmissionTime(proposalId);
     }
 
     // ---
