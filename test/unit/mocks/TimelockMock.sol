@@ -22,13 +22,12 @@ contract TimelockMock is ITimelock {
         return newProposalId;
     }
 
-    function schedule(uint256 proposalId) external returns (uint256 submittedAt) {
+    function schedule(uint256 proposalId) external {
         if (canScheduleProposal[proposalId] == false) {
             revert();
         }
 
         scheduledProposals.push(proposalId);
-        return 0;
     }
 
     function execute(uint256 proposalId) external {
@@ -65,5 +64,9 @@ contract TimelockMock is ITimelock {
 
     function getLastCancelledProposalId() external view returns (uint256) {
         return lastCancelledProposalId;
+    }
+
+    function getProposalSubmissionTime(uint256 proposalId) external view returns (uint256 submittedAt) {
+        revert("Not Implemented");
     }
 }
