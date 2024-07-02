@@ -4,36 +4,35 @@ pragma solidity 0.8.23;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-abstract contract ExecutiveCommittee is Ownable {
+abstract contract HashConsensus is Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     event MemberAdded(address indexed member);
     event MemberRemoved(address indexed member);
     event QuorumSet(uint256 quorum);
-    event VoteExecuted(bytes data);
-    event Voted(address indexed signer, bytes data, bool support);
+    event HashUsed(bytes32 hash);
+    event Voted(address indexed signer, bytes32 hash, bool support);
     event TimelockDurationSet(uint256 timelockDuration);
 
     error IsNotMember();
     error SenderIsNotMember();
-    error VoteAlreadyExecuted();
+    error HashAlreadyUsed();
     error QuorumIsNotReached();
     error InvalidQuorum();
     error DuplicatedMember(address member);
     error TimelockNotPassed();
 
-    EnumerableSet.AddressSet private members;
+    struct HashState {
+        uint40 quorumAt;
+        uint40 usedAt;
+    }
+
     uint256 public quorum;
     uint256 public timelockDuration;
 
-    struct VoteState {
-        bytes data;
-        uint256 quorumAt;
-        bool isExecuted;
-    }
-
-    mapping(bytes32 digest => VoteState) public voteStates;
-    mapping(address signer => mapping(bytes32 digest => bool support)) public approves;
+    mapping(bytes32 => HashState) private _hashStates;
+    EnumerableSet.AddressSet private _members;
+    mapping(address signer => mapping(bytes32 => bool)) public approves;
 
     constructor(address owner, address[] memory newMembers, uint256 executionQuorum, uint256 timelock) Ownable(owner) {
         if (executionQuorum == 0) {
@@ -46,71 +45,58 @@ abstract contract ExecutiveCommittee is Ownable {
         emit TimelockDurationSet(timelock);
 
         for (uint256 i = 0; i < newMembers.length; ++i) {
-            if (members.contains(newMembers[i])) {
-                revert DuplicatedMember(newMembers[i]);
-            }
             _addMember(newMembers[i]);
         }
     }
 
-    function _vote(bytes memory data, bool support) internal {
-        bytes32 digest = keccak256(data);
-
-        if (voteStates[digest].data.length == 0) {
-            voteStates[digest].data = data;
+    function _vote(bytes32 hash, bool support) internal {
+        if (_hashStates[hash].usedAt > 0) {
+            revert HashAlreadyUsed();
         }
 
-        if (voteStates[digest].isExecuted == true) {
-            revert VoteAlreadyExecuted();
-        }
-
-        if (approves[msg.sender][digest] == support) {
+        if (approves[msg.sender][hash] == support) {
             return;
         }
 
-        uint256 heads = _getSupport(digest);
+        uint256 heads = _getSupport(hash);
         if (heads == quorum - 1 && support == true) {
-            voteStates[digest].quorumAt = block.timestamp;
+            _hashStates[hash].quorumAt = uint40(block.timestamp);
         }
 
-        approves[msg.sender][digest] = support;
-        emit Voted(msg.sender, data, support);
+        approves[msg.sender][hash] = support;
+        emit Voted(msg.sender, hash, support);
     }
 
-    function _markExecuted(bytes memory data) internal {
-        bytes32 digest = keccak256(data);
-
-        if (voteStates[digest].isExecuted == true) {
-            revert VoteAlreadyExecuted();
+    function _markUsed(bytes32 hash) internal {
+        if (_hashStates[hash].usedAt > 0) {
+            revert HashAlreadyUsed();
         }
-        if (_getSupport(digest) < quorum) {
+        if (_getSupport(hash) < quorum) {
             revert QuorumIsNotReached();
         }
-        if (block.timestamp < voteStates[digest].quorumAt + timelockDuration) {
+        if (block.timestamp < _hashStates[hash].quorumAt + timelockDuration) {
             revert TimelockNotPassed();
         }
 
-        voteStates[digest].isExecuted = true;
+        _hashStates[hash].usedAt = uint40(block.timestamp);
 
-        emit VoteExecuted(data);
+        emit HashUsed(hash);
     }
 
-    function _getVoteState(bytes memory data)
+    function _getHashState(bytes32 hash)
         internal
         view
-        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+        returns (uint256 support, uint256 execuitionQuorum, bool isUsed)
     {
-        bytes32 digest = keccak256(data);
-
-        support = _getSupport(digest);
+        support = _getSupport(hash);
         execuitionQuorum = quorum;
-        isExecuted = voteStates[digest].isExecuted;
+        isUsed = _hashStates[hash].usedAt > 0;
     }
 
     function addMember(address newMember, uint256 newQuorum) public onlyOwner {
         _addMember(newMember);
 
-        if (newQuorum == 0 || newQuorum > members.length()) {
+        if (newQuorum == 0 || newQuorum > _members.length()) {
             revert InvalidQuorum();
         }
         quorum = newQuorum;
@@ -118,13 +104,13 @@ abstract contract ExecutiveCommittee is Ownable {
     }
 
     function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner {
-        if (!members.contains(memberToRemove)) {
+        if (!_members.contains(memberToRemove)) {
             revert IsNotMember();
         }
-        members.remove(memberToRemove);
+        _members.remove(memberToRemove);
         emit MemberRemoved(memberToRemove);
 
-        if (newQuorum == 0 || newQuorum > members.length()) {
+        if (newQuorum == 0 || newQuorum > _members.length()) {
             revert InvalidQuorum();
         }
         quorum = newQuorum;
@@ -132,11 +118,11 @@ abstract contract ExecutiveCommittee is Ownable {
     }
 
     function getMembers() public view returns (address[] memory) {
-        return members.values();
+        return _members.values();
     }
 
     function isMember(address member) public view returns (bool) {
-        return members.contains(member);
+        return _members.contains(member);
     }
 
     function setTimelockDuration(uint256 timelock) public onlyOwner {
@@ -144,24 +130,33 @@ abstract contract ExecutiveCommittee is Ownable {
         emit TimelockDurationSet(timelock);
     }
 
+    function setQuorum(uint256 newQuorum) public onlyOwner {
+        if (newQuorum == 0 || newQuorum > _members.length()) {
+            revert InvalidQuorum();
+        }
+
+        quorum = newQuorum;
+        emit QuorumSet(newQuorum);
+    }
+
     function _addMember(address newMember) internal {
-        if (members.contains(newMember)) {
+        if (_members.contains(newMember)) {
             revert DuplicatedMember(newMember);
         }
-        members.add(newMember);
+        _members.add(newMember);
         emit MemberAdded(newMember);
     }
 
-    function _getSupport(bytes32 digest) internal view returns (uint256 support) {
-        for (uint256 i = 0; i < members.length(); ++i) {
-            if (approves[members.at(i)][digest]) {
+    function _getSupport(bytes32 hash) internal view returns (uint256 support) {
+        for (uint256 i = 0; i < _members.length(); ++i) {
+            if (approves[_members.at(i)][hash]) {
                 support++;
             }
         }
     }
 
     modifier onlyMember() {
-        if (!members.contains(msg.sender)) {
+        if (!_members.contains(msg.sender)) {
             revert SenderIsNotMember();
         }
         _;

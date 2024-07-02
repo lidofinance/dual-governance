@@ -2,15 +2,21 @@
 pragma solidity 0.8.23;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
+import {HashConsensus} from "./HashConsensus.sol";
+import {ProposalsList} from "./ProposalsList.sol";
 
 interface ITiebreakerCore {
     function getSealableResumeNonce(address sealable) external view returns (uint256 nonce);
-    function approveProposal(uint256 _proposalId) external;
-    function approveSealableResume(address sealable, uint256 nonce) external;
+    function scheduleProposal(uint256 _proposalId) external;
+    function sealableResume(address sealable, uint256 nonce) external;
 }
 
-contract TiebreakerSubCommittee is ExecutiveCommittee {
+enum ProposalType {
+    ScheduleProposal,
+    ResumeSelable
+}
+
+contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     address immutable TIEBREAKER_CORE;
 
     constructor(
@@ -18,59 +24,72 @@ contract TiebreakerSubCommittee is ExecutiveCommittee {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address tiebreakerCore
-    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum, 0) {
+    ) HashConsensus(owner, committeeMembers, executionQuorum, 0) {
         TIEBREAKER_CORE = tiebreakerCore;
     }
 
-    // Approve proposal
+    // Schedule proposal
 
-    function voteApproveProposal(uint256 proposalId, bool support) public onlyMember {
-        _vote(_encodeApproveProposalData(proposalId), support);
+    function scheduleProposal(uint256 proposalId) public onlyMember {
+        (bytes memory proposalData, bytes32 key) = _encodeAproveProposal(proposalId);
+        _vote(key, true);
+        _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);
     }
 
-    function getApproveProposalState(uint256 proposalId)
+    function getScheduleProposalState(uint256 proposalId)
         public
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getVoteState(_encodeApproveProposalData(proposalId));
+        (, bytes32 key) = _encodeAproveProposal(proposalId);
+        return _getHashState(key);
     }
 
-    function executeApproveProposal(uint256 proposalId) public {
-        _markExecuted(_encodeApproveProposalData(proposalId));
+    function executeScheduleProposal(uint256 proposalId) public {
+        (, bytes32 key) = _encodeAproveProposal(proposalId);
+        _markUsed(key);
         Address.functionCall(
-            TIEBREAKER_CORE, abi.encodeWithSelector(ITiebreakerCore.approveProposal.selector, proposalId)
+            TIEBREAKER_CORE, abi.encodeWithSelector(ITiebreakerCore.scheduleProposal.selector, proposalId)
         );
     }
 
-    // Approve unpause sealable
-
-    function voteApproveSealableResume(address sealable, bool support) public {
-        _vote(_encodeApproveSealableResumeData(sealable), support);
+    function _encodeAproveProposal(uint256 proposalId) internal pure returns (bytes memory data, bytes32 key) {
+        data = abi.encode(ProposalType.ScheduleProposal, data);
+        key = keccak256(data);
     }
 
-    function getApproveSealableResumeState(address sealable)
+    // Sealable resume
+
+    function sealableResume(address sealable) public {
+        (bytes memory proposalData, bytes32 key,) = _encodeSealableResume(sealable);
+        _vote(key, true);
+        _pushProposal(key, uint256(ProposalType.ResumeSelable), proposalData);
+    }
+
+    function getSealableResumeState(address sealable)
         public
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getVoteState(_encodeApproveSealableResumeData(sealable));
+        (, bytes32 key,) = _encodeSealableResume(sealable);
+        return _getHashState(key);
     }
 
-    function executeApproveSealableResume(address sealable) public {
-        _markExecuted(_encodeApproveSealableResumeData(sealable));
-        uint256 nonce = ITiebreakerCore(TIEBREAKER_CORE).getSealableResumeNonce(sealable);
+    function executeSealableResume(address sealable) public {
+        (, bytes32 key, uint256 nonce) = _encodeSealableResume(sealable);
+        _markUsed(key);
         Address.functionCall(
-            TIEBREAKER_CORE, abi.encodeWithSelector(ITiebreakerCore.approveSealableResume.selector, sealable, nonce)
+            TIEBREAKER_CORE, abi.encodeWithSelector(ITiebreakerCore.sealableResume.selector, sealable, nonce)
         );
     }
 
-    function _encodeApproveSealableResumeData(address sealable) internal view returns (bytes memory data) {
-        uint256 nonce = ITiebreakerCore(TIEBREAKER_CORE).getSealableResumeNonce(sealable);
+    function _encodeSealableResume(address sealable)
+        internal
+        view
+        returns (bytes memory data, bytes32 key, uint256 nonce)
+    {
+        nonce = ITiebreakerCore(TIEBREAKER_CORE).getSealableResumeNonce(sealable);
         data = abi.encode(sealable, nonce);
-    }
-
-    function _encodeApproveProposalData(uint256 proposalId) internal pure returns (bytes memory data) {
-        data = abi.encode(proposalId);
+        key = keccak256(data);
     }
 }

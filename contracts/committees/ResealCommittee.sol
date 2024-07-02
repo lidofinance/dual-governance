@@ -2,13 +2,14 @@
 pragma solidity 0.8.23;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
+import {HashConsensus} from "./HashConsensus.sol";
+import {ProposalsList} from "./ProposalsList.sol";
 
 interface IDualGovernance {
     function reseal(address[] memory sealables) external;
 }
 
-contract ResealCommittee is ExecutiveCommittee {
+contract ResealCommittee is HashConsensus, ProposalsList {
     address public immutable DUAL_GOVERNANCE;
 
     mapping(bytes32 => uint256) private _resealNonces;
@@ -19,12 +20,14 @@ contract ResealCommittee is ExecutiveCommittee {
         uint256 executionQuorum,
         address dualGovernance,
         uint256 timelock
-    ) ExecutiveCommittee(owner, committeeMembers, executionQuorum, timelock) {
+    ) HashConsensus(owner, committeeMembers, executionQuorum, timelock) {
         DUAL_GOVERNANCE = dualGovernance;
     }
 
     function voteReseal(address[] memory sealables, bool support) public onlyMember {
-        _vote(_encodeResealData(sealables), support);
+        (bytes memory proposalData, bytes32 key) = _encodeResealProposal(sealables);
+        _vote(key, support);
+        _pushProposal(key, 0, proposalData);
     }
 
     function getResealState(address[] memory sealables)
@@ -32,11 +35,13 @@ contract ResealCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getVoteState(_encodeResealData(sealables));
+        (, bytes32 key) = _encodeResealProposal(sealables);
+        return _getHashState(key);
     }
 
     function executeReseal(address[] memory sealables) external {
-        _markExecuted(_encodeResealData(sealables));
+        (, bytes32 key) = _encodeResealProposal(sealables);
+        _markUsed(key);
 
         Address.functionCall(DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.reseal.selector, sealables));
 
@@ -44,8 +49,9 @@ contract ResealCommittee is ExecutiveCommittee {
         _resealNonces[resealNonceHash]++;
     }
 
-    function _encodeResealData(address[] memory sealables) internal view returns (bytes memory data) {
+    function _encodeResealProposal(address[] memory sealables) internal view returns (bytes memory data, bytes32 key) {
         bytes32 resealNonceHash = keccak256(abi.encode(sealables));
         data = abi.encode(sealables, _resealNonces[resealNonceHash]);
+        key = keccak256(data);
     }
 }

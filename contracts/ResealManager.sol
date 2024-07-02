@@ -5,7 +5,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ISealable} from "./interfaces/ISealable.sol";
 
-contract ResealExecutor is Ownable {
+contract ResealManager is Ownable {
     error SealableWrongPauseState();
     error SenderIsNotManager();
 

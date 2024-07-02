@@ -2,29 +2,37 @@
 pragma solidity 0.8.23;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {ExecutiveCommittee} from "./ExecutiveCommittee.sol";
+import {HashConsensus} from "./HashConsensus.sol";
+import {ProposalsList} from "./ProposalsList.sol";
 
 interface IEmergencyProtectedTimelock {
     function emergencyExecute(uint256 proposalId) external;
     function emergencyReset() external;
 }
 
-contract EmergencyExecutionCommittee is ExecutiveCommittee {
+enum ProposalType {
+    EmergencyExecute,
+    EmergencyReset
+}
+
+contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
     constructor(
-        address OWNER,
+        address owner,
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address emergencyProtectedTimelock
-    ) ExecutiveCommittee(OWNER, committeeMembers, executionQuorum, 0) {
+    ) HashConsensus(owner, committeeMembers, executionQuorum, 0) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
     // Emergency Execution
 
     function voteEmergencyExecute(uint256 proposalId, bool _supports) public onlyMember {
-        _vote(_encodeEmergencyExecuteData(proposalId), _supports);
+        (bytes memory proposalData, bytes32 key) = _encodeEmergencyExecute(proposalId);
+        _vote(key, _supports);
+        _pushProposal(key, uint256(ProposalType.EmergencyExecute), proposalData);
     }
 
     function getEmergencyExecuteState(uint256 proposalId)
@@ -32,21 +40,34 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getVoteState(_encodeEmergencyExecuteData(proposalId));
+        (, bytes32 key) = _encodeEmergencyExecute(proposalId);
+        return _getHashState(key);
     }
 
     function executeEmergencyExecute(uint256 proposalId) public {
-        _markExecuted(_encodeEmergencyExecuteData(proposalId));
+        (, bytes32 key) = _encodeEmergencyExecute(proposalId);
+        _markUsed(key);
         Address.functionCall(
             EMERGENCY_PROTECTED_TIMELOCK,
             abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyExecute.selector, proposalId)
         );
     }
 
+    function _encodeEmergencyExecute(uint256 proposalId)
+        private
+        view
+        returns (bytes memory proposalData, bytes32 key)
+    {
+        proposalData = abi.encode(ProposalType.EmergencyExecute, bytes32(proposalId));
+        key = keccak256(proposalData);
+    }
+
     // Governance reset
 
     function approveEmergencyReset() public onlyMember {
-        _vote(_dataEmergencyResetData(), true);
+        bytes32 proposalKey = _encodeEmergencyResetProposalKey();
+        _vote(proposalKey, true);
+        _pushProposal(proposalKey, uint256(ProposalType.EmergencyReset), bytes(""));
     }
 
     function getEmergencyResetState()
@@ -54,21 +75,19 @@ contract EmergencyExecutionCommittee is ExecutiveCommittee {
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        return _getVoteState(_dataEmergencyResetData());
+        bytes32 proposalKey = _encodeEmergencyResetProposalKey();
+        return _getHashState(proposalKey);
     }
 
     function executeEmergencyReset() external {
-        _markExecuted(_dataEmergencyResetData());
+        bytes32 proposalKey = _encodeEmergencyResetProposalKey();
+        _markUsed(proposalKey);
         Address.functionCall(
             EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyReset.selector)
         );
     }
 
-    function _dataEmergencyResetData() internal pure returns (bytes memory data) {
-        data = bytes("EMERGENCY_RESET");
-    }
-
-    function _encodeEmergencyExecuteData(uint256 proposalId) internal pure returns (bytes memory data) {
-        data = abi.encode(proposalId);
+    function _encodeEmergencyResetProposalKey() internal view returns (bytes32) {
+        return keccak256(abi.encode(ProposalType.EmergencyReset, bytes32(0)));
     }
 }

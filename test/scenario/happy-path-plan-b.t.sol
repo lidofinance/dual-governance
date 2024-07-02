@@ -72,7 +72,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
 
             // emergency committee activates emergency mode
-            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            vm.prank(address(_emergencyActivationCommittee));
             _timelock.activateEmergencyMode();
 
             // emergency mode was successfully activated
@@ -288,7 +288,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         {
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
 
-            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            vm.prank(address(_emergencyActivationCommittee));
             _timelock.activateEmergencyMode();
 
             emergencyState = _timelock.getEmergencyState();
@@ -386,7 +386,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // emergency committee activates emergency mode
         EmergencyState memory emergencyState;
         {
-            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            vm.prank(address(_emergencyActivationCommittee));
             _timelock.activateEmergencyMode();
 
             emergencyState = _timelock.getEmergencyState();
@@ -435,7 +435,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
                     emergencyState.protectedTill
                 )
             );
-            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            vm.prank(address(_emergencyActivationCommittee));
             _timelock.activateEmergencyMode();
         }
     }

@@ -54,7 +54,7 @@ library Utils {
 
     function selectFork() internal {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
-        vm.rollFork(18984396);
+        vm.rollFork(20218312);
     }
 
     function encodeEvmCallScript(address target, bytes memory data) internal pure returns (bytes memory) {

@@ -18,6 +18,8 @@ import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecuti
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
+import {ResealManager} from "contracts/ResealManager.sol";
+
 import {
     ExecutorCall,
     EmergencyState,
@@ -42,7 +44,7 @@ import {
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
 
-import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE} from "../utils/mainnet-addresses.sol";
+import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, DAO_AGENT} from "../utils/mainnet-addresses.sol";
 
 struct Balances {
     uint256 stETHAmount;
@@ -91,6 +93,8 @@ contract ScenarioTestBlueprint is Test {
     EmergencyProtectedTimelock internal _timelock;
     SingleGovernance internal _singleGovernance;
     DualGovernance internal _dualGovernance;
+
+    ResealManager internal _resealManager;
 
     address[] internal _sealableWithdrawalBlockers = [WITHDRAWAL_QUEUE];
 
@@ -540,7 +544,7 @@ contract ScenarioTestBlueprint is Test {
         uint256 subCommitteesCount = 2;
 
         _tiebreakerCommittee =
-            new TiebreakerCore(address(_adminExecutor), new address[](0), 1, address(_dualGovernance));
+            new TiebreakerCore(address(_adminExecutor), new address[](0), 1, address(_dualGovernance), 0);
 
         for (uint256 i = 0; i < subCommitteesCount; ++i) {
             address[] memory committeeMembers = new address[](subCommitteeMembersCount);
@@ -597,11 +601,24 @@ contract ScenarioTestBlueprint is Test {
             );
         }
 
+        _resealManager = new ResealManager(address(_adminExecutor), address(_dualGovernance));
+
+        vm.prank(DAO_AGENT);
+        _WITHDRAWAL_QUEUE.grantRole(
+            0x139c2898040ef16910dc9f44dc697df79363da767d8bc92f2e310312b816e46d, address(_resealManager)
+        );
+        vm.prank(DAO_AGENT);
+        _WITHDRAWAL_QUEUE.grantRole(
+            0x2fc10cc8ae19568712f7a176fb4978616a610650813c9d05326c34abb62749c7, address(_resealManager)
+        );
+
         if (governance == address(_dualGovernance)) {
             _adminExecutor.execute(
                 address(_dualGovernance),
                 0,
-                abi.encodeCall(_dualGovernance.setTiebreakerCommittee, (_TIEBREAK_COMMITTEE))
+                abi.encodeCall(
+                    _dualGovernance.setTiebreakerProtection, (address(_tiebreakerCommittee), address(_resealManager))
+                )
             );
         }
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (governance)));
