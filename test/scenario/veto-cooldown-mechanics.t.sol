@@ -68,23 +68,17 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             uint256 requestAmount = _WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
             uint256 maxRequestsCount = vetoedStETHAmount / requestAmount + 1;
 
-            rageQuitEscrow.requestNextWithdrawalsBatch(maxRequestsCount);
+            while (!rageQuitEscrow.getIsWithdrawalsBatchesFinalized()) {
+                rageQuitEscrow.requestNextWithdrawalsBatch(96);
+            }
 
             vm.deal(address(_WITHDRAWAL_QUEUE), vetoedStETHAmount);
             _finalizeWQ();
 
             uint256 batchSizeLimit = 200;
 
-            while (true) {
-                (uint256 offset, uint256 total, uint256[] memory unstETHIds) =
-                    rageQuitEscrow.getNextWithdrawalBatches(batchSizeLimit);
-                if (offset == total) {
-                    break;
-                }
-                uint256[] memory hints =
-                    _WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex());
-
-                rageQuitEscrow.claimNextWithdrawalsBatch(offset, hints);
+            while (!rageQuitEscrow.getIsWithdrawalsClaimed()) {
+                rageQuitEscrow.claimWithdrawalsBatch(128);
             }
 
             _wait(_config.RAGE_QUIT_EXTENSION_DELAY() + 1);

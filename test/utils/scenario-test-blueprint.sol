@@ -191,7 +191,7 @@ contract ScenarioTestBlueprint is Test {
     function _unlockWstETH(address vetoer) internal {
         Escrow escrow = _getVetoSignallingEscrow();
         uint256 wstETHBalanceBefore = _WST_ETH.balanceOf(vetoer);
-        uint256 vetoerWstETHSharesBefore = escrow.getVetoerState(vetoer).stETHShares;
+        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
 
         vm.startPrank(vetoer);
         uint256 wstETHUnlocked = escrow.unlockWstETH();
@@ -199,14 +199,14 @@ contract ScenarioTestBlueprint is Test {
 
         // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
         // sending funds to the user
-        assertApproxEqAbs(wstETHUnlocked, vetoerWstETHSharesBefore, 1);
-        assertApproxEqAbs(_WST_ETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerWstETHSharesBefore, 1);
+        assertApproxEqAbs(wstETHUnlocked, vetoerStateBefore.stETHLockedShares, 1);
+        assertApproxEqAbs(_WST_ETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerStateBefore.stETHLockedShares, 1);
     }
 
     function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
-        uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
+        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
+        LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
 
         uint256 unstETHTotalSharesLocked = 0;
         WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
@@ -224,19 +224,25 @@ contract ScenarioTestBlueprint is Test {
             assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), address(escrow));
         }
 
-        assertEq(escrow.getVetoerState(vetoer).unstETHShares, vetoerUnstETHSharesBefore + unstETHTotalSharesLocked);
-        assertEq(escrow.getLockedAssetsTotals().shares, totalSharesBefore + unstETHTotalSharesLocked);
+        VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
+        assertEq(vetoerStateAfter.unstETHIdsCount, vetoerStateBefore.unstETHIdsCount + unstETHIds.length);
+
+        LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
+        assertEq(
+            lockedAssetsTotalsAfter.unstETHUnfinalizedShares,
+            lockedAssetsTotalsBefore.unstETHUnfinalizedShares + unstETHTotalSharesLocked
+        );
     }
 
     function _unlockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
-        uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
+        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
+        LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
 
-        uint256 unstETHTotalSharesLocked = 0;
+        uint256 unstETHTotalSharesUnlocked = 0;
         WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            unstETHTotalSharesLocked += statuses[i].amountOfShares;
+            unstETHTotalSharesUnlocked += statuses[i].amountOfShares;
         }
 
         vm.prank(vetoer);
@@ -246,8 +252,15 @@ contract ScenarioTestBlueprint is Test {
             assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), vetoer);
         }
 
-        assertEq(escrow.getVetoerState(vetoer).unstETHShares, vetoerUnstETHSharesBefore - unstETHTotalSharesLocked);
-        assertEq(escrow.getLockedAssetsTotals().shares, totalSharesBefore - unstETHTotalSharesLocked);
+        VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
+        assertEq(vetoerStateAfter.unstETHIdsCount, vetoerStateBefore.unstETHIdsCount - unstETHIds.length);
+
+        // TODO: implement correct assert. It must consider was unstETH finalized or not
+        LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
+        assertEq(
+            lockedAssetsTotalsAfter.unstETHUnfinalizedShares,
+            lockedAssetsTotalsBefore.unstETHUnfinalizedShares - unstETHTotalSharesUnlocked
+        );
     }
 
     // ---
