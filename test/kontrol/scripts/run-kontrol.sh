@@ -107,6 +107,9 @@ if [ "$SCRIPT_TESTS" == true ]; then
         "EscrowAccountingTest.testEscrowInvariantsHoldInitially"
         "EscrowAccountingTest.testLockStEth"
         "EscrowAccountingTest.testUnlockStEth"
+        "EscrowOperationsTest.testCannotUnlockBeforeMinLockTime"
+        "EscrowOperationsTest.testCannotLockUnlockInRageQuitEscrowState"
+        "EscrowOperationsTest.testCannotWithdrawBeforeEthClaimTimelockElapsed"
     )
 elif [ "$CUSTOM_TESTS" != 0 ]; then
     test_list=( "${@:${CUSTOM_TESTS}}" )
