@@ -119,9 +119,26 @@ contract StorageSetup is KontrolTest {
         uint256 totalClaimedEthAmount = kevm.freshUInt(32);
         vm.assume(totalClaimedEthAmount <= totalSharesLocked);
         _storeUInt256(address(_escrow), 4, totalClaimedEthAmount);
+        // Slot 6: withdrawalRequestCount
+        uint256 withdrawalRequestCount = kevm.freshUInt(32);
+        vm.assume(withdrawalRequestCount < type(uint256).max);
+        _storeUInt256(address(_escrow), 6, withdrawalRequestCount);
+        // Slot 7: lastWithdrawalRequestSubmitted
+        uint256 lastWithdrawalRequestSubmitted = kevm.freshUInt(32);
+        vm.assume(lastWithdrawalRequestSubmitted < 2);
+        _storeUInt256(address(_escrow), 7, lastWithdrawalRequestSubmitted);
+        // Slot 8: claimedWithdrawalRequests
+        uint256 claimedWithdrawalRequests = kevm.freshUInt(32);
+        vm.assume(claimedWithdrawalRequests < type(uint256).max);
+        _storeUInt256(address(_escrow), 8, claimedWithdrawalRequests);
         // Slot 13: rageQuitExtensionDelayPeriodEnd
         uint256 rageQuitExtensionDelayPeriodEnd = kevm.freshUInt(32);
         _storeUInt256(address(_escrow), 13, rageQuitExtensionDelayPeriodEnd);
+        // Slot 15: rageQuitEthClaimTimelockStart
+        uint256 rageQuitEthClaimTimelockStart = kevm.freshUInt(32);
+        vm.assume(rageQuitEthClaimTimelockStart <= block.timestamp);
+        vm.assume(rageQuitEthClaimTimelockStart < timeUpperBound);
+        _storeUInt256(address(_escrow), 15, rageQuitEthClaimTimelockStart);
         // Slot 16: currentState
         _storeUInt256(address(_escrow), 16, uint256(_currentState));
     }
