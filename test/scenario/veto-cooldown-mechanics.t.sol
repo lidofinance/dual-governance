@@ -44,7 +44,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             vetoedStETHAmount = _lockStETH(vetoer, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT() + 1));
             _assertVetoSignalingState();
 
-            _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION() + 1);
+            _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
             _activateNextState();
             _assertRageQuitState();
         }
@@ -79,7 +79,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
                 rageQuitEscrow.claimWithdrawalsBatch(128);
             }
 
-            _wait(_config.RAGE_QUIT_EXTENSION_DELAY() + 1);
+            _wait(_config.RAGE_QUIT_EXTENSION_DELAY().plusSeconds(1));
             assertTrue(rageQuitEscrow.isRageQuitFinalized());
         }
 

@@ -3,6 +3,9 @@ pragma solidity 0.8.23;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
+import {Duration} from "./types/Duration.sol";
+import {Timestamp, Timestamps} from "./types/Timestamp.sol";
+
 import {IEscrow} from "./interfaces/IEscrow.sol";
 import {IConfiguration} from "./interfaces/IConfiguration.sol";
 
@@ -81,9 +84,9 @@ contract Escrow is IEscrow {
     AssetsAccounting.State private _accounting;
     WithdrawalsBatchesQueue.State private _batchesQueue;
 
-    uint256 internal _rageQuitExtraTimelock;
-    uint256 internal _rageQuitTimelockStartedAt;
-    uint256 internal _rageQuitWithdrawalsTimelock;
+    Duration internal _rageQuitExtraTimelock;
+    Duration internal _rageQuitWithdrawalsTimelock;
+    Timestamp internal _rageQuitTimelockStartedAt;
 
     constructor(address stETH, address wstETH, address withdrawalQueue, address config) {
         ST_ETH = IStETH(stETH);
@@ -195,7 +198,7 @@ contract Escrow is IEscrow {
     // State Updates
     // ---
 
-    function startRageQuit(uint256 rageQuitExtraTimelock, uint256 rageQuitWithdrawalsTimelock) external {
+    function startRageQuit(Duration rageQuitExtraTimelock, Duration rageQuitWithdrawalsTimelock) external {
         _checkDualGovernance(msg.sender);
         _checkEscrowState(EscrowState.SignallingEscrow);
 
@@ -229,7 +232,7 @@ contract Escrow is IEscrow {
 
     function claimWithdrawalsBatch(uint256 maxUnstETHIdsCount) external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
-        if (_rageQuitTimelockStartedAt != 0) {
+        if (!_rageQuitTimelockStartedAt.isZero()) {
             revert ClaimingIsFinished();
         }
 
@@ -242,7 +245,7 @@ contract Escrow is IEscrow {
 
     function claimWithdrawalsBatch(uint256 fromUnstETHIds, uint256[] calldata hints) external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
-        if (_rageQuitTimelockStartedAt != 0) {
+        if (!_rageQuitTimelockStartedAt.isZero()) {
             revert ClaimingIsFinished();
         }
 
@@ -308,7 +311,7 @@ contract Escrow is IEscrow {
         state.unstETHIdsCount = assets.unstETHIds.length;
         state.stETHLockedShares = assets.stETHLockedShares.toUint256();
         state.unstETHLockedShares = assets.stETHLockedShares.toUint256();
-        state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp;
+        state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
     }
 
     function getNextWithdrawalBatches(uint256 limit) external view returns (uint256[] memory unstETHIds) {
@@ -320,10 +323,10 @@ contract Escrow is IEscrow {
     }
 
     function getIsWithdrawalsClaimed() external view returns (bool) {
-        return _rageQuitTimelockStartedAt != 0;
+        return !_rageQuitTimelockStartedAt.isZero();
     }
 
-    function getRageQuitTimelockStartedAt() external view returns (uint256) {
+    function getRageQuitTimelockStartedAt() external view returns (Timestamp) {
         return _rageQuitTimelockStartedAt;
     }
 
@@ -341,8 +344,11 @@ contract Escrow is IEscrow {
     }
 
     function isRageQuitFinalized() external view returns (bool) {
-        return _escrowState == EscrowState.RageQuitEscrow && _batchesQueue.isClosed() && _rageQuitTimelockStartedAt != 0
-            && block.timestamp > _rageQuitTimelockStartedAt + _rageQuitExtraTimelock;
+        return (
+            _escrowState == EscrowState.RageQuitEscrow && _batchesQueue.isClosed()
+                && !_rageQuitTimelockStartedAt.isZero()
+                && Timestamps.now() > _rageQuitExtraTimelock.addTo(_rageQuitTimelockStartedAt)
+        );
     }
 
     // ---
@@ -367,7 +373,7 @@ contract Escrow is IEscrow {
         _accounting.accountClaimedStETH(ETHValues.from(ethAmountClaimed));
 
         if (_batchesQueue.isClosed() && _batchesQueue.isAllUnstETHClaimed()) {
-            _rageQuitTimelockStartedAt = block.timestamp;
+            _rageQuitTimelockStartedAt = Timestamps.now();
         }
     }
 
@@ -388,10 +394,11 @@ contract Escrow is IEscrow {
     }
 
     function _checkWithdrawalsTimelockPassed() internal view {
-        if (_rageQuitTimelockStartedAt == 0) {
+        if (_rageQuitTimelockStartedAt.isZero()) {
             revert RageQuitExtraTimelockNotStarted();
         }
-        if (block.timestamp <= _rageQuitTimelockStartedAt + _rageQuitExtraTimelock + _rageQuitWithdrawalsTimelock) {
+        Duration withdrawalsTimelock = _rageQuitExtraTimelock + _rageQuitWithdrawalsTimelock;
+        if (Timestamps.now() <= withdrawalsTimelock.addTo(_rageQuitTimelockStartedAt)) {
             revert WithdrawalsTimelockNotPassed();
         }
     }

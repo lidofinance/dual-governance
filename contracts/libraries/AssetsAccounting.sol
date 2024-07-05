@@ -7,7 +7,10 @@ import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
 import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
 
-import {TimeUtils} from "../utils/time.sol";
+import {Duration} from "../types/Duration.sol";
+import {Timestamps, Timestamp} from "../types/Timestamp.sol";
+
+import {ArrayUtils} from "../utils/arrays.sol";
 
 struct HolderAssets {
     // The total shares amount of stETH/wstETH accounted to the holder
@@ -15,7 +18,7 @@ struct HolderAssets {
     // The total shares amount of unstETH NFTs accounted to the holder
     SharesValue unstETHLockedShares;
     // The timestamp when the last time was accounted lock of shares or unstETHs
-    uint40 lastAssetsLockTimestamp;
+    Timestamp lastAssetsLockTimestamp;
     // The ids of the unstETH NFTs accounted to the holder
     uint256[] unstETHIds;
 }
@@ -87,7 +90,7 @@ library AssetsAccounting {
     error InvalidSharesValue(SharesValue value);
     error InvalidUnstETHStatus(uint256 unstETHId, UnstETHRecordStatus status);
     error InvalidUnstETHHolder(uint256 unstETHId, address actual, address expected);
-    error AssetsUnlockDelayNotPassed(uint256 unlockTimelockExpiresAt);
+    error AssetsUnlockDelayNotPassed(Timestamp unlockTimelockExpiresAt);
     error InvalidClaimableAmount(uint256 unstETHId, ETHValue expected, ETHValue actual);
 
     // ---
@@ -99,7 +102,7 @@ library AssetsAccounting {
         self.stETHTotals.lockedShares = self.stETHTotals.lockedShares + shares;
         HolderAssets storage assets = self.assets[holder];
         assets.stETHLockedShares = assets.stETHLockedShares + shares;
-        assets.lastAssetsLockTimestamp = TimeUtils.timestamp();
+        assets.lastAssetsLockTimestamp = Timestamps.now();
         emit StETHSharesLocked(holder, shares);
     }
 
@@ -156,7 +159,7 @@ library AssetsAccounting {
         for (uint256 i = 0; i < unstETHcount; ++i) {
             totalUnstETHLocked = totalUnstETHLocked + _addUnstETHRecord(self, holder, unstETHIds[i], statuses[i]);
         }
-        self.assets[holder].lastAssetsLockTimestamp = TimeUtils.timestamp();
+        self.assets[holder].lastAssetsLockTimestamp = Timestamps.now();
         self.assets[holder].unstETHLockedShares = self.assets[holder].unstETHLockedShares + totalUnstETHLocked;
         self.unstETHTotals.unfinalizedShares = self.unstETHTotals.unfinalizedShares + totalUnstETHLocked;
 
@@ -251,10 +254,11 @@ library AssetsAccounting {
     function checkAssetsUnlockDelayPassed(
         State storage self,
         address holder,
-        uint256 assetsUnlockDelay
+        Duration assetsUnlockDelay
     ) internal view {
-        if (block.timestamp <= self.assets[holder].lastAssetsLockTimestamp + assetsUnlockDelay) {
-            revert AssetsUnlockDelayNotPassed(self.assets[holder].lastAssetsLockTimestamp + assetsUnlockDelay);
+        Timestamp assetsUnlockAllowedAfter = assetsUnlockDelay.addTo(self.assets[holder].lastAssetsLockTimestamp);
+        if (Timestamps.now() <= assetsUnlockAllowedAfter) {
+            revert AssetsUnlockDelayNotPassed(assetsUnlockAllowedAfter);
         }
     }
 

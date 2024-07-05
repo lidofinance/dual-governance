@@ -2,6 +2,8 @@
 pragma solidity 0.8.23;
 
 import {Test} from "forge-std/Test.sol";
+import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
+import {Durations, Duration as DurationType} from "contracts/types/Duration.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {
@@ -54,15 +56,17 @@ function countDigits(uint256 number) pure returns (uint256 digitsCount) {
     } while (number / 10 != 0);
 }
 
+DurationType constant ONE_SECOND = DurationType.wrap(1);
+
 contract ScenarioTestBlueprint is Test {
     address internal immutable _ADMIN_PROPOSER = DAO_VOTING;
-    uint256 internal immutable _EMERGENCY_MODE_DURATION = 180 days;
-    uint256 internal immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
+    DurationType internal immutable _EMERGENCY_MODE_DURATION = Durations.from(180 days);
+    DurationType internal immutable _EMERGENCY_PROTECTION_DURATION = Durations.from(90 days);
     address internal immutable _EMERGENCY_ACTIVATION_COMMITTEE = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
     address internal immutable _EMERGENCY_EXECUTION_COMMITTEE = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
 
-    uint256 internal immutable _SEALING_DURATION = 14 days;
-    uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
+    DurationType internal immutable _SEALING_DURATION = Durations.from(14 days);
+    DurationType internal immutable _SEALING_COMMITTEE_LIFETIME = Durations.from(365 days);
     address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
 
     address internal immutable _TIEBREAK_COMMITTEE = makeAddr("TIEBREAK_COMMITTEE");
@@ -109,7 +113,25 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        return _dualGovernance.getVetoSignallingState();
+        DurationType duration_;
+        Timestamp activatedAt_;
+        Timestamp enteredAt_;
+        (isActive, duration_, activatedAt_, enteredAt_) = _dualGovernance.getVetoSignallingState();
+        duration = DurationType.unwrap(duration_);
+        enteredAt = Timestamp.unwrap(enteredAt_);
+        activatedAt = Timestamp.unwrap(activatedAt_);
+    }
+
+    function _getVetoSignallingDeactivationState()
+        internal
+        view
+        returns (bool isActive, uint256 duration, uint256 enteredAt)
+    {
+        Timestamp enteredAt_;
+        DurationType duration_;
+        (isActive, duration_, enteredAt_) = _dualGovernance.getVetoSignallingDeactivationState();
+        duration = DurationType.unwrap(duration_);
+        enteredAt = Timestamp.unwrap(enteredAt_);
     }
 
     // ---
@@ -321,8 +343,8 @@ contract ScenarioTestBlueprint is Test {
         assertEq(proposal.id, proposalId, "unexpected proposal id");
         assertEq(uint256(proposal.status), uint256(ProposalStatus.Submitted), "unexpected status value");
         assertEq(proposal.executor, executor, "unexpected executor");
-        assertEq(proposal.submittedAt, block.timestamp, "unexpected scheduledAt");
-        assertEq(proposal.executedAt, 0, "unexpected executedAt");
+        assertEq(Timestamp.unwrap(proposal.submittedAt), block.timestamp, "unexpected scheduledAt");
+        assertEq(Timestamp.unwrap(proposal.executedAt), 0, "unexpected executedAt");
         assertEq(proposal.calls.length, calls.length, "unexpected calls length");
 
         for (uint256 i = 0; i < proposal.calls.length; ++i) {
@@ -427,8 +449,7 @@ contract ScenarioTestBlueprint is Test {
     // ---
     function _logVetoSignallingState() internal {
         /* solhint-disable no-console */
-        (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) =
-            _dualGovernance.getVetoSignallingState();
+        (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) = _getVetoSignallingState();
 
         if (!isActive) {
             console.log("VetoSignalling state is not active\n");
@@ -453,7 +474,7 @@ contract ScenarioTestBlueprint is Test {
 
     function _logVetoSignallingDeactivationState() internal {
         /* solhint-disable no-console */
-        (bool isActive, uint256 duration, uint256 enteredAt) = _dualGovernance.getVetoSignallingDeactivationState();
+        (bool isActive, uint256 duration, uint256 enteredAt) = _getVetoSignallingDeactivationState();
 
         if (!isActive) {
             console.log("VetoSignallingDeactivation state is not active\n");
@@ -574,16 +595,16 @@ contract ScenarioTestBlueprint is Test {
         console.log(string.concat(">>> ", text, " <<<"));
     }
 
-    function _wait(uint256 duration) internal {
-        vm.warp(block.timestamp + duration);
+    function _wait(DurationType duration) internal {
+        vm.warp(duration.addTo(Timestamps.now()).toSeconds());
     }
 
     function _waitAfterSubmitDelayPassed() internal {
-        _wait(_config.AFTER_SUBMIT_DELAY() + 1);
+        _wait(_config.AFTER_SUBMIT_DELAY() + ONE_SECOND);
     }
 
     function _waitAfterScheduleDelayPassed() internal {
-        _wait(_config.AFTER_SCHEDULE_DELAY() + 1);
+        _wait(_config.AFTER_SCHEDULE_DELAY() + ONE_SECOND);
     }
 
     struct Duration {
@@ -614,6 +635,18 @@ contract ScenarioTestBlueprint is Test {
                 "s"
             )
         );
+    }
+
+    function assertEq(uint40 a, uint40 b) internal {
+        assertEq(uint256(a), uint256(b));
+    }
+
+    function assertEq(Timestamp a, Timestamp b) internal {
+        assertEq(uint256(Timestamp.unwrap(a)), uint256(Timestamp.unwrap(b)));
+    }
+
+    function assertEq(DurationType a, DurationType b) internal {
+        assertEq(uint256(DurationType.unwrap(a)), uint256(DurationType.unwrap(b)));
     }
 
     function assertEq(ProposalStatus a, ProposalStatus b) internal {
