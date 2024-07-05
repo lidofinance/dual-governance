@@ -157,7 +157,6 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         );
         assert(support == quorum);
 
-        uint256 lastProposalId = EmergencyProtectedTimelock(address(_dualGovernance.TIMELOCK())).getProposalsCount();
         _tiebreakerCommittee.executeSealableResume(address(_WITHDRAWAL_QUEUE));
 
         assertEq(_WITHDRAWAL_QUEUE.isPaused(), false);

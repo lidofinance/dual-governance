@@ -55,10 +55,10 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
 
     function _encodeEmergencyExecute(uint256 proposalId)
         private
-        view
+        pure
         returns (bytes memory proposalData, bytes32 key)
     {
-        proposalData = abi.encode(ProposalType.EmergencyExecute, bytes32(proposalId));
+        proposalData = abi.encode(ProposalType.EmergencyExecute, proposalId);
         key = keccak256(proposalData);
     }
 
@@ -87,7 +87,7 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         );
     }
 
-    function _encodeEmergencyResetProposalKey() internal view returns (bytes32) {
+    function _encodeEmergencyResetProposalKey() internal pure returns (bytes32) {
         return keccak256(abi.encode(ProposalType.EmergencyReset, bytes32(0)));
     }
 }

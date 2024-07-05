@@ -58,7 +58,7 @@ contract TiebreakerCore is HashConsensus, ProposalsList {
     }
 
     function _encodeScheduleProposal(uint256 proposalId) internal pure returns (bytes memory data, bytes32 key) {
-        data = abi.encode(ProposalType.ScheduleProposal, data);
+        data = abi.encode(ProposalType.ScheduleProposal, proposalId);
         key = keccak256(data);
     }
 
