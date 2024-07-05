@@ -5,44 +5,39 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {ArrayUtils} from "../utils/arrays.sol";
+import {SequentialBatch, SequentialBatches} from "../types/SequentialBatches.sol";
 
-enum WithdrawalsBatchesQueueStatus {
+enum Status {
     // The default status of the WithdrawalsBatchesQueue. In the closed state the only action allowed
     // to be called is open(), which transfers it into Opened state.
-    Closed,
+    Empty,
     // In the Opened state WithdrawalsBatchesQueue allows to add batches into the queue
     Opened,
     // When the WithdrawalsBatchesQueue enters Filled queue - it's not allowed to add batches and
     // only allowed to mark batches claimed
-    Filled,
-    // The final state of the WithdrawalsBatchesQueue. This state means that all withdrawal batches
-    // were claimed
-    Claimed
+    Closed
 }
 
-struct WithdrawalsBatch {
-    uint16 size;
-    uint240 fromUnstETHId;
+struct QueueIndex {
+    uint32 batchIndex;
+    uint16 valueIndex;
 }
 
 library WithdrawalsBatchesQueue {
     using SafeCast for uint256;
 
     struct State {
-        bool isFinalized;
-        uint16 batchIndex;
-        uint16 unstETHIndex;
+        Status status;
+        QueueIndex lastClaimedUnstETHIdIndex;
         uint48 totalUnstETHCount;
         uint48 totalUnstETHClaimed;
-        WithdrawalsBatch[] batches;
+        SequentialBatch[] batches;
     }
 
-    error AllBatchesAlreadyFormed();
-    error InvalidUnstETHId(uint256 unstETHId);
-    error NotFinalizable(uint256 stETHBalance);
-    error ClaimingNotStarted();
-    error ClaimingIsFinished();
-    error EmptyWithdrawalsBatch();
+    event UnstETHIdsAdded(uint256[] unstETHIds);
+    event UnstETHIdsClaimed(uint256[] unstETHIds);
+
+    error InvalidWithdrawalsBatchesQueueStatus(Status status);
 
     function calcRequestAmounts(
         uint256 minRequestAmount,
@@ -62,118 +57,95 @@ library WithdrawalsBatchesQueue {
         }
     }
 
-    function add(State storage self, uint256[] memory unstETHIds) internal {
-        uint256 newUnstETHIdsCount = unstETHIds.length;
-        if (newUnstETHIdsCount == 0) {
-            revert EmptyWithdrawalsBatch();
-        }
+    function open(State storage self) internal {
+        _checkStatus(self, Status.Empty);
+        // insert empty batch as a stub for first item
+        self.batches.push(SequentialBatches.create({seed: 0, count: 1}));
+        self.status = Status.Opened;
+    }
 
-        uint256 firstAddedUnstETHId = unstETHIds[0];
-        if (self.batches.length == 0) {
-            self.batches.push(
-                WithdrawalsBatch({fromUnstETHId: firstAddedUnstETHId.toUint240(), size: newUnstETHIdsCount.toUint16()})
-            );
+    function close(State storage self) internal {
+        _checkStatus(self, Status.Opened);
+        self.status = Status.Closed;
+    }
+
+    function isClosed(State storage self) internal view returns (bool) {
+        return self.status == Status.Closed;
+    }
+
+    function isAllUnstETHClaimed(State storage self) internal view returns (bool) {
+        return self.totalUnstETHClaimed == self.totalUnstETHCount;
+    }
+
+    function checkOpened(State storage self) internal view {
+        _checkStatus(self, Status.Opened);
+    }
+
+    function add(State storage self, uint256[] memory unstETHIds) internal {
+        uint256 unstETHIdsCount = unstETHIds.length;
+        if (unstETHIdsCount == 0) {
             return;
         }
 
-        WithdrawalsBatch memory lastBatch = self.batches[self.batches.length - 1];
-        uint256 lastCreatedUnstETHId = lastBatch.fromUnstETHId + lastBatch.size;
-        // when there is no gap between the lastly added unstETHId and the new one
-        // then the batch may not be created, and added to the last one
-        if (firstAddedUnstETHId == lastCreatedUnstETHId) {
-            // but it may be done only when the batch max capacity is allowed to do it
-            if (lastBatch.size + newUnstETHIdsCount <= type(uint16).max) {
-                self.batches[self.batches.length - 1].size = (lastBatch.size + newUnstETHIdsCount).toUint16();
-            }
-        } else {
-            self.batches.push(
-                WithdrawalsBatch({fromUnstETHId: firstAddedUnstETHId.toUint240(), size: newUnstETHIdsCount.toUint16()})
-            );
+        // before creating the batch, assert that the unstETHIds is sequential
+        for (uint256 i = 0; i < unstETHIdsCount - 1; ++i) {
+            assert(unstETHIds[i + 1] == unstETHIds[i] + 1);
         }
-        lastBatch = self.batches[self.batches.length - 1];
-        self.totalUnstETHCount += newUnstETHIdsCount.toUint48();
-    }
 
-    function claimNextBatch(State storage self, uint256 maxUnstETHIdsCount) internal returns (uint256[] memory) {
-        uint256 batchId = self.batchIndex;
-        WithdrawalsBatch memory batch = self.batches[batchId];
-        uint256 unstETHId = batch.fromUnstETHId + self.unstETHIndex;
-        return claimNextBatch(self, unstETHId, maxUnstETHIdsCount);
+        uint256 lastBatchIndex = self.batches.length - 1;
+        SequentialBatch lastWithdrawalsBatch = self.batches[lastBatchIndex];
+        SequentialBatch newWithdrawalsBatch = SequentialBatches.create({seed: unstETHIds[0], count: unstETHIdsCount});
+
+        if (SequentialBatches.canMerge(lastWithdrawalsBatch, newWithdrawalsBatch)) {
+            self.batches[lastBatchIndex] = SequentialBatches.merge(lastWithdrawalsBatch, newWithdrawalsBatch);
+        } else {
+            self.batches.push(newWithdrawalsBatch);
+        }
+
+        self.totalUnstETHCount += newWithdrawalsBatch.size().toUint48();
+        emit UnstETHIdsAdded(unstETHIds);
     }
 
     function claimNextBatch(
         State storage self,
-        uint256 unstETHId,
         uint256 maxUnstETHIdsCount
-    ) internal returns (uint256[] memory result) {
-        uint256 expectedUnstETHId = self.batches[self.batchIndex].fromUnstETHId + self.unstETHIndex;
-        if (expectedUnstETHId != unstETHId) {
-            revert InvalidUnstETHId(unstETHId);
-        }
-
-        uint256 unclaimedUnstETHIdsCount = self.totalUnstETHCount - self.totalUnstETHClaimed;
-        uint256 unstETHIdsCountToClaim = Math.min(unclaimedUnstETHIdsCount, maxUnstETHIdsCount);
-
-        uint256 batchIndex = self.batchIndex;
-        uint256 unstETHIndex = self.unstETHIndex;
-        result = new uint256[](unstETHIdsCountToClaim);
-        self.totalUnstETHClaimed += unstETHIdsCountToClaim.toUint48();
-
-        uint256 index = 0;
-        while (unstETHIdsCountToClaim > 0) {
-            WithdrawalsBatch memory batch = self.batches[batchIndex];
-            uint256 unstETHIdsToClaimInBatch = Math.min(unstETHIdsCountToClaim, batch.size - unstETHIndex);
-            for (uint256 i = 0; i < unstETHIdsToClaimInBatch; ++i) {
-                result[i] = batch.fromUnstETHId + unstETHIndex + i;
-            }
-            index += unstETHIdsToClaimInBatch;
-            unstETHIndex += unstETHIdsToClaimInBatch;
-            unstETHIdsCountToClaim -= unstETHIdsToClaimInBatch;
-            if (unstETHIndex == batch.size) {
-                batchIndex += 1;
-                unstETHIndex = 0;
-            }
-        }
-        self.batchIndex = batchIndex.toUint16();
-        self.unstETHIndex = unstETHIndex.toUint16();
+    ) internal returns (uint256[] memory unstETHIds) {
+        (unstETHIds, self.lastClaimedUnstETHIdIndex) = _getNextClaimableUnstETHIds(self, maxUnstETHIdsCount);
+        self.totalUnstETHClaimed += unstETHIds.length.toUint48();
+        emit UnstETHIdsClaimed(unstETHIds);
     }
 
     function getNextWithdrawalsBatches(
         State storage self,
         uint256 limit
     ) internal view returns (uint256[] memory unstETHIds) {
-        uint256 batchId = self.batchIndex;
-        uint256 unstETHindex = self.unstETHIndex;
-        WithdrawalsBatch memory batch = self.batches[batchId];
-        uint256 unstETHId = batch.fromUnstETHId + self.unstETHIndex;
-        uint256 unstETHIdsCount = Math.min(batch.size - unstETHindex, limit);
+        (unstETHIds,) = _getNextClaimableUnstETHIds(self, limit);
+    }
+
+    function _getNextClaimableUnstETHIds(
+        State storage self,
+        uint256 maxUnstETHIdsCount
+    ) private view returns (uint256[] memory unstETHIds, QueueIndex memory lastClaimedUnstETHIdIndex) {
+        uint256 unstETHIdsCount = Math.min(self.totalUnstETHCount - self.totalUnstETHClaimed, maxUnstETHIdsCount);
 
         unstETHIds = new uint256[](unstETHIdsCount);
+        lastClaimedUnstETHIdIndex = self.lastClaimedUnstETHIdIndex;
+        SequentialBatch currentBatch = self.batches[lastClaimedUnstETHIdIndex.batchIndex];
+
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            unstETHIds[i] = unstETHId + i;
+            lastClaimedUnstETHIdIndex.valueIndex += 1;
+            if (currentBatch.size() == lastClaimedUnstETHIdIndex.valueIndex) {
+                lastClaimedUnstETHIdIndex.batchIndex += 1;
+                lastClaimedUnstETHIdIndex.valueIndex = 0;
+                currentBatch = self.batches[lastClaimedUnstETHIdIndex.batchIndex];
+            }
+            unstETHIds[i] = currentBatch.valueAt(lastClaimedUnstETHIdIndex.valueIndex);
         }
     }
 
-    function checkNotFinalized(State storage self) internal view {
-        if (self.isFinalized) {
-            revert AllBatchesAlreadyFormed();
-        }
-    }
-
-    function finalize(State storage self) internal {
-        self.isFinalized = true;
-    }
-
-    function isClaimingFinished(State storage self) internal view returns (bool) {
-        return self.totalUnstETHClaimed == self.totalUnstETHCount;
-    }
-
-    function checkClaimingInProgress(State storage self) internal view {
-        if (!self.isFinalized) {
-            revert ClaimingNotStarted();
-        }
-        if (self.totalUnstETHCount > 0 && self.totalUnstETHCount == self.totalUnstETHClaimed) {
-            revert ClaimingIsFinished();
+    function _checkStatus(State storage self, Status expectedStatus) private view {
+        if (self.status != expectedStatus) {
+            revert InvalidWithdrawalsBatchesQueueStatus(self.status);
         }
     }
 }

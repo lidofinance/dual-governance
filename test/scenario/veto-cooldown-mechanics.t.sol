@@ -72,10 +72,8 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
             }
 
-            vm.deal(address(_WITHDRAWAL_QUEUE), vetoedStETHAmount);
+            vm.deal(address(_WITHDRAWAL_QUEUE), 2 * vetoedStETHAmount);
             _finalizeWQ();
-
-            uint256 batchSizeLimit = 200;
 
             while (!rageQuitEscrow.getIsWithdrawalsClaimed()) {
                 rageQuitEscrow.claimWithdrawalsBatch(128);
