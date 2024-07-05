@@ -601,7 +601,7 @@ contract ScenarioTestBlueprint is Test {
             );
         }
 
-        _resealManager = new ResealManager(address(_adminExecutor), address(_dualGovernance));
+        _resealManager = new ResealManager(address(_timelock));
 
         vm.prank(DAO_AGENT);
         _WITHDRAWAL_QUEUE.grantRole(

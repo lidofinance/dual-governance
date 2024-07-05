@@ -2,25 +2,25 @@
 pragma solidity 0.8.23;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ISealable} from "./interfaces/ISealable.sol";
 
-contract ResealManager is Ownable {
-    error SealableWrongPauseState();
-    error SenderIsNotManager();
+interface IEmergencyProtectedTimelock {
+    function getGovernance() external view returns (address);
+}
 
-    event ManagerSet(address newManager);
+contract ResealManager {
+    error SealableWrongPauseState();
+    error SenderIsNotGovernance();
+    error NotAllowed();
 
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
+    address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
-    address public manager;
-
-    constructor(address owner, address managerAddress) Ownable(owner) {
-        manager = managerAddress;
-        emit ManagerSet(managerAddress);
+    constructor(address emergencyProtectedTimelock) {
+        EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
-    function reseal(address[] memory sealables) public onlyManager {
+    function reseal(address[] memory sealables) public onlyGovernance {
         for (uint256 i = 0; i < sealables.length; ++i) {
             uint256 sealableResumeSinceTimestamp = ISealable(sealables[i]).getResumeSinceTimestamp();
             if (sealableResumeSinceTimestamp < block.timestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {
@@ -31,7 +31,7 @@ contract ResealManager is Ownable {
         }
     }
 
-    function resume(address sealable) public onlyManager {
+    function resume(address sealable) public onlyGovernance {
         uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
         if (sealableResumeSinceTimestamp < block.timestamp) {
             revert SealableWrongPauseState();
@@ -39,14 +39,10 @@ contract ResealManager is Ownable {
         Address.functionCall(sealable, abi.encodeWithSelector(ISealable.resume.selector));
     }
 
-    function setManager(address newManager) public onlyOwner {
-        manager = newManager;
-        emit ManagerSet(newManager);
-    }
-
-    modifier onlyManager() {
-        if (msg.sender != manager) {
-            revert SenderIsNotManager();
+    modifier onlyGovernance() {
+        address governance = IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).getGovernance();
+        if (msg.sender != governance) {
+            revert SenderIsNotGovernance();
         }
         _;
     }
