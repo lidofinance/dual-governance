@@ -348,15 +348,15 @@ library DualGovernanceState {
         DualGovernanceConfig memory config,
         uint256 rageQuitRound
     ) private pure returns (Duration) {
-        if (rageQuitRound < config.rageQuitEthClaimTimelockGrowthStartSeqNumber) {
-            return config.rageQuitEthClaimMinTimelock;
+        if (rageQuitRound < config.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber) {
+            return config.rageQuitEthWithdrawalsMinTimelock;
         }
-        return config.rageQuitEthClaimMinTimelock
+        return config.rageQuitEthWithdrawalsMinTimelock
             + Durations.from(
                 (
-                    config.rageQuitEthClaimTimelockGrowthCoeffs[0] * rageQuitRound * rageQuitRound
-                        + config.rageQuitEthClaimTimelockGrowthCoeffs[1] * rageQuitRound
-                        + config.rageQuitEthClaimTimelockGrowthCoeffs[2]
+                    config.rageQuitEthWithdrawalsTimelockGrowthCoeffs[0] * rageQuitRound * rageQuitRound
+                        + config.rageQuitEthWithdrawalsTimelockGrowthCoeffs[1] * rageQuitRound
+                        + config.rageQuitEthWithdrawalsTimelockGrowthCoeffs[2]
                 ) / 10 ** 18
             ); // TODO: rewrite in a prettier way
     }

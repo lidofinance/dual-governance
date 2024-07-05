@@ -64,7 +64,7 @@ The general proposal flow is the following:
 
 Each submitted proposal requires a minimum timelock before it can be scheduled for execution.
 
-At any time, including while a proposal's timelock is lasting, stakers can signal their opposition to the DAO by locking their (w)stETH or withdrawal NFTs (wNFTs) into the [signalling escrow contract](#Contract-Escrowsol). If the opposition exceeds some minimum threshold, the [global governance state](#Governance-state) gets changed, blocking any DAO execution and thus effectively extending the timelock of all pending (i.e. submitted but not scheduled for execution) proposals.
+At any time, including while a proposal's timelock is lasting, stakers can signal their opposition to the DAO by locking their (w)stETH or stETH Withdrawal NFTs (unstETH) into the [signalling escrow contract](#Contract-Escrowsol). If the opposition exceeds some minimum threshold, the [global governance state](#Governance-state) gets changed, blocking any DAO execution and thus effectively extending the timelock of all pending (i.e. submitted but not scheduled for execution) proposals.
 
 ![image](https://github.com/lidofinance/dual-governance/assets/1699593/98273df0-f3fd-4149-929d-3315a8e81aa8)
 
@@ -86,17 +86,17 @@ The proposal execution flow comes after the dynamic timelock elapses and the pro
 
 #### Regular deployment mode
 
-In the regular deployment mode, the emergency protection delay is set to zero and all calls from scheduled proposals are immediately executable by anyone via calling the [`EmergencyProtectedTimelock.execute`](#Function-EmergencyProtectedTimelockexecute) function.
+In the regular deployment mode, the **emergency protection delay** is set to zero and all calls from scheduled proposals are immediately executable by anyone via calling the [`EmergencyProtectedTimelock.execute`](#Function-EmergencyProtectedTimelockexecute) function.
 
 #### Protected deployment mode
 
-The protected deployment mode is a temporary mode designed to be active during an initial period after the deployment or upgrade of the DG contracts. In this mode, scheduled proposals cannot be executed immediately; instead, before calling [`EmergencyProtectedTimelock.execute`](#Funtion-EmergencyProtectedTimelockexecute), one has to wait until an **emergency protection timelock** elapses since the proposal scheduling time.
+The protected deployment mode is a temporary mode designed to be active during an initial period after the deployment or upgrade of the DG contracts. In this mode, scheduled proposals cannot be executed immediately; instead, before calling [`EmergencyProtectedTimelock.execute`](#Funtion-EmergencyProtectedTimelockexecute), one has to wait until an emergency protection delay elapses since the proposal scheduling time.
 
 ![image](https://github.com/lidofinance/dual-governance/assets/1699593/38cb2371-bdb0-4681-9dfd-356fa1ed7959)
 
 In this mode, an **emergency activation committee** has the one-off and time-limited right to activate an adversarial **emergency mode** if they see a scheduled proposal that was created or altered due to a vulnerability in the DG contracts or if governance execution is prevented by such a vulnerability. Once the emergency mode is activated, the emergency activation committee is disabled, i.e. loses the ability to activate the emergency mode again. If the emergency activation committee doesn't activate the emergency mode within the duration of the **emergency protection duration** since the committee was configured by the DAO, it gets automatically disabled as well.
 
-The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect executor contracts from the DG contracts and reconnect them to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
+The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect it to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
 
 If the emergency execution committee doesn't disable the DG until the emergency mode max duration elapses, anyone gets the right to deactivate the emergency mode, switching the system back to the protected mode and disabling the emergency committee.
 
@@ -373,7 +373,7 @@ Registers the `proposer` address in the system as a valid proposer and associate
 
 #### Preconditions
 
-* MUST be called by the admin executor contract (see `Config.sol`).
+* MUST be called by the admin executor contract (see `Configuration.sol`).
 * The `proposer` address MUST NOT be already registered in the system.
 * The `executor` instance SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
 
@@ -462,9 +462,9 @@ Once all funds locked in the `Escrow` instance are converted into withdrawal NFT
 
 The purpose of the `RageQuitExtensionDelay` phase is to provide sufficient time to participants who locked withdrawal NFTs to claim them before Lido DAO's proposal execution is unblocked. As soon as a withdrawal NFT is claimed, the user's ETH is no longer affected by any code controlled by the DAO.
 
-When the `RageQuitExtensionDelay` period elapses, the `DualGovernance.activateNextState()` function exits the `RageQuit` state and initiates the `RageQuitEthClaimTimelock`. Throughout this timelock, tokens remain locked within the `Escrow` instance and are inaccessible for withdrawal. Once the timelock expires, participants in the rage quit process can retrieve their ETH by withdrawing it from the `Escrow` instance.
+When the `RageQuitExtensionDelay` period elapses, the `DualGovernance.activateNextState()` function exits the `RageQuit` state and initiates the `RageQuitEthWithdrawalsTimelock`. Throughout this timelock, tokens remain locked within the `Escrow` instance and are inaccessible for withdrawal. Once the timelock expires, participants in the rage quit process can retrieve their ETH by withdrawing it from the `Escrow` instance.
 
-The duration of the `RageQuitEthClaimTimelock` is dynamic and varies based on the number of "continuous" rage quits. A pair of rage quits is considered continuous when `DualGovernance` has not transitioned to the `Normal` or `VetoCooldown` state between them.
+The duration of the `RageQuitEthWithdrawalsTimelock` is dynamic and varies based on the number of "continuous" rage quits. A pair of rage quits is considered continuous when `DualGovernance` has not transitioned to the `Normal` or `VetoCooldown` state between them.
 
 ### Function: Escrow.lockStETH
 
@@ -701,7 +701,7 @@ return 10 ** 18 * (
 function startRageQuit()
 ```
 
-Transits the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state. Following this transition, locked funds become unwithdrawable and are accessible to users only as plain ETH after the completion of the full `RageQuit` process, including the `RageQuitExtensionDelay` and `RageQuitEthClaimTimelock` stages.
+Transits the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state. Following this transition, locked funds become unwithdrawable and are accessible to users only as plain ETH after the completion of the full `RageQuit` process, including the `RageQuitExtensionDelay` and `RageQuitEthWithdrawalsTimelock` stages.
 
 As the initial step of transitioning to the `RageQuitEscrow` state, all locked wstETH is converted into stETH, and the maximum stETH allowance is granted to the `WithdrawalQueue` contract for the upcoming creation of Withdrawal NFTs.
 
@@ -772,7 +772,7 @@ Returns whether the rage quit process has been finalized. The rage quit process 
 function withdrawStEthAsEth()
 ```
 
-Allows the caller (i.e. `msg.sender`) to withdraw all stETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthClaimTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding stETH as withdrawn for the caller.
+Allows the caller (i.e. `msg.sender`) to withdraw all stETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthWithdrawalsTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding stETH as withdrawn for the caller.
 
 The amount of ETH sent to the caller is determined by the proportion of the user's stETH shares compared to the total amount of locked stETH and wstETH shares in the Escrow instance, calculated as follows:
 
@@ -785,7 +785,7 @@ return _totalClaimedEthAmount * _vetoersLockedAssets[msg.sender].stETHShares
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
+- The `RageQuitEthWithdrawalsTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
 - The caller MUST have a non-zero amount of stETH to withdraw.
 - The caller MUST NOT have previously withdrawn stETH.
 
@@ -795,7 +795,7 @@ return _totalClaimedEthAmount * _vetoersLockedAssets[msg.sender].stETHShares
 function withdrawWstEthAsEth() external
 ```
 
-Allows the caller (i.e. `msg.sender`) to withdraw all wstETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthClaimTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding wstETH as withdrawn for the caller.
+Allows the caller (i.e. `msg.sender`) to withdraw all wstETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthWithdrawalsTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding wstETH as withdrawn for the caller.
 
 The amount of ETH sent to the caller is determined by the proportion of the user's wstETH funds compared to the total amount of locked stETH and wstETH shares in the Escrow instance, calculated as follows:
 
@@ -808,7 +808,7 @@ return _totalClaimedEthAmount *
 #### Preconditions
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
+- The `RageQuitEthWithdrawalsTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
 - The caller MUST have a non-zero amount of wstETH to withdraw.
 - The caller MUST NOT have previously withdrawn wstETH.
 
@@ -824,7 +824,7 @@ Allows the caller (i.e. `msg.sender`) to withdraw the claimed ETH from the Withd
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
+- The `RageQuitEthWithdrawalsTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
 - The caller MUST be set as the owner of the provided NFTs.
 - Each Withdrawal NFT MUST have been claimed using the `Escrow.claimUnstETH()` function.
 - Withdrawal NFTs must not have been withdrawn previously.
@@ -837,14 +837,14 @@ Allows the caller (i.e. `msg.sender`) to withdraw the claimed ETH from the Withd
 For a proposal to be executed, the following steps have to be performed in order:
 
 1. The proposal must be submitted using the `EmergencyProtectedTimelock.submit` function.
-2. The configured post-submit timelock must elapse.
+2. The configured post-submit timelock (`Configuration.AFTER_SUBMIT_DELAY()`) must elapse.
 3. The proposal must be scheduled using the `EmergencyProtectedTimelock.schedule` function.
-4. The configured emergency protection timelock must elapse (can be zero, see below).
+4. The configured emergency protection delay (`Configuration.AFTER_SCHEDULE_DELAY()`) must elapse (can be zero, see below).
 5. The proposal must be executed using the `EmergencyProtectedTimelock.execute` function.
 
 The contract only allows proposal submission and scheduling by the `governance` address. Normally, this address points to the [`DualGovernance`](#Contract-DualGovernancesol) singleton instance. Proposal execution is permissionless, unless Emergency Mode is activated.
 
-If the Emergency Committees are set up and active, the governance proposal gets a separate emergency protection timelock between submitting and scheduling. This additional timelock is implemented in the `EmergencyProtectedTimelock` contract to protect from zero-day vulnerability in the logic of `DualGovenance.sol` and other core DG contracts. If the Emergency Committees aren't set, the proposal flow is the same, but the timelock duration is zero.
+If the Emergency Committees are set up and active, the governance proposal gets a separate emergency protection delay between submitting and scheduling. This additional timelock is implemented in the `EmergencyProtectedTimelock` contract to protect from zero-day vulnerability in the logic of `DualGovenance.sol` and other core DG contracts. If the Emergency Committees aren't set, the proposal flow is the same, but the timelock duration is zero.
 
 Emergency Activation Committee, while active, can enable the Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. It also allows the Emergency Execution Committee to reset the governance, effectively disabling the Dual Governance subsystem.
 

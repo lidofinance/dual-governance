@@ -6,7 +6,6 @@ import {Duration} from "../types/Duration.sol";
 struct DualGovernanceConfig {
     uint256 firstSealRageQuitSupport;
     uint256 secondSealRageQuitSupport;
-    // TODO: consider dynamicDelayMaxDuration
     Duration dynamicTimelockMaxDuration;
     Duration dynamicTimelockMinDuration;
     Duration vetoSignallingMinActiveDuration;
@@ -14,9 +13,9 @@ struct DualGovernanceConfig {
     Duration vetoCooldownDuration;
     Duration rageQuitExtraTimelock;
     Duration rageQuitExtensionDelay;
-    Duration rageQuitEthClaimMinTimelock;
-    uint256 rageQuitEthClaimTimelockGrowthStartSeqNumber;
-    uint256[3] rageQuitEthClaimTimelockGrowthCoeffs;
+    Duration rageQuitEthWithdrawalsMinTimelock;
+    uint256 rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber;
+    uint256[3] rageQuitEthWithdrawalsTimelockGrowthCoeffs;
 }
 
 interface IEscrowConfigration {
@@ -50,13 +49,13 @@ interface IDualGovernanceConfiguration {
     function SECOND_SEAL_RAGE_QUIT_SUPPORT() external view returns (uint256);
 
     function RAGE_QUIT_EXTENSION_DELAY() external view returns (Duration);
-    function RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK() external view returns (Duration);
+    function RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK() external view returns (Duration);
     function RAGE_QUIT_ACCUMULATION_MAX_DURATION() external view returns (Duration);
-    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_START_SEQ_NUMBER() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER() external view returns (uint256);
 
-    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_A() external view returns (uint256);
-    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_B() external view returns (uint256);
-    function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_C() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_A() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B() external view returns (uint256);
+    function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_C() external view returns (uint256);
 
     function sealableWithdrawalBlockers() external view returns (address[] memory);
 
