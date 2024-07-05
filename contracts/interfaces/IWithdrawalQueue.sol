@@ -37,6 +37,13 @@ interface IWithdrawalQueue {
         uint256[] calldata _hints
     ) external view returns (uint256[] memory claimableEthValues);
 
+    function findCheckpointHints(
+        uint256[] calldata _requestIds,
+        uint256 _firstIndex,
+        uint256 _lastIndex
+    ) external view returns (uint256[] memory hintIds);
+    function getLastCheckpointIndex() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256);
 
     function requestWithdrawals(

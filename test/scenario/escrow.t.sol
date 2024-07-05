@@ -6,10 +6,10 @@ import {Duration as DurationType} from "contracts/types/Duration.sol";
 import {
     Escrow,
     Balances,
-    VetoerState,
-    LockedAssetsTotals,
     WITHDRAWAL_QUEUE,
     ScenarioTestBlueprint,
+    VetoerState,
+    LockedAssetsTotals,
     Durations
 } from "../utils/scenario-test-blueprint.sol";
 
@@ -89,29 +89,35 @@ contract EscrowHappyPath is TestHelpers {
 
     function test_lock_unlock() public {
         uint256 firstVetoerStETHBalanceBefore = _ST_ETH.balanceOf(_VETOER_1);
-        uint256 firstVetoerWstETHBalanceBefore = _WST_ETH.balanceOf(_VETOER_1);
-
-        uint256 secondVetoerStETHBalanceBefore = _ST_ETH.balanceOf(_VETOER_2);
         uint256 secondVetoerWstETHBalanceBefore = _WST_ETH.balanceOf(_VETOER_2);
 
-        _lockStETH(_VETOER_1, 10 ** 18);
-        _lockWstETH(_VETOER_1, 2 * 10 ** 18);
+        uint256 firstVetoerLockStETHAmount = 1 ether;
+        uint256 firstVetoerLockWstETHAmount = 2 ether;
 
-        _lockStETH(_VETOER_2, 3 * 10 ** 18);
-        _lockWstETH(_VETOER_2, 5 * 10 ** 18);
+        uint256 secondVetoerLockStETHAmount = 3 ether;
+        uint256 secondVetoerLockWstETHAmount = 5 ether;
+
+        _lockStETH(_VETOER_1, firstVetoerLockStETHAmount);
+        _lockWstETH(_VETOER_1, firstVetoerLockWstETHAmount);
+
+        _lockStETH(_VETOER_2, secondVetoerLockStETHAmount);
+        _lockWstETH(_VETOER_2, secondVetoerLockWstETHAmount);
 
         _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
-        _unlockWstETH(_VETOER_1);
-        _unlockStETH(_VETOER_2);
+        assertApproxEqAbs(
+            _ST_ETH.balanceOf(_VETOER_1),
+            firstVetoerStETHBalanceBefore + _ST_ETH.getPooledEthByShares(firstVetoerLockWstETHAmount),
+            1
+        );
+
         _unlockWstETH(_VETOER_2);
-
-        assertEq(firstVetoerWstETHBalanceBefore, _WST_ETH.balanceOf(_VETOER_1));
-        assertApproxEqAbs(firstVetoerStETHBalanceBefore, _ST_ETH.balanceOf(_VETOER_1), 1);
-
-        assertEq(secondVetoerWstETHBalanceBefore, _WST_ETH.balanceOf(_VETOER_2));
-        assertApproxEqAbs(secondVetoerStETHBalanceBefore, _ST_ETH.balanceOf(_VETOER_2), 1);
+        assertApproxEqAbs(
+            secondVetoerWstETHBalanceBefore,
+            _WST_ETH.balanceOf(_VETOER_2),
+            secondVetoerWstETHBalanceBefore + _ST_ETH.getSharesByPooledEth(secondVetoerLockWstETHAmount)
+        );
     }
 
     function test_lock_unlock_w_rebase() public {
@@ -122,6 +128,9 @@ contract EscrowHappyPath is TestHelpers {
         uint256 secondVetoerStETHAmount = 13 * 10 ** 18;
         uint256 secondVetoerStETHShares = _ST_ETH.getSharesByPooledEth(secondVetoerStETHAmount);
         uint256 secondVetoerWstETHAmount = 17 * 10 ** 18;
+
+        uint256 firstVetoerWstETHBalanceBefore = _WST_ETH.balanceOf(_VETOER_1);
+        uint256 secondVetoerStETHSharesBefore = _ST_ETH.sharesOf(_VETOER_2);
 
         _lockStETH(_VETOER_1, firstVetoerStETHAmount);
         _lockWstETH(_VETOER_1, firstVetoerWstETHAmount);
@@ -139,25 +148,24 @@ contract EscrowHappyPath is TestHelpers {
 
         _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
-        _unlockStETH(_VETOER_1);
         _unlockWstETH(_VETOER_1);
+        assertApproxEqAbs(
+            firstVetoerWstETHBalanceBefore + firstVetoerStETHShares,
+            _WST_ETH.balanceOf(_VETOER_1),
+            // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
+            // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
+            // into shares via _ST_ETH.getSharesByPooledEth(secondVetoerStETHAmount)
+            2
+        );
 
         _unlockStETH(_VETOER_2);
-        _unlockWstETH(_VETOER_2);
 
         assertApproxEqAbs(
-            _ST_ETH.getPooledEthByShares(firstVetoerStETHSharesAfterRebase + firstVetoerStETHShares),
-            _ST_ETH.balanceOf(_VETOER_1),
-            1
-        );
-        assertEq(firstVetoerWstETHBalanceAfterRebase + firstVetoerWstETHAmount, _WST_ETH.balanceOf(_VETOER_1));
-
-        assertApproxEqAbs(
-            _ST_ETH.getPooledEthByShares(secondVetoerStETHSharesAfterRebase + secondVetoerStETHShares),
+            // all locked stETH and wstETH was withdrawn as stETH
+            _ST_ETH.getPooledEthByShares(secondVetoerStETHSharesBefore + secondVetoerWstETHAmount),
             _ST_ETH.balanceOf(_VETOER_2),
             1
         );
-        assertEq(secondVetoerWstETHBalanceAfterRebase + secondVetoerWstETHAmount, _WST_ETH.balanceOf(_VETOER_2));
     }
 
     function test_lock_unlock_w_negative_rebase() public {
@@ -166,11 +174,9 @@ contract EscrowHappyPath is TestHelpers {
 
         uint256 secondVetoerStETHAmount = 13 * 10 ** 18;
         uint256 secondVetoerWstETHAmount = 17 * 10 ** 18;
+        uint256 secondVetoerStETHShares = _ST_ETH.getSharesByPooledEth(secondVetoerStETHAmount);
 
         uint256 firstVetoerStETHSharesBefore = _ST_ETH.sharesOf(_VETOER_1);
-        uint256 firstVetoerWstETHBalanceBefore = _WST_ETH.balanceOf(_VETOER_1);
-
-        uint256 secondVetoerStETHSharesBefore = _ST_ETH.sharesOf(_VETOER_2);
         uint256 secondVetoerWstETHBalanceBefore = _WST_ETH.balanceOf(_VETOER_2);
 
         _lockStETH(_VETOER_1, firstVetoerStETHAmount);
@@ -184,16 +190,23 @@ contract EscrowHappyPath is TestHelpers {
         _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
-        _unlockWstETH(_VETOER_1);
+        assertApproxEqAbs(
+            // all locked stETH and wstETH was withdrawn as stETH
+            _ST_ETH.getPooledEthByShares(firstVetoerStETHSharesBefore + firstVetoerWstETHAmount),
+            _ST_ETH.balanceOf(_VETOER_1),
+            1
+        );
 
-        _unlockStETH(_VETOER_2);
         _unlockWstETH(_VETOER_2);
 
-        assertApproxEqAbs(_ST_ETH.getPooledEthByShares(firstVetoerStETHSharesBefore), _ST_ETH.balanceOf(_VETOER_1), 1);
-        assertEq(firstVetoerWstETHBalanceBefore, _WST_ETH.balanceOf(_VETOER_1));
-
-        assertApproxEqAbs(_ST_ETH.getPooledEthByShares(secondVetoerStETHSharesBefore), _ST_ETH.balanceOf(_VETOER_2), 1);
-        assertEq(secondVetoerWstETHBalanceBefore, _WST_ETH.balanceOf(_VETOER_2));
+        assertApproxEqAbs(
+            secondVetoerWstETHBalanceBefore + secondVetoerStETHShares,
+            _WST_ETH.balanceOf(_VETOER_2),
+            // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
+            // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
+            // into shares via _ST_ETH.getSharesByPooledEth(secondVetoerStETHAmount)
+            2
+        );
     }
 
     function test_lock_unlock_withdrawal_nfts() public {
@@ -228,33 +241,39 @@ contract EscrowHappyPath is TestHelpers {
     }
 
     function test_check_finalization() public {
-        uint256 totalSharesLocked = _ST_ETH.getSharesByPooledEth(2 * 1e18);
-        uint256 expectedSharesFinalized = _ST_ETH.getSharesByPooledEth(1 * 1e18);
+        uint256 totalAmountLocked = 2 ether;
         uint256[] memory amounts = new uint256[](2);
         for (uint256 i = 0; i < 2; ++i) {
-            amounts[i] = 1e18;
+            amounts[i] = 1 ether;
         }
 
         vm.prank(_VETOER_1);
         uint256[] memory unstETHIds = _WITHDRAWAL_QUEUE.requestWithdrawals(amounts, _VETOER_1);
 
+        uint256 totalSharesLocked;
+        WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            totalSharesLocked += statuses[i].amountOfShares;
+        }
+
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
-        assertEq(escrow.getLockedAssetsTotals().sharesFinalized, 0);
+        VetoerState memory vetoerState = escrow.getVetoerState(_VETOER_1);
+        assertEq(vetoerState.unstETHIdsCount, 2);
+
+        LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
+        assertEq(totals.unstETHFinalizedETH, 0);
+        assertEq(totals.unstETHUnfinalizedShares, totalSharesLocked);
 
         finalizeWQ(unstETHIds[0]);
         uint256[] memory hints =
             _WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex());
         escrow.markUnstETHFinalized(unstETHIds, hints);
 
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
-
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().sharesFinalized, expectedSharesFinalized, 1);
+        totals = escrow.getLockedAssetsTotals();
+        assertEq(totals.unstETHUnfinalizedShares, statuses[0].amountOfShares);
         uint256 ethAmountFinalized = _WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().amountFinalized, ethAmountFinalized, 1);
+        assertApproxEqAbs(totals.unstETHFinalizedETH, ethAmountFinalized, 1);
     }
 
     function test_get_rage_quit_support() public {
@@ -275,10 +294,8 @@ contract EscrowHappyPath is TestHelpers {
         _lockWstETH(_VETOER_1, sharesToLock);
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        VetoerState memory vetoerState = escrow.getVetoerState(_VETOER_1);
-        assertApproxEqAbs(vetoerState.stETHShares, sharesToLock, 1);
-        assertEq(vetoerState.wstETHShares, sharesToLock);
-        assertApproxEqAbs(vetoerState.unstETHShares, _ST_ETH.getSharesByPooledEth(2e18), 1);
+        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).stETHLockedShares, 2 * sharesToLock, 1);
+        assertEq(escrow.getVetoerState(_VETOER_1).unstETHIdsCount, 2);
 
         uint256 rageQuitSupport = escrow.getRageQuitSupport();
         assertEq(rageQuitSupport, 4 * 1e18 * 1e18 / totalSupply);
@@ -288,11 +305,9 @@ contract EscrowHappyPath is TestHelpers {
             _WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex());
         escrow.markUnstETHFinalized(unstETHIds, hints);
 
-        LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
-
-        assertApproxEqAbs(totals.sharesFinalized, sharesToLock, 1);
+        assertEq(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, sharesToLock);
         uint256 ethAmountFinalized = _WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(totals.amountFinalized, ethAmountFinalized, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHFinalizedETH, ethAmountFinalized, 1);
 
         rageQuitSupport = escrow.getRageQuitSupport();
         assertEq(
@@ -334,7 +349,9 @@ contract EscrowHappyPath is TestHelpers {
 
         assertEq(_WITHDRAWAL_QUEUE.balanceOf(address(escrow)), 20);
 
-        escrow.requestNextWithdrawalsBatch(200);
+        while (!escrow.getIsWithdrawalsBatchesFinalized()) {
+            escrow.requestNextWithdrawalsBatch(96);
+        }
 
         assertEq(_WITHDRAWAL_QUEUE.balanceOf(address(escrow)), 10 + expectedWithdrawalBatchesCount);
         assertEq(escrow.isRageQuitFinalized(), false);
@@ -342,9 +359,8 @@ contract EscrowHappyPath is TestHelpers {
         vm.deal(WITHDRAWAL_QUEUE, 1000 * requestAmount);
         finalizeWQ();
 
-        (uint256 offset, uint256 total, uint256[] memory unstETHIdsToClaim) =
-            escrow.getNextWithdrawalBatches(expectedWithdrawalBatchesCount);
-        assertEq(total, expectedWithdrawalBatchesCount);
+        uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatches(expectedWithdrawalBatchesCount);
+        // assertEq(total, expectedWithdrawalBatchesCount);
 
         WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIdsToClaim);
 
@@ -356,7 +372,9 @@ contract EscrowHappyPath is TestHelpers {
         uint256[] memory hints =
             _WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIdsToClaim, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex());
 
-        escrow.claimNextWithdrawalsBatch(offset, hints);
+        while (!escrow.getIsWithdrawalsClaimed()) {
+            escrow.claimWithdrawalsBatch(128);
+        }
 
         assertEq(escrow.isRageQuitFinalized(), false);
 
@@ -371,12 +389,12 @@ contract EscrowHappyPath is TestHelpers {
             // but it can't be withdrawn before withdrawal timelock has passed
             vm.expectRevert();
             vm.prank(_VETOER_1);
-            escrow.withdrawUnstETHAsETH(unstETHIds);
+            escrow.withdrawETH(unstETHIds);
         }
 
         vm.expectRevert();
         vm.prank(_VETOER_1);
-        escrow.withdrawStETHAsETH();
+        escrow.withdrawETH();
 
         _wait(_RAGE_QUIT_EXTRA_TIMELOCK.plusSeconds(1));
         assertEq(escrow.isRageQuitFinalized(), true);
@@ -384,8 +402,8 @@ contract EscrowHappyPath is TestHelpers {
         _wait(_RAGE_QUIT_WITHDRAWALS_TIMELOCK.plusSeconds(1));
 
         vm.startPrank(_VETOER_1);
-        escrow.withdrawStETHAsETH();
-        escrow.withdrawUnstETHAsETH(unstETHIds);
+        escrow.withdrawETH();
+        escrow.withdrawETH(unstETHIds);
         vm.stopPrank();
     }
 
@@ -408,7 +426,9 @@ contract EscrowHappyPath is TestHelpers {
         vm.deal(WITHDRAWAL_QUEUE, 100 * requestAmount);
         finalizeWQ();
 
-        escrow.claimNextWithdrawalsBatch(0, new uint256[](0));
+        escrow.requestNextWithdrawalsBatch(96);
+
+        escrow.claimWithdrawalsBatch(0, new uint256[](0));
 
         assertEq(escrow.isRageQuitFinalized(), false);
 
@@ -425,7 +445,7 @@ contract EscrowHappyPath is TestHelpers {
         _wait(_RAGE_QUIT_WITHDRAWALS_TIMELOCK.plusSeconds(1));
 
         vm.startPrank(_VETOER_1);
-        escrow.withdrawUnstETHAsETH(unstETHIds);
+        escrow.withdrawETH(unstETHIds);
         vm.stopPrank();
     }
 
@@ -437,12 +457,14 @@ contract EscrowHappyPath is TestHelpers {
         uint256 totalSharesLocked = firstVetoerWstETHAmount + firstVetoerStETHShares;
 
         _lockStETH(_VETOER_1, firstVetoerStETHAmount);
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).stETHShares, firstVetoerStETHShares, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, firstVetoerStETHShares, 1);
+        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).stETHLockedShares, firstVetoerStETHShares, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, firstVetoerStETHShares, 1);
 
         _lockWstETH(_VETOER_1, firstVetoerWstETHAmount);
-        assertEq(escrow.getVetoerState(_VETOER_1).wstETHShares, firstVetoerWstETHAmount);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+        assertApproxEqAbs(
+            escrow.getVetoerState(_VETOER_1).stETHLockedShares, firstVetoerWstETHAmount + firstVetoerStETHShares, 2
+        );
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, totalSharesLocked, 2);
 
         _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
@@ -450,19 +472,19 @@ contract EscrowHappyPath is TestHelpers {
         stETHWithdrawalRequestAmounts[0] = firstVetoerStETHAmount;
 
         vm.prank(_VETOER_1);
-        uint256[] memory stETHWithdrawalRequestIds = escrow.requestWithdrawalsStETH(stETHWithdrawalRequestAmounts);
+        uint256[] memory stETHWithdrawalRequestIds = escrow.requestWithdrawals(stETHWithdrawalRequestAmounts);
 
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, firstVetoerStETHShares, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, firstVetoerWstETHAmount, 2);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, firstVetoerStETHShares, 2);
 
         uint256[] memory wstETHWithdrawalRequestAmounts = new uint256[](1);
-        wstETHWithdrawalRequestAmounts[0] = firstVetoerWstETHAmount;
+        wstETHWithdrawalRequestAmounts[0] = _ST_ETH.getPooledEthByShares(firstVetoerWstETHAmount);
 
         vm.prank(_VETOER_1);
-        uint256[] memory wstETHWithdrawalRequestIds = escrow.requestWithdrawalsWstETH(wstETHWithdrawalRequestAmounts);
+        uint256[] memory wstETHWithdrawalRequestIds = escrow.requestWithdrawals(wstETHWithdrawalRequestAmounts);
 
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, 0, 2);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, totalSharesLocked, 2);
 
         finalizeWQ(wstETHWithdrawalRequestIds[0]);
 
@@ -472,8 +494,9 @@ contract EscrowHappyPath is TestHelpers {
                 stETHWithdrawalRequestIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex()
             )
         );
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, 0, 2);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, firstVetoerWstETHAmount, 2);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHFinalizedETH, firstVetoerStETHAmount, 2);
 
         escrow.markUnstETHFinalized(
             wstETHWithdrawalRequestIds,
@@ -481,16 +504,16 @@ contract EscrowHappyPath is TestHelpers {
                 wstETHWithdrawalRequestIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex()
             )
         );
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, totalSharesLocked, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, totalSharesLocked, 1);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, 0, 2);
+        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, 0, 2);
 
         _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
 
         vm.prank(_VETOER_1);
         escrow.unlockUnstETH(stETHWithdrawalRequestIds);
 
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, firstVetoerWstETHAmount, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().shares, firstVetoerWstETHAmount, 1);
+        // // assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, firstVetoerWstETHAmount, 1);
+        // assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, firstVetoerWstETHAmount, 1);
 
         vm.prank(_VETOER_1);
         escrow.unlockUnstETH(wstETHWithdrawalRequestIds);

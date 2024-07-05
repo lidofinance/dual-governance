@@ -19,6 +19,12 @@ struct DualGovernanceConfig {
     uint256[3] rageQuitEthClaimTimelockGrowthCoeffs;
 }
 
+interface IEscrowConfigration {
+    function MIN_WITHDRAWALS_BATCH_SIZE() external view returns (uint256);
+    function MAX_WITHDRAWALS_BATCH_SIZE() external view returns (uint256);
+    function SIGNALLING_ESCROW_MIN_LOCK_TIME() external view returns (Duration);
+}
+
 interface IAdminExecutorConfiguration {
     function ADMIN_EXECUTOR() external view returns (address);
 }
@@ -52,8 +58,6 @@ interface IDualGovernanceConfiguration {
     function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_B() external view returns (uint256);
     function RAGE_QUIT_ETH_CLAIM_TIMELOCK_GROWTH_COEFF_C() external view returns (uint256);
 
-    function SIGNALLING_ESCROW_MIN_LOCK_TIME() external view returns (Duration);
-
     function sealableWithdrawalBlockers() external view returns (address[] memory);
 
     function getSignallingThresholdData()
@@ -69,4 +73,9 @@ interface IDualGovernanceConfiguration {
     function getDualGovernanceConfig() external view returns (DualGovernanceConfig memory config);
 }
 
-interface IConfiguration is IAdminExecutorConfiguration, ITimelockConfiguration, IDualGovernanceConfiguration {}
+interface IConfiguration is
+    IEscrowConfigration,
+    ITimelockConfiguration,
+    IAdminExecutorConfiguration,
+    IDualGovernanceConfiguration
+{}
