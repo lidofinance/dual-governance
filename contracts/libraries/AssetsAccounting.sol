@@ -10,8 +10,6 @@ import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
 import {Duration} from "../types/Duration.sol";
 import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 
-import {ArrayUtils} from "../utils/arrays.sol";
-
 struct HolderAssets {
     // The total shares amount of stETH/wstETH accounted to the holder
     SharesValue stETHLockedShares;

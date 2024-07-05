@@ -9,6 +9,9 @@ uint256 constant PERCENT = 10 ** 16;
 contract Configuration is IConfiguration {
     error MaxSealablesLimitOverflow(uint256 count, uint256 limit);
 
+    uint256 public immutable MIN_WITHDRAWALS_BATCH_SIZE = 8;
+    uint256 public immutable MAX_WITHDRAWALS_BATCH_SIZE = 128;
+
     // ---
     // Dual Governance State Properties
     // ---

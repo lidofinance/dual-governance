@@ -7,7 +7,7 @@ import {Duration} from "./types/Duration.sol";
 import {Timestamp, Timestamps} from "./types/Timestamp.sol";
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
-import {IConfiguration} from "./interfaces/IConfiguration.sol";
+import {IEscrowConfigration} from "./interfaces/IConfiguration.sol";
 
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
@@ -66,10 +66,6 @@ contract Escrow is IEscrow {
 
     address public immutable MASTER_COPY;
 
-    // TODO: move to config
-    uint256 public immutable MIN_BATCH_SIZE = 8;
-    uint256 public immutable MAX_BATCH_SIZE = 128;
-
     uint256 public immutable MIN_WITHDRAWAL_REQUEST_AMOUNT;
     uint256 public immutable MAX_WITHDRAWAL_REQUEST_AMOUNT;
 
@@ -77,7 +73,7 @@ contract Escrow is IEscrow {
     IWstETH public immutable WST_ETH;
     IWithdrawalQueue public immutable WITHDRAWAL_QUEUE;
 
-    IConfiguration public immutable CONFIG;
+    IEscrowConfigration public immutable CONFIG;
 
     EscrowState internal _escrowState;
     IDualGovernance private _dualGovernance;
@@ -92,7 +88,7 @@ contract Escrow is IEscrow {
         ST_ETH = IStETH(stETH);
         WST_ETH = IWstETH(wstETH);
         MASTER_COPY = address(this);
-        CONFIG = IConfiguration(config);
+        CONFIG = IEscrowConfigration(config);
         WITHDRAWAL_QUEUE = IWithdrawalQueue(withdrawalQueue);
         MIN_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         MAX_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
@@ -212,7 +208,7 @@ contract Escrow is IEscrow {
         _checkEscrowState(EscrowState.RageQuitEscrow);
         _batchesQueue.checkOpened();
 
-        if (maxBatchSize < MIN_BATCH_SIZE || maxBatchSize > MAX_BATCH_SIZE) {
+        if (maxBatchSize < CONFIG.MIN_WITHDRAWALS_BATCH_SIZE() || maxBatchSize > CONFIG.MAX_WITHDRAWALS_BATCH_SIZE()) {
             revert InvalidBatchSize(maxBatchSize);
         }
 
