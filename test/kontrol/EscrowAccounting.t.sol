@@ -169,10 +169,15 @@ contract EscrowAccountingTest is StorageSetup {
         assert(post.totalSharesLocked == pre.totalSharesLocked + amountInShares);
         assert(post.userLastLockedTime == block.timestamp);
 
-        // Not strictly true due to conversion inprecision; need more accurate postcondition
-        //assert(post.userBalance == pre.userBalance - amount);
-        //assert(post.escrowBalance == pre.escrowBalance + amount);
-        //assert(post.totalEth == pre.totalEth + amount);
+        // Accounts for rounding errors in the conversion to and from shares
+        assert(pre.userBalance - amount <= post.userBalance);
+        assert(post.escrowBalance <= pre.escrowBalance + amount);
+        assert(post.totalEth <= pre.totalEth + amount);
+
+        uint256 errorTerm = stEth.getPooledEthByShares(1) + 1;
+        assert(post.userBalance <= pre.userBalance - amount + errorTerm);
+        assert(pre.escrowBalance + amount < errorTerm || pre.escrowBalance + amount - errorTerm <= post.escrowBalance);
+        assert(pre.totalEth + amount < errorTerm || pre.totalEth + amount - errorTerm <= post.totalEth);
     }
 
     function testUnlockStEth() public {
@@ -207,9 +212,15 @@ contract EscrowAccountingTest is StorageSetup {
         assert(post.totalSharesLocked == pre.totalSharesLocked - pre.userSharesLocked);
         assert(post.userLastLockedTime == pre.userLastLockedTime);
 
-        // Not strictly true due to conversion inprecision; need more accurate postcondition
-        //assert(post.userBalance == pre.userBalance + amount);
-        //assert(post.escrowBalance == pre.escrowBalance - amount);
-        //assert(post.totalEth == pre.totalEth - amount);
+        // Accounts for rounding errors in the conversion to and from shares
+        uint256 amount = stEth.getPooledEthByShares(pre.userSharesLocked);
+        assert(pre.escrowBalance - amount <= post.escrowBalance);
+        assert(pre.totalEth - amount <= post.totalEth);
+        assert(post.userBalance <= post.userBalance + amount);
+
+        uint256 errorTerm = stEth.getPooledEthByShares(1) + 1;
+        assert(post.escrowBalance <= pre.escrowBalance - amount + errorTerm);
+        assert(post.totalEth <= pre.totalEth - amount + errorTerm);
+        assert(pre.userBalance + amount < errorTerm || pre.userBalance + amount - errorTerm <= post.userBalance);
     }
 }
