@@ -825,6 +825,13 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.canSchedule(1), false);
     }
 
+    // EmergencyProtectedTimelock.getProposalSubmissionTime()
+
+    function test_get_proposal_submission_time() external {
+        _submitProposal();
+        assertEq(_timelock.getProposalSubmissionTime(1), Timestamps.now());
+    }
+
     // Utils
 
     function _submitProposal() internal {
