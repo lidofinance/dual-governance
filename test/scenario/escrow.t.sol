@@ -349,7 +349,7 @@ contract EscrowHappyPath is TestHelpers {
 
         assertEq(_WITHDRAWAL_QUEUE.balanceOf(address(escrow)), 20);
 
-        while (!escrow.getIsWithdrawalsBatchesFinalized()) {
+        while (!escrow.isWithdrawalsBatchesFinalized()) {
             escrow.requestNextWithdrawalsBatch(96);
         }
 
@@ -359,7 +359,7 @@ contract EscrowHappyPath is TestHelpers {
         vm.deal(WITHDRAWAL_QUEUE, 1000 * requestAmount);
         finalizeWQ();
 
-        uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatches(expectedWithdrawalBatchesCount);
+        uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatch(expectedWithdrawalBatchesCount);
         // assertEq(total, expectedWithdrawalBatchesCount);
 
         WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIdsToClaim);
@@ -372,8 +372,8 @@ contract EscrowHappyPath is TestHelpers {
         uint256[] memory hints =
             _WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIdsToClaim, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex());
 
-        while (!escrow.getIsWithdrawalsClaimed()) {
-            escrow.claimWithdrawalsBatch(128);
+        while (!escrow.isWithdrawalsClaimed()) {
+            escrow.claimNextWithdrawalsBatch(128);
         }
 
         assertEq(escrow.isRageQuitFinalized(), false);
@@ -428,7 +428,7 @@ contract EscrowHappyPath is TestHelpers {
 
         escrow.requestNextWithdrawalsBatch(96);
 
-        escrow.claimWithdrawalsBatch(0, new uint256[](0));
+        escrow.claimNextWithdrawalsBatch(0, new uint256[](0));
 
         assertEq(escrow.isRageQuitFinalized(), false);
 

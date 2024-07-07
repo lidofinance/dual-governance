@@ -61,11 +61,11 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
-    function vetoSignallingEscrow() external view returns (address) {
+    function getVetoSignallingEscrow() external view returns (address) {
         return address(_dgState.signallingEscrow);
     }
 
-    function rageQuitEscrow() external view returns (address) {
+    function getRageQuitEscrow() external view returns (address) {
         return address(_dgState.rageQuitEscrow);
     }
 
@@ -81,7 +81,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
     }
 
-    function currentState() external view returns (State) {
+    function getCurrentState() external view returns (State) {
         return _dgState.currentState();
     }
 

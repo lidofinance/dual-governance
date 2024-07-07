@@ -80,7 +80,7 @@ contract Escrow is IEscrow {
     AssetsAccounting.State private _accounting;
     WithdrawalsBatchesQueue.State private _batchesQueue;
 
-    Duration internal _rageQuitExtraTimelock;
+    Duration internal _rageQuitExtensionDelay;
     Duration internal _rageQuitWithdrawalsTimelock;
     Timestamp internal _rageQuitTimelockStartedAt;
 
@@ -111,17 +111,18 @@ contract Escrow is IEscrow {
     // Lock & Unlock stETH
     // ---
 
-    function lockStETH(uint256 amount) external {
-        uint256 shares = ST_ETH.getSharesByPooledEth(amount);
-        _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(shares));
-        ST_ETH.transferSharesFrom(msg.sender, address(this), shares);
+    function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares) {
+        lockedStETHShares = ST_ETH.getSharesByPooledEth(amount);
+        _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
+        ST_ETH.transferSharesFrom(msg.sender, address(this), lockedStETHShares);
         _activateNextGovernanceState();
     }
 
-    function unlockStETH() external {
+    function unlockStETH() external returns (uint256 unlockedStETHShares) {
+        _activateNextGovernanceState();
         _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
-        SharesValue sharesUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
-        ST_ETH.transferShares(msg.sender, sharesUnlocked.toUint256());
+        unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender).toUint256();
+        ST_ETH.transferShares(msg.sender, unlockedStETHShares);
         _activateNextGovernanceState();
     }
 
@@ -129,20 +130,20 @@ contract Escrow is IEscrow {
     // Lock / Unlock wstETH
     // ---
 
-    function lockWstETH(uint256 amount) external {
+    function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares) {
         WST_ETH.transferFrom(msg.sender, address(this), amount);
-        uint256 stETHAmount = WST_ETH.unwrap(amount);
-        _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(ST_ETH.getSharesByPooledEth(stETHAmount)));
+        lockedStETHShares = ST_ETH.getSharesByPooledEth(WST_ETH.unwrap(amount));
+        _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
         _activateNextGovernanceState();
     }
 
-    function unlockWstETH() external returns (uint256) {
+    function unlockWstETH() external returns (uint256 unlockedStETHShares) {
+        _activateNextGovernanceState();
         _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
         SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
-        uint256 wstETHAmount = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
-        WST_ETH.transfer(msg.sender, wstETHAmount);
+        unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
+        WST_ETH.transfer(msg.sender, unlockedStETHShares);
         _activateNextGovernanceState();
-        return wstETHAmount;
     }
 
     // ---
@@ -156,15 +157,18 @@ contract Escrow is IEscrow {
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             WITHDRAWAL_QUEUE.transferFrom(msg.sender, address(this), unstETHIds[i]);
         }
+        _activateNextGovernanceState();
     }
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
+        _activateNextGovernanceState();
         _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
         _accounting.accountUnstETHUnlock(msg.sender, unstETHIds);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             WITHDRAWAL_QUEUE.transferFrom(address(this), msg.sender, unstETHIds[i]);
         }
+        _activateNextGovernanceState();
     }
 
     function markUnstETHFinalized(uint256[] memory unstETHIds, uint256[] calldata hints) external {
@@ -194,13 +198,13 @@ contract Escrow is IEscrow {
     // State Updates
     // ---
 
-    function startRageQuit(Duration rageQuitExtraTimelock, Duration rageQuitWithdrawalsTimelock) external {
+    function startRageQuit(Duration rageQuitExtensionDelay, Duration rageQuitWithdrawalsTimelock) external {
         _checkDualGovernance(msg.sender);
         _checkEscrowState(EscrowState.SignallingEscrow);
 
         _batchesQueue.open();
         _escrowState = EscrowState.RageQuitEscrow;
-        _rageQuitExtraTimelock = rageQuitExtraTimelock;
+        _rageQuitExtensionDelay = rageQuitExtensionDelay;
         _rageQuitWithdrawalsTimelock = rageQuitWithdrawalsTimelock;
     }
 
@@ -226,7 +230,7 @@ contract Escrow is IEscrow {
         _batchesQueue.add(WITHDRAWAL_QUEUE.requestWithdrawals(requestAmounts, address(this)));
     }
 
-    function claimWithdrawalsBatch(uint256 maxUnstETHIdsCount) external {
+    function claimNextWithdrawalsBatch(uint256 maxUnstETHIdsCount) external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
         if (!_rageQuitTimelockStartedAt.isZero()) {
             revert ClaimingIsFinished();
@@ -234,12 +238,12 @@ contract Escrow is IEscrow {
 
         uint256[] memory unstETHIds = _batchesQueue.claimNextBatch(maxUnstETHIdsCount);
 
-        _claimWithdrawalsBatch(
+        _claimNextWithdrawalsBatch(
             unstETHIds, WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, WITHDRAWAL_QUEUE.getLastCheckpointIndex())
         );
     }
 
-    function claimWithdrawalsBatch(uint256 fromUnstETHIds, uint256[] calldata hints) external {
+    function claimNextWithdrawalsBatch(uint256 fromUnstETHId, uint256[] calldata hints) external {
         _checkEscrowState(EscrowState.RageQuitEscrow);
         if (!_rageQuitTimelockStartedAt.isZero()) {
             revert ClaimingIsFinished();
@@ -247,14 +251,14 @@ contract Escrow is IEscrow {
 
         uint256[] memory unstETHIds = _batchesQueue.claimNextBatch(hints.length);
 
-        if (unstETHIds.length > 0 && fromUnstETHIds != unstETHIds[0]) {
+        if (unstETHIds.length > 0 && fromUnstETHId != unstETHIds[0]) {
             revert UnexpectedUnstETHId();
         }
         if (hints.length != unstETHIds.length) {
             revert InvalidHintsLength(hints.length, unstETHIds.length);
         }
 
-        _claimWithdrawalsBatch(unstETHIds, hints);
+        _claimNextWithdrawalsBatch(unstETHIds, hints);
     }
 
     function claimUnstETH(uint256[] calldata unstETHIds, uint256[] calldata hints) external {
@@ -310,15 +314,15 @@ contract Escrow is IEscrow {
         state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
     }
 
-    function getNextWithdrawalBatches(uint256 limit) external view returns (uint256[] memory unstETHIds) {
+    function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds) {
         return _batchesQueue.getNextWithdrawalsBatches(limit);
     }
 
-    function getIsWithdrawalsBatchesFinalized() external view returns (bool) {
+    function isWithdrawalsBatchesFinalized() external view returns (bool) {
         return _batchesQueue.isClosed();
     }
 
-    function getIsWithdrawalsClaimed() external view returns (bool) {
+    function isWithdrawalsClaimed() external view returns (bool) {
         return !_rageQuitTimelockStartedAt.isZero();
     }
 
@@ -343,12 +347,12 @@ contract Escrow is IEscrow {
         return (
             _escrowState == EscrowState.RageQuitEscrow && _batchesQueue.isClosed()
                 && !_rageQuitTimelockStartedAt.isZero()
-                && Timestamps.now() > _rageQuitExtraTimelock.addTo(_rageQuitTimelockStartedAt)
+                && Timestamps.now() > _rageQuitExtensionDelay.addTo(_rageQuitTimelockStartedAt)
         );
     }
 
     // ---
-    // RECEIVE
+    // Receive ETH
     // ---
 
     receive() external payable {
@@ -361,12 +365,14 @@ contract Escrow is IEscrow {
     // Internal Methods
     // ---
 
-    function _claimWithdrawalsBatch(uint256[] memory unstETHIds, uint256[] memory hints) internal {
+    function _claimNextWithdrawalsBatch(uint256[] memory unstETHIds, uint256[] memory hints) internal {
         uint256 ethBalanceBefore = address(this).balance;
         WITHDRAWAL_QUEUE.claimWithdrawals(unstETHIds, hints);
         uint256 ethAmountClaimed = address(this).balance - ethBalanceBefore;
 
-        _accounting.accountClaimedStETH(ETHValues.from(ethAmountClaimed));
+        if (ethAmountClaimed > 0) {
+            _accounting.accountClaimedStETH(ETHValues.from(ethAmountClaimed));
+        }
 
         if (_batchesQueue.isClosed() && _batchesQueue.isAllUnstETHClaimed()) {
             _rageQuitTimelockStartedAt = Timestamps.now();
@@ -393,7 +399,7 @@ contract Escrow is IEscrow {
         if (_rageQuitTimelockStartedAt.isZero()) {
             revert RageQuitExtraTimelockNotStarted();
         }
-        Duration withdrawalsTimelock = _rageQuitExtraTimelock + _rageQuitWithdrawalsTimelock;
+        Duration withdrawalsTimelock = _rageQuitExtensionDelay + _rageQuitWithdrawalsTimelock;
         if (Timestamps.now() <= withdrawalsTimelock.addTo(_rageQuitTimelockStartedAt)) {
             revert WithdrawalsTimelockNotPassed();
         }

@@ -96,11 +96,11 @@ contract ScenarioTestBlueprint is Test {
     // Helper Getters
     // ---
     function _getVetoSignallingEscrow() internal view returns (Escrow) {
-        return Escrow(payable(_dualGovernance.vetoSignallingEscrow()));
+        return Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
     }
 
     function _getRageQuitEscrow() internal view returns (Escrow) {
-        address rageQuitEscrow = _dualGovernance.rageQuitEscrow();
+        address rageQuitEscrow = _dualGovernance.getRageQuitEscrow();
         return Escrow(payable(rageQuitEscrow));
     }
 
@@ -421,23 +421,23 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertNormalState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.Normal));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.Normal));
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoSignalling));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoSignalling));
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoSignallingDeactivation));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoSignallingDeactivation));
     }
 
     function _assertRageQuitState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.RageQuit));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.RageQuit));
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoCooldown));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoCooldown));
     }
 
     function _assertNoTargetMockCalls() internal {
