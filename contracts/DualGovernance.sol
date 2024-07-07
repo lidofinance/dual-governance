@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Duration} from "./types/Duration.sol";
+import {Timestamp} from "./types/Timestamp.sol";
 import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
@@ -50,11 +52,11 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     function scheduleProposal(uint256 proposalId) external {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
 
-        uint256 proposalSubmissionTime = TIMELOCK.getProposalSubmissionTime(proposalId);
+        Timestamp proposalSubmissionTime = TIMELOCK.getProposalSubmissionTime(proposalId);
         _dgState.checkCanScheduleProposal(proposalSubmissionTime);
 
         TIMELOCK.schedule(proposalId);
-        
+
         emit ProposalScheduled(proposalId);
     }
 
@@ -63,11 +65,11 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
-    function vetoSignallingEscrow() external view returns (address) {
+    function getVetoSignallingEscrow() external view returns (address) {
         return address(_dgState.signallingEscrow);
     }
 
-    function rageQuitEscrow() external view returns (address) {
+    function getRageQuitEscrow() external view returns (address) {
         return address(_dgState.rageQuitEscrow);
     }
 
@@ -83,14 +85,14 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
     }
 
-    function currentState() external view returns (State) {
+    function getCurrentState() external view returns (State) {
         return _dgState.currentState();
     }
 
     function getVetoSignallingState()
         external
         view
-        returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
+        returns (bool isActive, Duration duration, Timestamp activatedAt, Timestamp enteredAt)
     {
         (isActive, duration, activatedAt, enteredAt) = _dgState.getVetoSignallingState(CONFIG.getDualGovernanceConfig());
     }
@@ -98,12 +100,12 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     function getVetoSignallingDeactivationState()
         external
         view
-        returns (bool isActive, uint256 duration, uint256 enteredAt)
+        returns (bool isActive, Duration duration, Timestamp enteredAt)
     {
         (isActive, duration, enteredAt) = _dgState.getVetoSignallingDeactivationState(CONFIG.getDualGovernanceConfig());
     }
 
-    function getVetoSignallingDuration() external view returns (uint256) {
+    function getVetoSignallingDuration() external view returns (Duration) {
         return _dgState.getVetoSignallingDuration(CONFIG.getDualGovernanceConfig());
     }
 

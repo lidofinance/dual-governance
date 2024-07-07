@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Duration} from "./types/Duration.sol";
+import {Timestamp} from "./types/Timestamp.sol";
+
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 
@@ -16,7 +19,6 @@ import {ConfigurationProvider} from "./ConfigurationProvider.sol";
  * while providing emergency protection features to prevent unauthorized
  * execution during emergency situations.
  */
-
 contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     using Proposals for Proposals.State;
     using EmergencyProtection for EmergencyProtection.State;
@@ -113,7 +115,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     function emergencyExecute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyModeActive(true);
         _emergencyProtection.checkExecutionCommittee(msg.sender);
-        _proposals.execute(proposalId, /* afterScheduleDelay */ 0);
+        _proposals.execute(proposalId, /* afterScheduleDelay */ Duration.wrap(0));
     }
 
     /**
@@ -152,8 +154,8 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     function setEmergencyProtection(
         address activator,
         address enactor,
-        uint256 protectionDuration,
-        uint256 emergencyModeDuration
+        Duration protectionDuration,
+        Duration emergencyModeDuration
     ) external {
         _checkAdminExecutor(msg.sender);
         _emergencyProtection.setup(activator, enactor, protectionDuration, emergencyModeDuration);
@@ -205,7 +207,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
      * @param proposalId The ID of the proposal.
      * @return submittedAt The submission time of the proposal.
      */
-    function getProposalSubmissionTime(uint256 proposalId) external view returns (uint256 submittedAt) {
+    function getProposalSubmissionTime(uint256 proposalId) external view returns (Timestamp submittedAt) {
         submittedAt = _proposals.getProposalSubmissionTime(proposalId);
     }
 

@@ -2,6 +2,8 @@
 pragma solidity 0.8.23;
 
 import {Test} from "forge-std/Test.sol";
+import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
+import {Durations, Duration as DurationType} from "contracts/types/Duration.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {
@@ -26,7 +28,14 @@ import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernan
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
 
 import {Percents, percents} from "../utils/percents.sol";
-import {IERC20, IStEth, IWstETH, IWithdrawalQueue, WithdrawalRequestStatus, IDangerousContract} from "../utils/interfaces.sol";
+import {
+    IERC20,
+    IStEth,
+    IWstETH,
+    IWithdrawalQueue,
+    WithdrawalRequestStatus,
+    IDangerousContract
+} from "../utils/interfaces.sol";
 import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
 
@@ -47,15 +56,17 @@ function countDigits(uint256 number) pure returns (uint256 digitsCount) {
     } while (number / 10 != 0);
 }
 
+DurationType constant ONE_SECOND = DurationType.wrap(1);
+
 contract ScenarioTestBlueprint is Test {
     address internal immutable _ADMIN_PROPOSER = DAO_VOTING;
-    uint256 internal immutable _EMERGENCY_MODE_DURATION = 180 days;
-    uint256 internal immutable _EMERGENCY_PROTECTION_DURATION = 90 days;
+    DurationType internal immutable _EMERGENCY_MODE_DURATION = Durations.from(180 days);
+    DurationType internal immutable _EMERGENCY_PROTECTION_DURATION = Durations.from(90 days);
     address internal immutable _EMERGENCY_ACTIVATION_COMMITTEE = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
     address internal immutable _EMERGENCY_EXECUTION_COMMITTEE = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
 
-    uint256 internal immutable _SEALING_DURATION = 14 days;
-    uint256 internal immutable _SEALING_COMMITTEE_LIFETIME = 365 days;
+    DurationType internal immutable _SEALING_DURATION = Durations.from(14 days);
+    DurationType internal immutable _SEALING_COMMITTEE_LIFETIME = Durations.from(365 days);
     address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
 
     address internal immutable _TIEBREAK_COMMITTEE = makeAddr("TIEBREAK_COMMITTEE");
@@ -85,11 +96,11 @@ contract ScenarioTestBlueprint is Test {
     // Helper Getters
     // ---
     function _getVetoSignallingEscrow() internal view returns (Escrow) {
-        return Escrow(payable(_dualGovernance.vetoSignallingEscrow()));
+        return Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
     }
 
     function _getRageQuitEscrow() internal view returns (Escrow) {
-        address rageQuitEscrow = _dualGovernance.rageQuitEscrow();
+        address rageQuitEscrow = _dualGovernance.getRageQuitEscrow();
         return Escrow(payable(rageQuitEscrow));
     }
 
@@ -102,7 +113,25 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        return _dualGovernance.getVetoSignallingState();
+        DurationType duration_;
+        Timestamp activatedAt_;
+        Timestamp enteredAt_;
+        (isActive, duration_, activatedAt_, enteredAt_) = _dualGovernance.getVetoSignallingState();
+        duration = DurationType.unwrap(duration_);
+        enteredAt = Timestamp.unwrap(enteredAt_);
+        activatedAt = Timestamp.unwrap(activatedAt_);
+    }
+
+    function _getVetoSignallingDeactivationState()
+        internal
+        view
+        returns (bool isActive, uint256 duration, uint256 enteredAt)
+    {
+        Timestamp enteredAt_;
+        DurationType duration_;
+        (isActive, duration_, enteredAt_) = _dualGovernance.getVetoSignallingDeactivationState();
+        duration = DurationType.unwrap(duration_);
+        enteredAt = Timestamp.unwrap(enteredAt_);
     }
 
     // ---
@@ -184,20 +213,22 @@ contract ScenarioTestBlueprint is Test {
     function _unlockWstETH(address vetoer) internal {
         Escrow escrow = _getVetoSignallingEscrow();
         uint256 wstETHBalanceBefore = _WST_ETH.balanceOf(vetoer);
-        uint256 vetoerWstETHSharesBefore = escrow.getVetoerState(vetoer).wstETHShares;
+        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
 
         vm.startPrank(vetoer);
         uint256 wstETHUnlocked = escrow.unlockWstETH();
         vm.stopPrank();
 
-        assertEq(wstETHUnlocked, vetoerWstETHSharesBefore);
-        assertEq(_WST_ETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerWstETHSharesBefore);
+        // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
+        // sending funds to the user
+        assertApproxEqAbs(wstETHUnlocked, vetoerStateBefore.stETHLockedShares, 1);
+        assertApproxEqAbs(_WST_ETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerStateBefore.stETHLockedShares, 1);
     }
 
     function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
-        uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
+        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
+        LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
 
         uint256 unstETHTotalSharesLocked = 0;
         WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
@@ -215,19 +246,25 @@ contract ScenarioTestBlueprint is Test {
             assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), address(escrow));
         }
 
-        assertEq(escrow.getVetoerState(vetoer).unstETHShares, vetoerUnstETHSharesBefore + unstETHTotalSharesLocked);
-        assertEq(escrow.getLockedAssetsTotals().shares, totalSharesBefore + unstETHTotalSharesLocked);
+        VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
+        assertEq(vetoerStateAfter.unstETHIdsCount, vetoerStateBefore.unstETHIdsCount + unstETHIds.length);
+
+        LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
+        assertEq(
+            lockedAssetsTotalsAfter.unstETHUnfinalizedShares,
+            lockedAssetsTotalsBefore.unstETHUnfinalizedShares + unstETHTotalSharesLocked
+        );
     }
 
     function _unlockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        uint256 vetoerUnstETHSharesBefore = escrow.getVetoerState(vetoer).unstETHShares;
-        uint256 totalSharesBefore = escrow.getLockedAssetsTotals().shares;
+        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
+        LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
 
-        uint256 unstETHTotalSharesLocked = 0;
+        uint256 unstETHTotalSharesUnlocked = 0;
         WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            unstETHTotalSharesLocked += statuses[i].amountOfShares;
+            unstETHTotalSharesUnlocked += statuses[i].amountOfShares;
         }
 
         vm.prank(vetoer);
@@ -237,8 +274,15 @@ contract ScenarioTestBlueprint is Test {
             assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), vetoer);
         }
 
-        assertEq(escrow.getVetoerState(vetoer).unstETHShares, vetoerUnstETHSharesBefore - unstETHTotalSharesLocked);
-        assertEq(escrow.getLockedAssetsTotals().shares, totalSharesBefore - unstETHTotalSharesLocked);
+        VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
+        assertEq(vetoerStateAfter.unstETHIdsCount, vetoerStateBefore.unstETHIdsCount - unstETHIds.length);
+
+        // TODO: implement correct assert. It must consider was unstETH finalized or not
+        LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
+        assertEq(
+            lockedAssetsTotalsAfter.unstETHUnfinalizedShares,
+            lockedAssetsTotalsBefore.unstETHUnfinalizedShares - unstETHTotalSharesUnlocked
+        );
     }
 
     // ---
@@ -299,8 +343,8 @@ contract ScenarioTestBlueprint is Test {
         assertEq(proposal.id, proposalId, "unexpected proposal id");
         assertEq(uint256(proposal.status), uint256(ProposalStatus.Submitted), "unexpected status value");
         assertEq(proposal.executor, executor, "unexpected executor");
-        assertEq(proposal.submittedAt, block.timestamp, "unexpected scheduledAt");
-        assertEq(proposal.executedAt, 0, "unexpected executedAt");
+        assertEq(Timestamp.unwrap(proposal.submittedAt), block.timestamp, "unexpected scheduledAt");
+        assertEq(Timestamp.unwrap(proposal.executedAt), 0, "unexpected executedAt");
         assertEq(proposal.calls.length, calls.length, "unexpected calls length");
 
         for (uint256 i = 0; i < proposal.calls.length; ++i) {
@@ -377,23 +421,23 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertNormalState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.Normal));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.Normal));
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoSignalling));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoSignalling));
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoSignallingDeactivation));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoSignallingDeactivation));
     }
 
     function _assertRageQuitState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.RageQuit));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.RageQuit));
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(uint256(_dualGovernance.currentState()), uint256(State.VetoCooldown));
+        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoCooldown));
     }
 
     function _assertNoTargetMockCalls() internal {
@@ -405,8 +449,7 @@ contract ScenarioTestBlueprint is Test {
     // ---
     function _logVetoSignallingState() internal {
         /* solhint-disable no-console */
-        (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) =
-            _dualGovernance.getVetoSignallingState();
+        (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) = _getVetoSignallingState();
 
         if (!isActive) {
             console.log("VetoSignalling state is not active\n");
@@ -431,7 +474,7 @@ contract ScenarioTestBlueprint is Test {
 
     function _logVetoSignallingDeactivationState() internal {
         /* solhint-disable no-console */
-        (bool isActive, uint256 duration, uint256 enteredAt) = _dualGovernance.getVetoSignallingDeactivationState();
+        (bool isActive, uint256 duration, uint256 enteredAt) = _getVetoSignallingDeactivationState();
 
         if (!isActive) {
             console.log("VetoSignallingDeactivation state is not active\n");
@@ -552,16 +595,16 @@ contract ScenarioTestBlueprint is Test {
         console.log(string.concat(">>> ", text, " <<<"));
     }
 
-    function _wait(uint256 duration) internal {
-        vm.warp(block.timestamp + duration);
+    function _wait(DurationType duration) internal {
+        vm.warp(duration.addTo(Timestamps.now()).toSeconds());
     }
 
     function _waitAfterSubmitDelayPassed() internal {
-        _wait(_config.AFTER_SUBMIT_DELAY() + 1);
+        _wait(_config.AFTER_SUBMIT_DELAY() + ONE_SECOND);
     }
 
     function _waitAfterScheduleDelayPassed() internal {
-        _wait(_config.AFTER_SCHEDULE_DELAY() + 1);
+        _wait(_config.AFTER_SCHEDULE_DELAY() + ONE_SECOND);
     }
 
     struct Duration {
@@ -592,6 +635,18 @@ contract ScenarioTestBlueprint is Test {
                 "s"
             )
         );
+    }
+
+    function assertEq(uint40 a, uint40 b) internal {
+        assertEq(uint256(a), uint256(b));
+    }
+
+    function assertEq(Timestamp a, Timestamp b) internal {
+        assertEq(uint256(Timestamp.unwrap(a)), uint256(Timestamp.unwrap(b)));
+    }
+
+    function assertEq(DurationType a, DurationType b) internal {
+        assertEq(uint256(DurationType.unwrap(a)), uint256(DurationType.unwrap(b)));
     }
 
     function assertEq(ProposalStatus a, ProposalStatus b) internal {
