@@ -37,6 +37,13 @@ interface IWithdrawalQueue {
         uint256[] calldata _hints
     ) external view returns (uint256[] memory claimableEthValues);
 
+    function findCheckpointHints(
+        uint256[] calldata _requestIds,
+        uint256 _firstIndex,
+        uint256 _lastIndex
+    ) external view returns (uint256[] memory hintIds);
+    function getLastCheckpointIndex() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256);
 
     function requestWithdrawals(
@@ -48,4 +55,8 @@ interface IWithdrawalQueue {
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds);
+
+    function grantRole(bytes32 role, address account) external;
+    function pauseFor(uint256 duration) external;
+    function isPaused() external returns (bool);
 }

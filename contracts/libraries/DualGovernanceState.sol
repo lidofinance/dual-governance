@@ -7,7 +7,8 @@ import {IEscrow} from "../interfaces/IEscrow.sol";
 import {ISealable} from "../interfaces/ISealable.sol";
 import {IDualGovernanceConfiguration as IConfiguration, DualGovernanceConfig} from "../interfaces/IConfiguration.sol";
 
-import {TimeUtils} from "../utils/time.sol";
+import {Duration, Durations} from "../types/Duration.sol";
+import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 enum State {
     Normal,
@@ -21,14 +22,14 @@ library DualGovernanceState {
     // TODO: Optimize storage layout efficiency
     struct Store {
         State state;
-        uint40 enteredAt;
+        Timestamp enteredAt;
         // the time the veto signalling state was entered
-        uint40 vetoSignallingActivationTime;
-        IEscrow signallingEscrow;
+        Timestamp vetoSignallingActivationTime;
+        IEscrow signallingEscrow; // 248
         // the time the Deactivation sub-state was last exited without exiting the parent Veto Signalling state
-        uint40 vetoSignallingReactivationTime;
+        Timestamp vetoSignallingReactivationTime;
         // the last time a proposal was submitted to the DG subsystem
-        uint40 lastAdoptableStateExitedAt;
+        Timestamp lastAdoptableStateExitedAt;
         IEscrow rageQuitEscrow;
         uint8 rageQuitRound;
     }
@@ -37,6 +38,7 @@ library DualGovernanceState {
     error AlreadyInitialized();
     error ProposalsCreationSuspended();
     error ProposalsAdoptionSuspended();
+    error ResealIsNotAllowedInNormalState();
 
     event NewSignallingEscrowDeployed(address indexed escrow);
     event DualGovernanceStateChanged(State oldState, State newState);
@@ -90,7 +92,7 @@ library DualGovernanceState {
         }
     }
 
-    function checkCanScheduleProposal(Store storage self, uint256 proposalSubmittedAt) internal view {
+    function checkCanScheduleProposal(Store storage self, Timestamp proposalSubmittedAt) internal view {
         if (!canScheduleProposal(self, proposalSubmittedAt)) {
             revert ProposalsAdoptionSuspended();
         }
@@ -102,11 +104,17 @@ library DualGovernanceState {
         }
     }
 
+    function checkResealState(Store storage self) internal view {
+        if (self.state == State.Normal) {
+            revert ResealIsNotAllowedInNormalState();
+        }
+    }
+
     function currentState(Store storage self) internal view returns (State) {
         return self.state;
     }
 
-    function canScheduleProposal(Store storage self, uint256 proposalSubmissionTime) internal view returns (bool) {
+    function canScheduleProposal(Store storage self, Timestamp proposalSubmissionTime) internal view returns (bool) {
         State state = self.state;
         if (state == State.Normal) return true;
         if (state == State.VetoCooldown) {
@@ -129,7 +137,9 @@ library DualGovernanceState {
         if (isProposalsAdoptionAllowed(self)) return false;
 
         // for the governance is locked for long period of time
-        if (block.timestamp - self.lastAdoptableStateExitedAt >= config.TIE_BREAK_ACTIVATION_TIMEOUT()) return true;
+        if (Timestamps.now() >= config.TIE_BREAK_ACTIVATION_TIMEOUT().addTo(self.lastAdoptableStateExitedAt)) {
+            return true;
+        }
 
         if (self.state != State.RageQuit) return false;
 
@@ -143,17 +153,17 @@ library DualGovernanceState {
     function getVetoSignallingState(
         Store storage self,
         DualGovernanceConfig memory config
-    ) internal view returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) {
+    ) internal view returns (bool isActive, Duration duration, Timestamp activatedAt, Timestamp enteredAt) {
         isActive = self.state == State.VetoSignalling;
-        duration = isActive ? getVetoSignallingDuration(self, config) : 0;
-        enteredAt = isActive ? self.enteredAt : 0;
-        activatedAt = isActive ? self.vetoSignallingActivationTime : 0;
+        duration = isActive ? getVetoSignallingDuration(self, config) : Duration.wrap(0);
+        enteredAt = isActive ? self.enteredAt : Timestamps.ZERO;
+        activatedAt = isActive ? self.vetoSignallingActivationTime : Timestamps.ZERO;
     }
 
     function getVetoSignallingDuration(
         Store storage self,
         DualGovernanceConfig memory config
-    ) internal view returns (uint256) {
+    ) internal view returns (Duration) {
         uint256 totalSupport = self.signallingEscrow.getRageQuitSupport();
         return _calcDynamicTimelockDuration(config, totalSupport);
     }
@@ -166,10 +176,10 @@ library DualGovernanceState {
     function getVetoSignallingDeactivationState(
         Store storage self,
         DualGovernanceConfig memory config
-    ) internal view returns (bool isActive, uint256 duration, uint256 enteredAt) {
+    ) internal view returns (bool isActive, Duration duration, Timestamp enteredAt) {
         isActive = self.state == State.VetoSignallingDeactivation;
         duration = config.vetoSignallingDeactivationMaxDuration;
-        enteredAt = isActive ? self.enteredAt : 0;
+        enteredAt = isActive ? self.enteredAt : Timestamps.ZERO;
     }
 
     // ---
@@ -253,7 +263,7 @@ library DualGovernanceState {
         State oldState,
         State newState
     ) private {
-        uint40 timestamp = TimeUtils.timestamp();
+        Timestamp timestamp = Timestamps.now();
         self.enteredAt = timestamp;
         // track the time when the governance state allowed execution
         if (oldState == State.Normal || oldState == State.VetoCooldown) {
@@ -301,7 +311,7 @@ library DualGovernanceState {
         Store storage self,
         DualGovernanceConfig memory config
     ) private view returns (bool) {
-        return block.timestamp - self.vetoSignallingActivationTime > config.dynamicTimelockMaxDuration;
+        return Timestamps.now() > config.dynamicTimelockMaxDuration.addTo(self.vetoSignallingActivationTime);
     }
 
     function _isDynamicTimelockDurationPassed(
@@ -309,29 +319,29 @@ library DualGovernanceState {
         DualGovernanceConfig memory config,
         uint256 rageQuitSupport
     ) private view returns (bool) {
-        uint256 vetoSignallingDurationPassed = block.timestamp - self.vetoSignallingActivationTime;
-        return vetoSignallingDurationPassed > _calcDynamicTimelockDuration(config, rageQuitSupport);
+        Duration dynamicTimelock = _calcDynamicTimelockDuration(config, rageQuitSupport);
+        return Timestamps.now() > dynamicTimelock.addTo(self.vetoSignallingActivationTime);
     }
 
     function _isVetoSignallingReactivationDurationPassed(
         Store storage self,
         DualGovernanceConfig memory config
     ) private view returns (bool) {
-        return block.timestamp - self.vetoSignallingReactivationTime > config.vetoSignallingMinActiveDuration;
+        return Timestamps.now() > config.vetoSignallingMinActiveDuration.addTo(self.vetoSignallingReactivationTime);
     }
 
     function _isVetoSignallingDeactivationMaxDurationPassed(
         Store storage self,
         DualGovernanceConfig memory config
     ) private view returns (bool) {
-        return block.timestamp - self.enteredAt > config.vetoSignallingDeactivationMaxDuration;
+        return Timestamps.now() > config.vetoSignallingDeactivationMaxDuration.addTo(self.enteredAt);
     }
 
     function _isVetoCooldownDurationPassed(
         Store storage self,
         DualGovernanceConfig memory config
     ) private view returns (bool) {
-        return block.timestamp - self.enteredAt > config.vetoCooldownDuration;
+        return Timestamps.now() > config.vetoCooldownDuration.addTo(self.enteredAt);
     }
 
     function _deployNewSignallingEscrow(Store storage self, address escrowMasterCopy) private {
@@ -344,29 +354,31 @@ library DualGovernanceState {
     function _calcRageQuitWithdrawalsTimelock(
         DualGovernanceConfig memory config,
         uint256 rageQuitRound
-    ) private pure returns (uint256) {
-        if (rageQuitRound < config.rageQuitEthClaimTimelockGrowthStartSeqNumber) {
-            return config.rageQuitEthClaimMinTimelock;
+    ) private pure returns (Duration) {
+        if (rageQuitRound < config.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber) {
+            return config.rageQuitEthWithdrawalsMinTimelock;
         }
-        return config.rageQuitEthClaimMinTimelock
-            + (
-                config.rageQuitEthClaimTimelockGrowthCoeffs[0] * rageQuitRound * rageQuitRound
-                    + config.rageQuitEthClaimTimelockGrowthCoeffs[1] * rageQuitRound
-                    + config.rageQuitEthClaimTimelockGrowthCoeffs[2]
-            ) / 10 ** 18; // TODO: rewrite in a prettier way
+        return config.rageQuitEthWithdrawalsMinTimelock
+            + Durations.from(
+                (
+                    config.rageQuitEthWithdrawalsTimelockGrowthCoeffs[0] * rageQuitRound * rageQuitRound
+                        + config.rageQuitEthWithdrawalsTimelockGrowthCoeffs[1] * rageQuitRound
+                        + config.rageQuitEthWithdrawalsTimelockGrowthCoeffs[2]
+                ) / 10 ** 18
+            ); // TODO: rewrite in a prettier way
     }
 
     function _calcDynamicTimelockDuration(
         DualGovernanceConfig memory config,
         uint256 rageQuitSupport
-    ) internal pure returns (uint256 duration_) {
+    ) internal pure returns (Duration duration_) {
         uint256 firstSealRageQuitSupport = config.firstSealRageQuitSupport;
         uint256 secondSealRageQuitSupport = config.secondSealRageQuitSupport;
-        uint256 dynamicTimelockMinDuration = config.dynamicTimelockMinDuration;
-        uint256 dynamicTimelockMaxDuration = config.dynamicTimelockMaxDuration;
+        Duration dynamicTimelockMinDuration = config.dynamicTimelockMinDuration;
+        Duration dynamicTimelockMaxDuration = config.dynamicTimelockMaxDuration;
 
         if (rageQuitSupport < firstSealRageQuitSupport) {
-            return 0;
+            return Durations.ZERO;
         }
 
         if (rageQuitSupport >= secondSealRageQuitSupport) {
@@ -374,7 +386,10 @@ library DualGovernanceState {
         }
 
         duration_ = dynamicTimelockMinDuration
-            + (rageQuitSupport - firstSealRageQuitSupport) * (dynamicTimelockMaxDuration - dynamicTimelockMinDuration)
-                / (secondSealRageQuitSupport - firstSealRageQuitSupport);
+            + Durations.from(
+                (rageQuitSupport - firstSealRageQuitSupport)
+                    * (dynamicTimelockMaxDuration - dynamicTimelockMinDuration).toSeconds()
+                    / (secondSealRageQuitSupport - firstSealRageQuitSupport)
+            );
     }
 }

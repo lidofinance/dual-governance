@@ -41,7 +41,13 @@ The system is composed of the following main contracts:
 * [`DualGovernance.sol`](#Contract-DualGovernancesol) is a singleton that provides an interface for submitting governance proposals and scheduling their execution, as well as managing the list of supported proposers (DAO voting systems). Implements a state machine tracking the current global governance state which, in turn, determines whether proposal submission and execution is currently allowed.
 * [`EmergencyProtectedTimelock.sol`](#Contract-EmergencyProtectedTimelocksol) is a singleton that stores submitted proposals and provides an interface for their execution. In addition, it implements an optional temporary protection from a zero-day vulnerability in the dual governance contracts following the initial deployment or upgrade of the system. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and disable the dual governance.
 * [`Executor.sol`](#Contract-Executorsol) contract instances make calls resulting from governance proposals' execution. Every protocol permission or role protected by the DG, as well as the permission to manage this role/permission, should be assigned exclusively to one of the instances of this contract (in contrast with being assigned directly to a DAO voting system).
+* [`ResealExecutor.sol`](#Contract-ResealExecutorsol) contract instances make calls to extend protocol withdrawals pause in case of contracts were put into an emergency pause by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals) and the DAO governance is currently blocked by the DG system. Has pause and resume roles for all protocols withdrawals contracts.
 * [`Escrow.sol`](#Contract-Escrowsol) is a contract that can hold stETH, wstETH, withdrawal NFTs, and plain ETH. It can exist in two states, each serving a different purpose: either an oracle for users' opposition to DAO proposals or an immutable and ungoverned accumulator for the ETH withdrawn as a result of the [rage quit](#Rage-quit).
+* [`TiebreakerCore.sol`](#contract-tiebreakercoresol) allows to approve proposals for execution and release protocol withdrawals in case of DAO execution ability is locked by `DualGovernance`. Consists of set of `TiebreakerSubCommittee` appointed by the DAO.
+* [`TiebreakerSubCommittee.sol`](#contract-tiebreakersubcommitteesol) provides ability to participate in `TiebreakerCore` for external actors.
+* [`EmergencyActivationCommittee`](#contract-emergencyactivationcommitteesol) contract that can activate the Emergency Mode, while only `EmergencyExecutionCommittee` can perform proposal execution. Requires to get quorum from committee members.
+* [`EmergencyExecutionCommittee`](#contract-emergencyexecutioncommitteesol) contract provides ability to execute proposals in case of the Emergency Mode or renounce renounce further execution rights, by getting quorum of committee members.
+* [`ResealExecutor`]
 
 
 ## Proposal flow
@@ -64,7 +70,7 @@ The general proposal flow is the following:
 
 Each submitted proposal requires a minimum timelock before it can be scheduled for execution.
 
-At any time, including while a proposal's timelock is lasting, stakers can signal their opposition to the DAO by locking their (w)stETH or withdrawal NFTs (wNFTs) into the [signalling escrow contract](#Contract-Escrowsol). If the opposition exceeds some minimum threshold, the [global governance state](#Governance-state) gets changed, blocking any DAO execution and thus effectively extending the timelock of all pending (i.e. submitted but not scheduled for execution) proposals.
+At any time, including while a proposal's timelock is lasting, stakers can signal their opposition to the DAO by locking their (w)stETH or stETH withdrawal NFTs (unstETH) into the [signalling escrow contract](#Contract-Escrowsol). If the opposition exceeds some minimum threshold, the [global governance state](#Governance-state) gets changed, blocking any DAO execution and thus effectively extending the timelock of all pending (i.e. submitted but not scheduled for execution) proposals.
 
 ![image](https://github.com/lidofinance/dual-governance/assets/1699593/98273df0-f3fd-4149-929d-3315a8e81aa8)
 
@@ -86,17 +92,17 @@ The proposal execution flow comes after the dynamic timelock elapses and the pro
 
 #### Regular deployment mode
 
-In the regular deployment mode, the emergency protection delay is set to zero and all calls from scheduled proposals are immediately executable by anyone via calling the [`EmergencyProtectedTimelock.execute`](#Function-EmergencyProtectedTimelockexecute) function.
+In the regular deployment mode, the **emergency protection delay** is set to zero and all calls from scheduled proposals are immediately executable by anyone via calling the [`EmergencyProtectedTimelock.execute`](#Function-EmergencyProtectedTimelockexecute) function.
 
 #### Protected deployment mode
 
-The protected deployment mode is a temporary mode designed to be active during an initial period after the deployment or upgrade of the DG contracts. In this mode, scheduled proposals cannot be executed immediately; instead, before calling [`EmergencyProtectedTimelock.execute`](#Funtion-EmergencyProtectedTimelockexecute), one has to wait until an **emergency protection timelock** elapses since the proposal scheduling time.
+The protected deployment mode is a temporary mode designed to be active during an initial period after the deployment or upgrade of the DG contracts. In this mode, scheduled proposals cannot be executed immediately; instead, before calling [`EmergencyProtectedTimelock.execute`](#Funtion-EmergencyProtectedTimelockexecute), one has to wait until an emergency protection delay elapses since the proposal scheduling time.
 
 ![image](https://github.com/lidofinance/dual-governance/assets/1699593/38cb2371-bdb0-4681-9dfd-356fa1ed7959)
 
 In this mode, an **emergency activation committee** has the one-off and time-limited right to activate an adversarial **emergency mode** if they see a scheduled proposal that was created or altered due to a vulnerability in the DG contracts or if governance execution is prevented by such a vulnerability. Once the emergency mode is activated, the emergency activation committee is disabled, i.e. loses the ability to activate the emergency mode again. If the emergency activation committee doesn't activate the emergency mode within the duration of the **emergency protection duration** since the committee was configured by the DAO, it gets automatically disabled as well.
 
-The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect executor contracts from the DG contracts and reconnect them to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
+The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect it to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
 
 If the emergency execution committee doesn't disable the DG until the emergency mode max duration elapses, anyone gets the right to deactivate the emergency mode, switching the system back to the protected mode and disabling the emergency committee.
 
@@ -205,7 +211,7 @@ The main entry point to the dual governance system.
 * Implements a state machine tracking the current [global governance state](#Governance-state) which, in turn, determines whether proposal submission and execution is currently allowed.
 * Deploys and tracks the [`Escrow`](#Contract-Escrowsol) contract instances. Tracks the current signalling escrow.
 
-This contract is a singleton, meaning that any DG deployment includes exectly one instance of this contract.
+This contract is a singleton, meaning that any DG deployment includes exactly one instance of this contract.
 
 
 ### Enum: DualGovernance.State
@@ -373,7 +379,7 @@ Registers the `proposer` address in the system as a valid proposer and associate
 
 #### Preconditions
 
-* MUST be called by the admin executor contract (see `Config.sol`).
+* MUST be called by the admin executor contract (see `Configuration.sol`).
 * The `proposer` address MUST NOT be already registered in the system.
 * The `executor` instance SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
 
@@ -439,20 +445,60 @@ The result of the call.
 
 * MUST be called by the contract owner (which SHOULD be the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance).
 
+## Contract: ResealExecutor.sol
+
+In the Lido protocol, specific critical components (`WithdrawalQueue` and `ValidatorsExitBus`) are safeguarded by the `GateSeal` contract instance. According to the gate seals [documentation](https://github.com/lidofinance/gate-seals?tab=readme-ov-file#what-is-a-gateseal):
+
+>*"A GateSeal is a contract that allows the designated account to instantly put a set of contracts on pause (i.e. seal) for a limited duration.  This will give the Lido DAO the time to come up with a solution, hold a vote, implement changes, etc.".*
+
+However, the effectiveness of this approach is contingent upon the predictability of the DAO's solution adoption timeframe. With the dual governance system, proposal execution may experience significant delays based on the current state of the `DualGovernance` contract. There's a risk that `GateSeal`'s pause period may expire before the Lido DAO can implement the necessary fixes.
+
+To address this compatibility challenge between gate seals and dual governance, the `ResealExecutor` contract is introduced. The `ResealExecutor` allows to extend pause of temporarily paused contracts to permanent pause, if conditions are met:
+- `ResealExecutor` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
+- Contracts are paused until timestamp after current timestamp and not for infinite time.
+- The DAO governance is blocked by `DualGovernance`.
+
+It inherits `OwnableExecutor` and provides ability to extend contracts pause for committee set by DAO.
+
+### Function ResealExecutor.reseal
+
+```solidity
+function reseal(address[] memory sealables)
+```
+
+This function extends pause of `sealables`. Can be called by committee address.
+
+#### Preconditions
+
+- `ResealExecutor` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
+- Contracts are paused until timestamp after current timestamp and not for infinite time.
+- The DAO governance is blocked by `DualGovernance`.
+
+### Function ResealExecutor.setResealCommittee
+
+```solidity
+function setResealCommittee(address newResealCommittee)
+```
+
+This function set `resealCommittee` address to `newResealCommittee`. Can be called by owner.
+
+#### Preconditions
+
+- Can be called by `OWNER`.
 
 ## Contract: Escrow.sol
 
-The `Escrow` contract serves as an accumulator of users' (w)stETH, withdrawal NFTs, and ETH. It has two internal states and serves a different purpose depending on its state:
+The `Escrow` contract serves as an accumulator of users' (w)stETH, withdrawal NFTs (unstETH), and ETH. It has two internal states and serves a different purpose depending on its state:
 
 * The initial state is the `SignallingEscrow` state.  In this state, the contract serves as an oracle for users' opposition to DAO proposals. It allows users to lock and unlock (unlocking is permitted only for the caller after the `SignallingEscrowMinLockTime` duration has passed since their last funds locking operation) stETH, wstETH, and withdrawal NFTs, potentially changing the global governance state. The `SignallingEscrowMinLockTime` duration, measured in hours, safeguards against manipulating the dual governance state through instant lock/unlock actions within the `Escrow` contract instance.
 * The final state is the `RageQuitEscrow` state. In this state, the contract serves as an immutable and ungoverned accumulator for the ETH withdrawn as a result of the [rage quit](#Rage-quit) and enforces a timelock on reclaiming this ETH by users.
 
-The `DualGovernance` contract tracks the current signalling escrow contract using the `DualGovernance.signallingEscrow` pointer. Upon the initial deployment of the system, an instance of `Escrow` is deployed in the `SignallingEscrow` state by the `DualGovernance` contract and the `DualGovernance.signallingEscrow` pointer is set to this contract.
+The `DualGovernance` contract tracks the current signalling escrow contract using the `DualGovernance.getVetoSignallingEscrow()` pointer. Upon the initial deployment of the system, an instance of `Escrow` is deployed in the `SignallingEscrow` state by the `DualGovernance` contract and the `DualGovernance.getVetoSignallingEscrow()` pointer is set to this contract.
 
 Each time the governance enters the global `RageQuit` state, two things happen simultaneously:
 
-1. The `Escrow` instance currently stored in the `DualGovernance.signallingEscrow` pointer changes its state from `SignallingEscrow` to `RageQuitEscrow`. This is the only possible (and thus irreversible) state transition.
-2. The `DualGovernance` contract deploys a new instance of `Escrow` in the `SignallingEscrow` state and resets the `DualGovernance.signallingEscrow` pointer to this newly-deployed contract.
+1. The `Escrow` instance currently stored in the `DualGovernance.getVetoSignallingEscrow()` pointer changes its state from `SignallingEscrow` to `RageQuitEscrow`. This is the only possible (and thus irreversible) state transition.
+2. The `DualGovernance` contract deploys a new instance of `Escrow` in the `SignallingEscrow` state and resets the `DualGovernance.getVetoSignallingEscrow()` pointer to this newly-deployed contract.
 
 At any point in time, there can be only one instance of the contract in the `SignallingEscrow` state (so the contract in this state is a singleton) but multiple instances of the contract in the `RageQuitEscrow` state.
 
@@ -462,14 +508,14 @@ Once all funds locked in the `Escrow` instance are converted into withdrawal NFT
 
 The purpose of the `RageQuitExtensionDelay` phase is to provide sufficient time to participants who locked withdrawal NFTs to claim them before Lido DAO's proposal execution is unblocked. As soon as a withdrawal NFT is claimed, the user's ETH is no longer affected by any code controlled by the DAO.
 
-When the `RageQuitExtensionDelay` period elapses, the `DualGovernance.activateNextState()` function exits the `RageQuit` state and initiates the `RageQuitEthClaimTimelock`. Throughout this timelock, tokens remain locked within the `Escrow` instance and are inaccessible for withdrawal. Once the timelock expires, participants in the rage quit process can retrieve their ETH by withdrawing it from the `Escrow` instance.
+When the `RageQuitExtensionDelay` period elapses, the `DualGovernance.activateNextState()` function exits the `RageQuit` state and initiates the `RageQuitEthWithdrawalsTimelock`. Throughout this timelock, tokens remain locked within the `Escrow` instance and are inaccessible for withdrawal. Once the timelock expires, participants in the rage quit process can retrieve their ETH by withdrawing it from the `Escrow` instance.
 
-The duration of the `RageQuitEthClaimTimelock` is dynamic and varies based on the number of "continuous" rage quits. A pair of rage quits is considered continuous when `DualGovernance` has not transitioned to the `Normal` or `VetoCooldown` state between them.
+The duration of the `RageQuitEthWithdrawalsTimelock` is dynamic and varies based on the number of "continuous" rage quits. A pair of rage quits is considered continuous when `DualGovernance` has not transitioned to the `Normal` or `VetoCooldown` state between them.
 
 ### Function: Escrow.lockStETH
 
 ```solidity!
-function lockStETH(uint256 amount)
+function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares)
 ```
 
 Transfers the specified `amount` of stETH from the caller's (i.e., `msg.sender`) account into the `SignallingEscrow` instance of the `Escrow` contract.
@@ -477,15 +523,19 @@ Transfers the specified `amount` of stETH from the caller's (i.e., `msg.sender`)
 The total rage quit support is updated proportionally to the number of shares corresponding to the locked stETH (see the `Escrow.getRageQuitSupport()` function for the details). For the correct rage quit support calculation, the function updates the number of locked stETH shares in the protocol as follows:
 
 ```solidity
-uint256 amountInShares = stETH.getSharesByPooledEther(amount);
+amountInShares = stETH.getSharesByPooledEther(amount);
 
-_vetoersLockedAssets[msg.sender].stETHShares += amountInShares;
-_totalStEthSharesLocked += amountInShares;
+assets[msg.sender].stETHLockedShares += amountInShares;
+stETHTotals.lockedShares += amountInShares;
 ```
 
 The rage quit support will be dynamically updated to reflect changes in the stETH balance due to protocol rewards or validators slashing.
 
-Finally, calls the `DualGovernance.activateNextState()` function. This action may transit the `Escrow` instance from the `SignallingEscrow` state into the `RageQuitEscrow` state.
+Finally, the function calls `DualGovernance.activateNextState()`, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
+
+#### Returns
+
+The amount of stETH shares locked by the caller during the current method call.
 
 #### Preconditions
 
@@ -496,42 +546,54 @@ Finally, calls the `DualGovernance.activateNextState()` function. This action ma
 ### Function: Escrow.unlockStETH
 
 ```solidity
-function unlockStETH()
+function unlockStETH() external returns (uint256 unlockedStETHShares)
 ```
 
-Allows the caller (i.e. `msg.sender`) to unlock the previously locked stETH in the `SignallingEscrow` instance of the `Escrow` contract. The locked stETH balance may change due to protocol rewards or validators slashing, potentially altering the original locked amount. The total unlocked stETH equals the sum of all previously locked stETH by the caller, accounting for any changes during the locking period.
+Allows the caller (i.e., `msg.sender`) to unlock all previously locked stETH and wstETH in the `SignallingEscrow` instance of the `Escrow` contract as stETH. The locked balance may change due to protocol rewards or validator slashing, potentially altering the original locked amount. The total unlocked stETH amount equals the sum of all previously locked stETH and wstETH by the caller, accounting for any changes during the locking period.
 
-For the correct rage quit support calculation, the function updates the number of locked stETH shares in the protocol as follows:
+For accurate rage quit support calculation, the function updates the number of locked stETH shares in the protocol as follows:
 
 ```solidity
-_totalStEthSharesLocked -= _vetoersLockedAssets[msg.sender].stETHShares;
-_vetoersLockedAssets[msg.sender].stETHShares = 0;
+stETHTotals.lockedShares -= _assets[msg.sender].stETHLockedShares;
+assets[msg.sender].stETHLockedShares = 0;
 ```
 
 Additionally, the function triggers the `DualGovernance.activateNextState()` function at the beginning and end of the execution.
+
+#### Returns
+
+The amount of stETH shares unlocked by the caller.
 
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
 - The caller MUST have a non-zero amount of previously locked stETH in the `Escrow` instance using the `Escrow.lockStETH` function.
-- At least the duration of the `SignallingEscrowMinLockTime` MUST have passed since the caller last invoked any of the methods `Escrow.lockStETH`, `Escrow.lockWstETH`, or `Escrow.lockUnstETH`.
+- The duration of the `SignallingEscrowMinLockTime` MUST have passed since the caller last invoked any of the methods `Escrow.lockStETH`, `Escrow.lockWstETH`, or `Escrow.lockUnstETH`.
 
 ### Function: Escrow.lockWstETH
 
 ```solidity
-function lockWstETH(uint256 amount)
+function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares)
 ```
 
-Transfers the specified `amount` of wstETH from the caller's (i.e., `msg.sender`) account into the `SignallingEscrow` instance of the `Escrow` contract.
+Transfers the specified `amount` of wstETH from the caller's (i.e., `msg.sender`) account into the `SignallingEscrow` instance of the `Escrow` contract and unwraps it into the stETH.
 
-The total rage quit support is updated proportionally to the  `amount` of locked wstETH (see the `Escrow.getRageQuitSupport()` function for the details). For the correct rage quit support calculation, the function updates the number of locked wstETH in the protocol as follows:
+The total rage quit support is updated proportionally to the `amount` of locked wstETH (see the `Escrow.getRageQuitSupport()` function for details). For accurate rage quit support calculation, the function updates the number of locked stETH shares in the protocol as follows:
 
 ```solidity
-_vetoersLockedAssets[msg.sender].wstETHShares += amount;
-_totalStEthSharesLocked += amount;
+stETHAmount = WST_ETH.unwrap(amount);
+// Use getSharesByPooledEther(), because unwrap() method may transfer 1 wei less amount of stETH
+stETHShares = ST_ETH.getSharesByPooledEth(stETHAmount);
+
+assets[msg.sender].stETHLockedShares += stETHShares;
+stETHTotals.lockedShares += stETHShares;
 ```
 
-Finally, calls the `DualGovernance.activateNextState()` function. This action may transit the `Escrow` instance from the `SignallingEscrow` state into the `RageQuitEscrow` state.
+Finally, the function calls the `DualGovernance.activateNextState()`. This action may transition the `Escrow` instance from the `SignallingEscrow` state into the `RageQuitEscrow` state.
+
+#### Returns
+
+The amount of stETH shares locked by the caller during the current method call.
 
 #### Preconditions
 
@@ -542,19 +604,23 @@ Finally, calls the `DualGovernance.activateNextState()` function. This action ma
 ### Function: Escrow.unlockWstETH
 
 ```solidity
-function unlockWstETH()
+function unlockWstETH() external returns (uint256 unlockedStETHShares)
 ```
 
-Allows the caller (i.e. `msg.sender`) to unlock previously locked wstETH from the `SignallingEscrow` instance of the `Escrow` contract. The total unlocked wstETH equals the sum of all previously locked wstETH by the caller.
+Allows the caller (i.e. `msg.sender`) to unlock previously locked wstETH and stETH from the `SignallingEscrow` instance of the `Escrow` contract as wstETH. The locked balance may change due to protocol rewards or validator slashing, potentially altering the original locked amount. The total unlocked wstETH equals the sum of all previously locked wstETH and stETH by the caller.
 
-For the correct rage quit support calculation, the function updates the number of locked wstETH shares in the protocol as follows:
+For the correct rage quit support calculation, the function updates the number of locked stETH shares in the protocol as follows:
 
 ```solidity
-_totalStEthSharesLocked -= _vetoersLockedAssets[msg.sender].wstETHShares;
-_vetoersLockedAssets[msg.sender].wstETHShares = 0;
+stETHTotals.lockedShares -= _assets[msg.sender].stETHLockedShares;
+assets[msg.sender].stETHLockedShares = 0;
 ```
 
 Additionally, the function triggers the `DualGovernance.activateNextState()` function at the beginning and end of the execution.
+
+#### Returns
+
+The amount of stETH shares unlocked by the caller.
 
 #### Preconditions
 
@@ -569,15 +635,16 @@ Additionally, the function triggers the `DualGovernance.activateNextState()` fun
 function lockUnstETH(uint256[] unstETHIds)
 ```
 
-Transfers the WIthdrawal NFTs with ids contained in the `unstETHIds` from the caller's (i.e. `msg.sender`) account into the `SignallingEscrow` instance of the `Escrow` contract.
+Transfers the withdrawal NFTs with ids contained in the `unstETHIds` from the caller's (i.e. `msg.sender`) account into the `SignallingEscrow` instance of the `Escrow` contract.
 
-To correctly calculate the rage quit support (see the `Escrow.getRageQuitSupport()` function for the details), updates the number of locked Withdrawal NFT shares in the protocol for each withdrawal NFT in the `unstETHIds`,  as follows:
+
+To correctly calculate the rage quit support (see the `Escrow.getRageQuitSupport()` function for the details), updates the number of locked withdrawal NFT shares in the protocol for each withdrawal NFT in the `unstETHIds`,  as follows:
 
 ```solidity
-uint256 amountOfShares = WithdrawalRequest[id].amountOfShares;
+uint256 amountOfShares = withdrawalRequests[id].amountOfShares;
 
-_vetoersLockedAssets[msg.sender].withdrawalNFTShares += amountOfShares;
-_totalWithdrawlNFTSharesLocked += amountOfShares;
+assets[msg.sender].unstETHLockedShares += amountOfShares;
+unstETHTotals.unfinalizedShares += amountOfShares;
 ```
 
 Finally, calls the `DualGovernance.activateNextState()` function. This action may transition the `Escrow` instance from the `SignallingEscrow` state into the `RageQuitEscrow` state.
@@ -587,7 +654,7 @@ Finally, calls the `DualGovernance.activateNextState()` function. This action ma
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
 - The caller MUST be the owner of all withdrawal NFTs with the given ids.
 - The caller MUST grant permission to the `SignallingEscrow` instance to transfer tokens with the given ids (`approve()` or `setApprovalForAll()`).
-- The passed ids MUST NOT contain the finalized or claimed Withdrawal NFTs.
+- The passed ids MUST NOT contain the finalized or claimed withdrawal NFTs.
 - The passed ids MUST NOT contain duplicates.
 
 ### Function: Escrow.unlockUnstETH
@@ -596,32 +663,28 @@ Finally, calls the `DualGovernance.activateNextState()` function. This action ma
 function unlockUnstETH(uint256[] unstETHIds)
 ```
 
-Allows the caller (i.e. `msg.sender`) to unlock a set of previously locked Withdrawal NFTs with ids `unstETHIds` from the `SignallingEscrow` instance of the `Escrow` contract.
+Allows the caller (i.e. `msg.sender`) to unlock a set of previously locked withdrawal NFTs with ids `unstETHIds` from the `SignallingEscrow` instance of the `Escrow` contract.
 
-To correctly calculate the rage quit support (see the `Escrow.getRageQuitSupport()` function for details), updates the number of locked Withdrawal NFT shares in the protocol for each withdrawal NFT in the `unstETHIds`, as follows:
+To correctly calculate the rage quit support (see the `Escrow.getRageQuitSupport()` function for details), updates the number of locked withdrawal NFT shares in the protocol for each withdrawal NFT in the `unstETHIds`, as follows:
 
-- If the Withdrawal NFT was marked as finalized (see the `Escrow.markUnstETHFinalized()` function for details):
+- If the withdrawal NFT was marked as finalized (see the `Escrow.markUnstETHFinalized()` function for details):
 
 ```solidity
-uint256 amountOfShares = WithdrawalRequest[id].amountOfShares;
+uint256 amountOfShares = withdrawalRequests[id].amountOfShares;
 uint256 claimableAmount = _getClaimableEther(id);
 
-_totalWithdrawlNFTSharesLocked -= amountOfShares;
-_totalFinalizedWithdrawlNFTSharesLocked -= amountOfShares;
-_totalFinalizedWithdrawlNFTAmountLocked -= claimableAmount;
-
-_vetoersLockedAssets[msg.sender].withdrawalNFTShares -= amountOfShares;
-_vetoersLockedAssets[msg.sender].finalizedWithdrawalNFTShares -= amountOfShares;
-_vetoersLockedAssets[msg.sender].finalizedWithdrawalNFTAmount -= claimableAmount;
+assets[msg.sender].unstETHLockedShares -= amountOfShares;
+unstETHTotals.finalizedETH -= claimableAmount;
+unstETHTotals.unfinalizedShares -= amountOfShares;
 ```
 
 - if the Withdrawal NFT wasn't marked as finalized:
 
 ```solidity
-uint256 amountOfShares = WithdrawalRequest[id].amountOfShares;
+uint256 amountOfShares = withdrawalRequests[id].amountOfShares;
 
-_totalWithdrawlNFTSharesLocked -= amountOfShares;
-_vetoersLockedAssets[msg.sender].withdrawalNFTShares -= amountOfShares;
+assets[msg.sender].unstETHLockedShares -= amountOfShares;
+unstETHTotals.unfinalizedShares -= amountOfShares;
 ```
 
 Additionally, the function triggers the `DualGovernance.activateNextState()` function at the beginning and end of the execution.
@@ -629,7 +692,7 @@ Additionally, the function triggers the `DualGovernance.activateNextState()` fun
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
-- Each provided Withdrawal NFT MUST have been previously locked by the caller.
+- Each provided withdrawal NFT MUST have been previously locked by the caller.
 - At least the duration of the `SignallingEscrowMinLockTime` MUST have passed since the caller last invoked any of the methods `Escrow.lockStETH`, `Escrow.lockWstETH`, or `Escrow.lockUnstETH`.
 
 ### Function Escrow.markUnstETHFinalized
@@ -638,31 +701,28 @@ Additionally, the function triggers the `DualGovernance.activateNextState()` fun
 function markUnstETHFinalized(uint256[] unstETHIds, uint256[] hints)
 ```
 
-Marks the provided Withdrawal NFTs with ids `unstETHIds` as finalized to accurately calculate their rage quit support.
+Marks the provided withdrawal NFTs with ids `unstETHIds` as finalized to accurately calculate their rage quit support.
 
-The finalization of the Withdrawal NFT leads to the following events:
+The finalization of the withdrawal NFT leads to the following events:
 
-- The value of the Withdrawal NFT is no longer affected by stETH token rebases.
-- The total supply of stETH is adjusted based on the value of the finalized Withdrawal NFT.
+- The value of the withdrawal NFT is no longer affected by stETH token rebases.
+- The total supply of stETH is adjusted based on the value of the finalized withdrawal NFT.
 
-As both of these events affect the rage quit support value, this function updates the number of finalized Withdrawal NFTs for the correct rage quit support accounting.
+As both of these events affect the rage quit support value, this function updates the number of finalized withdrawal NFTs for the correct rage quit support accounting.
 
-For each Withdrawal NFT in the `unstETHIds`:
+For each withdrawal NFT in the `unstETHIds`:
 
 ```solidity
 uint256 claimableAmount = _getClaimableEther(id);
-uint256 amountOfShares = WithdrawalRequest[id].amountOfShares;
+uint256 amountOfShares = withdrawalRequests[id].amountOfShares;
 
-_totalFinalizedWithdrawlNFTSharesLocked += amountOfShares;
-_totalFinalizedWithdrawlNFTAmountLocked += claimableAmount;
-
-_vetoersLockedAssets[msg.sender].finalizedWithdrawalNFTShares += amountOfShares;
-_vetoersLockedAssets[msg.sender].finalizedWithdrawalNFTAmount += claimableAmount;
+unstETHTotals.finalizedETH += claimableAmount;
+unstETHTotals.unfinalizedShares -= amountOfShares;
 ```
 
 Withdrawal NFTs belonging to any of the following categories are excluded from the rage quit support update:
 
-- Claimed or unfinalized Withdrawal NFTs
+- Claimed or unfinalized withdrawal NFTs
 - Withdrawal NFTs already marked as finalized
 - Withdrawal NFTs not locked in the `Escrow` instance
 
@@ -676,34 +736,31 @@ Withdrawal NFTs belonging to any of the following categories are excluded from t
 function getRageQuitSupport() view returns (uint256)
 ```
 
-Calculates and returns the total rage quit support as a percentage of the stETH total supply locked in the instance of the `Escrow` contract. It considers contributions from stETH, wstETH, and non-finalized Withdrawal NFTs while adjusting for the impact of locked finalized Withdrawal NFTs.
+Calculates and returns the total rage quit support as a percentage of the stETH total supply locked in the instance of the `Escrow` contract. It considers contributions from stETH, wstETH, and non-finalized withdrawal NFTs while adjusting for the impact of locked finalized withdrawal NFTs.
 
 The returned value represents the total rage quit support expressed as a percentage with a precision of 16 decimals. It is computed using the following formula:
 
 ```solidity
-uint256 rebaseableAmount = stETH.getPooledEthByShares(
-  _totalStEthSharesLocked +
-  _totalWstEthSharesLocked +
-  _totalWithdrawalNFTSharesLocked -
-  _totalFinalizedWithdrawalNFTSharesLocked
-);
+uint256 finalizedETH = unstETHTotals.finalizedETH;
+uint256 unfinalizedShares = stETHTotals.lockedShares + unstETHTotals.unfinalizedShares;
 
 return 10 ** 18 * (
-    rebaseableAmount + _totalFinalizedWithdrawalNFTAmountLocked
+  ST_ETH.getPooledEtherByShares(unfinalizedShares) + finalizedETH
 ) / (
-    stETH.totalSupply() + _totalFinalizedWithdrawalNFTAmountLocked
+  stETH.totalSupply() + finalizedETH
 );
 ```
 
 ### Function Escrow.startRageQuit
 
 ```solidity
-function startRageQuit()
+function startRageQuit(
+  Duration rageQuitExtensionDelay,
+  Duration rageQuitWithdrawalsTimelock
+)
 ```
 
-Transits the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state. Following this transition, locked funds become unwithdrawable and are accessible to users only as plain ETH after the completion of the full `RageQuit` process, including the `RageQuitExtensionDelay` and `RageQuitEthClaimTimelock` stages.
-
-As the initial step of transitioning to the `RageQuitEscrow` state, all locked wstETH is converted into stETH, and the maximum stETH allowance is granted to the `WithdrawalQueue` contract for the upcoming creation of Withdrawal NFTs.
+Transits the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state. Following this transition, locked funds become unwithdrawable and are accessible to users only as plain ETH after the completion of the full `RageQuit` process, including the `RageQuitExtensionDelay` and `RageQuitEthWithdrawalsTimelock` stages.
 
 #### Preconditions
 
@@ -713,32 +770,40 @@ As the initial step of transitioning to the `RageQuitEscrow` state, all locked w
 ### Function Escrow.requestNextWithdrawalsBatch
 
 ```solidity
-function requestNextWithdrawalsBatch(uint256 maxWithdrawalRequestsCount)
+function requestNextWithdrawalsBatch(uint256 maxBatchSize)
 ```
 
-Transfers stETH held in the `RageQuitEscrow` instance into the `WithdrawalQueue`. The function may be invoked multiple times until all stETH is converted into Withdrawal NFTs. For each Withdrawal NFT, the owner is set to `Escrow` contract instance. Each call creates up to `maxWithdrawalRequestsCount` withdrawal requests, where each withdrawal request size equals `WithdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT()`, except for potentially the last batch, which may have a smaller size.
+Transfers stETH held in the `RageQuitEscrow` instance into the `WithdrawalQueue`. The function may be invoked multiple times until all stETH is converted into withdrawal NFTs. For each withdrawal NFT, the owner is set to `Escrow` contract instance. Each call creates up to `maxBatchSize` withdrawal requests, where each withdrawal request size equals `WithdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT()`, except for potentially the last batch, which may have a smaller size.
 
-Upon execution, the function updates the count of withdrawal requests generated by all invocations. When the remaining stETH balance on the contract falls below `WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT()`, the generation of withdrawal batches is concluded, and subsequent function calls will revert.
+Upon execution, the function tracks the ids of the withdrawal requests generated by all invocations. When the remaining stETH balance on the contract falls below `WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT()`, the generation of withdrawal batches is concluded, and subsequent function calls will revert.
 
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
-- The `maxWithdrawalRequestsCount` MUST be greater than 0
-- The generation of WithdrawalRequest batches MUST not be concluded
+- The `maxBatchSize` MUST be greater than or equal to `CONFIG.MIN_WITHDRAWALS_BATCH_SIZE()` and less than or equal to `CONFIG.MAX_WITHDRAWALS_BATCH_SIZE()`.
+- The generation of withdrawal request batches MUST not be concluded
 
-### Function Escrow.claimNextWithdrawalsBatch
+### Function Escrow.claimNextWithdrawalsBatch(uint256, uint256[])
 
 ```solidity
-function claimNextWithdrawalsBatch(uint256[] withdrawalRequestIds, uint256[] hints)
+function claimNextWithdrawalsBatch(uint256 fromUnstETHId, uint256[] hints)
 ```
 
-Allows users to claim finalized Withdrawal NFTs generated by the `Escrow.requestNextWithdrawalsBatch()` function.
-Tracks the total amount of claimed ETH updating the `_totalClaimedEthAmount` variable. Upon claiming the last batch, the `RageQuitExtensionDelay` period commences.
+Allows users to claim finalized withdrawal NFTs generated by the `Escrow.requestNextWithdrawalsBatch()` function.
+Tracks the total amount of claimed ETH updating the `stETHTotals.claimedETH` variable. Upon claiming the last batch, the `RageQuitExtensionDelay` period commences.
 
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
-- The `withdrawalRequestIds` array MUST contain only the ids of finalized but unclaimed withdrawal requests generated by the `Escrow.requestNextWithdrawalsBatch()` function.
+- The `fromUnstETHId` MUST be equal to the id of the first unclaimed withdrawal NFT locked in the `Escrow`. The ids of the unclaimed withdrawal NFTs can be retrieved via the `getNextWithdrawalBatch()` method.
+
+### Function Escrow.claimNextWithdrawalsBatch(uint256)
+
+```solidity
+function claimNextWithdrawalsBatch(uint256 maxUnstETHIdsCount)
+```
+
+This is an overload version of `Escrow.claimNextWithdrawalsBatch(uint256, uint256[])`. It retrieves hints for processing the withdrawal NFTs on-chain.
 
 ### Function Escrow.claimUnstETH
 
@@ -746,9 +811,9 @@ Tracks the total amount of claimed ETH updating the `_totalClaimedEthAmount` var
 function claimUnstETH(uint256[] unstETHIds, uint256[] hints)
 ```
 
-Allows users to claim the ETH associated with finalized Withdrawal NFTs with ids `unstETHIds` locked in the `Escrow` contract. Upon calling this function, the claimed ETH is transferred to the `Escrow` contract instance.
+Allows users to claim the ETH associated with finalized withdrawal NFTs with ids `unstETHIds` locked in the `Escrow` contract. Upon calling this function, the claimed ETH is transferred to the `Escrow` contract instance.
 
-To safeguard the ETH associated with Withdrawal NFTs, this function should be invoked when the `Escrow` is in the `RageQuitEscrow` state and before the `RageQuitExtensionDelay` period ends. The ETH corresponding to unclaimed Withdrawal NFTs after this period ends would still be controlled by the code potentially afftected by pending and future DAO decisions.
+To safeguard the ETH associated with withdrawal NFTs, this function should be invoked when the `Escrow` is in the `RageQuitEscrow` state and before the `RageQuitExtensionDelay` period ends. The ETH corresponding to unclaimed withdrawal NFTs after this period ends would still be controlled by the code potentially affected by pending and future DAO decisions.
 
 #### Preconditions
 
@@ -766,67 +831,43 @@ Returns whether the rage quit process has been finalized. The rage quit process 
 - All withdrawal request batches have been claimed.
 - The duration of the `RageQuitExtensionDelay` has elapsed.
 
-### Function Escrow.withdrawStEthAsEth
+### Function Escrow.withdrawETH
 
 ```solidity
-function withdrawStEthAsEth()
+function withdrawETH()
 ```
 
-Allows the caller (i.e. `msg.sender`) to withdraw all stETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthClaimTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding stETH as withdrawn for the caller.
+Allows the caller (i.e. `msg.sender`) to withdraw all stETH and wstETH they have previously locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthWithdrawalsTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding stETH and wstETH as withdrawn for the caller.
 
-The amount of ETH sent to the caller is determined by the proportion of the user's stETH shares compared to the total amount of locked stETH and wstETH shares in the Escrow instance, calculated as follows:
+The amount of ETH sent to the caller is determined by the proportion of the user's stETH and wstETH shares compared to the total amount of locked stETH and wstETH shares in the Escrow instance, calculated as follows:
 
 ```solidity
-return _totalClaimedEthAmount * _vetoersLockedAssets[msg.sender].stETHShares
-    / (_totalStEthSharesLocked + _totalWstEthSharesLocked);
+return stETHTotals.claimedETH * assets[msg.sender].stETHLockedShares
+    / stETHTotals.lockedShares;
 ```
 
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
-- The caller MUST have a non-zero amount of stETH to withdraw.
-- The caller MUST NOT have previously withdrawn stETH.
+- The `RageQuitEthWithdrawalsTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
+- The caller MUST have a non-zero amount of stETH shares to withdraw.
 
-### Function Escrow.withdrawWstEthAsEth
-
-```solidity
-function withdrawWstEthAsEth() external
-```
-
-Allows the caller (i.e. `msg.sender`) to withdraw all wstETH they have previouusly locked into `Escrow` contract instance (while it was in the `SignallingEscrow` state) as plain ETH, given that the `RageQuit` process is completed and that the `RageQuitEthClaimTimelock` has elapsed. Upon execution, the function transfers ETH to the caller's account and marks the corresponding wstETH as withdrawn for the caller.
-
-The amount of ETH sent to the caller is determined by the proportion of the user's wstETH funds compared to the total amount of locked stETH and wstETH shares in the Escrow instance, calculated as follows:
+### Function Escrow.withdrawETH()
 
 ```solidity
-return _totalClaimedEthAmount *
-  _vetoersLockedAssets[msg.sender].wstETHShares /
-  (_totalStEthSharesLocked + _totalWstEthSharesLocked);
+function withdrawETH(uint256[] unstETHIds)
 ```
 
-#### Preconditions
-- The `Escrow` instance MUST be in the `RageQuitEscrow` state.
-- The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
-- The caller MUST have a non-zero amount of wstETH to withdraw.
-- The caller MUST NOT have previously withdrawn wstETH.
-
-### Function Escrow.withdrawUnstETHAsEth
-
-```solidity
-function withdrawUnstETHAsEth(uint256[] unstETHIds)
-```
-
-Allows the caller (i.e. `msg.sender`) to withdraw the claimed ETH from the Withdrawal NFTs with ids `unstETHIds` locked by the caller in the `Escrow` contract while the latter was in the `SignallingEscrow` state. Upon execution, all ETH previously claimed from the NFTs is transferred to the caller's account, and the NFTs are marked as withdrawn.
+Allows the caller (i.e. `msg.sender`) to withdraw the claimed ETH from the withdrawal NFTs with ids `unstETHIds` locked by the caller in the `Escrow` contract while the latter was in the `SignallingEscrow` state. Upon execution, all ETH previously claimed from the NFTs is transferred to the caller's account, and the NFTs are marked as withdrawn.
 
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionDelay` duration.
-- The `RageQuitEthClaimTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
+- The `RageQuitEthWithdrawalsTimelock` period MUST be elapsed after the expiration of the `RageQuitExtensionDelay` duration.
 - The caller MUST be set as the owner of the provided NFTs.
-- Each Withdrawal NFT MUST have been claimed using the `Escrow.claimUnstETH()` function.
+- Each withdrawal NFT MUST have been claimed using the `Escrow.claimUnstETH()` function.
 - Withdrawal NFTs must not have been withdrawn previously.
 
 
@@ -837,14 +878,14 @@ Allows the caller (i.e. `msg.sender`) to withdraw the claimed ETH from the Withd
 For a proposal to be executed, the following steps have to be performed in order:
 
 1. The proposal must be submitted using the `EmergencyProtectedTimelock.submit` function.
-2. The configured post-submit timelock must elapse.
+2. The configured post-submit timelock (`Configuration.AFTER_SUBMIT_DELAY()`) must elapse.
 3. The proposal must be scheduled using the `EmergencyProtectedTimelock.schedule` function.
-4. The configured emergency protection timelock must elapse (can be zero, see below).
+4. The configured emergency protection delay (`Configuration.AFTER_SCHEDULE_DELAY()`) must elapse (can be zero, see below).
 5. The proposal must be executed using the `EmergencyProtectedTimelock.execute` function.
 
 The contract only allows proposal submission and scheduling by the `governance` address. Normally, this address points to the [`DualGovernance`](#Contract-DualGovernancesol) singleton instance. Proposal execution is permissionless, unless Emergency Mode is activated.
 
-If the Emergency Committees are set up and active, the governance proposal gets a separate emergency protection timelock between submitting and scheduling. This additional timelock is implemented in the `EmergencyProtectedTimelock` contract to protect from zero-day vulnerability in the logic of `DualGovenance.sol` and other core DG contracts. If the Emergency Committees aren't set, the proposal flow is the same, but the timelock duration is zero.
+If the Emergency Committees are set up and active, the governance proposal gets a separate emergency protection delay between submitting and scheduling. This additional timelock is implemented in the `EmergencyProtectedTimelock` contract to protect from zero-day vulnerability in the logic of `DualGovernance.sol` and other core DG contracts. If the Emergency Committees aren't set, the proposal flow is the same, but the timelock duration is zero.
 
 Emergency Activation Committee, while active, can enable the Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. It also allows the Emergency Execution Committee to reset the governance, effectively disabling the Dual Governance subsystem.
 
@@ -973,6 +1014,11 @@ The contract has the interface for managing the configuration related to emergen
 
 `Configuration.sol` is the smart contract encompassing all the constants in the Dual Governance design & providing the interfaces for getting access to them. It implements interfaces `IAdminExecutorConfiguration`, `ITimelockConfiguration`, `IDualGovernanceConfiguration` covering for relevant "parameters domains".
 
+## Contract: TiebreakerCore.sol
+## Contract: TiebreakerSubCommittee.sol
+## Contract: EmergencyActivationCommittee.sol
+## Contract: EmergencyExecutionCommittee.sol
+## Contract: ResealCommittee.sol
 
 ## Upgrade flow description
 

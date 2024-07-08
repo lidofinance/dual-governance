@@ -1,31 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Duration} from "./types/Duration.sol";
+import {Timestamp} from "./types/Timestamp.sol";
 import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
+import {ISealable} from "./interfaces/ISealable.sol";
+import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 import {State, DualGovernanceState} from "./libraries/DualGovernanceState.sol";
+import {TiebreakerProtection} from "./libraries/TiebreakerProtection.sol";
 
 contract DualGovernance is IGovernance, ConfigurationProvider {
     using Proposers for Proposers.State;
     using DualGovernanceState for DualGovernanceState.Store;
+    using TiebreakerProtection for TiebreakerProtection.Tiebreaker;
 
-    event TiebreakerSet(address tiebreakCommittee);
     event ProposalScheduled(uint256 proposalId);
 
-    error ProposalNotExecutable(uint256 proposalId);
-    error NotTiebreaker(address account, address tiebreakCommittee);
+    error NotResealCommitttee(address account);
 
     ITimelock public immutable TIMELOCK;
 
-    address internal _tiebreaker;
-
+    TiebreakerProtection.Tiebreaker internal _tiebreaker;
     Proposers.State internal _proposers;
     DualGovernanceState.Store internal _dgState;
     EmergencyProtection.State internal _emergencyProtection;
+    address internal _resealCommittee;
+    IResealManager internal _resealManager;
 
     constructor(
         address config,
@@ -49,8 +54,12 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function scheduleProposal(uint256 proposalId) external {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
-        uint256 proposalSubmissionTime = TIMELOCK.schedule(proposalId);
+
+        Timestamp proposalSubmissionTime = TIMELOCK.getProposalSubmissionTime(proposalId);
         _dgState.checkCanScheduleProposal(proposalSubmissionTime);
+
+        TIMELOCK.schedule(proposalId);
+
         emit ProposalScheduled(proposalId);
     }
 
@@ -59,11 +68,11 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
-    function vetoSignallingEscrow() external view returns (address) {
+    function getVetoSignallingEscrow() external view returns (address) {
         return address(_dgState.signallingEscrow);
     }
 
-    function rageQuitEscrow() external view returns (address) {
+    function getRageQuitEscrow() external view returns (address) {
         return address(_dgState.rageQuitEscrow);
     }
 
@@ -79,14 +88,14 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
     }
 
-    function currentState() external view returns (State) {
+    function getCurrentState() external view returns (State) {
         return _dgState.currentState();
     }
 
     function getVetoSignallingState()
         external
         view
-        returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
+        returns (bool isActive, Duration duration, Timestamp activatedAt, Timestamp enteredAt)
     {
         (isActive, duration, activatedAt, enteredAt) = _dgState.getVetoSignallingState(CONFIG.getDualGovernanceConfig());
     }
@@ -94,12 +103,12 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     function getVetoSignallingDeactivationState()
         external
         view
-        returns (bool isActive, uint256 duration, uint256 enteredAt)
+        returns (bool isActive, Duration duration, Timestamp enteredAt)
     {
         (isActive, duration, enteredAt) = _dgState.getVetoSignallingDeactivationState(CONFIG.getDualGovernanceConfig());
     }
 
-    function getVetoSignallingDuration() external view returns (uint256) {
+    function getVetoSignallingDuration() external view returns (Duration) {
         return _dgState.getVetoSignallingDuration(CONFIG.getDualGovernanceConfig());
     }
 
@@ -141,29 +150,38 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     // Tiebreaker Protection
     // ---
 
+    function tiebreakerResumeSealable(address sealable) external {
+        _tiebreaker.checkTiebreakerCommittee(msg.sender);
+        _dgState.checkTiebreak(CONFIG);
+        _tiebreaker.resumeSealable(sealable);
+    }
+
     function tiebreakerScheduleProposal(uint256 proposalId) external {
-        _checkTiebreakerCommittee(msg.sender);
-        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
+        _tiebreaker.checkTiebreakerCommittee(msg.sender);
         _dgState.checkTiebreak(CONFIG);
         TIMELOCK.schedule(proposalId);
     }
 
-    function setTiebreakerCommittee(address newTiebreaker) external {
+    function setTiebreakerProtection(address newTiebreaker, address resealManager) external {
         _checkAdminExecutor(msg.sender);
-        address oldTiebreaker = _tiebreaker;
-        if (newTiebreaker != oldTiebreaker) {
-            _tiebreaker = newTiebreaker;
-            emit TiebreakerSet(newTiebreaker);
-        }
+        _tiebreaker.setTiebreaker(newTiebreaker, resealManager);
     }
 
     // ---
-    // Internal Helper Methods
+    // Reseal executor
     // ---
 
-    function _checkTiebreakerCommittee(address account) internal view {
-        if (account != _tiebreaker) {
-            revert NotTiebreaker(account, _tiebreaker);
+    function resealSealables(address[] memory sealables) external {
+        if (msg.sender != _resealCommittee) {
+            revert NotResealCommitttee(msg.sender);
         }
+        _dgState.checkResealState();
+        _resealManager.reseal(sealables);
+    }
+
+    function setReseal(address resealManager, address resealCommittee) external {
+        _checkAdminExecutor(msg.sender);
+        _resealCommittee = resealCommittee;
+        _resealManager = IResealManager(resealManager);
     }
 }

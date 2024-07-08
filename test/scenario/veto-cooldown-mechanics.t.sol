@@ -44,7 +44,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             vetoedStETHAmount = _lockStETH(vetoer, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT() + 1));
             _assertVetoSignalingState();
 
-            _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION() + 1);
+            _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
             _activateNextState();
             _assertRageQuitState();
         }
@@ -68,26 +68,18 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             uint256 requestAmount = _WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
             uint256 maxRequestsCount = vetoedStETHAmount / requestAmount + 1;
 
-            rageQuitEscrow.requestNextWithdrawalsBatch(maxRequestsCount);
-
-            vm.deal(address(_WITHDRAWAL_QUEUE), vetoedStETHAmount);
-            _finalizeWQ();
-
-            uint256 batchSizeLimit = 200;
-
-            while (true) {
-                (uint256 offset, uint256 total, uint256[] memory unstETHIds) =
-                    rageQuitEscrow.getNextWithdrawalBatches(batchSizeLimit);
-                if (offset == total) {
-                    break;
-                }
-                uint256[] memory hints =
-                    _WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, _WITHDRAWAL_QUEUE.getLastCheckpointIndex());
-
-                rageQuitEscrow.claimNextWithdrawalsBatch(offset, hints);
+            while (!rageQuitEscrow.isWithdrawalsBatchesFinalized()) {
+                rageQuitEscrow.requestNextWithdrawalsBatch(96);
             }
 
-            _wait(_config.RAGE_QUIT_EXTENSION_DELAY() + 1);
+            vm.deal(address(_WITHDRAWAL_QUEUE), 2 * vetoedStETHAmount);
+            _finalizeWQ();
+
+            while (!rageQuitEscrow.isWithdrawalsClaimed()) {
+                rageQuitEscrow.claimNextWithdrawalsBatch(128);
+            }
+
+            _wait(_config.RAGE_QUIT_EXTENSION_DELAY().plusSeconds(1));
             assertTrue(rageQuitEscrow.isRageQuitFinalized());
         }
 

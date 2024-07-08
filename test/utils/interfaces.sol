@@ -105,6 +105,9 @@ interface IWithdrawalQueue is IERC721 {
     function grantRole(bytes32 role, address account) external;
     function hasRole(bytes32 role, address account) external view returns (bool);
     function isPaused() external view returns (bool);
+    function resume() external;
+    function pauseFor(uint256 duration) external;
+    function getResumeSinceTimestamp() external view returns (uint256);
 }
 
 interface IDangerousContract {

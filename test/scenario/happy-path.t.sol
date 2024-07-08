@@ -29,14 +29,14 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _assertProposalSubmitted(proposalId);
         _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
+        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
         // the min execution delay hasn't elapsed yet
         vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposal(_dualGovernance, proposalId);
 
         // wait till the first phase of timelock passes
-        vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
+        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
 
         _assertCanSchedule(_dualGovernance, proposalId, true);
         _scheduleProposal(_dualGovernance, proposalId);
@@ -67,7 +67,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
 
         uint256 proposalId = _submitProposal(_dualGovernance, "Multiple items", multipleCalls);
 
-        _wait(_config.AFTER_SUBMIT_DELAY() / 2);
+        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
         // proposal can't be scheduled before the after submit delay has passed
         _assertCanSchedule(_dualGovernance, proposalId, false);
@@ -77,7 +77,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _scheduleProposal(_dualGovernance, proposalId);
 
         // wait till the DG-enforced timelock elapses
-        _wait(_config.AFTER_SUBMIT_DELAY() / 2 + 1);
+        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
 
         _assertCanSchedule(_dualGovernance, proposalId, true);
         _scheduleProposal(_dualGovernance, proposalId);

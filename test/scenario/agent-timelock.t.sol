@@ -76,7 +76,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         // ---
         {
             // wait until the delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
+            _wait(_config.AFTER_SUBMIT_DELAY().plusSeconds(1));
 
             // when the first delay is passed and the is no opposition from the stETH holders
             // the proposal can be scheduled
@@ -95,17 +95,17 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         {
             // some time passes and emergency committee activates emergency mode
             // and resets the controller
-            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
+            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
             // committee resets governance
-            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            vm.prank(address(_emergencyActivationCommittee));
             _timelock.activateEmergencyMode();
 
-            vm.prank(_EMERGENCY_EXECUTION_COMMITTEE);
+            vm.prank(address(_emergencyExecutionCommittee));
             _timelock.emergencyReset();
 
             // proposal is canceled now
-            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
+            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
 
             // remove canceled call from the timelock
             _assertCanExecute(proposalId, false);
