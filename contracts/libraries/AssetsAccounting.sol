@@ -1,14 +1,41 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {ETHValue, ETHValues} from "../types/ETHValue.sol";
+import {SharesValue, SharesValues} from "../types/SharesValue.sol";
+import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
 import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
 
-import {TimeUtils} from "../utils/time.sol";
-import {ArrayUtils} from "../utils/arrays.sol";
+import {Duration} from "../types/Duration.sol";
+import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 
-enum WithdrawalRequestState {
+struct HolderAssets {
+    // The total shares amount of stETH/wstETH accounted to the holder
+    SharesValue stETHLockedShares;
+    // The total shares amount of unstETH NFTs accounted to the holder
+    SharesValue unstETHLockedShares;
+    // The timestamp when the last time was accounted lock of shares or unstETHs
+    Timestamp lastAssetsLockTimestamp;
+    // The ids of the unstETH NFTs accounted to the holder
+    uint256[] unstETHIds;
+}
+
+struct UnstETHAccounting {
+    // The cumulative amount of unfinalized unstETH shares locked in the Escrow
+    SharesValue unfinalizedShares;
+    // The total amount of ETH claimable from the finalized unstETH locked in the Escrow
+    ETHValue finalizedETH;
+}
+
+struct StETHAccounting {
+    // The total amount of shares of locked stETH and wstETH tokens
+    SharesValue lockedShares;
+    // The total amount of ETH received during the claiming of the locked stETH
+    ETHValue claimedETH;
+}
+
+enum UnstETHRecordStatus {
     NotLocked,
     Locked,
     Finalized,
@@ -16,224 +43,148 @@ enum WithdrawalRequestState {
     Withdrawn
 }
 
-struct WithdrawalRequest {
-    address owner;
-    uint96 claimableAmount;
-    uint128 shares;
-    uint64 vetoerUnstETHIndexOneBased;
-    WithdrawalRequestState state;
-}
-
-struct LockedAssetsStats {
-    uint128 stETHShares;
-    uint128 wstETHShares;
-    uint128 unstETHShares;
-    uint128 sharesFinalized;
-    uint128 amountFinalized;
-    uint40 lastAssetsLockTimestamp;
-}
-
-struct LockedAssetsTotals {
-    uint128 shares;
-    uint128 sharesFinalized;
-    uint128 amountFinalized;
-    uint128 amountClaimed;
+struct UnstETHRecord {
+    // The one based index of the unstETH record in the UnstETHAccounting.unstETHIds list
+    IndexOneBased index;
+    // The address of the holder who locked unstETH
+    address lockedBy;
+    // The current status of the unstETH
+    UnstETHRecordStatus status;
+    // The amount of shares contained in the unstETH
+    SharesValue shares;
+    // The amount of ETH contained in the unstETH (this value equals to 0 until NFT is mark as finalized or claimed)
+    ETHValue claimableAmount;
 }
 
 library AssetsAccounting {
-    using SafeCast for uint256;
-
-    event StETHLocked(address indexed vetoer, uint256 shares);
-    event StETHUnlocked(address indexed vetoer, uint256 shares);
-    event StETHWithdrawn(address indexed vetoer, uint256 stETHShares, uint256 ethAmount);
-
-    event WstETHLocked(address indexed vetoer, uint256 shares);
-    event WstETHUnlocked(address indexed vetoer, uint256 shares);
-    event WstETHWithdrawn(address indexed vetoer, uint256 wstETHShares, uint256 ethAmount);
-
-    event UnstETHLocked(address indexed vetoer, uint256[] ids, uint256 shares);
-    event UnstETHUnlocked(
-        address indexed vetoer,
-        uint256[] ids,
-        uint256 sharesDecrement,
-        uint256 finalizedSharesDecrement,
-        uint256 finalizedAmountDecrement
-    );
-    event UnstETHFinalized(uint256[] ids, uint256 finalizedSharesIncrement, uint256 finalizedAmountIncrement);
-    event UnstETHClaimed(uint256[] ids, uint256 ethAmount);
-    event UnstETHWithdrawn(uint256[] ids, uint256 ethAmount);
-
-    event WithdrawalBatchCreated(uint256[] ids);
-    event WithdrawalBatchesClaimed(uint256 offset, uint256 count);
-
-    error NoBatchesToClaim();
-    error EmptyWithdrawalBatch();
-    error WithdrawalBatchesFormed();
-    error NotWithdrawalRequestOwner(uint256 id, address actual, address expected);
-    error InvalidSharesLock(address vetoer, uint256 shares);
-    error InvalidSharesUnlock(address vetoer, uint256 shares);
-    error InvalidSharesWithdraw(address vetoer, uint256 shares);
-    error WithdrawalRequestFinalized(uint256 id);
-    error ClaimableAmountChanged(uint256 id, uint256 actual, uint256 expected);
-    error WithdrawalRequestNotClaimable(uint256 id, WithdrawalRequestState state);
-    error WithdrawalRequestWasNotLocked(uint256 id);
-    error WithdrawalRequestAlreadyLocked(uint256 id);
-    error InvalidUnstETHOwner(address actual, address expected);
-    error InvalidWithdrawlRequestState(uint256 id, WithdrawalRequestState actual, WithdrawalRequestState expected);
-    error InvalidWithdrawalBatchesOffset(uint256 actual, uint256 expected);
-    error InvalidWithdrawalBatchesCount(uint256 actual, uint256 expected);
-    error AssetsUnlockDelayNotPassed(uint256 unlockTimelockExpiresAt);
-    error NotEnoughStETHToUnlock(uint256 requested, uint256 sharesBalance);
-
     struct State {
-        LockedAssetsTotals totals;
-        mapping(address vetoer => LockedAssetsStats) assets;
-        mapping(uint256 unstETHId => WithdrawalRequest) requests;
-        mapping(address vetoer => uint256[] unstETHIds) vetoersUnstETHIds;
-        uint256[] withdrawalBatchIds;
-        uint256 claimedBatchesCount;
-        bool isAllWithdrawalBatchesFormed;
+        StETHAccounting stETHTotals;
+        UnstETHAccounting unstETHTotals;
+        mapping(address account => HolderAssets) assets;
+        mapping(uint256 unstETHId => UnstETHRecord) unstETHRecords;
     }
 
     // ---
-    // stETH Operations Accounting
+    // Events
     // ---
 
-    function accountStETHLock(State storage self, address vetoer, uint256 shares) internal {
-        _checkNonZeroSharesLock(vetoer, shares);
-        uint128 sharesUint128 = shares.toUint128();
-        self.assets[vetoer].stETHShares += sharesUint128;
-        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
-        self.totals.shares += sharesUint128;
-        emit StETHLocked(vetoer, shares);
-    }
+    event ETHWithdrawn(address indexed holder, SharesValue shares, ETHValue value);
+    event StETHSharesLocked(address indexed holder, SharesValue shares);
+    event StETHSharesUnlocked(address indexed holder, SharesValue shares);
+    event UnstETHFinalized(uint256[] ids, SharesValue finalizedSharesIncrement, ETHValue finalizedAmountIncrement);
+    event UnstETHUnlocked(
+        address indexed holder, uint256[] ids, SharesValue finalizedSharesIncrement, ETHValue finalizedAmountIncrement
+    );
+    event UnstETHLocked(address indexed holder, uint256[] ids, SharesValue shares);
+    event UnstETHClaimed(uint256[] unstETHIds, ETHValue totalAmountClaimed);
+    event UnstETHWithdrawn(uint256[] unstETHIds, ETHValue amountWithdrawn);
 
-    function accountStETHUnlock(State storage self, address vetoer) internal returns (uint128 sharesUnlocked) {
-        sharesUnlocked = accountStETHUnlock(self, vetoer, self.assets[vetoer].stETHShares);
-    }
-
-    function accountStETHUnlock(
-        State storage self,
-        address vetoer,
-        uint256 shares
-    ) internal returns (uint128 sharesUnlocked) {
-        _checkStETHSharesUnlock(self, vetoer, shares);
-        sharesUnlocked = shares.toUint128();
-        self.totals.shares -= sharesUnlocked;
-        self.assets[vetoer].stETHShares -= sharesUnlocked;
-        emit StETHUnlocked(vetoer, sharesUnlocked);
-    }
-
-    function accountStETHWithdraw(State storage self, address vetoer) internal returns (uint256 ethAmount) {
-        uint256 stETHShares = self.assets[vetoer].stETHShares;
-        _checkNonZeroSharesWithdraw(vetoer, stETHShares);
-        self.assets[vetoer].stETHShares = 0;
-        ethAmount = self.totals.amountClaimed * stETHShares / self.totals.shares;
-        emit StETHWithdrawn(vetoer, stETHShares, ethAmount);
-    }
+    event ETHClaimed(ETHValue amount);
 
     // ---
-    // wstETH Operations Accounting
+    // Errors
     // ---
 
-    function checkAssetsUnlockDelayPassed(State storage self, address vetoer, uint256 delay) internal view {
-        _checkAssetsUnlockDelayPassed(self, delay, vetoer);
+    error InvalidSharesValue(SharesValue value);
+    error InvalidUnstETHStatus(uint256 unstETHId, UnstETHRecordStatus status);
+    error InvalidUnstETHHolder(uint256 unstETHId, address actual, address expected);
+    error AssetsUnlockDelayNotPassed(Timestamp unlockTimelockExpiresAt);
+    error InvalidClaimableAmount(uint256 unstETHId, ETHValue expected, ETHValue actual);
+
+    // ---
+    // stETH shares operations accounting
+    // ---
+
+    function accountStETHSharesLock(State storage self, address holder, SharesValue shares) internal {
+        _checkNonZeroShares(shares);
+        self.stETHTotals.lockedShares = self.stETHTotals.lockedShares + shares;
+        HolderAssets storage assets = self.assets[holder];
+        assets.stETHLockedShares = assets.stETHLockedShares + shares;
+        assets.lastAssetsLockTimestamp = Timestamps.now();
+        emit StETHSharesLocked(holder, shares);
     }
 
-    function accountWstETHLock(State storage self, address vetoer, uint256 shares) internal {
-        _checkNonZeroSharesLock(vetoer, shares);
-        uint128 sharesUint128 = shares.toUint128();
-        self.assets[vetoer].wstETHShares += sharesUint128;
-        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
-        self.totals.shares += sharesUint128;
-        emit WstETHLocked(vetoer, shares);
+    function accountStETHSharesUnlock(State storage self, address holder) internal returns (SharesValue shares) {
+        shares = self.assets[holder].stETHLockedShares;
+        accountStETHSharesUnlock(self, holder, shares);
     }
 
-    function accountWstETHUnlock(State storage self, address vetoer) internal returns (uint128 sharesUnlocked) {
-        sharesUnlocked = accountWstETHUnlock(self, vetoer, self.assets[vetoer].wstETHShares);
+    function accountStETHSharesUnlock(State storage self, address holder, SharesValue shares) internal {
+        _checkNonZeroShares(shares);
+
+        HolderAssets storage assets = self.assets[holder];
+        if (assets.stETHLockedShares < shares) {
+            revert InvalidSharesValue(shares);
+        }
+
+        self.stETHTotals.lockedShares = self.stETHTotals.lockedShares - shares;
+        assets.stETHLockedShares = assets.stETHLockedShares - shares;
+        emit StETHSharesUnlocked(holder, shares);
     }
 
-    function accountWstETHUnlock(
-        State storage self,
-        address vetoer,
-        uint256 shares
-    ) internal returns (uint128 sharesUnlocked) {
-        _checkNonZeroSharesUnlock(vetoer, shares);
-        sharesUnlocked = shares.toUint128();
-        self.totals.shares -= sharesUnlocked;
-        self.assets[vetoer].wstETHShares -= sharesUnlocked;
-        emit WstETHUnlocked(vetoer, sharesUnlocked);
+    function accountStETHSharesWithdraw(State storage self, address holder) internal returns (ETHValue ethWithdrawn) {
+        HolderAssets storage assets = self.assets[holder];
+        SharesValue stETHSharesToWithdraw = assets.stETHLockedShares;
+
+        _checkNonZeroShares(stETHSharesToWithdraw);
+
+        assets.stETHLockedShares = SharesValues.ZERO;
+        ethWithdrawn =
+            SharesValues.calcETHValue(self.stETHTotals.claimedETH, stETHSharesToWithdraw, self.stETHTotals.lockedShares);
+
+        emit ETHWithdrawn(holder, stETHSharesToWithdraw, ethWithdrawn);
     }
 
-    function accountWstETHWithdraw(State storage self, address vetoer) internal returns (uint256 ethAmount) {
-        uint256 wstETHShares = self.assets[vetoer].wstETHShares;
-        _checkNonZeroSharesWithdraw(vetoer, wstETHShares);
-        self.assets[vetoer].wstETHShares = 0;
-        ethAmount = self.totals.amountClaimed * wstETHShares / self.totals.shares;
-        emit WstETHWithdrawn(vetoer, wstETHShares, ethAmount);
+    function accountClaimedStETH(State storage self, ETHValue amount) internal {
+        self.stETHTotals.claimedETH = self.stETHTotals.claimedETH + amount;
+        emit ETHClaimed(amount);
     }
 
     // ---
-    // unstETH Operations Accounting
+    // unstETH operations accounting
     // ---
 
     function accountUnstETHLock(
         State storage self,
-        address vetoer,
+        address holder,
         uint256[] memory unstETHIds,
         WithdrawalRequestStatus[] memory statuses
     ) internal {
         assert(unstETHIds.length == statuses.length);
 
-        uint256 totalUnstETHSharesLocked;
+        SharesValue totalUnstETHLocked;
         uint256 unstETHcount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHcount; ++i) {
-            totalUnstETHSharesLocked += _addWithdrawalRequest(self, vetoer, unstETHIds[i], statuses[i]);
+            totalUnstETHLocked = totalUnstETHLocked + _addUnstETHRecord(self, holder, unstETHIds[i], statuses[i]);
         }
-        uint128 totalUnstETHSharesLockedUint128 = totalUnstETHSharesLocked.toUint128();
-        self.assets[vetoer].unstETHShares += totalUnstETHSharesLockedUint128;
-        self.assets[vetoer].lastAssetsLockTimestamp = TimeUtils.timestamp();
-        self.totals.shares += totalUnstETHSharesLockedUint128;
-        emit UnstETHLocked(vetoer, unstETHIds, totalUnstETHSharesLocked);
+        self.assets[holder].lastAssetsLockTimestamp = Timestamps.now();
+        self.assets[holder].unstETHLockedShares = self.assets[holder].unstETHLockedShares + totalUnstETHLocked;
+        self.unstETHTotals.unfinalizedShares = self.unstETHTotals.unfinalizedShares + totalUnstETHLocked;
+
+        emit UnstETHLocked(holder, unstETHIds, totalUnstETHLocked);
     }
 
-    function accountUnstETHUnlock(
-        State storage self,
-        uint256 assetsUnlockDelay,
-        address vetoer,
-        uint256[] memory unstETHIds
-    ) internal {
-        _checkAssetsUnlockDelayPassed(self, assetsUnlockDelay, vetoer);
-
-        uint256 totalUnstETHSharesUnlocked;
-        uint256 totalFinalizedSharesUnlocked;
-        uint256 totalFinalizedAmountUnlocked;
+    function accountUnstETHUnlock(State storage self, address holder, uint256[] memory unstETHIds) internal {
+        SharesValue totalSharesUnlocked;
+        SharesValue totalFinalizedSharesUnlocked;
+        ETHValue totalFinalizedAmountUnlocked;
 
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            (uint256 sharesUnlocked, uint256 finalizedSharesUnlocked, uint256 finalizedAmountUnlocked) =
-                _removeWithdrawalRequest(self, vetoer, unstETHIds[i]);
-
-            totalUnstETHSharesUnlocked += sharesUnlocked;
-            totalFinalizedSharesUnlocked += finalizedSharesUnlocked;
-            totalFinalizedAmountUnlocked += finalizedAmountUnlocked;
+            (SharesValue sharesUnlocked, ETHValue finalizedAmountUnlocked) =
+                _removeUnstETHRecord(self, holder, unstETHIds[i]);
+            if (finalizedAmountUnlocked > ETHValues.ZERO) {
+                totalFinalizedAmountUnlocked = totalFinalizedAmountUnlocked + finalizedAmountUnlocked;
+                totalFinalizedSharesUnlocked = totalFinalizedSharesUnlocked + sharesUnlocked;
+            }
+            totalSharesUnlocked = totalSharesUnlocked + sharesUnlocked;
         }
+        self.assets[holder].unstETHLockedShares = self.assets[holder].unstETHLockedShares - totalSharesUnlocked;
+        self.unstETHTotals.finalizedETH = self.unstETHTotals.finalizedETH - totalFinalizedAmountUnlocked;
+        self.unstETHTotals.unfinalizedShares =
+            self.unstETHTotals.unfinalizedShares - (totalSharesUnlocked - totalFinalizedSharesUnlocked);
 
-        uint128 totalUnstETHSharesUnlockedUint128 = totalUnstETHSharesUnlocked.toUint128();
-        uint128 totalFinalizedSharesUnlockedUint128 = totalFinalizedSharesUnlocked.toUint128();
-        uint128 totalFinalizedAmountUnlockedUint128 = totalFinalizedAmountUnlocked.toUint128();
-
-        self.assets[vetoer].unstETHShares -= totalUnstETHSharesUnlockedUint128;
-        self.assets[vetoer].sharesFinalized -= totalFinalizedSharesUnlockedUint128;
-        self.assets[vetoer].amountFinalized -= totalFinalizedAmountUnlockedUint128;
-
-        self.totals.shares -= totalUnstETHSharesUnlockedUint128;
-        self.totals.sharesFinalized -= totalFinalizedSharesUnlockedUint128;
-        self.totals.amountFinalized -= totalFinalizedAmountUnlockedUint128;
-
-        emit UnstETHUnlocked(
-            vetoer, unstETHIds, totalUnstETHSharesUnlocked, totalFinalizedSharesUnlocked, totalFinalizedAmountUnlocked
-        );
+        emit UnstETHUnlocked(holder, unstETHIds, totalSharesUnlocked, totalFinalizedAmountUnlocked);
     }
 
     function accountUnstETHFinalized(
@@ -243,26 +194,19 @@ library AssetsAccounting {
     ) internal {
         assert(claimableAmounts.length == unstETHIds.length);
 
-        uint256 totalSharesFinalized;
-        uint256 totalAmountFinalized;
+        ETHValue totalAmountFinalized;
+        SharesValue totalSharesFinalized;
 
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            (address owner, uint256 sharesFinalized, uint256 amountFinalized) =
-                _finalizeWithdrawalRequest(self, unstETHIds[i], claimableAmounts[i]);
-
-            self.assets[owner].sharesFinalized += sharesFinalized.toUint128();
-            self.assets[owner].amountFinalized += amountFinalized.toUint128();
-
-            totalSharesFinalized += sharesFinalized;
-            totalAmountFinalized += amountFinalized;
+            (SharesValue sharesFinalized, ETHValue amountFinalized) =
+                _finalizeUnstETHRecord(self, unstETHIds[i], claimableAmounts[i]);
+            totalSharesFinalized = totalSharesFinalized + sharesFinalized;
+            totalAmountFinalized = totalAmountFinalized + amountFinalized;
         }
-        uint128 totalSharesFinalizedUint128 = totalSharesFinalized.toUint128();
-        uint128 totalAmountFinalizedUint128 = totalAmountFinalized.toUint128();
 
-        self.totals.sharesFinalized += totalSharesFinalizedUint128;
-        self.totals.amountFinalized += totalAmountFinalizedUint128;
-
+        self.unstETHTotals.finalizedETH = self.unstETHTotals.finalizedETH + totalAmountFinalized;
+        self.unstETHTotals.unfinalizedShares = self.unstETHTotals.unfinalizedShares - totalSharesFinalized;
         emit UnstETHFinalized(unstETHIds, totalSharesFinalized, totalAmountFinalized);
     }
 
@@ -270,292 +214,174 @@ library AssetsAccounting {
         State storage self,
         uint256[] memory unstETHIds,
         uint256[] memory claimableAmounts
-    ) internal returns (uint256 totalAmountClaimed) {
+    ) internal returns (ETHValue totalAmountClaimed) {
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            totalAmountClaimed += _claimWithdrawalRequest(self, unstETHIds[i], claimableAmounts[i]);
+            ETHValue claimableAmount = ETHValues.from(claimableAmounts[i]);
+            totalAmountClaimed = totalAmountClaimed + claimableAmount;
+            _claimUnstETHRecord(self, unstETHIds[i], claimableAmount);
         }
-        self.totals.amountClaimed += totalAmountClaimed.toUint128();
         emit UnstETHClaimed(unstETHIds, totalAmountClaimed);
     }
 
     function accountUnstETHWithdraw(
         State storage self,
-        address vetoer,
+        address holder,
         uint256[] calldata unstETHIds
-    ) internal returns (uint256 amountWithdrawn) {
+    ) internal returns (ETHValue amountWithdrawn) {
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            amountWithdrawn += _withdrawWithdrawalRequest(self, vetoer, unstETHIds[i]);
+            amountWithdrawn = amountWithdrawn + _withdrawUnstETHRecord(self, holder, unstETHIds[i]);
         }
         emit UnstETHWithdrawn(unstETHIds, amountWithdrawn);
-    }
-
-    // ---
-    // Withdraw Batches
-    // ---
-
-    function formWithdrawalBatch(
-        State storage self,
-        uint256 minRequestAmount,
-        uint256 maxRequestAmount,
-        uint256 stETHBalance,
-        uint256 requestAmountsCountLimit
-    ) internal returns (uint256[] memory requestAmounts) {
-        if (self.isAllWithdrawalBatchesFormed) {
-            revert WithdrawalBatchesFormed();
-        }
-        if (requestAmountsCountLimit == 0) {
-            revert EmptyWithdrawalBatch();
-        }
-
-        uint256 maxAmount = maxRequestAmount * requestAmountsCountLimit;
-        if (stETHBalance >= maxAmount) {
-            return ArrayUtils.seed(requestAmountsCountLimit, maxRequestAmount);
-        }
-
-        self.isAllWithdrawalBatchesFormed = true;
-
-        uint256 requestsCount = stETHBalance / maxRequestAmount;
-        uint256 lastRequestAmount = stETHBalance % maxRequestAmount;
-
-        if (lastRequestAmount < minRequestAmount) {
-            return ArrayUtils.seed(requestsCount, maxRequestAmount);
-        }
-
-        requestAmounts = ArrayUtils.seed(requestsCount + 1, maxRequestAmount);
-        requestAmounts[requestsCount] = lastRequestAmount;
-    }
-
-    function accountWithdrawalBatch(State storage self, uint256[] memory unstETHIds) internal {
-        uint256 unstETHIdsCount = unstETHIds.length;
-        for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            self.withdrawalBatchIds.push(unstETHIds[i]);
-        }
-        emit WithdrawalBatchCreated(unstETHIds);
-    }
-
-    function accountWithdrawalBatchClaimed(
-        State storage self,
-        uint256 offset,
-        uint256 count
-    ) internal returns (uint256[] memory unstETHIds) {
-        if (count == 0) {
-            return unstETHIds;
-        }
-        uint256 batchesCount = self.withdrawalBatchIds.length;
-        uint256 claimedBatchesCount = self.claimedBatchesCount;
-        if (claimedBatchesCount == batchesCount) {
-            revert NoBatchesToClaim();
-        }
-        if (claimedBatchesCount != offset) {
-            revert InvalidWithdrawalBatchesOffset(offset, claimedBatchesCount);
-        }
-        if (count > batchesCount - claimedBatchesCount) {
-            revert InvalidWithdrawalBatchesCount(count, batchesCount - claimedBatchesCount);
-        }
-
-        unstETHIds = new uint256[](count);
-        for (uint256 i = 0; i < count; ++i) {
-            unstETHIds[i] = self.withdrawalBatchIds[claimedBatchesCount + i];
-        }
-        self.claimedBatchesCount += count;
-        emit WithdrawalBatchesClaimed(offset, count);
-    }
-
-    function accountClaimedETH(State storage self, uint256 amount) internal {
-        self.totals.amountClaimed += amount.toUint128();
     }
 
     // ---
     // Getters
     // ---
 
-    function getLocked(State storage self) internal view returns (uint256 rebaseableShares, uint256 finalizedAmount) {
-        rebaseableShares = self.totals.shares - self.totals.sharesFinalized;
-        finalizedAmount = self.totals.amountFinalized;
+    function getLockedAssetsTotals(State storage self)
+        internal
+        view
+        returns (SharesValue ufinalizedShares, ETHValue finalizedETH)
+    {
+        finalizedETH = self.unstETHTotals.finalizedETH;
+        ufinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
     }
 
-    function getIsWithdrawalsClaimed(State storage self) internal view returns (bool) {
-        return self.claimedBatchesCount == self.withdrawalBatchIds.length;
-    }
-
-    function _checkWithdrawalRequestStatusOwner(WithdrawalRequestStatus memory status, address account) private pure {
-        if (status.owner != account) {
-            revert InvalidUnstETHOwner(account, status.owner);
+    function checkAssetsUnlockDelayPassed(
+        State storage self,
+        address holder,
+        Duration assetsUnlockDelay
+    ) internal view {
+        Timestamp assetsUnlockAllowedAfter = assetsUnlockDelay.addTo(self.assets[holder].lastAssetsLockTimestamp);
+        if (Timestamps.now() <= assetsUnlockAllowedAfter) {
+            revert AssetsUnlockDelayNotPassed(assetsUnlockAllowedAfter);
         }
     }
 
     // ---
-    // Private Methods
+    // Helper methods
     // ---
 
-    function _addWithdrawalRequest(
+    function _addUnstETHRecord(
         State storage self,
-        address vetoer,
+        address holder,
         uint256 unstETHId,
         WithdrawalRequestStatus memory status
-    ) private returns (uint256 amountOfShares) {
-        amountOfShares = status.amountOfShares;
-        WithdrawalRequest storage request = self.requests[unstETHId];
-
-        _checkWithdrawalRequestNotLocked(request, unstETHId);
-        _checkWithdrawalRequestStatusNotFinalized(status, unstETHId);
-
-        self.vetoersUnstETHIds[vetoer].push(unstETHId);
-
-        request.owner = vetoer;
-        request.state = WithdrawalRequestState.Locked;
-        request.vetoerUnstETHIndexOneBased = self.vetoersUnstETHIds[vetoer].length.toUint64();
-        request.shares = amountOfShares.toUint128();
-        assert(request.claimableAmount == 0);
-    }
-
-    function _removeWithdrawalRequest(
-        State storage self,
-        address vetoer,
-        uint256 unstETHId
-    ) private returns (uint256 sharesUnlocked, uint256 finalizedSharesUnlocked, uint256 finalizedAmountUnlocked) {
-        WithdrawalRequest storage request = self.requests[unstETHId];
-
-        _checkWithdrawalRequestOwner(request, vetoer);
-        _checkWithdrawalRequestWasLocked(request, unstETHId);
-
-        sharesUnlocked = request.shares;
-        if (request.state == WithdrawalRequestState.Finalized) {
-            finalizedSharesUnlocked = sharesUnlocked;
-            finalizedAmountUnlocked = request.claimableAmount;
-        }
-
-        uint256[] storage vetoerUnstETHIds = self.vetoersUnstETHIds[vetoer];
-        uint256 unstETHIdIndex = request.vetoerUnstETHIndexOneBased - 1;
-        uint256 lastUnstETHIdIndex = vetoerUnstETHIds.length - 1;
-        if (lastUnstETHIdIndex != unstETHIdIndex) {
-            uint256 lastUnstETHId = vetoerUnstETHIds[lastUnstETHIdIndex];
-            vetoerUnstETHIds[unstETHIdIndex] = lastUnstETHId;
-            self.requests[lastUnstETHId].vetoerUnstETHIndexOneBased = (unstETHIdIndex + 1).toUint64();
-        }
-        vetoerUnstETHIds.pop();
-        delete self.requests[unstETHId];
-    }
-
-    function _finalizeWithdrawalRequest(
-        State storage self,
-        uint256 unstETHId,
-        uint256 claimableAmount
-    ) private returns (address owner, uint256 sharesFinalized, uint256 amountFinalized) {
-        WithdrawalRequest storage request = self.requests[unstETHId];
-        if (claimableAmount == 0 || request.state != WithdrawalRequestState.Locked) {
-            return (request.owner, 0, 0);
-        }
-        owner = request.owner;
-        request.state = WithdrawalRequestState.Finalized;
-        request.claimableAmount = claimableAmount.toUint96();
-
-        sharesFinalized = request.shares;
-        amountFinalized = claimableAmount;
-    }
-
-    function _claimWithdrawalRequest(
-        State storage self,
-        uint256 unstETHId,
-        uint256 claimableAmount
-    ) private returns (uint256 amountClaimed) {
-        WithdrawalRequest storage request = self.requests[unstETHId];
-
-        if (request.state != WithdrawalRequestState.Locked && request.state != WithdrawalRequestState.Finalized) {
-            revert WithdrawalRequestNotClaimable(unstETHId, request.state);
-        }
-        if (request.state == WithdrawalRequestState.Finalized && request.claimableAmount != claimableAmount) {
-            revert ClaimableAmountChanged(unstETHId, claimableAmount, request.claimableAmount);
-        } else {
-            request.claimableAmount = claimableAmount.toUint96();
-        }
-        request.state = WithdrawalRequestState.Claimed;
-        amountClaimed = claimableAmount;
-    }
-
-    function _withdrawWithdrawalRequest(
-        State storage self,
-        address vetoer,
-        uint256 unstETHId
-    ) private returns (uint256 amountWithdrawn) {
-        WithdrawalRequest storage request = self.requests[unstETHId];
-
-        if (request.owner != vetoer) {
-            revert NotWithdrawalRequestOwner(unstETHId, vetoer, request.owner);
-        }
-        if (request.state != WithdrawalRequestState.Claimed) {
-            revert InvalidWithdrawlRequestState(unstETHId, request.state, WithdrawalRequestState.Claimed);
-        }
-        request.state = WithdrawalRequestState.Withdrawn;
-        amountWithdrawn = request.claimableAmount;
-    }
-
-    function _checkWithdrawalRequestOwner(WithdrawalRequest storage request, address account) private view {
-        if (request.owner != account) {
-            revert InvalidUnstETHOwner(account, request.owner);
-        }
-    }
-
-    function _checkWithdrawalRequestStatusNotFinalized(
-        WithdrawalRequestStatus memory status,
-        uint256 id
-    ) private pure {
+    ) private returns (SharesValue shares) {
         if (status.isFinalized) {
-            revert WithdrawalRequestFinalized(id);
+            revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.Finalized);
         }
-        // it can't be claimed without finalization
+        // must never be true, for unfinalized requests
         assert(!status.isClaimed);
-    }
 
-    function _checkWithdrawalRequestNotLocked(WithdrawalRequest storage request, uint256 unstETHId) private view {
-        if (request.vetoerUnstETHIndexOneBased != 0) {
-            revert WithdrawalRequestAlreadyLocked(unstETHId);
-        }
-    }
-
-    function _checkWithdrawalRequestWasLocked(WithdrawalRequest storage request, uint256 id) private view {
-        if (request.vetoerUnstETHIndexOneBased == 0) {
-            revert WithdrawalRequestWasNotLocked(id);
-        }
-    }
-
-    function _checkNonZeroSharesLock(address vetoer, uint256 shares) private pure {
-        if (shares == 0) {
-            revert InvalidSharesLock(vetoer, 0);
-        }
-    }
-
-    function _checkNonZeroSharesUnlock(address vetoer, uint256 shares) private pure {
-        if (shares == 0) {
-            revert InvalidSharesUnlock(vetoer, 0);
-        }
-    }
-
-    function _checkStETHSharesUnlock(State storage self, address vetoer, uint256 shares) private view {
-        if (shares == 0) {
-            revert InvalidSharesUnlock(vetoer, 0);
+        if (self.unstETHRecords[unstETHId].status != UnstETHRecordStatus.NotLocked) {
+            revert InvalidUnstETHStatus(unstETHId, self.unstETHRecords[unstETHId].status);
         }
 
-        if (self.assets[vetoer].stETHShares < shares) {
-            revert NotEnoughStETHToUnlock(shares, self.assets[vetoer].stETHShares);
-        }
+        HolderAssets storage assets = self.assets[holder];
+        assets.unstETHIds.push(unstETHId);
+
+        shares = SharesValues.from(status.amountOfShares);
+        self.unstETHRecords[unstETHId] = UnstETHRecord({
+            lockedBy: holder,
+            status: UnstETHRecordStatus.Locked,
+            index: IndicesOneBased.from(assets.unstETHIds.length),
+            shares: shares,
+            claimableAmount: ETHValues.ZERO
+        });
     }
 
-    function _checkNonZeroSharesWithdraw(address vetoer, uint256 shares) private pure {
-        if (shares == 0) {
-            revert InvalidSharesWithdraw(vetoer, 0);
-        }
-    }
-
-    function _checkAssetsUnlockDelayPassed(
+    function _removeUnstETHRecord(
         State storage self,
-        uint256 assetsUnlockDelay,
-        address vetoer
-    ) private view {
-        if (block.timestamp <= self.assets[vetoer].lastAssetsLockTimestamp + assetsUnlockDelay) {
-            revert AssetsUnlockDelayNotPassed(self.assets[vetoer].lastAssetsLockTimestamp + assetsUnlockDelay);
+        address holder,
+        uint256 unstETHId
+    ) private returns (SharesValue sharesUnlocked, ETHValue finalizedAmountUnlocked) {
+        UnstETHRecord storage unstETHRecord = self.unstETHRecords[unstETHId];
+
+        if (unstETHRecord.lockedBy != holder) {
+            revert InvalidUnstETHHolder(unstETHId, holder, unstETHRecord.lockedBy);
+        }
+
+        if (unstETHRecord.status == UnstETHRecordStatus.NotLocked) {
+            revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.NotLocked);
+        }
+
+        sharesUnlocked = unstETHRecord.shares;
+        if (unstETHRecord.status == UnstETHRecordStatus.Finalized) {
+            finalizedAmountUnlocked = unstETHRecord.claimableAmount;
+        }
+
+        HolderAssets storage assets = self.assets[holder];
+        IndexOneBased unstETHIdIndex = unstETHRecord.index;
+        IndexOneBased lastUnstETHIdIndex = IndicesOneBased.from(assets.unstETHIds.length);
+
+        if (lastUnstETHIdIndex != unstETHIdIndex) {
+            uint256 lastUnstETHId = assets.unstETHIds[lastUnstETHIdIndex.value()];
+            assets.unstETHIds[unstETHIdIndex.value()] = lastUnstETHId;
+            self.unstETHRecords[lastUnstETHId].index = unstETHIdIndex;
+        }
+        assets.unstETHIds.pop();
+        delete self.unstETHRecords[unstETHId];
+    }
+
+    function _finalizeUnstETHRecord(
+        State storage self,
+        uint256 unstETHId,
+        uint256 claimableAmount
+    ) private returns (SharesValue sharesFinalized, ETHValue amountFinalized) {
+        UnstETHRecord storage unstETHRecord = self.unstETHRecords[unstETHId];
+        if (claimableAmount == 0 || unstETHRecord.status != UnstETHRecordStatus.Locked) {
+            return (sharesFinalized, amountFinalized);
+        }
+        sharesFinalized = unstETHRecord.shares;
+        amountFinalized = ETHValues.from(claimableAmount);
+
+        unstETHRecord.status = UnstETHRecordStatus.Finalized;
+        unstETHRecord.claimableAmount = amountFinalized;
+
+        self.unstETHRecords[unstETHId] = unstETHRecord;
+    }
+
+    function _claimUnstETHRecord(State storage self, uint256 unstETHId, ETHValue claimableAmount) private {
+        UnstETHRecord storage unstETHRecord = self.unstETHRecords[unstETHId];
+        if (unstETHRecord.status != UnstETHRecordStatus.Locked && unstETHRecord.status != UnstETHRecordStatus.Finalized)
+        {
+            revert InvalidUnstETHStatus(unstETHId, unstETHRecord.status);
+        }
+        if (unstETHRecord.status == UnstETHRecordStatus.Finalized) {
+            // if the unstETH was marked finalized earlier, it's claimable amount must stay the same
+            if (unstETHRecord.claimableAmount != claimableAmount) {
+                revert InvalidClaimableAmount(unstETHId, claimableAmount, unstETHRecord.claimableAmount);
+            }
+        } else {
+            unstETHRecord.claimableAmount = claimableAmount;
+        }
+        unstETHRecord.status = UnstETHRecordStatus.Claimed;
+        self.unstETHRecords[unstETHId] = unstETHRecord;
+    }
+
+    function _withdrawUnstETHRecord(
+        State storage self,
+        address holder,
+        uint256 unstETHId
+    ) private returns (ETHValue amountWithdrawn) {
+        UnstETHRecord storage unstETHRecord = self.unstETHRecords[unstETHId];
+
+        if (unstETHRecord.status != UnstETHRecordStatus.Claimed) {
+            revert InvalidUnstETHStatus(unstETHId, unstETHRecord.status);
+        }
+        if (unstETHRecord.lockedBy != holder) {
+            revert InvalidUnstETHHolder(unstETHId, holder, unstETHRecord.lockedBy);
+        }
+        unstETHRecord.status = UnstETHRecordStatus.Withdrawn;
+        amountWithdrawn = unstETHRecord.claimableAmount;
+    }
+
+    function _checkNonZeroShares(SharesValue shares) private pure {
+        if (shares == SharesValues.ZERO) {
+            revert InvalidSharesValue(SharesValues.ZERO);
         }
     }
 }

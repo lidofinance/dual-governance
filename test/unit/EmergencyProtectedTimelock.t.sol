@@ -12,7 +12,7 @@ import {Executor} from "contracts/Executor.sol";
 import {Proposal, Proposals, ExecutorCall, Status} from "contracts/libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "contracts/libraries/EmergencyProtection.sol";
 
-import {UnitTest} from "test/utils/unit-test.sol";
+import {UnitTest, Duration, Timestamp, Timestamps, Durations, console} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/utils.sol";
 import {ExecutorCallHelpers} from "test/utils/executor-calls.sol";
 import {IDangerousContract} from "test/utils/interfaces.sol";
@@ -25,8 +25,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     address private _emergencyActivator = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
     address private _emergencyEnactor = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
-    uint256 private _emergencyModeDuration = 180 days;
-    uint256 private _emergencyProtectionDuration = 90 days;
+    Duration private _emergencyModeDuration = Durations.from(180 days);
+    Duration private _emergencyProtectionDuration = Durations.from(90 days);
 
     address private _emergencyGovernance = makeAddr("EMERGENCY_GOVERNANCE");
     address private _dualGovernance = makeAddr("DUAL_GOVERNANCE");
@@ -395,7 +395,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         EmergencyState memory state = _timelock.getEmergencyState();
         assertEq(_isEmergencyStateActivated(), true);
 
-        _wait(state.emergencyModeDuration + 1);
+        _wait(state.emergencyModeDuration.plusSeconds(1));
 
         vm.prank(stranger);
         _timelock.deactivateEmergencyMode();
@@ -449,9 +449,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         assertEq(newState.activationCommittee, address(0));
         assertEq(newState.executionCommittee, address(0));
-        assertEq(newState.protectedTill, 0);
-        assertEq(newState.emergencyModeDuration, 0);
-        assertEq(newState.emergencyModeEndsAfter, 0);
+        assertEq(newState.protectedTill, Timestamps.ZERO);
+        assertEq(newState.emergencyModeDuration, Durations.ZERO);
+        assertEq(newState.emergencyModeEndsAfter, Timestamps.ZERO);
     }
 
     function test_after_emergency_reset_all_proposals_are_cancelled() external {
@@ -518,9 +518,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         assertEq(state.activationCommittee, _emergencyActivator);
         assertEq(state.executionCommittee, _emergencyEnactor);
-        assertEq(state.protectedTill, block.timestamp + _emergencyProtectionDuration);
+        assertEq(state.protectedTill, _emergencyProtectionDuration.addTo(Timestamps.now()));
         assertEq(state.emergencyModeDuration, _emergencyModeDuration);
-        assertEq(state.emergencyModeEndsAfter, 0);
+        assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
         assertEq(state.isEmergencyModeActivated, false);
     }
 
@@ -540,9 +540,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         assertEq(state.activationCommittee, address(0));
         assertEq(state.executionCommittee, address(0));
-        assertEq(state.protectedTill, 0);
-        assertEq(state.emergencyModeDuration, 0);
-        assertEq(state.emergencyModeEndsAfter, 0);
+        assertEq(state.protectedTill, Timestamps.ZERO);
+        assertEq(state.emergencyModeDuration, Durations.ZERO);
+        assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
         assertEq(state.isEmergencyModeActivated, false);
     }
 
@@ -604,9 +604,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(state.isEmergencyModeActivated, false);
         assertEq(state.activationCommittee, address(0));
         assertEq(state.executionCommittee, address(0));
-        assertEq(state.protectedTill, 0);
-        assertEq(state.emergencyModeDuration, 0);
-        assertEq(state.emergencyModeEndsAfter, 0);
+        assertEq(state.protectedTill, Timestamps.ZERO);
+        assertEq(state.emergencyModeDuration, Durations.ZERO);
+        assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
 
         vm.prank(_adminExecutor);
         _localTimelock.setEmergencyProtection(
@@ -618,9 +618,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_localTimelock.getEmergencyState().isEmergencyModeActivated, false);
         assertEq(state.activationCommittee, _emergencyActivator);
         assertEq(state.executionCommittee, _emergencyEnactor);
-        assertEq(state.protectedTill, block.timestamp + _emergencyProtectionDuration);
+        assertEq(state.protectedTill, _emergencyProtectionDuration.addTo(Timestamps.now()));
         assertEq(state.emergencyModeDuration, _emergencyModeDuration);
-        assertEq(state.emergencyModeEndsAfter, 0);
+        assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
 
         vm.prank(_emergencyActivator);
         _localTimelock.activateEmergencyMode();
@@ -628,11 +628,11 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         state = _localTimelock.getEmergencyState();
 
         assertEq(_localTimelock.getEmergencyState().isEmergencyModeActivated, true);
-        assertEq(state.activationCommittee, _emergencyActivator);
         assertEq(state.executionCommittee, _emergencyEnactor);
-        assertEq(state.protectedTill, block.timestamp + _emergencyProtectionDuration);
+        assertEq(state.activationCommittee, _emergencyActivator);
         assertEq(state.emergencyModeDuration, _emergencyModeDuration);
-        assertEq(state.emergencyModeEndsAfter, block.timestamp + _emergencyModeDuration);
+        assertEq(state.protectedTill, _emergencyProtectionDuration.addTo(Timestamps.now()));
+        assertEq(state.emergencyModeEndsAfter, _emergencyModeDuration.addTo(Timestamps.now()));
 
         vm.prank(_adminExecutor);
         _localTimelock.deactivateEmergencyMode();
@@ -642,9 +642,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(state.isEmergencyModeActivated, false);
         assertEq(state.activationCommittee, address(0));
         assertEq(state.executionCommittee, address(0));
-        assertEq(state.protectedTill, 0);
-        assertEq(state.emergencyModeDuration, 0);
-        assertEq(state.emergencyModeEndsAfter, 0);
+        assertEq(state.protectedTill, Timestamps.ZERO);
+        assertEq(state.emergencyModeDuration, Durations.ZERO);
+        assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
     }
 
     function test_get_emergency_state_reset() external {
@@ -666,15 +666,15 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(state.isEmergencyModeActivated, false);
         assertEq(state.activationCommittee, address(0));
         assertEq(state.executionCommittee, address(0));
-        assertEq(state.protectedTill, 0);
-        assertEq(state.emergencyModeDuration, 0);
-        assertEq(state.emergencyModeEndsAfter, 0);
+        assertEq(state.protectedTill, Timestamps.ZERO);
+        assertEq(state.emergencyModeDuration, Durations.ZERO);
+        assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
     }
 
     // EmergencyProtectedTimelock.getGovernance()
 
     function testFuzz_get_governance(address governance) external {
-        vm.assume(governance != address(0));
+        vm.assume(governance != address(0) && governance != _timelock.getGovernance());
         vm.prank(_adminExecutor);
         _timelock.setGovernance(governance);
         assertEq(_timelock.getGovernance(), governance);
@@ -692,13 +692,13 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         Proposal memory submittedProposal = _timelock.getProposal(1);
 
-        uint256 submitTimestamp = block.timestamp;
+        Timestamp submitTimestamp = Timestamps.now();
 
         assertEq(submittedProposal.id, 1);
         assertEq(submittedProposal.executor, _adminExecutor);
         assertEq(submittedProposal.submittedAt, submitTimestamp);
-        assertEq(submittedProposal.scheduledAt, 0);
-        assertEq(submittedProposal.executedAt, 0);
+        assertEq(submittedProposal.scheduledAt, Timestamps.ZERO);
+        assertEq(submittedProposal.executedAt, Timestamps.ZERO);
         // assertEq doesn't support comparing enumerables so far
         assert(submittedProposal.status == Status.Submitted);
         assertEq(submittedProposal.calls.length, 1);
@@ -709,7 +709,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _wait(_config.AFTER_SUBMIT_DELAY());
 
         _timelock.schedule(1);
-        uint256 scheduleTimestamp = block.timestamp;
+        Timestamp scheduleTimestamp = Timestamps.now();
 
         Proposal memory scheduledProposal = _timelock.getProposal(1);
 
@@ -717,7 +717,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(scheduledProposal.executor, _adminExecutor);
         assertEq(scheduledProposal.submittedAt, submitTimestamp);
         assertEq(scheduledProposal.scheduledAt, scheduleTimestamp);
-        assertEq(scheduledProposal.executedAt, 0);
+        assertEq(scheduledProposal.executedAt, Timestamps.ZERO);
         // // assertEq doesn't support comparing enumerables so far
         assert(scheduledProposal.status == Status.Scheduled);
         assertEq(scheduledProposal.calls.length, 1);
@@ -730,7 +730,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.execute(1);
 
         Proposal memory executedProposal = _timelock.getProposal(1);
-        uint256 executeTimestamp = block.timestamp;
+        Timestamp executeTimestamp = Timestamps.now();
 
         assertEq(executedProposal.id, 1);
         assertEq(executedProposal.executor, _adminExecutor);
@@ -751,8 +751,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(cancelledProposal.id, 2);
         assertEq(cancelledProposal.executor, _adminExecutor);
         assertEq(cancelledProposal.submittedAt, submitTimestamp);
-        assertEq(cancelledProposal.scheduledAt, 0);
-        assertEq(cancelledProposal.executedAt, 0);
+        assertEq(cancelledProposal.scheduledAt, Timestamps.ZERO);
+        assertEq(cancelledProposal.executedAt, Timestamps.ZERO);
         // assertEq doesn't support comparing enumerables so far
         assert(cancelledProposal.status == Status.Cancelled);
         assertEq(cancelledProposal.calls.length, 1);
@@ -823,6 +823,13 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.cancelAllNonExecutedProposals();
 
         assertEq(_timelock.canSchedule(1), false);
+    }
+
+    // EmergencyProtectedTimelock.getProposalSubmissionTime()
+
+    function test_get_proposal_submission_time() external {
+        _submitProposal();
+        assertEq(_timelock.getProposalSubmissionTime(1), Timestamps.now());
     }
 
     // Utils

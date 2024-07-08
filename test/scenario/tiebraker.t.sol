@@ -30,7 +30,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _assertNormalState();
         _lockStETH(_VETOER, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
         _lockStETH(_VETOER, 1 gwei);
-        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION() + 1);
+        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
         _wait(_config.TIE_BREAK_ACTIVATION_TIMEOUT());
@@ -105,7 +105,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _assertNormalState();
         _lockStETH(_VETOER, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
         _lockStETH(_VETOER, 1 gwei);
-        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION() + 1);
+        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
         _wait(_config.TIE_BREAK_ACTIVATION_TIMEOUT());

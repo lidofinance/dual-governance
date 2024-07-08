@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
+import {Timestamp} from "contracts/types/Timestamp.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {ExecutorCall} from "contracts/libraries/Proposals.sol";
 
@@ -22,13 +23,12 @@ contract TimelockMock is ITimelock {
         return newProposalId;
     }
 
-    function schedule(uint256 proposalId) external returns (uint256 submittedAt) {
+    function schedule(uint256 proposalId) external {
         if (canScheduleProposal[proposalId] == false) {
             revert();
         }
 
         scheduledProposals.push(proposalId);
-        return 0;
     }
 
     function execute(uint256 proposalId) external {
@@ -65,5 +65,9 @@ contract TimelockMock is ITimelock {
 
     function getLastCancelledProposalId() external view returns (uint256) {
         return lastCancelledProposalId;
+    }
+
+    function getProposalSubmissionTime(uint256 proposalId) external view returns (Timestamp submittedAt) {
+        revert("Not Implemented");
     }
 }
