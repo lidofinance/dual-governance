@@ -101,6 +101,7 @@ test_list=()
 if [ "$SCRIPT_TESTS" == true ]; then
     # Here go the list of tests to execute with the `script` option
     test_list=(
+        "VetoCooldownTest.testVetoCooldownDuration"
         "VetoSignallingTest.testTransitionNormalToVetoSignalling"
         "VetoSignallingTest.testVetoSignallingInvariantsHoldInitially"
         "EscrowAccountingTest.testRageQuitSupport"
