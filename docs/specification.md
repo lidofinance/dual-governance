@@ -34,20 +34,19 @@ This document provides the system description on the code architecture level. A 
 
 ## System overview
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/0ca7686c-63bb-489a-bc6a-59d8b9982969)
+![image](https://github.com/lidofinance/dual-governance/assets/870356/6beb05c4-3b7a-407a-b840-18e368a1d8c9)
 
 The system is composed of the following main contracts:
 
 * [`DualGovernance.sol`](#Contract-DualGovernancesol) is a singleton that provides an interface for submitting governance proposals and scheduling their execution, as well as managing the list of supported proposers (DAO voting systems). Implements a state machine tracking the current global governance state which, in turn, determines whether proposal submission and execution is currently allowed.
 * [`EmergencyProtectedTimelock.sol`](#Contract-EmergencyProtectedTimelocksol) is a singleton that stores submitted proposals and provides an interface for their execution. In addition, it implements an optional temporary protection from a zero-day vulnerability in the dual governance contracts following the initial deployment or upgrade of the system. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and disable the dual governance.
 * [`Executor.sol`](#Contract-Executorsol) contract instances make calls resulting from governance proposals' execution. Every protocol permission or role protected by the DG, as well as the permission to manage this role/permission, should be assigned exclusively to one of the instances of this contract (in contrast with being assigned directly to a DAO voting system).
-* [`ResealExecutor.sol`](#Contract-ResealExecutorsol) contract instances make calls to extend protocol withdrawals pause in case of contracts were put into an emergency pause by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals) and the DAO governance is currently blocked by the DG system. Has pause and resume roles for all protocols withdrawals contracts.
 * [`Escrow.sol`](#Contract-Escrowsol) is a contract that can hold stETH, wstETH, withdrawal NFTs, and plain ETH. It can exist in two states, each serving a different purpose: either an oracle for users' opposition to DAO proposals or an immutable and ungoverned accumulator for the ETH withdrawn as a result of the [rage quit](#Rage-quit).
 * [`TiebreakerCore.sol`](#contract-tiebreakercoresol) allows to approve proposals for execution and release protocol withdrawals in case of DAO execution ability is locked by `DualGovernance`. Consists of set of `TiebreakerSubCommittee` appointed by the DAO.
 * [`TiebreakerSubCommittee.sol`](#contract-tiebreakersubcommitteesol) provides ability to participate in `TiebreakerCore` for external actors.
 * [`EmergencyActivationCommittee`](#contract-emergencyactivationcommitteesol) contract that can activate the Emergency Mode, while only `EmergencyExecutionCommittee` can perform proposal execution. Requires to get quorum from committee members.
 * [`EmergencyExecutionCommittee`](#contract-emergencyexecutioncommitteesol) contract provides ability to execute proposals in case of the Emergency Mode or renounce renounce further execution rights, by getting quorum of committee members.
-* [`ResealExecutor`]
+* [`ResealManager.sol`](#Contract-ResealManagersol) contract instances make calls to extend pause or resume sealables in case of contracts were put into an emergency pause by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals) and the DAO governance is currently blocked by the DG system. Has pause and resume roles for all protocols withdrawals contracts.
 
 
 ## Proposal flow
@@ -168,8 +167,8 @@ The Tiebreaker committee is represented in the system by its address which can b
 
 While the deadlock conditions are met, the Tiebreaker committee address is allowed to:
 
-1. Approve execution of any pending proposal by calling [`DualGovernance.tiebreakerApproveProposal`] so that its execution can be scheduled by calling [`DualGovernance.tiebreakerScheduleProposal`] after the tiebreaker execution timelock passes.
-2. Approve the unpause of a pausable ("sealable") protocol contract by calling [`DualGovernance.tiebreakerApproveSealableResume`] so that it can be unpaused by calling [`DualGovernance.tiebreakerScheduleSealableResume`] after the tiebreaker execution timelock passes.
+1. Schedule execution of any pending proposal by calling [`DualGovernance.tiebreakerScheduleProposal`] after the tiebreaker execution timelock passes.
+2. Unpause of a pausable ("sealable") protocol contract by calling  [`DualGovernance.tiebreakerResumeSealable`] after the tiebreaker execution timelock passes.
 
 
 ## Administrative actions
@@ -251,46 +250,6 @@ The id of the successfully registered proposal.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
-
-### Function: DualGovernance.scheduleProposal
-
-```solidity
-function scheduleProposal(uint256 proposalId)
-```
-
-Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance to schedule the proposal with id `proposalId` for execution.
-
-#### Preconditions
-
-* The proposal with the given id MUST be already submitted using the `DualGovernance.submitProposal` call (the proposal MUST NOT be submitted as the result of the [`DualGovernance.tiebreakerApproveSealableResume`] call).
-* The proposal MUST NOT be scheduled.
-* The proposal's dynamic timelock MUST have elapsed.
-* The proposal MUST NOT be cancelled.
-* The current governance state MUST be either `Normal` or `VetoCooldown`.
-
-Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
-
-### Function: DualGovernance.tiebreakerApproveProposal
-
-[`DualGovernance.tiebreakerApproveProposal`]: #Function-DualGovernancetiebreakerApproveProposal
-
-```solidity
-function tiebreakerApproveProposal(uint256 proposalId)
-```
-
-Marks the proposal with id `proposalId` as approved by the [Tiebreaker committee](#Tiebreaker-committee), given that the DG system is in a deadlock.
-
-#### Preconditions
-
-* MUST be called by the [Tiebreaker committee address](#Function-DualGovernancesetTiebreakerCommittee).
-* Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
-* The proposal MUST be already submitted.
-* The proposal MUST NOT be cancelled.
-* The proposal with the specified id MUST NOT be already approved by the Tiebreaker committee.
-
-Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
-
-
 ### Function: DualGovernance.tiebreakerScheduleProposal
 
 [`DualGovernance.tiebreakerScheduleProposal`]: #Function-DualGovernancetiebreakerScheduleProposal
@@ -303,54 +262,28 @@ Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimeloc
 
 #### Preconditions
 
+* MUST be called by the [Tiebreaker committee address]
 * Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
 * The proposal with the given id MUST be already submitted using the `DualGovernance.submitProposal` call (the proposal MUST NOT be submitted as the result of the [`DualGovernance.tiebreakerApproveSealableResume`] call).
 * The proposal MUST NOT be cancelled.
-* The proposal with the specified id MUST be approved by the Tiebreaker committee.
 * The current block timestamp MUST be at least `TIEBREAKER_EXECUTION_TIMELOCK` seconds greater than the timestamp of the block in which the proposal was approved by the Tiebreaker committee.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
+### Function: DualGovernance.tiebreakerResumeSealable
 
-### Function: DualGovernance.tiebreakerApproveSealableResume
-
-[`DualGovernance.tiebreakerApproveSealableResume`]: #Function-DualGovernancetiebreakerApproveSealableResume
+[`DualGovernance.tiebreakerResumeSealable`]: #Function-DualGovernancetiebreakerResumeSealable
 
 ```solidity
-function tiebreakerApproveSealableResume(address sealable)
+function tiebreakerResumeSealable(address sealable)
 ```
 
-Submits a proposal on issuing the `ISealable(sealable).resume()` call from the admin executor contract by calling `EmergencyProtectedTimelock.submit` on the `EmergencyProtectedTimelock` singleton instance. Starts a timelock with the `TIEBREAKER_EXECUTION_TIMELOCK` duration on scheduling this proposal.
-
-#### Branches
-
-If the last proposal submitted by calling this function with the same `sealable` parameter is not executed and not cancelled, then does nothing.
+Calls the `ResealManager.resumeSealable(address sealable)` if all preconditions met.
 
 #### Preconditions
 
-* MUST be called by the [Tiebreaker committee address](#Function-DualGovernancesetTiebreakerCommittee).
+* MUST be called by the [Tiebreaker committee address]
 * Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
-
-Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
-
-
-### Function: DualGovernance.tiebreakerScheduleSealableResume
-
-[`DualGovernance.tiebreakerScheduleSealableResume`]: #Function-DualGovernancetiebreakerScheduleSealableResume
-
-```solidity
-function tiebreakerScheduleSealableResume(address sealable)
-```
-
-Schedules the proposal on issuing the `ISealable(sealable).resume()` call that was previously submitted by calling the [`DualGovernance.tiebreakerApproveSealableResume`] function, given that the timelock on its scheduling has elapsed.
-
-#### Preconditions
-
-* Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
-* The last proposal submitted by calling the [`DualGovernance.tiebreakerApproveSealableResume`] function with the same `sealable` parameter MUST be pending, i.e. not scheduled, not executed, and not cancelled.
-* The timelock on scheduling that proposal MUST be elapsed.
-
-Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
 
 ### Function: DualGovernance.cancelAllPendingProposals
@@ -401,7 +334,7 @@ Removes the registered `proposer` address from the list of valid proposers and d
 ### Function: DualGovernance.setTiebreakerCommittee
 
 ```solidity
-function setTiebreakerCommittee(address newTiebreaker)
+function setTiebreakerCommittee(address newTiebreaker, address resealManager)
 ```
 
 Updates the address of the [Tiebreaker committee](#Tiebreaker-committee).
@@ -445,7 +378,7 @@ The result of the call.
 
 * MUST be called by the contract owner (which SHOULD be the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance).
 
-## Contract: ResealExecutor.sol
+## Contract: ResealManager.sol
 
 In the Lido protocol, specific critical components (`WithdrawalQueue` and `ValidatorsExitBus`) are safeguarded by the `GateSeal` contract instance. According to the gate seals [documentation](https://github.com/lidofinance/gate-seals?tab=readme-ov-file#what-is-a-gateseal):
 
@@ -453,38 +386,39 @@ In the Lido protocol, specific critical components (`WithdrawalQueue` and `Valid
 
 However, the effectiveness of this approach is contingent upon the predictability of the DAO's solution adoption timeframe. With the dual governance system, proposal execution may experience significant delays based on the current state of the `DualGovernance` contract. There's a risk that `GateSeal`'s pause period may expire before the Lido DAO can implement the necessary fixes.
 
-To address this compatibility challenge between gate seals and dual governance, the `ResealExecutor` contract is introduced. The `ResealExecutor` allows to extend pause of temporarily paused contracts to permanent pause, if conditions are met:
-- `ResealExecutor` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
+To address this compatibility challenge between gate seals and dual governance, the `ResealManager` contract is introduced. The `ResealManager` allows to extend pause of temporarily paused contracts to permanent pause or resume it, if conditions are met:
+- `ResealManager` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
 - Contracts are paused until timestamp after current timestamp and not for infinite time.
-- The DAO governance is blocked by `DualGovernance`.
+- The DAO governance is blocked by `DualGovernance`
 
-It inherits `OwnableExecutor` and provides ability to extend contracts pause for committee set by DAO.
-
-### Function ResealExecutor.reseal
+### Function ResealManager.reseal
 
 ```solidity
 function reseal(address[] memory sealables)
 ```
 
-This function extends pause of `sealables`. Can be called by committee address.
+This function extends pause of `sealables`. Can be called by governance address defined in Emergency Protected Timelock.
 
 #### Preconditions
 
-- `ResealExecutor` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
+- `ResealManager` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
 - Contracts are paused until timestamp after current timestamp and not for infinite time.
-- The DAO governance is blocked by `DualGovernance`.
+- Called by governance address defined in `EmergencyProtectedTimelock`
 
-### Function ResealExecutor.setResealCommittee
+### Function ResealManager.resume
 
 ```solidity
-function setResealCommittee(address newResealCommittee)
+function resume(address sealable)
 ```
 
-This function set `resealCommittee` address to `newResealCommittee`. Can be called by owner.
+This function provides ability of unpause of `sealable`. Can be called by governance address defined in Emergency Protected Timelock.
 
 #### Preconditions
 
-- Can be called by `OWNER`.
+- `ResealManager` has `RESUME_ROLE` for target contracts.
+- Target contracts are paused.
+- Called by governance address defined in `EmergencyProtectedTimelock`
+
 
 ## Contract: Escrow.sol
 
@@ -1019,11 +953,524 @@ The contract has the interface for managing the configuration related to emergen
 
 `Configuration.sol` is the smart contract encompassing all the constants in the Dual Governance design & providing the interfaces for getting access to them. It implements interfaces `IAdminExecutorConfiguration`, `ITimelockConfiguration`, `IDualGovernanceConfiguration` covering for relevant "parameters domains".
 
+## Contract: ProposalsList.sol
+
+`ProposalsList` implements storage for list of `Proposal`s with public interface to access.
+
+### Function: ProposalsList.getProposals
+
+```solidity
+function getProposals(uint256 offset, uint256 limit) public view returns (Proposal[] memory proposals)
+```
+
+Returns the limited list of `Proposal`s with offset.
+
+### Function: ProposalsList.getProposalAt
+
+```solidity
+function getProposalAt(uint256 index) public view returns (Proposal memory)
+```
+
+Returns `Proposal` at position `index`
+
+### Function: ProposalsList.getProposal
+
+```solidity
+function getProposal(bytes32 key) public view returns (Proposal memory)
+```
+
+Returns `Proposal` by it's `key`
+
+### Function: ProposalsList.getProposalsLength
+
+```solidity
+function getProposalsLength() public view returns (uint256)
+```
+
+Returns total number of created `Proposal`s.
+
+### Function: ProposalsList.getOrderedKeys
+
+```solidity
+function getOrderedKeys(uint256 offset, uint256 limit) public view returns (bytes32[] memory)
+```
+
+Returns total list of `Proposal`s keys with offset and limit.
+
+## Contract: HashConsensus.sol
+
+`HashConsensus` is an abstract contract that allows for consensus-based decision-making among a set of members. The consensus is achieved by members voting on a specific hash, and decisions can only be executed if a quorum is reached and a timelock period has elapsed.
+
+### Function: HashConsensus.addMember
+
+```solidity
+function addMember(address newMember, uint256 newQuorum) public onlyOwner
+```
+
+Adds a new member and updates the quorum.
+
+#### Preconditions
+
+* Only the owner can call this function.
+* `newQuorum` MUST be greater than 0 and less than or equal to the number of members.
+
+### Function: HashConsensus.removeMember
+
+```solidity
+function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner
+```
+
+Removes a member and updates the quorum.
+
+#### Preconditions
+
+* Only the owner can call this function.
+* Member MUST be part of the set.
+* `newQuorum` MUST be greater than 0 and less than or equal to the number of remaining members.
+
+### Function: HashConsensus.getMembers
+
+```solidity
+function getMembers() public view returns (address[] memory)
+```
+
+Returns the list of current members.
+
+### Function: HashConsensus.isMember
+
+```solidity
+function isMember(address member) public view returns (bool)
+```
+
+Checks if an address is a member.
+
+### Function: HashConsensus.setTimelockDuration
+
+```solidity
+function setTimelockDuration(uint256 timelock) public onlyOwner
+```
+
+Sets the timelock duration.
+
+#### Preconditions
+
+* Only the owner can call this function.
+
+### Function: HashConsensus.setQuorum
+
+```solidity
+function setQuorum(uint256 newQuorum) public onlyOwner
+```
+
+Sets the quorum required for decision execution.
+
+#### Preconditions
+
+* Only the owner can call this function.
+* `newQuorum` MUST be greater than 0 and less than or equal to the number of members.
+
+
+### Admin functions
+
+The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtection`) and general system wiring (`transferExecutorOwnership`, `setGovernance`). These functions MUST be called by the [Admin Executor](#Administrative-actions) address, basically routing any such changes through the Dual Governance mechanics.
+
+
 ## Contract: TiebreakerCore.sol
+
+`TiebreakerCore` is a smart contract that extends the `HashConsensus` and `ProposalsList` contracts to manage the scheduling of proposals and the resuming of sealable contracts through a consensus-based mechanism. It interacts with a DualGovernance contract to execute decisions once consensus is reached.
+
+Constructor
+
+```solidity
+constructor(
+    address owner,
+    address[] memory committeeMembers,
+    uint256 executionQuorum,
+    address dualGovernance,
+    uint256 timelock
+)
+```
+
+Initializes the contract with an owner, committee members, a quorum, the address of the DualGovernance contract, and a timelock duration.
+
+#### Preconditions
+
+* `executionQuorum` MUST be greater than 0.
+* `dualGovernance` MUST be a valid address.
+
+
+### Function: TiebreakerCore.scheduleProposal
+
+```solidity
+function scheduleProposal(uint256 proposalId) public onlyMember
+```
+
+Schedules a proposal for execution by voting on it and adding it to the proposal list.
+
+#### Preconditions
+
+* MUST be called by a member.
+
+### Function: TiebreakerCore.getScheduleProposalState
+
+```solidity
+function getScheduleProposalState(uint256 proposalId)
+    public
+    view
+    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
+```
+
+Returns the state of a scheduled proposal including support count, quorum, and execution status.
+
+### Function: TiebreakerCore.executeScheduleProposal
+
+```solidity
+function executeScheduleProposal(uint256 proposalId) public
+```
+
+Executes a scheduled proposal by calling the tiebreakerScheduleProposal function on the DualGovernance contract.
+
+#### Preconditions
+
+* Proposal MUST have reached quorum and passed the timelock duration.
+
+### Function: TiebreakerCore.getSealableResumeNonce
+
+```solidity
+function getSealableResumeNonce(address sealable) public view returns (uint256)
+```
+
+Returns the current nonce for resuming operations of a sealable contract.
+
+### Function: TiebreakerCore.sealableResume
+
+```solidity
+function sealableResume(address sealable, uint256 nonce) public onlyMember
+```
+
+Submits a request to resume operations of a sealable contract by voting on it and adding it to the proposal list.
+
+#### Preconditions
+
+* MUST be called by a member.
+* The provided nonce MUST match the current nonce of the sealable contract.
+
+### Function: TiebreakerCore.getSealableResumeState
+
+```solidity
+function getSealableResumeState(address sealable, uint256 nonce)
+    public
+    view
+    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
+```
+
+Returns the state of a sealable resume request including support count, quorum, and execution status.
+
+### Function: TiebreakerCore.executeSealableResume
+
+```solidity
+function executeSealableResume(address sealable) external
+```
+
+Executes a sealable resume request by calling the tiebreakerResumeSealable function on the DualGovernance contract and increments the nonce.
+
+#### Preconditions
+
+* Resume request MUST have reached quorum and passed the timelock duration.
+
 ## Contract: TiebreakerSubCommittee.sol
+
+`TiebreakerSubCommittee` is a smart contract that extends the functionalities of `HashConsensus` and `ProposalsList` to manage the scheduling of proposals and the resumption of sealable contracts through a consensus mechanism. It interacts with the `TiebreakerCore` contract to execute decisions once consensus is reached.
+
+```solidity
+constructor(
+    address owner,
+    address[] memory committeeMembers,
+    uint256 executionQuorum,
+    address tiebreakerCore
+)
+```
+
+Initializes the contract with an owner, committee members, a quorum, and the address of the TiebreakerCore contract.
+
+#### Preconditions
+* `executionQuorum` MUST be greater than 0.
+* `tiebreakerCore` MUST be a valid address.
+
+### Function: TiebreakerSubCommittee.scheduleProposal
+
+```solidity
+function scheduleProposal(uint256 proposalId) public onlyMember
+```
+
+Schedules a proposal for execution by voting on it and adding it to the proposal list.
+
+#### Preconditions
+* MUST be called by a member.
+
+### Function: TiebreakerSubCommittee.getScheduleProposalState
+
+```solidity
+function getScheduleProposalState(uint256 proposalId)
+    public
+    view
+    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
+```
+
+Returns the state of a scheduled proposal including support count, quorum, and execution status.
+
+### Function: TiebreakerSubCommittee.executeScheduleProposal
+
+```solidity
+function executeScheduleProposal(uint256 proposalId) public
+```
+
+Executes a scheduled proposal by calling the scheduleProposal function on the TiebreakerCore contract.
+
+#### Preconditions
+
+* Proposal MUST have reached quorum and passed the timelock duration.
+
+### Function: TiebreakerSubCommittee.sealableResume
+
+```solidity
+function sealableResume(address sealable) public
+```
+
+Submits a request to resume operations of a sealable contract by voting on it and adding it to the proposal list.
+
+#### Preconditions
+
+* MUST be called by a member.
+* getSealableResumeState
+
+```solidity
+function getSealableResumeState(address sealable)
+    public
+    view
+    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
+```
+
+Returns the state of a sealable resume request including support count, quorum, and execution status.
+
+### Function: TiebreakerSubCommittee.executeSealableResume
+
+```solidity
+function executeSealableResume(address sealable) public
+```
+
+Executes a sealable resume request by calling the sealableResume function on the TiebreakerCore contract and increments the nonce.
+
+#### Preconditions
+
+* Resume request MUST have reached quorum and passed the timelock duration.
+
 ## Contract: EmergencyActivationCommittee.sol
+
+`EmergencyActivationCommittee` is a smart contract that extends the functionalities of ё to manage the emergency activation process. It allows committee members to vote on and execute the activation of emergency protocols in the ё contract.
+
+```solidity
+constructor(
+    address owner,
+    address[] memory committeeMembers,
+    uint256 executionQuorum,
+    address emergencyProtectedTimelock
+)
+```
+
+Initializes the contract with an owner, committee members, a quorum, and the address of the EmergencyProtectedTimelock contract.
+
+#### Preconditions
+executionQuorum MUST be greater than 0.
+emergencyProtectedTimelock MUST be a valid address.
+
+
+### Function: EmergencyActivationCommittee.approveEmergencyActivate
+
+```solidity
+function approveEmergencyActivate() public onlyMember
+```
+
+Approves the emergency activation by voting on the EMERGENCY_ACTIVATION_HASH.
+
+#### Preconditions
+
+* MUST be called by a member.
+
+### Function: EmergencyActivationCommittee.getEmergencyActivateState
+
+```solidity
+function getEmergencyActivateState()
+    public
+    view
+    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
+```
+
+Returns the state of the emergency activation proposal including support count, quorum, and execution status.
+
+### Function: EmergencyActivationCommittee.executeEmergencyActivate
+
+```solidity
+function executeEmergencyActivate() external
+```
+
+Executes the emergency activation by calling the emergencyActivate function on the EmergencyProtectedTimelock contract.
+
+#### Preconditions
+
+* Emergency activation proposal MUST have reached quorum and passed the timelock duration.
+
+
 ## Contract: EmergencyExecutionCommittee.sol
-## Contract: ResealCommittee.sol
+
+`EmergencyExecutionCommittee` is a smart contract that extends the functionalities of `HashConsensus` and `ProposalsList` to manage emergency execution and governance reset proposals through a consensus mechanism. It interacts with the `EmergencyProtectedTimelock` contract to execute critical emergency proposals.
+
+```solidity
+constructor(
+    address owner,
+    address[] memory committeeMembers,
+    uint256 executionQuorum,
+    address emergencyProtectedTimelock
+)
+```
+
+Initializes the contract with an owner, committee members, a quorum, and the address of the EmergencyProtectedTimelock contract.
+
+#### Preconditions
+
+* executionQuorum MUST be greater than 0.
+* emergencyProtectedTimelock MUST be a valid address.
+
+### Function: EmergencyExecutionCommittee.voteEmergencyExecute
+
+```solidity
+function voteEmergencyExecute(uint256 proposalId, bool _supports) public onlyMember
+```
+
+Allows committee members to vote on an emergency execution proposal.
+
+#### Preconditions
+
+* MUST be called by a member.
+
+### Function: EmergencyExecutionCommittee.getEmergencyExecuteState
+
+```solidity
+function getEmergencyExecuteState(uint256 proposalId)
+    public
+    view
+    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
+```
+
+Returns the state of an emergency execution proposal including support count, quorum, and execution status.
+
+### Function: EmergencyExecutionCommittee. executeEmergencyExecute
+
+```solidity
+function executeEmergencyExecute(uint256 proposalId) public
+```
+
+Executes an emergency execution proposal by calling the emergencyExecute function on the EmergencyProtectedTimelock contract.
+
+#### Preconditions
+Emergency execution proposal MUST have reached quorum and passed the timelock duration.
+
+
+### Function: EmergencyExecutionCommittee.approveEmergencyReset
+
+```solidity
+function approveEmergencyReset() public onlyMember
+```
+
+Approves the governance reset by voting on the reset proposal.
+
+#### Preconditions
+
+* MUST be called by a member.
+
+### Function: EmergencyExecutionCommittee.getEmergencyResetState
+
+```solidity
+function getEmergencyResetState()
+    public
+    view
+    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
+```
+
+Returns the state of the governance reset proposal including support count, quorum, and execution status.
+
+### Function: EmergencyExecutionCommittee.executeEmergencyReset
+
+```solidity
+function executeEmergencyReset() external
+```
+
+Executes the governance reset by calling the emergencyReset function on the EmergencyProtectedTimelock contract.
+
+#### Preconditions
+
+* Governance reset proposal MUST have reached quorum and passed the timelock duration.
+
+
+## Contract: ResealManager.sol
+
+`ResealManager` is a smart contract designed to manage the resealing and resuming of sealable contracts in emergency situations. It queries `EmergencyProtectedTimelock` to ensure only actual governance can trigger these actions.
+
+```solidity
+constructor(address emergencyProtectedTimelock)
+```
+
+Initializes the contract with the address of the EmergencyProtectedTimelock contract.
+
+#### Preconditions
+
+* emergencyProtectedTimelock MUST be a valid address.
+
+### Function: ResealManager.reseal
+
+```solidity
+function reseal(address[] memory sealables) public onlyGovernance
+```
+
+Pauses the specified sealable contracts indefinitely.
+
+#### Preconditions
+
+* MUST be called by the governance address.
+* Each sealable contract MUST NOT be paused infinitely already and MUST be scheduled to resume in the future.
+
+#### Errors
+`SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+`SenderIsNotGovernance`: Thrown if the sender is not the governance address.
+
+### Function: ResealManager.resume
+
+```solidity
+function resume(address sealable) public onlyGovernance
+```
+
+Resumes the specified sealable contract if it is scheduled to resume in the future.
+
+#### Preconditions
+
+* MUST be called by the governance address.
+
+#### Errors
+`SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+`SenderIsNotGovernance`: Thrown if the sender is not the governance address.
+
+### Modifier: ResealManager.onlyGovernance
+
+```solidity
+modifier onlyGovernance()
+```
+
+Ensures that the function can only be called by the governance address.
+
+#### Preconditions
+
+* The sender MUST be the governance address obtained from the EmergencyProtectedTimelock contract.
+
 
 ## Upgrade flow description
 

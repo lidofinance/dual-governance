@@ -57,11 +57,11 @@ library EnumerableProposals {
         value = map._proposals[key];
     }
 
-    function orederedKeys(Bytes32ToProposalMap storage map) internal view returns (bytes32[] memory) {
+    function getOrderedKeys(Bytes32ToProposalMap storage map) internal view returns (bytes32[] memory) {
         return map._orderedKeys;
     }
 
-    function orederedKeys(
+    function getOrderedKeys(
         Bytes32ToProposalMap storage map,
         uint256 offset,
         uint256 limit

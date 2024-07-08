@@ -9,7 +9,7 @@ contract ProposalsList {
     EnumerableProposals.Bytes32ToProposalMap internal _proposals;
 
     function getProposals(uint256 offset, uint256 limit) public view returns (Proposal[] memory proposals) {
-        bytes32[] memory keys = _proposals.orederedKeys(offset, limit);
+        bytes32[] memory keys = _proposals.getOrderedKeys(offset, limit);
 
         uint256 length = keys.length;
         proposals = new Proposal[](length);
@@ -27,12 +27,12 @@ contract ProposalsList {
         return _proposals.get(key);
     }
 
-    function proposalsLength() public view returns (uint256) {
+    function getProposalsLength() public view returns (uint256) {
         return _proposals.length();
     }
 
-    function orederedKeys(uint256 offset, uint256 limit) public view returns (bytes32[] memory) {
-        return _proposals.orederedKeys(offset, limit);
+    function getOrderedKeys(uint256 offset, uint256 limit) public view returns (bytes32[] memory) {
+        return _proposals.getOrderedKeys(offset, limit);
     }
 
     function _pushProposal(bytes32 key, uint256 proposalType, bytes memory data) internal {
