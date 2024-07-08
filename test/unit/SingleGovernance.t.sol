@@ -50,9 +50,7 @@ contract SingleGovernanceUnitTests is UnitTest {
         assertEq(_timelock.getSubmittedProposals().length, 0);
 
         vm.startPrank(stranger);
-        vm.expectRevert(
-            abi.encodeWithSelector(SingleGovernance.NotGovernance.selector, [stranger])
-        );
+        vm.expectRevert(abi.encodeWithSelector(SingleGovernance.NotGovernance.selector, [stranger]));
         _singleGovernance.submitProposal(_getTargetRegularStaffCalls(address(0x1)));
 
         assertEq(_timelock.getSubmittedProposals().length, 0);
@@ -93,7 +91,7 @@ contract SingleGovernanceUnitTests is UnitTest {
 
         _timelock.setSchedule(1);
         _singleGovernance.scheduleProposal(1);
-        
+
         _singleGovernance.cancelAllPendingProposals();
 
         assertEq(_timelock.getLastCancelledProposalId(), 2);
@@ -105,9 +103,7 @@ contract SingleGovernanceUnitTests is UnitTest {
         assertEq(_timelock.getLastCancelledProposalId(), 0);
 
         vm.startPrank(stranger);
-        vm.expectRevert(
-            abi.encodeWithSelector(SingleGovernance.NotGovernance.selector, [stranger])
-        );
+        vm.expectRevert(abi.encodeWithSelector(SingleGovernance.NotGovernance.selector, [stranger]));
         _singleGovernance.cancelAllPendingProposals();
 
         assertEq(_timelock.getLastCancelledProposalId(), 0);
@@ -123,4 +119,4 @@ contract SingleGovernanceUnitTests is UnitTest {
 
         assertTrue(_singleGovernance.canSchedule(1));
     }
-} 
+}

@@ -38,6 +38,7 @@ library DualGovernanceState {
     error AlreadyInitialized();
     error ProposalsCreationSuspended();
     error ProposalsAdoptionSuspended();
+    error ResealIsNotAllowedInNormalState();
 
     event NewSignallingEscrowDeployed(address indexed escrow);
     event DualGovernanceStateChanged(State oldState, State newState);
@@ -100,6 +101,12 @@ library DualGovernanceState {
     function checkTiebreak(Store storage self, IConfiguration config) internal view {
         if (!isTiebreak(self, config)) {
             revert NotTie();
+        }
+    }
+
+    function checkResealState(Store storage self) internal view {
+        if (self.state == State.Normal) {
+            revert ResealIsNotAllowedInNormalState();
         }
     }
 

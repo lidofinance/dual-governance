@@ -55,4 +55,8 @@ interface IWithdrawalQueue {
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds);
+
+    function grantRole(bytes32 role, address account) external;
+    function pauseFor(uint256 duration) external;
+    function isPaused() external returns (bool);
 }

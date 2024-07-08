@@ -98,10 +98,10 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
             // committee resets governance
-            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
+            vm.prank(address(_emergencyActivationCommittee));
             _timelock.activateEmergencyMode();
 
-            vm.prank(_EMERGENCY_EXECUTION_COMMITTEE);
+            vm.prank(address(_emergencyExecutionCommittee));
             _timelock.emergencyReset();
 
             // proposal is canceled now
