@@ -5,6 +5,8 @@ import "kontrol-cheatcodes/KontrolCheats.sol";
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
+import {State} from "contracts/libraries/DualGovernanceState.sol";
+
 import "test/kontrol/DualGovernanceSetUp.sol";
 
 contract VetoSignallingTest is DualGovernanceSetUp {
@@ -14,14 +16,14 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      */
     function testTransitionNormalToVetoSignalling() external {
         uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
-        vm.assume(rageQuitSupport > dualGovernance.FIRST_SEAL_RAGE_QUIT_SUPPORT());
-        vm.assume(dualGovernance.currentState() == DualGovernanceModel.State.Normal);
+        vm.assume(rageQuitSupport > config.FIRST_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(dualGovernance.currentState() == State.Normal);
         dualGovernance.activateNextState();
-        assert(dualGovernance.currentState() == DualGovernanceModel.State.VetoSignalling);
+        assert(dualGovernance.currentState() == State.VetoSignalling);
     }
 
     struct StateRecord {
-        DualGovernanceModel.State state;
+        State state;
         uint256 timestamp;
         uint256 rageQuitSupport;
         uint256 maxRageQuitSupport;
@@ -35,8 +37,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      */
     function _vetoSignallingInvariants(Mode mode, StateRecord memory sr) internal view {
         require(
-            sr.state != DualGovernanceModel.State.Normal && sr.state != DualGovernanceModel.State.VetoCooldown
-                && sr.state != DualGovernanceModel.State.RageQuit,
+            sr.state != State.Normal && sr.state != State.VetoCooldown && sr.state != State.RageQuit,
             "Invariants only apply to the Veto Signalling states."
         );
 
@@ -64,7 +65,25 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      */
     function _vetoSignallingRageQuitInvariant(Mode mode, StateRecord memory sr) internal view {
         _establish(mode, sr.rageQuitSupport <= sr.maxRageQuitSupport);
-        _establish(mode, dualGovernance.FIRST_SEAL_RAGE_QUIT_SUPPORT() < sr.maxRageQuitSupport);
+        _establish(mode, config.FIRST_SEAL_RAGE_QUIT_SUPPORT() < sr.maxRageQuitSupport);
+    }
+
+    function _calculateDynamicTimelock(Configuration _config, uint256 rageQuitSupport) public view returns (uint256) {
+        if (rageQuitSupport <= _config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) {
+            return 0;
+        } else if (rageQuitSupport <= _config.SECOND_SEAL_RAGE_QUIT_SUPPORT()) {
+            return _linearInterpolation(_config, rageQuitSupport);
+        } else {
+            return _config.DYNAMIC_TIMELOCK_MAX_DURATION();
+        }
+    }
+
+    function _linearInterpolation(Configuration _config, uint256 rageQuitSupport) private view returns (uint256) {
+        uint256 L_min = _config.DYNAMIC_TIMELOCK_MIN_DURATION();
+        uint256 L_max = _config.DYNAMIC_TIMELOCK_MAX_DURATION();
+        return L_min
+            + ((rageQuitSupport - _config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) * (L_max - L_min))
+                / (_config.SECOND_SEAL_RAGE_QUIT_SUPPORT() - _config.FIRST_SEAL_RAGE_QUIT_SUPPORT());
     }
 
     /**
@@ -74,18 +93,18 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      * in the Deactivation sub-state. Otherwise, it is in the parent state.
      */
     function _vetoSignallingDeactivationInvariant(Mode mode, StateRecord memory sr) internal view {
-        uint256 dynamicTimelock = dualGovernance.calculateDynamicTimelock(sr.rageQuitSupport);
+        uint256 dynamicTimelock = _calculateDynamicTimelock(config, sr.rageQuitSupport);
 
         // Note: creates three branches in symbolic execution
         if (sr.timestamp <= sr.activationTime + dynamicTimelock) {
-            _establish(mode, sr.state == DualGovernanceModel.State.VetoSignalling);
+            _establish(mode, sr.state == State.VetoSignalling);
         } else if (
             sr.timestamp
-                <= Math.max(sr.reactivationTime, sr.activationTime) + dualGovernance.VETO_SIGNALLING_MIN_ACTIVE_DURATION()
+                <= Math.max(sr.reactivationTime, sr.activationTime) + config.VETO_SIGNALLING_MIN_ACTIVE_DURATION()
         ) {
-            _establish(mode, sr.state == DualGovernanceModel.State.VetoSignalling);
+            _establish(mode, sr.state == State.VetoSignalling);
         } else {
-            _establish(mode, sr.state == DualGovernanceModel.State.VetoSignallingDeactivation);
+            _establish(mode, sr.state == State.VetoSignallingDeactivation);
         }
     }
 
@@ -102,13 +121,13 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     function _vetoSignallingMaxDelayInvariant(Mode mode, StateRecord memory sr) internal view {
         // Note: creates two branches in symbolic execution
         if (_maxDeactivationDelayPassed(sr)) {
-            _establish(mode, sr.state == DualGovernanceModel.State.VetoSignallingDeactivation);
+            _establish(mode, sr.state == State.VetoSignallingDeactivation);
         }
     }
 
     function _maxDeactivationDelayPassed(StateRecord memory sr) internal view returns (bool) {
-        uint256 maxDeactivationDelay = dualGovernance.calculateDynamicTimelock(sr.maxRageQuitSupport)
-            + dualGovernance.VETO_SIGNALLING_MIN_ACTIVE_DURATION();
+        uint256 maxDeactivationDelay =
+            _calculateDynamicTimelock(config, sr.maxRageQuitSupport) + config.VETO_SIGNALLING_MIN_ACTIVE_DURATION();
 
         return sr.activationTime + maxDeactivationDelay < sr.timestamp;
     }
@@ -122,8 +141,8 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         sr.timestamp = lastInteractionTimestamp;
         sr.rageQuitSupport = previousRageQuitSupport;
         sr.maxRageQuitSupport = maxRageQuitSupport;
-        sr.activationTime = dualGovernance.lastStateChangeTime();
-        sr.reactivationTime = dualGovernance.lastStateReactivationTime();
+        sr.activationTime = _getVetoSignallingActivationTime(dualGovernance);
+        sr.reactivationTime = _getVetoSignallingReactivationTime(dualGovernance);
     }
 
     function _recordCurrentState(uint256 previousMaxRageQuitSupport) internal view returns (StateRecord memory sr) {
@@ -132,8 +151,8 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         sr.rageQuitSupport = signallingEscrow.getRageQuitSupport();
         sr.maxRageQuitSupport =
             previousMaxRageQuitSupport < sr.rageQuitSupport ? sr.rageQuitSupport : previousMaxRageQuitSupport;
-        sr.activationTime = dualGovernance.lastStateChangeTime();
-        sr.reactivationTime = dualGovernance.lastStateReactivationTime();
+        sr.activationTime = _getVetoSignallingActivationTime(dualGovernance);
+        sr.reactivationTime = _getVetoSignallingReactivationTime(dualGovernance);
     }
 
     /**
@@ -159,15 +178,15 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     function testVetoSignallingInvariantsHoldInitially() external {
         vm.assume(block.timestamp < timeUpperBound);
 
-        vm.assume(dualGovernance.currentState() != DualGovernanceModel.State.VetoSignalling);
-        vm.assume(dualGovernance.currentState() != DualGovernanceModel.State.VetoSignallingDeactivation);
+        vm.assume(dualGovernance.currentState() != State.VetoSignalling);
+        vm.assume(dualGovernance.currentState() != State.VetoSignallingDeactivation);
 
         dualGovernance.activateNextState();
 
         StateRecord memory sr = _recordCurrentState(0);
 
         // Consider only the case where we have transitioned to Veto Signalling
-        if (sr.state == DualGovernanceModel.State.VetoSignalling) {
+        if (sr.state == State.VetoSignalling) {
             _vetoSignallingInvariants(Mode.Assert, sr);
         }
     }
@@ -191,19 +210,16 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         StateRecord memory previous =
             _recordPreviousState(lastInteractionTimestamp, previousRageQuitSupport, maxRageQuitSupport);
 
-        vm.assume(previous.state != DualGovernanceModel.State.Normal);
-        vm.assume(previous.state != DualGovernanceModel.State.VetoCooldown);
-        vm.assume(previous.state != DualGovernanceModel.State.RageQuit);
+        vm.assume(previous.state != State.Normal);
+        vm.assume(previous.state != State.VetoCooldown);
+        vm.assume(previous.state != State.RageQuit);
 
         _vetoSignallingInvariants(Mode.Assume, previous);
         dualGovernance.activateNextState();
 
         StateRecord memory current = _recordCurrentState(maxRageQuitSupport);
 
-        if (
-            current.state != DualGovernanceModel.State.Normal && current.state != DualGovernanceModel.State.VetoCooldown
-                && current.state != DualGovernanceModel.State.RageQuit
-        ) {
+        if (current.state != State.Normal && current.state != State.VetoCooldown && current.state != State.RageQuit) {
             _vetoSignallingInvariants(Mode.Assert, current);
         }
     }
@@ -224,32 +240,29 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         StateRecord memory previous =
             _recordPreviousState(lastInteractionTimestamp, previousRageQuitSupport, maxRageQuitSupport);
 
-        vm.assume(previous.maxRageQuitSupport <= dualGovernance.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(previous.maxRageQuitSupport <= config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
         vm.assume(_maxDeactivationDelayPassed(previous));
         vm.assume(signallingEscrow.getRageQuitSupport() <= previous.maxRageQuitSupport);
 
-        vm.assume(
-            previous.state == DualGovernanceModel.State.VetoSignalling
-                || previous.state == DualGovernanceModel.State.VetoSignallingDeactivation
-        );
+        vm.assume(previous.state == State.VetoSignalling || previous.state == State.VetoSignallingDeactivation);
 
         _vetoSignallingInvariants(Mode.Assume, previous);
 
-        assert(previous.state == DualGovernanceModel.State.VetoSignallingDeactivation);
+        assert(previous.state == State.VetoSignallingDeactivation);
 
         dualGovernance.activateNextState();
 
         StateRecord memory current = _recordCurrentState(maxRageQuitSupport);
 
-        uint256 deactivationStartTime = dualGovernance.lastSubStateActivationTime();
-        uint256 deactivationEndTime = deactivationStartTime + dualGovernance.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION();
+        uint256 deactivationStartTime = _getEnteredAt(dualGovernance);
+        uint256 deactivationEndTime = deactivationStartTime + config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION();
 
         // The protocol is either in the Deactivation sub-state, or, if the
         // maximum deactivation duration has passed, in the Veto Cooldown state
         if (deactivationEndTime < block.timestamp) {
-            assert(current.state == DualGovernanceModel.State.VetoCooldown);
+            assert(current.state == State.VetoCooldown);
         } else {
-            assert(current.state == DualGovernanceModel.State.VetoSignallingDeactivation);
+            assert(current.state == State.VetoSignallingDeactivation);
         }
     }
 }

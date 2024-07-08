@@ -1,26 +1,46 @@
 pragma solidity 0.8.23;
 
-import "contracts/model/DualGovernanceModel.sol";
-import "contracts/model/EmergencyProtectedTimelockModel.sol";
-import "contracts/model/EscrowModel.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+
+import "contracts/Configuration.sol";
+import "contracts/DualGovernance.sol";
+import "contracts/EmergencyProtectedTimelock.sol";
+import "contracts/Escrow.sol";
 import "contracts/model/StETHModel.sol";
+import "contracts/model/WstETHAdapted.sol";
+import "contracts/model/WithdrawalQueueModel.sol";
 
 import "test/kontrol/StorageSetup.sol";
 
 contract DualGovernanceSetUp is StorageSetup {
-    DualGovernanceModel dualGovernance;
-    EmergencyProtectedTimelockModel timelock;
+    using DualGovernanceState for DualGovernanceState.Store;
+
+    Configuration config;
+    DualGovernance dualGovernance;
+    EmergencyProtectedTimelock timelock;
     StETHModel stEth;
-    EscrowModel signallingEscrow;
-    EscrowModel rageQuitEscrow;
+    WstETHAdapted wstEth;
+    WithdrawalQueueModel withdrawalQueue;
+    IEscrow signallingEscrow;
+    IEscrow rageQuitEscrow;
 
     function setUp() public {
         stEth = new StETHModel();
-        uint256 emergencyProtectionTimelock = 0; // Regular deployment mode
-        dualGovernance = new DualGovernanceModel(address(stEth), emergencyProtectionTimelock);
-        timelock = dualGovernance.emergencyProtectedTimelock();
-        signallingEscrow = dualGovernance.signallingEscrow();
-        rageQuitEscrow = new EscrowModel(address(dualGovernance), address(stEth));
+        wstEth = new WstETHAdapted(IStETH(stEth));
+        withdrawalQueue = new WithdrawalQueueModel();
+
+        // Placeholder addresses
+        address adminExecutor = address(uint160(uint256(keccak256("adminExecutor"))));
+        address emergencyGovernance = address(uint160(uint256(keccak256("emergencyGovernance"))));
+        address adminProposer = address(uint160(uint256(keccak256("adminProposer"))));
+
+        config = new Configuration(adminExecutor, emergencyGovernance, new address[](0));
+        timelock = new EmergencyProtectedTimelock(address(config));
+        Escrow escrowMasterCopy = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
+        dualGovernance =
+            new DualGovernance(address(config), address(timelock), address(escrowMasterCopy), adminProposer);
+        signallingEscrow = IEscrow(_loadAddress(address(dualGovernance), 5));
+        rageQuitEscrow = IEscrow(Clones.clone(address(escrowMasterCopy)));
 
         // ?STORAGE
         // ?WORD: totalPooledEther
@@ -59,5 +79,7 @@ contract DualGovernanceSetUp is StorageSetup {
 
         // ?STORAGE3
         kevm.symbolicStorage(address(timelock));
+
+        kevm.symbolicStorage(address(withdrawalQueue));
     }
 }

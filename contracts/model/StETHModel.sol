@@ -1,6 +1,8 @@
 pragma solidity 0.8.23;
 
-contract StETHModel {
+import "contracts/interfaces/IStETH.sol";
+
+contract StETHModel is IStETH {
     uint256 private totalPooledEther;
     uint256 private totalShares;
     mapping(address => uint256) private shares;

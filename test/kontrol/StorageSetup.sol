@@ -1,14 +1,15 @@
 pragma solidity 0.8.23;
 
-import "contracts/model/DualGovernanceModel.sol";
-import "contracts/model/EmergencyProtectedTimelockModel.sol";
-import "contracts/model/EscrowModel.sol";
+import "contracts/DualGovernance.sol";
+import "contracts/EmergencyProtectedTimelock.sol";
+import "contracts/Escrow.sol";
 import "contracts/model/StETHModel.sol";
+import "contracts/model/WstETHAdapted.sol";
 
 import "test/kontrol/KontrolTest.sol";
 
 contract StorageSetup is KontrolTest {
-    function _stEthStorageSetup(StETHModel _stEth, EscrowModel _escrow) internal {
+    function _stEthStorageSetup(StETHModel _stEth, IEscrow _escrow) internal {
         kevm.symbolicStorage(address(_stEth));
         // Slot 0
         uint256 totalPooledEther = kevm.freshUInt(32);
@@ -26,120 +27,166 @@ contract StorageSetup is KontrolTest {
         _stEth.setShares(address(_escrow), shares);
     }
 
+    function _wstEthStorageSetup(WstETHAdapted _wstEth, IStETH _stEth) internal {
+        kevm.symbolicStorage(address(_wstEth));
+    }
+
+    function _getEnteredAt(DualGovernance _dualGovernance) internal view returns (uint40) {
+        return uint40(_loadUInt256(address(_dualGovernance), 4) >> 8);
+    }
+
+    function _getVetoSignallingActivationTime(DualGovernance _dualGovernance) internal view returns (uint40) {
+        return uint40(_loadUInt256(address(_dualGovernance), 5) >> 48);
+    }
+
+    function _getVetoSignallingReactivationTime(DualGovernance _dualGovernance) internal view returns (uint40) {
+        return uint40(_loadUInt256(address(_dualGovernance), 5));
+    }
+
     function _dualGovernanceStorageSetup(
-        DualGovernanceModel _dualGovernance,
-        EmergencyProtectedTimelockModel _timelock,
+        DualGovernance _dualGovernance,
+        EmergencyProtectedTimelock _timelock,
         StETHModel _stEth,
-        EscrowModel _signallingEscrow,
-        EscrowModel _rageQuitEscrow
+        IEscrow _signallingEscrow,
+        IEscrow _rageQuitEscrow
     ) internal {
         kevm.symbolicStorage(address(_dualGovernance));
-        // Slot 0
-        _storeAddress(address(_dualGovernance), 0, address(_timelock));
-        // Slot 1
-        _storeAddress(address(_dualGovernance), 1, address(_signallingEscrow));
-        // Slot 2
-        _storeAddress(address(_dualGovernance), 2, address(_rageQuitEscrow));
-        // Slot 3
-        _storeAddress(address(_dualGovernance), 3, address(_stEth));
-        // Slot 6
-        uint256 lastStateChangeTime = kevm.freshUInt(32);
-        vm.assume(lastStateChangeTime <= block.timestamp);
-        vm.assume(lastStateChangeTime < timeUpperBound);
-        _storeUInt256(address(_dualGovernance), 6, lastStateChangeTime);
-        // Slot 7
-        uint256 lastSubStateActivationTime = kevm.freshUInt(32);
-        vm.assume(lastSubStateActivationTime <= block.timestamp);
-        vm.assume(lastSubStateActivationTime < timeUpperBound);
-        _storeUInt256(address(_dualGovernance), 7, lastSubStateActivationTime);
-        // Slot 8
-        uint256 lastStateReactivationTime = kevm.freshUInt(32);
-        vm.assume(lastStateReactivationTime <= block.timestamp);
-        vm.assume(lastStateReactivationTime < timeUpperBound);
-        _storeUInt256(address(_dualGovernance), 8, lastStateReactivationTime);
-        // Slot 9
-        uint256 lastVetoSignallingTime = kevm.freshUInt(32);
-        vm.assume(lastVetoSignallingTime <= block.timestamp);
-        vm.assume(lastVetoSignallingTime < timeUpperBound);
-        _storeUInt256(address(_dualGovernance), 9, lastVetoSignallingTime);
-        // Slot 10
-        uint256 rageQuitSequenceNumber = kevm.freshUInt(32);
-        vm.assume(rageQuitSequenceNumber < type(uint256).max);
-        _storeUInt256(address(_dualGovernance), 10, rageQuitSequenceNumber);
-        // Slot 11
+        // Slot 4 + 0 = 4
         uint256 currentState = kevm.freshUInt(32);
         vm.assume(currentState <= 4);
-        _storeUInt256(address(_dualGovernance), 11, currentState);
+        uint256 enteredAt = kevm.freshUInt(32);
+        vm.assume(enteredAt <= block.timestamp);
+        vm.assume(enteredAt < timeUpperBound);
+        uint256 vetoSignallingActivationTime = kevm.freshUInt(32);
+        vm.assume(vetoSignallingActivationTime <= block.timestamp);
+        vm.assume(vetoSignallingActivationTime < timeUpperBound);
+        bytes memory slot4Abi = abi.encodePacked(
+            uint8(0),
+            uint160(address(_signallingEscrow)),
+            uint40(vetoSignallingActivationTime),
+            uint40(enteredAt),
+            uint8(currentState)
+        );
+        bytes32 slot4;
+        assembly {
+            slot4 := mload(add(slot4Abi, 0x20))
+        }
+        _storeBytes32(address(_dualGovernance), 4, slot4);
+        // Slot 4 + 1 = 5
+        uint256 vetoSignallingReactivationTime = kevm.freshUInt(32);
+        vm.assume(vetoSignallingReactivationTime <= block.timestamp);
+        vm.assume(vetoSignallingReactivationTime < timeUpperBound);
+        uint256 lastAdoptableStateExitedAt = kevm.freshUInt(32);
+        vm.assume(lastAdoptableStateExitedAt <= block.timestamp);
+        vm.assume(lastAdoptableStateExitedAt < timeUpperBound);
+        uint256 rageQuitRound = kevm.freshUInt(32);
+        vm.assume(rageQuitRound < type(uint8).max);
+        bytes memory slot5Abi = abi.encodePacked(
+            uint8(0),
+            uint8(rageQuitRound),
+            uint160(address(_rageQuitEscrow)),
+            uint40(lastAdoptableStateExitedAt),
+            uint40(vetoSignallingReactivationTime)
+        );
+        bytes32 slot5;
+        assembly {
+            slot5 := mload(add(slot5Abi, 0x20))
+        }
+        _storeBytes32(address(_dualGovernance), 5, slot5);
     }
 
     function _signallingEscrowStorageSetup(
-        EscrowModel _signallingEscrow,
-        DualGovernanceModel _dualGovernance,
+        IEscrow _signallingEscrow,
+        DualGovernance _dualGovernance,
         StETHModel _stEth
     ) internal {
-        _escrowStorageSetup(
-            _signallingEscrow,
-            _dualGovernance,
-            _stEth,
-            0 // SignallingEscrow
-        );
+        _escrowStorageSetup(_signallingEscrow, _dualGovernance, _stEth, EscrowState.SignallingEscrow);
 
-        vm.assume(_signallingEscrow.rageQuitExtensionDelayPeriodEnd() == 0);
+        uint256 rageQuitTimelockStartedAt = _loadUInt256(address(_signallingEscrow), 12);
+        vm.assume(rageQuitTimelockStartedAt == 0);
     }
 
     function _rageQuitEscrowStorageSetup(
-        EscrowModel _rageQuitEscrow,
-        DualGovernanceModel _dualGovernance,
+        IEscrow _rageQuitEscrow,
+        DualGovernance _dualGovernance,
         StETHModel _stEth
     ) internal {
-        _escrowStorageSetup(
-            _rageQuitEscrow,
-            _dualGovernance,
-            _stEth,
-            1 // RageQuitEscrow
-        );
+        _escrowStorageSetup(_rageQuitEscrow, _dualGovernance, _stEth, EscrowState.RageQuitEscrow);
+    }
+
+    function _getCurrentState(Escrow _escrow) internal view returns (EscrowState) {
+        return EscrowState(uint8(uint256(vm.load(address(_escrow), 0))));
+    }
+
+    function _getLastAssetsLockTimestamp(Escrow _escrow, address _vetoer) internal view returns (uint40) {
+        uint256 assetsSlot = 3;
+        uint256 vetoerAddressPadded = uint256(uint160(_vetoer));
+        bytes32 vetoerAssetsSlot = keccak256(abi.encodePacked(vetoerAddressPadded, assetsSlot));
+        bytes32 lastAssetsLockTimestampSlot = bytes32(uint256(vetoerAssetsSlot) + 2);
+        uint256 offset = 128;
+        return uint40(uint256(vm.load(address(_escrow), lastAssetsLockTimestampSlot)) >> offset);
     }
 
     function _escrowStorageSetup(
-        EscrowModel _escrow,
-        DualGovernanceModel _dualGovernance,
+        IEscrow _escrow,
+        DualGovernance _dualGovernance,
         StETHModel _stEth,
-        uint8 _currentState
+        EscrowState _currentState
     ) internal {
         kevm.symbolicStorage(address(_escrow));
-        // Slot 0: dualGovernance
-        _storeAddress(address(_escrow), 0, address(_dualGovernance));
-        // Slot 1: stEth
-        _storeAddress(address(_escrow), 1, address(_stEth));
-        // Slot 3: totalSharesLocked
-        uint256 totalSharesLocked = kevm.freshUInt(32);
-        vm.assume(totalSharesLocked < ethUpperBound);
-        _storeUInt256(address(_escrow), 3, totalSharesLocked);
-        // Slot 4: totalClaimedEthAmount
-        uint256 totalClaimedEthAmount = kevm.freshUInt(32);
-        vm.assume(totalClaimedEthAmount <= totalSharesLocked);
-        _storeUInt256(address(_escrow), 4, totalClaimedEthAmount);
-        // Slot 6: withdrawalRequestCount
-        uint256 withdrawalRequestCount = kevm.freshUInt(32);
-        vm.assume(withdrawalRequestCount < type(uint256).max);
-        _storeUInt256(address(_escrow), 6, withdrawalRequestCount);
-        // Slot 7: lastWithdrawalRequestSubmitted
-        uint256 lastWithdrawalRequestSubmitted = kevm.freshUInt(32);
-        vm.assume(lastWithdrawalRequestSubmitted < 2);
-        _storeUInt256(address(_escrow), 7, lastWithdrawalRequestSubmitted);
-        // Slot 8: claimedWithdrawalRequests
-        uint256 claimedWithdrawalRequests = kevm.freshUInt(32);
-        vm.assume(claimedWithdrawalRequests < type(uint256).max);
-        _storeUInt256(address(_escrow), 8, claimedWithdrawalRequests);
-        // Slot 13: rageQuitExtensionDelayPeriodEnd
-        uint256 rageQuitExtensionDelayPeriodEnd = kevm.freshUInt(32);
-        _storeUInt256(address(_escrow), 13, rageQuitExtensionDelayPeriodEnd);
-        // Slot 15: rageQuitEthClaimTimelockStart
-        uint256 rageQuitEthClaimTimelockStart = kevm.freshUInt(32);
-        vm.assume(rageQuitEthClaimTimelockStart <= block.timestamp);
-        vm.assume(rageQuitEthClaimTimelockStart < timeUpperBound);
-        _storeUInt256(address(_escrow), 15, rageQuitEthClaimTimelockStart);
-        // Slot 16: currentState
-        _storeUInt256(address(_escrow), 16, uint256(_currentState));
+        // Slot 0
+        {
+            bytes memory slot0Abi = abi.encodePacked(uint88(0), uint160(address(_dualGovernance)), uint8(_currentState));
+            bytes32 slot0;
+            assembly {
+                slot0 := mload(add(slot0Abi, 0x20))
+            }
+            _storeBytes32(address(_escrow), 0, slot0);
+            // Slot 1 + 0 + 0 = 1
+            uint256 shares = kevm.freshUInt(32);
+            vm.assume(shares < ethUpperBound);
+            uint256 sharesFinalized = kevm.freshUInt(32);
+            vm.assume(sharesFinalized < ethUpperBound);
+            bytes memory slot1Abi = abi.encodePacked(uint128(sharesFinalized), uint128(shares));
+            bytes32 slot1;
+            assembly {
+                slot1 := mload(add(slot1Abi, 0x20))
+            }
+            _storeBytes32(address(_escrow), 1, slot1);
+        }
+        // Slot 1 + 0 + 1 = 2
+        {
+            uint256 amountFinalized = kevm.freshUInt(32);
+            vm.assume(amountFinalized < ethUpperBound);
+            uint256 amountClaimed = kevm.freshUInt(32);
+            vm.assume(amountClaimed < ethUpperBound);
+            bytes memory slot2Abi = abi.encodePacked(uint128(amountClaimed), uint128(amountFinalized));
+            bytes32 slot2;
+            assembly {
+                slot2 := mload(add(slot2Abi, 0x20))
+            }
+            _storeBytes32(address(_escrow), 2, slot2);
+        }
+        // Slot 10
+        {
+            uint256 rageQuitExtraTimelock = kevm.freshUInt(32);
+            vm.assume(rageQuitExtraTimelock <= block.timestamp);
+            vm.assume(rageQuitExtraTimelock < timeUpperBound);
+            _storeUInt256(address(_escrow), 10, rageQuitExtraTimelock);
+        }
+        // Slot 11
+        {
+            uint256 rageQuitWithdrawalsTimelock = kevm.freshUInt(32);
+            vm.assume(rageQuitWithdrawalsTimelock <= block.timestamp);
+            vm.assume(rageQuitWithdrawalsTimelock < timeUpperBound);
+            _storeUInt256(address(_escrow), 11, rageQuitWithdrawalsTimelock);
+        }
+        // Slot 12
+        {
+            uint256 rageQuitTimelockStartedAt = kevm.freshUInt(32);
+            vm.assume(rageQuitTimelockStartedAt <= block.timestamp);
+            vm.assume(rageQuitTimelockStartedAt < timeUpperBound);
+            _storeUInt256(address(_escrow), 12, rageQuitTimelockStartedAt);
+        }
     }
 }

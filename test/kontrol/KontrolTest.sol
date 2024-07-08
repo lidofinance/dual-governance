@@ -23,6 +23,14 @@ contract KontrolTest is Test, KontrolCheats {
         }
     }
 
+    function _loadUInt256(address contractAddress, uint256 slot) internal view returns (uint256) {
+        return uint256(vm.load(contractAddress, bytes32(slot)));
+    }
+
+    function _loadAddress(address contractAddress, uint256 slot) internal view returns (address) {
+        return address(uint160(uint256(vm.load(contractAddress, bytes32(slot)))));
+    }
+
     function _storeBytes32(address contractAddress, uint256 slot, bytes32 value) internal {
         vm.store(contractAddress, bytes32(slot), value);
     }

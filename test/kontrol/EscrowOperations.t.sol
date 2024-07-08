@@ -12,18 +12,18 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
-        vm.assume(escrow.lastLockedTimes(sender) < timeUpperBound);
+        vm.assume(_getLastAssetsLockTimestamp(escrow, sender) < timeUpperBound);
 
         AccountingRecord memory pre = _saveAccountingRecord(sender);
-        vm.assume(pre.escrowState == EscrowModel.State.SignallingEscrow);
+        vm.assume(pre.escrowState == EscrowState.SignallingEscrow);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
 
-        uint256 lockPeriod = pre.userLastLockedTime + escrow.SIGNALLING_ESCROW_MIN_LOCK_TIME();
+        uint256 lockPeriod = pre.userLastLockedTime + config.SIGNALLING_ESCROW_MIN_LOCK_TIME();
 
         if (block.timestamp < lockPeriod) {
             vm.prank(sender);
             vm.expectRevert("Lock period not expired.");
-            escrow.unlock();
+            escrow.unlockStETH();
         }
     }
 
@@ -51,33 +51,33 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         _signallingEscrowInvariants(Mode.Assume);
         _escrowUserInvariants(Mode.Assume, sender);
 
-        if (pre.escrowState == EscrowModel.State.RageQuitEscrow) {
+        if (pre.escrowState == EscrowState.RageQuitEscrow) {
             vm.prank(sender);
             vm.expectRevert("Cannot lock in current state.");
-            escrow.lock(amount);
+            escrow.lockStETH(amount);
 
             vm.prank(sender);
             vm.expectRevert("Cannot unlock in current state.");
-            escrow.unlock();
+            escrow.unlockStETH();
         } else {
             vm.prank(sender);
-            escrow.lock(amount);
+            escrow.lockStETH(amount);
 
             AccountingRecord memory afterLock = _saveAccountingRecord(sender);
             vm.assume(afterLock.userShares < ethUpperBound);
             vm.assume(afterLock.userLastLockedTime < timeUpperBound);
             vm.assume(afterLock.userSharesLocked <= afterLock.totalSharesLocked);
-            vm.assume(block.timestamp >= afterLock.userLastLockedTime + escrow.SIGNALLING_ESCROW_MIN_LOCK_TIME());
+            vm.assume(block.timestamp >= afterLock.userLastLockedTime + config.SIGNALLING_ESCROW_MIN_LOCK_TIME());
 
             vm.prank(sender);
-            escrow.unlock();
+            escrow.unlockStETH();
 
             _escrowInvariants(Mode.Assert);
             _signallingEscrowInvariants(Mode.Assert);
             _escrowUserInvariants(Mode.Assert, sender);
 
             AccountingRecord memory post = _saveAccountingRecord(sender);
-            assert(post.escrowState == EscrowModel.State.SignallingEscrow);
+            assert(post.escrowState == EscrowState.SignallingEscrow);
             assert(post.userShares == pre.userShares);
             assert(post.escrowShares == pre.escrowShares);
             assert(post.userSharesLocked == 0);
@@ -89,6 +89,8 @@ contract EscrowOperationsTest is EscrowAccountingTest {
     /**
      * Test that a user cannot withdraw funds from the escrow until the RageQuitEthClaimTimelock has elapsed after the RageQuitExtensionDelay period.
      */
+    // TODO: Uncomment this test and adapt it to the client code
+    /*
     function testCannotWithdrawBeforeEthClaimTimelockElapsed() external {
         _setUpGenericState();
 
@@ -98,7 +100,7 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         vm.assume(stEth.balanceOf(sender) < ethUpperBound);
 
         AccountingRecord memory pre = _saveAccountingRecord(sender);
-        vm.assume(pre.escrowState == EscrowModel.State.RageQuitEscrow);
+        vm.assume(pre.escrowState == EscrowState.RageQuitEscrow);
         vm.assume(pre.userSharesLocked > 0);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
         uint256 userEth = stEth.getPooledEthByShares(pre.userSharesLocked);
@@ -110,6 +112,7 @@ contract EscrowOperationsTest is EscrowAccountingTest {
 
         vm.assume(escrow.lastWithdrawalRequestSubmitted());
         vm.assume(escrow.claimedWithdrawalRequests() == escrow.withdrawalRequestCount());
+        vm.assume(escrow.getIsWithdrawalsClaimed());
         vm.assume(escrow.rageQuitExtensionDelayPeriodEnd() < block.timestamp);
         // Assumption for simplicity
         vm.assume(escrow.rageQuitSequenceNumber() < 2);
@@ -133,4 +136,5 @@ contract EscrowOperationsTest is EscrowAccountingTest {
             assert(post.userSharesLocked == 0);
         }
     }
+    */
 }

@@ -1,20 +1,36 @@
 pragma solidity 0.8.23;
 
-import "contracts/model/DualGovernanceModel.sol";
-import "contracts/model/EmergencyProtectedTimelockModel.sol";
-import "contracts/model/EscrowModel.sol";
+import "contracts/Configuration.sol";
+import "contracts/DualGovernance.sol";
+import "contracts/EmergencyProtectedTimelock.sol";
+import "contracts/Escrow.sol";
 import "contracts/model/StETHModel.sol";
+import "contracts/model/WithdrawalQueueModel.sol";
+import "contracts/model/WstETHAdapted.sol";
 
-import "test/kontrol/StorageSetup.sol";
+import {StorageSetup} from "test/kontrol/StorageSetup.sol";
 
 contract EscrowAccountingTest is StorageSetup {
+    Configuration config;
     StETHModel stEth;
-    EscrowModel escrow;
+    WstETHAdapted wstEth;
+    WithdrawalQueueModel withdrawalQueue;
+    Escrow escrow;
 
     function _setUpInitialState() public {
         stEth = new StETHModel();
-        address dualGovernanceAddress = address(uint160(uint256(keccak256("dualGovernance")))); // arbitrary DG address
-        escrow = new EscrowModel(dualGovernanceAddress, address(stEth));
+        wstEth = new WstETHAdapted(IStETH(stEth));
+        withdrawalQueue = new WithdrawalQueueModel();
+
+        // Placeholder addresses
+        address adminExecutor = address(uint160(uint256(keccak256("adminExecutor"))));
+        address emergencyGovernance = address(uint160(uint256(keccak256("emergencyGovernance"))));
+        address dualGovernanceAddress = address(uint160(uint256(keccak256("dualGovernance"))));
+
+        config = new Configuration(adminExecutor, emergencyGovernance, new address[](0));
+
+        escrow = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
+        escrow.initialize(dualGovernanceAddress);
 
         // ?STORAGE
         // ?WORD: totalPooledEther
@@ -24,30 +40,23 @@ contract EscrowAccountingTest is StorageSetup {
     }
 
     function _setUpGenericState() public {
-        stEth = new StETHModel();
-        escrow = new EscrowModel(address(0), address(0));
-
-        // ?STORAGE
-        // ?WORD: totalPooledEther
-        // ?WORD0: totalShares
-        // ?WORD1: shares[escrow]
-        _stEthStorageSetup(stEth, escrow);
+        _setUpInitialState();
 
         address dualGovernanceAddress = address(uint160(kevm.freshUInt(20))); // ?WORD2
         uint8 currentState = uint8(kevm.freshUInt(1)); // ?WORD3
-        vm.assume(currentState < 2);
+        vm.assume(currentState < 3);
 
         // ?STORAGE0
         // ?WORD4: totalSharesLocked
         // ?WORD5: totalClaimedEthAmount
         // ?WORD6: rageQuitExtensionDelayPeriodEnd
-        _escrowStorageSetup(escrow, DualGovernanceModel(dualGovernanceAddress), stEth, currentState);
+        _escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), stEth, EscrowState(currentState));
     }
 
     function testRageQuitSupport() public {
         _setUpGenericState();
 
-        uint256 totalSharesLocked = escrow.totalSharesLocked();
+        uint128 totalSharesLocked = escrow.getLockedAssetsTotals().shares;
         uint256 totalFundsLocked = stEth.getPooledEthByShares(totalSharesLocked);
         uint256 expectedRageQuitSupport = totalFundsLocked * 1e18 / stEth.totalSupply();
 
@@ -55,24 +64,30 @@ contract EscrowAccountingTest is StorageSetup {
     }
 
     function _escrowInvariants(Mode mode) internal view {
-        _establish(mode, escrow.totalSharesLocked() <= stEth.sharesOf(address(escrow)));
-        uint256 totalPooledEther = stEth.getPooledEthByShares(escrow.totalSharesLocked());
+        LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
+        _establish(mode, totals.shares <= stEth.sharesOf(address(escrow)));
+        _establish(mode, totals.sharesFinalized <= totals.shares);
+        uint256 totalPooledEther = stEth.getPooledEthByShares(totals.shares);
         _establish(mode, totalPooledEther <= stEth.balanceOf(address(escrow)));
-        _establish(mode, escrow.totalWithdrawalRequestAmount() <= totalPooledEther);
-        _establish(mode, escrow.totalClaimedEthAmount() <= escrow.totalWithdrawalRequestAmount());
-        _establish(mode, escrow.totalWithdrawnPostRageQuit() <= escrow.totalClaimedEthAmount());
+        _establish(mode, totals.amountFinalized == stEth.getPooledEthByShares(totals.sharesFinalized));
+        _establish(mode, totals.amountFinalized <= totalPooledEther);
+        _establish(mode, totals.amountClaimed <= totals.amountFinalized);
+        EscrowState currentState = _getCurrentState(escrow);
+        _establish(mode, 0 < uint8(currentState));
+        _establish(mode, uint8(currentState) < 3);
     }
 
     function _signallingEscrowInvariants(Mode mode) internal view {
-        if (escrow.currentState() == EscrowModel.State.SignallingEscrow) {
-            _establish(mode, escrow.totalWithdrawalRequestAmount() == 0);
-            _establish(mode, escrow.totalClaimedEthAmount() == 0);
-            _establish(mode, escrow.totalWithdrawnPostRageQuit() == 0);
+        if (_getCurrentState(escrow) == EscrowState.SignallingEscrow) {
+            LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
+            _establish(mode, totals.sharesFinalized == 0);
+            _establish(mode, totals.amountFinalized == 0);
+            _establish(mode, totals.amountClaimed == 0);
         }
     }
 
     function _escrowUserInvariants(Mode mode, address user) internal view {
-        _establish(mode, escrow.shares(user) <= escrow.totalSharesLocked());
+        _establish(mode, escrow.getVetoerState(user).stETHShares <= escrow.getLockedAssetsTotals().shares);
     }
 
     function testEscrowInvariantsHoldInitially() public {
@@ -86,7 +101,7 @@ contract EscrowAccountingTest is StorageSetup {
     }
 
     struct AccountingRecord {
-        EscrowModel.State escrowState;
+        EscrowState escrowState;
         uint256 allowance;
         uint256 userBalance;
         uint256 escrowBalance;
@@ -99,16 +114,16 @@ contract EscrowAccountingTest is StorageSetup {
     }
 
     function _saveAccountingRecord(address user) internal view returns (AccountingRecord memory ar) {
-        ar.escrowState = escrow.currentState();
+        ar.escrowState = _getCurrentState(escrow);
         ar.allowance = stEth.allowance(user, address(escrow));
         ar.userBalance = stEth.balanceOf(user);
         ar.escrowBalance = stEth.balanceOf(address(escrow));
         ar.userShares = stEth.sharesOf(user);
         ar.escrowShares = stEth.sharesOf(address(escrow));
-        ar.userSharesLocked = escrow.shares(user);
-        ar.totalSharesLocked = escrow.totalSharesLocked();
+        ar.userSharesLocked = escrow.getVetoerState(user).stETHShares;
+        ar.totalSharesLocked = escrow.getLockedAssetsTotals().shares;
         ar.totalEth = stEth.getPooledEthByShares(ar.totalSharesLocked);
-        ar.userLastLockedTime = escrow.lastLockedTimes(user);
+        ar.userLastLockedTime = _getLastAssetsLockTimestamp(escrow, user);
     }
 
     function _assumeFreshAddress(address account) internal {
@@ -140,7 +155,7 @@ contract EscrowAccountingTest is StorageSetup {
         vm.assume(stEth.balanceOf(sender) < ethUpperBound);
 
         AccountingRecord memory pre = _saveAccountingRecord(sender);
-        vm.assume(pre.escrowState == EscrowModel.State.SignallingEscrow);
+        vm.assume(pre.escrowState == EscrowState.SignallingEscrow);
         vm.assume(0 < amount);
         vm.assume(amount <= pre.userBalance);
         vm.assume(amount <= pre.allowance);
@@ -154,7 +169,7 @@ contract EscrowAccountingTest is StorageSetup {
         _escrowUserInvariants(Mode.Assume, sender);
 
         vm.startPrank(sender);
-        escrow.lock(amount);
+        escrow.lockStETH(amount);
         vm.stopPrank();
 
         _escrowInvariants(Mode.Assert);
@@ -162,7 +177,7 @@ contract EscrowAccountingTest is StorageSetup {
         _escrowUserInvariants(Mode.Assert, sender);
 
         AccountingRecord memory post = _saveAccountingRecord(sender);
-        assert(post.escrowState == EscrowModel.State.SignallingEscrow);
+        assert(post.escrowState == EscrowState.SignallingEscrow);
         assert(post.userShares == pre.userShares - amountInShares);
         assert(post.escrowShares == pre.escrowShares + amountInShares);
         assert(post.userSharesLocked == pre.userSharesLocked + amountInShares);
@@ -186,19 +201,19 @@ contract EscrowAccountingTest is StorageSetup {
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
-        vm.assume(escrow.lastLockedTimes(sender) < timeUpperBound);
+        vm.assume(_getLastAssetsLockTimestamp(escrow, sender) < timeUpperBound);
 
         AccountingRecord memory pre = _saveAccountingRecord(sender);
-        vm.assume(pre.escrowState == EscrowModel.State.SignallingEscrow);
+        vm.assume(pre.escrowState == EscrowState.SignallingEscrow);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
-        vm.assume(block.timestamp >= pre.userLastLockedTime + escrow.SIGNALLING_ESCROW_MIN_LOCK_TIME());
+        vm.assume(block.timestamp >= pre.userLastLockedTime + config.SIGNALLING_ESCROW_MIN_LOCK_TIME());
 
         _escrowInvariants(Mode.Assume);
         _signallingEscrowInvariants(Mode.Assume);
         _escrowUserInvariants(Mode.Assume, sender);
 
         vm.startPrank(sender);
-        escrow.unlock();
+        escrow.unlockStETH();
         vm.stopPrank();
 
         _escrowInvariants(Mode.Assert);
@@ -206,7 +221,7 @@ contract EscrowAccountingTest is StorageSetup {
         _escrowUserInvariants(Mode.Assert, sender);
 
         AccountingRecord memory post = _saveAccountingRecord(sender);
-        assert(post.escrowState == EscrowModel.State.SignallingEscrow);
+        assert(post.escrowState == EscrowState.SignallingEscrow);
         assert(post.userShares == pre.userShares + pre.userSharesLocked);
         assert(post.userSharesLocked == 0);
         assert(post.totalSharesLocked == pre.totalSharesLocked - pre.userSharesLocked);
