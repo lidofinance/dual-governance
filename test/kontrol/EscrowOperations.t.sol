@@ -1,5 +1,8 @@
 pragma solidity 0.8.23;
 
+import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
+
 import "test/kontrol/EscrowAccounting.t.sol";
 
 contract EscrowOperationsTest is EscrowAccountingTest {
@@ -18,9 +21,9 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         vm.assume(pre.escrowState == EscrowState.SignallingEscrow);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
 
-        uint256 lockPeriod = pre.userLastLockedTime + config.SIGNALLING_ESCROW_MIN_LOCK_TIME();
+        Timestamp lockPeriod = addTo(config.SIGNALLING_ESCROW_MIN_LOCK_TIME(), pre.userLastLockedTime);
 
-        if (block.timestamp < lockPeriod) {
+        if (Timestamps.now() < lockPeriod) {
             vm.prank(sender);
             vm.expectRevert("Lock period not expired.");
             escrow.unlockStETH();
@@ -65,9 +68,9 @@ contract EscrowOperationsTest is EscrowAccountingTest {
 
             AccountingRecord memory afterLock = _saveAccountingRecord(sender);
             vm.assume(afterLock.userShares < ethUpperBound);
-            vm.assume(afterLock.userLastLockedTime < timeUpperBound);
+            //vm.assume(afterLock.userLastLockedTime < timeUpperBound);
             vm.assume(afterLock.userSharesLocked <= afterLock.totalSharesLocked);
-            vm.assume(block.timestamp >= afterLock.userLastLockedTime + config.SIGNALLING_ESCROW_MIN_LOCK_TIME());
+            vm.assume(Timestamps.now() >= addTo(config.SIGNALLING_ESCROW_MIN_LOCK_TIME(), afterLock.userLastLockedTime));
 
             vm.prank(sender);
             escrow.unlockStETH();
