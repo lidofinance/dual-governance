@@ -124,11 +124,13 @@ contract EmergencyProtectedTimelockModel {
     function cancelAllNonExecutedProposals() public {
         require(msg.sender == governance, "Caller is not authorized to cancel proposal.");
 
-        // Loop through all the proposals stored in the contract.
-        for (uint256 i = 0; i < nextProposalId; i++) {
-            // Ensure that only proposals in 'Submitted' or 'Scheduled' status are canceled.
-            if (proposals[i].status != ProposalStatus.Executed) {
-                proposals[i].status = ProposalStatus.Canceled;
+        if (nextProposalId > 0) {
+            // Loop through all the proposals stored in the contract.
+            for (uint256 i = 0; i < nextProposalId; i++) {
+                // Ensure that only proposals in 'Submitted' or 'Scheduled' status are canceled.
+                if (proposals[i].status != ProposalStatus.Executed) {
+                    proposals[i].status = ProposalStatus.Canceled;
+                }
             }
         }
     }
