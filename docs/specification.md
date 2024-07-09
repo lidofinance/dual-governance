@@ -34,7 +34,7 @@ This document provides the system description on the code architecture level. A 
 
 ## System overview
 
-![image](https://github.com/lidofinance/dual-governance/assets/870356/6beb05c4-3b7a-407a-b840-18e368a1d8c9)
+![image](https://github.com/lidofinance/dual-governance/assets/14151334/b7498050-e04c-415e-9f45-3ed9c24f1417)
 
 The system is composed of the following main contracts:
 
