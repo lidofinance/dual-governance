@@ -22,6 +22,8 @@ contract EscrowAccountingTest is StorageSetup {
     Escrow escrow;
 
     function _setUpInitialState() public {
+        vm.chainId(1); // Set block.chainid so it's not symbolic
+
         stEth = new StETHModel();
         wstEth = new WstETHAdapted(IStETH(stEth));
         withdrawalQueue = new WithdrawalQueueModel();
