@@ -11,6 +11,7 @@ module LIDO-LEMMAS
     syntax StepSort ::= Int
                       | Bool
                       | Bytes
+                      | Map
                       | Set
  // -------------------------
 
@@ -247,6 +248,35 @@ module LIDO-LEMMAS
         [simplification, concrete(BUF1)]
 
     //
+    //  Master slot-update lemma
+    //
+    rule ( VALUE:Int *Int SHIFT:Int ) |Int ( MASK_SLOT:Int &Int #asWord ( SLOT:Bytes ) ) =>
+         #asWord ( ( #buf ( 32 -Int lengthBytes ( SLOT ), 0 ) +Bytes SLOT ) [ 32 -Int ( log2Int ( ( maxUInt256 xorInt ( ( MASK_SLOT /Int SHIFT ) *Int SHIFT ) ) +Int 1 ) /Int 8 ) :=
+                   #buf ( ( log2Int ( ( maxUInt256 xorInt ( ( MASK_SLOT /Int SHIFT ) *Int SHIFT ) ) +Int 1 ) -Int log2Int ( SHIFT ) ) /Int 8, VALUE:Int ) ] )
+      requires // Appropriate bounds for SHIFT, MASK_SLOT, and SLOT
+               #rangeUInt(256, SHIFT) andBool #rangeUInt(256, MASK_SLOT) andBool lengthBytes(SLOT) <=Int 32
+               // Shift is a power of two
+       andBool SHIFT ==Int 2 ^Int log2Int(SHIFT)
+               // MASK_SLOT preserves all bits below the starting point at log2Int ( SHIFT )
+       andBool ( ( SHIFT -Int 1 ) &Int MASK_SLOT ) +Int 1 ==Int SHIFT
+               // MASK_SLOT preserves all bits starting from a certain point,
+               // which is identified by log2Int ( ( maxUInt256 xorInt ( ( MASK_SLOT /Int SHIFT ) *Int SHIFT ) ) +Int 1 ),
+               // and all bits between that point and the starting point are zero
+       andBool ( maxUInt256 xorInt ( ( MASK_SLOT /Int SHIFT ) *Int SHIFT ) ) +Int 1 ==Int
+               2 ^Int log2Int ( ( maxUInt256 xorInt ( ( MASK_SLOT /Int SHIFT ) *Int SHIFT ) ) +Int 1 )
+               // The start and endpoints are multiples of 8
+       andBool log2Int ( SHIFT ) modInt 8 ==Int 0
+       andBool log2Int ( ( maxUInt256 xorInt ( ( MASK_SLOT /Int SHIFT ) *Int SHIFT ) ) +Int 1 ) modInt 8 ==Int 0
+               // VALUE is not wider than the gap
+       andBool 0 <=Int VALUE andBool VALUE <Int ( ( maxUInt256 xorInt ( ( MASK_SLOT /Int SHIFT ) *Int SHIFT ) ) +Int 1 ) /Int SHIFT
+      [simplification, concrete(SHIFT, MASK_SLOT), preserves-definedness]
+
+    //
+    // #lookup
+    //
+    rule M:Map [ K1 <- _ ] [ K2 <- V2 ] [ K1 <- V3 ] => M:Map [ K2 <- V2 ] [ K1 <- V3 ] [simplification]
+
+    //
     // Rules
     //
 
@@ -298,4 +328,56 @@ module LIDO-LEMMAS-SPEC
        andBool WORD7:Int <Int pow96
        andBool WORD11:Int <Int pow96
        andBool WORD12:Int <Int pow96
+
+    claim [masking-conditions-01]:
+      <k> runLemma (
+                    #rangeUInt(256, maxUInt40) andBool #rangeUInt(256, 256)
+            andBool #rangeUInt(256, 115792089237316195423570985008687907853269984665640564039457583726438152929535)
+            andBool lengthBytes(b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01") ==Int 32
+            andBool maxUInt40 +Int 1 ==Int 2 ^Int log2Int(maxUInt40 +Int 1)
+            andBool              256 ==Int 2 ^Int log2Int(256)
+            andBool maxUInt40 &Int ( 115792089237316195423570985008687907853269984665640564039457583726438152929535 /Int 256 ) ==Int 0
+            andBool log2Int ( ( ( 115792089237316195423570985008687907853269984665640564039457583726438152929535 /Int 256 ) /Int ( maxUInt40 +Int 1 ) ) +Int 1 ) ==Int
+                    256 -Int log2Int (256) -Int log2Int (maxUInt40 +Int 1)
+            andBool 0 <=Int VALUE andBool VALUE <Int maxUInt40 +Int 1
+          ) => doneLemma (
+            true
+          ) ... </k>
+          requires 0 <Int VALUE andBool VALUE <Int pow40
+
+    claim [masking-conditions-02]:
+      <k> runLemma (
+                    #rangeUInt(256, pow40) andBool #rangeUInt(256, 115792089237316195423570985008687907853269984665640562830531764394383466561535) andBool lengthBytes( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ==Int X
+                    // Shift is a power of two
+            andBool pow40 ==Int 2 ^Int log2Int(pow40)
+            andBool ( ( pow40 -Int 1 ) &Int 115792089237316195423570985008687907853269984665640562830531764394383466561535 ) +Int 1 ==Int pow40
+            andBool ( maxUInt256 xorInt ( ( 115792089237316195423570985008687907853269984665640562830531764394383466561535 /Int pow40 ) *Int pow40 ) ) +Int 1 ==Int
+                    2 ^Int log2Int ( ( maxUInt256 xorInt ( ( 115792089237316195423570985008687907853269984665640562830531764394383466561535 /Int pow40 ) *Int pow40 ) ) +Int 1 )
+            andBool 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int ( ( maxUInt256 xorInt ( ( 115792089237316195423570985008687907853269984665640562830531764394383466561535 /Int pow40 ) *Int pow40 ) ) +Int 1 ) /Int pow40
+          ) => doneLemma (
+            true
+          ) ... </k>
+
+    claim [master-masking-01]:
+      <k> runLemma (
+            ( ( maxUInt40 &Int TIMESTAMP_CELL:Int ) *Int 256 ) |Int ( 115792089237316195423570985008687907853269984665640564039457583726438152929535 &Int #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , _WORD3:Int ) +Bytes b"\x01" ) )
+          ) => doneLemma (
+            #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01" )
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int pow40
+
+    claim [storage-simplification]:
+      <k> runLemma (
+            STORAGE0:Map
+            [ 5 <- #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , WORD3:Int ) +Bytes b"\x00" ) ]
+            [ 6 <- #asWord ( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ]
+            [ 5 <- #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01" ) ]
+            [ 6 <- ( ( TIMESTAMP_CELL:Int *Int pow40 ) |Int ( 115792089237316195423570985008687907853269984665640562830531764394383466561535 &Int #asWord ( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ) ) ]
+            [ 5 <- #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01" ) ]
+          ) => doneLemma (
+            STORAGE0:Map
+            [ 6 <- #asWord ( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ]
+            [ 5 <- #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01" ) ]
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int pow40
 endmodule
