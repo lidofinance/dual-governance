@@ -107,8 +107,9 @@ contract StorageSetup is KontrolTest {
     function _signallingEscrowStorageSetup(IEscrow _signallingEscrow, DualGovernance _dualGovernance) internal {
         _escrowStorageSetup(_signallingEscrow, _dualGovernance, EscrowState.SignallingEscrow);
 
-        uint256 rageQuitTimelockStartedAt = _loadUInt256(address(_signallingEscrow), 12);
-        vm.assume(rageQuitTimelockStartedAt == 0);
+        vm.assume(_getRageQuitExtensionDelay(_signallingEscrow) == 0);
+        vm.assume(_getRageQuitWithdrawalsTimelock(_signallingEscrow) == 0);
+        vm.assume(_getRageQuitTimelockStartedAt(_signallingEscrow) == 0);
     }
 
     function _rageQuitEscrowStorageSetup(IEscrow _rageQuitEscrow, DualGovernance _dualGovernance) internal {
@@ -125,6 +126,18 @@ contract StorageSetup is KontrolTest {
         bytes32 vetoerAssetsSlot = keccak256(abi.encodePacked(vetoerAddressPadded, assetsSlot));
         uint256 lastAssetsLockTimestampSlot = uint256(vetoerAssetsSlot) + 1;
         return _loadUInt256(address(_escrow), lastAssetsLockTimestampSlot);
+    }
+
+    function _getRageQuitExtensionDelay(IEscrow _escrow) internal view returns (uint32) {
+        return uint32(_loadUInt256(address(_escrow), 9));
+    }
+
+    function _getRageQuitWithdrawalsTimelock(IEscrow _escrow) internal view returns (uint32) {
+        return uint32(_loadUInt256(address(_escrow), 9) >> 32);
+    }
+
+    function _getRageQuitTimelockStartedAt(IEscrow _escrow) internal view returns (uint40) {
+        return uint40(_loadUInt256(address(_escrow), 9) >> 64);
     }
 
     function _escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowState _currentState) internal {
