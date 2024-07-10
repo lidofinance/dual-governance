@@ -25,6 +25,8 @@ contract DualGovernanceSetUp is StorageSetup {
     IEscrow rageQuitEscrow;
 
     function setUp() public {
+        vm.chainId(1); // Set block.chainid so it's not symbolic
+
         stEth = new StETHModel();
         wstEth = new WstETHAdapted(IStETH(stEth));
         withdrawalQueue = new WithdrawalQueueModel();
@@ -39,7 +41,7 @@ contract DualGovernanceSetUp is StorageSetup {
         Escrow escrowMasterCopy = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
         dualGovernance =
             new DualGovernance(address(config), address(timelock), address(escrowMasterCopy), adminProposer);
-        signallingEscrow = IEscrow(_loadAddress(address(dualGovernance), 5));
+        signallingEscrow = IEscrow(dualGovernance.getVetoSignallingEscrow());
         rageQuitEscrow = IEscrow(Clones.clone(address(escrowMasterCopy)));
 
         // ?STORAGE
