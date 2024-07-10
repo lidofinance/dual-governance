@@ -51,37 +51,38 @@ contract DualGovernanceSetUp is StorageSetup {
         _stEthStorageSetup(stEth, signallingEscrow);
 
         // ?STORAGE0
-        // ?WORD2: lastStateChangeTime
-        // ?WORD3: lastSubStateActivationTime
-        // ?WORD4: lastStateReactivationTime
-        // ?WORD5: lastVetoSignallingTime
-        // ?WORD6: rageQuitSequenceNumber
-        // ?WORD7: currentState
+        // ?WORD2: currentState
+        // ?WORD3: enteredAt
+        // ?WORD4: vetoSignallingActivationTime
+        // ?WORD5: vetoSignallingReactivationTime
+        // ?WORD6: lastAdoptableStaateExitedAt
+        // ?WORD7: rageQuitRound
         _dualGovernanceStorageSetup(dualGovernance, timelock, stEth, signallingEscrow, rageQuitEscrow);
 
         // ?STORAGE1
-        // ?WORD8: totalSharesLocked
-        // ?WORD9: totalClaimedEthAmount
-        // ?WORD10: withdrawalRequestCount
-        // ?WORD11: lastWithdrawalRequestSubmitted
-        // ?WORD12: claimedWithdrawalRequests
-        // ?WORD13: rageQuitExtensionDelayPeriodEnd
-        // ?WORD14: rageQuitEthClaimTimelockStart
+        // ?WORD8: lockedShares
+        // ?WORD9: claimedETH
+        // ?WORD10: unfinalizedShares
+        // ?WORD11: finalizedETH
+        // ?WORD12: rageQuitExtensionDelay
+        // ?WORD13: rageQuitWithdrawalsTimelock
+        // ?WORD14: rageQuitTimelockStartedAt
         _signallingEscrowStorageSetup(signallingEscrow, dualGovernance, stEth);
 
         // ?STORAGE2
-        // ?WORD15: totalSharesLocked
-        // ?WORD16: totalClaimedEthAmount
-        // ?WORD17: withdrawalRequestCount
-        // ?WORD18: lastWithdrawalRequestSubmitted
-        // ?WORD19: claimedWithdrawalRequests
-        // ?WORD20: rageQuitExtensionDelayPeriodEnd
-        // ?WORD21: rageQuitEthClaimTimelockStart
+        // ?WORD15: lockedShares
+        // ?WORD16: claimedETH
+        // ?WORD17: unfinalizedShares
+        // ?WORD18: finalizedETH
+        // ?WORD19: rageQuitExtensionDelay
+        // ?WORD20: rageQuitWithdrawalsTimelock
+        // ?WORD21: rageQuitTimelockStartedAt
         _rageQuitEscrowStorageSetup(rageQuitEscrow, dualGovernance, stEth);
 
         // ?STORAGE3
         kevm.symbolicStorage(address(timelock));
 
+        // ?STORAGE4
         kevm.symbolicStorage(address(withdrawalQueue));
     }
 }
