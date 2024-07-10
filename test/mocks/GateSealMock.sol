@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {ISealable} from "contracts/interfaces/ISealable.sol";
 import {IGateSeal} from "contracts/interfaces/IGateSeal.sol";
