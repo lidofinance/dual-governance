@@ -7,17 +7,6 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {ArrayUtils} from "../utils/arrays.sol";
 import {SequentialBatch, SequentialBatches} from "../types/SequentialBatches.sol";
 
-enum Status {
-    // The default status of the WithdrawalsBatchesQueue. In the closed state the only action allowed
-    // to be called is open(), which transfers it into Opened state.
-    Empty,
-    // In the Opened state WithdrawalsBatchesQueue allows to add batches into the queue
-    Opened,
-    // When the WithdrawalsBatchesQueue enters Filled queue - it's not allowed to add batches and
-    // only allowed to mark batches claimed
-    Closed
-}
-
 struct QueueIndex {
     uint32 batchIndex;
     uint16 valueIndex;
@@ -25,6 +14,17 @@ struct QueueIndex {
 
 library WithdrawalsBatchesQueue {
     using SafeCast for uint256;
+
+    enum Status {
+        // The default status of the WithdrawalsBatchesQueue. In the closed state the only action allowed
+        // to be called is open(), which transfers it into Opened state.
+        Empty,
+        // In the Opened state WithdrawalsBatchesQueue allows to add batches into the queue
+        Opened,
+        // When the WithdrawalsBatchesQueue enters Filled queue - it's not allowed to add batches and
+        // only allowed to mark batches claimed
+        Closed
+    }
 
     struct State {
         Status status;
