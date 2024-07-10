@@ -8,7 +8,8 @@ contract KontrolTest is Test, KontrolCheats {
     // Note: there are lemmas dependent on `ethUpperBound`
     uint256 constant ethMaxWidth = 96;
     uint256 constant ethUpperBound = 2 ** ethMaxWidth;
-    uint256 constant timeUpperBound = 2 ** 40;
+    // Note: 2 ** 35 takes us to year 3058
+    uint256 constant timeUpperBound = 2 ** 35;
 
     enum Mode {
         Assume,

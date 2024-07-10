@@ -193,10 +193,9 @@ contract VetoSignallingTest is DualGovernanceSetUp {
 
         dualGovernance.activateNextState();
 
-        StateRecord memory sr = _recordCurrentState(0);
-
         // Consider only the case where we have transitioned to Veto Signalling
-        if (sr.state == State.VetoSignalling) {
+        if (dualGovernance.getCurrentState() == State.VetoSignalling) {
+            StateRecord memory sr = _recordCurrentState(0);
             _vetoSignallingInvariants(Mode.Assert, sr);
         }
     }
