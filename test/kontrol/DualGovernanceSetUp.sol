@@ -57,7 +57,7 @@ contract DualGovernanceSetUp is StorageSetup {
         // ?WORD5: vetoSignallingReactivationTime
         // ?WORD6: lastAdoptableStaateExitedAt
         // ?WORD7: rageQuitRound
-        _dualGovernanceStorageSetup(dualGovernance, timelock, stEth, signallingEscrow, rageQuitEscrow);
+        _dualGovernanceStorageSetup(dualGovernance, signallingEscrow, rageQuitEscrow);
 
         // ?STORAGE1
         // ?WORD8: lockedShares
@@ -67,7 +67,7 @@ contract DualGovernanceSetUp is StorageSetup {
         // ?WORD12: rageQuitExtensionDelay
         // ?WORD13: rageQuitWithdrawalsTimelock
         // ?WORD14: rageQuitTimelockStartedAt
-        _signallingEscrowStorageSetup(signallingEscrow, dualGovernance, stEth);
+        _signallingEscrowStorageSetup(signallingEscrow, dualGovernance);
 
         // ?STORAGE2
         // ?WORD15: lockedShares
@@ -77,7 +77,7 @@ contract DualGovernanceSetUp is StorageSetup {
         // ?WORD19: rageQuitExtensionDelay
         // ?WORD20: rageQuitWithdrawalsTimelock
         // ?WORD21: rageQuitTimelockStartedAt
-        _rageQuitEscrowStorageSetup(rageQuitEscrow, dualGovernance, stEth);
+        _rageQuitEscrowStorageSetup(rageQuitEscrow, dualGovernance);
 
         // ?STORAGE3
         kevm.symbolicStorage(address(timelock));

@@ -56,8 +56,6 @@ contract StorageSetup is KontrolTest {
 
     function _dualGovernanceStorageSetup(
         DualGovernance _dualGovernance,
-        EmergencyProtectedTimelock _timelock,
-        StETHModel _stEth,
         IEscrow _signallingEscrow,
         IEscrow _rageQuitEscrow
     ) internal {
@@ -106,23 +104,15 @@ contract StorageSetup is KontrolTest {
         _storeBytes32(address(_dualGovernance), 6, slot6);
     }
 
-    function _signallingEscrowStorageSetup(
-        IEscrow _signallingEscrow,
-        DualGovernance _dualGovernance,
-        StETHModel _stEth
-    ) internal {
-        _escrowStorageSetup(_signallingEscrow, _dualGovernance, _stEth, EscrowState.SignallingEscrow);
+    function _signallingEscrowStorageSetup(IEscrow _signallingEscrow, DualGovernance _dualGovernance) internal {
+        _escrowStorageSetup(_signallingEscrow, _dualGovernance, EscrowState.SignallingEscrow);
 
         uint256 rageQuitTimelockStartedAt = _loadUInt256(address(_signallingEscrow), 12);
         vm.assume(rageQuitTimelockStartedAt == 0);
     }
 
-    function _rageQuitEscrowStorageSetup(
-        IEscrow _rageQuitEscrow,
-        DualGovernance _dualGovernance,
-        StETHModel _stEth
-    ) internal {
-        _escrowStorageSetup(_rageQuitEscrow, _dualGovernance, _stEth, EscrowState.RageQuitEscrow);
+    function _rageQuitEscrowStorageSetup(IEscrow _rageQuitEscrow, DualGovernance _dualGovernance) internal {
+        _escrowStorageSetup(_rageQuitEscrow, _dualGovernance, EscrowState.RageQuitEscrow);
     }
 
     function _getCurrentState(Escrow _escrow) internal view returns (EscrowState) {
@@ -137,12 +127,7 @@ contract StorageSetup is KontrolTest {
         return _loadUInt256(address(_escrow), lastAssetsLockTimestampSlot);
     }
 
-    function _escrowStorageSetup(
-        IEscrow _escrow,
-        DualGovernance _dualGovernance,
-        StETHModel _stEth,
-        EscrowState _currentState
-    ) internal {
+    function _escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowState _currentState) internal {
         kevm.symbolicStorage(address(_escrow));
         // Slot 0
         {

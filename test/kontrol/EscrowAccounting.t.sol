@@ -60,7 +60,7 @@ contract EscrowAccountingTest is StorageSetup {
         // ?WORD8: rageQuitExtensionDelay
         // ?WORD9: rageQuitWithdrawalsTimelock
         // ?WORD10: rageQuitTimelockStartedAt
-        _escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), stEth, EscrowState(currentState));
+        _escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), EscrowState(currentState));
     }
 
     function testRageQuitSupport() public {
