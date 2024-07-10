@@ -53,9 +53,13 @@ contract EscrowAccountingTest is StorageSetup {
         vm.assume(currentState < 3);
 
         // ?STORAGE0
-        // ?WORD4: totalSharesLocked
-        // ?WORD5: totalClaimedEthAmount
-        // ?WORD6: rageQuitExtensionDelayPeriodEnd
+        // ?WORD4: lockedShares
+        // ?WORD5: claimedETH
+        // ?WORD6: unfinalizedShares
+        // ?WORD7: finalizedETH
+        // ?WORD8: rageQuitExtensionDelay
+        // ?WORD9: rageQuitWithdrawalsTimelock
+        // ?WORD10: rageQuitTimelockStartedAt
         _escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), stEth, EscrowState(currentState));
     }
 
