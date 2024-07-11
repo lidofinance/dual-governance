@@ -47,7 +47,7 @@ contract StorageSetup is KontrolTest {
     }
 
     function _getVetoSignallingActivationTime(DualGovernance _dualGovernance) internal view returns (Timestamp) {
-        return _loadTimestamp(address(_dualGovernance), 6, 40);
+        return _loadTimestamp(address(_dualGovernance), 5, 48);
     }
 
     function _getVetoSignallingReactivationTime(DualGovernance _dualGovernance) internal view returns (Timestamp) {
