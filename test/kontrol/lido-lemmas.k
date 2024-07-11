@@ -27,17 +27,6 @@ module LIDO-LEMMAS
     rule ethUpperBound => 2 ^Int ethMaxWidth
  // ----------------------------------------
 
-    // /Int to byte representation
-    rule X /Int pow160 => #asWord ( #range ( #buf ( 32 , X ) , 0 , 12 ) )
-      requires #rangeUInt(256, X)
-      [simplification, preserves-definedness]
-
-    // Deconstruction of mask
-    rule 115792089237316195423570984636004990333889740523700931696805413995650331181055 &Int X =>
-            #asWord ( #range(#buf(32, X), 0, 11) +Bytes #buf(1, 0) +Bytes #range(#buf(32, X), 12, 20) )
-      requires #rangeUInt(256, X)
-      [simplification]
-
     // |Int distributivity over #asWord and +Bytes, v1
     rule A |Int #asWord ( BA1 +Bytes BA2 ) =>
       #asWord ( BA1 +Bytes #buf ( lengthBytes(BA2), A |Int #asWord ( BA2 ) ) )
