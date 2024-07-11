@@ -9,6 +9,10 @@ Timelocked Governance (TG) is a governance subsystem positioned between the Lido
 * [Proposal execution](#proposal-execution)
 * [Common types](#common-types)
 * [Contract: `TimelockedGovernance`](#contract-timelockedgovernance)
+* [Contract: `EmergencyProtectedTimelock`](#contract-emergencyprotectedtimelock)
+* [Contract: `Executor`](#contract-executor)
+* [Contract: `Configuration`](#contract-configuration)
+* [Contract: `HashConsensus`](#contract-hashconsensus)
 
 ## System Overview
 
@@ -218,3 +222,59 @@ The result of the call.
 
 ## Contract: `Configuration`
 `Configuration` is the smart contract encompassing all the constants in the Timelocked Governance design & providing the interfaces for getting access to them. It implements interfaces `IAdminExecutorConfiguration`, `ITimelockConfiguration` covering for relevant "parameters domains".
+
+## Contract: `HashConsensus`
+`HashConsensus` is an abstract contract that facilitates consensus-based decision-making among a set of members. Consensus is achieved through members voting on a specific hash, with decisions executed only if a quorum is reached and a timelock period has elapsed.
+
+### Function: `HashConsensus.addMember`
+```solidity
+function addMember(address newMember, uint256 newQuorum) public onlyOwner
+```
+Adds a new member and updates the quorum.
+
+#### Preconditions
+- Only the `owner` can call this function.
+- `newQuorum` MUST be greater than 0 and less than or equal to the number of members.
+
+### Function: `HashConsensus.removeMember`
+```solidity
+function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner
+```
+Removes a member and updates the quorum.
+
+#### Preconditions
+- Only the `owner` can call this function.
+- `memberToRemove` MUST be an added member.
+- `newQuorum` MUST be greater than 0 and less than or equal to the number of remaining members.
+
+### Function: `HashConsensus.getMembers`
+```solidity
+function getMembers() public view returns (address[] memory)
+```
+Returns the list of current members.
+
+### Function: `HashConsensus.isMember`
+```solidity
+function isMember(address member) public view returns (bool)
+```
+Returns whether an account is listed as a member.
+
+### Function: `HashConsensus.setTimelockDuration`
+```solidity
+function setTimelockDuration(uint256 timelock) public onlyOwner
+```
+Sets the duration of the timelock.
+
+#### Preconditions
+- Only the `owner` can call this function.
+
+### Function: `HashConsensus.setQuorum`
+```solidity
+function setQuorum(uint256 newQuorum) public onlyOwner
+```
+Sets the quorum required for decision execution.
+
+#### Preconditions
+- Only the `owner` can call this function.
+- `newQuorum` MUST be greater than 0 and less than or equal to the number of members.
+
