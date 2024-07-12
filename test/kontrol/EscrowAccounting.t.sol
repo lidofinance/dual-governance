@@ -127,6 +127,8 @@ contract EscrowAccountingTest is StorageSetup {
         uint256 userSharesLocked;
         uint256 totalSharesLocked;
         uint256 totalEth;
+        uint256 userUnstEthLockedShares;
+        uint256 unfinalizedShares;
         Timestamp userLastLockedTime;
     }
 
@@ -140,6 +142,8 @@ contract EscrowAccountingTest is StorageSetup {
         ar.userSharesLocked = escrow.getVetoerState(user).stETHLockedShares;
         ar.totalSharesLocked = escrow.getLockedAssetsTotals().stETHLockedShares;
         ar.totalEth = stEth.getPooledEthByShares(ar.totalSharesLocked);
+        ar.userUnstEthLockedShares = escrow.getVetoerState(user).unstETHLockedShares;
+        ar.unfinalizedShares = escrow.getLockedAssetsTotals().unstETHUnfinalizedShares;
         uint256 lastAssetsLockTimestamp = _getLastAssetsLockTimestamp(escrow, user);
         require(lastAssetsLockTimestamp < timeUpperBound);
         ar.userLastLockedTime = Timestamp.wrap(uint40(lastAssetsLockTimestamp));
@@ -256,5 +260,71 @@ contract EscrowAccountingTest is StorageSetup {
         assert(post.escrowBalance <= pre.escrowBalance - amount + errorTerm);
         assert(post.totalEth <= pre.totalEth - amount + errorTerm);
         assert(pre.userBalance + amount < errorTerm || pre.userBalance + amount - errorTerm <= post.userBalance);
+    }
+
+    function testRequestWithdrawals(uint256 stEthAmount) public {
+        _setUpGenericState();
+
+        // Placeholder address to avoid complications with keccak of symbolic addresses
+        address sender = address(uint160(uint256(keccak256("sender"))));
+        vm.assume(stEth.sharesOf(sender) < ethUpperBound);
+
+        AccountingRecord memory pre = _saveAccountingRecord(sender);
+
+        _escrowInvariants(Mode.Assume);
+        _escrowUserInvariants(Mode.Assume, sender);
+
+        // Only request one withdrawal for simplicity
+        uint256[] memory stEthAmounts = new uint256[](1);
+        stEthAmounts[0] = stEthAmount;
+
+        vm.startPrank(sender);
+        escrow.requestWithdrawals(stEthAmounts);
+        vm.stopPrank();
+
+        _escrowInvariants(Mode.Assert);
+        _escrowUserInvariants(Mode.Assert, sender);
+
+        AccountingRecord memory post = _saveAccountingRecord(sender);
+        assert(post.userSharesLocked == pre.userSharesLocked - stEthAmount);
+        assert(post.totalSharesLocked == pre.totalSharesLocked - stEthAmount);
+        assert(post.userLastLockedTime == Timestamps.now());
+        assert(post.userUnstEthLockedShares == pre.userUnstEthLockedShares + stEthAmount);
+        assert(post.unfinalizedShares == pre.unfinalizedShares + stEthAmount);
+    }
+
+    function testRequestNextWithdrawalsBatch(uint256 maxBatchSize) public {
+        _setUpGenericState();
+
+        vm.assume(_getCurrentState(escrow) == EscrowState.RageQuitEscrow);
+
+        _escrowInvariants(Mode.Assume);
+
+        escrow.requestNextWithdrawalsBatch(maxBatchSize);
+
+        _escrowInvariants(Mode.Assert);
+    }
+
+    function testClaimNextWithdrawalsBatch() public {
+        _setUpGenericState();
+
+        // Placeholder address to avoid complications with keccak of symbolic addresses
+        address sender = address(uint160(uint256(keccak256("sender"))));
+        vm.assume(stEth.sharesOf(sender) < ethUpperBound);
+
+        vm.assume(_getCurrentState(escrow) == EscrowState.RageQuitEscrow);
+
+        _escrowInvariants(Mode.Assume);
+        _escrowUserInvariants(Mode.Assume, sender);
+
+        // Only claim one unstETH for simplicity
+        uint256 maxUnstETHIdsCount = 1;
+
+        vm.startPrank(sender);
+        escrow.claimNextWithdrawalsBatch(maxUnstETHIdsCount);
+        vm.stopPrank();
+
+        _escrowInvariants(Mode.Assert);
+        _escrowUserInvariants(Mode.Assert, sender);
     }
 }
