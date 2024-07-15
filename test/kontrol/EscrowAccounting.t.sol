@@ -57,9 +57,10 @@ contract EscrowAccountingTest is StorageSetup {
         // ?WORD5: claimedETH
         // ?WORD6: unfinalizedShares
         // ?WORD7: finalizedETH
-        // ?WORD8: rageQuitExtensionDelay
-        // ?WORD9: rageQuitWithdrawalsTimelock
-        // ?WORD10: rageQuitTimelockStartedAt
+        // ?WORD8: batchesQueue
+        // ?WORD9: rageQuitExtensionDelay
+        // ?WORD10: rageQuitWithdrawalsTimelock
+        // ?WORD11: rageQuitTimelockStartedAt
         _escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), EscrowState(currentState));
     }
 
