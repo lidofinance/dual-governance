@@ -26,10 +26,18 @@ This document provides the system description on the code architecture level. A 
 * [Common types](#common-types)
 * [Contract: DualGovernance.sol](#contract-dualgovernancesol)
 * [Contract: Executor.sol](#contract-executorsol)
+* [Contract: ResealManager.sol](#contract-resealmanagersol)
 * [Contract: Escrow.sol](#contract-escrowsol)
 * [Contract: EmergencyProtectedTimelock.sol](#contract-emergencyprotectedtimelocksol)
 * [Contract: Configuration.sol](#contract-configurationsol)
+* [Contract: ProposalsList.sol](#contract-proposalslistsol)
+* [Contract: HashConsensus.sol](#contract-hashconsensussol)
+* [Contract: TiebreakerCore.sol](#contract-tiebreakercoresol)
+* [Contract: TiebreakerSubCommittee.sol](#contract-tiebreakersubcommitteesol)
+* [Contract: EmergencyActivationCommittee.sol](#contract-emergencyactivationcommitteesol)
+* [Contract: EmergencyExecutionCommittee.sol](#contract-emergencyexecutioncommitteesol)
 * [Upgrade flow description](#upgrade-flow-description)
+
 
 
 ## System overview
@@ -1262,7 +1270,7 @@ Executes a sealable resume request by calling the sealableResume function on the
 
 ## Contract: EmergencyActivationCommittee.sol
 
-`EmergencyActivationCommittee` is a smart contract that extends the functionalities of ё to manage the emergency activation process. It allows committee members to vote on and execute the activation of emergency protocols in the ё contract.
+`EmergencyActivationCommittee` is a smart contract that extends the functionalities of `HashConsensus` to manage the emergency activation process. It allows committee members to vote on and execute the activation of emergency protocols in the `HashConsensus` contract.
 
 ```solidity
 constructor(
