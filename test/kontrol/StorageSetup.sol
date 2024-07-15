@@ -5,6 +5,7 @@ import "contracts/EmergencyProtectedTimelock.sol";
 import "contracts/Escrow.sol";
 
 import {Timestamp} from "contracts/types/Timestamp.sol";
+import {Status} from "contracts/libraries/WithdrawalBatchesQueue.sol";
 
 import "contracts/model/StETHModel.sol";
 import "contracts/model/WstETHAdapted.sol";
@@ -110,17 +111,19 @@ contract StorageSetup is KontrolTest {
         vm.assume(_getRageQuitExtensionDelay(_signallingEscrow) == 0);
         vm.assume(_getRageQuitWithdrawalsTimelock(_signallingEscrow) == 0);
         vm.assume(_getRageQuitTimelockStartedAt(_signallingEscrow) == 0);
+        vm.assume(_getBatchesQueue(_signallingEscrow) == Status.Empty);
     }
 
     function _rageQuitEscrowStorageSetup(IEscrow _rageQuitEscrow, DualGovernance _dualGovernance) internal {
         _escrowStorageSetup(_rageQuitEscrow, _dualGovernance, EscrowState.RageQuitEscrow);
+        vm.assume(_getBatchesQueue(_rageQuitEscrow) != Status.Empty);
     }
 
-    function _getCurrentState(Escrow _escrow) internal view returns (EscrowState) {
+    function _getCurrentState(IEscrow _escrow) internal view returns (EscrowState) {
         return EscrowState(uint8(uint256(vm.load(address(_escrow), 0))));
     }
 
-    function _getLastAssetsLockTimestamp(Escrow _escrow, address _vetoer) internal view returns (uint256) {
+    function _getLastAssetsLockTimestamp(IEscrow _escrow, address _vetoer) internal view returns (uint256) {
         uint256 assetsSlot = 3;
         uint256 vetoerAddressPadded = uint256(uint160(_vetoer));
         bytes32 vetoerAssetsSlot = keccak256(abi.encodePacked(vetoerAddressPadded, assetsSlot));
@@ -138,6 +141,10 @@ contract StorageSetup is KontrolTest {
 
     function _getRageQuitTimelockStartedAt(IEscrow _escrow) internal view returns (uint40) {
         return uint40(_loadUInt256(address(_escrow), 9) >> 64);
+    }
+
+    function _getBatchesQueue(IEscrow _escrow) internal view returns (Status) {
+        return Status(uint8(_loadUInt256(address(_escrow), 5)));
     }
 
     function _escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowState _currentState) internal {
@@ -176,6 +183,12 @@ contract StorageSetup is KontrolTest {
                 slot2 := mload(add(slot2Abi, 0x20))
             }
             _storeBytes32(address(_escrow), 2, slot2);
+        }
+        // Slot 5
+        {
+            uint256 batchesQueue = kevm.freshUInt(32);
+            vm.assume(batchesQueue < 3);
+            _storeUInt256(address(_escrow), 5, batchesQueue);
         }
         // Slot 9
         {
