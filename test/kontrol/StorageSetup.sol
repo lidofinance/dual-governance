@@ -5,7 +5,7 @@ import "contracts/EmergencyProtectedTimelock.sol";
 import "contracts/Escrow.sol";
 
 import {Timestamp} from "contracts/types/Timestamp.sol";
-import {Status} from "contracts/libraries/WithdrawalBatchesQueue.sol";
+import "contracts/libraries/WithdrawalBatchesQueue.sol";
 
 import "contracts/model/StETHModel.sol";
 import "contracts/model/WstETHAdapted.sol";
@@ -111,12 +111,12 @@ contract StorageSetup is KontrolTest {
         vm.assume(_getRageQuitExtensionDelay(_signallingEscrow) == 0);
         vm.assume(_getRageQuitWithdrawalsTimelock(_signallingEscrow) == 0);
         vm.assume(_getRageQuitTimelockStartedAt(_signallingEscrow) == 0);
-        vm.assume(_getBatchesQueue(_signallingEscrow) == Status.Empty);
+        vm.assume(_getBatchesQueue(_signallingEscrow) == WithdrawalsBatchesQueue.Status.Empty);
     }
 
     function _rageQuitEscrowStorageSetup(IEscrow _rageQuitEscrow, DualGovernance _dualGovernance) internal {
         _escrowStorageSetup(_rageQuitEscrow, _dualGovernance, EscrowState.RageQuitEscrow);
-        vm.assume(_getBatchesQueue(_rageQuitEscrow) != Status.Empty);
+        vm.assume(_getBatchesQueue(_rageQuitEscrow) != WithdrawalsBatchesQueue.Status.Empty);
     }
 
     function _getCurrentState(IEscrow _escrow) internal view returns (EscrowState) {
@@ -143,8 +143,8 @@ contract StorageSetup is KontrolTest {
         return uint40(_loadUInt256(address(_escrow), 9) >> 64);
     }
 
-    function _getBatchesQueue(IEscrow _escrow) internal view returns (Status) {
-        return Status(uint8(_loadUInt256(address(_escrow), 5)));
+    function _getBatchesQueue(IEscrow _escrow) internal view returns (WithdrawalsBatchesQueue.Status) {
+        return WithdrawalsBatchesQueue.Status(uint8(_loadUInt256(address(_escrow), 5)));
     }
 
     function _escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowState _currentState) internal {
