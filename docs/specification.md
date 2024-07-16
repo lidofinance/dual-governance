@@ -406,11 +406,11 @@ To address the compatibility challenge between gate seals and dual governance, t
 constructor(address emergencyProtectedTimelock)
 ```
 
-Initializes the contract with the address of the EmergencyProtectedTimelock contract.
+Initializes the contract with the address of the `EmergencyProtectedTimelock` contract.
 
 #### Preconditions
 
-* emergencyProtectedTimelock MUST be a valid address.
+* `emergencyProtectedTimelock` MUST be a valid address.
 
 ### Function: ResealManager.reseal
 
@@ -422,9 +422,9 @@ Extends the pause of the specified `sealables` contracts. This function can be c
 
 #### Preconditions
 
-- The `ResealManager` must have `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
-- The target contracts must be paused until a future timestamp and not indefinitely.
-- The function must be called by the governance address defined in `EmergencyProtectedTimelock`.
+- The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
+- The target contracts MUST be paused until a future timestamp and not indefinitely.
+- The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
 
 ### Function: ResealManager.resume
 
@@ -436,9 +436,9 @@ Resumes the specified `sealable` contract if it is scheduled to resume in the fu
 
 #### Preconditions
 
-- The `ResealManager` must have the `RESUME_ROLE` for the target contract.
-- The target contract must be paused.
-- The function must be called by the governance address defined in `EmergencyProtectedTimelock`.
+- The `ResealManager` MUST have the `RESUME_ROLE` for the target contract.
+- The target contract MUST be paused.
+- The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
 
 ### Modifier: ResealManager.onlyGovernance
 
@@ -450,7 +450,7 @@ Ensures that the function can only be called by the governance address.
 
 #### Preconditions
 
-- The sender must be the governance address obtained from the `EmergencyProtectedTimelock` contract.
+- The sender MUST be the governance address obtained from the `EmergencyProtectedTimelock` contract.
 
 ### Errors
 
