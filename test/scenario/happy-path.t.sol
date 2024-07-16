@@ -3,12 +3,13 @@ pragma solidity 0.8.23;
 
 import {
     Utils,
-    ExecutorCall,
+    ExternalCall,
     IDangerousContract,
-    ExecutorCallHelpers,
+    ExternalCallHelpers,
     ScenarioTestBlueprint
 } from "../utils/scenario-test-blueprint.sol";
-import {Proposals} from "contracts/libraries/Proposals.sol";
+
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {IAragonAgent, IAragonForwarder} from "../utils/interfaces.sol";
 import {DAO_AGENT} from "../utils/mainnet-addresses.sol";
@@ -21,7 +22,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
     }
 
     function testFork_HappyPath() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         uint256 proposalId = _submitProposal(
             _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
@@ -32,7 +33,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
         // the min execution delay hasn't elapsed yet
-        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposal(_dualGovernance, proposalId);
 
         // wait till the first phase of timelock passes
@@ -57,7 +58,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
         bytes memory agentDoRegularStaffPayload = abi.encodeCall(IDangerousContract.doRegularStaff, (42));
         bytes memory targetCallEvmScript = Utils.encodeEvmCallScript(address(_target), agentDoRegularStaffPayload);
 
-        ExecutorCall[] memory multipleCalls = ExecutorCallHelpers.create(
+        ExternalCall[] memory multipleCalls = ExternalCallHelpers.create(
             [DAO_AGENT, address(_target)],
             [
                 abi.encodeCall(IAragonForwarder.forward, (targetCallEvmScript)),
@@ -73,7 +74,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _assertCanSchedule(_dualGovernance, proposalId, false);
 
         // the min execution delay hasn't elapsed yet
-        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposal(_dualGovernance, proposalId);
 
         // wait till the DG-enforced timelock elapses
@@ -92,7 +93,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
         senders[0] = DAO_AGENT;
         senders[1] = _config.ADMIN_EXECUTOR();
 
-        ExecutorCall[] memory expectedTargetCalls = ExecutorCallHelpers.create(
+        ExternalCall[] memory expectedTargetCalls = ExternalCallHelpers.create(
             [DAO_AGENT, address(_target)],
             [agentDoRegularStaffPayload, abi.encodeCall(IDangerousContract.doRegularStaff, (43))]
         );
@@ -104,7 +105,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
     // function test_escalation_and_one_sided_de_escalation() external {
     //     Target target = new Target();
 
-    //     ExecutorCall[] memory calls = new ExecutorCall[](1);
+    //     ExternalCall[] memory calls = new ExternalCall[](1);
     //     calls[0].value = 0;
     //     calls[0].target = address(target);
     //     calls[0].payload = abi.encodeCall(target.doSmth, (42));

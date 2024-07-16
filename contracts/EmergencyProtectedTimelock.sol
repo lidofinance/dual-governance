@@ -2,13 +2,14 @@
 pragma solidity 0.8.23;
 
 import {Duration} from "./types/Duration.sol";
-import {Timestamp} from "./types/Timestamp.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 
-import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
+
+import {ExternalCall} from "./libraries/ExternalCalls.sol";
+import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 
@@ -18,7 +19,7 @@ import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 /// while providing emergency protection features to prevent unauthorized
 /// execution during emergency situations.
 contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
-    using Proposals for Proposals.State;
+    using ExecutableProposals for ExecutableProposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
     error InvalidGovernance(address governance);
@@ -28,7 +29,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
 
     address internal _governance;
 
-    Proposals.State internal _proposals;
+    ExecutableProposals.State internal _proposals;
     EmergencyProtection.State internal _emergencyProtection;
 
     constructor(address config) ConfigurationProvider(config) {}
@@ -40,9 +41,9 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// @dev Submits a new proposal to execute a series of calls through an executor.
     /// Only the governance contract can call this function.
     /// @param executor The address of the executor contract that will execute the calls.
-    /// @param calls An array of `ExecutorCall` structs representing the calls to be executed.
+    /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
     /// @return newProposalId The ID of the newly created proposal.
-    function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
+    function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId) {
         _checkGovernance(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
     }
@@ -171,20 +172,28 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// @param proposalId The ID of the proposal.
     /// @return proposal The Proposal struct containing the details of the proposal.
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
-        proposal = _proposals.get(proposalId);
+        _proposals.checkProposalExists(proposalId);
+        proposal.id = proposalId;
+        (proposal.status, proposal.executor, proposal.isCancelled, proposal.submittedAt, proposal.scheduledAt) =
+            _proposals.getProposalInfo(proposalId);
+        proposal.calls = _proposals.getExternalCalls(proposalId);
+    }
+
+    function getProposalState(uint256 proposalId) external view returns (ProposalState memory proposal) {
+        _proposals.checkProposalExists(proposalId);
+        proposal.id = proposalId;
+        (proposal.status, proposal.executor, proposal.isCancelled, proposal.submittedAt, proposal.scheduledAt) =
+            _proposals.getProposalInfo(proposalId);
+    }
+
+    function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls) {
+        calls = _proposals.getExternalCalls(proposalId);
     }
 
     /// @dev Retrieves the total number of proposals.
     /// @return count The total number of proposals.
     function getProposalsCount() external view returns (uint256 count) {
-        count = _proposals.count();
-    }
-
-    /// @dev Retrieves the submission time of a proposal.
-    /// @param proposalId The ID of the proposal.
-    /// @return submittedAt The submission time of the proposal.
-    function getProposalSubmissionTime(uint256 proposalId) external view returns (Timestamp submittedAt) {
-        submittedAt = _proposals.getProposalSubmissionTime(proposalId);
+        count = _proposals.getProposalsCount();
     }
 
     /// @dev Checks if a proposal can be executed.

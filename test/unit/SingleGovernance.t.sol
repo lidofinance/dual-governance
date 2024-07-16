@@ -6,7 +6,6 @@ import {Vm} from "forge-std/Test.sol";
 import {Executor} from "contracts/Executor.sol";
 import {SingleGovernance} from "contracts/SingleGovernance.sol";
 import {IConfiguration, Configuration} from "contracts/Configuration.sol";
-import {ExecutorCall} from "contracts/libraries/Proposals.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/utils.sol";

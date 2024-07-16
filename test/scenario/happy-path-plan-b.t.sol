@@ -6,15 +6,15 @@ import {
     EmergencyProtection,
     IDangerousContract,
     ScenarioTestBlueprint,
-    ExecutorCall,
-    ExecutorCallHelpers,
+    ExternalCall,
+    ExternalCallHelpers,
     DualGovernance,
     Timestamp,
     Timestamps,
     Durations
 } from "../utils/scenario-test-blueprint.sol";
 
-import {Proposals} from "contracts/libraries/Proposals.sol";
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 contract PlanBSetup is ScenarioTestBlueprint {
     function setUp() external {
@@ -24,7 +24,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
     }
 
     function testFork_PlanB_Scenario() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         // ---
         // ACT 1. 📈 DAO OPERATES AS USUALLY
@@ -59,8 +59,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
         EmergencyState memory emergencyState;
         {
             // Malicious vote was proposed by the attacker with huge LDO wad (but still not the majority)
-            ExecutorCall[] memory maliciousCalls =
-                ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
+            ExternalCall[] memory maliciousCalls =
+                ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
 
             maliciousProposalId = _submitProposal(_singleGovernance, "Rug Pool attempt", maliciousCalls);
 
@@ -116,7 +116,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // Dual Governance is deployed into mainnet
             _deployDualGovernance();
 
-            ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
+            ExternalCall[] memory dualGovernanceLaunchCalls = ExternalCallHelpers.create(
                 address(_timelock),
                 [
                     // Only Dual Governance contract can call the Timelock contract
@@ -195,7 +195,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             DualGovernance dualGovernanceV2 =
                 new DualGovernance(address(_config), address(_timelock), address(_escrowMasterCopy), _ADMIN_PROPOSER);
 
-            ExecutorCall[] memory dualGovernanceUpdateCalls = ExecutorCallHelpers.create(
+            ExternalCall[] memory dualGovernanceUpdateCalls = ExternalCallHelpers.create(
                 address(_timelock),
                 [
                     // Update the controller for timelock
@@ -274,8 +274,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
     }
 
     function testFork_SubmittedCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
-        ExecutorCall[] memory maliciousCalls =
-            ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
+        ExternalCall[] memory maliciousCalls =
+            ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
 
         // schedule some malicious call
         uint256 maliciousProposalId;
@@ -372,10 +372,14 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertProposalCanceled(maliciousProposalId);
             _assertProposalCanceled(anotherMaliciousProposalId);
 
-            vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotScheduled.selector, maliciousProposalId));
+            vm.expectRevert(
+                abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, maliciousProposalId)
+            );
             _executeProposal(maliciousProposalId);
 
-            vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotScheduled.selector, anotherMaliciousProposalId));
+            vm.expectRevert(
+                abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, anotherMaliciousProposalId)
+            );
             _executeProposal(anotherMaliciousProposalId);
         }
     }

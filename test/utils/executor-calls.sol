@@ -1,35 +1,35 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {ExecutorCall} from "contracts/interfaces/IExecutor.sol";
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
-// Syntax sugar for more convenient creation of ExecutorCall arrays
-library ExecutorCallHelpers {
-    // calls with explicit ExecutorCall definition
+// Syntax sugar for more convenient creation of ExternalCall arrays
+library ExternalCallHelpers {
+    // calls with explicit ExternalCall definition
 
-    function create(ExecutorCall[1] memory calls) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](1);
+    function create(ExternalCall[1] memory calls) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](1);
         for (uint256 i = 0; i < 1; ++i) {
             res[i] = calls[i];
         }
     }
 
-    function create(ExecutorCall[2] memory calls) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](2);
+    function create(ExternalCall[2] memory calls) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](2);
         for (uint256 i = 0; i < 2; ++i) {
             res[i] = calls[i];
         }
     }
 
-    function create(ExecutorCall[3] memory calls) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](3);
+    function create(ExternalCall[3] memory calls) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](3);
         for (uint256 i = 0; i < 3; ++i) {
             res[i] = calls[i];
         }
     }
 
-    function create(ExecutorCall[4] memory calls) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](4);
+    function create(ExternalCall[4] memory calls) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](4);
         for (uint256 i = 0; i < 4; ++i) {
             res[i] = calls[i];
         }
@@ -40,8 +40,8 @@ library ExecutorCallHelpers {
     function create(
         address[1] memory targets,
         bytes[1] memory payloads
-    ) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](1);
+    ) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](1);
         res[0].target = targets[0];
         res[0].payload = payloads[0];
     }
@@ -49,8 +49,8 @@ library ExecutorCallHelpers {
     function create(
         address[2] memory targets,
         bytes[2] memory payloads
-    ) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](2);
+    ) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](2);
         for (uint256 i = 0; i < 2; ++i) {
             res[i].target = targets[i];
             res[i].payload = payloads[i];
@@ -60,8 +60,8 @@ library ExecutorCallHelpers {
     function create(
         address[3] memory targets,
         bytes[3] memory payloads
-    ) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](3);
+    ) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](3);
         for (uint256 i = 0; i < 3; ++i) {
             res[i].target = targets[i];
             res[i].payload = payloads[i];
@@ -71,8 +71,8 @@ library ExecutorCallHelpers {
     function create(
         address[4] memory targets,
         bytes[4] memory payloads
-    ) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](4);
+    ) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](4);
         for (uint256 i = 0; i < 4; ++i) {
             res[i].target = targets[i];
             res[i].payload = payloads[i];
@@ -82,8 +82,8 @@ library ExecutorCallHelpers {
     function create(
         address[10] memory targets,
         bytes[10] memory payloads
-    ) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](10);
+    ) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](10);
         for (uint256 i = 0; i < 10; ++i) {
             res[i].target = targets[i];
             res[i].payload = payloads[i];
@@ -92,38 +92,38 @@ library ExecutorCallHelpers {
 
     // same target different calls
 
-    function create(address target, bytes memory payload) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](1);
+    function create(address target, bytes memory payload) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](1);
         res[0].target = target;
         res[0].payload = payload;
     }
 
-    function create(address target, bytes[2] memory payloads) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](2);
+    function create(address target, bytes[2] memory payloads) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](2);
         for (uint256 i = 0; i < 2; ++i) {
             res[i].target = target;
             res[i].payload = payloads[i];
         }
     }
 
-    function create(address target, bytes[3] memory payloads) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](3);
+    function create(address target, bytes[3] memory payloads) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](3);
         for (uint256 i = 0; i < 3; ++i) {
             res[i].target = target;
             res[i].payload = payloads[i];
         }
     }
 
-    function create(address target, bytes[4] memory payloads) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](4);
+    function create(address target, bytes[4] memory payloads) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](4);
         for (uint256 i = 0; i < 4; ++i) {
             res[i].target = target;
             res[i].payload = payloads[i];
         }
     }
 
-    function create(address target, bytes[5] memory payloads) internal pure returns (ExecutorCall[] memory res) {
-        res = new ExecutorCall[](5);
+    function create(address target, bytes[5] memory payloads) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](5);
         for (uint256 i = 0; i < 5; ++i) {
             res[i].target = target;
             res[i].payload = payloads[i];

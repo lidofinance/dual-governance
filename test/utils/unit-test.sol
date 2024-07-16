@@ -6,8 +6,8 @@ import {Duration, Durations} from "contracts/types/Duration.sol";
 
 // solhint-disable-next-line
 import {Test, console} from "forge-std/Test.sol";
-import {ExecutorCall} from "contracts/libraries/Proposals.sol";
-import {ExecutorCallHelpers} from "test/utils/executor-calls.sol";
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
+import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 import {IDangerousContract} from "test/utils/interfaces.sol";
 
 contract UnitTest is Test {
@@ -15,8 +15,8 @@ contract UnitTest is Test {
         vm.warp(block.timestamp + Duration.unwrap(duration));
     }
 
-    function _getTargetRegularStaffCalls(address targetMock) internal pure returns (ExecutorCall[] memory) {
-        return ExecutorCallHelpers.create(address(targetMock), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
+    function _getTargetRegularStaffCalls(address targetMock) internal pure returns (ExternalCall[] memory) {
+        return ExternalCallHelpers.create(address(targetMock), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
     }
 
     function assertEq(Timestamp a, Timestamp b) internal {

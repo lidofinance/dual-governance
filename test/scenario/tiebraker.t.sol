@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {
-    ScenarioTestBlueprint, percents, ExecutorCall, ExecutorCallHelpers
+    ScenarioTestBlueprint, percents, ExternalCall, ExternalCallHelpers
 } from "../utils/scenario-test-blueprint.sol";
 
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
@@ -36,7 +36,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _wait(_config.TIE_BREAK_ACTIVATION_TIMEOUT());
         _activateNextState();
 
-        ExecutorCall[] memory proposalCalls = ExecutorCallHelpers.create(address(0), new bytes(0));
+        ExternalCall[] memory proposalCalls = ExternalCallHelpers.create(address(0), new bytes(0));
         uint256 proposalIdToExecute = _submitProposal(_dualGovernance, "Proposal for execution", proposalCalls);
 
         // Tiebreaker subcommittee 0

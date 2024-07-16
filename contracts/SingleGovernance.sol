@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import {IGovernance, ITimelock} from "./interfaces/ITimelock.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
-import {ExecutorCall} from "./libraries/Proposals.sol";
+import {ExternalCall} from "./libraries/ExternalCalls.sol";
 
 contract SingleGovernance is IGovernance, ConfigurationProvider {
     error NotGovernance(address account);
@@ -17,7 +17,7 @@ contract SingleGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK = ITimelock(timelock);
     }
 
-    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _checkGovernance(msg.sender);
         return TIMELOCK.submit(CONFIG.ADMIN_EXECUTOR(), calls);
     }
