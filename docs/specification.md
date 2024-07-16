@@ -26,15 +26,23 @@ This document provides the system description on the code architecture level. A 
 * [Common types](#common-types)
 * [Contract: DualGovernance.sol](#contract-dualgovernancesol)
 * [Contract: Executor.sol](#contract-executorsol)
+* [Contract: ResealManager.sol](#contract-resealmanagersol)
 * [Contract: Escrow.sol](#contract-escrowsol)
 * [Contract: EmergencyProtectedTimelock.sol](#contract-emergencyprotectedtimelocksol)
 * [Contract: Configuration.sol](#contract-configurationsol)
+* [Contract: ProposalsList.sol](#contract-proposalslistsol)
+* [Contract: HashConsensus.sol](#contract-hashconsensussol)
+* [Contract: TiebreakerCore.sol](#contract-tiebreakercoresol)
+* [Contract: TiebreakerSubCommittee.sol](#contract-tiebreakersubcommitteesol)
+* [Contract: EmergencyActivationCommittee.sol](#contract-emergencyactivationcommitteesol)
+* [Contract: EmergencyExecutionCommittee.sol](#contract-emergencyexecutioncommitteesol)
 * [Upgrade flow description](#upgrade-flow-description)
+
 
 
 ## System overview
 
-![image](https://github.com/lidofinance/dual-governance/assets/870356/6beb05c4-3b7a-407a-b840-18e368a1d8c9)
+![image](https://github.com/lidofinance/dual-governance/assets/14151334/b7498050-e04c-415e-9f45-3ed9c24f1417)
 
 The system is composed of the following main contracts:
 
@@ -386,38 +394,68 @@ In the Lido protocol, specific critical components (`WithdrawalQueue` and `Valid
 
 However, the effectiveness of this approach is contingent upon the predictability of the DAO's solution adoption timeframe. With the dual governance system, proposal execution may experience significant delays based on the current state of the `DualGovernance` contract. There's a risk that `GateSeal`'s pause period may expire before the Lido DAO can implement the necessary fixes.
 
-To address this compatibility challenge between gate seals and dual governance, the `ResealManager` contract is introduced. The `ResealManager` allows to extend pause of temporarily paused contracts to permanent pause or resume it, if conditions are met:
-- `ResealManager` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
-- Contracts are paused until timestamp after current timestamp and not for infinite time.
-- The DAO governance is blocked by `DualGovernance`
+To address the compatibility challenge between gate seals and dual governance, the `ResealManager` contract is introduced. This smart contract is designed to manage the resealing and resuming of sealable contracts during emergencies. The `ResealManager` can extend the pause of temporarily paused contracts to a permanent pause or resume them if the following conditions are met:
 
-### Function ResealManager.reseal
+- The `ResealManager` holds the `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
+- Contracts are paused until a specific timestamp that is in the future and not indefinitely.
+- DAO governance is blocked by `DualGovernance`.
+
+### Constructor
 
 ```solidity
-function reseal(address[] memory sealables)
+constructor(address emergencyProtectedTimelock)
 ```
 
-This function extends pause of `sealables`. Can be called by governance address defined in Emergency Protected Timelock.
+Initializes the contract with the address of the `EmergencyProtectedTimelock` contract.
 
 #### Preconditions
 
-- `ResealManager` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
-- Contracts are paused until timestamp after current timestamp and not for infinite time.
-- Called by governance address defined in `EmergencyProtectedTimelock`
+* `emergencyProtectedTimelock` MUST be a valid address.
 
-### Function ResealManager.resume
+### Function: ResealManager.reseal
 
 ```solidity
-function resume(address sealable)
+function reseal(address[] memory sealables) external onlyGovernance
 ```
 
-This function provides ability of unpause of `sealable`. Can be called by governance address defined in Emergency Protected Timelock.
+Extends the pause of the specified `sealables` contracts. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
 
 #### Preconditions
 
-- `ResealManager` has `RESUME_ROLE` for target contracts.
-- Target contracts are paused.
-- Called by governance address defined in `EmergencyProtectedTimelock`
+- The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
+- The target contracts MUST be paused until a future timestamp and not indefinitely.
+- The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
+
+### Function: ResealManager.resume
+
+```solidity
+function resume(address sealable) external onlyGovernance
+```
+
+Resumes the specified `sealable` contract if it is scheduled to resume in the future.
+
+#### Preconditions
+
+- The `ResealManager` MUST have the `RESUME_ROLE` for the target contract.
+- The target contract MUST be paused.
+- The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
+
+### Modifier: ResealManager.onlyGovernance
+
+```solidity
+modifier onlyGovernance()
+```
+
+Ensures that the function can only be called by the governance address.
+
+#### Preconditions
+
+- The sender MUST be the governance address obtained from the `EmergencyProtectedTimelock` contract.
+
+### Errors
+
+- `SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+- `SenderIsNotGovernance`: Thrown if the sender is not the governance address.
 
 
 ## Contract: Escrow.sol
@@ -1074,7 +1112,7 @@ The contract has the interface for managing the configuration related to emergen
 
 `TiebreakerCore` is a smart contract that extends the `HashConsensus` and `ProposalsList` contracts to manage the scheduling of proposals and the resuming of sealable contracts through a consensus-based mechanism. It interacts with a DualGovernance contract to execute decisions once consensus is reached.
 
-Constructor
+### Constructor
 
 ```solidity
 constructor(
@@ -1177,6 +1215,8 @@ Executes a sealable resume request by calling the tiebreakerResumeSealable funct
 
 `TiebreakerSubCommittee` is a smart contract that extends the functionalities of `HashConsensus` and `ProposalsList` to manage the scheduling of proposals and the resumption of sealable contracts through a consensus mechanism. It interacts with the `TiebreakerCore` contract to execute decisions once consensus is reached.
 
+### Constructor
+
 ```solidity
 constructor(
     address owner,
@@ -1262,7 +1302,9 @@ Executes a sealable resume request by calling the sealableResume function on the
 
 ## Contract: EmergencyActivationCommittee.sol
 
-`EmergencyActivationCommittee` is a smart contract that extends the functionalities of ё to manage the emergency activation process. It allows committee members to vote on and execute the activation of emergency protocols in the ё contract.
+`EmergencyActivationCommittee` is a smart contract that extends the functionalities of `HashConsensus` to manage the emergency activation process. It allows committee members to vote on and execute the activation of emergency protocols in the `HashConsensus` contract.
+
+### Constructor
 
 ```solidity
 constructor(
@@ -1319,6 +1361,8 @@ Executes the emergency activation by calling the emergencyActivate function on t
 ## Contract: EmergencyExecutionCommittee.sol
 
 `EmergencyExecutionCommittee` is a smart contract that extends the functionalities of `HashConsensus` and `ProposalsList` to manage emergency execution and governance reset proposals through a consensus mechanism. It interacts with the `EmergencyProtectedTimelock` contract to execute critical emergency proposals.
+
+### Constructor
 
 ```solidity
 constructor(
@@ -1405,67 +1449,6 @@ Executes the governance reset by calling the emergencyReset function on the Emer
 #### Preconditions
 
 * Governance reset proposal MUST have reached quorum and passed the timelock duration.
-
-
-## Contract: ResealManager.sol
-
-`ResealManager` is a smart contract designed to manage the resealing and resuming of sealable contracts in emergency situations. It queries `EmergencyProtectedTimelock` to ensure only actual governance can trigger these actions.
-
-```solidity
-constructor(address emergencyProtectedTimelock)
-```
-
-Initializes the contract with the address of the EmergencyProtectedTimelock contract.
-
-#### Preconditions
-
-* emergencyProtectedTimelock MUST be a valid address.
-
-### Function: ResealManager.reseal
-
-```solidity
-function reseal(address[] memory sealables) public onlyGovernance
-```
-
-Pauses the specified sealable contracts indefinitely.
-
-#### Preconditions
-
-* MUST be called by the governance address.
-* Each sealable contract MUST NOT be paused infinitely already and MUST be scheduled to resume in the future.
-
-#### Errors
-`SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
-`SenderIsNotGovernance`: Thrown if the sender is not the governance address.
-
-### Function: ResealManager.resume
-
-```solidity
-function resume(address sealable) public onlyGovernance
-```
-
-Resumes the specified sealable contract if it is scheduled to resume in the future.
-
-#### Preconditions
-
-* MUST be called by the governance address.
-
-#### Errors
-`SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
-`SenderIsNotGovernance`: Thrown if the sender is not the governance address.
-
-### Modifier: ResealManager.onlyGovernance
-
-```solidity
-modifier onlyGovernance()
-```
-
-Ensures that the function can only be called by the governance address.
-
-#### Preconditions
-
-* The sender MUST be the governance address obtained from the EmergencyProtectedTimelock contract.
-
 
 ## Upgrade flow description
 
