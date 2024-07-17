@@ -390,11 +390,22 @@ To address this compatibility challenge between gate seals and dual governance, 
 - `ResealManager` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
 - Contracts are paused until timestamp after current timestamp and not for infinite time.
 - The DAO governance is blocked by `DualGovernance`
+- Only governance address obtained from `EmergencyProtectedTimelock` can trigger these actions.
+
+```solidity
+constructor(address emergencyProtectedTimelock)
+```
+
+Initializes the contract with the address of the EmergencyProtectedTimelock contract.
+
+#### Preconditions
+
+* emergencyProtectedTimelock MUST be a valid address.
 
 ### Function ResealManager.reseal
 
 ```solidity
-function reseal(address[] memory sealables)
+function reseal(address[] memory sealables) public onlyGovernance
 ```
 
 This function extends pause of `sealables`. Can be called by governance address defined in Emergency Protected Timelock.
@@ -405,10 +416,14 @@ This function extends pause of `sealables`. Can be called by governance address 
 - Contracts are paused until timestamp after current timestamp and not for infinite time.
 - Called by governance address defined in `EmergencyProtectedTimelock`
 
+#### Errors
+`SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+`SenderIsNotGovernance`: Thrown if the sender is not the governance address.
+
 ### Function ResealManager.resume
 
 ```solidity
-function resume(address sealable)
+function resume(address sealable) public onlyGovernance
 ```
 
 This function provides ability of unpause of `sealable`. Can be called by governance address defined in Emergency Protected Timelock.
@@ -418,6 +433,23 @@ This function provides ability of unpause of `sealable`. Can be called by govern
 - `ResealManager` has `RESUME_ROLE` for target contracts.
 - Target contracts are paused.
 - Called by governance address defined in `EmergencyProtectedTimelock`
+
+#### Errors
+`SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+`SenderIsNotGovernance`: Thrown if the sender is not the governance address.
+
+
+### Modifier: ResealManager.onlyGovernance
+
+```solidity
+modifier onlyGovernance()
+```
+
+Ensures that the function can only be called by the governance address.
+
+#### Preconditions
+
+- The sender MUST be the governance address obtained from the EmergencyProtectedTimelock contract.
 
 
 ## Contract: Escrow.sol
@@ -1405,66 +1437,6 @@ Executes the governance reset by calling the emergencyReset function on the Emer
 #### Preconditions
 
 * Governance reset proposal MUST have reached quorum and passed the timelock duration.
-
-
-## Contract: ResealManager.sol
-
-`ResealManager` is a smart contract designed to manage the resealing and resuming of sealable contracts in emergency situations. It queries `EmergencyProtectedTimelock` to ensure only actual governance can trigger these actions.
-
-```solidity
-constructor(address emergencyProtectedTimelock)
-```
-
-Initializes the contract with the address of the EmergencyProtectedTimelock contract.
-
-#### Preconditions
-
-* emergencyProtectedTimelock MUST be a valid address.
-
-### Function: ResealManager.reseal
-
-```solidity
-function reseal(address[] memory sealables) public onlyGovernance
-```
-
-Pauses the specified sealable contracts indefinitely.
-
-#### Preconditions
-
-* MUST be called by the governance address.
-* Each sealable contract MUST NOT be paused infinitely already and MUST be scheduled to resume in the future.
-
-#### Errors
-`SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
-`SenderIsNotGovernance`: Thrown if the sender is not the governance address.
-
-### Function: ResealManager.resume
-
-```solidity
-function resume(address sealable) public onlyGovernance
-```
-
-Resumes the specified sealable contract if it is scheduled to resume in the future.
-
-#### Preconditions
-
-* MUST be called by the governance address.
-
-#### Errors
-`SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
-`SenderIsNotGovernance`: Thrown if the sender is not the governance address.
-
-### Modifier: ResealManager.onlyGovernance
-
-```solidity
-modifier onlyGovernance()
-```
-
-Ensures that the function can only be called by the governance address.
-
-#### Preconditions
-
-* The sender MUST be the governance address obtained from the EmergencyProtectedTimelock contract.
 
 
 ## Upgrade flow description
