@@ -637,6 +637,8 @@ contract ScenarioTestBlueprint is Test {
                     )
                 )
             );
+
+            assertEq(_timelock.isEmergencyProtectionEnabled(), true);
         }
 
         _resealManager = new ResealManager(address(_timelock));
