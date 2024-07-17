@@ -15,6 +15,9 @@ enum ProposalType {
     EmergencyReset
 }
 
+/// @title Emergency Execution Committee Contract
+/// @notice This contract allows a committee to vote on and execute emergency proposals
+/// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
@@ -27,14 +30,25 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
+    // ---
     // Emergency Execution
+    // ---
 
+    /// @notice Votes on an emergency execution proposal
+    /// @dev Only callable by committee members
+    /// @param proposalId The ID of the proposal to vote on
+    /// @param _supports Indicates whether the member supports the proposal execution
     function voteEmergencyExecute(uint256 proposalId, bool _supports) public onlyMember {
         (bytes memory proposalData, bytes32 key) = _encodeEmergencyExecute(proposalId);
         _vote(key, _supports);
         _pushProposal(key, uint256(ProposalType.EmergencyExecute), proposalData);
     }
 
+    /// @notice Gets the current state of an emergency execution proposal
+    /// @param proposalId The ID of the proposal
+    /// @return support The number of votes in support of the proposal
+    /// @return execuitionQuorum The required number of votes for execution
+    /// @return isExecuted Whether the proposal has been executed
     function getEmergencyExecuteState(uint256 proposalId)
         public
         view
@@ -44,6 +58,8 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         return _getHashState(key);
     }
 
+    /// @notice Executes an approved emergency execution proposal
+    /// @param proposalId The ID of the proposal to execute
     function executeEmergencyExecute(uint256 proposalId) public {
         (, bytes32 key) = _encodeEmergencyExecute(proposalId);
         _markUsed(key);
@@ -53,6 +69,10 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         );
     }
 
+    /// @dev Encodes the proposal data and generates the proposal key for an emergency execution
+    /// @param proposalId The ID of the proposal to encode
+    /// @return proposalData The encoded proposal data
+    /// @return key The generated proposal key
     function _encodeEmergencyExecute(uint256 proposalId)
         private
         pure
@@ -62,14 +82,22 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         key = keccak256(proposalData);
     }
 
+    // ---
     // Governance reset
+    // ---
 
+    /// @notice Approves an emergency reset proposal
+    /// @dev Only callable by committee members
     function approveEmergencyReset() public onlyMember {
         bytes32 proposalKey = _encodeEmergencyResetProposalKey();
         _vote(proposalKey, true);
         _pushProposal(proposalKey, uint256(ProposalType.EmergencyReset), bytes(""));
     }
 
+    /// @notice Gets the current state of an emergency reset opprosal
+    /// @return support The number of votes in support of the proposal
+    /// @return execuitionQuorum The required number of votes for execution
+    /// @return isExecuted Whether the proposal has been executed
     function getEmergencyResetState()
         public
         view
@@ -79,6 +107,7 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         return _getHashState(proposalKey);
     }
 
+    /// @notice Executes an approved emergency reset proposal
     function executeEmergencyReset() external {
         bytes32 proposalKey = _encodeEmergencyResetProposalKey();
         _markUsed(proposalKey);
@@ -87,6 +116,8 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         );
     }
 
+    /// @notice Encodes the proposal key for an emergency reset
+    /// @return The generated proposal key
     function _encodeEmergencyResetProposalKey() internal pure returns (bytes32) {
         return keccak256(abi.encode(ProposalType.EmergencyReset, bytes32(0)));
     }
