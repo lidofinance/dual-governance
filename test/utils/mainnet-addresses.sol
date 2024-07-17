@@ -1,4 +1,4 @@
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 address constant DAO_ACL = 0x9895F0F17cc1d1891b6f18ee0b483B6f221b37Bb;
 address constant DAO_AGENT = 0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {Timestamp} from "../types/Timestamp.sol";
 import {ExecutorCall} from "./IExecutor.sol";

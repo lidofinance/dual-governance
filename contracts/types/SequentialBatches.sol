@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 uint256 constant BATCH_SIZE_LENGTH = 16;
 uint256 constant BATCH_SIZE_MASK = 2 ** BATCH_SIZE_LENGTH - 1;
