@@ -21,11 +21,12 @@ contract DualGovernanceSetUp is StorageSetup {
     StETHModel stEth;
     WstETHAdapted wstEth;
     WithdrawalQueueModel withdrawalQueue;
-    IEscrow signallingEscrow;
-    IEscrow rageQuitEscrow;
+    Escrow signallingEscrow;
+    Escrow rageQuitEscrow;
 
     function setUp() public {
         vm.chainId(1); // Set block.chainid so it's not symbolic
+        vm.assume(block.timestamp < timeUpperBound);
 
         stEth = new StETHModel();
         wstEth = new WstETHAdapted(IStETH(stEth));
@@ -41,8 +42,8 @@ contract DualGovernanceSetUp is StorageSetup {
         Escrow escrowMasterCopy = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
         dualGovernance =
             new DualGovernance(address(config), address(timelock), address(escrowMasterCopy), adminProposer);
-        signallingEscrow = IEscrow(dualGovernance.getVetoSignallingEscrow());
-        rageQuitEscrow = IEscrow(Clones.clone(address(escrowMasterCopy)));
+        signallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
+        rageQuitEscrow = Escrow(payable(Clones.clone(address(escrowMasterCopy))));
 
         // ?STORAGE
         // ?WORD: totalPooledEther

@@ -147,6 +147,10 @@ contract StorageSetup is KontrolTest {
         return WithdrawalsBatchesQueue.Status(uint8(_loadUInt256(address(_escrow), 5)));
     }
 
+    function _getStEthLockedShares(IEscrow _escrow) internal view returns (uint128) {
+        return uint128(_loadUInt256(address(_escrow), 1));
+    }
+
     function _escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowState _currentState) internal {
         kevm.symbolicStorage(address(_escrow));
         // Slot 0

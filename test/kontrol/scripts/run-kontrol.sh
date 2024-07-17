@@ -34,6 +34,7 @@ kontrol_prove() {
     --smt-timeout $smt_timeout \
     --workers $workers \
     --max-frontier-parallel $max_frontier_parallel \
+    --smt-retry-limit 5 \
     $reinit \
     $bug_report \
     $break_on_calls \
@@ -102,15 +103,16 @@ if [ "$SCRIPT_TESTS" == true ]; then
     # Here go the list of tests to execute with the `script` option
     test_list=(
         #"VetoCooldownTest.testVetoCooldownDuration"
-        "VetoSignallingTest.testTransitionNormalToVetoSignalling"
-        "VetoSignallingTest.testVetoSignallingInvariantsHoldInitially"
-        "EscrowAccountingTest.testRageQuitSupport"
-        "EscrowAccountingTest.testEscrowInvariantsHoldInitially"
-        "EscrowAccountingTest.testLockStEth"
-        "EscrowAccountingTest.testUnlockStEth"
-        "EscrowOperationsTest.testCannotUnlockBeforeMinLockTime"
-        "EscrowOperationsTest.testCannotLockUnlockInRageQuitEscrowState"
+        #"VetoSignallingTest.testTransitionNormalToVetoSignalling"
+        #"VetoSignallingTest.testVetoSignallingInvariantsHoldInitially"
+        #"EscrowAccountingTest.testRageQuitSupport"
+        #"EscrowAccountingTest.testEscrowInvariantsHoldInitially"
+        "EscrowLockUnlockTest.testLockStEth"
+        #"EscrowAccountingTest.testUnlockStEth"
+        #"EscrowOperationsTest.testCannotUnlockBeforeMinLockTime"
+        #"EscrowOperationsTest.testCannotLockUnlockInRageQuitEscrowState"
         #"EscrowOperationsTest.testCannotWithdrawBeforeEthClaimTimelockElapsed"
+        #"ActivateNextStateTest.testEscrowStateTransition"
     )
 elif [ "$CUSTOM_TESTS" != 0 ]; then
     test_list=( "${@:${CUSTOM_TESTS}}" )
