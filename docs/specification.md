@@ -1450,10 +1450,6 @@ Executes the governance reset by calling the emergencyReset function on the Emer
 
 * Governance reset proposal MUST have reached quorum and passed the timelock duration.
 
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/develop
 ## Upgrade flow description
 
 In designing the dual governance system, ensuring seamless updates while maintaining the contracts' immutability was a primary consideration. To achieve this, the system was divided into three key components: `DualGovernance`, `EmergencyProtectedTimelock`, and `Executor`.
