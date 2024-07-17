@@ -172,7 +172,6 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// @param proposalId The ID of the proposal.
     /// @return proposal The Proposal struct containing the details of the proposal.
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
-        _proposals.checkProposalExists(proposalId);
         proposal.id = proposalId;
         (proposal.status, proposal.executor, proposal.isCancelled, proposal.submittedAt, proposal.scheduledAt) =
             _proposals.getProposalInfo(proposalId);
@@ -180,7 +179,6 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     }
 
     function getProposalState(uint256 proposalId) external view returns (ProposalState memory proposal) {
-        _proposals.checkProposalExists(proposalId);
         proposal.id = proposalId;
         (proposal.status, proposal.executor, proposal.isCancelled, proposal.submittedAt, proposal.scheduledAt) =
             _proposals.getProposalInfo(proposalId);

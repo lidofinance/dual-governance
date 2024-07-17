@@ -16,11 +16,16 @@ enum Status {
 library ExecutableProposals {
     using ExternalCalls for ExternalCall[];
 
+    struct ProposalState {
+        Status status;
+        address executor;
+        Timestamp submittedAt;
+        Timestamp scheduledAt;
+    }
+
     struct Proposal {
-        Status status; // 8
-        address executor; // 168
-        Timestamp submittedAt; // 208
-        Timestamp scheduledAt; // 248
+        ProposalState state;
+        ExternalCall[] calls;
     }
 
     error EmptyCalls();
@@ -30,7 +35,7 @@ library ExecutableProposals {
     error AfterSubmitDelayNotPassed(uint256 proposalId);
     error AfterScheduleDelayNotPassed(uint256 proposalId);
 
-    event ProposalSubmitted(uint256 indexed id, ExternalCall[] calls);
+    event ProposalSubmitted(uint256 indexed id, address indexed executor, ExternalCall[] calls);
     event ProposalScheduled(uint256 indexed id);
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
     event ProposalsCancelledTill(uint256 proposalId);
@@ -38,7 +43,6 @@ library ExecutableProposals {
     struct State {
         uint64 proposalsCount;
         uint64 lastCancelledProposalId;
-        mapping(uint256 proposalId => ExternalCall[]) calls;
         mapping(uint256 proposalId => Proposal) proposals;
     }
 
@@ -50,39 +54,36 @@ library ExecutableProposals {
         if (calls.length == 0) {
             revert EmptyCalls();
         }
+        /// @dev: proposal ids are one-based. The first item has id = 1
+        newProposalId = ++self.proposalsCount;
+        Proposal storage newProposal = self.proposals[newProposalId];
 
-        self.proposalsCount += 1;
-        newProposalId = self.proposalsCount;
-
-        self.proposals[newProposalId] = Proposal({
-            status: Status.Submitted,
-            executor: executor,
-            submittedAt: Timestamps.now(),
-            scheduledAt: Timestamps.ZERO
-        });
+        newProposal.state.executor = executor;
+        newProposal.state.status = Status.Submitted;
+        newProposal.state.submittedAt = Timestamps.now();
 
         uint256 callsCount = calls.length;
         for (uint256 i = 0; i < callsCount; ++i) {
-            self.calls[newProposalId].push(calls[i]);
+            newProposal.calls.push(calls[i]);
         }
 
-        emit ProposalSubmitted(newProposalId, calls);
+        emit ProposalSubmitted(newProposalId, executor, calls);
     }
 
     function schedule(State storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
-        Proposal memory proposal = self.proposals[proposalId];
+        ProposalState memory proposalState = self.proposals[proposalId].state;
 
-        if (proposal.status != Status.Submitted || isProposalMarkedCancelled(self, proposalId)) {
+        if (proposalState.status != Status.Submitted || isProposalMarkedCancelled(self, proposalId)) {
             revert ProposalNotSubmitted(proposalId);
         }
 
-        if (Timestamps.now() < afterSubmitDelay.addTo(proposal.submittedAt)) {
+        if (Timestamps.now() < afterSubmitDelay.addTo(proposalState.submittedAt)) {
             revert AfterSubmitDelayNotPassed(proposalId);
         }
 
-        proposal.status = Status.Scheduled;
-        proposal.scheduledAt = Timestamps.now();
-        self.proposals[proposalId] = proposal;
+        proposalState.status = Status.Scheduled;
+        proposalState.scheduledAt = Timestamps.now();
+        self.proposals[proposalId].state = proposalState;
 
         emit ProposalScheduled(proposalId);
     }
@@ -90,17 +91,17 @@ library ExecutableProposals {
     function execute(State storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
-        if (proposal.status != Status.Scheduled || isProposalMarkedCancelled(self, proposalId)) {
+        if (proposal.state.status != Status.Scheduled || isProposalMarkedCancelled(self, proposalId)) {
             revert ProposalNotScheduled(proposalId);
         }
 
-        if (Timestamps.now() < afterScheduleDelay.addTo(proposal.scheduledAt)) {
+        if (Timestamps.now() < afterScheduleDelay.addTo(proposal.state.scheduledAt)) {
             revert AfterScheduleDelayNotPassed(proposalId);
         }
 
-        self.proposals[proposalId].status = Status.Executed;
+        self.proposals[proposalId].state.status = Status.Executed;
 
-        bytes[] memory results = self.calls[proposalId].execute(IExternalExecutor(proposal.executor));
+        bytes[] memory results = proposal.calls.execute(IExternalExecutor(proposal.state.executor));
         emit ProposalExecuted(proposalId, results);
     }
 
@@ -120,8 +121,9 @@ library ExecutableProposals {
         Duration afterScheduleDelay
     ) internal view returns (bool) {
         if (isProposalMarkedCancelled(self, proposalId)) return false;
-        Proposal memory proposal = self.proposals[proposalId];
-        return proposal.status == Status.Scheduled && Timestamps.now() >= afterScheduleDelay.addTo(proposal.scheduledAt);
+        ProposalState memory proposalState = self.proposals[proposalId].state;
+        return proposalState.status == Status.Scheduled
+            && Timestamps.now() >= afterScheduleDelay.addTo(proposalState.scheduledAt);
     }
 
     function canSchedule(
@@ -130,8 +132,9 @@ library ExecutableProposals {
         Duration afterSubmitDelay
     ) internal view returns (bool) {
         if (isProposalMarkedCancelled(self, proposalId)) return false;
-        Proposal memory proposal = self.proposals[proposalId];
-        return proposal.status == Status.Submitted && Timestamps.now() >= afterSubmitDelay.addTo(proposal.submittedAt);
+        ProposalState memory proposalState = self.proposals[proposalId].state;
+        return proposalState.status == Status.Submitted
+            && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
     }
 
     function getProposalsCount(State storage self) internal view returns (uint256) {
@@ -146,7 +149,9 @@ library ExecutableProposals {
         view
         returns (Status status, address executor, bool isCancelled, Timestamp submittedAt, Timestamp scheduledAt)
     {
-        Proposal memory state = self.proposals[proposalId];
+        ProposalState memory state = self.proposals[proposalId].state;
+        _checkProposalExists(proposalId, state);
+
         status = state.status;
         executor = address(state.executor);
         submittedAt = state.submittedAt;
@@ -162,11 +167,13 @@ library ExecutableProposals {
         State storage self,
         uint256 proposalId
     ) internal view returns (ExternalCall[] memory calls) {
-        calls = self.calls[proposalId];
+        Proposal memory proposal = self.proposals[proposalId];
+        _checkProposalExists(proposalId, proposal.state);
+        calls = proposal.calls;
     }
 
-    function checkProposalExists(State storage self, uint256 proposalId) internal view {
-        if (proposalId == 0 || proposalId > self.proposalsCount) {
+    function _checkProposalExists(uint256 proposalId, ProposalState memory proposalState) private pure {
+        if (proposalState.status == Status.NotExist) {
             revert ProposalNotFound(proposalId);
         }
     }
