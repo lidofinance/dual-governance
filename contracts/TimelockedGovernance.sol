@@ -6,7 +6,7 @@ import {IGovernance, ITimelock} from "./interfaces/ITimelock.sol";
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {ExecutorCall} from "./libraries/Proposals.sol";
 
-contract SingleGovernance is IGovernance, ConfigurationProvider {
+contract TimelockedGovernance is IGovernance, ConfigurationProvider {
     error NotGovernance(address account);
 
     address public immutable GOVERNANCE;

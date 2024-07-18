@@ -20,7 +20,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
     function setUp() external {
         _selectFork();
         _deployTarget();
-        _deploySingleGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+        _deployTimelockedGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
     }
 
     function testFork_PlanB_Scenario() external {
@@ -31,17 +31,17 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // ---
         {
             uint256 proposalId = _submitProposal(
-                _singleGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+                _timelockedGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
             );
 
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
-            _assertCanSchedule(_singleGovernance, proposalId, false);
+            _assertCanSchedule(_timelockedGovernance, proposalId, false);
 
             _waitAfterSubmitDelayPassed();
 
-            _assertCanSchedule(_singleGovernance, proposalId, true);
-            _scheduleProposal(_singleGovernance, proposalId);
+            _assertCanSchedule(_timelockedGovernance, proposalId, true);
+            _scheduleProposal(_timelockedGovernance, proposalId);
             _assertProposalScheduled(proposalId);
 
             _waitAfterScheduleDelayPassed();
@@ -62,17 +62,17 @@ contract PlanBSetup is ScenarioTestBlueprint {
             ExecutorCall[] memory maliciousCalls =
                 ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
 
-            maliciousProposalId = _submitProposal(_singleGovernance, "Rug Pool attempt", maliciousCalls);
+            maliciousProposalId = _submitProposal(_timelockedGovernance, "Rug Pool attempt", maliciousCalls);
 
             // the call isn't executable until the delay has passed
             _assertProposalSubmitted(maliciousProposalId);
-            _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
+            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, false);
 
             // some time required to assemble the emergency committee and activate emergency mode
             _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
             // malicious call still can't be scheduled
-            _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
+            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, false);
 
             // emergency committee activates emergency mode
             vm.prank(address(_emergencyActivationCommittee));
@@ -88,8 +88,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // only the emergency committee
             _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
 
-            _assertCanSchedule(_singleGovernance, maliciousProposalId, true);
-            _scheduleProposal(_singleGovernance, maliciousProposalId);
+            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, true);
+            _scheduleProposal(_timelockedGovernance, maliciousProposalId);
 
             _waitAfterScheduleDelayPassed();
 
@@ -138,13 +138,13 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             // The vote to launch Dual Governance is launched and reached the quorum (the major part of LDO holder still have power)
             uint256 dualGovernanceLunchProposalId =
-                _submitProposal(_singleGovernance, "Launch the Dual Governance", dualGovernanceLaunchCalls);
+                _submitProposal(_timelockedGovernance, "Launch the Dual Governance", dualGovernanceLaunchCalls);
 
             // wait until the after submit delay has passed
             _waitAfterSubmitDelayPassed();
 
-            _assertCanSchedule(_singleGovernance, dualGovernanceLunchProposalId, true);
-            _scheduleProposal(_singleGovernance, dualGovernanceLunchProposalId);
+            _assertCanSchedule(_timelockedGovernance, dualGovernanceLunchProposalId, true);
+            _scheduleProposal(_timelockedGovernance, dualGovernanceLunchProposalId);
             _assertProposalScheduled(dualGovernanceLunchProposalId);
 
             _waitAfterScheduleDelayPassed();
@@ -280,10 +280,10 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // schedule some malicious call
         uint256 maliciousProposalId;
         {
-            maliciousProposalId = _submitProposal(_singleGovernance, "Rug Pool attempt", maliciousCalls);
+            maliciousProposalId = _submitProposal(_timelockedGovernance, "Rug Pool attempt", maliciousCalls);
 
             // malicious calls can't be executed until the delays have passed
-            _assertCanSchedule(_singleGovernance, maliciousProposalId, false);
+            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, false);
         }
 
         // activate emergency mode
@@ -303,9 +303,9 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // the after submit delay has passed, and proposal can be scheduled, but not executed
             _wait(_config.AFTER_SCHEDULE_DELAY() + Durations.from(1 seconds));
             _wait(_config.AFTER_SUBMIT_DELAY().plusSeconds(1));
-            _assertCanSchedule(_singleGovernance, maliciousProposalId, true);
+            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, true);
 
-            _scheduleProposal(_singleGovernance, maliciousProposalId);
+            _scheduleProposal(_timelockedGovernance, maliciousProposalId);
 
             _wait(_config.AFTER_SCHEDULE_DELAY().plusSeconds(1));
             _assertCanExecute(maliciousProposalId, false);
@@ -324,14 +324,15 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // emergency mode still active
             assertTrue(emergencyState.emergencyModeEndsAfter > Timestamps.now());
 
-            anotherMaliciousProposalId = _submitProposal(_singleGovernance, "Another Rug Pool attempt", maliciousCalls);
+            anotherMaliciousProposalId =
+                _submitProposal(_timelockedGovernance, "Another Rug Pool attempt", maliciousCalls);
 
             // malicious calls can't be executed until the delays have passed
             _assertCanExecute(anotherMaliciousProposalId, false);
 
             // the after submit delay has passed, and proposal can not be executed
             _wait(_config.AFTER_SUBMIT_DELAY().plusSeconds(1));
-            _assertCanSchedule(_singleGovernance, anotherMaliciousProposalId, true);
+            _assertCanSchedule(_timelockedGovernance, anotherMaliciousProposalId, true);
 
             _wait(_config.AFTER_SCHEDULE_DELAY().plusSeconds(1));
             _assertCanExecute(anotherMaliciousProposalId, false);
