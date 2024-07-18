@@ -11,7 +11,7 @@ interface IGovernance {
     function scheduleProposal(uint256 proposalId) external;
     function cancelAllPendingProposals() external;
 
-    function canSchedule(uint256 proposalId) external view returns (bool);
+    function canScheduleProposal(uint256 proposalId) external view returns (bool);
 }
 
 interface ITimelock {

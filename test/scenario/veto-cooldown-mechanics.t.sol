@@ -6,8 +6,8 @@ import {
     percents,
     ExternalCall,
     ExternalCallHelpers,
-    DualGovernanceState,
-    ScenarioTestBlueprint
+    ScenarioTestBlueprint,
+    DualGovernance
 } from "../utils/scenario-test-blueprint.sol";
 
 interface IDangerousContract {
@@ -97,7 +97,9 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             _activateNextState();
             _assertVetoCooldownState();
 
-            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(
+                abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, anotherProposalId)
+            );
             this.scheduleProposalExternal(anotherProposalId);
         }
     }

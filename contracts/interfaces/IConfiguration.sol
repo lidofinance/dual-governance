@@ -2,21 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Duration} from "../types/Duration.sol";
-
-struct DualGovernanceConfig {
-    uint256 firstSealRageQuitSupport;
-    uint256 secondSealRageQuitSupport;
-    Duration dynamicTimelockMaxDuration;
-    Duration dynamicTimelockMinDuration;
-    Duration vetoSignallingMinActiveDuration;
-    Duration vetoSignallingDeactivationMaxDuration;
-    Duration vetoCooldownDuration;
-    Duration rageQuitExtraTimelock;
-    Duration rageQuitExtensionDelay;
-    Duration rageQuitEthWithdrawalsMinTimelock;
-    uint256 rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber;
-    uint256[3] rageQuitEthWithdrawalsTimelockGrowthCoeffs;
-}
+import {DualGovernanceConfig} from "../libraries//DualGovernanceConfig.sol";
 
 interface IEscrowConfigration {
     function MIN_WITHDRAWALS_BATCH_SIZE() external view returns (uint256);
