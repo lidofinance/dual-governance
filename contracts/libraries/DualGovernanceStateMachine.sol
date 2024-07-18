@@ -6,11 +6,10 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
 import {ISealable} from "../interfaces/ISealable.sol";
-import {IDualGovernanceConfiguration} from "../interfaces/IConfiguration.sol";
 
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
-import {DualGovernanceConfig, DualGovernanceConfigUtils} from "./DualGovernanceConfig.sol";
+import {TiebreakConfig, DualGovernanceConfig, DualGovernanceConfigUtils} from "./DualGovernanceConfig.sol";
 
 enum Status {
     Unset,
@@ -142,20 +141,20 @@ library DualGovernanceStateMachine {
         return false;
     }
 
-    function isTiebreak(State storage self, IDualGovernanceConfiguration config) internal view returns (bool) {
+    function isDeadlock(State storage self, TiebreakConfig memory config) internal view returns (bool) {
         Status state = self.status;
         if (state == Status.Normal || state == Status.VetoCooldown) return false;
 
         // when the governance is locked for long period of time
-        if (Timestamps.now() >= config.TIE_BREAK_ACTIVATION_TIMEOUT().addTo(self.normalOrVetoCooldownExitedAt)) {
+        if (Timestamps.now() >= config.tiebreakActivationTimeout.addTo(self.normalOrVetoCooldownExitedAt)) {
             return true;
         }
 
         if (self.status != Status.RageQuit) return false;
 
-        address[] memory sealableWithdrawalBlockers = config.sealableWithdrawalBlockers();
-        for (uint256 i = 0; i < sealableWithdrawalBlockers.length; ++i) {
-            if (ISealable(sealableWithdrawalBlockers[i]).isPaused()) return true;
+        uint256 potentialDeadlockSealablesCount = config.potentialDeadlockSealables.length;
+        for (uint256 i = 0; i < potentialDeadlockSealablesCount; ++i) {
+            if (ISealable(config.potentialDeadlockSealables[i]).isPaused()) return true;
         }
         return false;
     }

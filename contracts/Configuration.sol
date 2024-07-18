@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Durations, Duration} from "./types/Duration.sol";
-import {IConfiguration, DualGovernanceConfig} from "./interfaces/IConfiguration.sol";
+import {IConfiguration, DualGovernanceConfig, TiebreakConfig} from "./interfaces/IConfiguration.sol";
 
 uint256 constant PERCENT = 10 ** 16;
 
@@ -73,29 +73,13 @@ contract Configuration is IConfiguration {
         if (SEALABLES_COUNT > 4) SEALABLE_4 = sealableWithdrawalBlockers_[4];
     }
 
-    function sealableWithdrawalBlockers() external view returns (address[] memory sealableWithdrawalBlockers_) {
+    function getSealableWithdrawalBlockers() public view returns (address[] memory sealableWithdrawalBlockers_) {
         sealableWithdrawalBlockers_ = new address[](SEALABLES_COUNT);
         if (SEALABLES_COUNT > 0) sealableWithdrawalBlockers_[0] = SEALABLE_0;
         if (SEALABLES_COUNT > 1) sealableWithdrawalBlockers_[1] = SEALABLE_1;
         if (SEALABLES_COUNT > 2) sealableWithdrawalBlockers_[2] = SEALABLE_2;
         if (SEALABLES_COUNT > 3) sealableWithdrawalBlockers_[3] = SEALABLE_3;
         if (SEALABLES_COUNT > 4) sealableWithdrawalBlockers_[4] = SEALABLE_4;
-    }
-
-    function getSignallingThresholdData()
-        external
-        view
-        returns (
-            uint256 firstSealRageQuitSupport,
-            uint256 secondSealRageQuitSupport,
-            Duration dynamicTimelockMinDuration,
-            Duration dynamicTimelockMaxDuration
-        )
-    {
-        firstSealRageQuitSupport = FIRST_SEAL_RAGE_QUIT_SUPPORT;
-        secondSealRageQuitSupport = SECOND_SEAL_RAGE_QUIT_SUPPORT;
-        dynamicTimelockMinDuration = DYNAMIC_TIMELOCK_MIN_DURATION;
-        dynamicTimelockMaxDuration = DYNAMIC_TIMELOCK_MAX_DURATION;
     }
 
     function getDualGovernanceConfig() external view returns (DualGovernanceConfig memory config) {
@@ -115,5 +99,10 @@ contract Configuration is IConfiguration {
             RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B,
             RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_C
         ];
+    }
+
+    function getTiebreakConfig() external view returns (TiebreakConfig memory config) {
+        config.tiebreakActivationTimeout = TIE_BREAK_ACTIVATION_TIMEOUT;
+        config.potentialDeadlockSealables = getSealableWithdrawalBlockers();
     }
 }

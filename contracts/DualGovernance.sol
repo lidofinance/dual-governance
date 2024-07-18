@@ -145,7 +145,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function tiebreakerResumeSealable(address sealable) external {
         _tiebreaker.checkTiebreakerCommittee(msg.sender);
-        if (!_stateMachine.isTiebreak(CONFIG)) {
+        if (!_stateMachine.isDeadlock(CONFIG.getTiebreakConfig())) {
             revert NotTiebreak();
         }
         _tiebreaker.resumeSealable(sealable);
@@ -153,7 +153,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function tiebreakerScheduleProposal(uint256 proposalId) external {
         _tiebreaker.checkTiebreakerCommittee(msg.sender);
-        if (!_stateMachine.isTiebreak(CONFIG)) {
+        if (!_stateMachine.isDeadlock(CONFIG.getTiebreakConfig())) {
             revert NotTiebreak();
         }
         TIMELOCK.schedule(proposalId);

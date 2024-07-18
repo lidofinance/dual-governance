@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Duration} from "../types/Duration.sol";
-import {DualGovernanceConfig} from "../libraries//DualGovernanceConfig.sol";
+import {TiebreakConfig, DualGovernanceConfig} from "../libraries//DualGovernanceConfig.sol";
 
 interface IEscrowConfigration {
     function MIN_WITHDRAWALS_BATCH_SIZE() external view returns (uint256);
@@ -43,19 +43,10 @@ interface IDualGovernanceConfiguration {
     function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B() external view returns (uint256);
     function RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_C() external view returns (uint256);
 
-    function sealableWithdrawalBlockers() external view returns (address[] memory);
-
-    function getSignallingThresholdData()
-        external
-        view
-        returns (
-            uint256 firstSealThreshold,
-            uint256 secondSealThreshold,
-            Duration signallingMinDuration,
-            Duration signallingMaxDuration
-        );
+    function getSealableWithdrawalBlockers() external view returns (address[] memory);
 
     function getDualGovernanceConfig() external view returns (DualGovernanceConfig memory config);
+    function getTiebreakConfig() external view returns (TiebreakConfig memory config);
 }
 
 interface IConfiguration is

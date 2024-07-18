@@ -4,6 +4,11 @@ pragma solidity 0.8.23;
 import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
+struct TiebreakConfig {
+    Duration tiebreakActivationTimeout;
+    address[] potentialDeadlockSealables;
+}
+
 struct DualGovernanceConfig {
     uint256 firstSealRageQuitSupport;
     uint256 secondSealRageQuitSupport;
