@@ -151,8 +151,8 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         sr.timestamp = lastInteractionTimestamp;
         sr.rageQuitSupport = previousRageQuitSupport;
         sr.maxRageQuitSupport = maxRageQuitSupport;
-        sr.activationTime = _getVetoSignallingActivationTime(dualGovernance);
-        sr.reactivationTime = _getVetoSignallingReactivationTime(dualGovernance);
+        sr.activationTime = Timestamp.wrap(_getVetoSignallingActivationTime(dualGovernance));
+        sr.reactivationTime = Timestamp.wrap(_getVetoSignallingReactivationTime(dualGovernance));
     }
 
     function _recordCurrentState(uint256 previousMaxRageQuitSupport) internal view returns (StateRecord memory sr) {
@@ -161,8 +161,8 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         sr.rageQuitSupport = signallingEscrow.getRageQuitSupport();
         sr.maxRageQuitSupport =
             previousMaxRageQuitSupport < sr.rageQuitSupport ? sr.rageQuitSupport : previousMaxRageQuitSupport;
-        sr.activationTime = _getVetoSignallingActivationTime(dualGovernance);
-        sr.reactivationTime = _getVetoSignallingReactivationTime(dualGovernance);
+        sr.activationTime = Timestamp.wrap(_getVetoSignallingActivationTime(dualGovernance));
+        sr.reactivationTime = Timestamp.wrap(_getVetoSignallingReactivationTime(dualGovernance));
     }
 
     /**
@@ -266,7 +266,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
 
         StateRecord memory current = _recordCurrentState(maxRageQuitSupport);
 
-        Timestamp deactivationStartTime = _getEnteredAt(dualGovernance);
+        Timestamp deactivationStartTime = Timestamp.wrap(_getEnteredAt(dualGovernance));
         Timestamp deactivationEndTime = addTo(config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION(), deactivationStartTime);
 
         // The protocol is either in the Deactivation sub-state, or, if the

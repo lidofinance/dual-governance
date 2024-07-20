@@ -15,34 +15,11 @@ import "contracts/model/WithdrawalQueueModel.sol";
 import "contracts/model/WstETHAdapted.sol";
 
 import {StorageSetup} from "test/kontrol/StorageSetup.sol";
+import {DualGovernanceSetUp} from "test/kontrol/DualGovernanceSetUp.sol";
 import {EscrowInvariants} from "test/kontrol/EscrowInvariants.sol";
+import {ActivateNextStateMock} from "test/kontrol/ActivateNextState.t.sol";
 
-contract ActivateNextStateMock is StorageSetup {
-    function activateNextState() external {
-        DualGovernance dualGovernance = DualGovernance(address(this));
-        IConfiguration config = dualGovernance.CONFIG();
-        State initialState = dualGovernance.getCurrentState();
-        IEscrow signallingEscrow = IEscrow(dualGovernance.getVetoSignallingEscrow());
-        IEscrow rageQuitEscrow = IEscrow(dualGovernance.getRageQuitEscrow());
-        uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
-
-        if (
-            (initialState == State.VetoSignalling || initialState == State.VetoSignallingDeactivation)
-                && rageQuitSupport > config.SECOND_SEAL_RAGE_QUIT_SUPPORT()
-        ) {
-            address escrowMasterCopy = signallingEscrow.MASTER_COPY();
-            IEscrow newSignallingEscrow = IEscrow(Clones.clone(escrowMasterCopy));
-            _dualGovernanceStorageSetup(dualGovernance, newSignallingEscrow, signallingEscrow);
-            _signallingEscrowStorageSetup(newSignallingEscrow, dualGovernance);
-            _rageQuitEscrowStorageSetup(signallingEscrow, dualGovernance);
-        } else {
-            _dualGovernanceStorageSetup(dualGovernance, signallingEscrow, rageQuitEscrow);
-            _signallingEscrowStorageSetup(signallingEscrow, dualGovernance);
-        }
-    }
-}
-
-contract EscrowLockUnlockTest is EscrowInvariants {
+contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
     function _assumeFreshAddress(address account) internal {
         IEscrow escrow = signallingEscrow;
         vm.assume(account != address(0));
@@ -56,12 +33,6 @@ contract EscrowLockUnlockTest is EscrowInvariants {
         vm.assume(
             keccak256(abi.encodePacked(account, uint256(2))) != keccak256(abi.encodePacked(address(escrow), uint256(2)))
         );
-    }
-
-    function _assumeNoOverflow(uint256 augend, uint256 addend) internal {
-        unchecked {
-            vm.assume(augend < augend + addend);
-        }
     }
 
     function testLockStEth(uint256 amount) public {

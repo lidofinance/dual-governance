@@ -43,4 +43,10 @@ contract KontrolTest is Test, KontrolCheats {
     function _storeAddress(address contractAddress, uint256 slot, address value) internal {
         vm.store(contractAddress, bytes32(slot), bytes32(uint256(uint160(value))));
     }
+
+    function _assumeNoOverflow(uint256 augend, uint256 addend) internal {
+        unchecked {
+            vm.assume(augend < augend + addend);
+        }
+    }
 }
