@@ -67,8 +67,13 @@ contract StorageSetup is KontrolTest {
         kevm.symbolicStorage(address(_dualGovernance));
         // Slot 5 + 0 = 5
         uint8 currentState = uint8(kevm.freshUInt(1));
+        vm.assume(currentState <= 4);
         uint40 enteredAt = uint40(kevm.freshUInt(5));
+        vm.assume(enteredAt <= block.timestamp);
+        vm.assume(enteredAt < timeUpperBound);
         uint40 vetoSignallingActivationTime = uint40(kevm.freshUInt(5));
+        vm.assume(vetoSignallingActivationTime <= block.timestamp);
+        vm.assume(vetoSignallingActivationTime < timeUpperBound);
         bytes memory slot5Abi = abi.encodePacked(
             uint8(0),
             uint160(address(_signallingEscrow)),
@@ -83,8 +88,13 @@ contract StorageSetup is KontrolTest {
         _storeBytes32(address(_dualGovernance), 5, slot5);
         // Slot 5 + 1 = 6
         uint40 vetoSignallingReactivationTime = uint40(kevm.freshUInt(5));
+        vm.assume(vetoSignallingReactivationTime <= block.timestamp);
+        vm.assume(vetoSignallingReactivationTime < timeUpperBound);
         uint40 lastAdoptableStateExitedAt = uint40(kevm.freshUInt(5));
+        vm.assume(lastAdoptableStateExitedAt <= block.timestamp);
+        vm.assume(lastAdoptableStateExitedAt < timeUpperBound);
         uint8 rageQuitRound = uint8(kevm.freshUInt(1));
+        vm.assume(rageQuitRound < type(uint8).max);
         bytes memory slot6Abi = abi.encodePacked(
             uint8(0),
             uint8(rageQuitRound),
@@ -134,8 +144,8 @@ contract StorageSetup is KontrolTest {
         IEscrow _rageQuitEscrow
     ) internal {
         _dualGovernanceStorageSetup(_dualGovernance, _signallingEscrow, _rageQuitEscrow);
-        _dualGovernanceStorageInvariants(Mode.Assume, _dualGovernance);
-        _dualGovernanceAssumeBounds(_dualGovernance);
+        //_dualGovernanceStorageInvariants(Mode.Assume, _dualGovernance);
+        //_dualGovernanceAssumeBounds(_dualGovernance);
     }
 
     function _getCurrentState(IEscrow _escrow) internal view returns (uint8) {
@@ -257,8 +267,10 @@ contract StorageSetup is KontrolTest {
         // Slot 1 + 0 + 0 = 1
         {
             uint128 lockedShares = uint128(kevm.freshUInt(16));
-            uint128 claimedETH = uint128(kevm.freshUInt(16));
-            bytes memory slot1Abi = abi.encodePacked(uint128(claimedETH), uint128(lockedShares));
+            vm.assume(lockedShares < ethUpperBound);
+            uint128 claimedEth = uint128(kevm.freshUInt(16));
+            vm.assume(claimedEth < ethUpperBound);
+            bytes memory slot1Abi = abi.encodePacked(uint128(claimedEth), uint128(lockedShares));
             bytes32 slot1;
             assembly {
                 slot1 := mload(add(slot1Abi, 0x20))
@@ -268,8 +280,10 @@ contract StorageSetup is KontrolTest {
         // Slot 1 + 1 + 0 = 2
         {
             uint128 unfinalizedShares = uint128(kevm.freshUInt(16));
-            uint128 finalizedETH = uint128(kevm.freshUInt(16));
-            bytes memory slot2Abi = abi.encodePacked(uint128(finalizedETH), uint128(unfinalizedShares));
+            vm.assume(unfinalizedShares < ethUpperBound);
+            uint128 finalizedEth = uint128(kevm.freshUInt(16));
+            vm.assume(finalizedEth < ethUpperBound);
+            bytes memory slot2Abi = abi.encodePacked(uint128(finalizedEth), uint128(unfinalizedShares));
             bytes32 slot2;
             assembly {
                 slot2 := mload(add(slot2Abi, 0x20))
@@ -279,13 +293,20 @@ contract StorageSetup is KontrolTest {
         // Slot 5
         {
             uint8 batchesQueueStatus = uint8(kevm.freshUInt(1));
+            vm.assume(batchesQueueStatus < 3);
             _storeUInt256(address(_escrow), 5, batchesQueueStatus);
         }
         // Slot 9
         {
             uint32 rageQuitExtensionDelay = uint32(kevm.freshUInt(4));
+            vm.assume(rageQuitExtensionDelay <= block.timestamp);
+            vm.assume(rageQuitExtensionDelay < timeUpperBound);
             uint32 rageQuitWithdrawalsTimelock = uint32(kevm.freshUInt(4));
+            vm.assume(rageQuitWithdrawalsTimelock <= block.timestamp);
+            vm.assume(rageQuitWithdrawalsTimelock < timeUpperBound);
             uint40 rageQuitTimelockStartedAt = uint40(kevm.freshUInt(5));
+            vm.assume(rageQuitTimelockStartedAt <= block.timestamp);
+            vm.assume(rageQuitTimelockStartedAt < timeUpperBound);
             bytes memory slot9Abi = abi.encodePacked(
                 uint152(0),
                 uint40(rageQuitTimelockStartedAt),
@@ -336,8 +357,8 @@ contract StorageSetup is KontrolTest {
         EscrowState _currentState
     ) internal {
         _escrowStorageSetup(_escrow, _dualGovernance, _currentState);
-        _escrowStorageInvariants(Mode.Assume, _escrow);
-        _escrowAssumeBounds(_escrow);
+        //_escrowStorageInvariants(Mode.Assume, _escrow);
+        //_escrowAssumeBounds(_escrow);
     }
 
     function _signallingEscrowStorageInvariants(Mode mode, IEscrow _signallingEscrow) internal {
