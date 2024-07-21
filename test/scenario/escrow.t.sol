@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {WithdrawalRequestStatus} from "../utils/interfaces.sol";
 import {Duration as DurationType} from "contracts/types/Duration.sol";
