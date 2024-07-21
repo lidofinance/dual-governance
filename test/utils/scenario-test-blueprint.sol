@@ -22,10 +22,11 @@ import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommitte
 
 import {ResealManager} from "contracts/ResealManager.sol";
 
-import {TimelockProposalStatus} from "contracts/interfaces/ITimelock.sol";
-
 import {
-    EmergencyState, EmergencyProtection, EmergencyProtectedTimelock
+    ProposalStatus,
+    EmergencyState,
+    EmergencyProtection,
+    EmergencyProtectedTimelock
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
@@ -352,12 +353,10 @@ contract ScenarioTestBlueprint is Test {
     function _assertSubmittedProposalData(uint256 proposalId, address executor, ExternalCall[] memory calls) internal {
         EmergencyProtectedTimelock.Proposal memory proposal = _timelock.getProposal(proposalId);
         assertEq(proposal.id, proposalId, "unexpected proposal id");
-        assertEq(proposal.status, TimelockProposalStatus.Submitted, "unexpected status value");
+        assertEq(proposal.status, ProposalStatus.Submitted, "unexpected status value");
         assertEq(proposal.executor, executor, "unexpected executor");
         assertEq(Timestamp.unwrap(proposal.submittedAt), block.timestamp, "unexpected scheduledAt");
-        // assertEq(Timestamp.unwrap(proposal.executedAt), 0, "unexpected executedAt");
         assertEq(proposal.calls.length, calls.length, "unexpected calls length");
-        assertFalse(proposal.isCancelled, "unexpected proposal idCancelled value");
 
         for (uint256 i = 0; i < proposal.calls.length; ++i) {
             ExternalCall memory expected = calls[i];
@@ -415,7 +414,7 @@ contract ScenarioTestBlueprint is Test {
     function _assertProposalSubmitted(uint256 proposalId) internal {
         assertEq(
             _timelock.getProposal(proposalId).status,
-            TimelockProposalStatus.Submitted,
+            ProposalStatus.Submitted,
             "TimelockProposal not in 'Submitted' state"
         );
     }
@@ -423,7 +422,7 @@ contract ScenarioTestBlueprint is Test {
     function _assertProposalScheduled(uint256 proposalId) internal {
         assertEq(
             _timelock.getProposal(proposalId).status,
-            TimelockProposalStatus.Scheduled,
+            ProposalStatus.Scheduled,
             "TimelockProposal not in 'Scheduled' state"
         );
     }
@@ -431,13 +430,17 @@ contract ScenarioTestBlueprint is Test {
     function _assertProposalExecuted(uint256 proposalId) internal {
         assertEq(
             _timelock.getProposal(proposalId).status,
-            TimelockProposalStatus.Executed,
+            ProposalStatus.Executed,
             "TimelockProposal not in 'Executed' state"
         );
     }
 
     function _assertProposalCanceled(uint256 proposalId) internal {
-        assertTrue(_timelock.getProposal(proposalId).isCancelled, "TimelockProposal not in 'Canceled' state");
+        assertEq(
+            _timelock.getProposal(proposalId).status,
+            ProposalStatus.Cancelled,
+            "TimelockProposal not in 'Canceled' state"
+        );
     }
 
     function _assertNormalState() internal {
@@ -761,11 +764,11 @@ contract ScenarioTestBlueprint is Test {
         assertEq(uint256(DurationType.unwrap(a)), uint256(DurationType.unwrap(b)));
     }
 
-    function assertEq(TimelockProposalStatus a, TimelockProposalStatus b) internal {
+    function assertEq(ProposalStatus a, ProposalStatus b) internal {
         assertEq(uint256(a), uint256(b));
     }
 
-    function assertEq(TimelockProposalStatus a, TimelockProposalStatus b, string memory message) internal {
+    function assertEq(ProposalStatus a, ProposalStatus b, string memory message) internal {
         assertEq(uint256(a), uint256(b), message);
     }
 

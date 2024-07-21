@@ -2,9 +2,10 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "./types/Duration.sol";
+import {Timestamp} from "./types/Timestamp.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {ITimelock} from "./interfaces/ITimelock.sol";
+import {ITimelock, ProposalStatus} from "./interfaces/ITimelock.sol";
 
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
 
@@ -163,9 +164,9 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     // ---
 
     /// @dev Retrieves the address of the current governance contract.
-    /// @return The address of the current governance contract.
-    function getGovernance() external view returns (address) {
-        return _governance;
+    /// @return governance The address of the current governance contract.
+    function getGovernance() external view returns (address governance) {
+        governance = _governance;
     }
 
     /// @dev Retrieves the details of a proposal.
@@ -173,19 +174,39 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// @return proposal The Proposal struct containing the details of the proposal.
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
         proposal.id = proposalId;
-        (proposal.status, proposal.executor, proposal.isCancelled, proposal.submittedAt, proposal.scheduledAt) =
+        (proposal.status, proposal.executor, proposal.submittedAt, proposal.scheduledAt) =
             _proposals.getProposalInfo(proposalId);
-        proposal.calls = _proposals.getExternalCalls(proposalId);
+        proposal.calls = _proposals.getProposalCalls(proposalId);
     }
 
-    function getProposalState(uint256 proposalId) external view returns (ProposalState memory proposal) {
-        proposal.id = proposalId;
-        (proposal.status, proposal.executor, proposal.isCancelled, proposal.submittedAt, proposal.scheduledAt) =
-            _proposals.getProposalInfo(proposalId);
+    /// @notice Retrieves information about a proposal, excluding the external calls associated with it.
+    /// @param proposalId The ID of the proposal to retrieve information for.
+    /// @return id The ID of the proposal.
+    /// @return status The current status of the proposal. Possible values are:
+    /// 0 - The proposal does not exist.
+    /// 1 - The proposal was submitted but not scheduled.
+    /// 2 - The proposal was submitted and scheduled but not yet executed.
+    /// 3 - The proposal was submitted, scheduled, and executed. This is the final state of the proposal lifecycle.
+    /// 4 - The proposal was cancelled via cancelAllNonExecutedProposals() and cannot be scheduled or executed anymore.
+    ///     This is the final state of the proposal.
+    /// @return executor The address of the executor responsible for executing the proposal's external calls.
+    /// @return submittedAt The timestamp when the proposal was submitted.
+    /// @return scheduledAt The timestamp when the proposal was scheduled for execution. Equals 0 if the proposal
+    /// was submitted but not yet scheduled.
+    function getProposalInfo(uint256 proposalId)
+        external
+        view
+        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
+    {
+        id = proposalId;
+        (status, executor, submittedAt, scheduledAt) = _proposals.getProposalInfo(proposalId);
     }
 
+    /// @notice Retrieves the external calls associated with the specified proposal.
+    /// @param proposalId The ID of the proposal to retrieve external calls for.
+    /// @return calls An array of ExternalCall structs representing the sequence of calls to be executed for the proposal.
     function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls) {
-        calls = _proposals.getExternalCalls(proposalId);
+        calls = _proposals.getProposalCalls(proposalId);
     }
 
     /// @dev Retrieves the total number of proposals.
