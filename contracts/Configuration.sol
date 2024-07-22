@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {Durations, Duration} from "./types/Duration.sol";
 import {IConfiguration, DualGovernanceConfig, TiebreakConfig} from "./interfaces/IConfiguration.sol";

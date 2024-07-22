@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {Vm} from "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
-import {ITimelock, TimelockProposalStatus} from "contracts/interfaces/ITimelock.sol";
+import {ITimelock, ProposalStatus} from "contracts/interfaces/ITimelock.sol";
 import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {ConfigurationProvider} from "contracts/ConfigurationProvider.sol";
 import {Executor} from "contracts/Executor.sol";
-import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection, EmergencyState} from "contracts/libraries/EmergencyProtection.sol";
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {UnitTest, Duration, Timestamp, Timestamps, Durations, console} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/utils.sol";
@@ -70,7 +70,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.getProposalsCount(), 1);
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
-        assert(proposal.status == TimelockProposalStatus.Submitted);
+        assertEq(proposal.status, ProposalStatus.Submitted);
     }
 
     // EmergencyProtectedTimelock.schedule()
@@ -85,7 +85,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _scheduleProposal(1);
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
-        assert(proposal.status == TimelockProposalStatus.Scheduled);
+        assertEq(proposal.status, ProposalStatus.Scheduled);
     }
 
     function testFuzz_stranger_cannot_schedule_proposal(address stranger) external {
@@ -101,7 +101,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.schedule(1);
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
-        assert(proposal.status == TimelockProposalStatus.Submitted);
+        assertEq(proposal.status, ProposalStatus.Submitted);
     }
 
     // EmergencyProtectedTimelock.execute()
@@ -123,7 +123,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.execute(1);
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
-        assert(proposal.status == TimelockProposalStatus.Executed);
+        assertEq(proposal.status, ProposalStatus.Executed);
     }
 
     function test_cannot_execute_proposal_if_emergency_mode_active() external {
@@ -144,7 +144,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.execute(1);
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
-        assert(proposal.status == TimelockProposalStatus.Scheduled);
+        assertEq(proposal.status, ProposalStatus.Scheduled);
     }
 
     // EmergencyProtectedTimelock.cancelAllNonExecutedProposals()
@@ -162,8 +162,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         ITimelock.Proposal memory proposal1 = _timelock.getProposal(1);
         ITimelock.Proposal memory proposal2 = _timelock.getProposal(2);
 
-        assert(proposal1.status == TimelockProposalStatus.Scheduled);
-        assert(proposal2.status == TimelockProposalStatus.Submitted);
+        assertEq(proposal1.status, ProposalStatus.Scheduled);
+        assertEq(proposal2.status, ProposalStatus.Submitted);
 
         vm.prank(_dualGovernance);
         _timelock.cancelAllNonExecutedProposals();
@@ -172,8 +172,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         proposal2 = _timelock.getProposal(2);
 
         assertEq(_timelock.getProposalsCount(), 2);
-        assertTrue(proposal1.isCancelled);
-        assertTrue(proposal2.isCancelled);
+        assertEq(proposal1.status, ProposalStatus.Cancelled);
+        assertEq(proposal2.status, ProposalStatus.Cancelled);
     }
 
     function testFuzz_stranger_cannot_cancel_all_non_executed_proposals(address stranger) external {
@@ -313,7 +313,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.emergencyExecute(1);
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
-        assert(proposal.status == TimelockProposalStatus.Executed);
+        assertEq(proposal.status, ProposalStatus.Executed);
     }
 
     function test_cannot_emergency_execute_proposal_if_mode_not_activated() external {
@@ -379,14 +379,14 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.getProposalsCount(), 1);
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
-        assert(proposal.status == TimelockProposalStatus.Submitted);
+        assertEq(proposal.status, ProposalStatus.Submitted);
 
         _activateEmergencyMode();
 
         _deactivateEmergencyMode();
 
         proposal = _timelock.getProposal(1);
-        assertTrue(proposal.isCancelled);
+        assertEq(proposal.status, ProposalStatus.Cancelled);
     }
 
     function testFuzz_stranger_can_deactivate_emergency_mode_if_passed(address stranger) external {
@@ -461,13 +461,13 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _activateEmergencyMode();
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
-        assert(proposal.status == TimelockProposalStatus.Submitted);
+        assertEq(proposal.status, ProposalStatus.Submitted);
 
         vm.prank(_emergencyEnactor);
         _timelock.emergencyReset();
 
         proposal = _timelock.getProposal(1);
-        assertTrue(proposal.isCancelled);
+        assertEq(proposal.status, ProposalStatus.Cancelled);
     }
 
     function testFuzz_stranger_cannot_emergency_reset_governance(address stranger) external {
@@ -700,9 +700,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(submittedProposal.executor, _adminExecutor);
         assertEq(submittedProposal.submittedAt, submitTimestamp);
         assertEq(submittedProposal.scheduledAt, Timestamps.ZERO);
-        // assertEq(submittedProposal.executedAt, Timestamps.ZERO);
-        // assertEq doesn't support comparing enumerables so far
-        assert(submittedProposal.status == TimelockProposalStatus.Submitted);
+        assertEq(submittedProposal.status, ProposalStatus.Submitted);
         assertEq(submittedProposal.calls.length, 1);
         assertEq(submittedProposal.calls[0].value, executorCalls[0].value);
         assertEq(submittedProposal.calls[0].target, executorCalls[0].target);
@@ -719,9 +717,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(scheduledProposal.executor, _adminExecutor);
         assertEq(scheduledProposal.submittedAt, submitTimestamp);
         assertEq(scheduledProposal.scheduledAt, scheduleTimestamp);
-        // assertEq(scheduledProposal.executedAt, Timestamps.ZERO);
-        // // assertEq doesn't support comparing enumerables so far
-        assert(scheduledProposal.status == TimelockProposalStatus.Scheduled);
+        assertEq(scheduledProposal.status, ProposalStatus.Scheduled);
         assertEq(scheduledProposal.calls.length, 1);
         assertEq(scheduledProposal.calls[0].value, executorCalls[0].value);
         assertEq(scheduledProposal.calls[0].target, executorCalls[0].target);
@@ -735,13 +731,12 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         Timestamp executeTimestamp = Timestamps.now();
 
         assertEq(executedProposal.id, 1);
-        assertFalse(executedProposal.isCancelled);
+        assertEq(executedProposal.status, ProposalStatus.Executed);
         assertEq(executedProposal.executor, _adminExecutor);
         assertEq(executedProposal.submittedAt, submitTimestamp);
         assertEq(executedProposal.scheduledAt, scheduleTimestamp);
         // assertEq(executedProposal.executedAt, executeTimestamp);
         // assertEq doesn't support comparing enumerables so far
-        assert(executedProposal.status == TimelockProposalStatus.Executed);
         assertEq(executedProposal.calls.length, 1);
         assertEq(executedProposal.calls[0].value, executorCalls[0].value);
         assertEq(executedProposal.calls[0].target, executorCalls[0].target);
@@ -752,7 +747,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         ITimelock.Proposal memory cancelledProposal = _timelock.getProposal(2);
 
         assertEq(cancelledProposal.id, 2);
-        assertTrue(cancelledProposal.isCancelled);
+        assertEq(cancelledProposal.status, ProposalStatus.Cancelled);
         assertEq(cancelledProposal.executor, _adminExecutor);
         assertEq(cancelledProposal.submittedAt, submitTimestamp);
         assertEq(cancelledProposal.scheduledAt, Timestamps.ZERO);
@@ -828,11 +823,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.canSchedule(1), false);
     }
 
-    // EmergencyProtectedTimelock.getProposalState()
-
     function test_get_proposal_submission_time() external {
         _submitProposal();
-        assertEq(_timelock.getProposalState(1).submittedAt, Timestamps.now());
+        assertEq(_timelock.getProposal(1).submittedAt, Timestamps.now());
     }
 
     // Utils

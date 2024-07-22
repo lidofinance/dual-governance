@@ -1,4 +1,4 @@
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 // solhint-disable-next-line
 import "forge-std/console2.sol";

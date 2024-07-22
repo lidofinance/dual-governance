@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {Timestamp} from "contracts/types/Timestamp.sol";
-import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+import {ITimelock, ProposalStatus} from "contracts/interfaces/ITimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
 contract TimelockMock is ITimelock {
@@ -71,7 +71,11 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
-    function getProposalState(uint256 proposalId) external view returns (ProposalState memory) {
+    function getProposalInfo(uint256 proposalId)
+        external
+        view
+        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
+    {
         revert("Not Implemented");
     }
 }

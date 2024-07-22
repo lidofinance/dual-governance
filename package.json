@@ -35,8 +35,5 @@
     "solhint": "^4.1.1",
     "solhint-plugin-lido": "^0.0.4",
     "solidity-coverage": "^0.8.4"
-  },
-  "dependencies": {
-    "@openzeppelin/contracts": "5.0.1"
   }
 }

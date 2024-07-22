@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {Duration} from "./types/Duration.sol";
+import {Timestamp} from "./types/Timestamp.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
@@ -61,7 +62,9 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function scheduleProposal(uint256 proposalId) external {
         _stateMachine.activateNextState(CONFIG.getDualGovernanceConfig());
-        if (!_stateMachine.canScheduleProposal(TIMELOCK.getProposalState(proposalId).submittedAt)) {
+        ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
+            TIMELOCK.getProposalInfo(proposalId);
+        if (!_stateMachine.canScheduleProposal(submittedAt)) {
             revert ProposalSchedulingBlocked(proposalId);
         }
         TIMELOCK.schedule(proposalId);
@@ -77,8 +80,9 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     }
 
     function canScheduleProposal(uint256 proposalId) external view returns (bool) {
-        return _stateMachine.canScheduleProposal(TIMELOCK.getProposalState(proposalId).submittedAt)
-            && TIMELOCK.canSchedule(proposalId);
+        ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
+            TIMELOCK.getProposalInfo(proposalId);
+        return _stateMachine.canScheduleProposal(submittedAt) && TIMELOCK.canSchedule(proposalId);
     }
 
     // ---

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {ScenarioTestBlueprint, percents, Durations} from "../utils/scenario-test-blueprint.sol";
 
