@@ -42,7 +42,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         // ?WORD: totalPooledEther
         // ?WORD0: totalShares
         // ?WORD1: shares[escrow]
-        _stEthStorageSetup(stEth, escrow);
+        this.stEthStorageSetup(stEth, escrow);
     }
 
     function _setUpGenericState() public {
@@ -61,7 +61,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         // ?WORD9: rageQuitExtensionDelay
         // ?WORD10: rageQuitWithdrawalsTimelock
         // ?WORD11: rageQuitTimelockStartedAt
-        _escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), EscrowState(currentState));
+        this.escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), EscrowState(currentState));
     }
 
     function testRageQuitSupport() public {
@@ -91,7 +91,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         address sender = address(uint160(uint256(keccak256("sender"))));
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
 
-        AccountingRecord memory pre = _saveAccountingRecord(sender, escrow);
+        AccountingRecord memory pre = this.saveAccountingRecord(sender, escrow);
 
         _escrowInvariants(Mode.Assume, escrow);
         _escrowUserInvariants(Mode.Assume, escrow, sender);
@@ -107,7 +107,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         _escrowInvariants(Mode.Assert, escrow);
         _escrowUserInvariants(Mode.Assert, escrow, sender);
 
-        AccountingRecord memory post = _saveAccountingRecord(sender, escrow);
+        AccountingRecord memory post = this.saveAccountingRecord(sender, escrow);
         assert(post.userSharesLocked == pre.userSharesLocked - stEthAmount);
         assert(post.totalSharesLocked == pre.totalSharesLocked - stEthAmount);
         assert(post.userLastLockedTime == Timestamps.now());

@@ -17,7 +17,7 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
         vm.assume(_getLastAssetsLockTimestamp(escrow, sender) < timeUpperBound);
 
-        AccountingRecord memory pre = _saveAccountingRecord(sender, escrow);
+        AccountingRecord memory pre = this.saveAccountingRecord(sender, escrow);
         vm.assume(pre.escrowState == EscrowState.SignallingEscrow);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
 
@@ -41,7 +41,7 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
         vm.assume(stEth.balanceOf(sender) < ethUpperBound);
 
-        AccountingRecord memory pre = _saveAccountingRecord(sender, escrow);
+        AccountingRecord memory pre = this.saveAccountingRecord(sender, escrow);
         vm.assume(0 < amount);
         vm.assume(amount <= pre.userBalance);
         vm.assume(amount <= pre.allowance);
@@ -66,7 +66,7 @@ contract EscrowOperationsTest is EscrowAccountingTest {
             vm.prank(sender);
             escrow.lockStETH(amount);
 
-            AccountingRecord memory afterLock = _saveAccountingRecord(sender, escrow);
+            AccountingRecord memory afterLock = this.saveAccountingRecord(sender, escrow);
             vm.assume(afterLock.userShares < ethUpperBound);
             //vm.assume(afterLock.userLastLockedTime < timeUpperBound);
             vm.assume(afterLock.userSharesLocked <= afterLock.totalSharesLocked);
@@ -79,7 +79,7 @@ contract EscrowOperationsTest is EscrowAccountingTest {
             _signallingEscrowInvariants(Mode.Assert, escrow);
             _escrowUserInvariants(Mode.Assert, escrow, sender);
 
-            AccountingRecord memory post = _saveAccountingRecord(sender, escrow);
+            AccountingRecord memory post = this.saveAccountingRecord(sender, escrow);
             assert(post.escrowState == EscrowState.SignallingEscrow);
             assert(post.userShares == pre.userShares);
             assert(post.escrowShares == pre.escrowShares);

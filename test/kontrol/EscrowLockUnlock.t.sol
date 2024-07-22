@@ -42,7 +42,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         vm.assume(stEth.balanceOf(sender) < ethUpperBound);
         vm.assume(_getLastAssetsLockTimestamp(signallingEscrow, sender) < timeUpperBound);
 
-        AccountingRecord memory pre = _saveAccountingRecord(sender, signallingEscrow);
+        AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
         vm.assume(0 < amount);
         vm.assume(amount <= pre.userBalance);
         vm.assume(amount <= pre.allowance);
@@ -68,7 +68,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         _signallingEscrowInvariants(Mode.Assert, signallingEscrow);
         _escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
 
-        AccountingRecord memory post = _saveAccountingRecord(sender, signallingEscrow);
+        AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
         assert(post.escrowState == EscrowState.SignallingEscrow);
         assert(post.userShares == pre.userShares - amountInShares);
         assert(post.escrowShares == pre.escrowShares + amountInShares);
@@ -93,7 +93,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
         vm.assume(_getLastAssetsLockTimestamp(signallingEscrow, sender) < timeUpperBound);
 
-        AccountingRecord memory pre = _saveAccountingRecord(sender, signallingEscrow);
+        AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
         vm.assume(Timestamps.now() >= addTo(config.SIGNALLING_ESCROW_MIN_LOCK_TIME(), pre.userLastLockedTime));
 
@@ -109,7 +109,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         _signallingEscrowInvariants(Mode.Assert, signallingEscrow);
         _escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
 
-        AccountingRecord memory post = _saveAccountingRecord(sender, signallingEscrow);
+        AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
         assert(post.escrowState == EscrowState.SignallingEscrow);
         assert(post.userShares == pre.userShares + pre.userSharesLocked);
         assert(post.userSharesLocked == 0);

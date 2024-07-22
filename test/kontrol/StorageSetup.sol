@@ -13,7 +13,7 @@ import "contracts/model/WstETHAdapted.sol";
 import "test/kontrol/KontrolTest.sol";
 
 contract StorageSetup is KontrolTest {
-    function _stEthStorageSetup(StETHModel _stEth, IEscrow _escrow) internal {
+    function stEthStorageSetup(StETHModel _stEth, IEscrow _escrow) external {
         kevm.symbolicStorage(address(_stEth));
         // Slot 0
         uint256 totalPooledEther = kevm.freshUInt(32);
@@ -59,11 +59,11 @@ contract StorageSetup is KontrolTest {
         return uint8(_loadUInt256(address(_dualGovernance), 6) >> 240);
     }
 
-    function _dualGovernanceStorageSetup(
+    function dualGovernanceStorageSetup(
         DualGovernance _dualGovernance,
         IEscrow _signallingEscrow,
         IEscrow _rageQuitEscrow
-    ) internal {
+    ) external {
         kevm.symbolicStorage(address(_dualGovernance));
         // Slot 5 + 0 = 5
         uint8 currentState = uint8(kevm.freshUInt(1));
@@ -99,7 +99,7 @@ contract StorageSetup is KontrolTest {
         _storeBytes32(address(_dualGovernance), 6, slot6);
     }
 
-    function _dualGovernanceStorageInvariants(Mode mode, DualGovernance _dualGovernance) internal {
+    function dualGovernanceStorageInvariants(Mode mode, DualGovernance _dualGovernance) external {
         uint8 currentState = _getCurrentState(_dualGovernance);
         uint40 enteredAt = _getEnteredAt(_dualGovernance);
         uint40 vetoSignallingActivationTime = _getVetoSignallingActivationTime(_dualGovernance);
@@ -114,7 +114,7 @@ contract StorageSetup is KontrolTest {
         _establish(mode, lastAdoptableStateExitedAt <= block.timestamp);
     }
 
-    function _dualGovernanceAssumeBounds(DualGovernance _dualGovernance) internal {
+    function dualGovernanceAssumeBounds(DualGovernance _dualGovernance) external {
         uint40 enteredAt = _getEnteredAt(_dualGovernance);
         uint40 vetoSignallingActivationTime = _getVetoSignallingActivationTime(_dualGovernance);
         uint40 vetoSignallingReactivationTime = _getVetoSignallingReactivationTime(_dualGovernance);
@@ -128,14 +128,14 @@ contract StorageSetup is KontrolTest {
         vm.assume(rageQuitRound < type(uint8).max);
     }
 
-    function _dualGovernanceInitializeStorage(
+    function dualGovernanceInitializeStorage(
         DualGovernance _dualGovernance,
         IEscrow _signallingEscrow,
         IEscrow _rageQuitEscrow
-    ) internal {
-        _dualGovernanceStorageSetup(_dualGovernance, _signallingEscrow, _rageQuitEscrow);
-        _dualGovernanceStorageInvariants(Mode.Assume, _dualGovernance);
-        _dualGovernanceAssumeBounds(_dualGovernance);
+    ) external {
+        this.dualGovernanceStorageSetup(_dualGovernance, _signallingEscrow, _rageQuitEscrow);
+        this.dualGovernanceStorageInvariants(Mode.Assume, _dualGovernance);
+        this.dualGovernanceAssumeBounds(_dualGovernance);
     }
 
     function _getCurrentState(IEscrow _escrow) internal view returns (uint8) {
@@ -202,13 +202,13 @@ contract StorageSetup is KontrolTest {
         AccountingRecord accounting;
     }
 
-    function _saveEscrowRecord(address user, Escrow escrow) internal view returns (EscrowRecord memory er) {
-        AccountingRecord memory accountingRecord = _saveAccountingRecord(user, escrow);
+    function saveEscrowRecord(address user, Escrow escrow) external view returns (EscrowRecord memory er) {
+        AccountingRecord memory accountingRecord = this.saveAccountingRecord(user, escrow);
         er.escrowState = EscrowState(_getCurrentState(escrow));
         er.accounting = accountingRecord;
     }
 
-    function _saveAccountingRecord(address user, Escrow escrow) internal view returns (AccountingRecord memory ar) {
+    function saveAccountingRecord(address user, Escrow escrow) external view returns (AccountingRecord memory ar) {
         IStETH stEth = escrow.ST_ETH();
         ar.allowance = stEth.allowance(user, address(escrow));
         ar.userBalance = stEth.balanceOf(user);
@@ -225,11 +225,11 @@ contract StorageSetup is KontrolTest {
         ar.userLastLockedTime = Timestamp.wrap(uint40(lastAssetsLockTimestamp));
     }
 
-    function _establishEqualAccountingRecords(
+    function establishEqualAccountingRecords(
         Mode mode,
         AccountingRecord memory ar1,
         AccountingRecord memory ar2
-    ) internal view {
+    ) external view {
         _establish(mode, ar1.allowance == ar2.allowance);
         _establish(mode, ar1.userBalance == ar2.userBalance);
         _establish(mode, ar1.escrowBalance == ar2.escrowBalance);
@@ -243,7 +243,7 @@ contract StorageSetup is KontrolTest {
         _establish(mode, ar1.userLastLockedTime == ar2.userLastLockedTime);
     }
 
-    function _escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowState _currentState) internal {
+    function escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowState _currentState) external {
         kevm.symbolicStorage(address(_escrow));
         // Slot 0
         {
@@ -300,7 +300,7 @@ contract StorageSetup is KontrolTest {
         }
     }
 
-    function _escrowStorageInvariants(Mode mode, IEscrow _escrow) internal {
+    function escrowStorageInvariants(Mode mode, IEscrow _escrow) external {
         uint8 batchesQueueStatus = _getBatchesQueueStatus(_escrow);
         uint32 rageQuitExtensionDelay = _getRageQuitExtensionDelay(_escrow);
         uint32 rageQuitWithdrawalsTimelock = _getRageQuitWithdrawalsTimelock(_escrow);
@@ -312,7 +312,7 @@ contract StorageSetup is KontrolTest {
         _establish(mode, rageQuitTimelockStartedAt <= block.timestamp);
     }
 
-    function _escrowAssumeBounds(IEscrow _escrow) internal {
+    function escrowAssumeBounds(IEscrow _escrow) external {
         uint128 lockedShares = _getStEthLockedShares(_escrow);
         uint128 claimedEth = _getClaimedEth(_escrow);
         uint128 unfinalizedShares = _getUnfinalizedShares(_escrow);
@@ -330,17 +330,17 @@ contract StorageSetup is KontrolTest {
         vm.assume(rageQuitTimelockStartedAt < timeUpperBound);
     }
 
-    function _escrowInitializeStorage(
+    function escrowInitializeStorage(
         IEscrow _escrow,
         DualGovernance _dualGovernance,
         EscrowState _currentState
-    ) internal {
-        _escrowStorageSetup(_escrow, _dualGovernance, _currentState);
-        _escrowStorageInvariants(Mode.Assume, _escrow);
-        _escrowAssumeBounds(_escrow);
+    ) external {
+        this.escrowStorageSetup(_escrow, _dualGovernance, _currentState);
+        this.escrowStorageInvariants(Mode.Assume, _escrow);
+        this.escrowAssumeBounds(_escrow);
     }
 
-    function _signallingEscrowStorageInvariants(Mode mode, IEscrow _signallingEscrow) internal {
+    function signallingEscrowStorageInvariants(Mode mode, IEscrow _signallingEscrow) external {
         uint32 rageQuitExtensionDelay = _getRageQuitExtensionDelay(_signallingEscrow);
         uint32 rageQuitWithdrawalsTimelock = _getRageQuitWithdrawalsTimelock(_signallingEscrow);
         uint40 rageQuitTimelockStartedAt = _getRageQuitTimelockStartedAt(_signallingEscrow);
@@ -352,19 +352,19 @@ contract StorageSetup is KontrolTest {
         _establish(mode, batchesQueueStatus == uint8(WithdrawalsBatchesQueue.Status.Empty));
     }
 
-    function _signallingEscrowInitializeStorage(IEscrow _signallingEscrow, DualGovernance _dualGovernance) internal {
-        _escrowInitializeStorage(_signallingEscrow, _dualGovernance, EscrowState.SignallingEscrow);
-        _signallingEscrowStorageInvariants(Mode.Assume, _signallingEscrow);
+    function signallingEscrowInitializeStorage(IEscrow _signallingEscrow, DualGovernance _dualGovernance) external {
+        this.escrowInitializeStorage(_signallingEscrow, _dualGovernance, EscrowState.SignallingEscrow);
+        this.signallingEscrowStorageInvariants(Mode.Assume, _signallingEscrow);
     }
 
-    function _rageQuitEscrowStorageInvariants(Mode mode, IEscrow _rageQuitEscrow) internal {
+    function rageQuitEscrowStorageInvariants(Mode mode, IEscrow _rageQuitEscrow) external {
         uint8 batchesQueueStatus = _getBatchesQueueStatus(_rageQuitEscrow);
 
         _establish(mode, batchesQueueStatus != uint8(WithdrawalsBatchesQueue.Status.Empty));
     }
 
-    function _rageQuitEscrowInitializeStorage(IEscrow _rageQuitEscrow, DualGovernance _dualGovernance) internal {
-        _escrowInitializeStorage(_rageQuitEscrow, _dualGovernance, EscrowState.RageQuitEscrow);
-        _rageQuitEscrowStorageInvariants(Mode.Assume, _rageQuitEscrow);
+    function rageQuitEscrowInitializeStorage(IEscrow _rageQuitEscrow, DualGovernance _dualGovernance) external {
+        this.escrowInitializeStorage(_rageQuitEscrow, _dualGovernance, EscrowState.RageQuitEscrow);
+        this.rageQuitEscrowStorageInvariants(Mode.Assume, _rageQuitEscrow);
     }
 }
