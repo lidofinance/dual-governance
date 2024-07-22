@@ -156,7 +156,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // TODO: check emergency protection also was applied
 
             // malicious proposal now cancelled
-            _assertProposalCanceled(maliciousProposalId);
+            _assertProposalCancelled(maliciousProposalId);
         }
 
         // ---
@@ -370,8 +370,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
         // all malicious calls is canceled now and can't be executed
         {
-            _assertProposalCanceled(maliciousProposalId);
-            _assertProposalCanceled(anotherMaliciousProposalId);
+            _assertProposalCancelled(maliciousProposalId);
+            _assertProposalCancelled(anotherMaliciousProposalId);
 
             vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotScheduled.selector, maliciousProposalId));
             _executeProposal(maliciousProposalId);

@@ -428,7 +428,7 @@ contract ScenarioTestBlueprint is Test {
         assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Executed, "Proposal not in 'Executed' state");
     }
 
-    function _assertProposalCanceled(uint256 proposalId) internal {
+    function _assertProposalCancelled(uint256 proposalId) internal {
         assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Cancelled, "Proposal not in 'Canceled' state");
     }
 
