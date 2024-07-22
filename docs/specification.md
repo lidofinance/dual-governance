@@ -109,7 +109,11 @@ The protected deployment mode is a temporary mode designed to be active during a
 
 In this mode, an **emergency activation committee** has the one-off and time-limited right to activate an adversarial **emergency mode** if they see a scheduled proposal that was created or altered due to a vulnerability in the DG contracts or if governance execution is prevented by such a vulnerability. Once the emergency mode is activated, the emergency activation committee is disabled, i.e. loses the ability to activate the emergency mode again. If the emergency activation committee doesn't activate the emergency mode within the duration of the **emergency protection duration** since the committee was configured by the DAO, it gets automatically disabled as well.
 
-The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect it to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
+The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, the following conditions apply:
+1) Only the **emergency execution committee** has the right to execute scheduled proposals
+2) The same committee has the one-off right to **disable the DG subsystem**. After this action, the system should start behaving according to [this specification](plan-b.md)). This involves disconnecting the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect them to the `TimelockedGovernance` contract instance.
+
+Disabling the DG subsystem also disables also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
 
 If the emergency execution committee doesn't disable the DG until the emergency mode max duration elapses, anyone gets the right to deactivate the emergency mode, switching the system back to the protected mode and disabling the emergency committee.
 
