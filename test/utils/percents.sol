@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 error InvalidPercentsString(string value);
 
@@ -9,6 +9,11 @@ struct Percents {
 }
 
 uint256 constant PRECISION = 16;
+
+function percents(uint256 value) pure returns (Percents memory result) {
+    result.value = value;
+    result.precision = PRECISION;
+}
 
 function percents(string memory value) pure returns (Percents memory result) {
     result = percents(value, PRECISION);

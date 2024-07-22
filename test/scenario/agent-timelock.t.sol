@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {ExecutorCall, ScenarioTestBlueprint, ExecutorCall} from "../utils/scenario-test-blueprint.sol";
 
@@ -12,58 +12,44 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
 
     function testFork_AgentTimelockHappyPath() external {
         ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
-        // ---
-        // ACT 1. The proposal is submitted via Aragon voting
-        // ---
+
         uint256 proposalId;
+        _step("1. THE PROPOSAL IS SUBMITTED");
         {
             proposalId = _submitProposal(
                 _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
-            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
 
-            // proposal can't be scheduled until the AFTER_SUBMIT_DELAY has passed
+            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
             _assertCanSchedule(_dualGovernance, proposalId, false);
         }
 
-        // ---
-        // ACT 2. THE PROPOSAL IS SCHEDULED
-        // ---
+        _step("2. THE PROPOSAL IS SCHEDULED");
         {
-            // wait until the delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
-
-            // when the first delay is passed and the is no opposition from the stETH holders
-            // the proposal can be scheduled
+            _waitAfterSubmitDelayPassed();
             _assertCanSchedule(_dualGovernance, proposalId, true);
-
             _scheduleProposal(_dualGovernance, proposalId);
 
-            // proposal can't be executed until the second delay has ended
             _assertProposalScheduled(proposalId);
             _assertCanExecute(proposalId, false);
         }
 
-        // ---
-        // ACT 3. THE PROPOSAL CAN BE EXECUTED
-        // ---
+        _step("3. THE PROPOSAL CAN BE EXECUTED");
         {
             // wait until the second delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY() + 1);
+            _waitAfterScheduleDelayPassed();
 
             // Now proposal can be executed
-            _assertProposalScheduled(proposalId);
             _assertCanExecute(proposalId, true);
 
-            // before the proposal is executed there are no calls to target
-            _assertNoTargetCalls();
+            _assertNoTargetMockCalls();
 
             _executeProposal(proposalId);
-
-            // check the proposal was executed correctly
             _assertProposalExecuted(proposalId);
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+
             _assertCanExecute(proposalId, false);
+            _assertCanSchedule(_dualGovernance, proposalId, false);
+
             _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
         }
     }
@@ -72,7 +58,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         // ---
-        // ACT 1. THE PROPOSAL IS CREATED
+        // 1. THE PROPOSAL IS SUBMITTED
         // ---
         uint256 proposalId;
         {
@@ -86,11 +72,11 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         }
 
         // ---
-        // ACT 2. THE PROPOSAL IS SCHEDULED
+        // 2. THE PROPOSAL IS SCHEDULED
         // ---
         {
             // wait until the delay has passed
-            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() + 1);
+            _wait(_config.AFTER_SUBMIT_DELAY().plusSeconds(1));
 
             // when the first delay is passed and the is no opposition from the stETH holders
             // the proposal can be scheduled
@@ -104,22 +90,22 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         }
 
         // ---
-        // ACT 3. EMERGENCY MODE ACTIVATED &  GOVERNANCE RESET
+        // 3. EMERGENCY MODE ACTIVATED &  GOVERNANCE RESET
         // ---
         {
             // some time passes and emergency committee activates emergency mode
             // and resets the controller
-            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2);
+            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
             // committee resets governance
-            vm.prank(_EMERGENCY_ACTIVATION_COMMITTEE);
-            _timelock.emergencyActivate();
+            vm.prank(address(_emergencyActivationCommittee));
+            _timelock.activateEmergencyMode();
 
-            vm.prank(_EMERGENCY_EXECUTION_COMMITTEE);
+            vm.prank(address(_emergencyExecutionCommittee));
             _timelock.emergencyReset();
 
             // proposal is canceled now
-            vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY() / 2 + 1);
+            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
 
             // remove canceled call from the timelock
             _assertCanExecute(proposalId, false);

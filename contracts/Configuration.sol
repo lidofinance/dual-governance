@@ -1,38 +1,50 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
-import {IConfiguration} from "./interfaces/IConfiguration.sol";
+import {Durations, Duration} from "./types/Duration.sol";
+import {IConfiguration, DualGovernanceConfig} from "./interfaces/IConfiguration.sol";
 
 uint256 constant PERCENT = 10 ** 16;
 
 contract Configuration is IConfiguration {
     error MaxSealablesLimitOverflow(uint256 count, uint256 limit);
 
+    uint256 public immutable MIN_WITHDRAWALS_BATCH_SIZE = 8;
+    uint256 public immutable MAX_WITHDRAWALS_BATCH_SIZE = 128;
+
+    // ---
+    // Dual Governance State Properties
+    // ---
+    uint256 public immutable FIRST_SEAL_RAGE_QUIT_SUPPORT = 3 * PERCENT;
+    uint256 public immutable SECOND_SEAL_RAGE_QUIT_SUPPORT = 15 * PERCENT;
+
+    Duration public immutable DYNAMIC_TIMELOCK_MIN_DURATION = Durations.from(3 days);
+    Duration public immutable DYNAMIC_TIMELOCK_MAX_DURATION = Durations.from(30 days);
+
+    Duration public immutable VETO_SIGNALLING_MIN_ACTIVE_DURATION = Durations.from(5 hours);
+    Duration public immutable VETO_SIGNALLING_DEACTIVATION_MAX_DURATION = Durations.from(5 days);
+    Duration public immutable RAGE_QUIT_ACCUMULATION_MAX_DURATION = Durations.from(3 days);
+
+    Duration public immutable VETO_COOLDOWN_DURATION = Durations.from(4 days);
+
+    Duration public immutable RAGE_QUIT_EXTENSION_DELAY = Durations.from(7 days);
+    Duration public immutable RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK = Durations.from(60 days);
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER = 2;
+
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_A = 0;
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B = 0;
+    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_C = 0;
+    // ---
+
     address public immutable ADMIN_EXECUTOR;
     address public immutable EMERGENCY_GOVERNANCE;
 
-    uint256 public immutable AFTER_SUBMIT_DELAY = 3 days;
-    uint256 public immutable AFTER_SCHEDULE_DELAY = 2 days;
+    Duration public immutable AFTER_SUBMIT_DELAY = Durations.from(3 days);
+    Duration public immutable AFTER_SCHEDULE_DELAY = Durations.from(2 days);
 
-    uint256 public immutable RAGE_QUIT_ETH_WITHDRAWAL_TIMELOCK = 30 days;
+    Duration public immutable SIGNALLING_ESCROW_MIN_LOCK_TIME = Durations.from(5 hours);
 
-    uint256 public immutable SIGNALLING_COOLDOWN_DURATION = 4 days;
-    uint256 public immutable SIGNALLING_DEACTIVATION_DURATION = 5 days;
-    uint256 public immutable SIGNALLING_MIN_PROPOSAL_REVIEW_DURATION = 30 days;
-
-    uint256 public immutable SIGNALLING_MIN_DURATION = 3 days;
-    uint256 public immutable SIGNALLING_MAX_DURATION = 30 days;
-
-    uint256 public immutable FIRST_SEAL_THRESHOLD = 3 * PERCENT;
-    uint256 public immutable SECOND_SEAL_THRESHOLD = 15 * PERCENT;
-
-    uint256 public immutable TIE_BREAK_ACTIVATION_TIMEOUT = 365 days;
-
-    uint256 public immutable RAGE_QUIT_EXTRA_TIMELOCK = 14 days;
-    uint256 public immutable RAGE_QUIT_EXTENSION_DELAY = 7 days;
-    uint256 public immutable RAGE_QUIT_ETH_CLAIM_MIN_TIMELOCK = 60 days;
-    uint256 public immutable MIN_STATE_DURATION = 5 hours;
-    uint256 public immutable ESCROW_ASSETS_UNLOCK_DELAY = 5 hours;
+    Duration public immutable TIE_BREAK_ACTIVATION_TIMEOUT = Durations.from(365 days);
 
     // Sealables Array Representation
     uint256 private immutable MAX_SELABLES_COUNT = 5;
@@ -74,15 +86,34 @@ contract Configuration is IConfiguration {
         external
         view
         returns (
-            uint256 firstSealThreshold,
-            uint256 secondSealThreshold,
-            uint256 signallingMinDuration,
-            uint256 signallingMaxDuration
+            uint256 firstSealRageQuitSupport,
+            uint256 secondSealRageQuitSupport,
+            Duration dynamicTimelockMinDuration,
+            Duration dynamicTimelockMaxDuration
         )
     {
-        firstSealThreshold = FIRST_SEAL_THRESHOLD;
-        secondSealThreshold = SECOND_SEAL_THRESHOLD;
-        signallingMinDuration = SIGNALLING_MIN_DURATION;
-        signallingMaxDuration = SIGNALLING_MAX_DURATION;
+        firstSealRageQuitSupport = FIRST_SEAL_RAGE_QUIT_SUPPORT;
+        secondSealRageQuitSupport = SECOND_SEAL_RAGE_QUIT_SUPPORT;
+        dynamicTimelockMinDuration = DYNAMIC_TIMELOCK_MIN_DURATION;
+        dynamicTimelockMaxDuration = DYNAMIC_TIMELOCK_MAX_DURATION;
+    }
+
+    function getDualGovernanceConfig() external view returns (DualGovernanceConfig memory config) {
+        config.firstSealRageQuitSupport = FIRST_SEAL_RAGE_QUIT_SUPPORT;
+        config.secondSealRageQuitSupport = SECOND_SEAL_RAGE_QUIT_SUPPORT;
+        config.dynamicTimelockMinDuration = DYNAMIC_TIMELOCK_MIN_DURATION;
+        config.dynamicTimelockMaxDuration = DYNAMIC_TIMELOCK_MAX_DURATION;
+        config.vetoSignallingMinActiveDuration = VETO_SIGNALLING_MIN_ACTIVE_DURATION;
+        config.vetoSignallingDeactivationMaxDuration = VETO_SIGNALLING_DEACTIVATION_MAX_DURATION;
+        config.vetoCooldownDuration = VETO_COOLDOWN_DURATION;
+        config.rageQuitExtensionDelay = RAGE_QUIT_EXTENSION_DELAY;
+        config.rageQuitEthWithdrawalsMinTimelock = RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK;
+        config.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber =
+            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER;
+        config.rageQuitEthWithdrawalsTimelockGrowthCoeffs = [
+            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_A,
+            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B,
+            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_C
+        ];
     }
 }

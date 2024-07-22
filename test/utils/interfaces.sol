@@ -1,4 +1,4 @@
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/interfaces/IERC721.sol";
@@ -105,4 +105,13 @@ interface IWithdrawalQueue is IERC721 {
     function grantRole(bytes32 role, address account) external;
     function hasRole(bytes32 role, address account) external view returns (bool);
     function isPaused() external view returns (bool);
+    function resume() external;
+    function pauseFor(uint256 duration) external;
+    function getResumeSinceTimestamp() external view returns (uint256);
+}
+
+interface IDangerousContract {
+    function doRegularStaff(uint256 magic) external;
+    function doRugPool() external;
+    function doControversialStaff() external;
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 struct WithdrawalRequestStatus {
     uint256 amountOfStETH;
@@ -13,8 +13,6 @@ struct WithdrawalRequestStatus {
 interface IWithdrawalQueue {
     function MIN_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
     function MAX_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
-
-    function requestWithdrawalsWstETH(uint256[] calldata amounts, address owner) external returns (uint256[] memory);
 
     function claimWithdrawals(uint256[] calldata requestIds, uint256[] calldata hints) external;
 
@@ -39,10 +37,26 @@ interface IWithdrawalQueue {
         uint256[] calldata _hints
     ) external view returns (uint256[] memory claimableEthValues);
 
+    function findCheckpointHints(
+        uint256[] calldata _requestIds,
+        uint256 _firstIndex,
+        uint256 _lastIndex
+    ) external view returns (uint256[] memory hintIds);
+    function getLastCheckpointIndex() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256);
 
     function requestWithdrawals(
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds);
+
+    function requestWithdrawalsWstETH(
+        uint256[] calldata _amounts,
+        address _owner
+    ) external returns (uint256[] memory requestIds);
+
+    function grantRole(bytes32 role, address account) external;
+    function pauseFor(uint256 duration) external;
+    function isPaused() external returns (bool);
 }
