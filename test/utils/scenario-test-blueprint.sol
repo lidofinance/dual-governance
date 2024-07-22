@@ -30,9 +30,7 @@ import {
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
-import {
-    DualGovernance, Status as DualGovernanceStatus, DualGovernanceStateMachine
-} from "contracts/DualGovernance.sol";
+import {DualGovernance, State as DGState, DualGovernanceState} from "contracts/DualGovernance.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
@@ -127,11 +125,11 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        DualGovernanceStateMachine.State memory state = _dualGovernance.getCurrentState();
-        isActive = state.status == DualGovernanceStatus.VetoSignalling;
-        duration = _dualGovernance.getDynamicTimelockDuration().toSeconds();
-        enteredAt = state.enteredAt.toSeconds();
-        activatedAt = state.vetoSignallingActivatedAt.toSeconds();
+        DualGovernanceState.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        isActive = stateContext.state == DGState.VetoSignalling;
+        duration = _dualGovernance.getDynamicDelayDuration().toSeconds();
+        enteredAt = stateContext.enteredAt.toSeconds();
+        activatedAt = stateContext.vetoSignallingActivatedAt.toSeconds();
     }
 
     function _getVetoSignallingDeactivationState()
@@ -139,10 +137,10 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
-        DualGovernanceStateMachine.State memory state = _dualGovernance.getCurrentState();
-        isActive = state.status == DualGovernanceStatus.VetoSignallingDeactivation;
+        DualGovernanceState.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        isActive = stateContext.state == DGState.VetoSignallingDeactivation;
         duration = _dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
-        enteredAt = state.enteredAt.toSeconds();
+        enteredAt = stateContext.enteredAt.toSeconds();
     }
 
     // ---
@@ -443,23 +441,23 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertNormalState() internal {
-        assertEq(_dualGovernance.getCurrentStatus(), DualGovernanceStatus.Normal);
+        assertEq(_dualGovernance.getCurrentState(), DGState.Normal);
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(_dualGovernance.getCurrentStatus(), DualGovernanceStatus.VetoSignalling);
+        assertEq(_dualGovernance.getCurrentState(), DGState.VetoSignalling);
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(_dualGovernance.getCurrentStatus(), DualGovernanceStatus.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getCurrentState(), DGState.VetoSignallingDeactivation);
     }
 
     function _assertRageQuitState() internal {
-        assertEq(_dualGovernance.getCurrentStatus(), DualGovernanceStatus.RageQuit);
+        assertEq(_dualGovernance.getCurrentState(), DGState.RageQuit);
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(_dualGovernance.getCurrentStatus(), DualGovernanceStatus.VetoCooldown);
+        assertEq(_dualGovernance.getCurrentState(), DGState.VetoCooldown);
     }
 
     function _assertNoTargetMockCalls() internal {
@@ -771,7 +769,7 @@ contract ScenarioTestBlueprint is Test {
         assertEq(uint256(a), uint256(b), message);
     }
 
-    function assertEq(DualGovernanceStatus a, DualGovernanceStatus b) internal {
+    function assertEq(DGState a, DGState b) internal {
         assertEq(uint256(a), uint256(b));
     }
 

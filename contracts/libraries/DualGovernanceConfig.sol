@@ -51,7 +51,7 @@ library DualGovernanceConfigUtils {
         Timestamp vetoSignallingActivatedAt,
         uint256 rageQuitSupport
     ) internal view returns (bool) {
-        Duration dynamicTimelock = calcDynamicTimelockDuration(config, rageQuitSupport);
+        Duration dynamicTimelock = calcDynamicDelayDuration(config, rageQuitSupport);
         return Timestamps.now() > dynamicTimelock.addTo(vetoSignallingActivatedAt);
     }
 
@@ -77,7 +77,7 @@ library DualGovernanceConfigUtils {
         return Timestamps.now() > config.vetoCooldownDuration.addTo(vetoCooldownEnteredAt);
     }
 
-    function calcDynamicTimelockDuration(
+    function calcDynamicDelayDuration(
         DualGovernanceConfig memory config,
         uint256 rageQuitSupport
     ) internal pure returns (Duration duration_) {
