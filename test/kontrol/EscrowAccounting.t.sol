@@ -79,9 +79,9 @@ contract EscrowAccountingTest is EscrowInvariants {
 
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
-        _escrowInvariants(Mode.Assert, escrow);
-        _signallingEscrowInvariants(Mode.Assert, escrow);
-        _escrowUserInvariants(Mode.Assert, escrow, sender);
+        this.escrowInvariants(Mode.Assert, escrow);
+        this.signallingEscrowInvariants(Mode.Assert, escrow);
+        this.escrowUserInvariants(Mode.Assert, escrow, sender);
     }
 
     function testRequestWithdrawals(uint256 stEthAmount) public {
@@ -93,8 +93,8 @@ contract EscrowAccountingTest is EscrowInvariants {
 
         AccountingRecord memory pre = this.saveAccountingRecord(sender, escrow);
 
-        _escrowInvariants(Mode.Assume, escrow);
-        _escrowUserInvariants(Mode.Assume, escrow, sender);
+        this.escrowInvariants(Mode.Assume, escrow);
+        this.escrowUserInvariants(Mode.Assume, escrow, sender);
 
         // Only request one withdrawal for simplicity
         uint256[] memory stEthAmounts = new uint256[](1);
@@ -104,8 +104,8 @@ contract EscrowAccountingTest is EscrowInvariants {
         escrow.requestWithdrawals(stEthAmounts);
         vm.stopPrank();
 
-        _escrowInvariants(Mode.Assert, escrow);
-        _escrowUserInvariants(Mode.Assert, escrow, sender);
+        this.escrowInvariants(Mode.Assert, escrow);
+        this.escrowUserInvariants(Mode.Assert, escrow, sender);
 
         AccountingRecord memory post = this.saveAccountingRecord(sender, escrow);
         assert(post.userSharesLocked == pre.userSharesLocked - stEthAmount);
@@ -120,11 +120,11 @@ contract EscrowAccountingTest is EscrowInvariants {
 
         vm.assume(EscrowState(_getCurrentState(escrow)) == EscrowState.RageQuitEscrow);
 
-        _escrowInvariants(Mode.Assume, escrow);
+        this.escrowInvariants(Mode.Assume, escrow);
 
         escrow.requestNextWithdrawalsBatch(maxBatchSize);
 
-        _escrowInvariants(Mode.Assert, escrow);
+        this.escrowInvariants(Mode.Assert, escrow);
     }
 
     function testClaimNextWithdrawalsBatch() public {
@@ -136,8 +136,8 @@ contract EscrowAccountingTest is EscrowInvariants {
 
         vm.assume(EscrowState(_getCurrentState(escrow)) == EscrowState.RageQuitEscrow);
 
-        _escrowInvariants(Mode.Assume, escrow);
-        _escrowUserInvariants(Mode.Assume, escrow, sender);
+        this.escrowInvariants(Mode.Assume, escrow);
+        this.escrowUserInvariants(Mode.Assume, escrow, sender);
 
         // Only claim one unstETH for simplicity
         uint256 maxUnstETHIdsCount = 1;
@@ -146,7 +146,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         escrow.claimNextWithdrawalsBatch(maxUnstETHIdsCount);
         vm.stopPrank();
 
-        _escrowInvariants(Mode.Assert, escrow);
-        _escrowUserInvariants(Mode.Assert, escrow, sender);
+        this.escrowInvariants(Mode.Assert, escrow);
+        this.escrowUserInvariants(Mode.Assert, escrow, sender);
     }
 }

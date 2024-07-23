@@ -51,9 +51,9 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         _assumeNoOverflow(pre.userSharesLocked, amountInShares);
         _assumeNoOverflow(pre.totalSharesLocked, amountInShares);
 
-        _escrowInvariants(Mode.Assume, signallingEscrow);
-        _signallingEscrowInvariants(Mode.Assume, signallingEscrow);
-        _escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
+        this.escrowInvariants(Mode.Assume, signallingEscrow);
+        this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
+        this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
 
         ActivateNextStateMock mock = new ActivateNextStateMock();
         kevm.mockFunction(
@@ -64,9 +64,9 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         signallingEscrow.lockStETH(amount);
         vm.stopPrank();
 
-        _escrowInvariants(Mode.Assert, signallingEscrow);
-        _signallingEscrowInvariants(Mode.Assert, signallingEscrow);
-        _escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
+        this.escrowInvariants(Mode.Assert, signallingEscrow);
+        this.signallingEscrowInvariants(Mode.Assert, signallingEscrow);
+        this.escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
 
         AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
         assert(post.escrowState == EscrowState.SignallingEscrow);
@@ -97,17 +97,17 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
         vm.assume(Timestamps.now() >= addTo(config.SIGNALLING_ESCROW_MIN_LOCK_TIME(), pre.userLastLockedTime));
 
-        _escrowInvariants(Mode.Assume, signallingEscrow);
-        _signallingEscrowInvariants(Mode.Assume, signallingEscrow);
-        _escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
+        this.escrowInvariants(Mode.Assume, signallingEscrow);
+        this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
+        this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
 
         vm.startPrank(sender);
         signallingEscrow.unlockStETH();
         vm.stopPrank();
 
-        _escrowInvariants(Mode.Assert, signallingEscrow);
-        _signallingEscrowInvariants(Mode.Assert, signallingEscrow);
-        _escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
+        this.escrowInvariants(Mode.Assert, signallingEscrow);
+        this.signallingEscrowInvariants(Mode.Assert, signallingEscrow);
+        this.escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
 
         AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
         assert(post.escrowState == EscrowState.SignallingEscrow);

@@ -50,9 +50,9 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         _assumeNoOverflow(pre.userSharesLocked, amountInShares);
         _assumeNoOverflow(pre.totalSharesLocked, amountInShares);
 
-        _escrowInvariants(Mode.Assume, escrow);
-        _signallingEscrowInvariants(Mode.Assume, escrow);
-        _escrowUserInvariants(Mode.Assume, escrow, sender);
+        this.escrowInvariants(Mode.Assume, escrow);
+        this.signallingEscrowInvariants(Mode.Assume, escrow);
+        this.escrowUserInvariants(Mode.Assume, escrow, sender);
 
         if (pre.escrowState == EscrowState.RageQuitEscrow) {
             vm.prank(sender);
@@ -75,9 +75,9 @@ contract EscrowOperationsTest is EscrowAccountingTest {
             vm.prank(sender);
             escrow.unlockStETH();
 
-            _escrowInvariants(Mode.Assert, escrow);
-            _signallingEscrowInvariants(Mode.Assert, escrow);
-            _escrowUserInvariants(Mode.Assert, escrow, sender);
+            this.escrowInvariants(Mode.Assert, escrow);
+            this.signallingEscrowInvariants(Mode.Assert, escrow);
+            this.escrowUserInvariants(Mode.Assert, escrow, sender);
 
             AccountingRecord memory post = this.saveAccountingRecord(sender, escrow);
             assert(post.escrowState == EscrowState.SignallingEscrow);
@@ -110,8 +110,8 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         vm.assume(userEth <= pre.totalEth);
         vm.assume(userEth <= address(escrow).balance);
 
-        _escrowInvariants(Mode.Assume, escrow);
-        _escrowUserInvariants(Mode.Assume, escrow, sender);
+        this.escrowInvariants(Mode.Assume, escrow);
+        this.escrowUserInvariants(Mode.Assume, escrow, sender);
 
         vm.assume(escrow.lastWithdrawalRequestSubmitted());
         vm.assume(escrow.claimedWithdrawalRequests() == escrow.withdrawalRequestCount());
@@ -132,8 +132,8 @@ contract EscrowOperationsTest is EscrowAccountingTest {
             vm.prank(sender);
             escrow.withdraw();
 
-            _escrowInvariants(Mode.Assert);
-            _escrowUserInvariants(Mode.Assert, sender);
+            this.escrowInvariants(Mode.Assert);
+            this.escrowUserInvariants(Mode.Assert, sender);
 
             AccountingRecord memory post = _saveAccountingRecord(sender, escrow);
             assert(post.userSharesLocked == 0);

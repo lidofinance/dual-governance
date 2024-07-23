@@ -221,7 +221,7 @@ contract StorageSetup is KontrolTest {
         ar.userUnstEthLockedShares = escrow.getVetoerState(user).unstETHLockedShares;
         ar.unfinalizedShares = escrow.getLockedAssetsTotals().unstETHUnfinalizedShares;
         uint256 lastAssetsLockTimestamp = _getLastAssetsLockTimestamp(escrow, user);
-        require(lastAssetsLockTimestamp < timeUpperBound);
+        require(lastAssetsLockTimestamp < timeUpperBound, "lastAssetsLockTimestamp >= timeUpperBound");
         ar.userLastLockedTime = Timestamp.wrap(uint40(lastAssetsLockTimestamp));
     }
 

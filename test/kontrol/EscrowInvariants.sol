@@ -15,7 +15,7 @@ import "contracts/model/WstETHAdapted.sol";
 import {StorageSetup} from "test/kontrol/StorageSetup.sol";
 
 contract EscrowInvariants is StorageSetup {
-    function _escrowInvariants(Mode mode, Escrow escrow) internal view {
+    function escrowInvariants(Mode mode, Escrow escrow) external view {
         IStETH stEth = escrow.ST_ETH();
         LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
         _establish(mode, totals.stETHLockedShares <= stEth.sharesOf(address(escrow)));
@@ -32,7 +32,7 @@ contract EscrowInvariants is StorageSetup {
         _establish(mode, uint8(currentState) < 3);
     }
 
-    function _signallingEscrowInvariants(Mode mode, Escrow escrow) internal view {
+    function signallingEscrowInvariants(Mode mode, Escrow escrow) external view {
         // TODO: Adapt to updated code
         /*
         if (_getCurrentState(escrow) == EscrowState.SignallingEscrow) {
@@ -44,7 +44,7 @@ contract EscrowInvariants is StorageSetup {
         */
     }
 
-    function _escrowUserInvariants(Mode mode, Escrow escrow, address user) internal view {
+    function escrowUserInvariants(Mode mode, Escrow escrow, address user) external view {
         _establish(
             mode, escrow.getVetoerState(user).stETHLockedShares <= escrow.getLockedAssetsTotals().stETHLockedShares
         );
