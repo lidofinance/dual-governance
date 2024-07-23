@@ -56,10 +56,10 @@ contract TimelockedGovernance is IGovernance, ConfigurationProvider {
     }
 
     /// @dev Checks if the given account is the governance address.
-    /// @param caller The address to check.
-    function _checkGovernance(address caller) internal view {
-        if (caller != GOVERNANCE) {
-            revert NotGovernance(caller);
+    /// @param account The address to check.
+    function _checkGovernance(address account) internal view {
+        if (account != GOVERNANCE) {
+            revert NotGovernance(account);
         }
     }
 }
