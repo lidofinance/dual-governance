@@ -1,5 +1,7 @@
 pragma solidity 0.8.23;
 
+import "@openzeppelin/contracts/proxy/Clones.sol";
+
 import "contracts/Configuration.sol";
 import "contracts/DualGovernance.sol";
 import "contracts/EmergencyProtectedTimelock.sol";
@@ -35,7 +37,8 @@ contract EscrowAccountingTest is EscrowInvariants {
 
         config = new Configuration(adminExecutor, emergencyGovernance, new address[](0));
 
-        escrow = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
+        Escrow escrowMasterCopy = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
+        escrow = Escrow(payable(Clones.clone(address(escrowMasterCopy))));
         escrow.initialize(dualGovernanceAddress);
 
         // ?STORAGE
