@@ -48,7 +48,7 @@ module LIDO-LEMMAS
     rule  _ /Word W1 => 0          requires W1  ==Int 0 [simplification]
     rule W0 /Word W1 => W0 /Int W1 requires W1 =/=Int 0 [simplification, preserves-definedness]
 
-    // Further arithmetic
+    // Further /Int and /Word arithmetic
     rule ( X *Int Y ) /Int Y => X requires Y =/=Int 0              [simplification, preserves-definedness]
     rule ( X *Int Y ) /Int X => Y requires X =/=Int 0              [simplification, preserves-definedness]
     rule ( X ==Int ( X *Int Y ) /Word Y ) orBool Y ==Int 0 => true [simplification, preserves-definedness]
