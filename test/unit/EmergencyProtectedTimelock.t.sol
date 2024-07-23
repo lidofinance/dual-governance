@@ -137,9 +137,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         _activateEmergencyMode();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [true, false])
-        );
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, [true, false]));
         _timelock.execute(1);
 
         Proposal memory proposal = _timelock.getProposal(1);
@@ -283,9 +281,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), true);
 
         vm.prank(_emergencyActivator);
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [true, false])
-        );
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, [true, false]));
         _timelock.activateEmergencyMode();
 
         assertEq(_isEmergencyStateActivated(), true);
@@ -331,9 +327,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(state.isEmergencyModeActivated, false);
 
         vm.prank(_emergencyActivator);
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [false, true])
-        );
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, [false, true]));
         _timelock.emergencyExecute(1);
     }
 
@@ -408,15 +402,11 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [false, true])
-        );
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, [false, true]));
         _timelock.deactivateEmergencyMode();
 
         vm.prank(_adminExecutor);
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [false, true])
-        );
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, [false, true]));
         _timelock.deactivateEmergencyMode();
     }
 
@@ -488,9 +478,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         EmergencyState memory state = _timelock.getEmergencyState();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [false, true])
-        );
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, [false, true]));
         vm.prank(_emergencyEnactor);
         _timelock.emergencyReset();
 
