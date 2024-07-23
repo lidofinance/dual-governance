@@ -280,7 +280,7 @@ module LIDO-LEMMAS
     rule A |Int #asWord ( B1 +Bytes B2 ) =>
       #asWord ( B1 +Bytes #buf ( lengthBytes(B2), A |Int #asWord ( B2 ) ) )
       requires 0 <=Int A andBool A <Int 2 ^Int (8 *Int lengthBytes(B2))
-      [concrete(A), simplification]
+      [simplification(60)]
 
     // Update: value symbolic, slot symbolic
     rule ( VALUE:Int *Int SHIFT:Int ) |Int ( MASK:Int &Int #asWord ( SLOT:Bytes ) ) =>

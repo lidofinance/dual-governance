@@ -45,6 +45,9 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         vm.assume(stEth.balanceOf(sender) < ethUpperBound);
 
         uint256 senderAllowance = kevm.freshUInt(32);
+        // This assumption means that senderAllowance != INFINITE_ALLOWANCE,
+        // which doubles the execution effort without any added vaue
+        vm.assume(senderAllowance < ethUpperBound);
         // Hardcoded for "sender"
         _storeUInt256(
             address(stEth),
