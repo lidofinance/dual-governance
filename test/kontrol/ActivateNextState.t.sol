@@ -5,24 +5,30 @@ import {State} from "contracts/libraries/DualGovernanceState.sol";
 import "test/kontrol/DualGovernanceSetUp.sol";
 
 contract ActivateNextStateMock is StorageSetup {
+    StorageSetup public immutable STORAGE_SETUP;
+
+    constructor(address storageSetup) {
+        STORAGE_SETUP = StorageSetup(storageSetup);
+    }
+
     function activateNextState() external {
         DualGovernance dualGovernance = DualGovernance(address(this));
         Escrow signallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
         Escrow rageQuitEscrow = Escrow(payable(dualGovernance.getRageQuitEscrow()));
 
-        this.dualGovernanceStorageInvariants(Mode.Assert, dualGovernance);
-        this.escrowStorageInvariants(Mode.Assert, signallingEscrow);
-        this.signallingEscrowStorageInvariants(Mode.Assert, signallingEscrow);
-        this.escrowStorageInvariants(Mode.Assert, rageQuitEscrow);
-        this.rageQuitEscrowStorageInvariants(Mode.Assert, rageQuitEscrow);
+        STORAGE_SETUP.dualGovernanceStorageInvariants(Mode.Assert, dualGovernance);
+        STORAGE_SETUP.escrowStorageInvariants(Mode.Assert, signallingEscrow);
+        STORAGE_SETUP.signallingEscrowStorageInvariants(Mode.Assert, signallingEscrow);
+        STORAGE_SETUP.escrowStorageInvariants(Mode.Assert, rageQuitEscrow);
+        STORAGE_SETUP.rageQuitEscrowStorageInvariants(Mode.Assert, rageQuitEscrow);
 
         address escrowMasterCopy = signallingEscrow.MASTER_COPY();
         IEscrow newSignallingEscrow = IEscrow(Clones.clone(escrowMasterCopy));
         IEscrow newRageQuitEscrow = IEscrow(Clones.clone(escrowMasterCopy));
 
-        this.dualGovernanceInitializeStorage(dualGovernance, newSignallingEscrow, newRageQuitEscrow);
-        this.signallingEscrowInitializeStorage(newSignallingEscrow, dualGovernance);
-        this.rageQuitEscrowInitializeStorage(newRageQuitEscrow, dualGovernance);
+        STORAGE_SETUP.dualGovernanceInitializeStorage(dualGovernance, newSignallingEscrow, newRageQuitEscrow);
+        STORAGE_SETUP.signallingEscrowInitializeStorage(newSignallingEscrow, dualGovernance);
+        STORAGE_SETUP.rageQuitEscrowInitializeStorage(newRageQuitEscrow, dualGovernance);
     }
 }
 

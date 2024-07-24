@@ -42,7 +42,6 @@ contract DualGovernanceSetUp is StorageSetup {
         Escrow escrowMasterCopy = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
         dualGovernance =
             new DualGovernance(address(config), address(timelock), address(escrowMasterCopy), adminProposer);
-
         signallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
         rageQuitEscrow = Escrow(payable(Clones.clone(address(escrowMasterCopy))));
 
