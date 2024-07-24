@@ -29,7 +29,7 @@ import {
     EmergencyProtectedTimelock
 } from "contracts/EmergencyProtectedTimelock.sol";
 
-import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
+import {TimelockedGovernance, IGovernance} from "contracts/TimelockedGovernance.sol";
 import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernance.sol";
 
 import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
@@ -97,7 +97,7 @@ contract ScenarioTestBlueprint is Test {
     Executor internal _adminExecutor;
 
     EmergencyProtectedTimelock internal _timelock;
-    SingleGovernance internal _singleGovernance;
+    TimelockedGovernance internal _timelockedGovernance;
     DualGovernance internal _dualGovernance;
 
     ResealManager internal _resealManager;
@@ -428,7 +428,7 @@ contract ScenarioTestBlueprint is Test {
         assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Executed, "Proposal not in 'Executed' state");
     }
 
-    function _assertProposalCanceled(uint256 proposalId) internal {
+    function _assertProposalCancelled(uint256 proposalId) internal {
         assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Cancelled, "Proposal not in 'Canceled' state");
     }
 
@@ -528,17 +528,17 @@ contract ScenarioTestBlueprint is Test {
         _finishTimelockSetup(address(_dualGovernance), isEmergencyProtectionEnabled);
     }
 
-    function _deploySingleGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
+    function _deployTimelockedGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
         _deployAdminExecutor(address(this));
         _deployConfigImpl();
         _deployConfigProxy(address(this));
         _deployEscrowMasterCopy();
         _deployUngovernedTimelock();
-        _deploySingleGovernance();
+        _deployTimelockedGovernance();
         _deployEmergencyActivationCommittee();
         _deployEmergencyExecutionCommittee();
         _deployTiebreaker();
-        _finishTimelockSetup(address(_singleGovernance), isEmergencyProtectionEnabled);
+        _finishTimelockSetup(address(_timelockedGovernance), isEmergencyProtectionEnabled);
     }
 
     function _deployTarget() internal {
@@ -563,8 +563,8 @@ contract ScenarioTestBlueprint is Test {
         _timelock = new EmergencyProtectedTimelock(address(_config));
     }
 
-    function _deploySingleGovernance() internal {
-        _singleGovernance = new SingleGovernance(address(_config), DAO_VOTING, address(_timelock));
+    function _deployTimelockedGovernance() internal {
+        _timelockedGovernance = new TimelockedGovernance(address(_config), DAO_VOTING, address(_timelock));
     }
 
     function _deployDualGovernance() internal {
