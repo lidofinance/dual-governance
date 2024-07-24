@@ -11,12 +11,6 @@ struct Proposer {
     address executor;
 }
 
-struct ProposerData {
-    address proposer;
-    address executor;
-    bool isAdmin;
-}
-
 /// @title Proposers Library
 /// @dev This library manages proposers and their assigned executors in a governance system, providing functions to register,
 /// unregister, and verify proposers and their roles. It ensures proper assignment and validation of proposers and executors.
