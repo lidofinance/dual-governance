@@ -97,7 +97,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertCanExecute(maliciousProposalId, false);
 
             vm.expectRevert(
-                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, true, false)
+                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, true, false)
             );
             _executeProposal(maliciousProposalId);
         }
@@ -311,7 +311,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertCanExecute(maliciousProposalId, false);
 
             vm.expectRevert(
-                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, true, false)
+                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, true, false)
             );
             _executeProposal(maliciousProposalId);
         }
@@ -337,7 +337,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertCanExecute(anotherMaliciousProposalId, false);
 
             vm.expectRevert(
-                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, true, false)
+                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, true, false)
             );
             _executeProposal(anotherMaliciousProposalId);
         }
@@ -348,12 +348,12 @@ contract PlanBSetup is ScenarioTestBlueprint {
             assertTrue(emergencyState.emergencyModeEndsAfter < Timestamps.now());
 
             vm.expectRevert(
-                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, true, false)
+                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, true, false)
             );
             _executeProposal(maliciousProposalId);
 
             vm.expectRevert(
-                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, true, false)
+                abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, true, false)
             );
             _executeProposal(anotherMaliciousProposalId);
         }
