@@ -7,11 +7,8 @@ import "test/kontrol/DualGovernanceSetUp.sol";
 contract ActivateNextStateMock is StorageSetup {
     function activateNextState() external {
         DualGovernance dualGovernance = DualGovernance(address(this));
-        IConfiguration config = dualGovernance.CONFIG();
         Escrow signallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
         Escrow rageQuitEscrow = Escrow(payable(dualGovernance.getRageQuitEscrow()));
-        address sender = address(uint160(uint256(keccak256("sender"))));
-        AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
 
         this.dualGovernanceStorageInvariants(Mode.Assert, dualGovernance);
         this.escrowStorageInvariants(Mode.Assert, signallingEscrow);
@@ -19,29 +16,13 @@ contract ActivateNextStateMock is StorageSetup {
         this.escrowStorageInvariants(Mode.Assert, rageQuitEscrow);
         this.rageQuitEscrowStorageInvariants(Mode.Assert, rageQuitEscrow);
 
-        State initialState = dualGovernance.getCurrentState();
-        uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
-        (,, Timestamp vetoSignallingActivationTime,) = dualGovernance.getVetoSignallingState();
+        address escrowMasterCopy = signallingEscrow.MASTER_COPY();
+        IEscrow newSignallingEscrow = IEscrow(Clones.clone(escrowMasterCopy));
+        IEscrow newRageQuitEscrow = IEscrow(Clones.clone(escrowMasterCopy));
 
-        if (
-            (initialState == State.VetoSignalling || initialState == State.VetoSignallingDeactivation)
-                && rageQuitSupport > config.SECOND_SEAL_RAGE_QUIT_SUPPORT()
-                && Timestamps.now() > config.DYNAMIC_TIMELOCK_MAX_DURATION().addTo(vetoSignallingActivationTime)
-        ) {
-            address escrowMasterCopy = signallingEscrow.MASTER_COPY();
-            IEscrow newSignallingEscrow = IEscrow(Clones.clone(escrowMasterCopy));
-
-            this.dualGovernanceInitializeStorage(dualGovernance, newSignallingEscrow, signallingEscrow);
-            this.signallingEscrowInitializeStorage(newSignallingEscrow, dualGovernance);
-            this.rageQuitEscrowInitializeStorage(signallingEscrow, dualGovernance);
-        } else {
-            this.dualGovernanceInitializeStorage(dualGovernance, signallingEscrow, rageQuitEscrow);
-            this.signallingEscrowInitializeStorage(signallingEscrow, dualGovernance);
-            this.rageQuitEscrowInitializeStorage(rageQuitEscrow, dualGovernance);
-        }
-
-        AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
-        this.establishEqualAccountingRecords(Mode.Assume, pre, post);
+        this.dualGovernanceInitializeStorage(dualGovernance, newSignallingEscrow, newRageQuitEscrow);
+        this.signallingEscrowInitializeStorage(newSignallingEscrow, dualGovernance);
+        this.rageQuitEscrowInitializeStorage(newRageQuitEscrow, dualGovernance);
     }
 }
 

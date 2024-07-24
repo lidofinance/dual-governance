@@ -65,6 +65,11 @@ module LIDO-LEMMAS
     rule B /Int C  <Int A =>         A  *Int C  >Int B requires 0 <Int C [simplification, preserves-definedness]
     rule B /Int C <=Int A => (A +Int 1) *Int C  >Int B requires 0 <Int C [simplification, preserves-definedness]
 
+    // More specialised /Int and /Word arithmetic
+    rule ( X ==Int ( X *Int ( Y +Int C ) ) /Word ( Y +Int C ) ) orBool Y ==Int D => true
+      requires C +Int D ==Int 0 [simplification, preserves-definedness]
+
+
     // Further generalization of: maxUIntXXX &Int #asWord ( BA )
     rule X &Int #asWord ( BA ) => #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) )
     requires #rangeUInt(256, X)
@@ -308,7 +313,13 @@ module LIDO-LEMMAS
     //
     // #lookup
     //
-    rule M:Map [ K1 <- _ ] [ K2 <- V2 ] [ K1 <- V3 ] => M:Map [ K2 <- V2 ] [ K1 <- V3 ] [simplification]
+    rule M:Map [ K1 <- _ ] [ K1 <- V2 ]                                                                               => M:Map [ K1 <- V2 ] [simplification]
+    rule M:Map [ K1 <- _ ] [ K2 <- V2 ] [ K1 <- V3 ]                                                                  => M:Map [ K2 <- V2 ] [ K1 <- V3 ] [simplification]
+    rule M:Map [ K1 <- _ ] [ K2 <- V2 ] [ K3 <- V3 ] [ K1 <- V4 ]                                                     => M:Map [ K2 <- V2 ] [ K3 <- V3 ] [ K1 <- V4 ] [simplification]
+    rule M:Map [ K1 <- _ ] [ K2 <- V2 ] [ K3 <- V3 ] [ K4 <- V4 ] [ K1 <- V5 ]                                        => M:Map [ K2 <- V2 ] [ K3 <- V3 ] [ K4 <- V4 ] [ K1 <- V5 ] [simplification]
+    rule M:Map [ K1 <- _ ] [ K2 <- V2 ] [ K3 <- V3 ] [ K4 <- V4 ] [ K5 <- V5 ] [ K1 <- V6 ]                           => M:Map [ K2 <- V2 ] [ K3 <- V3 ] [ K4 <- V4 ] [ K5 <- V5 ] [ K1 <- V6 ] [simplification]
+    rule M:Map [ K1 <- _ ] [ K2 <- V2 ] [ K3 <- V3 ] [ K4 <- V4 ] [ K5 <- V5 ] [ K6 <- V6 ] [ K1 <- V7 ]              => M:Map [ K2 <- V2 ] [ K3 <- V3 ] [ K4 <- V4 ] [ K5 <- V5 ] [ K6 <- V6 ] [ K1 <- V7 ] [simplification]
+    rule M:Map [ K1 <- _ ] [ K2 <- V2 ] [ K3 <- V3 ] [ K4 <- V4 ] [ K5 <- V5 ] [ K6 <- V6 ] [ K7 <- V7 ] [ K1 <- V8 ] => M:Map [ K2 <- V2 ] [ K3 <- V3 ] [ K4 <- V4 ] [ K5 <- V5 ] [ K6 <- V6 ] [ K7 <- V7 ] [ K1 <- V8 ] [simplification]
 
     //
     // keccak assumptions: these assumptions are not sound in principle, but are

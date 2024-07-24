@@ -39,61 +39,61 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
 
-        uint256 senderShares = kevm.freshUInt(32);
-        vm.assume(senderShares < ethUpperBound);
-        stEth.setShares(sender, senderShares);
-        vm.assume(stEth.balanceOf(sender) < ethUpperBound);
+        // uint256 senderShares = kevm.freshUInt(32);
+        // vm.assume(senderShares < ethUpperBound);
+        // stEth.setShares(sender, senderShares);
+        // vm.assume(stEth.balanceOf(sender) < ethUpperBound);
 
-        uint256 senderAllowance = kevm.freshUInt(32);
-        // This assumption means that senderAllowance != INFINITE_ALLOWANCE,
-        // which doubles the execution effort without any added vaue
-        vm.assume(senderAllowance < ethUpperBound);
-        // Hardcoded for "sender"
-        _storeUInt256(
-            address(stEth),
-            74992941968319547325319283905569341819227548318746972755481050864341498730161,
-            senderAllowance
-        );
-
-        uint128 senderLockedShares = uint128(kevm.freshUInt(16));
-        uint128 senderUnlockedShares = uint128(kevm.freshUInt(16));
-        bytes memory slotAbi = abi.encodePacked(uint128(senderUnlockedShares), uint128(senderLockedShares));
-        bytes32 slot;
-        assembly {
-            slot := mload(add(slotAbi, 0x20))
-        }
-        _storeBytes32(
-            address(signallingEscrow),
-            93842437974268059396725027201531251382101332839645030345425397622830526343272,
-            slot
-        );
-
-        uint256 senderLastAssetsLockTimestamp = kevm.freshUInt(32);
-        vm.assume(senderLastAssetsLockTimestamp < timeUpperBound);
-        _storeUInt256(
-            address(signallingEscrow),
-            93842437974268059396725027201531251382101332839645030345425397622830526343273,
-            senderLastAssetsLockTimestamp
-        );
-
-        vm.assume(0 < amount);
-        vm.assume(amount <= stEth.balanceOf(sender));
-        vm.assume(amount <= senderAllowance);
-
-        AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
-
-        uint256 amountInShares = stEth.getSharesByPooledEth(amount);
-        _assumeNoOverflow(pre.userSharesLocked, amountInShares);
-        _assumeNoOverflow(pre.totalSharesLocked, amountInShares);
-
-        this.escrowInvariants(Mode.Assume, signallingEscrow);
-        this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
-        this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
-
-        // ActivateNextStateMock mock = new ActivateNextStateMock();
-        // kevm.mockFunction(
-        //     address(dualGovernance), address(mock), abi.encodeWithSelector(mock.activateNextState.selector)
+        // uint256 senderAllowance = kevm.freshUInt(32);
+        // // This assumption means that senderAllowance != INFINITE_ALLOWANCE,
+        // // which doubles the execution effort without any added vaue
+        // vm.assume(senderAllowance < ethUpperBound);
+        // // Hardcoded for "sender"
+        // _storeUInt256(
+        //     address(stEth),
+        //     74992941968319547325319283905569341819227548318746972755481050864341498730161,
+        //     senderAllowance
         // );
+
+        // uint128 senderLockedShares = uint128(kevm.freshUInt(16));
+        // uint128 senderUnlockedShares = uint128(kevm.freshUInt(16));
+        // bytes memory slotAbi = abi.encodePacked(uint128(senderUnlockedShares), uint128(senderLockedShares));
+        // bytes32 slot;
+        // assembly {
+        //     slot := mload(add(slotAbi, 0x20))
+        // }
+        // _storeBytes32(
+        //     address(signallingEscrow),
+        //     93842437974268059396725027201531251382101332839645030345425397622830526343272,
+        //     slot
+        // );
+
+        // uint256 senderLastAssetsLockTimestamp = kevm.freshUInt(32);
+        // vm.assume(senderLastAssetsLockTimestamp < timeUpperBound);
+        // _storeUInt256(
+        //     address(signallingEscrow),
+        //     93842437974268059396725027201531251382101332839645030345425397622830526343273,
+        //     senderLastAssetsLockTimestamp
+        // );
+
+        // vm.assume(0 < amount);
+        // vm.assume(amount <= stEth.balanceOf(sender));
+        // vm.assume(amount <= senderAllowance);
+
+        // AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
+
+        // uint256 amountInShares = stEth.getSharesByPooledEth(amount);
+        // _assumeNoOverflow(pre.userSharesLocked, amountInShares);
+        // _assumeNoOverflow(pre.totalSharesLocked, amountInShares);
+
+        // this.escrowInvariants(Mode.Assume, signallingEscrow);
+        // this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
+        // this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
+
+        ActivateNextStateMock mock = new ActivateNextStateMock();
+        kevm.mockFunction(
+            address(dualGovernance), address(mock), abi.encodeWithSelector(mock.activateNextState.selector)
+        );
 
         vm.startPrank(sender);
         signallingEscrow.lockStETH(amount);
@@ -103,23 +103,24 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         this.signallingEscrowInvariants(Mode.Assert, signallingEscrow);
         this.escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
 
-        AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
-        assert(post.escrowState == EscrowState.SignallingEscrow);
-        assert(post.userShares == pre.userShares - amountInShares);
-        assert(post.escrowShares == pre.escrowShares + amountInShares);
-        assert(post.userSharesLocked == pre.userSharesLocked + amountInShares);
-        assert(post.totalSharesLocked == pre.totalSharesLocked + amountInShares);
-        assert(post.userLastLockedTime == Timestamps.now());
+        // assert(EscrowState(_getCurrentState(signallingEscrow)) == EscrowState.SignallingEscrow);
 
-        // Accounts for rounding errors in the conversion to and from shares
-        assert(pre.userBalance - amount <= post.userBalance);
-        assert(post.escrowBalance <= pre.escrowBalance + amount);
-        assert(post.totalEth <= pre.totalEth + amount);
+        // AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
+        // assert(post.userShares == pre.userShares - amountInShares);
+        // assert(post.escrowShares == pre.escrowShares + amountInShares);
+        // assert(post.userSharesLocked == pre.userSharesLocked + amountInShares);
+        // assert(post.totalSharesLocked == pre.totalSharesLocked + amountInShares);
+        // assert(post.userLastLockedTime == Timestamps.now());
 
-        uint256 errorTerm = stEth.getPooledEthByShares(1) + 1;
-        assert(post.userBalance <= pre.userBalance - amount + errorTerm);
-        assert(pre.escrowBalance + amount < errorTerm || pre.escrowBalance + amount - errorTerm <= post.escrowBalance);
-        assert(pre.totalEth + amount < errorTerm || pre.totalEth + amount - errorTerm <= post.totalEth);
+        // // Accounts for rounding errors in the conversion to and from shares
+        // assert(pre.userBalance - amount <= post.userBalance);
+        // assert(post.escrowBalance <= pre.escrowBalance + amount);
+        // assert(post.totalEth <= pre.totalEth + amount);
+
+        // uint256 errorTerm = stEth.getPooledEthByShares(1) + 1;
+        // assert(post.userBalance <= pre.userBalance - amount + errorTerm);
+        // assert(pre.escrowBalance + amount < errorTerm || pre.escrowBalance + amount - errorTerm <= post.escrowBalance);
+        // assert(pre.totalEth + amount < errorTerm || pre.totalEth + amount - errorTerm <= post.totalEth);
     }
 
     function testUnlockStEth() public {

@@ -11,6 +11,12 @@ contract KontrolTest is Test, KontrolCheats {
     // Note: 2 ** 35 takes us to year 3058
     uint256 constant timeUpperBound = 2 ** 35;
 
+    function infoAssert(bool condition, string memory message) external {
+        if (!condition) {
+            revert(message);
+        }
+    }
+
     enum Mode {
         Assume,
         Assert
