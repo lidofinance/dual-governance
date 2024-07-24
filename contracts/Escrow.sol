@@ -112,9 +112,9 @@ contract Escrow is IEscrow {
     // ---
 
     function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares) {
-        // lockedStETHShares = ST_ETH.getSharesByPooledEth(amount);
-        // _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
-        // ST_ETH.transferSharesFrom(msg.sender, address(this), lockedStETHShares);
+        lockedStETHShares = ST_ETH.getSharesByPooledEth(amount);
+        _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
+        ST_ETH.transferSharesFrom(msg.sender, address(this), lockedStETHShares);
         _activateNextGovernanceState();
     }
 

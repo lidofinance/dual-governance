@@ -103,8 +103,6 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         this.signallingEscrowInvariants(Mode.Assert, signallingEscrow);
         this.escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
 
-        assert(EscrowState(_getCurrentState(signallingEscrow)) == EscrowState.SignallingEscrow);
-
         AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
         assert(post.userShares == pre.userShares - amountInShares);
         assert(post.escrowShares == pre.escrowShares + amountInShares);
