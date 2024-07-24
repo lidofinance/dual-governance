@@ -7,7 +7,7 @@ import {Duration} from "./types/Duration.sol";
 import {Timestamp, Timestamps} from "./types/Timestamp.sol";
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
-import {IEscrowConfigration} from "./interfaces/IConfiguration.sol";
+import {IEscrowConfig} from "./configuration/EscrowConfig.sol";
 
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
@@ -73,7 +73,7 @@ contract Escrow is IEscrow {
     IWstETH public immutable WST_ETH;
     IWithdrawalQueue public immutable WITHDRAWAL_QUEUE;
 
-    IEscrowConfigration public immutable CONFIG;
+    IEscrowConfig public immutable CONFIG;
 
     EscrowState internal _escrowState;
     IDualGovernance private _dualGovernance;
@@ -88,7 +88,7 @@ contract Escrow is IEscrow {
         ST_ETH = IStETH(stETH);
         WST_ETH = IWstETH(wstETH);
         MASTER_COPY = address(this);
-        CONFIG = IEscrowConfigration(config);
+        CONFIG = IEscrowConfig(config);
         WITHDRAWAL_QUEUE = IWithdrawalQueue(withdrawalQueue);
         MIN_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         MAX_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();

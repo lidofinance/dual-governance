@@ -33,7 +33,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
-        _wait(_config.TIE_BREAK_ACTIVATION_TIMEOUT());
+        _wait(_config.TIEBREAKER_ACTIVATION_TIMEOUT());
         _activateNextState();
 
         ExternalCall[] memory proposalCalls = ExternalCallHelpers.create(address(0), new bytes(0));
@@ -108,7 +108,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
-        _wait(_config.TIE_BREAK_ACTIVATION_TIMEOUT());
+        _wait(_config.TIEBREAKER_ACTIVATION_TIMEOUT());
         _activateNextState();
 
         // Tiebreaker subcommittee 0

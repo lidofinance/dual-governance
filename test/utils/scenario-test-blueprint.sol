@@ -12,7 +12,6 @@ import {
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
-import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {Executor} from "contracts/Executor.sol";
 
 import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
@@ -30,7 +29,7 @@ import {
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {SingleGovernance, IGovernance} from "contracts/SingleGovernance.sol";
-import {DualGovernance, State as DGState, DualGovernanceState} from "contracts/DualGovernance.sol";
+import {DualGovernance, State as DGState, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
@@ -45,6 +44,7 @@ import {
 } from "../utils/interfaces.sol";
 import {ExternalCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
+import {DualGovernanceSubsystemConfig} from "contracts/configuration/DualGovernanceSubsystemConfig.sol";
 
 import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, DAO_AGENT} from "../utils/mainnet-addresses.sol";
 
@@ -87,8 +87,8 @@ contract ScenarioTestBlueprint is Test {
 
     TargetMock internal _target;
 
-    IConfiguration internal _config;
-    IConfiguration internal _configImpl;
+    DualGovernanceSubsystemConfig internal _config;
+    DualGovernanceSubsystemConfig internal _configImpl;
     ProxyAdmin internal _configProxyAdmin;
     TransparentUpgradeableProxy internal _configProxy;
 
@@ -125,7 +125,7 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        DualGovernanceState.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
         isActive = stateContext.state == DGState.VetoSignalling;
         duration = _dualGovernance.getDynamicDelayDuration().toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
@@ -137,7 +137,7 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
-        DualGovernanceState.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
         isActive = stateContext.state == DGState.VetoSignallingDeactivation;
         duration = _dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
@@ -558,13 +558,21 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deployConfigImpl() internal {
-        _configImpl = new Configuration(address(_adminExecutor), address(DAO_VOTING), _sealableWithdrawalBlockers);
+        _configImpl = new DualGovernanceSubsystemConfig(
+            address(_adminExecutor),
+            address(DAO_VOTING),
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            _sealableWithdrawalBlockers
+        );
     }
 
     function _deployConfigProxy(address owner) internal {
         _configProxy = new TransparentUpgradeableProxy(address(_configImpl), address(owner), new bytes(0));
         _configProxyAdmin = ProxyAdmin(Utils.predictDeployedAddress(address(_configProxy), 1));
-        _config = Configuration(address(_configProxy));
+        _config = DualGovernanceSubsystemConfig(address(_configProxy));
     }
 
     function _deployUngovernedTimelock() internal {
@@ -572,7 +580,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _deploySingleGovernance() internal {
-        _singleGovernance = new SingleGovernance(address(_config), DAO_VOTING, address(_timelock));
+        _singleGovernance = new SingleGovernance(DAO_VOTING, address(_timelock));
     }
 
     function _deployDualGovernance() internal {

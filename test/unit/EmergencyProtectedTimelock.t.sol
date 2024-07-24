@@ -7,8 +7,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 import {ITimelock, ProposalStatus} from "contracts/interfaces/ITimelock.sol";
-import {IConfiguration, Configuration} from "contracts/Configuration.sol";
-import {ConfigurationProvider} from "contracts/ConfigurationProvider.sol";
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtection, EmergencyState} from "contracts/libraries/EmergencyProtection.sol";
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
@@ -17,10 +15,12 @@ import {UnitTest, Duration, Timestamp, Timestamps, Durations, console} from "tes
 import {TargetMock} from "test/utils/utils.sol";
 import {ExternalCall, ExternalCallHelpers} from "test/utils/executor-calls.sol";
 import {IDangerousContract} from "test/utils/interfaces.sol";
+import {AdminExecutorConfigUtils} from "contracts/configuration/AdminExecutorConfig.sol";
+import {TimelockedGovernanceSubsystemConfig} from "contracts/configuration/TimelockedGovernanceSubsystemConfig.sol";
 
 contract EmergencyProtectedTimelockUnitTests is UnitTest {
     EmergencyProtectedTimelock private _timelock;
-    Configuration private _config;
+    TimelockedGovernanceSubsystemConfig private _config;
     TargetMock private _targetMock;
     Executor private _executor;
 
@@ -35,7 +35,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function setUp() external {
         _executor = new Executor(address(this));
-        _config = new Configuration(address(_executor), _emergencyGovernance, new address[](0));
+        _config = new TimelockedGovernanceSubsystemConfig(
+            address(_executor), _emergencyGovernance, _emergencyActivator, _emergencyEnactor
+        );
         _timelock = new EmergencyProtectedTimelock(address(_config));
         _targetMock = new TargetMock();
 
@@ -211,7 +213,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(ConfigurationProvider.NotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(AdminExecutorConfigUtils.NotAdminExecutor.selector, stranger));
         _timelock.transferExecutorOwnership(_adminExecutor, makeAddr("newOwner"));
     }
 
@@ -254,7 +256,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(ConfigurationProvider.NotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(AdminExecutorConfigUtils.NotAdminExecutor.selector, stranger));
         _timelock.setGovernance(makeAddr("newGovernance"));
     }
 
@@ -429,7 +431,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), true);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(ConfigurationProvider.NotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(AdminExecutorConfigUtils.NotAdminExecutor.selector, stranger));
         _timelock.deactivateEmergencyMode();
     }
 
@@ -533,7 +535,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         EmergencyProtectedTimelock _localTimelock = new EmergencyProtectedTimelock(address(_config));
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(ConfigurationProvider.NotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(AdminExecutorConfigUtils.NotAdminExecutor.selector, stranger));
         _localTimelock.setEmergencyProtection(
             _emergencyActivator, _emergencyEnactor, _emergencyProtectionDuration, _emergencyModeDuration
         );
@@ -807,7 +809,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_can_schedule() external {
         assertEq(_timelock.canExecute(1), false);
         _submitProposal();
-        assertEq(_timelock.canSchedule(1), false);
+
+        // the scheduling is possible just after submit, because the AFTER_SUBMIT_DELAY is equal to zero
+        assertEq(_timelock.canSchedule(1), true);
 
         _wait(_config.AFTER_SUBMIT_DELAY());
 

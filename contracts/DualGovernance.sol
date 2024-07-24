@@ -6,18 +6,22 @@ import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
+import {IConfigurableTimelock, IGovernance} from "./interfaces/ITimelock.sol";
+import {IResealManager} from "./interfaces/IResealManager.sol";
 
-import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
-import {State, DualGovernanceState} from "./libraries/DualGovernanceState.sol";
+import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
 import {TiebreakerProtection} from "./libraries/TiebreakerProtection.sol";
 
-contract DualGovernance is IGovernance, ConfigurationProvider {
+import {AdminExecutorConfigUtils} from "./configuration/AdminExecutorConfig.sol";
+import {IDualGovernanceConfig} from "./configuration/DualGovernanceConfig.sol";
+
+contract DualGovernance is IGovernance {
     using Proposers for Proposers.State;
     using TiebreakerProtection for TiebreakerProtection.Tiebreaker;
-    using DualGovernanceState for DualGovernanceState.Context;
+    using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
     error NotDeadlock();
     error NotResealCommitttee(address account);
@@ -25,25 +29,22 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
 
-    ITimelock public immutable TIMELOCK;
+    IConfigurableTimelock public immutable TIMELOCK;
+    IDualGovernanceConfig public immutable CONFIG;
 
     Proposers.State internal _proposers;
-    DualGovernanceState.Context internal _state;
+    DualGovernanceStateMachine.Context internal _stateMachine;
     EmergencyProtection.State internal _emergencyProtection;
     address internal _resealCommittee;
     IResealManager internal _resealManager;
     TiebreakerProtection.Tiebreaker internal _tiebreaker;
 
-    constructor(
-        address config,
-        address timelock,
-        address escrowMasterCopy,
-        address adminProposer
-    ) ConfigurationProvider(config) {
-        TIMELOCK = ITimelock(timelock);
+    constructor(address config, address timelock, address escrowMasterCopy, address adminProposer) {
+        TIMELOCK = IConfigurableTimelock(timelock);
+        CONFIG = IDualGovernanceConfig(config);
 
-        _state.initialize(escrowMasterCopy);
-        _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
+        _proposers.register(adminProposer, TIMELOCK.CONFIG().ADMIN_EXECUTOR());
+        _stateMachine.initialize(escrowMasterCopy);
     }
 
     // ---
@@ -52,8 +53,8 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _proposers.checkProposer(msg.sender);
-        _state.activateNextState(CONFIG.getDualGovernanceConfig());
-        if (!_state.canSubmitProposal()) {
+        _stateMachine.activateNextState(CONFIG.getDualGovernanceStateMachineConfig());
+        if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
         }
         Proposer memory proposer = _proposers.get(msg.sender);
@@ -61,28 +62,28 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     }
 
     function scheduleProposal(uint256 proposalId) external {
-        _state.activateNextState(CONFIG.getDualGovernanceConfig());
+        _stateMachine.activateNextState(CONFIG.getDualGovernanceStateMachineConfig());
         ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
             TIMELOCK.getProposalInfo(proposalId);
-        if (!_state.canScheduleProposal(submittedAt)) {
+        if (!_stateMachine.canScheduleProposal(submittedAt)) {
             revert ProposalSchedulingBlocked(proposalId);
         }
         TIMELOCK.schedule(proposalId);
     }
 
     function cancelAllPendingProposals() external {
-        _proposers.checkAdminProposer(CONFIG, msg.sender);
+        _proposers.checkAdminProposer(TIMELOCK.CONFIG().getAdminExecutionConfig(), msg.sender);
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
     function canSubmitProposal() public view returns (bool) {
-        return _state.canSubmitProposal();
+        return _stateMachine.canSubmitProposal();
     }
 
     function canScheduleProposal(uint256 proposalId) external view returns (bool) {
         ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
             TIMELOCK.getProposalInfo(proposalId);
-        return _state.canScheduleProposal(submittedAt) && TIMELOCK.canSchedule(proposalId);
+        return _stateMachine.canScheduleProposal(submittedAt) && TIMELOCK.canSchedule(proposalId);
     }
 
     // ---
@@ -90,27 +91,27 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     // ---
 
     function getVetoSignallingEscrow() external view returns (address) {
-        return address(_state.signallingEscrow);
+        return address(_stateMachine.signallingEscrow);
     }
 
     function getRageQuitEscrow() external view returns (address) {
-        return address(_state.rageQuitEscrow);
+        return address(_stateMachine.rageQuitEscrow);
     }
 
     function activateNextState() external {
-        _state.activateNextState(CONFIG.getDualGovernanceConfig());
+        _stateMachine.activateNextState(CONFIG.getDualGovernanceStateMachineConfig());
     }
 
     function getCurrentState() external view returns (State currentState) {
-        currentState = _state.getCurrentState();
+        currentState = _stateMachine.getCurrentState();
     }
 
-    function getCurrentStateContext() external view returns (DualGovernanceState.Context memory) {
-        return _state.getCurrentContext();
+    function getCurrentStateContext() external view returns (DualGovernanceStateMachine.Context memory) {
+        return _stateMachine.getCurrentContext();
     }
 
     function getDynamicDelayDuration() external view returns (Duration) {
-        return _state.getDynamicDelayDuration(CONFIG.getDualGovernanceConfig());
+        return _stateMachine.getDynamicDelayDuration(CONFIG.getDualGovernanceStateMachineConfig());
     }
 
     // ---
@@ -118,13 +119,13 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     // ---
 
     function registerProposer(address proposer, address executor) external {
-        _checkAdminExecutor(msg.sender);
+        AdminExecutorConfigUtils.checkAdminExecutor(TIMELOCK.CONFIG(), msg.sender);
         _proposers.register(proposer, executor);
     }
 
     function unregisterProposer(address proposer) external {
-        _checkAdminExecutor(msg.sender);
-        _proposers.unregister(CONFIG, proposer);
+        AdminExecutorConfigUtils.checkAdminExecutor(TIMELOCK.CONFIG(), msg.sender);
+        _proposers.unregister(TIMELOCK.CONFIG().getAdminExecutionConfig(), proposer);
     }
 
     function getProposer(address account) external view returns (Proposer memory proposer) {
@@ -149,7 +150,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function tiebreakerResumeSealable(address sealable) external {
         _tiebreaker.checkTiebreakerCommittee(msg.sender);
-        if (!_state.isDeadlock(CONFIG.getTiebreakConfig())) {
+        if (!_stateMachine.isDeadlock(CONFIG.getTiebreakerConfig())) {
             revert NotDeadlock();
         }
         _tiebreaker.resumeSealable(sealable);
@@ -157,14 +158,14 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function tiebreakerScheduleProposal(uint256 proposalId) external {
         _tiebreaker.checkTiebreakerCommittee(msg.sender);
-        if (!_state.isDeadlock(CONFIG.getTiebreakConfig())) {
+        if (!_stateMachine.isDeadlock(CONFIG.getTiebreakerConfig())) {
             revert NotDeadlock();
         }
         TIMELOCK.schedule(proposalId);
     }
 
     function setTiebreakerProtection(address newTiebreaker, address resealManager) external {
-        _checkAdminExecutor(msg.sender);
+        AdminExecutorConfigUtils.checkAdminExecutor(TIMELOCK.CONFIG(), msg.sender);
         _tiebreaker.setTiebreaker(newTiebreaker, resealManager);
     }
 
@@ -176,14 +177,14 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         if (msg.sender != _resealCommittee) {
             revert NotResealCommitttee(msg.sender);
         }
-        if (_state.getCurrentState() == State.Normal) {
+        if (_stateMachine.getCurrentState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
         _resealManager.reseal(sealables);
     }
 
     function setReseal(address resealManager, address resealCommittee) external {
-        _checkAdminExecutor(msg.sender);
+        AdminExecutorConfigUtils.checkAdminExecutor(TIMELOCK.CONFIG(), msg.sender);
         _resealCommittee = resealCommittee;
         _resealManager = IResealManager(resealManager);
     }

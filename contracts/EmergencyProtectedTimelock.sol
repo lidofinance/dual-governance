@@ -12,14 +12,15 @@ import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtecti
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
 
-import {ConfigurationProvider} from "./ConfigurationProvider.sol";
+import {AdminExecutorConfigUtils} from "./configuration/AdminExecutorConfig.sol";
+import {IEmergencyProtectedTimelockConfig} from "./configuration/EmergencyProtectedTimelockConfig.sol";
 
 /// @title EmergencyProtectedTimelock
 /// @dev A timelock contract with emergency protection functionality.
 /// The contract allows for submitting, scheduling, and executing proposals,
 /// while providing emergency protection features to prevent unauthorized
 /// execution during emergency situations.
-contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
+contract EmergencyProtectedTimelock is ITimelock {
     using ExecutableProposals for ExecutableProposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
@@ -29,11 +30,14 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     event GovernanceSet(address governance);
 
     address internal _governance;
+    IEmergencyProtectedTimelockConfig public immutable CONFIG;
 
     ExecutableProposals.State internal _proposals;
     EmergencyProtection.State internal _emergencyProtection;
 
-    constructor(address config) ConfigurationProvider(config) {}
+    constructor(address config) {
+        CONFIG = IEmergencyProtectedTimelockConfig(config);
+    }
 
     // ---
     // Main Timelock Functionality
@@ -77,7 +81,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// @param executor The address of the executor contract.
     /// @param owner The address of the new owner.
     function transferExecutorOwnership(address executor, address owner) external {
-        _checkAdminExecutor(msg.sender);
+        AdminExecutorConfigUtils.checkAdminExecutor(CONFIG, msg.sender);
         IOwnable(executor).transferOwnership(owner);
     }
 
@@ -85,7 +89,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// Only the admin executor can call this function.
     /// @param newGovernance The address of the new governance contract.
     function setGovernance(address newGovernance) external {
-        _checkAdminExecutor(msg.sender);
+        AdminExecutorConfigUtils.checkAdminExecutor(CONFIG, msg.sender);
         _setGovernance(newGovernance);
     }
 
@@ -115,7 +119,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     function deactivateEmergencyMode() external {
         _emergencyProtection.checkEmergencyModeActive(true);
         if (!_emergencyProtection.isEmergencyModePassed()) {
-            _checkAdminExecutor(msg.sender);
+            AdminExecutorConfigUtils.checkAdminExecutor(CONFIG, msg.sender);
         }
         _emergencyProtection.deactivate();
         _proposals.cancelAll();
@@ -143,7 +147,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
         Duration protectionDuration,
         Duration emergencyModeDuration
     ) external {
-        _checkAdminExecutor(msg.sender);
+        AdminExecutorConfigUtils.checkAdminExecutor(CONFIG, msg.sender);
         _emergencyProtection.setup(activator, enactor, protectionDuration, emergencyModeDuration);
     }
 

@@ -5,30 +5,40 @@ import {Vm} from "forge-std/Test.sol";
 
 import {Executor} from "contracts/Executor.sol";
 import {SingleGovernance} from "contracts/SingleGovernance.sol";
-import {IConfiguration, Configuration} from "contracts/Configuration.sol";
+import {IConfigurableTimelock, IEmergencyProtectedTimelockConfig} from "contracts/interfaces/ITimelock.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/utils.sol";
 
 import {TimelockMock} from "./mocks/TimelockMock.sol";
+import {TimelockedGovernanceSubsystemConfig} from "contracts/configuration/TimelockedGovernanceSubsystemConfig.sol";
+
+contract ConfigurableTimelockMock is TimelockMock, IConfigurableTimelock {
+    IEmergencyProtectedTimelockConfig public immutable CONFIG;
+
+    constructor(IEmergencyProtectedTimelockConfig config) {
+        CONFIG = config;
+    }
+}
 
 contract SingleGovernanceUnitTests is UnitTest {
     TimelockMock private _timelock;
     SingleGovernance private _singleGovernance;
-    Configuration private _config;
+    TimelockedGovernanceSubsystemConfig private _config;
 
     address private _emergencyGovernance = makeAddr("EMERGENCY_GOVERNANCE");
     address private _governance = makeAddr("GOVERNANCE");
 
     function setUp() external {
         Executor _executor = new Executor(address(this));
-        _config = new Configuration(address(_executor), _emergencyGovernance, new address[](0));
-        _timelock = new TimelockMock();
-        _singleGovernance = new SingleGovernance(address(_config), _governance, address(_timelock));
+        _config =
+            new TimelockedGovernanceSubsystemConfig(address(_executor), _emergencyGovernance, address(0), address(0));
+        _timelock = new ConfigurableTimelockMock(_config);
+        _singleGovernance = new SingleGovernance(_governance, address(_timelock));
     }
 
     function testFuzz_constructor(address governance, address timelock) external {
-        SingleGovernance instance = new SingleGovernance(address(_config), governance, timelock);
+        SingleGovernance instance = new SingleGovernance(governance, timelock);
 
         assertEq(instance.GOVERNANCE(), governance);
         assertEq(address(instance.TIMELOCK()), address(timelock));

@@ -5,11 +5,14 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
-import {ISealable} from "../interfaces/ISealable.sol";
 
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
-import {TiebreakConfig, DualGovernanceConfig, DualGovernanceConfigUtils} from "./DualGovernanceConfig.sol";
+import {TiebreakerConfigState, TiebreakerConfigUtils} from "../configuration/TiebreakerConfig.sol";
+import {
+    DualGovernanceStateMachineConfigUtils,
+    DualGovernanceStateMachineConfigState
+} from "../configuration/DualGovernanceConfig.sol";
 
 enum State {
     Unset,
@@ -20,8 +23,9 @@ enum State {
     RageQuit
 }
 
-library DualGovernanceState {
-    using DualGovernanceConfigUtils for DualGovernanceConfig;
+library DualGovernanceStateMachine {
+    using TiebreakerConfigUtils for TiebreakerConfigState;
+    using DualGovernanceStateMachineConfigUtils for DualGovernanceStateMachineConfigState;
 
     struct Context {
         ///
@@ -75,7 +79,7 @@ library DualGovernanceState {
         emit DualGovernanceStateChanged(State.Unset, State.Normal, self);
     }
 
-    function activateNextState(Context storage self, DualGovernanceConfig memory config) internal {
+    function activateNextState(Context storage self, DualGovernanceStateMachineConfigState memory config) internal {
         (State currentStatus, State newStatus) = DualGovernanceStateTransitions.getStateTransition(self, config);
 
         if (currentStatus == newStatus) {
@@ -121,7 +125,7 @@ library DualGovernanceState {
 
     function getDynamicDelayDuration(
         Context storage self,
-        DualGovernanceConfig memory config
+        DualGovernanceStateMachineConfigState memory config
     ) internal view returns (Duration) {
         return config.calcDynamicDelayDuration(self.signallingEscrow.getRageQuitSupport());
     }
@@ -140,22 +144,16 @@ library DualGovernanceState {
         return false;
     }
 
-    function isDeadlock(Context storage self, TiebreakConfig memory config) internal view returns (bool) {
+    function isDeadlock(Context storage self, TiebreakerConfigState memory config) internal view returns (bool) {
         State state = self.state;
         if (state == State.Normal || state == State.VetoCooldown) return false;
 
         // when the governance is locked for long period of time
-        if (Timestamps.now() >= config.tiebreakActivationTimeout.addTo(self.normalOrVetoCooldownExitedAt)) {
+        if (config.isTiebreakerActivationTimeoutPassed(self.normalOrVetoCooldownExitedAt)) {
             return true;
         }
 
-        if (self.state != State.RageQuit) return false;
-
-        uint256 potentialDeadlockSealablesCount = config.potentialDeadlockSealables.length;
-        for (uint256 i = 0; i < potentialDeadlockSealablesCount; ++i) {
-            if (ISealable(config.potentialDeadlockSealables[i]).isPaused()) return true;
-        }
-        return false;
+        return self.state == State.RageQuit && config.isSomeSealableDeadlocked();
     }
 
     function _deployNewSignallingEscrow(Context storage self, address escrowMasterCopy) private {
@@ -167,11 +165,11 @@ library DualGovernanceState {
 }
 
 library DualGovernanceStateTransitions {
-    using DualGovernanceConfigUtils for DualGovernanceConfig;
+    using DualGovernanceStateMachineConfigUtils for DualGovernanceStateMachineConfigState;
 
     function getStateTransition(
-        DualGovernanceState.Context storage self,
-        DualGovernanceConfig memory config
+        DualGovernanceStateMachine.Context storage self,
+        DualGovernanceStateMachineConfigState memory config
     ) internal view returns (State currentStatus, State nextStatus) {
         currentStatus = self.state;
         if (currentStatus == State.Normal) {
@@ -190,8 +188,8 @@ library DualGovernanceStateTransitions {
     }
 
     function _fromNormalState(
-        DualGovernanceState.Context storage self,
-        DualGovernanceConfig memory config
+        DualGovernanceStateMachine.Context storage self,
+        DualGovernanceStateMachineConfigState memory config
     ) private view returns (State) {
         return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
@@ -199,8 +197,8 @@ library DualGovernanceStateTransitions {
     }
 
     function _fromVetoSignallingState(
-        DualGovernanceState.Context storage self,
-        DualGovernanceConfig memory config
+        DualGovernanceStateMachine.Context storage self,
+        DualGovernanceStateMachineConfigState memory config
     ) private view returns (State) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
@@ -218,8 +216,8 @@ library DualGovernanceStateTransitions {
     }
 
     function _fromVetoSignallingDeactivationState(
-        DualGovernanceState.Context storage self,
-        DualGovernanceConfig memory config
+        DualGovernanceStateMachine.Context storage self,
+        DualGovernanceStateMachineConfigState memory config
     ) private view returns (State) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
@@ -239,8 +237,8 @@ library DualGovernanceStateTransitions {
     }
 
     function _fromVetoCooldownState(
-        DualGovernanceState.Context storage self,
-        DualGovernanceConfig memory config
+        DualGovernanceStateMachine.Context storage self,
+        DualGovernanceStateMachineConfigState memory config
     ) private view returns (State) {
         if (!config.isVetoCooldownDurationPassed(self.enteredAt)) {
             return State.VetoCooldown;
@@ -251,8 +249,8 @@ library DualGovernanceStateTransitions {
     }
 
     function _fromRageQuitState(
-        DualGovernanceState.Context storage self,
-        DualGovernanceConfig memory config
+        DualGovernanceStateMachine.Context storage self,
+        DualGovernanceStateMachineConfigState memory config
     ) private view returns (State) {
         if (!self.rageQuitEscrow.isRageQuitFinalized()) {
             return State.RageQuit;
