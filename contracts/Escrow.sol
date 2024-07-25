@@ -112,6 +112,7 @@ contract Escrow is IEscrow {
     // ---
 
     function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares) {
+        _checkEscrowState(EscrowState.SignallingEscrow);
         lockedStETHShares = ST_ETH.getSharesByPooledEth(amount);
         _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
         ST_ETH.transferSharesFrom(msg.sender, address(this), lockedStETHShares);
@@ -120,6 +121,7 @@ contract Escrow is IEscrow {
 
     function unlockStETH() external returns (uint256 unlockedStETHShares) {
         _activateNextGovernanceState();
+        _checkEscrowState(EscrowState.SignallingEscrow);
         _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
         unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender).toUint256();
         ST_ETH.transferShares(msg.sender, unlockedStETHShares);
@@ -131,6 +133,7 @@ contract Escrow is IEscrow {
     // ---
 
     function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares) {
+        _checkEscrowState(EscrowState.SignallingEscrow);
         WST_ETH.transferFrom(msg.sender, address(this), amount);
         lockedStETHShares = ST_ETH.getSharesByPooledEth(WST_ETH.unwrap(amount));
         _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
@@ -139,6 +142,7 @@ contract Escrow is IEscrow {
 
     function unlockWstETH() external returns (uint256 unlockedStETHShares) {
         _activateNextGovernanceState();
+        _checkEscrowState(EscrowState.SignallingEscrow);
         _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
         SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
         unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
@@ -150,6 +154,7 @@ contract Escrow is IEscrow {
     // Lock / Unlock unstETH
     // ---
     function lockUnstETH(uint256[] memory unstETHIds) external {
+        _checkEscrowState(EscrowState.SignallingEscrow);
         WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
         _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
 
@@ -162,6 +167,7 @@ contract Escrow is IEscrow {
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
         _activateNextGovernanceState();
+        _checkEscrowState(EscrowState.SignallingEscrow);
         _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
         _accounting.accountUnstETHUnlock(msg.sender, unstETHIds);
         uint256 unstETHIdsCount = unstETHIds.length;
@@ -183,6 +189,7 @@ contract Escrow is IEscrow {
     // ---
 
     function requestWithdrawals(uint256[] calldata stEthAmounts) external returns (uint256[] memory unstETHIds) {
+        _checkEscrowState(EscrowState.SignallingEscrow);
         unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stEthAmounts, address(this));
         WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
 

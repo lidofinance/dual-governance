@@ -11,7 +11,7 @@ import {
     ProxyAdmin
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
+import {EscrowState, Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {Executor} from "contracts/Executor.sol";
 
@@ -279,8 +279,9 @@ contract ScenarioTestBlueprint is Test {
             unstETHTotalSharesUnlocked += statuses[i].amountOfShares;
         }
 
-        vm.prank(vetoer);
+        vm.startPrank(vetoer);
         escrow.unlockUnstETH(unstETHIds);
+        vm.stopPrank();
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), vetoer);
