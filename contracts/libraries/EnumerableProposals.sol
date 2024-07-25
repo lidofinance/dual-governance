@@ -78,7 +78,7 @@ library EnumerableProposals {
     /// @dev Returns the proposal associated with the given key, reverts if the proposal does not exist
     /// @param map The map to check
     /// @param key The key of the proposal
-    /// @return proposal The proposal associated with the given key
+    /// @return value The proposal associated with the given key
     function get(Bytes32ToProposalMap storage map, bytes32 key) internal view returns (Proposal memory value) {
         if (!contains(map, key)) {
             revert ProposalDoesNotExist(key);
