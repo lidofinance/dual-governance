@@ -45,7 +45,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         // ?WORD: totalPooledEther
         // ?WORD0: totalShares
         // ?WORD1: shares[escrow]
-        _stEthStorageSetup(stEth, escrow);
+        this.stEthStorageSetup(stEth, escrow);
     }
 
     function _setUpGenericState() public {
@@ -64,7 +64,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         // ?WORD9: rageQuitExtensionDelay
         // ?WORD10: rageQuitWithdrawalsTimelock
         // ?WORD11: rageQuitTimelockStartedAt
-        _escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), EscrowState(currentState));
+        this.escrowStorageSetup(escrow, DualGovernance(dualGovernanceAddress), EscrowState(currentState));
     }
 
     function testRageQuitSupport() public {
@@ -82,9 +82,9 @@ contract EscrowAccountingTest is EscrowInvariants {
 
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
-        _escrowInvariants(Mode.Assert, escrow);
-        _signallingEscrowInvariants(Mode.Assert, escrow);
-        _escrowUserInvariants(Mode.Assert, escrow, sender);
+        this.escrowInvariants(Mode.Assert, escrow);
+        this.signallingEscrowInvariants(Mode.Assert, escrow);
+        this.escrowUserInvariants(Mode.Assert, escrow, sender);
     }
 
     function testRequestWithdrawals(uint256 stEthAmount) public {
@@ -94,10 +94,10 @@ contract EscrowAccountingTest is EscrowInvariants {
         address sender = address(uint160(uint256(keccak256("sender"))));
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
 
-        AccountingRecord memory pre = _saveAccountingRecord(sender, escrow);
+        AccountingRecord memory pre = this.saveAccountingRecord(sender, escrow);
 
-        _escrowInvariants(Mode.Assume, escrow);
-        _escrowUserInvariants(Mode.Assume, escrow, sender);
+        this.escrowInvariants(Mode.Assume, escrow);
+        this.escrowUserInvariants(Mode.Assume, escrow, sender);
 
         // Only request one withdrawal for simplicity
         uint256[] memory stEthAmounts = new uint256[](1);
@@ -107,10 +107,10 @@ contract EscrowAccountingTest is EscrowInvariants {
         escrow.requestWithdrawals(stEthAmounts);
         vm.stopPrank();
 
-        _escrowInvariants(Mode.Assert, escrow);
-        _escrowUserInvariants(Mode.Assert, escrow, sender);
+        this.escrowInvariants(Mode.Assert, escrow);
+        this.escrowUserInvariants(Mode.Assert, escrow, sender);
 
-        AccountingRecord memory post = _saveAccountingRecord(sender, escrow);
+        AccountingRecord memory post = this.saveAccountingRecord(sender, escrow);
         assert(post.userSharesLocked == pre.userSharesLocked - stEthAmount);
         assert(post.totalSharesLocked == pre.totalSharesLocked - stEthAmount);
         assert(post.userLastLockedTime == Timestamps.now());
@@ -123,11 +123,11 @@ contract EscrowAccountingTest is EscrowInvariants {
 
         vm.assume(EscrowState(_getCurrentState(escrow)) == EscrowState.RageQuitEscrow);
 
-        _escrowInvariants(Mode.Assume, escrow);
+        this.escrowInvariants(Mode.Assume, escrow);
 
         escrow.requestNextWithdrawalsBatch(maxBatchSize);
 
-        _escrowInvariants(Mode.Assert, escrow);
+        this.escrowInvariants(Mode.Assert, escrow);
     }
 
     function testClaimNextWithdrawalsBatch() public {
@@ -139,8 +139,8 @@ contract EscrowAccountingTest is EscrowInvariants {
 
         vm.assume(EscrowState(_getCurrentState(escrow)) == EscrowState.RageQuitEscrow);
 
-        _escrowInvariants(Mode.Assume, escrow);
-        _escrowUserInvariants(Mode.Assume, escrow, sender);
+        this.escrowInvariants(Mode.Assume, escrow);
+        this.escrowUserInvariants(Mode.Assume, escrow, sender);
 
         // Only claim one unstETH for simplicity
         uint256 maxUnstETHIdsCount = 1;
@@ -149,7 +149,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         escrow.claimNextWithdrawalsBatch(maxUnstETHIdsCount);
         vm.stopPrank();
 
-        _escrowInvariants(Mode.Assert, escrow);
-        _escrowUserInvariants(Mode.Assert, escrow, sender);
+        this.escrowInvariants(Mode.Assert, escrow);
+        this.escrowUserInvariants(Mode.Assert, escrow, sender);
     }
 }
