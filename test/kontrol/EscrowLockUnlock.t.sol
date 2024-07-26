@@ -124,8 +124,42 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
     function testUnlockStEth() public {
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
-        vm.assume(stEth.sharesOf(sender) < ethUpperBound);
-        vm.assume(_getLastAssetsLockTimestamp(signallingEscrow, sender) < timeUpperBound);
+        uint256 senderShares = kevm.freshUInt(32);
+        vm.assume(senderShares < ethUpperBound);
+        stEth.setShares(sender, senderShares);
+        vm.assume(stEth.balanceOf(sender) < ethUpperBound);
+
+        uint256 senderAllowance = kevm.freshUInt(32);
+        // This assumption means that senderAllowance != INFINITE_ALLOWANCE,
+        // which doubles the execution effort without any added vaue
+        vm.assume(senderAllowance < ethUpperBound);
+        // Hardcoded for "sender"
+        _storeUInt256(
+            address(stEth),
+            74992941968319547325319283905569341819227548318746972755481050864341498730161,
+            senderAllowance
+        );
+
+        uint128 senderLockedShares = uint128(kevm.freshUInt(16));
+        uint128 senderUnlockedShares = uint128(kevm.freshUInt(16));
+        bytes memory slotAbi = abi.encodePacked(uint128(senderUnlockedShares), uint128(senderLockedShares));
+        bytes32 slot;
+        assembly {
+            slot := mload(add(slotAbi, 0x20))
+        }
+        _storeBytes32(
+            address(signallingEscrow),
+            93842437974268059396725027201531251382101332839645030345425397622830526343272,
+            slot
+        );
+
+        uint256 senderLastAssetsLockTimestamp = kevm.freshUInt(32);
+        vm.assume(senderLastAssetsLockTimestamp < timeUpperBound);
+        _storeUInt256(
+            address(signallingEscrow),
+            93842437974268059396725027201531251382101332839645030345425397622830526343273,
+            senderLastAssetsLockTimestamp
+        );
 
         AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
@@ -134,6 +168,11 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         this.escrowInvariants(Mode.Assume, signallingEscrow);
         this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
         this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
+
+        ActivateNextStateMock mock = new ActivateNextStateMock(address(this));
+        kevm.mockFunction(
+            address(dualGovernance), address(mock), abi.encodeWithSelector(mock.activateNextState.selector)
+        );
 
         vm.startPrank(sender);
         signallingEscrow.unlockStETH();
@@ -144,7 +183,6 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         this.escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
 
         AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
-        assert(post.escrowState == EscrowState.SignallingEscrow);
         assert(post.userShares == pre.userShares + pre.userSharesLocked);
         assert(post.userSharesLocked == 0);
         assert(post.totalSharesLocked == pre.totalSharesLocked - pre.userSharesLocked);

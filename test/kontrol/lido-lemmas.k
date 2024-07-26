@@ -37,6 +37,9 @@ module LIDO-LEMMAS
       requires #rangeUInt(256, A) andBool #rangeUInt(256, B)
       [concrete(B), simplification, comm, preserves-definedness]
 
+    // ==Int
+    rule [int-eq-refl]: X ==Int X => true [simplification]
+
     // *Int
     rule A *Int B ==Int 0 => A ==Int 0 orBool B ==Int 0 [simplification]
 
@@ -90,9 +93,20 @@ module LIDO-LEMMAS
     // >>Int
     rule [shift-to-div]: X >>Int N => X /Int (2 ^Int N) [simplification(60), concrete(N)]
 
+    // Boolean equality
+    rule B ==K false => notBool B [simplification(30), comm]
+    rule B ==K true  =>         B [simplification(30), comm]
+
     // bool2Word
-    rule [bool2Word-lt-true]: bool2Word(_:Bool) <Int X:Int => true      requires 1 <Int X [simplification, concrete(X)]
-    rule [bool2Word-lt-one]:  bool2Word(B:Bool) <Int 1     => notBool B                   [simplification]
+    rule bool2Word(X)  ==Int 0 => notBool X [simplification(30), comm]
+    rule bool2Word(X) =/=Int 0 => X         [simplification(30), comm]
+    rule bool2Word(X)  ==Int 1 => X         [simplification(30), comm]
+    rule bool2Word(X) =/=Int 1 => notBool X [simplification(30), comm]
+
+    rule [bool2Word-lt-true]:  bool2Word(_:Bool) <Int X:Int => true      requires 1 <Int X [simplification(30), concrete(X)]
+    rule [bool2Word-lt-one]:   bool2Word(B:Bool) <Int 1     => notBool B                   [simplification(30)]
+    rule [bool2Word-gt-zero]:  0 <Int bool2Word(B:Bool)     => B                           [simplification(30)]
+    rule [bool2Word-gt-false]: X:Int <Int bool2Word(_:Bool) => false     requires 1 <Int X [simplification(30), concrete(X)]
 
     //
     // .Bytes

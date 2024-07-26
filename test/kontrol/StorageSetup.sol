@@ -277,12 +277,16 @@ contract StorageSetup is KontrolTest {
             _storeBytes32(address(_escrow), 2, slot2);
         }
         // Slot 5
-        {
+        // FIXME: This branching is done to avoid the fresh existential generation bug
+        if (_currentState == EscrowState.RageQuitEscrow) {
             uint8 batchesQueueStatus = uint8(kevm.freshUInt(1));
             _storeUInt256(address(_escrow), 5, batchesQueueStatus);
+        } else {
+            _storeUInt256(address(_escrow), 5, 0);
         }
         // Slot 9
-        {
+        // FIXME: This branching is done to avoid the fresh existential generation bug
+        if (_currentState == EscrowState.RageQuitEscrow) {
             uint32 rageQuitExtensionDelay = uint32(kevm.freshUInt(4));
             uint32 rageQuitWithdrawalsTimelock = uint32(kevm.freshUInt(4));
             uint40 rageQuitTimelockStartedAt = uint40(kevm.freshUInt(5));
@@ -297,6 +301,8 @@ contract StorageSetup is KontrolTest {
                 slot9 := mload(add(slot9Abi, 0x20))
             }
             _storeBytes32(address(_escrow), 9, slot9);
+        } else {
+            _storeUInt256(address(_escrow), 9, 0);
         }
     }
 
