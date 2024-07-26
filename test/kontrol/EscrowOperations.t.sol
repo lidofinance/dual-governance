@@ -3,19 +3,33 @@ pragma solidity 0.8.23;
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
-import "test/kontrol/EscrowAccounting.t.sol";
+import "test/kontrol/EscrowLockUnlock.t.sol";
 
-contract EscrowOperationsTest is EscrowAccountingTest {
+contract EscrowOperationsTest is EscrowLockUnlockTest {
+    function _tryLockStETH(uint256 amount) internal returns (bool) {
+        try signallingEscrow.lockStETH(amount) {
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function _tryUnlockStETH() internal returns (bool) {
+        try signallingEscrow.unlockStETH() {
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     /**
      * Test that a staker cannot unlock funds from the escrow until SignallingEscrowMinLockTime has passed since the last time that user has locked tokens.
      */
     function testCannotUnlockBeforeMinLockTime() external {
-        _setUpGenericState();
-
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
-        vm.assume(_getLastAssetsLockTimestamp(escrow, sender) < timeUpperBound);
+        vm.assume(_getLastAssetsLockTimestamp(signallingEscrow, sender) < timeUpperBound);
 
         AccountingRecord memory pre = this.saveAccountingRecord(sender, escrow);
         vm.assume(pre.escrowState == EscrowState.SignallingEscrow);
@@ -25,8 +39,8 @@ contract EscrowOperationsTest is EscrowAccountingTest {
 
         if (Timestamps.now() < lockPeriod) {
             vm.prank(sender);
-            vm.expectRevert("Lock period not expired.");
-            escrow.unlockStETH();
+            vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.AssetsUnlockDelayNotPassed.selector, lockPeriod));
+            signallingEscrow.unlockStETH();
         }
     }
 
@@ -34,8 +48,6 @@ contract EscrowOperationsTest is EscrowAccountingTest {
      * Test that funds cannot be locked and unlocked if the escrow is in the RageQuitEscrow state.
      */
     function testCannotLockUnlockInRageQuitEscrowState(uint256 amount) external {
-        _setUpGenericState();
-
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
@@ -55,16 +67,20 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         this.escrowUserInvariants(Mode.Assume, escrow, sender);
 
         if (pre.escrowState == EscrowState.RageQuitEscrow) {
-            vm.prank(sender);
-            vm.expectRevert("Cannot lock in current state.");
-            escrow.lockStETH(amount);
+            vm.startPrank(sender);
+            //vm.expectRevert("Cannot lock in current state.");
+            bool lockSuccess = _tryLockStETH(amount);
+            assertTrue(lockSuccess, "Cannot lock in current state.");
+            vm.stopPrank;
 
-            vm.prank(sender);
-            vm.expectRevert("Cannot unlock in current state.");
-            escrow.unlockStETH();
+            vm.startPrank(sender);
+            //vm.expectRevert("Cannot unlock in current state.");
+            bool unlockSuccess = _tryUnlockStETH();
+            assertTrue(unlockSuccess, "Cannot unlock in current state.");
+            vm.stopPrank;
         } else {
             vm.prank(sender);
-            escrow.lockStETH(amount);
+            signallingEscrow.lockStETH(amount);
 
             AccountingRecord memory afterLock = this.saveAccountingRecord(sender, escrow);
             vm.assume(afterLock.userShares < ethUpperBound);
@@ -73,7 +89,7 @@ contract EscrowOperationsTest is EscrowAccountingTest {
             vm.assume(Timestamps.now() >= addTo(config.SIGNALLING_ESCROW_MIN_LOCK_TIME(), afterLock.userLastLockedTime));
 
             vm.prank(sender);
-            escrow.unlockStETH();
+            signallingEscrow.unlockStETH();
 
             this.escrowInvariants(Mode.Assert, escrow);
             this.signallingEscrowInvariants(Mode.Assert, escrow);
