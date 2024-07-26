@@ -31,7 +31,7 @@ contract EscrowOperationsTest is EscrowLockUnlockTest {
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
         vm.assume(_getLastAssetsLockTimestamp(signallingEscrow, sender) < timeUpperBound);
 
-        AccountingRecord memory pre = this.saveAccountingRecord(sender, escrow);
+        AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
         vm.assume(pre.escrowState == EscrowState.SignallingEscrow);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
 
@@ -53,7 +53,7 @@ contract EscrowOperationsTest is EscrowLockUnlockTest {
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
         vm.assume(stEth.balanceOf(sender) < ethUpperBound);
 
-        AccountingRecord memory pre = this.saveAccountingRecord(sender, escrow);
+        AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
         vm.assume(0 < amount);
         vm.assume(amount <= pre.userBalance);
         vm.assume(amount <= pre.allowance);
@@ -62,9 +62,9 @@ contract EscrowOperationsTest is EscrowLockUnlockTest {
         _assumeNoOverflow(pre.userSharesLocked, amountInShares);
         _assumeNoOverflow(pre.totalSharesLocked, amountInShares);
 
-        this.escrowInvariants(Mode.Assume, escrow);
-        this.signallingEscrowInvariants(Mode.Assume, escrow);
-        this.escrowUserInvariants(Mode.Assume, escrow, sender);
+        this.escrowInvariants(Mode.Assume, signallingEscrow);
+        this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
+        this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
 
         if (pre.escrowState == EscrowState.RageQuitEscrow) {
             vm.startPrank(sender);
@@ -82,7 +82,7 @@ contract EscrowOperationsTest is EscrowLockUnlockTest {
             vm.prank(sender);
             signallingEscrow.lockStETH(amount);
 
-            AccountingRecord memory afterLock = this.saveAccountingRecord(sender, escrow);
+            AccountingRecord memory afterLock = this.saveAccountingRecord(sender, signallingEscrow);
             vm.assume(afterLock.userShares < ethUpperBound);
             //vm.assume(afterLock.userLastLockedTime < timeUpperBound);
             vm.assume(afterLock.userSharesLocked <= afterLock.totalSharesLocked);
@@ -91,11 +91,11 @@ contract EscrowOperationsTest is EscrowLockUnlockTest {
             vm.prank(sender);
             signallingEscrow.unlockStETH();
 
-            this.escrowInvariants(Mode.Assert, escrow);
-            this.signallingEscrowInvariants(Mode.Assert, escrow);
-            this.escrowUserInvariants(Mode.Assert, escrow, sender);
+            this.escrowInvariants(Mode.Assert, signallingEscrow);
+            this.signallingEscrowInvariants(Mode.Assert, signallingEscrow);
+            this.escrowUserInvariants(Mode.Assert, signallingEscrow, sender);
 
-            AccountingRecord memory post = this.saveAccountingRecord(sender, escrow);
+            AccountingRecord memory post = this.saveAccountingRecord(sender, signallingEscrow);
             assert(post.escrowState == EscrowState.SignallingEscrow);
             assert(post.userShares == pre.userShares);
             assert(post.escrowShares == pre.escrowShares);
