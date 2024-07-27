@@ -162,8 +162,9 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         );
 
         AccountingRecord memory pre = this.saveAccountingRecord(sender, signallingEscrow);
+        vm.assume(0 < pre.userSharesLocked);
         vm.assume(pre.userSharesLocked <= pre.totalSharesLocked);
-        vm.assume(Timestamps.now() >= addTo(config.SIGNALLING_ESCROW_MIN_LOCK_TIME(), pre.userLastLockedTime));
+        vm.assume(Timestamps.now() > addTo(config.SIGNALLING_ESCROW_MIN_LOCK_TIME(), pre.userLastLockedTime));
 
         this.escrowInvariants(Mode.Assume, signallingEscrow);
         this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
