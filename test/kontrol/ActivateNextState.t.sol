@@ -33,8 +33,26 @@ contract ActivateNextStateMock is StorageSetup {
 }
 
 contract ActivateNextStateTest is DualGovernanceSetUp {
+    function testActivateNextStateTermination() external {
+        dualGovernance.activateNextState();
+    }
+
+    function testActivateNextStateInvariants() external {
+        dualGovernance.activateNextState();
+
+        Escrow newSignallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
+        Escrow newRageQuitEscrow = Escrow(payable(dualGovernance.getRageQuitEscrow()));
+
+        this.dualGovernanceStorageInvariants(Mode.Assert, dualGovernance);
+        this.escrowStorageInvariants(Mode.Assert, newSignallingEscrow);
+        this.signallingEscrowStorageInvariants(Mode.Assert, newSignallingEscrow);
+        this.escrowStorageInvariants(Mode.Assert, newRageQuitEscrow);
+        this.rageQuitEscrowStorageInvariants(Mode.Assert, newRageQuitEscrow);
+    }
+
     function testEscrowStateTransition() public {
         State initialState = dualGovernance.getCurrentState();
+
         uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
         (,, Timestamp vetoSignallingActivationTime,) = dualGovernance.getVetoSignallingState();
         address sender = address(uint160(uint256(keccak256("sender"))));
