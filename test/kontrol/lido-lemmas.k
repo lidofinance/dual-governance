@@ -47,6 +47,9 @@ module LIDO-LEMMAS
     rule 0 /Int B         => 0         requires B =/=Int 0 [simplification, preserves-definedness]
     rule A /Int B ==Int 0 => A ==Int 0 requires B =/=Int 0 [simplification, preserves-definedness]
 
+    rule ( A *Int B ) /Int C => A *Int ( B /Int C ) requires B modInt C ==Int 0 [simplification, concrete(B, C), preserves-definedness]
+    rule ( A *Int B ) /Int C => ( A /Int C ) *Int B requires A modInt C ==Int 0 [simplification, concrete(A, C), preserves-definedness]
+
     // /Word
     rule  _ /Word W1 => 0          requires W1  ==Int 0 [simplification]
     rule W0 /Word W1 => W0 /Int W1 requires W1 =/=Int 0 [simplification, preserves-definedness]
@@ -73,8 +76,8 @@ module LIDO-LEMMAS
       requires C +Int D ==Int 0 [simplification, preserves-definedness]
 
     // modInt
-    rule (X *Int Y) modInt X => 0 [simplification, preserves-definedness]
-    rule (X *Int Y) modInt Y => 0 [simplification, preserves-definedness]
+    rule (X *Int Y) modInt Z => 0 requires X modInt Z ==Int 0 [simplification, concrete(X, Z), preserves-definedness]
+    rule (X *Int Y) modInt Z => 0 requires Y modInt Z ==Int 0 [simplification, concrete(Y, Z), preserves-definedness]
 
     // Further generalization of: maxUIntXXX &Int #asWord ( BA )
     rule X &Int #asWord ( BA ) => #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) )
@@ -339,39 +342,28 @@ module LIDO-LEMMAS
        andBool 0 <=Int Y andBool Y <Int SHIFT
        [simplification, concrete(W, SHIFT), preserves-definedness]
 
-    // // Update: value symbolic, slot symbolic
-    // rule ( VALUE:Int *Int SHIFT:Int ) |Int ( MASK:Int &Int #asWord ( SLOT:Bytes ) ) =>
-    //     #asWord ( ( #buf ( 32 -Int lengthBytes ( SLOT ), 0 ) +Bytes SLOT )
-    //               [ 32 -Int ( #getMaskShiftBytes(MASK) +Int #getMaskWidthBytes(MASK) ) :=
-    //                 #buf ( #getMaskWidthBytes(MASK), VALUE:Int ) ] )
-    //   requires #rangeUInt(256, SHIFT) andBool #rangeUInt(256, MASK) andBool lengthBytes(SLOT) <=Int 32
-    //    andBool #isMask(MASK)
-    //    andBool SHIFT ==Int 2 ^Int log2Int(SHIFT)
-    //    andBool #getMaskShiftBits(MASK) ==Int log2Int(SHIFT)
-    //    andBool 0 <=Int VALUE andBool VALUE <Int 2 ^Int #getMaskWidthBits(MASK)
-    //    [simplification, concrete(SHIFT, MASK), preserves-definedness]
+    // #buf and |Int
+    rule [buf-split-l]:
+      #buf ( W, X *Int SHIFT ) => #buf( W -Int ( log2Int(SHIFT) /Int 8 ), X ) +Bytes #buf( log2Int(SHIFT) /Int 8, 0)
+      requires 0 <=Int W andBool W <=Int 32 andBool rangeUInt(256, SHIFT)
+       andBool SHIFT ==Int 2 ^Int log2Int(SHIFT)
+       andBool log2Int(SHIFT) modInt 8 ==Int 0
+       andBool 0 <=Int X andBool X <Int 2 ^Int (8 *Int (W -Int ( log2Int(SHIFT) /Int 8)))
+       [simplification, concrete(W, SHIFT), preserves-definedness]
 
-    // // Update: value symbolic, slot symbolic, no shift
-    // rule VALUE:Int |Int ( MASK:Int &Int #asWord ( SLOT:Bytes ) ) =>
-    //     #asWord ( ( #buf ( 32 -Int lengthBytes ( SLOT ), 0 ) +Bytes SLOT )
-    //               [ 32 -Int ( #getMaskShiftBytes(MASK) +Int #getMaskWidthBytes(MASK) ) :=
-    //                 #buf ( #getMaskWidthBytes(MASK), VALUE:Int ) ] )
-    //   requires #rangeUInt(256, MASK) andBool lengthBytes(SLOT) <=Int 32
-    //    andBool #isMask(MASK)
-    //    andBool #getMaskShiftBits(MASK) ==Int 0
-    //    andBool 0 <=Int VALUE andBool VALUE <Int 2 ^Int #getMaskWidthBits(MASK)
-    //    [simplification, concrete(MASK), preserves-definedness]
+    rule [buf-bor-split]:
+      #buf ( N, X |Int Y ) => #buf ( N -Int #getFirstOneBit(X) /Int 8, X /Int ( 2 ^Int ( #getFirstOneBit(X) /Int 8 ) ) ) +Bytes
+                              #buf ( #getFirstOneBit(X) /Int 8, Y )
+      requires 0 <=Int N andBool N <=Int 32 andBool 0 <=Int #getFirstOneBit(X)
+       andBool 0 <=Int Y andBool Y <Int 2 ^Int ( 8 *Int ( #getFirstOneBit(X) /Int 8 ) )
+       [simplification, concrete(X), preserves-definedness]
 
-    // // Update: value concrete, slot symbolic
-    // rule VALUE |Int ( MASK:Int &Int #asWord ( SLOT:Bytes ) ) =>
-    //     #asWord ( ( #buf ( 32 -Int lengthBytes ( SLOT ), 0 ) +Bytes SLOT )
-    //               [ 32 -Int ( #getMaskShiftBytes(MASK) +Int #getMaskWidthBytes(MASK) ) :=
-    //                 #buf ( #getMaskWidthBytes(MASK), VALUE >>Int #getMaskShiftBits(MASK) ) ] )
-    //   requires #rangeUInt(256, MASK) andBool lengthBytes(SLOT) <=Int 32
-    //    andBool #isMask(MASK)
-    //    andBool 0 <=Int ( VALUE >>Int #getMaskShiftBits(MASK) )
-    //    andBool ( VALUE >>Int #getMaskShiftBits(MASK) ) <Int 2 ^Int #getMaskWidthBits(MASK)
-    //    [simplification, concrete(VALUE, MASK), preserves-definedness]
+    rule [buf-bor-subsume]:
+      #buf ( N, X |Int Y ) => #buf ( N, X )
+      requires 0 <=Int N andBool N <=Int 32
+       andBool 0 <=Int X andBool X <Int 2 ^Int ( 8 *Int N )
+       andBool Y modInt 2 ^Int ( 8 *Int N ) ==Int 0
+       [simplification, concrete(X), preserves-definedness]
 
     //
     // #lookup
@@ -479,23 +471,7 @@ module LIDO-LEMMAS-SPEC
           ) ... </k>
           requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int pow40
 
-    claim [masking-01-a]:
-      <k> runLemma(
-        1 |Int #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , WORD3:Int ) +Bytes b"\x00" )
-      ) => doneLemma(
-        1 |Int #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , WORD3:Int ) +Bytes b"\x01" )
-      ) ... </k>
-      requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 40
-
-    claim [masking-01-b]:
-      <k> runLemma(
-        ( TIMESTAMP_CELL:Int *Int 256 ) |Int ( 115792089237316195423570985008687907853269984665640564039457583726438152929535 &Int ( #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , _WORD3:Int ) +Bytes b"\x01" ) ) )
-      ) => doneLemma(
-        ( TIMESTAMP_CELL:Int *Int 256 ) |Int ( 115792089237316195423570985008687907853269984665640564039457583726438152929535 &Int ( #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01" ) ) )
-      ) ... </k>
-      requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 40
-
-    claim [masking-01]:
+    claim [slot-update-01]:
       <k> runLemma(
         ( maxUInt8 &Int ( ( TIMESTAMP_CELL:Int *Int pow48 ) |Int ( 115792089237316195423570985008687907853269984665640254554447762944319381569535 &Int ( ( TIMESTAMP_CELL:Int *Int 256 ) |Int ( 115792089237316195423570985008687907853269984665640564039457583726438152929535 &Int ( 1 |Int #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , _WORD4:Int ) +Bytes #buf ( 5 , _WORD3:Int ) +Bytes b"\x00" ) ) ) ) ) ) )
       ) => doneLemma(
@@ -503,7 +479,7 @@ module LIDO-LEMMAS-SPEC
       ) ... </k>
       requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 40
 
-    claim [masking-02]:
+    claim [slot-update-02]:
       <k> runLemma (
             ( ( maxUInt40 &Int ( ( 115341543235797707419527244145998463631733976271937281205136574426583511597055 &Int #asWord ( #buf ( 2 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ) /Int pow40 ) ) )
           ) => doneLemma (
@@ -511,12 +487,53 @@ module LIDO-LEMMAS-SPEC
           ) ... </k>
           requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 35
 
-    claim [masking-03]:
+    claim [slot-update-03]:
       <k> runLemma (
             ( maxUInt40 &Int ( ( TIMESTAMP_CELL:Int |Int ( 115792089237316195423570985008687907853269984665640564039457584006813618012160 &Int #asWord ( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ) ) /Int pow40 ) ) <=Int TIMESTAMP_CELL:Int
           ) => doneLemma (
             true
           ) ... </k>
           requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 35
+
+    claim [slot-update-04]:
+      <k> runLemma (
+            #asWord ( #range ( #buf ( 10 , ( ( ( TIMESTAMP_CELL:Int *Int pow48 ) /Int 256 ) |Int TIMESTAMP_CELL:Int ) ) , 5 , 5 ) ) <=Int TIMESTAMP_CELL:Int
+          ) => doneLemma (
+            true
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 35
+
+    claim [slot-update-05]:
+      <k> runLemma (
+            #asWord ( #range ( #buf ( 6 , TIMESTAMP_CELL:Int *Int 256 ) , 5 , 1 ) )
+          ) => doneLemma (
+            false
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 35
+
+    claim [slot-update-06]:
+      <k> runLemma (
+            #asWord ( #range ( #buf ( 26 , 960911443338137442927181681227604902095826437272264907948032 |Int WORD4:Int ) , 21 , 5 ) ) <=Int TIMESTAMP_CELL:Int
+          ) => doneLemma (
+            WORD4 <=Int TIMESTAMP_CELL
+          ) ... </k>
+          requires 0 <=Int WORD4 andBool WORD4 <Int 2 ^Int 40
+
+    claim [slot-update-07]:
+      <k> runLemma (
+            #asWord ( #range ( #buf ( 25 , ( ( ( WORD7:Int +Int 1 ) *Int pow200 ) |Int #asWord ( #buf ( 25 , ( 438052756531465687819472504520361015472122898704787692322816 |Int WORD6:Int ) ) ) ) ) , 20 , 5 ) ) <=Int TIMESTAMP_CELL:Int
+          ) => doneLemma (
+            WORD6 <=Int TIMESTAMP_CELL
+          ) ... </k>
+          requires 0 <=Int WORD6 andBool WORD6 <Int 2 ^Int 40
+           andBool 0 <=Int WORD7 andBool WORD7 <Int 256
+
+    claim [slot-update-08]:
+      <k> runLemma (
+            #asWord ( #buf ( 20 , 770621190285571058874329108704665103402425909248 |Int ( ( WORD7:Int +Int 1 ) *Int pow160 ) ) )
+          ) => doneLemma (
+            770621190285571058874329108704665103402425909248
+          ) ... </k>
+          requires 0 <=Int WORD7 andBool WORD7 <Int 256
 
 endmodule
