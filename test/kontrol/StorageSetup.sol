@@ -299,6 +299,14 @@ contract StorageSetup is KontrolTest {
         } else {
             _storeUInt256(address(_escrow), 5, 0);
         }
+        // Slot 8
+        if (_currentState == EscrowState.RageQuitEscrow) {
+            uint256 batchesQueueLength = uint256(kevm.freshUInt(32));
+            vm.assume(batchesQueueLength < 2 ** 64);
+            _storeUInt256(address(_escrow), 8, batchesQueueLength);
+        } else {
+            _storeUInt256(address(_escrow), 8, 0);
+        }
         // Slot 9
         // FIXME: This branching is done to avoid the fresh existential generation bug
         if (_currentState == EscrowState.RageQuitEscrow) {
