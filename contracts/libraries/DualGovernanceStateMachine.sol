@@ -6,13 +6,8 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
 
-import {Duration} from "../types/Duration.sol";
+import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
-import {TiebreakerConfigState, TiebreakerConfigUtils} from "../configuration/TiebreakerConfig.sol";
-import {
-    DualGovernanceStateMachineConfigUtils,
-    DualGovernanceStateMachineConfigState
-} from "../configuration/DualGovernanceConfig.sol";
 
 enum State {
     Unset,
@@ -24,8 +19,21 @@ enum State {
 }
 
 library DualGovernanceStateMachine {
-    using TiebreakerConfigUtils for TiebreakerConfigState;
-    using DualGovernanceStateMachineConfigUtils for DualGovernanceStateMachineConfigState;
+    using DualGovernanceStateMachineConfig for Config;
+
+    struct Config {
+        uint256 firstSealRageQuitSupport;
+        uint256 secondSealRageQuitSupport;
+        Duration dynamicTimelockMaxDuration;
+        Duration dynamicTimelockMinDuration;
+        Duration vetoSignallingMinActiveDuration;
+        Duration vetoSignallingDeactivationMaxDuration;
+        Duration vetoCooldownDuration;
+        Duration rageQuitExtensionDelay;
+        Duration rageQuitEthWithdrawalsMinTimelock;
+        uint256 rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber;
+        uint256[3] rageQuitEthWithdrawalsTimelockGrowthCoeffs;
+    }
 
     struct Context {
         ///
@@ -79,7 +87,7 @@ library DualGovernanceStateMachine {
         emit DualGovernanceStateChanged(State.Unset, State.Normal, self);
     }
 
-    function activateNextState(Context storage self, DualGovernanceStateMachineConfigState memory config) internal {
+    function activateNextState(Context storage self, Config memory config) internal {
         (State currentStatus, State newStatus) = DualGovernanceStateTransitions.getStateTransition(self, config);
 
         if (currentStatus == newStatus) {
@@ -123,10 +131,11 @@ library DualGovernanceStateMachine {
         return self.state;
     }
 
-    function getDynamicDelayDuration(
-        Context storage self,
-        DualGovernanceStateMachineConfigState memory config
-    ) internal view returns (Duration) {
+    function getNormalOrVetoCooldownStateExitedAt(Context storage self) internal view returns (Timestamp) {
+        return self.normalOrVetoCooldownExitedAt;
+    }
+
+    function getDynamicDelayDuration(Context storage self, Config memory config) internal view returns (Duration) {
         return config.calcDynamicDelayDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
@@ -144,18 +153,6 @@ library DualGovernanceStateMachine {
         return false;
     }
 
-    function isDeadlock(Context storage self, TiebreakerConfigState memory config) internal view returns (bool) {
-        State state = self.state;
-        if (state == State.Normal || state == State.VetoCooldown) return false;
-
-        // when the governance is locked for long period of time
-        if (config.isTiebreakerActivationTimeoutPassed(self.normalOrVetoCooldownExitedAt)) {
-            return true;
-        }
-
-        return self.state == State.RageQuit && config.isSomeSealableDeadlocked();
-    }
-
     function _deployNewSignallingEscrow(Context storage self, address escrowMasterCopy) private {
         IEscrow clone = IEscrow(Clones.clone(escrowMasterCopy));
         clone.initialize(address(this));
@@ -165,11 +162,11 @@ library DualGovernanceStateMachine {
 }
 
 library DualGovernanceStateTransitions {
-    using DualGovernanceStateMachineConfigUtils for DualGovernanceStateMachineConfigState;
+    using DualGovernanceStateMachineConfig for DualGovernanceStateMachine.Config;
 
     function getStateTransition(
         DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachineConfigState memory config
+        DualGovernanceStateMachine.Config memory config
     ) internal view returns (State currentStatus, State nextStatus) {
         currentStatus = self.state;
         if (currentStatus == State.Normal) {
@@ -189,7 +186,7 @@ library DualGovernanceStateTransitions {
 
     function _fromNormalState(
         DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachineConfigState memory config
+        DualGovernanceStateMachine.Config memory config
     ) private view returns (State) {
         return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
@@ -198,7 +195,7 @@ library DualGovernanceStateTransitions {
 
     function _fromVetoSignallingState(
         DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachineConfigState memory config
+        DualGovernanceStateMachine.Config memory config
     ) private view returns (State) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
@@ -217,7 +214,7 @@ library DualGovernanceStateTransitions {
 
     function _fromVetoSignallingDeactivationState(
         DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachineConfigState memory config
+        DualGovernanceStateMachine.Config memory config
     ) private view returns (State) {
         uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
@@ -238,7 +235,7 @@ library DualGovernanceStateTransitions {
 
     function _fromVetoCooldownState(
         DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachineConfigState memory config
+        DualGovernanceStateMachine.Config memory config
     ) private view returns (State) {
         if (!config.isVetoCooldownDurationPassed(self.enteredAt)) {
             return State.VetoCooldown;
@@ -250,7 +247,7 @@ library DualGovernanceStateTransitions {
 
     function _fromRageQuitState(
         DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachineConfigState memory config
+        DualGovernanceStateMachine.Config memory config
     ) private view returns (State) {
         if (!self.rageQuitEscrow.isRageQuitFinalized()) {
             return State.RageQuit;
@@ -258,5 +255,100 @@ library DualGovernanceStateTransitions {
         return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
             : State.VetoCooldown;
+    }
+}
+
+library DualGovernanceStateMachineConfig {
+    function isFirstSealRageQuitSupportCrossed(
+        DualGovernanceStateMachine.Config memory self,
+        uint256 rageQuitSupport
+    ) internal pure returns (bool) {
+        return rageQuitSupport > self.firstSealRageQuitSupport;
+    }
+
+    function isSecondSealRageQuitSupportCrossed(
+        DualGovernanceStateMachine.Config memory self,
+        uint256 rageQuitSupport
+    ) internal pure returns (bool) {
+        return rageQuitSupport > self.secondSealRageQuitSupport;
+    }
+
+    function isDynamicTimelockMaxDurationPassed(
+        DualGovernanceStateMachine.Config memory self,
+        Timestamp vetoSignallingActivatedAt
+    ) internal view returns (bool) {
+        return Timestamps.now() > self.dynamicTimelockMaxDuration.addTo(vetoSignallingActivatedAt);
+    }
+
+    function isDynamicTimelockDurationPassed(
+        DualGovernanceStateMachine.Config memory self,
+        Timestamp vetoSignallingActivatedAt,
+        uint256 rageQuitSupport
+    ) internal view returns (bool) {
+        Duration dynamicTimelock = calcDynamicDelayDuration(self, rageQuitSupport);
+        return Timestamps.now() > dynamicTimelock.addTo(vetoSignallingActivatedAt);
+    }
+
+    function isVetoSignallingReactivationDurationPassed(
+        DualGovernanceStateMachine.Config memory self,
+        Timestamp vetoSignallingReactivationTime
+    ) internal view returns (bool) {
+        return Timestamps.now() > self.vetoSignallingMinActiveDuration.addTo(vetoSignallingReactivationTime);
+    }
+
+    function isVetoSignallingDeactivationMaxDurationPassed(
+        DualGovernanceStateMachine.Config memory self,
+        Timestamp vetoSignallingDeactivationEnteredAt
+    ) internal view returns (bool) {
+        return Timestamps.now() > self.vetoSignallingDeactivationMaxDuration.addTo(vetoSignallingDeactivationEnteredAt);
+    }
+
+    function isVetoCooldownDurationPassed(
+        DualGovernanceStateMachine.Config memory self,
+        Timestamp vetoCooldownEnteredAt
+    ) internal view returns (bool) {
+        return Timestamps.now() > self.vetoCooldownDuration.addTo(vetoCooldownEnteredAt);
+    }
+
+    function calcDynamicDelayDuration(
+        DualGovernanceStateMachine.Config memory self,
+        uint256 rageQuitSupport
+    ) internal pure returns (Duration duration_) {
+        uint256 firstSealRageQuitSupport = self.firstSealRageQuitSupport;
+        uint256 secondSealRageQuitSupport = self.secondSealRageQuitSupport;
+        Duration dynamicTimelockMinDuration = self.dynamicTimelockMinDuration;
+        Duration dynamicTimelockMaxDuration = self.dynamicTimelockMaxDuration;
+
+        if (rageQuitSupport < firstSealRageQuitSupport) {
+            return Durations.ZERO;
+        }
+
+        if (rageQuitSupport >= secondSealRageQuitSupport) {
+            return dynamicTimelockMaxDuration;
+        }
+
+        duration_ = dynamicTimelockMinDuration
+            + Durations.from(
+                (rageQuitSupport - firstSealRageQuitSupport)
+                    * (dynamicTimelockMaxDuration - dynamicTimelockMinDuration).toSeconds()
+                    / (secondSealRageQuitSupport - firstSealRageQuitSupport)
+            );
+    }
+
+    function calcRageQuitWithdrawalsTimelock(
+        DualGovernanceStateMachine.Config memory self,
+        uint256 rageQuitRound
+    ) internal pure returns (Duration) {
+        if (rageQuitRound < self.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber) {
+            return self.rageQuitEthWithdrawalsMinTimelock;
+        }
+        return self.rageQuitEthWithdrawalsMinTimelock
+            + Durations.from(
+                (
+                    self.rageQuitEthWithdrawalsTimelockGrowthCoeffs[0] * rageQuitRound * rageQuitRound
+                        + self.rageQuitEthWithdrawalsTimelockGrowthCoeffs[1] * rageQuitRound
+                        + self.rageQuitEthWithdrawalsTimelockGrowthCoeffs[2]
+                ) / 10 ** 18
+            ); // TODO: rewrite in a prettier way
     }
 }

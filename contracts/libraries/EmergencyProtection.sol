@@ -1,132 +1,153 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Duration, Durations} from "../types/Duration.sol";
+import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
-struct EmergencyState {
-    address executionCommittee;
-    address activationCommittee;
-    Timestamp protectedTill;
-    bool isEmergencyModeActivated;
-    Duration emergencyModeDuration;
-    Timestamp emergencyModeEndsAfter;
-}
-
 library EmergencyProtection {
-    error NotEmergencyActivator(address account);
-    error NotEmergencyEnactor(address account);
-    error EmergencyCommitteeExpired(Timestamp timestamp, Timestamp protectedTill);
-    error InvalidEmergencyModeActiveValue(bool actual, bool expected);
+    error EmergencyProtectionDisabled();
+    error InvalidEmergencyModeDuration(Duration value);
+    error InvalidEmergencyProtectionDuration(Duration value);
+    error EmergencyCommitteeExpired(Timestamp protectedTill);
+    error InvalidEmergencyModeState(bool value);
+    error InvalidEmergencyActivatationCommittee(address actual, address expected);
+    error InvalidEmergencyExecutionCommittee(address actual, address expected);
 
-    event EmergencyModeActivated(Timestamp timestamp);
-    event EmergencyModeDeactivated(Timestamp timestamp);
-    event EmergencyActivationCommitteeSet(address indexed activationCommittee);
-    event EmergencyExecutionCommitteeSet(address indexed executionCommittee);
-    event EmergencyModeDurationSet(Duration emergencyModeDuration);
-    event EmergencyCommitteeProtectedTillSet(Timestamp newProtectedTill);
+    event EmergencyModeActivated();
+    event EmergencyModeDeactivated();
+    event EmergencyGovernanceSet(address newEmergencyGovernance);
+    event EmergencyActivationCommitteeSet(address newActivationCommittee);
+    event EmergencyExecutionCommitteeSet(address newActivationCommittee);
+    event EmergencyModeDurationSet(Duration newEmergencyModeDuration);
+    event EmergencyModeProtectionDurationSet(
+        Duration newEmergencyProtectionDuration, Timestamp newEmergencyModeProtectedTill
+    );
 
-    struct State {
-        // has rights to activate emergency mode
-        address activationCommittee;
-        Timestamp protectedTill;
-        // till this time, the committee may activate the emergency mode
-        Timestamp emergencyModeEndsAfter;
+    struct Config {
+        Duration minEmergencyModeDuration;
+        Duration maxEmergencyModeDuration;
+        Duration maxEmergencyProtectionDuration;
+        Duration minEmergencyProtectionDuration;
+    }
+
+    struct Context {
         Duration emergencyModeDuration;
-        // has rights to execute proposals in emergency mode
-        address executionCommittee;
+        Duration emergencyProtectionDuration;
+        Timestamp emergencyModeProtectedTill;
+        address emergencyActivationCommittee;
+        address emergencyExecutionCommittee;
+        Timestamp emergencyModeEndsAfter;
+        address emergencyGovernance;
     }
 
-    function setup(
-        State storage self,
-        address activationCommittee,
-        address executionCommittee,
-        Duration protectionDuration,
-        Duration emergencyModeDuration
+    function setEmergencyModeDuration(
+        Context storage self,
+        Config memory config,
+        Duration newEmergencyModeDuration
     ) internal {
-        address prevActivationCommittee = self.activationCommittee;
-        if (activationCommittee != prevActivationCommittee) {
-            self.activationCommittee = activationCommittee;
-            emit EmergencyActivationCommitteeSet(activationCommittee);
+        if (
+            newEmergencyModeDuration < config.minEmergencyModeDuration
+                || newEmergencyModeDuration > config.minEmergencyModeDuration
+        ) {
+            revert InvalidEmergencyModeDuration(newEmergencyModeDuration);
         }
-
-        address prevExecutionCommittee = self.executionCommittee;
-        if (executionCommittee != prevExecutionCommittee) {
-            self.executionCommittee = executionCommittee;
-            emit EmergencyExecutionCommitteeSet(executionCommittee);
+        if (self.emergencyModeDuration == newEmergencyModeDuration) {
+            return;
         }
+        self.emergencyModeDuration = newEmergencyModeDuration;
+        emit EmergencyModeDurationSet(newEmergencyModeDuration);
+    }
 
-        Timestamp prevProtectedTill = self.protectedTill;
-        Timestamp newProtectedTill = protectionDuration.addTo(Timestamps.now());
-
-        if (newProtectedTill != prevProtectedTill) {
-            self.protectedTill = newProtectedTill;
-            emit EmergencyCommitteeProtectedTillSet(newProtectedTill);
+    function setEmergencyGovernance(Context storage self, address newEmergencyGovernance) internal {
+        if (self.emergencyGovernance == newEmergencyGovernance) {
+            return;
         }
+        self.emergencyGovernance = newEmergencyGovernance;
+        emit EmergencyGovernanceSet(newEmergencyGovernance);
+    }
 
-        Duration prevEmergencyModeDuration = self.emergencyModeDuration;
-        if (emergencyModeDuration != prevEmergencyModeDuration) {
-            self.emergencyModeDuration = emergencyModeDuration;
-            emit EmergencyModeDurationSet(emergencyModeDuration);
+    function setEmergencyModeProtectedTill(
+        Context storage self,
+        Config memory config,
+        Duration newEmergencyProtectionDuration
+    ) internal {
+        if (
+            newEmergencyProtectionDuration < config.minEmergencyModeDuration
+                || newEmergencyProtectionDuration > config.minEmergencyModeDuration
+        ) {
+            revert InvalidEmergencyProtectionDuration(newEmergencyProtectionDuration);
         }
-    }
-
-    function activate(State storage self) internal {
-        Timestamp timestamp = Timestamps.now();
-        if (timestamp > self.protectedTill) {
-            revert EmergencyCommitteeExpired(timestamp, self.protectedTill);
+        Timestamp newEmergencyModeProtectedTill = newEmergencyProtectionDuration.addTo(Timestamps.now());
+        if (
+            self.emergencyModeProtectedTill == newEmergencyModeProtectedTill
+                && self.emergencyModeProtectedTill == newEmergencyModeProtectedTill
+        ) {
+            return;
         }
-        self.emergencyModeEndsAfter = self.emergencyModeDuration.addTo(timestamp);
-        emit EmergencyModeActivated(timestamp);
+        self.emergencyModeProtectedTill = newEmergencyModeProtectedTill;
+        self.emergencyProtectionDuration = newEmergencyProtectionDuration;
+        emit EmergencyModeProtectionDurationSet(newEmergencyProtectionDuration, newEmergencyModeProtectedTill);
     }
 
-    function deactivate(State storage self) internal {
-        self.activationCommittee = address(0);
-        self.executionCommittee = address(0);
-        self.protectedTill = Timestamps.ZERO;
-        self.emergencyModeEndsAfter = Timestamps.ZERO;
-        self.emergencyModeDuration = Durations.ZERO;
-        emit EmergencyModeDeactivated(Timestamps.now());
+    function setEmergencyActivationCommittee(Context storage self, address newActivationCommittee) internal {
+        if (self.emergencyActivationCommittee == newActivationCommittee) {
+            return;
+        }
+        self.emergencyActivationCommittee = newActivationCommittee;
+        emit EmergencyActivationCommitteeSet(newActivationCommittee);
     }
 
-    function getEmergencyState(State storage self) internal view returns (EmergencyState memory res) {
-        res.executionCommittee = self.executionCommittee;
-        res.activationCommittee = self.activationCommittee;
-        res.protectedTill = self.protectedTill;
-        res.emergencyModeDuration = self.emergencyModeDuration;
-        res.emergencyModeEndsAfter = self.emergencyModeEndsAfter;
-        res.isEmergencyModeActivated = isEmergencyModeActivated(self);
+    function setEmergencyExecutionCommittee(Context storage self, address newExecutionCommittee) internal {
+        if (self.emergencyActivationCommittee == newExecutionCommittee) {
+            return;
+        }
+        self.emergencyExecutionCommittee = newExecutionCommittee;
+        emit EmergencyExecutionCommitteeSet(newExecutionCommittee);
     }
 
-    function isEmergencyModeActivated(State storage self) internal view returns (bool) {
-        return self.emergencyModeEndsAfter.isNotZero();
-    }
-
-    function isEmergencyModePassed(State storage self) internal view returns (bool) {
-        Timestamp endsAfter = self.emergencyModeEndsAfter;
-        return endsAfter.isNotZero() && Timestamps.now() > endsAfter;
-    }
-
-    function isEmergencyProtectionEnabled(State storage self) internal view returns (bool) {
-        return Timestamps.now() <= self.protectedTill || self.emergencyModeEndsAfter.isNotZero();
-    }
-
-    function checkActivationCommittee(State storage self, address account) internal view {
-        if (self.activationCommittee != account) {
-            revert NotEmergencyActivator(account);
+    function checkActivationCommittee(Context storage self, address account) internal view {
+        if (self.emergencyActivationCommittee != account) {
+            revert InvalidEmergencyActivatationCommittee(account, self.emergencyActivationCommittee);
         }
     }
 
-    function checkExecutionCommittee(State storage self, address account) internal view {
-        if (self.executionCommittee != account) {
-            revert NotEmergencyEnactor(account);
+    function checkExecutionCommittee(Context storage self, address account) internal view {
+        if (self.emergencyExecutionCommittee != account) {
+            revert InvalidEmergencyExecutionCommittee(account, self.emergencyExecutionCommittee);
         }
     }
 
-    function checkEmergencyModeActive(State storage self, bool expected) internal view {
-        bool actual = isEmergencyModeActivated(self);
-        if (actual != expected) {
-            revert InvalidEmergencyModeActiveValue(actual, expected);
+    function checkEmergencyProtectionEnabled(Context storage self) internal view {
+        if (!isEmergencyProtectionEnabled(self)) {
+            revert EmergencyProtectionDisabled();
         }
+    }
+
+    function checkEmergencyMode(Context storage self, bool isActive) internal view {
+        bool isActiveActual = isEmergencyModeActive(self);
+        if (isActiveActual != isActive) {
+            revert InvalidEmergencyModeState(isActive);
+        }
+    }
+
+    function isEmergencyModeActive(Context storage self) internal view returns (bool) {
+        return self.emergencyModeEndsAfter >= Timestamps.now();
+    }
+
+    function isEmergencyProtectionEnabled(Context memory self) internal view returns (bool) {
+        return Timestamps.now() <= self.emergencyModeProtectedTill;
+    }
+
+    function activate(Context storage self) internal {
+        if (Timestamps.now() > self.emergencyModeProtectedTill) {
+            revert EmergencyCommitteeExpired(self.emergencyModeProtectedTill);
+        }
+        self.emergencyModeEndsAfter = self.emergencyModeDuration.addTo(Timestamps.now());
+        emit EmergencyModeActivated();
+    }
+
+    function deactivate(Context storage self) internal {
+        self.emergencyModeEndsAfter = Timestamps.now();
+        emit EmergencyModeDeactivated();
     }
 }

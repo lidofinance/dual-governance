@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IGovernance, IConfigurableTimelock} from "./interfaces/ITimelock.sol";
+import {IGovernance, ITimelock} from "./interfaces/ITimelock.sol";
 
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 
@@ -9,16 +9,16 @@ contract SingleGovernance is IGovernance {
     error NotGovernance(address account);
 
     address public immutable GOVERNANCE;
-    IConfigurableTimelock public immutable TIMELOCK;
+    ITimelock public immutable TIMELOCK;
 
     constructor(address governance, address timelock) {
         GOVERNANCE = governance;
-        TIMELOCK = IConfigurableTimelock(timelock);
+        TIMELOCK = ITimelock(timelock);
     }
 
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _checkGovernance(msg.sender);
-        return TIMELOCK.submit(TIMELOCK.CONFIG().ADMIN_EXECUTOR(), calls);
+        return TIMELOCK.submit(TIMELOCK.getAdminExecutor(), calls);
     }
 
     function scheduleProposal(uint256 proposalId) external {

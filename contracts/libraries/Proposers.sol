@@ -3,8 +3,6 @@ pragma solidity 0.8.26;
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {AdminExecutorConfigState} from "../configuration/AdminExecutorConfig.sol";
-
 struct Proposer {
     bool isAdmin;
     address account;
@@ -54,7 +52,7 @@ library Proposers {
         emit ProposerRegistered(proposer, executor);
     }
 
-    function unregister(State storage self, AdminExecutorConfigState memory config, address proposer) internal {
+    function unregister(State storage self, address adminExecutor, address proposer) internal {
         uint256 proposerIndexToDelete;
         ExecutorData memory executorData = self.executors[proposer];
         unchecked {
@@ -72,7 +70,7 @@ library Proposers {
         delete self.executors[proposer];
 
         address executor = executorData.executor;
-        if (executor == config.adminExecutor && self.executorRefsCounts[executor] == 1) {
+        if (executor == adminExecutor && self.executorRefsCounts[executor] == 1) {
             revert LastAdminProposerRemoval();
         }
 
@@ -100,13 +98,9 @@ library Proposers {
         return self.executors[account].proposerIndexOneBased != 0;
     }
 
-    function isAdminProposer(
-        State storage self,
-        AdminExecutorConfigState memory config,
-        address account
-    ) internal view returns (bool) {
+    function isAdminProposer(State storage self, address adminExecutor, address account) internal view returns (bool) {
         ExecutorData memory executorData = self.executors[account];
-        return executorData.proposerIndexOneBased != 0 && executorData.executor == config.adminExecutor;
+        return executorData.proposerIndexOneBased != 0 && executorData.executor == adminExecutor;
     }
 
     function isExecutor(State storage self, address account) internal view returns (bool) {
@@ -127,13 +121,9 @@ library Proposers {
         }
     }
 
-    function checkAdminProposer(
-        State storage self,
-        AdminExecutorConfigState memory config,
-        address account
-    ) internal view {
+    function checkAdminProposer(State storage self, address adminExecutor, address account) internal view {
         checkProposer(self, account);
-        if (!isAdminProposer(self, config, account)) {
+        if (!isAdminProposer(self, adminExecutor, account)) {
             revert NotAdminProposer(account);
         }
     }

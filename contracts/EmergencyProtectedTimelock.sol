@@ -2,18 +2,20 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "./types/Duration.sol";
-import {Timestamp} from "./types/Timestamp.sol";
+import {Timestamp, Timestamps} from "./types/Timestamp.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ITimelock, ProposalStatus} from "./interfaces/ITimelock.sol";
 
-import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
+import {EmergencyProtection} from "./libraries/EmergencyProtections.sol";
 
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
 
-import {AdminExecutorConfigUtils} from "./configuration/AdminExecutorConfig.sol";
-import {IEmergencyProtectedTimelockConfig} from "./configuration/EmergencyProtectedTimelockConfig.sol";
+import {
+    Timelock,
+    IEmergencyProtectedTimelockConfigProvider
+} from "./configuration/EmergencyProtectedTimelockConfigProvider.sol";
 
 /// @title EmergencyProtectedTimelock
 /// @dev A timelock contract with emergency protection functionality.
@@ -21,22 +23,34 @@ import {IEmergencyProtectedTimelockConfig} from "./configuration/EmergencyProtec
 /// while providing emergency protection features to prevent unauthorized
 /// execution during emergency situations.
 contract EmergencyProtectedTimelock is ITimelock {
+    using Timelock for Timelock.Context;
     using ExecutableProposals for ExecutableProposals.State;
-    using EmergencyProtection for EmergencyProtection.State;
+    using EmergencyProtection for EmergencyProtection.Context;
 
-    error InvalidGovernance(address governance);
+    error InvalidConfigProvider(address value);
     error NotGovernance(address account, address governance);
+    error NotAdminExecutor(address account, address adminExecutor);
 
-    event GovernanceSet(address governance);
+    error EmergencyModePassed();
+    error EmergencyModeActive();
+    error EmergencyModeNotActive();
+    error NotEmergencyActivationCommittee();
+    error NotEmergencyExecutionCommittee();
+    error EmergencyProtectionExpired();
 
-    address internal _governance;
-    IEmergencyProtectedTimelockConfig public immutable CONFIG;
+    event ConfigProviderSet(address newConfigProvider);
+    event EmergencyModeActivated(Timestamp timestamp);
+    event EmergencyModeDeactivated(Timestamp timestamp);
 
+    Timelock.Context internal _timelock;
     ExecutableProposals.State internal _proposals;
-    EmergencyProtection.State internal _emergencyProtection;
+    EmergencyProtection.Context internal _emergencyProtection;
 
-    constructor(address config) {
-        CONFIG = IEmergencyProtectedTimelockConfig(config);
+    IEmergencyProtectedTimelockConfigProvider internal _configProvider;
+
+    constructor(address configProvider, address adminExecutor) {
+        setConfigProvider(configProvider);
+        _timelock.setAdminExecutor(adminExecutor);
     }
 
     // ---
@@ -49,7 +63,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
     /// @return newProposalId The ID of the newly created proposal.
     function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId) {
-        _checkGovernance(msg.sender);
+        _timelock.checkGovernance(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
     }
 
@@ -57,23 +71,55 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// Only the governance contract can call this function.
     /// @param proposalId The ID of the proposal to be scheduled.
     function schedule(uint256 proposalId) external {
-        _checkGovernance(msg.sender);
-        _proposals.schedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
+        _timelock.checkGovernance(msg.sender);
+        _proposals.schedule(proposalId, _timelock.afterSubmitDelay);
     }
 
     /// @dev Executes a scheduled proposal.
     /// Checks if emergency mode is active and prevents execution if it is.
     /// @param proposalId The ID of the proposal to be executed.
     function execute(uint256 proposalId) external {
-        _emergencyProtection.checkEmergencyModeActive(false);
-        _proposals.execute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
+        _emergencyProtection.checkEmergencyMode({isActive: false});
+        _proposals.execute(proposalId, _timelock.getAfterScheduleDelay());
     }
 
     /// @dev Cancels all non-executed proposals.
     /// Only the governance contract can call this function.
     function cancelAllNonExecutedProposals() external {
-        _checkGovernance(msg.sender);
+        _timelock.checkGovernance(msg.sender);
         _proposals.cancelAll();
+    }
+
+    // ---
+    // Timelock Management
+    // ---
+
+    function setConfigProvider(address newConfigProvider) public {
+        if (newConfigProvider == address(0)) {
+            revert InvalidConfigProvider(newConfigProvider);
+        }
+        if (newConfigProvider == address(_configProvider)) {
+            return;
+        }
+        _configProvider = IEmergencyProtectedTimelockConfigProvider(newConfigProvider);
+        emit ConfigProviderSet(newConfigProvider);
+    }
+
+    function setGovernance(address newGovernance) external {
+        _timelock.checkAdminExecutor(msg.sender);
+        _timelock.setGovernance(newGovernance);
+    }
+
+    function setAdminExecutor(address newAdminExecutor) external {
+        _timelock.checkAdminExecutor(msg.sender);
+        _timelock.setAdminExecutor(newAdminExecutor);
+    }
+
+    function setDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
+        _timelock.checkAdminExecutor(msg.sender);
+        Timelock.Config memory timelockConfig = _configProvider.getTimelockConfig();
+        _timelock.setAfterSubmitDelay(timelockConfig, afterSubmitDelay);
+        _timelock.setAfterScheduleDelay(timelockConfig, afterScheduleDelay);
     }
 
     /// @dev Transfers ownership of the executor contract to a new owner.
@@ -81,27 +127,35 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @param executor The address of the executor contract.
     /// @param owner The address of the new owner.
     function transferExecutorOwnership(address executor, address owner) external {
-        AdminExecutorConfigUtils.checkAdminExecutor(CONFIG, msg.sender);
+        _timelock.checkAdminExecutor(msg.sender);
         IOwnable(executor).transferOwnership(owner);
-    }
-
-    /// @dev Sets a new governance contract address.
-    /// Only the admin executor can call this function.
-    /// @param newGovernance The address of the new governance contract.
-    function setGovernance(address newGovernance) external {
-        AdminExecutorConfigUtils.checkAdminExecutor(CONFIG, msg.sender);
-        _setGovernance(newGovernance);
     }
 
     // ---
     // Emergency Protection Functionality
     // ---
+    function setupEmergencyProtection(
+        address emergencyGovernance,
+        address emergencyActivationCommittee,
+        address emergencyExecutionCommittee,
+        Duration protectionDuration,
+        Duration emergencyModeDuration
+    ) external {
+        _timelock.checkAdminExecutor(msg.sender);
+        EmergencyProtection.Config memory emergencyConfig = _configProvider.getEmergencyProtectionConfig();
+        _emergencyProtection.setEmergencyGovernance(emergencyGovernance);
+        _emergencyProtection.setEmergencyModeDuration(emergencyConfig, emergencyModeDuration);
+        _emergencyProtection.setEmergencyModeProtectedTill(emergencyConfig, protectionDuration);
+        _emergencyProtection.setEmergencyActivationCommittee(emergencyActivationCommittee);
+        _emergencyProtection.setEmergencyExecutionCommittee(emergencyExecutionCommittee);
+    }
 
     /// @dev Activates the emergency mode.
     /// Only the activation committee can call this function.
     function activateEmergencyMode() external {
         _emergencyProtection.checkActivationCommittee(msg.sender);
-        _emergencyProtection.checkEmergencyModeActive(false);
+        _emergencyProtection.checkEmergencyProtectionEnabled();
+        _emergencyProtection.checkEmergencyMode({isActive: false});
         _emergencyProtection.activate();
     }
 
@@ -109,18 +163,16 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// Checks if emergency mode is active and if the caller is part of the execution committee.
     /// @param proposalId The ID of the proposal to be executed.
     function emergencyExecute(uint256 proposalId) external {
-        _emergencyProtection.checkEmergencyModeActive(true);
         _emergencyProtection.checkExecutionCommittee(msg.sender);
-        _proposals.execute(proposalId, /* afterScheduleDelay */ Duration.wrap(0));
+        _emergencyProtection.checkEmergencyMode({isActive: true});
+        _proposals.execute({proposalId: proposalId, afterScheduleDelay: Duration.wrap(0)});
     }
 
     /// @dev Deactivates the emergency mode.
     /// If the emergency mode has not passed, only the admin executor can call this function.
     function deactivateEmergencyMode() external {
-        _emergencyProtection.checkEmergencyModeActive(true);
-        if (!_emergencyProtection.isEmergencyModePassed()) {
-            AdminExecutorConfigUtils.checkAdminExecutor(CONFIG, msg.sender);
-        }
+        _timelock.checkAdminExecutor(msg.sender);
+        _emergencyProtection.checkEmergencyMode({isActive: true});
         _emergencyProtection.deactivate();
         _proposals.cancelAll();
     }
@@ -128,49 +180,35 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @dev Resets the system after entering the emergency mode.
     /// Only the execution committee can call this function.
     function emergencyReset() external {
-        _emergencyProtection.checkEmergencyModeActive(true);
         _emergencyProtection.checkExecutionCommittee(msg.sender);
+        _emergencyProtection.checkEmergencyMode({isActive: true});
         _emergencyProtection.deactivate();
-        _setGovernance(CONFIG.EMERGENCY_GOVERNANCE());
         _proposals.cancelAll();
+        _timelock.setGovernance(_emergencyProtection.emergencyGovernance);
     }
 
-    /// @dev Sets the parameters for the emergency protection functionality.
-    /// Only the admin executor can call this function.
-    /// @param activator The address of the activation committee.
-    /// @param enactor The address of the execution committee.
-    /// @param protectionDuration The duration of the protection period.
-    /// @param emergencyModeDuration The duration of the emergency mode.
-    function setEmergencyProtection(
-        address activator,
-        address enactor,
-        Duration protectionDuration,
-        Duration emergencyModeDuration
-    ) external {
-        AdminExecutorConfigUtils.checkAdminExecutor(CONFIG, msg.sender);
-        _emergencyProtection.setup(activator, enactor, protectionDuration, emergencyModeDuration);
+    function getEmergencyProtectionContext() external view returns (EmergencyProtection.Context memory) {
+        return _emergencyProtection;
     }
 
-    /// @dev Checks if the emergency protection functionality is enabled.
-    /// @return A boolean indicating if the emergency protection is enabled.
-    function isEmergencyProtectionEnabled() external view returns (bool) {
-        return _emergencyProtection.isEmergencyProtectionEnabled();
-    }
-
-    /// @dev Retrieves the current emergency state.
-    /// @return res The EmergencyState struct containing the current emergency state.
-    function getEmergencyState() external view returns (EmergencyState memory res) {
-        res = _emergencyProtection.getEmergencyState();
+    function isEmergencyModeActive() public view returns (bool isActive) {
+        isActive = _emergencyProtection.isEmergencyModeActive();
     }
 
     // ---
     // Timelock View Methods
     // ---
 
-    /// @dev Retrieves the address of the current governance contract.
-    /// @return governance The address of the current governance contract.
-    function getGovernance() external view returns (address governance) {
-        governance = _governance;
+    function getAdminExecutor() external view returns (address) {
+        return _timelock.adminExecutor;
+    }
+
+    function getAfterSubmitDelay() external view returns (Duration) {
+        return _timelock.afterSubmitDelay;
+    }
+
+    function getAfterScheduleDelay() external view returns (Duration) {
+        return _timelock.afterScheduleDelay;
     }
 
     /// @dev Retrieves the details of a proposal.
@@ -223,37 +261,14 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @param proposalId The ID of the proposal.
     /// @return A boolean indicating if the proposal can be executed.
     function canExecute(uint256 proposalId) external view returns (bool) {
-        return !_emergencyProtection.isEmergencyModeActivated()
-            && _proposals.canExecute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
+        return !_emergencyProtection.isEmergencyModeActive()
+            && _proposals.canExecute(proposalId, _timelock.getAfterScheduleDelay());
     }
 
     /// @dev Checks if a proposal can be scheduled.
     /// @param proposalId The ID of the proposal.
     /// @return A boolean indicating if the proposal can be scheduled.
     function canSchedule(uint256 proposalId) external view returns (bool) {
-        return _proposals.canSchedule(proposalId, CONFIG.AFTER_SUBMIT_DELAY());
-    }
-
-    // ---
-    // Internal Methods
-    // ---
-
-    /// @dev Internal function to set the governance contract address.
-    /// @param newGovernance The address of the new governance contract.
-    function _setGovernance(address newGovernance) internal {
-        address prevGovernance = _governance;
-        if (newGovernance == prevGovernance || newGovernance == address(0)) {
-            revert InvalidGovernance(newGovernance);
-        }
-        _governance = newGovernance;
-        emit GovernanceSet(newGovernance);
-    }
-
-    /// @dev Internal function to check if the caller is the governance contract.
-    /// @param account The address to check.
-    function _checkGovernance(address account) internal view {
-        if (_governance != account) {
-            revert NotGovernance(account, _governance);
-        }
+        return _proposals.canSchedule(proposalId, _timelock.getAfterSubmitDelay());
     }
 }

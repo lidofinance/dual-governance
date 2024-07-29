@@ -11,4 +11,5 @@ interface IEscrow {
     function MASTER_COPY() external view returns (address);
     function isRageQuitFinalized() external view returns (bool);
     function getRageQuitSupport() external view returns (uint256 rageQuitSupport);
+    function setConfigProvider(address newConfigProvider) external;
 }

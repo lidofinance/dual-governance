@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import {Timestamp} from "../types/Timestamp.sol";
 
-import {IEmergencyProtectedTimelockConfig} from "../configuration/EmergencyProtectedTimelockConfig.sol";
 import {Status as ProposalStatus} from "../libraries/ExecutableProposals.sol";
 import {ExternalCall} from "../libraries/ExternalCalls.sol";
 
@@ -33,13 +32,10 @@ interface ITimelock {
     function canSchedule(uint256 proposalId) external view returns (bool);
     function canExecute(uint256 proposalId) external view returns (bool);
 
+    function getAdminExecutor() external view returns (address);
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal);
     function getProposalInfo(uint256 proposalId)
         external
         view
         returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt);
-}
-
-interface IConfigurableTimelock is ITimelock {
-    function CONFIG() external view returns (IEmergencyProtectedTimelockConfig config);
 }
