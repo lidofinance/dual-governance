@@ -18,6 +18,6 @@ contract VetoCooldownTest is DualGovernanceSetUp {
         Timestamp timeEnteredAt = Timestamp.wrap(_getEnteredAt(dualGovernance));
         Duration timeInVetoCooldown = Durations.between(Timestamps.now(), timeEnteredAt);
         bool durationHasElapsed = (timeInVetoCooldown > config.VETO_COOLDOWN_DURATION());
-        assert(stillInVetoCooldown == durationHasElapsed);
+        assert(stillInVetoCooldown != durationHasElapsed);
     }
 }
