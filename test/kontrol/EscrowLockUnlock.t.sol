@@ -191,13 +191,14 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
 
         // Accounts for rounding errors in the conversion to and from shares
         uint256 amount = stEth.getPooledEthByShares(pre.userSharesLocked);
-        assert(pre.escrowBalance - amount <= post.escrowBalance);
-        assert(pre.totalEth - amount <= post.totalEth);
-        assert(post.userBalance <= post.userBalance + amount);
 
-        uint256 errorTerm = stEth.getPooledEthByShares(1) + 1;
-        assert(post.escrowBalance <= pre.escrowBalance - amount + errorTerm);
-        assert(post.totalEth <= pre.totalEth - amount + errorTerm);
-        assert(pre.userBalance + amount < errorTerm || pre.userBalance + amount - errorTerm <= post.userBalance);
+        assert(pre.escrowBalance - amount < 1 || pre.escrowBalance - amount - 1 <= post.escrowBalance);
+        assert(post.escrowBalance <= pre.escrowBalance - amount);
+
+        assert(pre.totalEth - amount < 1 || pre.totalEth - amount - 1 <= post.totalEth);
+        assert(post.totalEth <= pre.totalEth - amount);
+
+        assert(pre.userBalance + amount <= post.userBalance);
+        assert(post.userBalance <= pre.userBalance + amount + 1);
     }
 }
