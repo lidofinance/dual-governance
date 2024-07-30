@@ -352,7 +352,7 @@ module LIDO-LEMMAS
        [simplification, concrete(W, SHIFT), preserves-definedness]
 
     rule [buf-bor-split]:
-      #buf ( N, X |Int Y ) => #buf ( N -Int #getFirstOneBit(X) /Int 8, X /Int ( 2 ^Int ( #getFirstOneBit(X) /Int 8 ) ) ) +Bytes
+      #buf ( N, X |Int Y ) => #buf ( N -Int #getFirstOneBit(X) /Int 8, X /Int ( 2 ^Int ( 8 *Int ( #getFirstOneBit(X) /Int 8 ) ) ) ) +Bytes
                               #buf ( #getFirstOneBit(X) /Int 8, Y )
       requires 0 <=Int N andBool N <=Int 32 andBool 0 <=Int #getFirstOneBit(X)
        andBool 0 <=Int Y andBool Y <Int 2 ^Int ( 8 *Int ( #getFirstOneBit(X) /Int 8 ) )
@@ -535,5 +535,15 @@ module LIDO-LEMMAS-SPEC
             770621190285571058874329108704665103402425909248
           ) ... </k>
           requires 0 <=Int WORD7 andBool WORD7 <Int 256
+
+    claim [slot-update-09]:
+      <k> runLemma (
+            ( 481644099385675654177479669474857658256926169505224677670350078624137216 |Int ( 115790322390251417039241401711187164934754157181743689629425282016341011726335 &Int #asWord ( #buf ( 2 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ) )
+          ) => doneLemma (
+            #asWord ( #buf ( 2 , WORD7:Int ) +Bytes b"E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) )
+          ) ... </k>
+          requires 0 <=Int WORD5 andBool WORD5 <Int 2 ^Int 35
+           andBool 0 <=Int WORD6 andBool WORD6 <Int 2 ^Int 35
+           andBool 0 <=Int WORD7 andBool WORD7 <Int 256
 
 endmodule

@@ -39,12 +39,10 @@ contract ActivateNextStateTest is DualGovernanceSetUp {
 
     function testActivateNextStateCorrectEscrows() external {
         State preState = dualGovernance.getCurrentState();
-        vm.assume(preState != State.RageQuit);
 
         dualGovernance.activateNextState();
 
         State postState = dualGovernance.getCurrentState();
-        vm.assume(postState == State.RageQuit);
 
         Escrow newSignallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
         Escrow newRageQuitEscrow = Escrow(payable(dualGovernance.getRageQuitEscrow()));
