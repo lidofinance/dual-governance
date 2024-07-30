@@ -10,10 +10,6 @@ interface IEscrowConfigProvider {
     function getEscrowConfig() external view returns (EscrowState.Config memory config);
 }
 
-interface ITiebreakerConfigProvider {
-    function getTiebreakerConfig() external view returns (Tiebreaker.Config memory config);
-}
-
 interface IDualGovernanceStateMachineConfigProvider {
     function getDualGovernanceStateMachineConfig()
         external
@@ -21,11 +17,7 @@ interface IDualGovernanceStateMachineConfigProvider {
         returns (DualGovernanceStateMachine.Config memory config);
 }
 
-interface IDualGovernanceConfigProvider is
-    IEscrowConfigProvider,
-    ITiebreakerConfigProvider,
-    IDualGovernanceStateMachineConfigProvider
-{}
+interface IDualGovernanceConfigProvider is IEscrowConfigProvider, IDualGovernanceStateMachineConfigProvider {}
 
 contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider {
     // ---
@@ -66,7 +58,6 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
 
     constructor(
         EscrowState.Config memory escrowConfig,
-        Tiebreaker.Config memory tiebreakerConfig,
         DualGovernanceStateMachine.Config memory dualGovStateMachineConfig
     ) {
         // ---
@@ -79,9 +70,9 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
         // ---
         // Tiebreaker Config Params Initialization
         // ---
-        MAX_SEALABLE_WITHDRAWAL_BLOCKERS = tiebreakerConfig.maxSealableWithdrawalBlockers;
-        MIN_TIEBREAKER_ACTIVATION_TIMEOUT = tiebreakerConfig.minTiebreakerActivationTimeout;
-        MAX_TIEBREAKER_ACTIVATION_TIMEOUT = tiebreakerConfig.maxTiebreakerActivationTimeout;
+        // MAX_SEALABLE_WITHDRAWAL_BLOCKERS = tiebreakerConfig.maxSealableWithdrawalBlockers;
+        // MIN_TIEBREAKER_ACTIVATION_TIMEOUT = tiebreakerConfig.minTiebreakerActivationTimeout;
+        // MAX_TIEBREAKER_ACTIVATION_TIMEOUT = tiebreakerConfig.maxTiebreakerActivationTimeout;
 
         // ---
         // Dual Governance State Machine Config Params Initialization
@@ -111,24 +102,24 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
     }
 
     function getEscrowConfig() external view returns (EscrowState.Config memory config) {
-        config.maxWithdrawalsBatchSize = MAX_WITHDRAWALS_BATCH_SIZE;
-        config.minWithdrawalsBatchSize = MIN_WITHDRAWALS_BATCH_SIZE;
+        // config.maxWithdrawalsBatchSize = MAX_WITHDRAWALS_BATCH_SIZE;
+        // config.minWithdrawalsBatchSize = MIN_WITHDRAWALS_BATCH_SIZE;
         config.signallingEscrowMinLockTime = SIGNALLING_ESCROW_MIN_LOCK_TIME;
     }
 
-    function getTiebreakerConfig() external view returns (Tiebreaker.Config memory config) {
-        config.maxSealableWithdrawalBlockers = MAX_SEALABLE_WITHDRAWAL_BLOCKERS;
-        config.minTiebreakerActivationTimeout = MIN_TIEBREAKER_ACTIVATION_TIMEOUT;
-        config.maxTiebreakerActivationTimeout = MAX_TIEBREAKER_ACTIVATION_TIMEOUT;
-    }
+    // function getTiebreakerConfig() external view returns (Tiebreaker.Config memory config) {
+    //     config.maxSealableWithdrawalBlockers = MAX_SEALABLE_WITHDRAWAL_BLOCKERS;
+    //     config.minTiebreakerActivationTimeout = MIN_TIEBREAKER_ACTIVATION_TIMEOUT;
+    //     config.maxTiebreakerActivationTimeout = MAX_TIEBREAKER_ACTIVATION_TIMEOUT;
+    // }
 
     function getDualGovernanceStateMachineConfig()
         external
         view
         returns (DualGovernanceStateMachine.Config memory config)
     {
-        config.firstSealRageQuitSupport = FIRST_SEAL_RAGE_QUIT_SUPPORT;
-        config.secondSealRageQuitSupport = SECOND_SEAL_RAGE_QUIT_SUPPORT;
+        // config.firstSealRageQuitSupport = FIRST_SEAL_RAGE_QUIT_SUPPORT;
+        // config.secondSealRageQuitSupport = SECOND_SEAL_RAGE_QUIT_SUPPORT;
         config.dynamicTimelockMinDuration = DYNAMIC_TIMELOCK_MIN_DURATION;
         config.dynamicTimelockMaxDuration = DYNAMIC_TIMELOCK_MAX_DURATION;
         config.vetoSignallingMinActiveDuration = VETO_SIGNALLING_MIN_ACTIVE_DURATION;
@@ -136,8 +127,8 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
         config.vetoCooldownDuration = VETO_COOLDOWN_DURATION;
         config.rageQuitExtensionDelay = RAGE_QUIT_EXTENSION_DELAY;
         config.rageQuitEthWithdrawalsMinTimelock = RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK;
-        config.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber =
-            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER;
+        // config.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber =
+        //     RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER;
         config.rageQuitEthWithdrawalsTimelockGrowthCoeffs = [
             RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_A,
             RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFF_B,

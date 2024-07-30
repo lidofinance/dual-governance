@@ -6,19 +6,11 @@ import {Duration} from "../types/Duration.sol";
 library Timelock {
     error InvalidGovernance(address value);
     error InvalidAdminExecutor(address value);
-    error InvalidAfterSubmitDelay(Duration value);
 
     event GovernanceSet(address newGovernance);
     event AdminExecutorSet(address newAdminExecutor);
     event AfterSubmitDelaySet(Duration newAfterSubmitDelay);
     event AfterScheduleDelaySet(Duration newAfterScheduleDelay);
-
-    struct Config {
-        Duration maxSubmitDelay;
-        Duration minSubmitDelay;
-        Duration minScheduleDelay;
-        Duration maxScheduleDelay;
-    }
 
     struct Context {
         /// @dev slot0 [0..159]
@@ -61,10 +53,7 @@ library Timelock {
         return self.afterScheduleDelay;
     }
 
-    function setAfterSubmitDelay(Context storage self, Config memory config, Duration newAfterSubmitDelay) internal {
-        if (newAfterSubmitDelay < config.minSubmitDelay || newAfterSubmitDelay > config.maxSubmitDelay) {
-            revert InvalidAfterSubmitDelay(newAfterSubmitDelay);
-        }
+    function setAfterSubmitDelay(Context storage self, Duration newAfterSubmitDelay) internal {
         if (self.afterSubmitDelay == newAfterSubmitDelay) {
             return;
         }
@@ -72,14 +61,7 @@ library Timelock {
         emit AfterSubmitDelaySet(newAfterSubmitDelay);
     }
 
-    function setAfterScheduleDelay(
-        Context storage self,
-        Config memory config,
-        Duration newAfterScheduleDelay
-    ) internal {
-        if (newAfterScheduleDelay < config.minScheduleDelay || newAfterScheduleDelay > config.maxScheduleDelay) {
-            revert InvalidAfterSubmitDelay(newAfterScheduleDelay);
-        }
+    function setAfterScheduleDelay(Context storage self, Duration newAfterScheduleDelay) internal {
         if (self.afterScheduleDelay == newAfterScheduleDelay) {
             return;
         }

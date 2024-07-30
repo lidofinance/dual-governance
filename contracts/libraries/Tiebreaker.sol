@@ -25,12 +25,6 @@ library Tiebreaker {
     event TiebreakerActivationTimeoutSet(Duration newTiebreakerActivationTimeout);
     event SealableWithdrawalBlockersSet(address[] newSealableWithdrawalBlockers);
 
-    struct Config {
-        uint256 maxSealableWithdrawalBlockers;
-        Duration minTiebreakerActivationTimeout;
-        Duration maxTiebreakerActivationTimeout;
-    }
-
     struct Context {
         address resealManager;
         address tiebreakerCommittee;
@@ -60,17 +54,7 @@ library Tiebreaker {
         emit TiebreakerCommitteeSet(newTiebreakerCommittee);
     }
 
-    function setTiebreakerActivationTimeout(
-        Context storage self,
-        Config memory config,
-        Duration newTiebreakerActivationTimeout
-    ) internal {
-        if (
-            newTiebreakerActivationTimeout > config.minTiebreakerActivationTimeout
-                || newTiebreakerActivationTimeout < config.minTiebreakerActivationTimeout
-        ) {
-            revert InvalidTiebreakerActivationTimeout(newTiebreakerActivationTimeout);
-        }
+    function setTiebreakerActivationTimeout(Context storage self, Duration newTiebreakerActivationTimeout) internal {
         if (self.tiebreakerActivationTimeout == newTiebreakerActivationTimeout) {
             return;
         }
@@ -80,12 +64,8 @@ library Tiebreaker {
 
     function setSealableWithdrawalBlockers(
         Context storage self,
-        Config memory config,
         address[] memory newSealableWithdrawalBlockers
     ) internal {
-        if (newSealableWithdrawalBlockers.length > config.maxSealableWithdrawalBlockers) {
-            revert InvalidSealableWithdrawalBlockersCount(newSealableWithdrawalBlockers.length);
-        }
         address[] memory oldWithdrawalBlockers = self.sealableWithdrawalBlockers;
         if (keccak256(abi.encode(oldWithdrawalBlockers)) == keccak256(abi.encode(newSealableWithdrawalBlockers))) {
             return;

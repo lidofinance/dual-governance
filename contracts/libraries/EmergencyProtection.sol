@@ -23,13 +23,6 @@ library EmergencyProtection {
         Duration newEmergencyProtectionDuration, Timestamp newEmergencyModeProtectedTill
     );
 
-    struct Config {
-        Duration minEmergencyModeDuration;
-        Duration maxEmergencyModeDuration;
-        Duration maxEmergencyProtectionDuration;
-        Duration minEmergencyProtectionDuration;
-    }
-
     struct Context {
         Duration emergencyModeDuration;
         Duration emergencyProtectionDuration;
@@ -40,17 +33,7 @@ library EmergencyProtection {
         address emergencyGovernance;
     }
 
-    function setEmergencyModeDuration(
-        Context storage self,
-        Config memory config,
-        Duration newEmergencyModeDuration
-    ) internal {
-        if (
-            newEmergencyModeDuration < config.minEmergencyModeDuration
-                || newEmergencyModeDuration > config.minEmergencyModeDuration
-        ) {
-            revert InvalidEmergencyModeDuration(newEmergencyModeDuration);
-        }
+    function setEmergencyModeDuration(Context storage self, Duration newEmergencyModeDuration) internal {
         if (self.emergencyModeDuration == newEmergencyModeDuration) {
             return;
         }
@@ -66,17 +49,7 @@ library EmergencyProtection {
         emit EmergencyGovernanceSet(newEmergencyGovernance);
     }
 
-    function setEmergencyModeProtectedTill(
-        Context storage self,
-        Config memory config,
-        Duration newEmergencyProtectionDuration
-    ) internal {
-        if (
-            newEmergencyProtectionDuration < config.minEmergencyModeDuration
-                || newEmergencyProtectionDuration > config.minEmergencyModeDuration
-        ) {
-            revert InvalidEmergencyProtectionDuration(newEmergencyProtectionDuration);
-        }
+    function setEmergencyModeProtectedTill(Context storage self, Duration newEmergencyProtectionDuration) internal {
         Timestamp newEmergencyModeProtectedTill = newEmergencyProtectionDuration.addTo(Timestamps.now());
         if (
             self.emergencyModeProtectedTill == newEmergencyModeProtectedTill

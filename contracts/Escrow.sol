@@ -23,11 +23,9 @@ import {
     AssetsAccounting
 } from "./libraries/AssetsAccounting.sol";
 import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalBatchesQueue.sol";
-import {IEscrowConfigProvider, IDualGovernanceConfigProvider} from "./configuration/DualGovernanceConfigProvider.sol";
 
 interface IDualGovernance {
     function activateNextState() external;
-    function getConfigProvider() external view returns (IDualGovernanceConfigProvider);
 }
 
 enum EscrowState {
@@ -66,8 +64,6 @@ contract Escrow is IEscrow {
     error InvalidState(EscrowState actual, EscrowState expected);
     error RageQuitExtraTimelockNotStarted();
 
-    event ConfigProviderSet(address newConfigProvider);
-
     address public immutable MASTER_COPY;
 
     uint256 public immutable MIN_WITHDRAWAL_REQUEST_AMOUNT;
@@ -77,7 +73,9 @@ contract Escrow is IEscrow {
     IWstETH public immutable WST_ETH;
     IWithdrawalQueue public immutable WITHDRAWAL_QUEUE;
 
-    IEscrowConfigProvider public _configProvider;
+    uint256 public immutable MIN_WITHDRAWAL_BATCH_SIZE;
+    uint256 public immutable MAX_WITHDRAWAL_BATCH_SIZE;
+    Duration public immutable SIGNALLING_ESCROW_MIN_LOCK_TIME;
 
     EscrowState internal _escrowState;
     IDualGovernance private _dualGovernance;
@@ -88,10 +86,22 @@ contract Escrow is IEscrow {
     Duration internal _rageQuitWithdrawalsTimelock;
     Timestamp internal _rageQuitTimelockStartedAt;
 
-    constructor(address stETH, address wstETH, address withdrawalQueue) {
+    constructor(
+        uint256 minWithdrawalsBatchSize,
+        uint256 maxWithdrawalsBatchSize,
+        Duration signallingEscrowMinLockTime,
+        address stETH,
+        address wstETH,
+        address withdrawalQueue
+    ) {
         ST_ETH = IStETH(stETH);
         WST_ETH = IWstETH(wstETH);
         MASTER_COPY = address(this);
+
+        MIN_WITHDRAWAL_BATCH_SIZE = minWithdrawalsBatchSize;
+        MAX_WITHDRAWAL_BATCH_SIZE = maxWithdrawalsBatchSize;
+        SIGNALLING_ESCROW_MIN_LOCK_TIME = signallingEscrowMinLockTime;
+
         WITHDRAWAL_QUEUE = IWithdrawalQueue(withdrawalQueue);
         MIN_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         MAX_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
@@ -105,7 +115,6 @@ contract Escrow is IEscrow {
 
         _escrowState = EscrowState.SignallingEscrow;
         _dualGovernance = IDualGovernance(dualGovernance);
-        _configProvider = _dualGovernance.getConfigProvider();
 
         ST_ETH.approve(address(WST_ETH), type(uint256).max);
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
@@ -124,9 +133,7 @@ contract Escrow is IEscrow {
 
     function unlockStETH() external returns (uint256 unlockedStETHShares) {
         _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(
-            msg.sender, _configProvider.getEscrowConfig().signallingEscrowMinLockTime
-        );
+        _accounting.checkAssetsUnlockDelayPassed(msg.sender, SIGNALLING_ESCROW_MIN_LOCK_TIME);
         unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender).toUint256();
         ST_ETH.transferShares(msg.sender, unlockedStETHShares);
         _activateNextGovernanceState();
@@ -145,9 +152,7 @@ contract Escrow is IEscrow {
 
     function unlockWstETH() external returns (uint256 unlockedStETHShares) {
         _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(
-            msg.sender, _configProvider.getEscrowConfig().signallingEscrowMinLockTime
-        );
+        _accounting.checkAssetsUnlockDelayPassed(msg.sender, SIGNALLING_ESCROW_MIN_LOCK_TIME);
         SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
         unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
         WST_ETH.transfer(msg.sender, unlockedStETHShares);
@@ -170,9 +175,7 @@ contract Escrow is IEscrow {
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
         _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(
-            msg.sender, _configProvider.getEscrowConfig().signallingEscrowMinLockTime
-        );
+        _accounting.checkAssetsUnlockDelayPassed(msg.sender, SIGNALLING_ESCROW_MIN_LOCK_TIME);
         _accounting.accountUnstETHUnlock(msg.sender, unstETHIds);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
@@ -222,10 +225,7 @@ contract Escrow is IEscrow {
         _checkEscrowState(EscrowState.RageQuitEscrow);
         _batchesQueue.checkOpened();
 
-        if (
-            maxBatchSize < _configProvider.getEscrowConfig().minWithdrawalsBatchSize
-                || maxBatchSize > _configProvider.getEscrowConfig().maxWithdrawalsBatchSize
-        ) {
+        if (maxBatchSize < MIN_WITHDRAWAL_BATCH_SIZE || maxBatchSize > MAX_WITHDRAWAL_BATCH_SIZE) {
             revert InvalidBatchSize(maxBatchSize);
         }
 
@@ -284,21 +284,6 @@ contract Escrow is IEscrow {
 
         ETHValue totalAmountClaimed = _accounting.accountUnstETHClaimed(unstETHIds, claimableAmounts);
         assert(totalAmountClaimed == ETHValues.from(ethBalanceAfter - ethBalanceBefore));
-    }
-
-    // ---
-    // Escrow Management
-    // ---
-    function setConfigProvider(address newConfigProvider) external {
-        _checkDualGovernance(msg.sender);
-        if (newConfigProvider == address(0)) {
-            revert InvalidConfigProvider(newConfigProvider);
-        }
-        if (newConfigProvider == address(_configProvider)) {
-            return;
-        }
-        _configProvider = IEscrowConfigProvider(newConfigProvider);
-        emit ConfigProviderSet(newConfigProvider);
     }
 
     // ---

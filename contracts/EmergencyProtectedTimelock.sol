@@ -2,20 +2,16 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "./types/Duration.sol";
-import {Timestamp, Timestamps} from "./types/Timestamp.sol";
+import {Timestamp} from "./types/Timestamp.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ITimelock, ProposalStatus} from "./interfaces/ITimelock.sol";
 
-import {EmergencyProtection} from "./libraries/EmergencyProtections.sol";
+import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 
+import {Timelock} from "./libraries/Timelock.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
-
-import {
-    Timelock,
-    IEmergencyProtectedTimelockConfigProvider
-} from "./configuration/EmergencyProtectedTimelockConfigProvider.sol";
 
 /// @title EmergencyProtectedTimelock
 /// @dev A timelock contract with emergency protection functionality.
@@ -37,19 +33,44 @@ contract EmergencyProtectedTimelock is ITimelock {
     error NotEmergencyActivationCommittee();
     error NotEmergencyExecutionCommittee();
     error EmergencyProtectionExpired();
+    error InvalidAfterSubmitDelay(Duration value);
+    error InvalidAfterScheduleDelay(Duration value);
+    error InvalidEmergencyModeDuration(Duration value);
+    error InvalidEmergencyProtectionDuration(Duration value);
 
     event ConfigProviderSet(address newConfigProvider);
     event EmergencyModeActivated(Timestamp timestamp);
     event EmergencyModeDeactivated(Timestamp timestamp);
 
+    Duration public immutable MAX_AFTER_SUBMIT_DELAY;
+    Duration public immutable MIN_AFTER_SUBMIT_DELAY;
+
+    Duration public immutable MIN_AFTER_SCHEDULE_DELAY;
+    Duration public immutable MAX_AFTER_SCHEDULE_DELAY;
+
+    Duration public immutable MIN_EMERGENCY_MODE_DURATION;
+    Duration public immutable MAX_EMERGENCY_MODE_DURATION;
+
+    Duration public immutable MIN_EMERGENCY_PROTECTION_DURATION;
+    Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
+
     Timelock.Context internal _timelock;
     ExecutableProposals.State internal _proposals;
     EmergencyProtection.Context internal _emergencyProtection;
 
-    IEmergencyProtectedTimelockConfigProvider internal _configProvider;
+    constructor(
+        Duration maxSubmitDelay,
+        Duration minSubmitDelay,
+        Duration minScheduleDelay,
+        Duration maxScheduleDelay,
+        address adminExecutor
+    ) {
+        MIN_AFTER_SUBMIT_DELAY = minSubmitDelay;
+        MAX_AFTER_SUBMIT_DELAY = maxSubmitDelay;
 
-    constructor(address configProvider, address adminExecutor) {
-        setConfigProvider(configProvider);
+        MIN_AFTER_SCHEDULE_DELAY = minScheduleDelay;
+        MAX_AFTER_SCHEDULE_DELAY = maxScheduleDelay;
+
         _timelock.setAdminExecutor(adminExecutor);
     }
 
@@ -94,17 +115,6 @@ contract EmergencyProtectedTimelock is ITimelock {
     // Timelock Management
     // ---
 
-    function setConfigProvider(address newConfigProvider) public {
-        if (newConfigProvider == address(0)) {
-            revert InvalidConfigProvider(newConfigProvider);
-        }
-        if (newConfigProvider == address(_configProvider)) {
-            return;
-        }
-        _configProvider = IEmergencyProtectedTimelockConfigProvider(newConfigProvider);
-        emit ConfigProviderSet(newConfigProvider);
-    }
-
     function setGovernance(address newGovernance) external {
         _timelock.checkAdminExecutor(msg.sender);
         _timelock.setGovernance(newGovernance);
@@ -117,9 +127,14 @@ contract EmergencyProtectedTimelock is ITimelock {
 
     function setDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
         _timelock.checkAdminExecutor(msg.sender);
-        Timelock.Config memory timelockConfig = _configProvider.getTimelockConfig();
-        _timelock.setAfterSubmitDelay(timelockConfig, afterSubmitDelay);
-        _timelock.setAfterScheduleDelay(timelockConfig, afterScheduleDelay);
+        if (afterSubmitDelay < MIN_AFTER_SUBMIT_DELAY || afterSubmitDelay > MAX_AFTER_SUBMIT_DELAY) {
+            revert InvalidAfterSubmitDelay(afterSubmitDelay);
+        }
+        if (afterScheduleDelay < MIN_AFTER_SCHEDULE_DELAY || afterScheduleDelay > MAX_AFTER_SCHEDULE_DELAY) {
+            revert InvalidAfterSubmitDelay(afterSubmitDelay);
+        }
+        _timelock.setAfterSubmitDelay(afterSubmitDelay);
+        _timelock.setAfterScheduleDelay(afterScheduleDelay);
     }
 
     /// @dev Transfers ownership of the executor contract to a new owner.
@@ -138,14 +153,21 @@ contract EmergencyProtectedTimelock is ITimelock {
         address emergencyGovernance,
         address emergencyActivationCommittee,
         address emergencyExecutionCommittee,
-        Duration protectionDuration,
+        Duration emergencyProtectionDuration,
         Duration emergencyModeDuration
     ) external {
         _timelock.checkAdminExecutor(msg.sender);
-        EmergencyProtection.Config memory emergencyConfig = _configProvider.getEmergencyProtectionConfig();
+        if (emergencyModeDuration < MIN_EMERGENCY_MODE_DURATION || emergencyModeDuration > MAX_EMERGENCY_MODE_DURATION)
+        {
+            revert InvalidEmergencyModeDuration(emergencyModeDuration);
+        }
+        if (emergencyModeDuration < MIN_EMERGENCY_MODE_DURATION || emergencyModeDuration > MAX_EMERGENCY_MODE_DURATION)
+        {
+            revert InvalidEmergencyProtectionDuration(emergencyProtectionDuration);
+        }
         _emergencyProtection.setEmergencyGovernance(emergencyGovernance);
-        _emergencyProtection.setEmergencyModeDuration(emergencyConfig, emergencyModeDuration);
-        _emergencyProtection.setEmergencyModeProtectedTill(emergencyConfig, protectionDuration);
+        _emergencyProtection.setEmergencyModeDuration(emergencyModeDuration);
+        _emergencyProtection.setEmergencyModeProtectedTill(emergencyProtectionDuration);
         _emergencyProtection.setEmergencyActivationCommittee(emergencyActivationCommittee);
         _emergencyProtection.setEmergencyExecutionCommittee(emergencyExecutionCommittee);
     }
