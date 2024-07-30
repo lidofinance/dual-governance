@@ -37,6 +37,26 @@ contract ActivateNextStateTest is DualGovernanceSetUp {
         dualGovernance.activateNextState();
     }
 
+    function testActivateNextStateCorrectEscrows() external {
+        State preState = dualGovernance.getCurrentState();
+
+        dualGovernance.activateNextState();
+
+        State postState = dualGovernance.getCurrentState();
+
+        Escrow newSignallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
+        Escrow newRageQuitEscrow = Escrow(payable(dualGovernance.getRageQuitEscrow()));
+
+        if (postState == State.RageQuit && preState != State.RageQuit) {
+            this.infoAssert(address(newSignallingEscrow) != address(signallingEscrow), "NRQ: NS != OS");
+            this.infoAssert(address(newSignallingEscrow) != address(rageQuitEscrow), "NRQ: NS != OR");
+            this.infoAssert(address(newRageQuitEscrow) == address(signallingEscrow), "NRQ: NR == OS");
+        } else {
+            this.infoAssert(address(newSignallingEscrow) == address(signallingEscrow), "RQ: NS == OS");
+            this.infoAssert(address(newRageQuitEscrow) == address(rageQuitEscrow), "RQ: NR == OR");
+        }
+    }
+
     function testActivateNextStateInvariants() external {
         dualGovernance.activateNextState();
 
