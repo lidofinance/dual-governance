@@ -63,6 +63,7 @@ contract Escrow is IEscrow {
     error MasterCopyCallForbidden();
     error InvalidState(EscrowState actual, EscrowState expected);
     error RageQuitExtraTimelockNotStarted();
+    error InvalidAssetsUnlockDelay(Duration value);
 
     address public immutable MASTER_COPY;
 
@@ -75,7 +76,9 @@ contract Escrow is IEscrow {
 
     uint256 public immutable MIN_WITHDRAWAL_BATCH_SIZE;
     uint256 public immutable MAX_WITHDRAWAL_BATCH_SIZE;
-    Duration public immutable SIGNALLING_ESCROW_MIN_LOCK_TIME;
+
+    Duration public immutable MIN_ASSETS_UNLOCK_DELAY;
+    Duration public immutable MAX_ASSETS_UNLOCK_DELAY;
 
     EscrowState internal _escrowState;
     IDualGovernance private _dualGovernance;
@@ -89,7 +92,8 @@ contract Escrow is IEscrow {
     constructor(
         uint256 minWithdrawalsBatchSize,
         uint256 maxWithdrawalsBatchSize,
-        Duration signallingEscrowMinLockTime,
+        Duration minAssetsUnlockDelay,
+        Duration maxAssetsUnlockDelay,
         address stETH,
         address wstETH,
         address withdrawalQueue
@@ -100,14 +104,16 @@ contract Escrow is IEscrow {
 
         MIN_WITHDRAWAL_BATCH_SIZE = minWithdrawalsBatchSize;
         MAX_WITHDRAWAL_BATCH_SIZE = maxWithdrawalsBatchSize;
-        SIGNALLING_ESCROW_MIN_LOCK_TIME = signallingEscrowMinLockTime;
+
+        MIN_ASSETS_UNLOCK_DELAY = minAssetsUnlockDelay;
+        MAX_ASSETS_UNLOCK_DELAY = maxAssetsUnlockDelay;
 
         WITHDRAWAL_QUEUE = IWithdrawalQueue(withdrawalQueue);
         MIN_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         MAX_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
     }
 
-    function initialize(address dualGovernance) external {
+    function initialize(address dualGovernance, Duration assetsUnlockDelay) external {
         if (address(this) == MASTER_COPY) {
             revert MasterCopyCallForbidden();
         }
@@ -115,6 +121,7 @@ contract Escrow is IEscrow {
 
         _escrowState = EscrowState.SignallingEscrow;
         _dualGovernance = IDualGovernance(dualGovernance);
+        setAssetsUnlockDelay(assetsUnlockDelay);
 
         ST_ETH.approve(address(WST_ETH), type(uint256).max);
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
@@ -133,7 +140,7 @@ contract Escrow is IEscrow {
 
     function unlockStETH() external returns (uint256 unlockedStETHShares) {
         _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(msg.sender, SIGNALLING_ESCROW_MIN_LOCK_TIME);
+        _accounting.checkAssetsUnlockDelayPassed(msg.sender);
         unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender).toUint256();
         ST_ETH.transferShares(msg.sender, unlockedStETHShares);
         _activateNextGovernanceState();
@@ -152,7 +159,7 @@ contract Escrow is IEscrow {
 
     function unlockWstETH() external returns (uint256 unlockedStETHShares) {
         _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(msg.sender, SIGNALLING_ESCROW_MIN_LOCK_TIME);
+        _accounting.checkAssetsUnlockDelayPassed(msg.sender);
         SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
         unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
         WST_ETH.transfer(msg.sender, unlockedStETHShares);
@@ -175,7 +182,7 @@ contract Escrow is IEscrow {
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
         _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(msg.sender, SIGNALLING_ESCROW_MIN_LOCK_TIME);
+        _accounting.checkAssetsUnlockDelayPassed(msg.sender);
         _accounting.accountUnstETHUnlock(msg.sender, unstETHIds);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
@@ -210,6 +217,18 @@ contract Escrow is IEscrow {
     // ---
     // State Updates
     // ---
+
+    function getAssetsUnlockDelay() external view returns (Duration duration) {
+        return _accounting.assetsUnlockDelay;
+    }
+
+    function setAssetsUnlockDelay(Duration newAssetsUnlockDelay) public {
+        _checkDualGovernance(msg.sender);
+        if (newAssetsUnlockDelay < MIN_ASSETS_UNLOCK_DELAY || newAssetsUnlockDelay > MAX_ASSETS_UNLOCK_DELAY) {
+            revert InvalidAssetsUnlockDelay(newAssetsUnlockDelay);
+        }
+        _accounting.setAssetsUnlockDelay(newAssetsUnlockDelay);
+    }
 
     function startRageQuit(Duration rageQuitExtensionDelay, Duration rageQuitWithdrawalsTimelock) external {
         _checkDualGovernance(msg.sender);

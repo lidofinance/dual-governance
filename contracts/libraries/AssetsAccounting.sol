@@ -62,6 +62,7 @@ library AssetsAccounting {
         UnstETHAccounting unstETHTotals;
         mapping(address account => HolderAssets) assets;
         mapping(uint256 unstETHId => UnstETHRecord) unstETHRecords;
+        Duration assetsUnlockDelay;
     }
 
     // ---
@@ -90,6 +91,14 @@ library AssetsAccounting {
     error InvalidUnstETHHolder(uint256 unstETHId, address actual, address expected);
     error AssetsUnlockDelayNotPassed(Timestamp unlockTimelockExpiresAt);
     error InvalidClaimableAmount(uint256 unstETHId, ETHValue expected, ETHValue actual);
+
+    // ---
+    // Settings
+    // ---
+
+    function setAssetsUnlockDelay(State storage self, Duration newAssetsUnlockDelay) internal {
+        self.assetsUnlockDelay = newAssetsUnlockDelay;
+    }
 
     // ---
     // stETH shares operations accounting
@@ -249,12 +258,8 @@ library AssetsAccounting {
         ufinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
     }
 
-    function checkAssetsUnlockDelayPassed(
-        State storage self,
-        address holder,
-        Duration assetsUnlockDelay
-    ) internal view {
-        Timestamp assetsUnlockAllowedAfter = assetsUnlockDelay.addTo(self.assets[holder].lastAssetsLockTimestamp);
+    function checkAssetsUnlockDelayPassed(State storage self, address holder) internal view {
+        Timestamp assetsUnlockAllowedAfter = self.assetsUnlockDelay.addTo(self.assets[holder].lastAssetsLockTimestamp);
         if (Timestamps.now() <= assetsUnlockAllowedAfter) {
             revert AssetsUnlockDelayNotPassed(assetsUnlockAllowedAfter);
         }

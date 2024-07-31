@@ -106,6 +106,11 @@ contract DualGovernance is IGovernance {
         _stateMachine.activateNextState();
     }
 
+    function setSignallingEscrowAssetsUnlockDelay(Duration newDuration) external {
+        _checkAdminExecutor(msg.sender);
+        _stateMachine.signallingEscrow.setAssetsUnlockDelay(newDuration);
+    }
+
     function setDualGovernanceStateMachineConfig(DualGovernanceStateMachine.Config calldata config) external {
         _checkAdminExecutor(msg.sender);
         _stateMachine.setConfig(config);

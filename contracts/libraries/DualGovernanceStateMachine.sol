@@ -173,7 +173,7 @@ library DualGovernanceStateMachine {
 
     function _deployNewSignallingEscrow(Context storage self, address escrowMasterCopy) private {
         IEscrow clone = IEscrow(Clones.clone(escrowMasterCopy));
-        clone.initialize(address(this), self.signallingEscrow.getConfig());
+        clone.initialize(address(this), self.signallingEscrow.getAssetsUnlockDelay());
         self.signallingEscrow = clone;
         emit NewSignallingEscrowDeployed(address(clone));
     }
