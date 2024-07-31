@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Duration} from "../types/Duration.sol";
 import {Timelock} from "../libraries/Timelock.sol";
-import {EmergencyProtection} from "../libraries/EmergencyProtections.sol";
+import {EmergencyProtection} from "../libraries/EmergencyProtection.sol";
 
 interface ITimelockConfigProvider {
     function getTimelockConfig() external view returns (Timelock.Config memory config);

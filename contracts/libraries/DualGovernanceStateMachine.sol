@@ -38,36 +38,31 @@ library DualGovernanceStateMachine {
     struct Context {
         ///
         /// @dev slot 0: [0..7]
-        /// The current state of the Dual Governance FSM
+        /// The current state of the Dual Governance state machine
         State state;
         ///
         /// @dev slot 0: [8..47]
-        /// The timestamp when the Dual Governance FSM entered the current state
+        /// The timestamp when the Dual Governance state machine entered the current state
         Timestamp enteredAt;
         ///
         /// @dev slot 0: [48..87]
-        /// The time the VetoSignalling FSM state was entered the last time
+        /// The time the VetoSignalling state machine state was entered the last time
         Timestamp vetoSignallingActivatedAt;
         ///
-        /// @dev slot 0: [88..247]
-        /// The address of the currently used Veto Signalling Escrow
-        IEscrow signallingEscrow;
-        ///
-        /// @dev slot 0: [248..255]
-        /// The number of the Rage Quit round. Initial value is 0.
-        uint8 rageQuitRound;
-        ///
-        /// @dev slot 1: [0..39]
+        /// @dev slot 0: [88..127]
         /// The last time VetoSignallingDeactivation -> VetoSignalling transition happened
         Timestamp vetoSignallingReactivationTime;
         ///
-        /// @dev slot 1: [40..79]
-        /// The last time when the Dual Governance FSM exited Normal or VetoCooldown state
+        /// @dev slot 1: [128..168]
+        /// The last time when the Dual Governance state machine exited Normal or VetoCooldown state
         Timestamp normalOrVetoCooldownExitedAt;
         ///
-        /// @dev slot 1: [80..239]
-        /// The address of the Escrow used during the last (may be ongoing) Rage Quit process
-        IEscrow rageQuitEscrow;
+        /// @dev slot 0: [168..175]
+        /// The number of the Rage Quit round. Initial value is 0.
+        uint8 rageQuitRound;
+        ///
+        /// @dev slot 0: [176..255]
+        uint80 currentSignallingEscrowIndex;
     }
 
     error AlreadyInitialized();
@@ -87,40 +82,41 @@ library DualGovernanceStateMachine {
         emit DualGovernanceStateChanged(State.Unset, State.Normal, self);
     }
 
-    function activateNextState(Context storage self, Config memory config) internal {
-        (State currentStatus, State newStatus) = DualGovernanceStateTransitions.getStateTransition(self, config);
+    function activateNextState(Context storage self, Config memory config, address escrowMasterCopy) internal {
+        (State currentState, State newStatus) =
+            DualGovernanceStateTransitions.getStateTransition(self, config, escrowMasterCopy);
 
-        if (currentStatus == newStatus) {
+        if (currentState == newStatus) {
             return;
         }
 
         self.state = newStatus;
         self.enteredAt = Timestamps.now();
 
-        if (currentStatus == State.Normal || currentStatus == State.VetoCooldown) {
+        if (currentState == State.Normal || currentState == State.VetoCooldown) {
             self.normalOrVetoCooldownExitedAt = Timestamps.now();
         }
 
         if (newStatus == State.Normal && self.rageQuitRound != 0) {
             self.rageQuitRound = 0;
         } else if (newStatus == State.VetoSignalling) {
-            if (currentStatus == State.VetoSignallingDeactivation) {
+            if (currentState == State.VetoSignallingDeactivation) {
                 self.vetoSignallingReactivationTime = Timestamps.now();
             } else {
                 self.vetoSignallingActivatedAt = Timestamps.now();
             }
         } else if (newStatus == State.RageQuit) {
-            IEscrow signallingEscrow = self.signallingEscrow;
+            IEscrow signallingEscrow = getSignallingEscrow(self, escrowMasterCopy);
             uint256 rageQuitRound = Math.min(self.rageQuitRound + 1, type(uint8).max);
             self.rageQuitRound = uint8(rageQuitRound);
             signallingEscrow.startRageQuit(
                 config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(rageQuitRound)
             );
-            self.rageQuitEscrow = signallingEscrow;
-            _deployNewSignallingEscrow(self, signallingEscrow.MASTER_COPY());
+            self.currentSignallingEscrowIndex += 1;
+            _deployNewSignallingEscrow(self, escrowMasterCopy);
         }
 
-        emit DualGovernanceStateChanged(currentStatus, newStatus, self);
+        emit DualGovernanceStateChanged(currentState, newStatus, self);
     }
 
     function getCurrentContext(Context storage self) internal pure returns (Context memory) {
@@ -131,12 +127,38 @@ library DualGovernanceStateMachine {
         return self.state;
     }
 
+    function getSignallingEscrow(
+        Context memory self,
+        address escrowMasterCopy
+    ) internal view returns (IEscrow signallingEscrow) {
+        signallingEscrow = IEscrow(
+            Clones.predictDeterministicAddress(
+                escrowMasterCopy, bytes32(uint256(self.currentSignallingEscrowIndex)), address(this)
+            )
+        );
+    }
+
+    function getLastRageQuitEscrow(
+        Context memory self,
+        address escrowMasterCopy
+    ) internal view returns (IEscrow rageQuitEscrow) {
+        rageQuitEscrow = IEscrow(
+            Clones.predictDeterministicAddress(
+                escrowMasterCopy, bytes32(uint256(self.currentSignallingEscrowIndex - 1)), address(this)
+            )
+        );
+    }
+
     function getNormalOrVetoCooldownStateExitedAt(Context storage self) internal view returns (Timestamp) {
         return self.normalOrVetoCooldownExitedAt;
     }
 
-    function getDynamicDelayDuration(Context storage self, Config memory config) internal view returns (Duration) {
-        return config.calcDynamicDelayDuration(self.signallingEscrow.getRageQuitSupport());
+    function getDynamicDelayDuration(
+        Context storage self,
+        Config memory config,
+        address escrowMasterCopy
+    ) internal view returns (Duration) {
+        return config.calcDynamicDelayDuration(getSignallingEscrow(self, escrowMasterCopy).getRageQuitSupport());
     }
 
     function canSubmitProposal(Context storage self) internal view returns (bool) {
@@ -153,10 +175,11 @@ library DualGovernanceStateMachine {
         return false;
     }
 
-    function _deployNewSignallingEscrow(Context storage self, address escrowMasterCopy) private {
-        IEscrow clone = IEscrow(Clones.clone(escrowMasterCopy));
+    function _deployNewSignallingEscrow(Context memory self, address escrowMasterCopy) private {
+        self.currentSignallingEscrowIndex += 1;
+        IEscrow clone =
+            IEscrow(Clones.cloneDeterministic(escrowMasterCopy, bytes32(uint256(self.currentSignallingEscrowIndex))));
         clone.initialize(address(this));
-        self.signallingEscrow = clone;
         emit NewSignallingEscrowDeployed(address(clone));
     }
 }
@@ -165,39 +188,43 @@ library DualGovernanceStateTransitions {
     using DualGovernanceStateMachineConfig for DualGovernanceStateMachine.Config;
 
     function getStateTransition(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachine.Config memory config
-    ) internal view returns (State currentStatus, State nextStatus) {
-        currentStatus = self.state;
-        if (currentStatus == State.Normal) {
-            nextStatus = _fromNormalState(self, config);
-        } else if (currentStatus == State.VetoSignalling) {
-            nextStatus = _fromVetoSignallingState(self, config);
-        } else if (currentStatus == State.VetoSignallingDeactivation) {
-            nextStatus = _fromVetoSignallingDeactivationState(self, config);
-        } else if (currentStatus == State.VetoCooldown) {
-            nextStatus = _fromVetoCooldownState(self, config);
-        } else if (currentStatus == State.RageQuit) {
-            nextStatus = _fromRageQuitState(self, config);
+        DualGovernanceStateMachine.Context memory self,
+        DualGovernanceStateMachine.Config memory config,
+        address escrowMasterCopy
+    ) internal view returns (State currentState, State nextState) {
+        currentState = self.state;
+        if (currentState == State.Normal) {
+            nextState = _fromNormalState(self, config, escrowMasterCopy);
+        } else if (currentState == State.VetoSignalling) {
+            nextState = _fromVetoSignallingState(self, config, escrowMasterCopy);
+        } else if (currentState == State.VetoSignallingDeactivation) {
+            nextState = _fromVetoSignallingDeactivationState(self, config, escrowMasterCopy);
+        } else if (currentState == State.VetoCooldown) {
+            nextState = _fromVetoCooldownState(self, config, escrowMasterCopy);
+        } else if (currentState == State.RageQuit) {
+            nextState = _fromRageQuitState(self, config, escrowMasterCopy);
         } else {
             assert(false);
         }
     }
 
     function _fromNormalState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachine.Config memory config
+        DualGovernanceStateMachine.Context memory self,
+        DualGovernanceStateMachine.Config memory config,
+        address escrowMasterCopy
     ) private view returns (State) {
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
-            ? State.VetoSignalling
-            : State.Normal;
+        return config.isFirstSealRageQuitSupportCrossed(
+            DualGovernanceStateMachine.getSignallingEscrow(self, escrowMasterCopy).getRageQuitSupport()
+        ) ? State.VetoSignalling : State.Normal;
     }
 
     function _fromVetoSignallingState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachine.Config memory config
+        DualGovernanceStateMachine.Context memory self,
+        DualGovernanceStateMachine.Config memory config,
+        address escrowMasterCopy
     ) private view returns (State) {
-        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
+        uint256 rageQuitSupport =
+            DualGovernanceStateMachine.getSignallingEscrow(self, escrowMasterCopy).getRageQuitSupport();
 
         if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
@@ -213,10 +240,12 @@ library DualGovernanceStateTransitions {
     }
 
     function _fromVetoSignallingDeactivationState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachine.Config memory config
+        DualGovernanceStateMachine.Context memory self,
+        DualGovernanceStateMachine.Config memory config,
+        address escrowMasterCopy
     ) private view returns (State) {
-        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
+        uint256 rageQuitSupport =
+            DualGovernanceStateMachine.getSignallingEscrow(self, escrowMasterCopy).getRageQuitSupport();
 
         if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
@@ -234,27 +263,29 @@ library DualGovernanceStateTransitions {
     }
 
     function _fromVetoCooldownState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachine.Config memory config
+        DualGovernanceStateMachine.Context memory self,
+        DualGovernanceStateMachine.Config memory config,
+        address escrowMasterCopy
     ) private view returns (State) {
         if (!config.isVetoCooldownDurationPassed(self.enteredAt)) {
             return State.VetoCooldown;
         }
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
-            ? State.VetoSignalling
-            : State.Normal;
+        return config.isFirstSealRageQuitSupportCrossed(
+            DualGovernanceStateMachine.getSignallingEscrow(self, escrowMasterCopy).getRageQuitSupport()
+        ) ? State.VetoSignalling : State.Normal;
     }
 
     function _fromRageQuitState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceStateMachine.Config memory config
+        DualGovernanceStateMachine.Context memory self,
+        DualGovernanceStateMachine.Config memory config,
+        address escrowMasterCopy
     ) private view returns (State) {
-        if (!self.rageQuitEscrow.isRageQuitFinalized()) {
+        if (!DualGovernanceStateMachine.getLastRageQuitEscrow(self, escrowMasterCopy).isRageQuitFinalized()) {
             return State.RageQuit;
         }
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
-            ? State.VetoSignalling
-            : State.VetoCooldown;
+        return config.isFirstSealRageQuitSupportCrossed(
+            DualGovernanceStateMachine.getSignallingEscrow(self, escrowMasterCopy).getRageQuitSupport()
+        ) ? State.VetoSignalling : State.VetoCooldown;
     }
 }
 

@@ -111,8 +111,8 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
     }
 
     function getEscrowConfig() external view returns (EscrowState.Config memory config) {
-        config.maxWithdrawalsBatchSize = MAX_WITHDRAWALS_BATCH_SIZE;
-        config.minWithdrawalsBatchSize = MIN_WITHDRAWALS_BATCH_SIZE;
+        config.maxWithdrawalsBatchSize = uint8(MAX_WITHDRAWALS_BATCH_SIZE);
+        config.minWithdrawalsBatchSize = uint8(MIN_WITHDRAWALS_BATCH_SIZE);
         config.signallingEscrowMinLockTime = SIGNALLING_ESCROW_MIN_LOCK_TIME;
     }
 

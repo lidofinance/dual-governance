@@ -69,6 +69,7 @@ contract Escrow is IEscrow {
     event ConfigProviderSet(address newConfigProvider);
 
     address public immutable MASTER_COPY;
+    address public immutable DUAL_GOVERNANCE;
 
     uint256 public immutable MIN_WITHDRAWAL_REQUEST_AMOUNT;
     uint256 public immutable MAX_WITHDRAWAL_REQUEST_AMOUNT;
@@ -88,10 +89,11 @@ contract Escrow is IEscrow {
     Duration internal _rageQuitWithdrawalsTimelock;
     Timestamp internal _rageQuitTimelockStartedAt;
 
-    constructor(address stETH, address wstETH, address withdrawalQueue) {
+    constructor(address stETH, address wstETH, address withdrawalQueue, address dualGovernance) {
         ST_ETH = IStETH(stETH);
         WST_ETH = IWstETH(wstETH);
         MASTER_COPY = address(this);
+        DUAL_GOVERNANCE = dualGovernance;
         WITHDRAWAL_QUEUE = IWithdrawalQueue(withdrawalQueue);
         MIN_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         MAX_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();

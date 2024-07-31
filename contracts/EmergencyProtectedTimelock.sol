@@ -7,7 +7,7 @@ import {Timestamp, Timestamps} from "./types/Timestamp.sol";
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ITimelock, ProposalStatus} from "./interfaces/ITimelock.sol";
 
-import {EmergencyProtection} from "./libraries/EmergencyProtections.sol";
+import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";

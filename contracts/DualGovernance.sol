@@ -14,38 +14,40 @@ import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
 import {IDualGovernanceConfigProvider} from "./configuration/DualGovernanceConfigProvider.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
+import {Escrow} from "./Escrow.sol";
 
 contract DualGovernance is IGovernance {
     using Proposers for Proposers.State;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
-    error NotDeadlock();
-    error NotAdminExecutor();
-    error InvalidConfig(address config);
+    error InvalidConfigProvider(IDualGovernanceConfigProvider configProvider);
     error NotResealCommitttee(address account);
     error ProposalSubmissionBlocked();
     error InvalidAdminExecutor(address value);
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
 
-    event ConfigProviderSet(address newConfigProvider);
+    event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
 
     ITimelock public immutable TIMELOCK;
-
-    IDualGovernanceConfigProvider internal _configProvider;
+    address public immutable ESCROW_MASTER_COPY;
 
     Proposers.State internal _proposers;
     Tiebreaker.Context internal _tiebreaker;
     DualGovernanceStateMachine.Context internal _stateMachine;
 
+    IDualGovernanceConfigProvider internal _configProvider;
+
     address internal _resealCommittee;
     IResealManager internal _resealManager;
 
-    constructor(address configProvider, address timelock, address escrowMasterCopy) {
+    constructor(address configProvider, address timelock, address stETH, address wstETH, address withdrawalQueue) {
         TIMELOCK = ITimelock(timelock);
+        ESCROW_MASTER_COPY = address(new Escrow(stETH, wstETH, withdrawalQueue, address(this)));
+
         _configProvider = IDualGovernanceConfigProvider(configProvider);
-        _stateMachine.initialize(escrowMasterCopy);
+        _stateMachine.initialize(ESCROW_MASTER_COPY);
     }
 
     // ---
@@ -53,7 +55,7 @@ contract DualGovernance is IGovernance {
     // ---
 
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
-        _stateMachine.activateNextState(_configProvider.getDualGovernanceStateMachineConfig());
+        activateNextState();
         _proposers.checkProposer(msg.sender);
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
@@ -63,7 +65,7 @@ contract DualGovernance is IGovernance {
     }
 
     function scheduleProposal(uint256 proposalId) external {
-        _stateMachine.activateNextState(_configProvider.getDualGovernanceStateMachineConfig());
+        activateNextState();
         ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
             TIMELOCK.getProposalInfo(proposalId);
         if (!_stateMachine.canScheduleProposal(submittedAt)) {
@@ -91,29 +93,32 @@ contract DualGovernance is IGovernance {
     // Dual Governance State
     // ---
 
-    function activateNextState() external {
-        _stateMachine.activateNextState(_configProvider.getDualGovernanceStateMachineConfig());
+    function activateNextState() public {
+        _stateMachine.activateNextState(_getDualGovernanceStateMachineConfig(), ESCROW_MASTER_COPY);
     }
 
-    function setConfigProvider(address newConfigProvider) external {
+    function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external {
         _checkAdminExecutor(msg.sender);
-        if (newConfigProvider == address(0)) {
-            revert InvalidConfig(address(0));
+        if (address(newConfigProvider) == address(0)) {
+            revert InvalidConfigProvider(newConfigProvider);
         }
-        if (newConfigProvider == address(_configProvider)) {
+
+        if (newConfigProvider == _configProvider) {
             return;
         }
         _configProvider = IDualGovernanceConfigProvider(newConfigProvider);
-        _stateMachine.signallingEscrow.setConfigProvider(newConfigProvider);
         emit ConfigProviderSet(newConfigProvider);
     }
 
     function getVetoSignallingEscrow() external view returns (address) {
-        return address(_stateMachine.signallingEscrow);
+        return address(_stateMachine.getSignallingEscrow(ESCROW_MASTER_COPY));
     }
 
     function getRageQuitEscrow() external view returns (address) {
-        return address(_stateMachine.rageQuitEscrow);
+        if (_stateMachine.escrowIndex == 0) {
+            return address(0);
+        }
+        return address(_stateMachine.getLastRageQuitEscrow(ESCROW_MASTER_COPY));
     }
 
     function getCurrentState() external view returns (State currentState) {
@@ -125,7 +130,7 @@ contract DualGovernance is IGovernance {
     }
 
     function getDynamicDelayDuration() external view returns (Duration) {
-        return _stateMachine.getDynamicDelayDuration(_configProvider.getDualGovernanceStateMachineConfig());
+        return _stateMachine.getDynamicDelayDuration(_getDualGovernanceStateMachineConfig(), ESCROW_MASTER_COPY);
     }
 
     // ---
@@ -207,6 +212,10 @@ contract DualGovernance is IGovernance {
         _checkAdminExecutor(msg.sender);
         _resealCommittee = resealCommittee;
         _resealManager = IResealManager(resealManager);
+    }
+
+    function _getDualGovernanceStateMachineConfig() internal view returns (DualGovernanceStateMachine.Config memory) {
+        return _configProvider.getDualGovernanceStateMachineConfig();
     }
 
     function _checkAdminExecutor(address account) internal view {
