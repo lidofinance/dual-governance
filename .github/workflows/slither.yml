@@ -1,0 +1,37 @@
+name: Slither Analysis
+
+on:
+  push:
+    branches: [develop, master]
+  pull_request:
+    branches: [develop, master]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Slither
+        uses: crytic/slither-action@v0.4.0
+        id: slither
+        with:
+          sarif: results.sarif
+          fail-on: none
+
+      - name: Check results.sarif presence
+        id: results
+        if: always()
+        shell: bash
+        run: >
+          test -f results.sarif &&
+          echo 'value=present' >> $GITHUB_OUTPUT ||
+          echo 'value=not' >> $GITHUB_OUTPUT
+      
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.slither.outputs.sarif }}

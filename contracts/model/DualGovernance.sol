@@ -61,7 +61,7 @@ contract DualGovernance {
      * Submits a proposal for consideration within the governance model.
      * Proposals can be submitted when in the Normal state or during Veto Signalling; however they cannot be executed in Veto Signalling.
      */
-    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         activateNextState();
 
         require(proposers[msg.sender], "Caller is not authorized to submit proposals.");

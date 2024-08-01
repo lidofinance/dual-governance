@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 // Struct to represent executor calls
-struct ExecutorCall {
+struct ExternalCall {
     address target;
     uint96 value;
     bytes payload;
@@ -18,7 +18,7 @@ enum ProposalStatus {
 struct Proposal {
     uint256 id;
     address proposer;
-    ExecutorCall[] calls;
+    ExternalCall[] calls;
     uint256 submissionTime;
     uint256 schedulingTime;
     ProposalStatus status;
@@ -52,7 +52,7 @@ contract EmergencyProtectedTimelock {
     }
 
     // Submits a new proposal, initializing its timelock and storing its calls.
-    function submit(address executor, ExecutorCall[] memory calls) external returns (uint256 proposalId) {
+    function submit(address executor, ExternalCall[] memory calls) external returns (uint256 proposalId) {
         // Ensure that only the governance can submit new proposals.
         require(msg.sender == governance, "Only governance can submit proposal.");
 

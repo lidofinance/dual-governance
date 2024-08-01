@@ -10,7 +10,8 @@ import {
     ScenarioTestBlueprint,
     VetoerState,
     LockedAssetsTotals,
-    Durations
+    Durations,
+    EscrowState
 } from "../utils/scenario-test-blueprint.sol";
 
 contract TestHelpers is ScenarioTestBlueprint {
@@ -519,7 +520,90 @@ contract EscrowHappyPath is TestHelpers {
         escrow.unlockUnstETH(wstETHWithdrawalRequestIds);
     }
 
+    function test_lock_unlock_funds_in_the_rage_quit_state_forbidden() external {
+        uint256[] memory nftAmounts = new uint256[](1);
+        nftAmounts[0] = 1 ether;
+
+        vm.startPrank(_VETOER_1);
+        uint256[] memory lockedWithdrawalNfts = _WITHDRAWAL_QUEUE.requestWithdrawals(nftAmounts, _VETOER_1);
+        uint256[] memory notLockedWithdrawalNfts = _WITHDRAWAL_QUEUE.requestWithdrawals(nftAmounts, _VETOER_1);
+        vm.stopPrank();
+
+        _lockStETH(_VETOER_1, 1 ether);
+        _lockWstETH(_VETOER_1, 1 ether);
+        _lockUnstETH(_VETOER_1, lockedWithdrawalNfts);
+
+        vm.prank(address(_dualGovernance));
+        escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
+
+        // ---
+        // After the Escrow enters RageQuitEscrow state, lock/unlock of tokens is forbidden
+        // ---
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
+            )
+        );
+        this.externalLockStETH(_VETOER_1, 1 ether);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
+            )
+        );
+        this.externalLockWstETH(_VETOER_1, 1 ether);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
+            )
+        );
+        this.externalLockUnstETH(_VETOER_1, notLockedWithdrawalNfts);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
+            )
+        );
+        this.externalUnlockStETH(_VETOER_1);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
+            )
+        );
+        this.externalUnlockWstETH(_VETOER_1);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
+            )
+        );
+        this.externalUnlockUnstETH(_VETOER_1, lockedWithdrawalNfts);
+    }
+
     function externalLockUnstETH(address vetoer, uint256[] memory unstETHIds) external {
         _lockUnstETH(vetoer, unstETHIds);
+    }
+
+    function externalLockStETH(address vetoer, uint256 stEthAmount) external {
+        _lockStETH(vetoer, stEthAmount);
+    }
+
+    function externalLockWstETH(address vetoer, uint256 wstEthAmount) external {
+        _lockWstETH(vetoer, wstEthAmount);
+    }
+
+    function externalUnlockStETH(address vetoer) external {
+        _unlockStETH(vetoer);
+    }
+
+    function externalUnlockWstETH(address vetoer) external {
+        _unlockWstETH(vetoer);
+    }
+
+    function externalUnlockUnstETH(address vetoer, uint256[] memory nftIds) external {
+        _unlockUnstETH(vetoer, nftIds);
     }
 }

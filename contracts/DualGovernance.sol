@@ -94,7 +94,7 @@ contract DualGovernance is IGovernance {
     // ---
 
     function activateNextState() public {
-        _stateMachine.activateNextState(_getDualGovernanceStateMachineConfig(), ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState(_getDualGovernanceStateMachineConfig());
     }
 
     function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external {
@@ -111,14 +111,11 @@ contract DualGovernance is IGovernance {
     }
 
     function getVetoSignallingEscrow() external view returns (address) {
-        return address(_stateMachine.getSignallingEscrow(ESCROW_MASTER_COPY));
+        return address(_stateMachine.signallingEscrow);
     }
 
     function getRageQuitEscrow() external view returns (address) {
-        if (_stateMachine.escrowIndex == 0) {
-            return address(0);
-        }
-        return address(_stateMachine.getLastRageQuitEscrow(ESCROW_MASTER_COPY));
+        return address(_stateMachine.rageQuitEscrow);
     }
 
     function getCurrentState() external view returns (State currentState) {
@@ -130,7 +127,7 @@ contract DualGovernance is IGovernance {
     }
 
     function getDynamicDelayDuration() external view returns (Duration) {
-        return _stateMachine.getDynamicDelayDuration(_getDualGovernanceStateMachineConfig(), ESCROW_MASTER_COPY);
+        return _stateMachine.getDynamicDelayDuration(_getDualGovernanceStateMachineConfig());
     }
 
     // ---
