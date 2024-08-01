@@ -8,6 +8,9 @@ interface IEmergencyProtectedTimelock {
     function emergencyActivate() external;
 }
 
+/// @title Emergency Activation Committee Contract
+/// @notice This contract allows a committee to approve and execute an emergency activation
+/// @dev Inherits from HashConsensus to utilize voting and consensus mechanisms
 contract EmergencyActivationCommittee is HashConsensus {
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
@@ -22,10 +25,16 @@ contract EmergencyActivationCommittee is HashConsensus {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
+    /// @notice Approves the emergency activation by casting a vote
+    /// @dev Only callable by committee members
     function approveEmergencyActivate() public onlyMember {
         _vote(EMERGENCY_ACTIVATION_HASH, true);
     }
 
+    /// @notice Gets the current state of the emergency activation vote
+    /// @return support The number of votes in support of the activation
+    /// @return execuitionQuorum The required number of votes for execution
+    /// @return isExecuted Whether the activation has been executed
     function getEmergencyActivateState()
         public
         view
@@ -34,6 +43,8 @@ contract EmergencyActivationCommittee is HashConsensus {
         return _getHashState(EMERGENCY_ACTIVATION_HASH);
     }
 
+    /// @notice Executes the emergency activation if the quorum is reached
+    /// @dev Calls the emergencyActivate function on the Emergency Protected Timelock contract
     function executeEmergencyActivate() external {
         _markUsed(EMERGENCY_ACTIVATION_HASH);
         Address.functionCall(

@@ -11,22 +11,18 @@ struct Proposer {
     address executor;
 }
 
-struct ProposerData {
-    address proposer;
-    address executor;
-    bool isAdmin;
-}
+/// @title Proposers Library
+/// @dev This library manages proposers and their assigned executors in a governance system, providing functions to register,
+/// unregister, and verify proposers and their roles. It ensures proper assignment and validation of proposers and executors.
 
 library Proposers {
     using SafeCast for uint256;
 
     error NotProposer(address account);
-    error NotAssignedExecutor(address account, address actualExecutor, address expectedExecutor);
     error NotAdminProposer(address account);
+    error NotAssignedExecutor(address account, address actualExecutor, address expectedExecutor);
     error ProposerNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
-    error InvalidAdminExecutor(address executor);
-    error ExecutorNotRegistered(address account);
     error LastAdminProposerRemoval();
 
     event AdminExecutorSet(address indexed adminExecutor);
@@ -44,6 +40,10 @@ library Proposers {
         mapping(address executor => uint256 usagesCount) executorRefsCounts;
     }
 
+    /// @dev Registers a proposer with an assigned executor.
+    /// @param self The storage state of the Proposers library.
+    /// @param proposer The address of the proposer to register.
+    /// @param executor The address of the assigned executor.
     function register(State storage self, address proposer, address executor) internal {
         if (self.executors[proposer].proposerIndexOneBased != 0) {
             revert ProposerAlreadyRegistered(proposer);
@@ -54,6 +54,10 @@ library Proposers {
         emit ProposerRegistered(proposer, executor);
     }
 
+    /// @dev Unregisters a proposer.
+    /// @param self The storage state of the Proposers library.
+    /// @param config The configuration contract.
+    /// @param proposer The address of the proposer to unregister.
     function unregister(State storage self, IConfiguration config, address proposer) internal {
         uint256 proposerIndexToDelete;
         ExecutorData memory executorData = self.executors[proposer];
@@ -80,6 +84,9 @@ library Proposers {
         emit ProposerUnregistered(proposer, executor);
     }
 
+    /// @dev Retrieves all registered proposers.
+    /// @param self The storage state of the Proposers library.
+    /// @return proposers An array of structs representing all registered proposers.
     function all(State storage self) internal view returns (Proposer[] memory proposers) {
         proposers = new Proposer[](self.proposers.length);
         for (uint256 i = 0; i < proposers.length; ++i) {
@@ -87,6 +94,10 @@ library Proposers {
         }
     }
 
+    /// @dev Retrieves the details of a specific proposer.
+    /// @param self The storage state of the Proposers library.
+    /// @param account The address of the proposer.
+    /// @return proposer The struct representing the details of the proposer.
     function get(State storage self, address account) internal view returns (Proposer memory proposer) {
         ExecutorData memory executorData = self.executors[account];
         if (executorData.proposerIndexOneBased == 0) {
@@ -96,25 +107,45 @@ library Proposers {
         proposer.executor = executorData.executor;
     }
 
+    /// @dev Checks if an account is a registered proposer.
+    /// @param self The storage state of the Proposers library.
+    /// @param account The address to check.
+    /// @return A boolean indicating whether the account is a registered proposer.
     function isProposer(State storage self, address account) internal view returns (bool) {
         return self.executors[account].proposerIndexOneBased != 0;
     }
 
+    /// @dev Checks if an account is an admin proposer.
+    /// @param self The storage state of the Proposers library.
+    /// @param config The configuration contract.
+    /// @param account The address to check.
+    /// @return A boolean indicating whether the account is an admin proposer.
     function isAdminProposer(State storage self, IConfiguration config, address account) internal view returns (bool) {
         ExecutorData memory executorData = self.executors[account];
         return executorData.proposerIndexOneBased != 0 && executorData.executor == config.ADMIN_EXECUTOR();
     }
 
+    /// @dev Checks if an account is an executor.
+    /// @param self The storage state of the Proposers library.
+    /// @param account The address to check.
+    /// @return A boolean indicating whether the account is an executor.
     function isExecutor(State storage self, address account) internal view returns (bool) {
         return self.executorRefsCounts[account] > 0;
     }
 
+    /// @dev Checks if an account is a registered proposer and reverts if not.
+    /// @param self The storage state of the Proposers library.
+    /// @param account The address to check.
     function checkProposer(State storage self, address account) internal view {
         if (!isProposer(self, account)) {
             revert NotProposer(account);
         }
     }
 
+    /// @dev Checks if an account is a registered proposer assigned to the expected executor and reverts if not.
+    /// @param self The storage state of the Proposers library.
+    /// @param account The address of the proposer.
+    /// @param executor The address of the expected executor.
     function checkExecutor(State storage self, address account, address executor) internal view {
         checkProposer(self, account);
         ExecutorData memory executorData = self.executors[account];
@@ -123,6 +154,10 @@ library Proposers {
         }
     }
 
+    /// @dev Checks if an account is an admin proposer and reverts if not.
+    /// @param self The storage state of the Proposers library.
+    /// @param config The configuration contract.
+    /// @param account The address to check.
     function checkAdminProposer(State storage self, IConfiguration config, address account) internal view {
         checkProposer(self, account);
         if (!isAdminProposer(self, config, account)) {

@@ -109,7 +109,11 @@ The protected deployment mode is a temporary mode designed to be active during a
 
 In this mode, an **emergency activation committee** has the one-off and time-limited right to activate an adversarial **emergency mode** if they see a scheduled proposal that was created or altered due to a vulnerability in the DG contracts or if governance execution is prevented by such a vulnerability. Once the emergency mode is activated, the emergency activation committee is disabled, i.e. loses the ability to activate the emergency mode again. If the emergency activation committee doesn't activate the emergency mode within the duration of the **emergency protection duration** since the committee was configured by the DAO, it gets automatically disabled as well.
 
-The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect it to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
+The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, the following conditions apply:
+1) Only the **emergency execution committee** has the right to execute scheduled proposals
+2) The same committee has the one-off right to **disable the DG subsystem**. After this action, the system should start behaving according to [this specification](plan-b.md)). This involves disconnecting the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect them to the `TimelockedGovernance` contract instance.
+
+Disabling the DG subsystem also disables also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
 
 If the emergency execution committee doesn't disable the DG until the emergency mode max duration elapses, anyone gets the right to deactivate the emergency mode, switching the system back to the protected mode and disabling the emergency committee.
 
@@ -394,28 +398,26 @@ In the Lido protocol, specific critical components (`WithdrawalQueue` and `Valid
 
 However, the effectiveness of this approach is contingent upon the predictability of the DAO's solution adoption timeframe. With the dual governance system, proposal execution may experience significant delays based on the current state of the `DualGovernance` contract. There's a risk that `GateSeal`'s pause period may expire before the Lido DAO can implement the necessary fixes.
 
-To address the compatibility challenge between gate seals and dual governance, the `ResealManager` contract is introduced. This smart contract is designed to manage the resealing and resuming of sealable contracts during emergencies. The `ResealManager` can extend the pause of temporarily paused contracts to a permanent pause or resume them if the following conditions are met:
-
-- The `ResealManager` holds the `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
-- Contracts are paused until a specific timestamp that is in the future and not indefinitely.
-- DAO governance is blocked by `DualGovernance`.
-
-### Constructor
+To address this compatibility challenge between gate seals and dual governance, the `ResealManager` contract is introduced. The `ResealManager` allows to extend pause of temporarily paused contracts to permanent pause or resume it, if conditions are met:
+- `ResealManager` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
+- Contracts are paused until timestamp after current timestamp and not for infinite time.
+- The DAO governance is blocked by `DualGovernance`
+- Only governance address obtained from `EmergencyProtectedTimelock` can trigger these actions.
 
 ```solidity
 constructor(address emergencyProtectedTimelock)
 ```
 
-Initializes the contract with the address of the `EmergencyProtectedTimelock` contract.
+Initializes the contract with the address of the EmergencyProtectedTimelock contract.
 
 #### Preconditions
 
-* `emergencyProtectedTimelock` MUST be a valid address.
+* emergencyProtectedTimelock MUST be a valid address.
 
-### Function: ResealManager.reseal
+### Function ResealManager.reseal
 
 ```solidity
-function reseal(address[] memory sealables) external onlyGovernance
+function reseal(address[] memory sealables) public onlyGovernance
 ```
 
 Extends the pause of the specified `sealables` contracts. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
@@ -425,6 +427,10 @@ Extends the pause of the specified `sealables` contracts. This function can be c
 - The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
 - The target contracts MUST be paused until a future timestamp and not indefinitely.
 - The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
+
+#### Errors
+- `SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+- `SenderIsNotGovernance`: Thrown if the sender is not the governance address.
 
 ### Function: ResealManager.resume
 
@@ -440,6 +446,10 @@ Resumes the specified `sealable` contract if it is scheduled to resume in the fu
 - The target contract MUST be paused.
 - The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
 
+#### Errors
+- `SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+- `SenderIsNotGovernance`: Thrown if the sender is not the governance address.
+
 ### Modifier: ResealManager.onlyGovernance
 
 ```solidity
@@ -451,12 +461,6 @@ Ensures that the function can only be called by the governance address.
 #### Preconditions
 
 - The sender MUST be the governance address obtained from the `EmergencyProtectedTimelock` contract.
-
-### Errors
-
-- `SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
-- `SenderIsNotGovernance`: Thrown if the sender is not the governance address.
-
 
 ## Contract: Escrow.sol
 
