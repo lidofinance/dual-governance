@@ -389,11 +389,9 @@ contract EmergencyProtectionUnitTests is UnitTest {
     }
 
     function test_check_emergency_mode_active() external {
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [false, true])
-        );
-        _emergencyProtection.checkEmergencyModeActive(true);
-        _emergencyProtection.checkEmergencyModeActive(false);
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, [false, true]));
+        _emergencyProtection.checkEmergencyModeStatus(true);
+        _emergencyProtection.checkEmergencyModeStatus(false);
 
         Duration protectionDuration = Durations.from(100 seconds);
         Duration emergencyModeDuration = Durations.from(100 seconds);
@@ -401,9 +399,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
         _emergencyProtection.setup(address(0x1), address(0x2), protectionDuration, emergencyModeDuration);
         _emergencyProtection.activate();
 
-        _emergencyProtection.checkEmergencyModeActive(true);
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeActiveValue.selector, [true, false])
-        );
+        _emergencyProtection.checkEmergencyModeStatus(true);
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeStatus.selector, [true, false]));
     }
 }

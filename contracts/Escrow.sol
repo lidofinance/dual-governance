@@ -223,8 +223,8 @@ contract Escrow is IEscrow {
 
         uint256[] memory requestAmounts = WithdrawalsBatchesQueue.calcRequestAmounts({
             minRequestAmount: MIN_WITHDRAWAL_REQUEST_AMOUNT,
-            requestAmount: MAX_WITHDRAWAL_REQUEST_AMOUNT,
-            amount: Math.min(stETHRemaining, MAX_WITHDRAWAL_REQUEST_AMOUNT * maxBatchSize)
+            maxRequestAmount: MAX_WITHDRAWAL_REQUEST_AMOUNT,
+            remainingAmount: Math.min(stETHRemaining, MAX_WITHDRAWAL_REQUEST_AMOUNT * maxBatchSize)
         });
 
         _batchesQueue.add(WITHDRAWAL_QUEUE.requestWithdrawals(requestAmounts, address(this)));

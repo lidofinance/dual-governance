@@ -109,7 +109,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
 
             // remove canceled call from the timelock
             _assertCanExecute(proposalId, false);
-            _assertProposalCanceled(proposalId);
+            _assertProposalCancelled(proposalId);
         }
     }
 }

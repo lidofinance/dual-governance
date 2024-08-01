@@ -61,7 +61,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// Checks if emergency mode is active and prevents execution if it is.
     /// @param proposalId The ID of the proposal to be executed.
     function execute(uint256 proposalId) external {
-        _emergencyProtection.checkEmergencyModeActive(false);
+        _emergencyProtection.checkEmergencyModeStatus(false);
         _proposals.execute(proposalId, CONFIG.AFTER_SCHEDULE_DELAY());
     }
 
@@ -97,7 +97,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// Only the activation committee can call this function.
     function activateEmergencyMode() external {
         _emergencyProtection.checkActivationCommittee(msg.sender);
-        _emergencyProtection.checkEmergencyModeActive(false);
+        _emergencyProtection.checkEmergencyModeStatus(false);
         _emergencyProtection.activate();
     }
 
@@ -105,7 +105,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// Checks if emergency mode is active and if the caller is part of the execution committee.
     /// @param proposalId The ID of the proposal to be executed.
     function emergencyExecute(uint256 proposalId) external {
-        _emergencyProtection.checkEmergencyModeActive(true);
+        _emergencyProtection.checkEmergencyModeStatus(true);
         _emergencyProtection.checkExecutionCommittee(msg.sender);
         _proposals.execute(proposalId, /* afterScheduleDelay */ Duration.wrap(0));
     }
@@ -113,7 +113,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// @dev Deactivates the emergency mode.
     /// If the emergency mode has not passed, only the admin executor can call this function.
     function deactivateEmergencyMode() external {
-        _emergencyProtection.checkEmergencyModeActive(true);
+        _emergencyProtection.checkEmergencyModeStatus(true);
         if (!_emergencyProtection.isEmergencyModePassed()) {
             _checkAdminExecutor(msg.sender);
         }
@@ -124,7 +124,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// @dev Resets the system after entering the emergency mode.
     /// Only the execution committee can call this function.
     function emergencyReset() external {
-        _emergencyProtection.checkEmergencyModeActive(true);
+        _emergencyProtection.checkEmergencyModeStatus(true);
         _emergencyProtection.checkExecutionCommittee(msg.sender);
         _emergencyProtection.deactivate();
         _setGovernance(CONFIG.EMERGENCY_GOVERNANCE());
