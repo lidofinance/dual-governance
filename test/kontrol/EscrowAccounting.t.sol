@@ -71,8 +71,11 @@ contract EscrowAccountingTest is EscrowInvariants {
         _setUpGenericState();
 
         uint256 totalSharesLocked = escrow.getLockedAssetsTotals().stETHLockedShares;
-        uint256 totalFundsLocked = stEth.getPooledEthByShares(totalSharesLocked);
-        uint256 expectedRageQuitSupport = totalFundsLocked * 1e18 / stEth.totalSupply();
+        uint256 unfinalizedShares = totalSharesLocked + escrow.getLockedAssetsTotals().unstETHUnfinalizedShares;
+        uint256 totalFundsLocked = stEth.getPooledEthByShares(unfinalizedShares);
+        uint256 finalizedETH = escrow.getLockedAssetsTotals().unstETHFinalizedETH;
+        uint256 expectedRageQuitSupport =
+            (totalFundsLocked + finalizedETH) * 1e18 / (stEth.totalSupply() + finalizedETH);
 
         assert(escrow.getRageQuitSupport() == expectedRageQuitSupport);
     }
