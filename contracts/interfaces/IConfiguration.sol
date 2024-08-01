@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "../types/Duration.sol";
-import {TiebreakConfig, DualGovernanceConfig} from "../libraries//DualGovernanceConfig.sol";
+import {DualGovernanceStateMachine, TiebreakConfig} from "../libraries/DualGovernanceStateMachine.sol";
 
 interface IEscrowConfigration {
     function MIN_WITHDRAWALS_BATCH_SIZE() external view returns (uint256);
@@ -45,7 +45,7 @@ interface IDualGovernanceConfiguration {
 
     function getSealableWithdrawalBlockers() external view returns (address[] memory);
 
-    function getDualGovernanceConfig() external view returns (DualGovernanceConfig memory config);
+    function getDualGovernanceConfig() external view returns (DualGovernanceStateMachine.Config memory config);
     function getTiebreakConfig() external view returns (TiebreakConfig memory config);
 }
 

@@ -29,7 +29,7 @@ import {
     EmergencyProtectedTimelock
 } from "contracts/EmergencyProtectedTimelock.sol";
 
-import {DualGovernance, State as DGState, DualGovernanceState} from "contracts/DualGovernance.sol";
+import {DualGovernance, State as DGState, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
 import {TimelockedGovernance, IGovernance} from "contracts/TimelockedGovernance.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
@@ -125,7 +125,7 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        DualGovernanceState.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
         isActive = stateContext.state == DGState.VetoSignalling;
         duration = _dualGovernance.getDynamicDelayDuration().toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
@@ -137,7 +137,7 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
-        DualGovernanceState.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
         isActive = stateContext.state == DGState.VetoSignallingDeactivation;
         duration = _dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
