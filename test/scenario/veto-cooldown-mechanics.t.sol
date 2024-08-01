@@ -4,8 +4,8 @@ pragma solidity 0.8.26;
 import {
     Escrow,
     percents,
-    ExecutorCall,
-    ExecutorCallHelpers,
+    ExternalCall,
+    ExternalCallHelpers,
     DualGovernanceState,
     ScenarioTestBlueprint
 } from "../utils/scenario-test-blueprint.sol";
@@ -24,7 +24,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
     }
 
     function testFork_ProposalSubmittedInRageQuitNonExecutableInTheNextVetoCooldown() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         uint256 proposalId;
         _step("1. THE PROPOSAL IS SUBMITTED");
@@ -57,7 +57,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             anotherProposalId = _submitProposal(
                 _dualGovernance,
                 "Another Proposal",
-                ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()))
+                ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()))
             );
         }
 

@@ -2,10 +2,10 @@
 pragma solidity 0.8.26;
 
 import {EmergencyState} from "contracts/libraries/EmergencyProtection.sol";
-import {Proposals} from "contracts/libraries/Proposals.sol";
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 import {Durations, Timestamps} from "test/utils/unit-test.sol";
 
-import {percents, ScenarioTestBlueprint, ExecutorCall} from "../utils/scenario-test-blueprint.sol";
+import {percents, ScenarioTestBlueprint, ExternalCall} from "../utils/scenario-test-blueprint.sol";
 
 contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     function setUp() external {
@@ -17,11 +17,11 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     function test_regular_deployment_mode() external {
         _deployDualGovernanceSetup(false);
 
-        (uint256 proposalId, ExecutorCall[] memory regularStaffCalls) = _createAndAssertProposal();
+        (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
-        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposal(_dualGovernance, proposalId);
 
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
@@ -41,11 +41,11 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     function test_protected_deployment_mode_execute_after_timelock() external {
         _deployDualGovernanceSetup(true);
 
-        (uint256 proposalId, ExecutorCall[] memory regularStaffCalls) = _createAndAssertProposal();
+        (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
-        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposal(_dualGovernance, proposalId);
 
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
@@ -65,11 +65,11 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     function test_protected_deployment_mode_execute_in_emergency_mode() external {
         _deployDualGovernanceSetup(true);
 
-        (uint256 proposalId, ExecutorCall[] memory regularStaffCalls) = _createAndAssertProposal();
+        (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
-        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposal(_dualGovernance, proposalId);
 
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
@@ -100,11 +100,11 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     function test_protected_deployment_mode_deactivation_in_emergency_mode() external {
         _deployDualGovernanceSetup(true);
 
-        (uint256 proposalId, ExecutorCall[] memory regularStaffCalls) = _createAndAssertProposal();
+        (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
 
-        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposal(_dualGovernance, proposalId);
 
         _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
@@ -133,8 +133,8 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
         assertEq(_timelock.isEmergencyProtectionEnabled(), false);
     }
 
-    function _createAndAssertProposal() internal returns (uint256, ExecutorCall[] memory) {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+    function _createAndAssertProposal() internal returns (uint256, ExternalCall[] memory) {
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         uint256 proposalId = _submitProposal(
             _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls

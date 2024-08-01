@@ -4,12 +4,11 @@ pragma solidity 0.8.26;
 import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
 import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
-import {ISealable} from "./interfaces/ISealable.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
-import {ExecutorCall} from "./libraries/Proposals.sol";
+import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 import {State, DualGovernanceState} from "./libraries/DualGovernanceState.sol";
 import {TiebreakerProtection} from "./libraries/TiebreakerProtection.sol";
@@ -44,7 +43,7 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
     }
 
-    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _proposers.checkProposer(msg.sender);
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
         _dgState.checkProposalsCreationAllowed();
@@ -54,12 +53,10 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function scheduleProposal(uint256 proposalId) external {
         _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
-
-        Timestamp proposalSubmissionTime = TIMELOCK.getProposalSubmissionTime(proposalId);
-        _dgState.checkCanScheduleProposal(proposalSubmissionTime);
-
+        ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
+            TIMELOCK.getProposalInfo(proposalId);
+        _dgState.checkCanScheduleProposal(submittedAt);
         TIMELOCK.schedule(proposalId);
-
         emit ProposalScheduled(proposalId);
     }
 

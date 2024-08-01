@@ -4,8 +4,8 @@ pragma solidity 0.8.26;
 import {
     percents,
     ScenarioTestBlueprint,
-    ExecutorCall,
-    ExecutorCallHelpers,
+    ExternalCall,
+    ExternalCallHelpers,
     DualGovernanceState,
     Durations
 } from "../utils/scenario-test-blueprint.sol";
@@ -24,7 +24,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
     }
 
     function testFork_LastMomentMaliciousProposal() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         uint256 proposalId;
         _step("1. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
@@ -58,7 +58,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             maliciousProposalId = _submitProposal(
                 _dualGovernance,
                 "Malicious Proposal",
-                ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()))
+                ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()))
             );
 
             // the both calls aren't executable until the delay has passed
@@ -126,7 +126,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
     }
 
     function testFork_VetoSignallingDeactivationDefaultDuration() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         uint256 proposalId;
         // ---
@@ -194,7 +194,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         }
 
         uint256 proposalId;
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
         _step("2. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
         {
             proposalId = _submitProposal(
@@ -248,7 +248,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         }
 
         uint256 proposalId;
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
         _step("2. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
         {
             proposalId = _submitProposal(

@@ -2,8 +2,8 @@
 pragma solidity 0.8.26;
 
 import {Timestamp} from "contracts/types/Timestamp.sol";
-import {ITimelock} from "contracts/interfaces/ITimelock.sol";
-import {ExecutorCall} from "contracts/libraries/Proposals.sol";
+import {ITimelock, ProposalStatus} from "contracts/interfaces/ITimelock.sol";
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
 contract TimelockMock is ITimelock {
     uint8 public constant OFFSET = 1;
@@ -16,7 +16,7 @@ contract TimelockMock is ITimelock {
 
     uint256 public lastCancelledProposalId;
 
-    function submit(address, ExecutorCall[] calldata) external returns (uint256 newProposalId) {
+    function submit(address, ExternalCall[] calldata) external returns (uint256 newProposalId) {
         newProposalId = submittedProposals.length + OFFSET;
         submittedProposals.push(newProposalId);
         canScheduleProposal[newProposalId] = false;
@@ -67,7 +67,15 @@ contract TimelockMock is ITimelock {
         return lastCancelledProposalId;
     }
 
-    function getProposalSubmissionTime(uint256 proposalId) external view returns (Timestamp submittedAt) {
+    function getProposal(uint256 proposalId) external view returns (Proposal memory) {
+        revert("Not Implemented");
+    }
+
+    function getProposalInfo(uint256 proposalId)
+        external
+        view
+        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
+    {
         revert("Not Implemented");
     }
 }

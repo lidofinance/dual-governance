@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IGovernance, ITimelock} from "./interfaces/ITimelock.sol";
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
-import {ExecutorCall} from "./libraries/Proposals.sol";
+import {ExternalCall} from "./libraries/ExternalCalls.sol";
 
 /// @title TimelockedGovernance
 /// @dev A contract that serves as the interface for submitting and scheduling the execution of governance proposals.
@@ -23,9 +23,9 @@ contract TimelockedGovernance is IGovernance, ConfigurationProvider {
     }
 
     /// @dev Submits a proposal to the timelock.
-    /// @param calls An array of ExecutorCall structs representing the calls to be executed in the proposal.
+    /// @param calls An array of ExternalCall structs representing the calls to be executed in the proposal.
     /// @return proposalId The ID of the submitted proposal.
-    function submitProposal(ExecutorCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _checkGovernance(msg.sender);
         return TIMELOCK.submit(CONFIG.ADMIN_EXECUTOR(), calls);
     }

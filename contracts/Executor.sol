@@ -4,9 +4,9 @@ pragma solidity 0.8.26;
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {IExecutor} from "./interfaces/IExecutor.sol";
+import {IExternalExecutor} from "./libraries/ExternalCalls.sol";
 
-contract Executor is IExecutor, Ownable {
+contract Executor is IExternalExecutor, Ownable {
     constructor(address owner) Ownable(owner) {}
 
     function execute(

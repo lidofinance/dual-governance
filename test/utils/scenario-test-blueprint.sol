@@ -23,7 +23,7 @@ import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommitte
 import {ResealManager} from "contracts/ResealManager.sol";
 
 import {
-    ExecutorCall,
+    ProposalStatus,
     EmergencyState,
     EmergencyProtection,
     EmergencyProtectedTimelock
@@ -32,7 +32,7 @@ import {
 import {TimelockedGovernance, IGovernance} from "contracts/TimelockedGovernance.sol";
 import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernance.sol";
 
-import {Proposal, Status as ProposalStatus} from "contracts/libraries/Proposals.sol";
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
 import {Percents, percents} from "../utils/percents.sol";
 import {
@@ -43,7 +43,7 @@ import {
     WithdrawalRequestStatus,
     IDangerousContract
 } from "../utils/interfaces.sol";
-import {ExecutorCallHelpers} from "../utils/executor-calls.sol";
+import {ExternalCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
 
 import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, DAO_AGENT} from "../utils/mainnet-addresses.sol";
@@ -116,8 +116,8 @@ contract ScenarioTestBlueprint is Test {
         return Escrow(payable(rageQuitEscrow));
     }
 
-    function _getTargetRegularStaffCalls() internal view returns (ExecutorCall[] memory) {
-        return ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
+    function _getTargetRegularStaffCalls() internal view returns (ExternalCall[] memory) {
+        return ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
     }
 
     function _getVetoSignallingState()
@@ -310,7 +310,7 @@ contract ScenarioTestBlueprint is Test {
     function _submitProposal(
         IGovernance governance,
         string memory description,
-        ExecutorCall[] memory calls
+        ExternalCall[] memory calls
     ) internal returns (uint256 proposalId) {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
@@ -346,22 +346,21 @@ contract ScenarioTestBlueprint is Test {
     // Assertions
     // ---
 
-    function _assertSubmittedProposalData(uint256 proposalId, ExecutorCall[] memory calls) internal {
+    function _assertSubmittedProposalData(uint256 proposalId, ExternalCall[] memory calls) internal {
         _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), calls);
     }
 
-    function _assertSubmittedProposalData(uint256 proposalId, address executor, ExecutorCall[] memory calls) internal {
-        Proposal memory proposal = _timelock.getProposal(proposalId);
+    function _assertSubmittedProposalData(uint256 proposalId, address executor, ExternalCall[] memory calls) internal {
+        EmergencyProtectedTimelock.Proposal memory proposal = _timelock.getProposal(proposalId);
         assertEq(proposal.id, proposalId, "unexpected proposal id");
-        assertEq(uint256(proposal.status), uint256(ProposalStatus.Submitted), "unexpected status value");
+        assertEq(proposal.status, ProposalStatus.Submitted, "unexpected status value");
         assertEq(proposal.executor, executor, "unexpected executor");
         assertEq(Timestamp.unwrap(proposal.submittedAt), block.timestamp, "unexpected scheduledAt");
-        assertEq(Timestamp.unwrap(proposal.executedAt), 0, "unexpected executedAt");
         assertEq(proposal.calls.length, calls.length, "unexpected calls length");
 
         for (uint256 i = 0; i < proposal.calls.length; ++i) {
-            ExecutorCall memory expected = calls[i];
-            ExecutorCall memory actual = proposal.calls[i];
+            ExternalCall memory expected = calls[i];
+            ExternalCall memory actual = proposal.calls[i];
 
             assertEq(actual.value, expected.value);
             assertEq(actual.target, expected.target);
@@ -369,7 +368,7 @@ contract ScenarioTestBlueprint is Test {
         }
     }
 
-    function _assertTargetMockCalls(address sender, ExecutorCall[] memory calls) internal {
+    function _assertTargetMockCalls(address sender, ExternalCall[] memory calls) internal {
         TargetMock.Call[] memory called = _target.getCalls();
         assertEq(called.length, calls.length);
 
@@ -382,7 +381,7 @@ contract ScenarioTestBlueprint is Test {
         _target.reset();
     }
 
-    function _assertTargetMockCalls(address[] memory senders, ExecutorCall[] memory calls) internal {
+    function _assertTargetMockCalls(address[] memory senders, ExternalCall[] memory calls) internal {
         TargetMock.Call[] memory called = _target.getCalls();
         assertEq(called.length, calls.length);
         assertEq(called.length, senders.length);
@@ -414,18 +413,26 @@ contract ScenarioTestBlueprint is Test {
 
     function _assertProposalSubmitted(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposal(proposalId).status, ProposalStatus.Submitted, "Proposal not in 'Submitted' state"
+            _timelock.getProposal(proposalId).status,
+            ProposalStatus.Submitted,
+            "TimelockProposal not in 'Submitted' state"
         );
     }
 
     function _assertProposalScheduled(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposal(proposalId).status, ProposalStatus.Scheduled, "Proposal not in 'Scheduled' state"
+            _timelock.getProposal(proposalId).status,
+            ProposalStatus.Scheduled,
+            "TimelockProposal not in 'Scheduled' state"
         );
     }
 
     function _assertProposalExecuted(uint256 proposalId) internal {
-        assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Executed, "Proposal not in 'Executed' state");
+        assertEq(
+            _timelock.getProposal(proposalId).status,
+            ProposalStatus.Executed,
+            "TimelockProposal not in 'Executed' state"
+        );
     }
 
     function _assertProposalCancelled(uint256 proposalId) internal {

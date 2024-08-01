@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ExecutorCall, ScenarioTestBlueprint, ExecutorCall} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCall, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 
 contract AgentTimelockTest is ScenarioTestBlueprint {
     function setUp() external {
@@ -11,7 +11,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
     }
 
     function testFork_AgentTimelockHappyPath() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         uint256 proposalId;
         _step("1. THE PROPOSAL IS SUBMITTED");
@@ -55,7 +55,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
     }
 
     function testFork_TimelockEmergencyReset() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
 
         // ---
         // 1. THE PROPOSAL IS SUBMITTED

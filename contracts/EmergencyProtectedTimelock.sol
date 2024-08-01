@@ -5,10 +5,12 @@ import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {ITimelock} from "./interfaces/ITimelock.sol";
+import {ITimelock, ProposalStatus} from "./interfaces/ITimelock.sol";
 
-import {Proposal, Proposals, ExecutorCall} from "./libraries/Proposals.sol";
 import {EmergencyProtection, EmergencyState} from "./libraries/EmergencyProtection.sol";
+
+import {ExternalCall} from "./libraries/ExternalCalls.sol";
+import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 
@@ -18,7 +20,7 @@ import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 /// while providing emergency protection features to prevent unauthorized
 /// execution during emergency situations.
 contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
-    using Proposals for Proposals.State;
+    using ExecutableProposals for ExecutableProposals.State;
     using EmergencyProtection for EmergencyProtection.State;
 
     error InvalidGovernance(address governance);
@@ -28,7 +30,7 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
 
     address internal _governance;
 
-    Proposals.State internal _proposals;
+    ExecutableProposals.State internal _proposals;
     EmergencyProtection.State internal _emergencyProtection;
 
     constructor(address config) ConfigurationProvider(config) {}
@@ -40,9 +42,9 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     /// @dev Submits a new proposal to execute a series of calls through an executor.
     /// Only the governance contract can call this function.
     /// @param executor The address of the executor contract that will execute the calls.
-    /// @param calls An array of `ExecutorCall` structs representing the calls to be executed.
+    /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
     /// @return newProposalId The ID of the newly created proposal.
-    function submit(address executor, ExecutorCall[] calldata calls) external returns (uint256 newProposalId) {
+    function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId) {
         _checkGovernance(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
     }
@@ -162,29 +164,55 @@ contract EmergencyProtectedTimelock is ITimelock, ConfigurationProvider {
     // ---
 
     /// @dev Retrieves the address of the current governance contract.
-    /// @return The address of the current governance contract.
-    function getGovernance() external view returns (address) {
-        return _governance;
+    /// @return governance The address of the current governance contract.
+    function getGovernance() external view returns (address governance) {
+        governance = _governance;
     }
 
     /// @dev Retrieves the details of a proposal.
     /// @param proposalId The ID of the proposal.
     /// @return proposal The Proposal struct containing the details of the proposal.
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
-        proposal = _proposals.get(proposalId);
+        proposal.id = proposalId;
+        (proposal.status, proposal.executor, proposal.submittedAt, proposal.scheduledAt) =
+            _proposals.getProposalInfo(proposalId);
+        proposal.calls = _proposals.getProposalCalls(proposalId);
+    }
+
+    /// @notice Retrieves information about a proposal, excluding the external calls associated with it.
+    /// @param proposalId The ID of the proposal to retrieve information for.
+    /// @return id The ID of the proposal.
+    /// @return status The current status of the proposal. Possible values are:
+    /// 0 - The proposal does not exist.
+    /// 1 - The proposal was submitted but not scheduled.
+    /// 2 - The proposal was submitted and scheduled but not yet executed.
+    /// 3 - The proposal was submitted, scheduled, and executed. This is the final state of the proposal lifecycle.
+    /// 4 - The proposal was cancelled via cancelAllNonExecutedProposals() and cannot be scheduled or executed anymore.
+    ///     This is the final state of the proposal.
+    /// @return executor The address of the executor responsible for executing the proposal's external calls.
+    /// @return submittedAt The timestamp when the proposal was submitted.
+    /// @return scheduledAt The timestamp when the proposal was scheduled for execution. Equals 0 if the proposal
+    /// was submitted but not yet scheduled.
+    function getProposalInfo(uint256 proposalId)
+        external
+        view
+        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
+    {
+        id = proposalId;
+        (status, executor, submittedAt, scheduledAt) = _proposals.getProposalInfo(proposalId);
+    }
+
+    /// @notice Retrieves the external calls associated with the specified proposal.
+    /// @param proposalId The ID of the proposal to retrieve external calls for.
+    /// @return calls An array of ExternalCall structs representing the sequence of calls to be executed for the proposal.
+    function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls) {
+        calls = _proposals.getProposalCalls(proposalId);
     }
 
     /// @dev Retrieves the total number of proposals.
     /// @return count The total number of proposals.
     function getProposalsCount() external view returns (uint256 count) {
-        count = _proposals.count();
-    }
-
-    /// @dev Retrieves the submission time of a proposal.
-    /// @param proposalId The ID of the proposal.
-    /// @return submittedAt The submission time of the proposal.
-    function getProposalSubmissionTime(uint256 proposalId) external view returns (Timestamp submittedAt) {
-        submittedAt = _proposals.getProposalSubmissionTime(proposalId);
+        count = _proposals.getProposalsCount();
     }
 
     /// @dev Checks if a proposal can be executed.

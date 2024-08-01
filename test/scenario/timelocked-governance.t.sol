@@ -4,10 +4,10 @@ pragma solidity 0.8.26;
 import {IGovernance} from "contracts/interfaces/ITimelock.sol";
 import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 import {Durations, minus} from "contracts/types/Duration.sol";
-import {ExecutorCall} from "contracts/libraries/Proposals.sol";
+import {ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection, EmergencyState} from "contracts/libraries/EmergencyProtection.sol";
 
-import {ScenarioTestBlueprint, ExecutorCallHelpers, IDangerousContract} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint, ExternalCallHelpers, IDangerousContract} from "../utils/scenario-test-blueprint.sol";
 
 contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
     function setUp() external {
@@ -106,7 +106,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         // Act 4. DAO decides to cancel all pending proposals and deactivate emergency mode.
         // ---
         {
-            ExecutorCall[] memory deactivateEmergencyModeCall = ExecutorCallHelpers.create(
+            ExternalCall[] memory deactivateEmergencyModeCall = ExternalCallHelpers.create(
                 [address(_timelock)], [abi.encodeCall(_timelock.deactivateEmergencyMode, ())]
             );
             uint256 deactivateEmergencyModeProposalId =
@@ -218,7 +218,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         {
             _deployDualGovernance();
 
-            ExecutorCall[] memory dualGovernanceLaunchCalls = ExecutorCallHelpers.create(
+            ExternalCall[] memory dualGovernanceLaunchCalls = ExternalCallHelpers.create(
                 [address(_timelock)], [abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance)))]
             );
 
@@ -254,7 +254,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
 
             assertTrue(_timelock.getEmergencyState().isEmergencyModeActivated);
 
-            ExecutorCall[] memory timelockedGovernanceLaunchCalls = ExecutorCallHelpers.create(
+            ExternalCall[] memory timelockedGovernanceLaunchCalls = ExternalCallHelpers.create(
                 address(_timelock),
                 [
                     abi.encodeCall(_timelock.setGovernance, (address(_timelockedGovernance))),
@@ -286,8 +286,8 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         }
     }
 
-    function _submitAndAssertProposal(IGovernance governance) internal returns (uint256, ExecutorCall[] memory) {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+    function _submitAndAssertProposal(IGovernance governance) internal returns (uint256, ExternalCall[] memory) {
+        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
         uint256 proposalId =
             _submitProposal(governance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls);
 
@@ -297,9 +297,9 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         return (proposalId, regularStaffCalls);
     }
 
-    function _submitAndAssertMaliciousProposal() internal returns (uint256, ExecutorCall[] memory) {
-        ExecutorCall[] memory maliciousCalls =
-            ExecutorCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
+    function _submitAndAssertMaliciousProposal() internal returns (uint256, ExternalCall[] memory) {
+        ExternalCall[] memory maliciousCalls =
+            ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
 
         uint256 proposalId = _submitProposal(
             _timelockedGovernance, "DAO does malicious staff on potentially dangerous contract", maliciousCalls
@@ -312,7 +312,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
     }
 
     function _daoRegularOperations(IGovernance governance) internal {
-        (uint256 proposalId, ExecutorCall[] memory regularStaffCalls) = _submitAndAssertProposal(governance);
+        (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _submitAndAssertProposal(governance);
 
         _waitAfterSubmitDelayPassed();
 
