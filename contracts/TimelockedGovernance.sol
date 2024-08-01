@@ -45,7 +45,7 @@ contract TimelockedGovernance is IGovernance, ConfigurationProvider {
     /// @dev Checks if a proposal can be scheduled.
     /// @param proposalId The ID of the proposal to check.
     /// @return A boolean indicating whether the proposal can be scheduled.
-    function canSchedule(uint256 proposalId) external view returns (bool) {
+    function canScheduleProposal(uint256 proposalId) external view returns (bool) {
         return TIMELOCK.canSchedule(proposalId);
     }
 

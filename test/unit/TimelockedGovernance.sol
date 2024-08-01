@@ -112,10 +112,10 @@ contract SingleGovernanceUnitTests is UnitTest {
         vm.prank(_governance);
         _timelockedGovernance.submitProposal(_getTargetRegularStaffCalls(address(0x1)));
 
-        assertFalse(_timelockedGovernance.canSchedule(1));
+        assertFalse(_timelockedGovernance.canScheduleProposal(1));
 
         _timelock.setSchedule(1);
 
-        assertTrue(_timelockedGovernance.canSchedule(1));
+        assertTrue(_timelockedGovernance.canScheduleProposal(1));
     }
 }

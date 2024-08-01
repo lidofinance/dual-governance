@@ -6,7 +6,7 @@ import {
     ScenarioTestBlueprint,
     ExternalCall,
     ExternalCallHelpers,
-    DualGovernanceState,
+    DualGovernance,
     Durations
 } from "../utils/scenario-test-blueprint.sol";
 
@@ -97,7 +97,9 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _executeProposal(proposalId);
             _assertProposalExecuted(proposalId);
 
-            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(
+                abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, maliciousProposalId)
+            );
             this.scheduleProposalExternal(maliciousProposalId);
 
             _assertProposalSubmitted(maliciousProposalId);
@@ -120,7 +122,9 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _activateNextState();
             _assertRageQuitState();
 
-            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(
+                abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, maliciousProposalId)
+            );
             this.scheduleProposalExternal(maliciousProposalId);
         }
     }
@@ -216,7 +220,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _activateNextState();
             _assertVetoCooldownState();
 
-            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
             this.scheduleProposalExternal(proposalId);
         }
 
@@ -270,7 +274,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _activateNextState();
             _assertVetoCooldownState();
 
-            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
             this.scheduleProposalExternal(proposalId);
         }
 
@@ -281,7 +285,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _assertVetoSignalingState();
             _logVetoSignallingState();
 
-            vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
+            vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
             this.scheduleProposalExternal(proposalId);
         }
 

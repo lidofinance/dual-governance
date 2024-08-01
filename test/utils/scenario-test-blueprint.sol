@@ -29,8 +29,8 @@ import {
     EmergencyProtectedTimelock
 } from "contracts/EmergencyProtectedTimelock.sol";
 
+import {DualGovernance, State as DGState, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
 import {TimelockedGovernance, IGovernance} from "contracts/TimelockedGovernance.sol";
-import {DualGovernance, DualGovernanceState, State} from "contracts/DualGovernance.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
@@ -125,13 +125,11 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        DurationType duration_;
-        Timestamp activatedAt_;
-        Timestamp enteredAt_;
-        (isActive, duration_, activatedAt_, enteredAt_) = _dualGovernance.getVetoSignallingState();
-        duration = DurationType.unwrap(duration_);
-        enteredAt = Timestamp.unwrap(enteredAt_);
-        activatedAt = Timestamp.unwrap(activatedAt_);
+        DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        isActive = stateContext.state == DGState.VetoSignalling;
+        duration = _dualGovernance.getDynamicDelayDuration().toSeconds();
+        enteredAt = stateContext.enteredAt.toSeconds();
+        activatedAt = stateContext.vetoSignallingActivatedAt.toSeconds();
     }
 
     function _getVetoSignallingDeactivationState()
@@ -139,11 +137,10 @@ contract ScenarioTestBlueprint is Test {
         view
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
-        Timestamp enteredAt_;
-        DurationType duration_;
-        (isActive, duration_, enteredAt_) = _dualGovernance.getVetoSignallingDeactivationState();
-        duration = DurationType.unwrap(duration_);
-        enteredAt = Timestamp.unwrap(enteredAt_);
+        DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        isActive = stateContext.state == DGState.VetoSignallingDeactivation;
+        duration = _dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
+        enteredAt = stateContext.enteredAt.toSeconds();
     }
 
     // ---
@@ -400,7 +397,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertCanSchedule(IGovernance governance, uint256 proposalId, bool canSchedule) internal {
-        assertEq(governance.canSchedule(proposalId), canSchedule, "unexpected canSchedule() value");
+        assertEq(governance.canScheduleProposal(proposalId), canSchedule, "unexpected canSchedule() value");
     }
 
     function _assertCanScheduleAndExecute(IGovernance governance, uint256 proposalId) internal {
@@ -440,23 +437,23 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertNormalState() internal {
-        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.Normal));
+        assertEq(_dualGovernance.getCurrentState(), DGState.Normal);
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoSignalling));
+        assertEq(_dualGovernance.getCurrentState(), DGState.VetoSignalling);
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoSignallingDeactivation));
+        assertEq(_dualGovernance.getCurrentState(), DGState.VetoSignallingDeactivation);
     }
 
     function _assertRageQuitState() internal {
-        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.RageQuit));
+        assertEq(_dualGovernance.getCurrentState(), DGState.RageQuit);
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(uint256(_dualGovernance.getCurrentState()), uint256(State.VetoCooldown));
+        assertEq(_dualGovernance.getCurrentState(), DGState.VetoCooldown);
     }
 
     function _assertNoTargetMockCalls() internal {
@@ -770,7 +767,7 @@ contract ScenarioTestBlueprint is Test {
         assertEq(uint256(a), uint256(b), message);
     }
 
-    function assertEq(State a, State b) internal {
+    function assertEq(DGState a, DGState b) internal {
         assertEq(uint256(a), uint256(b));
     }
 

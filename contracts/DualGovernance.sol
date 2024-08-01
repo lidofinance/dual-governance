@@ -1,35 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Duration} from "./types/Duration.sol";
-import {Timestamp} from "./types/Timestamp.sol";
 import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
+
+import {Duration} from "./types/Duration.sol";
+import {Timestamp} from "./types/Timestamp.sol";
 
 import {ConfigurationProvider} from "./ConfigurationProvider.sol";
 import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
-import {State, DualGovernanceState} from "./libraries/DualGovernanceState.sol";
+import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
 import {TiebreakerProtection} from "./libraries/TiebreakerProtection.sol";
 
 contract DualGovernance is IGovernance, ConfigurationProvider {
     using Proposers for Proposers.State;
-    using DualGovernanceState for DualGovernanceState.Store;
     using TiebreakerProtection for TiebreakerProtection.Tiebreaker;
+    using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
-    event ProposalScheduled(uint256 proposalId);
-
+    error NotDeadlock();
     error NotResealCommitttee(address account);
+    error ProposalSubmissionBlocked();
+    error ProposalSchedulingBlocked(uint256 proposalId);
+    error ResealIsNotAllowedInNormalState();
 
     ITimelock public immutable TIMELOCK;
 
-    TiebreakerProtection.Tiebreaker internal _tiebreaker;
     Proposers.State internal _proposers;
-    DualGovernanceState.Store internal _dgState;
+    DualGovernanceStateMachine.Context internal _stateMachine;
     EmergencyProtection.State internal _emergencyProtection;
     address internal _resealCommittee;
     IResealManager internal _resealManager;
+    TiebreakerProtection.Tiebreaker internal _tiebreaker;
 
     constructor(
         address config,
@@ -39,25 +42,32 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     ) ConfigurationProvider(config) {
         TIMELOCK = ITimelock(timelock);
 
-        _dgState.initialize(escrowMasterCopy);
+        _stateMachine.initialize(escrowMasterCopy);
         _proposers.register(adminProposer, CONFIG.ADMIN_EXECUTOR());
     }
 
+    // ---
+    // Proposals Flow
+    // ---
+
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _proposers.checkProposer(msg.sender);
-        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
-        _dgState.checkProposalsCreationAllowed();
+        _stateMachine.activateNextState(CONFIG.getDualGovernanceConfig());
+        if (!_stateMachine.canSubmitProposal()) {
+            revert ProposalSubmissionBlocked();
+        }
         Proposer memory proposer = _proposers.get(msg.sender);
         proposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
     function scheduleProposal(uint256 proposalId) external {
-        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
+        _stateMachine.activateNextState(CONFIG.getDualGovernanceConfig());
         ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
             TIMELOCK.getProposalInfo(proposalId);
-        _dgState.checkCanScheduleProposal(submittedAt);
+        if (!_stateMachine.canScheduleProposal(submittedAt)) {
+            revert ProposalSchedulingBlocked(proposalId);
+        }
         TIMELOCK.schedule(proposalId);
-        emit ProposalScheduled(proposalId);
     }
 
     function cancelAllPendingProposals() external {
@@ -65,52 +75,42 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
-    function getVetoSignallingEscrow() external view returns (address) {
-        return address(_dgState.signallingEscrow);
+    function canSubmitProposal() public view returns (bool) {
+        return _stateMachine.canSubmitProposal();
     }
 
-    function getRageQuitEscrow() external view returns (address) {
-        return address(_dgState.rageQuitEscrow);
-    }
-
-    function canSchedule(uint256 proposalId) external view returns (bool) {
-        return _dgState.isProposalsAdoptionAllowed() && TIMELOCK.canSchedule(proposalId);
+    function canScheduleProposal(uint256 proposalId) external view returns (bool) {
+        ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
+            TIMELOCK.getProposalInfo(proposalId);
+        return _stateMachine.canScheduleProposal(submittedAt) && TIMELOCK.canSchedule(proposalId);
     }
 
     // ---
     // Dual Governance State
     // ---
 
+    function getVetoSignallingEscrow() external view returns (address) {
+        return address(_stateMachine.signallingEscrow);
+    }
+
+    function getRageQuitEscrow() external view returns (address) {
+        return address(_stateMachine.rageQuitEscrow);
+    }
+
     function activateNextState() external {
-        _dgState.activateNextState(CONFIG.getDualGovernanceConfig());
+        _stateMachine.activateNextState(CONFIG.getDualGovernanceConfig());
     }
 
-    function getCurrentState() external view returns (State) {
-        return _dgState.currentState();
+    function getCurrentState() external view returns (State currentState) {
+        currentState = _stateMachine.getCurrentState();
     }
 
-    function getVetoSignallingState()
-        external
-        view
-        returns (bool isActive, Duration duration, Timestamp activatedAt, Timestamp enteredAt)
-    {
-        (isActive, duration, activatedAt, enteredAt) = _dgState.getVetoSignallingState(CONFIG.getDualGovernanceConfig());
+    function getCurrentStateContext() external view returns (DualGovernanceStateMachine.Context memory) {
+        return _stateMachine.getCurrentContext();
     }
 
-    function getVetoSignallingDeactivationState()
-        external
-        view
-        returns (bool isActive, Duration duration, Timestamp enteredAt)
-    {
-        (isActive, duration, enteredAt) = _dgState.getVetoSignallingDeactivationState(CONFIG.getDualGovernanceConfig());
-    }
-
-    function getVetoSignallingDuration() external view returns (Duration) {
-        return _dgState.getVetoSignallingDuration(CONFIG.getDualGovernanceConfig());
-    }
-
-    function isSchedulingEnabled() external view returns (bool) {
-        return _dgState.isProposalsAdoptionAllowed();
+    function getDynamicDelayDuration() external view returns (Duration) {
+        return _stateMachine.getDynamicDelayDuration(CONFIG.getDualGovernanceConfig());
     }
 
     // ---
@@ -149,13 +149,17 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
 
     function tiebreakerResumeSealable(address sealable) external {
         _tiebreaker.checkTiebreakerCommittee(msg.sender);
-        _dgState.checkTiebreak(CONFIG);
+        if (!_stateMachine.isDeadlock(CONFIG.getTiebreakConfig())) {
+            revert NotDeadlock();
+        }
         _tiebreaker.resumeSealable(sealable);
     }
 
     function tiebreakerScheduleProposal(uint256 proposalId) external {
         _tiebreaker.checkTiebreakerCommittee(msg.sender);
-        _dgState.checkTiebreak(CONFIG);
+        if (!_stateMachine.isDeadlock(CONFIG.getTiebreakConfig())) {
+            revert NotDeadlock();
+        }
         TIMELOCK.schedule(proposalId);
     }
 
@@ -172,7 +176,9 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
         if (msg.sender != _resealCommittee) {
             revert NotResealCommitttee(msg.sender);
         }
-        _dgState.checkResealState();
+        if (_stateMachine.getCurrentState() == State.Normal) {
+            revert ResealIsNotAllowedInNormalState();
+        }
         _resealManager.reseal(sealables);
     }
 
