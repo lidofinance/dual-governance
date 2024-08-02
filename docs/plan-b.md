@@ -333,27 +333,27 @@ Initializes the contract with an owner, committee members, a quorum, and the add
 #### Preconditions
 - `executionQuorum` MUST be greater than 0.
 
-### Function: `EmergencyActivationCommittee.approveEmergencyActivate`
+### Function: `EmergencyActivationCommittee.approveActivateEmergencyMode`
 ```solidity
-function approveEmergencyActivate() public onlyMember
+function approveActivateEmergencyMode() public onlyMember
 ```
 Approves the emergency activation by voting on the `EMERGENCY_ACTIVATION_HASH`.
 
 #### Preconditions
 - MUST be called by a committee member.
 
-### Function: `EmergencyActivationCommittee.getEmergencyActivateState`
+### Function: `EmergencyActivationCommittee.getActivateEmergencyModeState`
 ```solidity
-function getEmergencyActivateState()
+function getActivateEmergencyModeState()
     public
     view
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
 Returns the state of the emergency activation proposal, including the support count, quorum, and execution status.
 
-### Function: `EmergencyActivationCommittee.executeEmergencyActivate`
+### Function: `EmergencyActivationCommittee.executeActivateEmergencyMode`
 ```solidity
-function executeEmergencyActivate() external
+function executeActivateEmergencyMode() external
 ```
 Executes the emergency activation by calling the `emergencyActivate` function on the `EmergencyProtectedTimelock` contract.
 

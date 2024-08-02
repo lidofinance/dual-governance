@@ -691,13 +691,13 @@ contract ScenarioTestBlueprint is Test {
         _wait(_config.AFTER_SCHEDULE_DELAY() + ONE_SECOND);
     }
 
-    function _executeEmergencyActivate() internal {
+    function _executeActivateEmergencyMode() internal {
         address[] memory members = _emergencyActivationCommittee.getMembers();
         for (uint256 i = 0; i < _emergencyActivationCommittee.quorum(); ++i) {
             vm.prank(members[i]);
-            _emergencyActivationCommittee.approveEmergencyActivate();
+            _emergencyActivationCommittee.approveActivateEmergencyMode();
         }
-        _emergencyActivationCommittee.executeEmergencyActivate();
+        _emergencyActivationCommittee.executeActivateEmergencyMode();
     }
 
     function _executeEmergencyExecute(uint256 proposalId) internal {

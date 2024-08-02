@@ -1326,10 +1326,10 @@ executionQuorum MUST be greater than 0.
 emergencyProtectedTimelock MUST be a valid address.
 
 
-### Function: EmergencyActivationCommittee.approveEmergencyActivate
+### Function: EmergencyActivationCommittee.approveActivateEmergencyMode
 
 ```solidity
-function approveEmergencyActivate() public onlyMember
+function approveActivateEmergencyMode() public onlyMember
 ```
 
 Approves the emergency activation by voting on the EMERGENCY_ACTIVATION_HASH.
@@ -1338,10 +1338,10 @@ Approves the emergency activation by voting on the EMERGENCY_ACTIVATION_HASH.
 
 * MUST be called by a member.
 
-### Function: EmergencyActivationCommittee.getEmergencyActivateState
+### Function: EmergencyActivationCommittee.getActivateEmergencyModeState
 
 ```solidity
-function getEmergencyActivateState()
+function getActivateEmergencyModeState()
     public
     view
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
@@ -1349,10 +1349,10 @@ function getEmergencyActivateState()
 
 Returns the state of the emergency activation proposal including support count, quorum, and execution status.
 
-### Function: EmergencyActivationCommittee.executeEmergencyActivate
+### Function: EmergencyActivationCommittee.executeActivateEmergencyMode
 
 ```solidity
-function executeEmergencyActivate() external
+function executeActivateEmergencyMode() external
 ```
 
 Executes the emergency activation by calling the emergencyActivate function on the EmergencyProtectedTimelock contract.
