@@ -15,19 +15,24 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
 
     function setUp() external {
         _selectFork();
-        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
+        _deployTarget();
+        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
         _depositStETH(_VETOER, 1 ether);
     }
 
-    function test_proposal_approval() external {
+    function test_emergency_committees_happy_path() external {
         uint256 quorum;
         uint256 support;
         bool isExecuted;
 
         address[] memory members;
 
-        ExternalCall[] memory proposalCalls = ExternalCallHelpers.create(address(0), new bytes(0));
+        ExternalCall[] memory proposalCalls = _getTargetRegularStaffCalls();
         uint256 proposalIdToExecute = _submitProposal(_dualGovernance, "Proposal for execution", proposalCalls);
+
+        _wait(_config.AFTER_SUBMIT_DELAY().plusSeconds(1));
+        _assertCanSchedule(_dualGovernance, proposalIdToExecute, true);
+        _scheduleProposal(_dualGovernance, proposalIdToExecute);
 
         // Emergency Activation
         members = _emergencyActivationCommittee.getMembers();
@@ -47,7 +52,7 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
 
         _emergencyActivationCommittee.executeActivateEmergencyMode();
         (support, quorum, isExecuted) = _emergencyActivationCommittee.getActivateEmergencyModeState();
-        assert(support < quorum);
+        assert(isExecuted == true);
 
         // Emergency Execute
         members = _emergencyExecutionCommittee.getMembers();
@@ -67,6 +72,6 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
 
         _emergencyExecutionCommittee.executeEmergencyExecute(proposalIdToExecute);
         (support, quorum, isExecuted) = _emergencyExecutionCommittee.getEmergencyExecuteState(proposalIdToExecute);
-        assert(support < quorum);
+        assert(isExecuted == true);
     }
 }

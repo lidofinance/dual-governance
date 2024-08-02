@@ -17,6 +17,7 @@ import {Executor} from "contracts/Executor.sol";
 
 import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
 import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
+import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
@@ -82,6 +83,7 @@ contract ScenarioTestBlueprint is Test {
 
     EmergencyActivationCommittee internal _emergencyActivationCommittee;
     EmergencyExecutionCommittee internal _emergencyExecutionCommittee;
+    ResealCommittee internal _resealCommittee;
     TiebreakerCore internal _tiebreakerCommittee;
     TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
 
@@ -529,6 +531,7 @@ contract ScenarioTestBlueprint is Test {
         _deployDualGovernance();
         _deployEmergencyActivationCommittee();
         _deployEmergencyExecutionCommittee();
+        _deployResealCommittee();
         _deployTiebreaker();
         _finishTimelockSetup(address(_dualGovernance), isEmergencyProtectionEnabled);
     }
@@ -542,6 +545,7 @@ contract ScenarioTestBlueprint is Test {
         _deployTimelockedGovernance();
         _deployEmergencyActivationCommittee();
         _deployEmergencyExecutionCommittee();
+        _deployResealCommittee();
         _deployTiebreaker();
         _finishTimelockSetup(address(_timelockedGovernance), isEmergencyProtectionEnabled);
     }
@@ -627,6 +631,17 @@ contract ScenarioTestBlueprint is Test {
             new EmergencyExecutionCommittee(address(_adminExecutor), committeeMembers, quorum, address(_timelock));
     }
 
+    function _deployResealCommittee() internal {
+        uint256 quorum = 3;
+        uint256 membersCount = 5;
+        address[] memory committeeMembers = new address[](membersCount);
+        for (uint256 i = 0; i < membersCount; ++i) {
+            committeeMembers[i] = makeAddr(string(abi.encode(0xFA + i * membersCount + 65)));
+        }
+        _resealCommittee =
+            new ResealCommittee(address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), 0);
+    }
+
     function _finishTimelockSetup(address governance, bool isEmergencyProtectionEnabled) internal {
         if (isEmergencyProtectionEnabled) {
             _adminExecutor.execute(
@@ -656,7 +671,6 @@ contract ScenarioTestBlueprint is Test {
         _WITHDRAWAL_QUEUE.grantRole(
             0x2fc10cc8ae19568712f7a176fb4978616a610650813c9d05326c34abb62749c7, address(_resealManager)
         );
-
         if (governance == address(_dualGovernance)) {
             _adminExecutor.execute(
                 address(_dualGovernance),
@@ -664,6 +678,12 @@ contract ScenarioTestBlueprint is Test {
                 abi.encodeCall(
                     _dualGovernance.setTiebreakerProtection, (address(_tiebreakerCommittee), address(_resealManager))
                 )
+            );
+
+            _adminExecutor.execute(
+                address(_dualGovernance),
+                0,
+                abi.encodeCall(_dualGovernance.setReseal, (address(_resealManager), address(_resealCommittee)))
             );
         }
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (governance)));

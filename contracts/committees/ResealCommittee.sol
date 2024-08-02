@@ -6,7 +6,7 @@ import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
 
 interface IDualGovernance {
-    function reseal(address[] memory sealables) external;
+    function resealSealables(address[] memory sealables) external;
 }
 
 /// @title Reseal Committee Contract
@@ -59,7 +59,9 @@ contract ResealCommittee is HashConsensus, ProposalsList {
         (, bytes32 key) = _encodeResealProposal(sealables);
         _markUsed(key);
 
-        Address.functionCall(DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.reseal.selector, sealables));
+        Address.functionCall(
+            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.resealSealables.selector, sealables)
+        );
 
         bytes32 resealNonceHash = keccak256(abi.encode(sealables));
         _resealNonces[resealNonceHash]++;

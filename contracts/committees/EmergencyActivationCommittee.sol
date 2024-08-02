@@ -27,7 +27,7 @@ contract EmergencyActivationCommittee is HashConsensus {
 
     /// @notice Approves the emergency activation by casting a vote
     /// @dev Only callable by committee members
-    function approveexecuteActivateEmergencyMode() public onlyMember {
+    function approveActivateEmergencyMode() public onlyMember {
         _vote(EMERGENCY_ACTIVATION_HASH, true);
     }
 
