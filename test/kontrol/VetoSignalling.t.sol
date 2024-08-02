@@ -45,8 +45,10 @@ contract VetoSignallingTest is DualGovernanceSetUp {
 
         _vetoSignallingTimesInvariant(mode, sr);
         _vetoSignallingRageQuitInvariant(mode, sr);
-        _vetoSignallingDeactivationInvariant(mode, sr);
-        _vetoSignallingMaxDelayInvariant(mode, sr);
+        if (mode == Mode.Assert) {
+            _vetoSignallingDeactivationInvariant(mode, sr);
+            _vetoSignallingMaxDelayInvariant(mode, sr);
+        }
     }
 
     /**
