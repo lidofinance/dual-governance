@@ -2,6 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
 import {ISealable} from "../interfaces/ISealable.sol";
@@ -327,7 +328,17 @@ library DualGovernanceState {
         Store storage self,
         DualGovernanceConfig memory config
     ) private view returns (bool) {
-        return Timestamps.now() > config.vetoSignallingMinActiveDuration.addTo(self.vetoSignallingReactivationTime);
+        return Timestamps.now()
+            > config.vetoSignallingMinActiveDuration.addTo(
+                Timestamp.wrap(
+                    uint40(
+                        Math.max(
+                            Timestamp.unwrap(self.vetoSignallingActivationTime),
+                            Timestamp.unwrap(self.vetoSignallingReactivationTime)
+                        )
+                    )
+                )
+            );
     }
 
     function _isVetoSignallingDeactivationMaxDurationPassed(

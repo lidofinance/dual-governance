@@ -45,10 +45,8 @@ contract VetoSignallingTest is DualGovernanceSetUp {
 
         _vetoSignallingTimesInvariant(mode, sr);
         _vetoSignallingRageQuitInvariant(mode, sr);
-        if (mode == Mode.Assert) {
-            _vetoSignallingDeactivationInvariant(mode, sr);
-            _vetoSignallingMaxDelayInvariant(mode, sr);
-        }
+        _vetoSignallingMaxDelayInvariant(mode, sr);
+        _vetoSignallingDeactivationInvariant(mode, sr);
     }
 
     /**
@@ -249,22 +247,24 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     ) external {
         vm.assume(block.timestamp < timeUpperBound);
         vm.assume(lastInteractionTimestamp < timeUpperBound);
+        vm.assume(maxRageQuitSupport <= config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
 
         StateRecord memory previous = _recordPreviousState(
             Timestamp.wrap(uint40(lastInteractionTimestamp)), previousRageQuitSupport, maxRageQuitSupport
         );
 
-        vm.assume(previous.maxRageQuitSupport <= config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(previous.state != State.Normal);
+        vm.assume(previous.state != State.VetoCooldown);
+        vm.assume(previous.state != State.RageQuit);
+
+        dualGovernance.activateNextState();
+
+        vm.assume(signallingEscrow.getRageQuitSupport() <= maxRageQuitSupport);
+
         vm.assume(_maxDeactivationDelayPassed(previous));
-        vm.assume(signallingEscrow.getRageQuitSupport() <= previous.maxRageQuitSupport);
-
-        vm.assume(previous.state == State.VetoSignalling || previous.state == State.VetoSignallingDeactivation);
-
         _vetoSignallingInvariants(Mode.Assume, previous);
 
         assert(previous.state == State.VetoSignallingDeactivation);
-
-        dualGovernance.activateNextState();
 
         StateRecord memory current = _recordCurrentState(maxRageQuitSupport);
 
