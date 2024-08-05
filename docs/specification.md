@@ -417,15 +417,15 @@ Initializes the contract with the address of the EmergencyProtectedTimelock cont
 ### Function ResealManager.reseal
 
 ```solidity
-function reseal(address[] memory sealables) public onlyGovernance
+function reseal(address sealable) public onlyGovernance
 ```
 
-Extends the pause of the specified `sealables` contracts. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
+Extends the pause of the specified `sealable` contract. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
 
 #### Preconditions
 
 - The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
-- The target contracts MUST be paused until a future timestamp and not indefinitely.
+- The target contract MUST be paused until a future timestamp and not indefinitely.
 - The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
 
 #### Errors

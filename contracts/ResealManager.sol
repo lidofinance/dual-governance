@@ -20,15 +20,13 @@ contract ResealManager {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
-    function reseal(address[] memory sealables) public onlyGovernance {
-        for (uint256 i = 0; i < sealables.length; ++i) {
-            uint256 sealableResumeSinceTimestamp = ISealable(sealables[i]).getResumeSinceTimestamp();
-            if (sealableResumeSinceTimestamp < block.timestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {
-                revert SealableWrongPauseState();
-            }
-            Address.functionCall(sealables[i], abi.encodeWithSelector(ISealable.resume.selector));
-            Address.functionCall(sealables[i], abi.encodeWithSelector(ISealable.pauseFor.selector, PAUSE_INFINITELY));
+    function reseal(address sealable) public onlyGovernance {
+        uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
+        if (sealableResumeSinceTimestamp < block.timestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {
+            revert SealableWrongPauseState();
         }
+        Address.functionCall(sealable, abi.encodeWithSelector(ISealable.resume.selector));
+        Address.functionCall(sealable, abi.encodeWithSelector(ISealable.pauseFor.selector, PAUSE_INFINITELY));
     }
 
     function resume(address sealable) public onlyGovernance {

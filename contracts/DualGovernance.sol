@@ -172,14 +172,14 @@ contract DualGovernance is IGovernance, ConfigurationProvider {
     // Reseal executor
     // ---
 
-    function resealSealables(address[] memory sealables) external {
+    function resealSealable(address sealable) external {
         if (msg.sender != _resealCommittee) {
             revert NotResealCommitttee(msg.sender);
         }
         if (_stateMachine.getCurrentState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
-        _resealManager.reseal(sealables);
+        _resealManager.reseal(sealable);
     }
 
     function setReseal(address resealManager, address resealCommittee) external {

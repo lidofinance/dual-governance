@@ -6,7 +6,7 @@ import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
 
 interface IDualGovernance {
-    function resealSealables(address[] memory sealables) external;
+    function resealSealable(address sealables) external;
 }
 
 /// @title Reseal Committee Contract
@@ -28,53 +28,53 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     }
 
     /// @notice Votes on a reseal proposal
-    /// @dev Allows committee members to vote on resealing a set of addresses
-    /// @param sealables The addresses to reseal
+    /// @dev Allows committee members to vote on resealing a sealed address
+    /// @param sealable The address to reseal
     /// @param support Indicates whether the member supports the proposal
-    function voteReseal(address[] memory sealables, bool support) public onlyMember {
-        (bytes memory proposalData, bytes32 key) = _encodeResealProposal(sealables);
+    function voteReseal(address sealable, bool support) public onlyMember {
+        (bytes memory proposalData, bytes32 key) = _encodeResealProposal(sealable);
         _vote(key, support);
         _pushProposal(key, 0, proposalData);
     }
 
     /// @notice Gets the current state of a reseal proposal
-    /// @dev Retrieves the state of the reseal proposal for a set of addresses
-    /// @param sealables The addresses for the reseal proposal
+    /// @dev Retrieves the state of the reseal proposal for a sealed address
+    /// @param sealable The addresses for the reseal proposal
     /// @return support The number of votes in support of the proposal
     /// @return execuitionQuorum The required number of votes for execution
     /// @return isExecuted Whether the proposal has been executed
-    function getResealState(address[] memory sealables)
+    function getResealState(address sealable)
         public
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
     {
-        (, bytes32 key) = _encodeResealProposal(sealables);
+        (, bytes32 key) = _encodeResealProposal(sealable);
         return _getHashState(key);
     }
 
     /// @notice Executes an approved reseal proposal
     /// @dev Executes the reseal proposal by calling the reseal function on the Dual Governance contract
-    /// @param sealables The addresses to reseal
-    function executeReseal(address[] memory sealables) external {
-        (, bytes32 key) = _encodeResealProposal(sealables);
+    /// @param sealable The address to reseal
+    function executeReseal(address sealable) external {
+        (, bytes32 key) = _encodeResealProposal(sealable);
         _markUsed(key);
 
         Address.functionCall(
-            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.resealSealables.selector, sealables)
+            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.resealSealable.selector, sealable)
         );
 
-        bytes32 resealNonceHash = keccak256(abi.encode(sealables));
+        bytes32 resealNonceHash = keccak256(abi.encode(sealable));
         _resealNonces[resealNonceHash]++;
     }
 
     /// @notice Encodes a reseal proposal
     /// @dev Internal function to encode the proposal data and generate the proposal key
-    /// @param sealables The addresses to reseal
+    /// @param sealable The address to reseal
     /// @return data The encoded proposal data
     /// @return key The generated proposal key
-    function _encodeResealProposal(address[] memory sealables) internal view returns (bytes memory data, bytes32 key) {
-        bytes32 resealNonceHash = keccak256(abi.encode(sealables));
-        data = abi.encode(sealables, _resealNonces[resealNonceHash]);
+    function _encodeResealProposal(address sealable) internal view returns (bytes memory data, bytes32 key) {
+        bytes32 resealNonceHash = keccak256(abi.encode(sealable));
+        data = abi.encode(sealable, _resealNonces[resealNonceHash]);
         key = keccak256(data);
     }
 }
