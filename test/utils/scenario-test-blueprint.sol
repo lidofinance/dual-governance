@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
-import {Durations, Duration as DurationType} from "contracts/types/Duration.sol";
+import {Durations, Duration} from "contracts/types/Duration.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {
@@ -12,7 +12,6 @@ import {
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {EscrowState, Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
-import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {Executor} from "contracts/Executor.sol";
 
 import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
@@ -23,10 +22,7 @@ import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommitte
 import {ResealManager} from "contracts/ResealManager.sol";
 
 import {
-    ProposalStatus,
-    EmergencyState,
-    EmergencyProtection,
-    EmergencyProtectedTimelock
+    ProposalStatus, EmergencyProtection, EmergencyProtectedTimelock
 } from "contracts/EmergencyProtectedTimelock.sol";
 
 import {DualGovernance, State as DGState, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
@@ -35,18 +31,18 @@ import {TimelockedGovernance, IGovernance} from "contracts/TimelockedGovernance.
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
 import {Percents, percents} from "../utils/percents.sol";
-import {
-    IERC20,
-    IStEth,
-    IWstETH,
-    IWithdrawalQueue,
-    WithdrawalRequestStatus,
-    IDangerousContract
-} from "../utils/interfaces.sol";
+import {IStETH} from "contracts/interfaces/IStETH.sol";
+import {IWstETH} from "contracts/interfaces/IWstETH.sol";
+
+import {IWithdrawalQueue, WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {IDangerousContract} from "../utils/interfaces.sol";
 import {ExternalCallHelpers} from "../utils/executor-calls.sol";
 import {Utils, TargetMock, console} from "../utils/utils.sol";
+import {ImmutableDualGovernanceConfigProvider} from "contracts/DualGovernanceConfigProvider.sol";
 
 import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, DAO_AGENT} from "../utils/mainnet-addresses.sol";
+
+import {Deployment} from "../utils/deployment.sol";
 
 struct Balances {
     uint256 stETHAmount;
@@ -63,50 +59,63 @@ function countDigits(uint256 number) pure returns (uint256 digitsCount) {
     } while (number / 10 != 0);
 }
 
-DurationType constant ONE_SECOND = DurationType.wrap(1);
+Duration constant ONE_SECOND = Duration.wrap(1);
 
 contract ScenarioTestBlueprint is Test {
     address internal immutable _ADMIN_PROPOSER = DAO_VOTING;
-    DurationType internal immutable _EMERGENCY_MODE_DURATION = Durations.from(180 days);
-    DurationType internal immutable _EMERGENCY_PROTECTION_DURATION = Durations.from(90 days);
+    Duration internal immutable _EMERGENCY_MODE_DURATION = Durations.from(180 days);
+    Duration internal immutable _EMERGENCY_PROTECTION_DURATION = Durations.from(90 days);
     address internal immutable _EMERGENCY_ACTIVATION_COMMITTEE = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
     address internal immutable _EMERGENCY_EXECUTION_COMMITTEE = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
 
-    DurationType internal immutable _SEALING_DURATION = Durations.from(14 days);
-    DurationType internal immutable _SEALING_COMMITTEE_LIFETIME = Durations.from(365 days);
+    Duration internal immutable _SEALING_DURATION = Durations.from(14 days);
+    Duration internal immutable _SEALING_COMMITTEE_LIFETIME = Durations.from(365 days);
     address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
 
-    IStEth public immutable _ST_ETH = IStEth(ST_ETH);
+    Duration internal immutable _AFTER_SUBMIT_DELAY = Durations.from(3 days);
+    Duration internal immutable _AFTER_SCHEDULE_DELAY = Durations.from(2 days);
+
+    // ---
+    // Protocol Dependencies
+    // ---
+
+    IStETH public immutable _ST_ETH = IStETH(ST_ETH);
     IWstETH public immutable _WST_ETH = IWstETH(WST_ETH);
     IWithdrawalQueue public immutable _WITHDRAWAL_QUEUE = IWithdrawalQueue(WITHDRAWAL_QUEUE);
+
+    // ---
+    // Core Components
+    // ---
+
+    Executor internal _adminExecutor;
+    EmergencyProtectedTimelock internal _timelock;
+
+    ResealManager internal _resealManager;
+    DualGovernance internal _dualGovernance;
+    ImmutableDualGovernanceConfigProvider internal _dualGovernanceConfigProvider;
+
+    TimelockedGovernance internal _timelockedGovernance;
+
+    // ---
+    // Committees
+    // ---
 
     EmergencyActivationCommittee internal _emergencyActivationCommittee;
     EmergencyExecutionCommittee internal _emergencyExecutionCommittee;
     TiebreakerCore internal _tiebreakerCommittee;
     TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
 
-    TargetMock internal _target;
-
-    IConfiguration internal _config;
-    IConfiguration internal _configImpl;
-    ProxyAdmin internal _configProxyAdmin;
-    TransparentUpgradeableProxy internal _configProxy;
-
-    Escrow internal _escrowMasterCopy;
-
-    Executor internal _adminExecutor;
-
-    EmergencyProtectedTimelock internal _timelock;
-    TimelockedGovernance internal _timelockedGovernance;
-    DualGovernance internal _dualGovernance;
-
-    ResealManager internal _resealManager;
-
     address[] internal _sealableWithdrawalBlockers = [WITHDRAWAL_QUEUE];
+
+    // ---
+    // Helper Contracts
+    // ---
+    TargetMock internal _target;
 
     // ---
     // Helper Getters
     // ---
+
     function _getVetoSignallingEscrow() internal view returns (Escrow) {
         return Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
     }
@@ -139,7 +148,7 @@ contract ScenarioTestBlueprint is Test {
     {
         DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
         isActive = stateContext.state == DGState.VetoSignallingDeactivation;
-        duration = _dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
+        duration = _dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
     }
 
@@ -345,7 +354,7 @@ contract ScenarioTestBlueprint is Test {
     // ---
 
     function _assertSubmittedProposalData(uint256 proposalId, ExternalCall[] memory calls) internal {
-        _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), calls);
+        _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), calls);
     }
 
     function _assertSubmittedProposalData(uint256 proposalId, address executor, ExternalCall[] memory calls) internal {
@@ -521,64 +530,50 @@ contract ScenarioTestBlueprint is Test {
     // ---
 
     function _deployDualGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
-        _deployAdminExecutor(address(this));
-        _deployConfigImpl();
-        _deployConfigProxy(address(this));
-        _deployEscrowMasterCopy();
-        _deployUngovernedTimelock();
-        _deployDualGovernance();
+        Deployment.DualGovernanceSetup memory dgSetup = Deployment.deployDualGovernanceContracts({
+            stETH: _ST_ETH,
+            wstETH: _WST_ETH,
+            withdrawalQueue: _WITHDRAWAL_QUEUE,
+            emergencyGovernance: DAO_VOTING
+        });
+        _adminExecutor = dgSetup.adminExecutor;
+        _timelock = dgSetup.timelock;
+        _resealManager = dgSetup.resealManager;
+        _dualGovernanceConfigProvider = dgSetup.dualGovernanceConfigProvider;
+        _dualGovernance = dgSetup.dualGovernance;
+
+        _deployTiebreaker();
         _deployEmergencyActivationCommittee();
         _deployEmergencyExecutionCommittee();
-        _deployTiebreaker();
-        _finishTimelockSetup(address(_dualGovernance), isEmergencyProtectionEnabled);
+        _finishTimelockSetup(
+            address(_dualGovernance), address(dgSetup.emergencyGovernance), isEmergencyProtectionEnabled
+        );
     }
 
     function _deployTimelockedGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
-        _deployAdminExecutor(address(this));
-        _deployConfigImpl();
-        _deployConfigProxy(address(this));
-        _deployEscrowMasterCopy();
-        _deployUngovernedTimelock();
-        _deployTimelockedGovernance();
+        Deployment.DualGovernanceSetup memory dgSetup = Deployment.deployDualGovernanceContracts({
+            stETH: _ST_ETH,
+            wstETH: _WST_ETH,
+            withdrawalQueue: _WITHDRAWAL_QUEUE,
+            emergencyGovernance: DAO_VOTING
+        });
+        _timelockedGovernance = dgSetup.emergencyGovernance;
+        _adminExecutor = dgSetup.adminExecutor;
+        _timelock = dgSetup.timelock;
+
         _deployEmergencyActivationCommittee();
         _deployEmergencyExecutionCommittee();
-        _deployTiebreaker();
-        _finishTimelockSetup(address(_timelockedGovernance), isEmergencyProtectionEnabled);
+        _finishTimelockSetup(
+            address(_timelockedGovernance), address(dgSetup.emergencyGovernance), isEmergencyProtectionEnabled
+        );
     }
 
     function _deployTarget() internal {
         _target = new TargetMock();
     }
 
-    function _deployAdminExecutor(address owner) internal {
-        _adminExecutor = new Executor(owner);
-    }
-
-    function _deployConfigImpl() internal {
-        _configImpl = new Configuration(address(_adminExecutor), address(DAO_VOTING), _sealableWithdrawalBlockers);
-    }
-
-    function _deployConfigProxy(address owner) internal {
-        _configProxy = new TransparentUpgradeableProxy(address(_configImpl), address(owner), new bytes(0));
-        _configProxyAdmin = ProxyAdmin(Utils.predictDeployedAddress(address(_configProxy), 1));
-        _config = Configuration(address(_configProxy));
-    }
-
-    function _deployUngovernedTimelock() internal {
-        _timelock = new EmergencyProtectedTimelock(address(_config));
-    }
-
-    function _deployTimelockedGovernance() internal {
-        _timelockedGovernance = new TimelockedGovernance(address(_config), DAO_VOTING, address(_timelock));
-    }
-
     function _deployDualGovernance() internal {
-        _dualGovernance =
-            new DualGovernance(address(_config), address(_timelock), address(_escrowMasterCopy), _ADMIN_PROPOSER);
-    }
-
-    function _deployEscrowMasterCopy() internal {
-        _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_config));
+        revert("not implemented");
     }
 
     function _deployTiebreaker() internal {
@@ -627,17 +622,26 @@ contract ScenarioTestBlueprint is Test {
             new EmergencyExecutionCommittee(address(_adminExecutor), committeeMembers, quorum, address(_timelock));
     }
 
-    function _finishTimelockSetup(address governance, bool isEmergencyProtectionEnabled) internal {
+    function _finishTimelockSetup(
+        address governance,
+        address emergencyGovernance,
+        bool isEmergencyProtectionEnabled
+    ) internal {
+        _adminExecutor.execute(
+            address(_timelock), 0, abi.encodeCall(_timelock.setDelays, (_AFTER_SUBMIT_DELAY, _AFTER_SCHEDULE_DELAY))
+        );
+
         if (isEmergencyProtectionEnabled) {
             _adminExecutor.execute(
                 address(_timelock),
                 0,
                 abi.encodeCall(
-                    _timelock.setEmergencyProtection,
+                    _timelock.setupEmergencyProtection,
                     (
+                        emergencyGovernance,
                         address(_emergencyActivationCommittee),
                         address(_emergencyExecutionCommittee),
-                        _EMERGENCY_PROTECTION_DURATION,
+                        _EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
                         _EMERGENCY_MODE_DURATION
                     )
                 )
@@ -645,8 +649,6 @@ contract ScenarioTestBlueprint is Test {
 
             assertEq(_timelock.isEmergencyProtectionEnabled(), true);
         }
-
-        _resealManager = new ResealManager(address(_timelock));
 
         vm.prank(DAO_AGENT);
         _WITHDRAWAL_QUEUE.grantRole(
@@ -661,9 +663,22 @@ contract ScenarioTestBlueprint is Test {
             _adminExecutor.execute(
                 address(_dualGovernance),
                 0,
-                abi.encodeCall(
-                    _dualGovernance.setTiebreakerProtection, (address(_tiebreakerCommittee), address(_resealManager))
-                )
+                abi.encodeCall(_dualGovernance.setTiebreakerCommittee, address(_tiebreakerCommittee))
+            );
+            _adminExecutor.execute(
+                address(_dualGovernance),
+                0,
+                abi.encodeCall(_dualGovernance.setTiebreakerActivationTimeout, Durations.from(365 days))
+            );
+            _adminExecutor.execute(
+                address(_dualGovernance),
+                0,
+                abi.encodeCall(_dualGovernance.addTiebreakerSealableWithdrawalBlocker, WITHDRAWAL_QUEUE)
+            );
+            _adminExecutor.execute(
+                address(_dualGovernance),
+                0,
+                abi.encodeCall(_dualGovernance.registerProposer, (_ADMIN_PROPOSER, address(_adminExecutor)))
             );
         }
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (governance)));
@@ -679,16 +694,16 @@ contract ScenarioTestBlueprint is Test {
         console.log(string.concat(">>> ", text, " <<<"));
     }
 
-    function _wait(DurationType duration) internal {
+    function _wait(Duration duration) internal {
         vm.warp(duration.addTo(Timestamps.now()).toSeconds());
     }
 
     function _waitAfterSubmitDelayPassed() internal {
-        _wait(_config.AFTER_SUBMIT_DELAY() + ONE_SECOND);
+        _wait(_timelock.getAfterSubmitDelay() + ONE_SECOND);
     }
 
     function _waitAfterScheduleDelayPassed() internal {
-        _wait(_config.AFTER_SCHEDULE_DELAY() + ONE_SECOND);
+        _wait(_timelock.getAfterScheduleDelay() + ONE_SECOND);
     }
 
     function _executeEmergencyActivate() internal {
@@ -718,21 +733,21 @@ contract ScenarioTestBlueprint is Test {
         _emergencyExecutionCommittee.executeEmergencyReset();
     }
 
-    struct Duration {
+    struct DurationStruct {
         uint256 _days;
         uint256 _hours;
         uint256 _minutes;
         uint256 _seconds;
     }
 
-    function _toDuration(uint256 timestamp) internal view returns (Duration memory duration) {
+    function _toDuration(uint256 timestamp) internal view returns (DurationStruct memory duration) {
         duration._days = timestamp / 1 days;
         duration._hours = (timestamp - 1 days * duration._days) / 1 hours;
         duration._minutes = (timestamp - 1 days * duration._days - 1 hours * duration._hours) / 1 minutes;
         duration._seconds = timestamp % 1 minutes;
     }
 
-    function _formatDuration(Duration memory duration) internal pure returns (string memory) {
+    function _formatDuration(DurationStruct memory duration) internal pure returns (string memory) {
         // format example: 1d:22h:33m:12s
         return string(
             abi.encodePacked(
@@ -756,8 +771,8 @@ contract ScenarioTestBlueprint is Test {
         assertEq(uint256(Timestamp.unwrap(a)), uint256(Timestamp.unwrap(b)));
     }
 
-    function assertEq(DurationType a, DurationType b) internal {
-        assertEq(uint256(DurationType.unwrap(a)), uint256(DurationType.unwrap(b)));
+    function assertEq(Duration a, Duration b) internal {
+        assertEq(uint256(Duration.unwrap(a)), uint256(Duration.unwrap(b)));
     }
 
     function assertEq(ProposalStatus a, ProposalStatus b) internal {

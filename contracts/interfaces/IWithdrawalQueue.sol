@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {IERC721} from "@openzeppelin/contracts/interfaces/IERC721.sol";
+
 struct WithdrawalRequestStatus {
     uint256 amountOfStETH;
     uint256 amountOfShares;
@@ -10,7 +12,7 @@ struct WithdrawalRequestStatus {
     bool isClaimed;
 }
 
-interface IWithdrawalQueue {
+interface IWithdrawalQueue is IERC721 {
     function MIN_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
     function MAX_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
 
@@ -51,6 +53,8 @@ interface IWithdrawalQueue {
         address _owner
     ) external returns (uint256[] memory requestIds);
 
+    function setApprovalForAll(address _operator, bool _approved) external;
+
     function requestWithdrawalsWstETH(
         uint256[] calldata _amounts,
         address _owner
@@ -59,4 +63,5 @@ interface IWithdrawalQueue {
     function grantRole(bytes32 role, address account) external;
     function pauseFor(uint256 duration) external;
     function isPaused() external returns (bool);
+    function finalize(uint256 _lastRequestIdToBeFinalized, uint256 _maxShareRate) external payable;
 }

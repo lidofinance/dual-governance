@@ -28,12 +28,12 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         // Tiebreak activation
         _assertNormalState();
-        _lockStETH(_VETOER, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
+        _lockStETH(_VETOER, percents(_dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
         _lockStETH(_VETOER, 1 gwei);
-        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
-        _wait(_config.TIE_BREAK_ACTIVATION_TIMEOUT());
+        _wait(_dualGovernance.getTiebreakerState().tiebreakerActivationTimeout);
         _activateNextState();
 
         ExternalCall[] memory proposalCalls = ExternalCallHelpers.create(address(0), new bytes(0));
@@ -81,7 +81,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         assert(support == quorum);
 
         // Waiting for submit delay pass
-        _wait(_config.AFTER_SUBMIT_DELAY());
+        _wait(_timelock.getAfterSubmitDelay());
 
         _tiebreakerCommittee.executeScheduleProposal(proposalIdToExecute);
     }
@@ -103,12 +103,12 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         // Tiebreak activation
         _assertNormalState();
-        _lockStETH(_VETOER, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
+        _lockStETH(_VETOER, percents(_dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
         _lockStETH(_VETOER, 1 gwei);
-        _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
-        _wait(_config.TIE_BREAK_ACTIVATION_TIMEOUT());
+        _wait(_dualGovernance.getTiebreakerState().tiebreakerActivationTimeout);
         _activateNextState();
 
         // Tiebreaker subcommittee 0

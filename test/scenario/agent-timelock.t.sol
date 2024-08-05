@@ -20,7 +20,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
                 _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
 
-            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
+            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
             _assertCanSchedule(_dualGovernance, proposalId, false);
         }
 
@@ -50,7 +50,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _assertCanExecute(proposalId, false);
             _assertCanSchedule(_dualGovernance, proposalId, false);
 
-            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
+            _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
         }
     }
 
@@ -65,7 +65,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             proposalId = _submitProposal(
                 _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
-            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
+            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
 
             // proposal can't be scheduled until the AFTER_SUBMIT_DELAY has passed
             _assertCanSchedule(_dualGovernance, proposalId, false);
@@ -76,7 +76,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         // ---
         {
             // wait until the delay has passed
-            _wait(_config.AFTER_SUBMIT_DELAY().plusSeconds(1));
+            _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
 
             // when the first delay is passed and the is no opposition from the stETH holders
             // the proposal can be scheduled
@@ -95,7 +95,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         {
             // some time passes and emergency committee activates emergency mode
             // and resets the controller
-            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
+            _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
             // committee resets governance
             vm.prank(address(_emergencyActivationCommittee));
@@ -105,7 +105,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _timelock.emergencyReset();
 
             // proposal is canceled now
-            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
+            _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
             // remove canceled call from the timelock
             _assertCanExecute(proposalId, false);

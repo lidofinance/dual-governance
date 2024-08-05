@@ -32,6 +32,9 @@ interface ITimelock {
     function canSchedule(uint256 proposalId) external view returns (bool);
     function canExecute(uint256 proposalId) external view returns (bool);
 
+    function getGovernance() external view returns (address);
+    function getAdminExecutor() external view returns (address);
+
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal);
     function getProposalInfo(uint256 proposalId)
         external

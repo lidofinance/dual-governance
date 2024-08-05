@@ -71,6 +71,10 @@ library Timestamps {
     Timestamp internal constant MIN = ZERO;
     Timestamp internal constant MAX = Timestamp.wrap(uint40(MAX_TIMESTAMP_VALUE));
 
+    function max(Timestamp t1, Timestamp t2) internal pure returns (Timestamp) {
+        return t1 > t2 ? t1 : t2;
+    }
+
     function now() internal view returns (Timestamp res) {
         res = Timestamp.wrap(uint40(block.timestamp));
     }

@@ -7,7 +7,8 @@ import {
     ExternalCall,
     ExternalCallHelpers,
     ScenarioTestBlueprint,
-    DualGovernance
+    DualGovernance,
+    console
 } from "../utils/scenario-test-blueprint.sol";
 
 interface IDangerousContract {
@@ -33,7 +34,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
                 _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
 
-            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
+            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
             _assertCanSchedule(_dualGovernance, proposalId, false);
         }
 
@@ -41,10 +42,11 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
         address vetoer = makeAddr("MALICIOUS_ACTOR");
         _step("2. THE SECOND SEAL RAGE QUIT SUPPORT IS ACQUIRED");
         {
-            vetoedStETHAmount = _lockStETH(vetoer, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT() + 1));
+            vetoedStETHAmount =
+                _lockStETH(vetoer, percents(_dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + 1));
             _assertVetoSignalingState();
 
-            _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
             _activateNextState();
             _assertRageQuitState();
         }
@@ -65,8 +67,6 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
         {
             // request withdrawals batches
             Escrow rageQuitEscrow = _getRageQuitEscrow();
-            uint256 requestAmount = _WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
-            uint256 maxRequestsCount = vetoedStETHAmount / requestAmount + 1;
 
             while (!rageQuitEscrow.isWithdrawalsBatchesFinalized()) {
                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
@@ -79,7 +79,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
                 rageQuitEscrow.claimNextWithdrawalsBatch(128);
             }
 
-            _wait(_config.RAGE_QUIT_EXTENSION_DELAY().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_DELAY().plusSeconds(1));
             assertTrue(rageQuitEscrow.isRageQuitFinalized());
         }
 
