@@ -12,6 +12,8 @@ import {Percents, percents} from "../utils/percents.sol";
 import "./mainnet-addresses.sol";
 import "./interfaces.sol";
 
+import {IStETH, IERC20} from "contracts/interfaces/IStETH.sol";
+
 // May be used as a mock contract to collect method calls
 contract TargetMock {
     struct Call {
@@ -101,37 +103,37 @@ library Utils {
         uint256 ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
         // bal / (totalSupply + bal) = percentage => bal = totalSupply * percentage / (1 - percentage)
         shares = ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION
-            + IStEth(ST_ETH).getTotalShares() * totalSupplyPercentage.value
+            + IStETH(ST_ETH).getTotalShares() * totalSupplyPercentage.value
                 / (100 * 10 ** totalSupplyPercentage.precision - totalSupplyPercentage.value);
         // to compensate StETH wei lost on submit/transfers, generate slightly larger eth amount
-        return depositStETH(addr, IStEth(ST_ETH).getPooledEthByShares(shares));
+        return depositStETH(addr, IStETH(ST_ETH).getPooledEthByShares(shares));
     }
 
     function depositStETH(
         address addr,
         uint256 amountToMint
     ) internal returns (uint256 sharesMinted, uint256 amountMinted) {
-        uint256 sharesBalanceBefore = IStEth(ST_ETH).sharesOf(addr);
-        uint256 amountBalanceBefore = IStEth(ST_ETH).balanceOf(addr);
+        uint256 sharesBalanceBefore = IStETH(ST_ETH).sharesOf(addr);
+        uint256 amountBalanceBefore = IStETH(ST_ETH).balanceOf(addr);
 
         // solhint-disable-next-line
         console.log("setting ETH balance of address %x to %d ETH", addr, amountToMint / 10 ** 18);
         vm.deal(addr, amountToMint);
         vm.prank(addr);
-        IStEth(ST_ETH).submit{value: amountToMint}(address(0));
+        IStETH(ST_ETH).submit{value: amountToMint}(address(0));
 
-        sharesMinted = IStEth(ST_ETH).sharesOf(addr) - sharesBalanceBefore;
-        amountMinted = IStEth(ST_ETH).balanceOf(addr) - amountBalanceBefore;
+        sharesMinted = IStETH(ST_ETH).sharesOf(addr) - sharesBalanceBefore;
+        amountMinted = IStETH(ST_ETH).balanceOf(addr) - amountBalanceBefore;
 
         // solhint-disable-next-line
         console.log("stETH balance of address %x: %d stETH", addr, (amountMinted) / 10 ** 18);
     }
 
     function removeLidoStakingLimit() external {
-        grantPermission(ST_ETH, IStEth(ST_ETH).STAKING_CONTROL_ROLE(), address(this));
-        (, bool isStakingLimitSet,,,,,) = IStEth(ST_ETH).getStakeLimitFullInfo();
+        grantPermission(ST_ETH, IStETH(ST_ETH).STAKING_CONTROL_ROLE(), address(this));
+        (, bool isStakingLimitSet,,,,,) = IStETH(ST_ETH).getStakeLimitFullInfo();
         if (isStakingLimitSet) {
-            IStEth(ST_ETH).removeStakingLimit();
+            IStETH(ST_ETH).removeStakingLimit();
         }
         // solhint-disable-next-line
         console.log("Lido staking limit removed");

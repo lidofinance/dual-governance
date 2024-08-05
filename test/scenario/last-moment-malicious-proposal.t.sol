@@ -78,12 +78,12 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         address stEthHolders = makeAddr("STETH_WHALE");
         _step("5. STETH HOLDERS ACQUIRING QUORUM TO VETO MALICIOUS PROPOSAL");
         {
-            _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().dividedBy(2));
-            _lockStETH(stEthHolders, percents(_config.FIRST_SEAL_RAGE_QUIT_SUPPORT() + 1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().dividedBy(2));
+            _lockStETH(stEthHolders, percents(_dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() + 1));
             _assertVetoSignalingDeactivationState();
             _logVetoSignallingDeactivationState();
 
-            _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().dividedBy(2).plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().dividedBy(2).plusSeconds(1));
             _activateNextState();
             _assertVetoCooldownState();
         }
@@ -107,17 +107,17 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
         _step("7. NEW VETO SIGNALLING ROUND FOR MALICIOUS PROPOSAL IS STARTED");
         {
-            _wait(_config.VETO_COOLDOWN_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoSignalingState();
             _logVetoSignallingState();
 
             // the second seal rage quit support is reached
-            _lockStETH(stEthHolders, percents(_config.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
+            _lockStETH(stEthHolders, percents(_dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT()));
             _assertVetoSignalingState();
             _logVetoSignallingState();
 
-            _wait(_config.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
             _logVetoSignallingState();
             _activateNextState();
             _assertRageQuitState();
@@ -150,12 +150,12 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ---
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         {
-            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
+            _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
             _lockStETH(maliciousActor, percents("12.0"));
             _assertVetoSignalingState();
 
-            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
+            _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
             _assertProposalSubmitted(proposalId);
 
@@ -170,7 +170,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ACT 3. THE VETO SIGNALLING DEACTIVATION DURATION EQUALS TO "VETO_SIGNALLING_DEACTIVATION_MAX_DURATION" DAYS
         // ---
         {
-            _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
 
             _activateNextState();
             _assertVetoCooldownState();
@@ -184,7 +184,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _assertCanExecute(proposalId, true);
             _executeProposal(proposalId);
 
-            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
+            _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
         }
     }
 
@@ -211,12 +211,12 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
         _step("3. THE VETO SIGNALLING & DEACTIVATION PASSED BUT PROPOSAL STILL NOT EXECUTABLE");
         {
-            _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoSignalingDeactivationState();
             _logVetoSignallingDeactivationState();
 
-            _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoCooldownState();
 
@@ -227,7 +227,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         _step("4. AFTER THE VETO COOLDOWN GOVERNANCE TRANSITIONS INTO NORMAL STATE");
         {
             _unlockStETH(maliciousActor);
-            _wait(_config.VETO_COOLDOWN_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
             _activateNextState();
             _assertNormalState();
         }
@@ -265,12 +265,12 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
         _step("3. THE VETO SIGNALLING & DEACTIVATION PASSED BUT PROPOSAL STILL NOT EXECUTABLE");
         {
-            _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoSignalingDeactivationState();
             _logVetoSignallingDeactivationState();
 
-            _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoCooldownState();
 
@@ -280,7 +280,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
         _step("4. AFTER THE VETO COOLDOWN NEW VETO SIGNALLING ROUND STARTED");
         {
-            _wait(_config.VETO_COOLDOWN_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoSignalingState();
             _logVetoSignallingState();
@@ -291,12 +291,12 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
         _step("5. PROPOSAL EXECUTABLE IN THE NEXT VETO COOLDOWN");
         {
-            _wait(_config.DYNAMIC_TIMELOCK_MIN_DURATION().multipliedBy(2));
+            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().multipliedBy(2));
             _activateNextState();
             _assertVetoSignalingDeactivationState();
             _logVetoSignallingDeactivationState();
 
-            _wait(_config.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoCooldownState();
 

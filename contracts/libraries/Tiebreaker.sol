@@ -1,52 +1,70 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ISealable} from "../interfaces/ISealable.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Duration.sol";
+
+import {ISealable} from "../interfaces/ISealable.sol";
+
+import {SealableCalls} from "./SealableCalls.sol";
 import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
 
-interface IResealManger {
-    function resume(address sealable) external;
-}
-
 library Tiebreaker {
-    error InvalidTiebreak();
-    error TiebreakNotAllowed();
-    error InvalidResealManager(address value);
+    using SealableCalls for ISealable;
+    using EnumerableSet for EnumerableSet.AddressSet;
+
+    error TiebreakDisallowed();
+    error InvalidSealable(address value);
     error InvalidTiebreakerCommittee(address value);
     error InvalidTiebreakerActivationTimeout(Duration value);
-    error InvalidSealableWithdrawalBlockersCount(uint256 value);
+    error SealableWithdrawalBlockersLimitReached();
 
-    event SealableResumed(address sealable);
-    event ResealManagerSet(address newResealManager);
+    event SealableWithdrawalBlockerAdded(address sealable);
+    event SealableWithdrawalBlockerRemoved(address sealable);
     event TiebreakerCommitteeSet(address newTiebreakerCommittee);
     event TiebreakerActivationTimeoutSet(Duration newTiebreakerActivationTimeout);
-    event SealableWithdrawalBlockersSet(address[] newSealableWithdrawalBlockers);
-
-    struct Config {
-        uint256 maxSealableWithdrawalBlockers;
-        Duration minTiebreakerActivationTimeout;
-        Duration maxTiebreakerActivationTimeout;
-    }
 
     struct Context {
-        address resealManager;
+        /// @dev slot0 [0..159]
         address tiebreakerCommittee;
+        /// @dev slot0 [160..191]
         Duration tiebreakerActivationTimeout;
-        address[] sealableWithdrawalBlockers;
+        /// @dev slot1 [0..255]
+        EnumerableSet.AddressSet sealableWithdrawalBlockers;
     }
 
-    function setResealManager(Context storage self, address newResealManager) internal {
-        if (newResealManager == address(0)) {
-            revert InvalidResealManager(newResealManager);
+    // ---
+    // Setup functionality
+    // ---
+
+    function addSealableWithdrawalBlocker(
+        Context storage self,
+        address sealableWithdrawalBlocker,
+        uint256 maxSealableWithdrawalBlockersCount
+    ) internal {
+        uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
+        if (sealableWithdrawalBlockersCount == maxSealableWithdrawalBlockersCount) {
+            revert SealableWithdrawalBlockersLimitReached();
         }
-        if (self.resealManager == newResealManager) {
-            return;
+
+        (bool isCallSucceed, /* lowLevelError */, /* isPaused */ ) = ISealable(sealableWithdrawalBlocker).callIsPaused();
+        if (!isCallSucceed) {
+            revert InvalidSealable(sealableWithdrawalBlocker);
         }
-        self.resealManager = newResealManager;
-        emit ResealManagerSet(newResealManager);
+
+        bool isSuccessfullyAdded = self.sealableWithdrawalBlockers.add(sealableWithdrawalBlocker);
+        if (isSuccessfullyAdded) {
+            emit SealableWithdrawalBlockerAdded(sealableWithdrawalBlocker);
+        }
+    }
+
+    function removeSealableWithdrawalBlocker(Context storage self, address sealableWithdrawalBlocker) internal {
+        bool isSuccessfullyRemoved = self.sealableWithdrawalBlockers.remove(sealableWithdrawalBlocker);
+        if (isSuccessfullyRemoved) {
+            emit SealableWithdrawalBlockerRemoved(sealableWithdrawalBlocker);
+        }
     }
 
     function setTiebreakerCommittee(Context storage self, address newTiebreakerCommittee) internal {
@@ -62,15 +80,17 @@ library Tiebreaker {
 
     function setTiebreakerActivationTimeout(
         Context storage self,
-        Config memory config,
-        Duration newTiebreakerActivationTimeout
+        Duration minTiebreakerActivationTimeout,
+        Duration newTiebreakerActivationTimeout,
+        Duration maxTiebreakerActivationTimeout
     ) internal {
         if (
-            newTiebreakerActivationTimeout > config.minTiebreakerActivationTimeout
-                || newTiebreakerActivationTimeout < config.minTiebreakerActivationTimeout
+            newTiebreakerActivationTimeout < minTiebreakerActivationTimeout
+                || newTiebreakerActivationTimeout > maxTiebreakerActivationTimeout
         ) {
             revert InvalidTiebreakerActivationTimeout(newTiebreakerActivationTimeout);
         }
+
         if (self.tiebreakerActivationTimeout == newTiebreakerActivationTimeout) {
             return;
         }
@@ -78,45 +98,32 @@ library Tiebreaker {
         emit TiebreakerActivationTimeoutSet(newTiebreakerActivationTimeout);
     }
 
-    function setSealableWithdrawalBlockers(
-        Context storage self,
-        Config memory config,
-        address[] memory newSealableWithdrawalBlockers
-    ) internal {
-        if (newSealableWithdrawalBlockers.length > config.maxSealableWithdrawalBlockers) {
-            revert InvalidSealableWithdrawalBlockersCount(newSealableWithdrawalBlockers.length);
-        }
-        address[] memory oldWithdrawalBlockers = self.sealableWithdrawalBlockers;
-        if (keccak256(abi.encode(oldWithdrawalBlockers)) == keccak256(abi.encode(newSealableWithdrawalBlockers))) {
-            return;
-        }
-        self.sealableWithdrawalBlockers = newSealableWithdrawalBlockers;
-        emit SealableWithdrawalBlockersSet(newSealableWithdrawalBlockers);
-    }
+    // ---
+    // Checks
+    // ---
 
-    function resumeSealable(Context memory self, address sealable) internal {
-        IResealManger(self.resealManager).resume(sealable);
-        emit SealableResumed(sealable);
-    }
-
-    function checkTiebreakerCommittee(Context memory self, address account) internal pure {
+    function checkTiebreakerCommittee(Context storage self, address account) internal view {
         if (account != self.tiebreakerCommittee) {
             revert InvalidTiebreakerCommittee(account);
         }
     }
 
     function checkTie(
-        Context memory self,
+        Context storage self,
         DualGovernanceState state,
         Timestamp normalOrVetoCooldownExitedAt
     ) internal view {
         if (!isTie(self, state, normalOrVetoCooldownExitedAt)) {
-            revert TiebreakNotAllowed();
+            revert TiebreakDisallowed();
         }
     }
 
+    // ---
+    // Getters
+    // ---
+
     function isTie(
-        Context memory self,
+        Context storage self,
         DualGovernanceState state,
         Timestamp normalOrVetoCooldownExitedAt
     ) internal view returns (bool) {
@@ -127,14 +134,39 @@ library Tiebreaker {
             return true;
         }
 
-        return state == DualGovernanceState.RageQuit && isSomeSealableDeadlocked(self);
+        return state == DualGovernanceState.RageQuit && isSomeSealableWithdrawalBlockerPaused(self);
     }
 
-    function isSomeSealableDeadlocked(Context memory self) internal view returns (bool) {
-        uint256 potentialDeadlockSealablesCount = self.sealableWithdrawalBlockers.length;
-        for (uint256 i = 0; i < potentialDeadlockSealablesCount; ++i) {
-            if (ISealable(self.sealableWithdrawalBlockers[i]).isPaused()) return true;
+    function isSomeSealableWithdrawalBlockerPaused(Context storage self) internal view returns (bool) {
+        uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
+        for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
+            (bool isCallSucceed, /* lowLevelError */, bool isPaused) =
+                ISealable(self.sealableWithdrawalBlockers.at(i)).callIsPaused();
+
+            // in normal condition this call must never fail, so if some sealable withdrawal blocker
+            // started behave unexpectedly tiebreaker action may be the last hope for the protocol saving
+            if (isPaused || !isCallSucceed) return true;
         }
         return false;
+    }
+
+    function getTiebreakerInfo(Context storage self)
+        internal
+        view
+        returns (
+            address tiebreakerCommittee,
+            Duration tiebreakerActivationTimeout,
+            address[] memory sealableWithdrawalBlockers
+        )
+    {
+        tiebreakerCommittee = self.tiebreakerCommittee;
+        tiebreakerActivationTimeout = self.tiebreakerActivationTimeout;
+
+        uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
+        sealableWithdrawalBlockers = new address[](sealableWithdrawalBlockersCount);
+
+        for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
+            sealableWithdrawalBlockers[i] = self.sealableWithdrawalBlockers.at(i);
+        }
     }
 }

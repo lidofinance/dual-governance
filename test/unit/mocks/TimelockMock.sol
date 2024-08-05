@@ -78,4 +78,12 @@ contract TimelockMock is ITimelock {
     {
         revert("Not Implemented");
     }
+
+    function getGovernance() external view returns (address) {
+        revert("Not Implemented");
+    }
+
+    function getAdminExecutor() external view returns (address) {
+        revert("Not Implemented");
+    }
 }

@@ -8,9 +8,25 @@ uint256 constant PERCENT = 10 ** 16;
 // ---
 import {Durations} from "contracts/types/Duration.sol";
 
+// ---
+// Interfaces
+// ---
+import {IStETH} from "contracts/interfaces/IStETH.sol";
+import {IWstETH} from "contracts/interfaces/IWstETH.sol";
+import {IResealManager} from "contracts/interfaces/IResealManager.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+
+import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+
+// ---
+// Core Contracts
+// ---
+
 import {Escrow} from "contracts/Escrow.sol";
 import {Executor} from "contracts/Executor.sol";
+import {ResealManager} from "contracts/ResealManager.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
+import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
 // ---
@@ -18,6 +34,8 @@ import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.s
 // ---
 
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
+import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
 import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
 
 // ---
@@ -25,67 +43,51 @@ import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActiva
 // ---
 
 import {
-    Tiebreaker,
-    EscrowState,
-    DualGovernanceStateMachine,
+    DualGovernanceConfig,
     IDualGovernanceConfigProvider,
     ImmutableDualGovernanceConfigProvider
-} from "contracts/configuration/DualGovernanceConfigProvider.sol";
-import {
-    Timelock,
-    EmergencyProtection,
-    IEmergencyProtectedTimelockConfigProvider,
-    ImmutableEmergencyProtectedTimelockConfigProvider
-} from "contracts/configuration/EmergencyProtectedTimelockConfigProvider.sol";
+} from "contracts/DualGovernanceConfigProvider.sol";
 
 library Deployment {
     // ---
-    // Configuration
+    // Executor
+    // ---
+    function deployExecutor(address owner) internal returns (Executor executor) {
+        executor = new Executor(owner);
+    }
+
+    // ---
+    // Emergency Protected Timelock
     // ---
 
-    function deployEmergencyProtectedTimelockConfigProvider()
-        internal
-        returns (ImmutableEmergencyProtectedTimelockConfigProvider configProvider)
-    {
-        configProvider = new ImmutableEmergencyProtectedTimelockConfigProvider(
-            Timelock.Config({
-                minSubmitDelay: Durations.ZERO,
-                maxSubmitDelay: Durations.from(30 days),
-                minScheduleDelay: Durations.ZERO,
-                maxScheduleDelay: Durations.from(30 days)
-            }),
-            EmergencyProtection.Config({
-                minEmergencyModeDuration: Durations.from(180 days),
-                maxEmergencyModeDuration: Durations.from(365 days),
-                minEmergencyProtectionDuration: Durations.from(30 days),
-                maxEmergencyProtectionDuration: Durations.from(90 days)
-            })
-        );
+    function deployEmergencyProtectedTimelock(
+        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams,
+        Executor adminExecutor
+    ) internal returns (EmergencyProtectedTimelock timelock) {
+        timelock = new EmergencyProtectedTimelock(sanityCheckParams, address(adminExecutor));
     }
+
+    // ---
+    // Dual Governance Configuration
+    // ---
 
     function deployDualGovernanceConfigProvider()
         internal
         returns (ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider)
     {
         dualGovernanceConfigProvider = new ImmutableDualGovernanceConfigProvider(
-            EscrowState.Config({
-                minWithdrawalsBatchSize: 8,
-                maxWithdrawalsBatchSize: 128,
-                signallingEscrowMinLockTime: Durations.from(5 hours)
-            }),
-            Tiebreaker.Config({
-                maxSealableWithdrawalBlockers: 5,
-                minTiebreakerActivationTimeout: Durations.from(365 days),
-                maxTiebreakerActivationTimeout: Durations.from(730 days)
-            }),
-            DualGovernanceStateMachine.Config({
+            DualGovernanceConfig.Context({
                 firstSealRageQuitSupport: 3 * PERCENT,
                 secondSealRageQuitSupport: 15 * PERCENT,
+                //
+                minAssetsLockDuration: Durations.from(5 hours),
                 dynamicTimelockMinDuration: Durations.from(3 days),
                 dynamicTimelockMaxDuration: Durations.from(30 days),
+                //
                 vetoSignallingMinActiveDuration: Durations.from(5 hours),
                 vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
                 vetoCooldownDuration: Durations.from(4 days),
+                //
                 rageQuitExtensionDelay: Durations.from(7 days),
                 rageQuitEthWithdrawalsMinTimelock: Durations.from(60 days),
                 rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: 2,
@@ -95,46 +97,42 @@ library Deployment {
     }
 
     // ---
-    // Admin Executor
-    // ---
-    function deployAdminExecutor(address owner) internal returns (Executor executor) {
-        executor = new Executor(owner);
-    }
-
-    // ---
-    // Emergency Protected Timelock
-    // ---
-
-    function deployEmergencyProtectedTimelock(
-        IEmergencyProtectedTimelockConfigProvider configProvider,
-        Executor adminExecutor
-    ) internal returns (EmergencyProtectedTimelock timelock) {
-        timelock = new EmergencyProtectedTimelock(address(configProvider), address(adminExecutor));
-    }
-
-    // ---
-    // Escrow Master Copy
-    // ---
-
-    function deployEscrowMasterCopy(
-        address stETH,
-        address wstETH,
-        address withdrawalQueue
-    ) internal returns (Escrow escrow) {
-        escrow = new Escrow({stETH: stETH, wstETH: wstETH, withdrawalQueue: withdrawalQueue});
-    }
-
-    // ---
     // Dual Governance
     // ---
 
     function deployDualGovernance(
+        ITimelock timelock,
+        IResealManager resealManager,
         IDualGovernanceConfigProvider configProvider,
-        EmergencyProtectedTimelock timelock,
-        Escrow escrowMasterCopy
+        DualGovernance.SanityCheckParams memory dualGovernanceSanityCheckParams,
+        Escrow.SanityCheckParams memory escrowSanityCheckParams,
+        Escrow.ProtocolDependencies memory escrowProtocolDependencies
     ) internal returns (DualGovernance dualGovernance) {
-        dualGovernance =
-            new DualGovernance({timelock: timelock, configProvider: configProvider, escrowMasterCopy: escrowMasterCopy});
+        dualGovernance = new DualGovernance(
+            timelock,
+            resealManager,
+            configProvider,
+            dualGovernanceSanityCheckParams,
+            escrowSanityCheckParams,
+            escrowProtocolDependencies
+        );
+    }
+
+    // ---
+    // Reseal Manager
+    // ---
+    function deployResealManager(ITimelock timelock) internal returns (ResealManager resealManager) {
+        resealManager = new ResealManager(timelock);
+    }
+
+    // ---
+    // Timelocked Governance
+    // ---
+    function deployTimelockedGovernance(
+        address governance,
+        ITimelock timelock
+    ) internal returns (TimelockedGovernance) {
+        return new TimelockedGovernance(governance, timelock);
     }
 
     // ---
@@ -146,13 +144,22 @@ library Deployment {
         address emergencyProtectedTimelock,
         address[] memory committeeMembers,
         uint256 executionQuorum
-    ) internal returns (EmergencyActivationCommittee committee) {
-        committee = new EmergencyActivationCommittee({
+    ) internal returns (EmergencyActivationCommittee) {
+        return new EmergencyActivationCommittee({
             owner: adminExecutor,
             committeeMembers: committeeMembers,
             executionQuorum: executionQuorum,
             emergencyProtectedTimelock: emergencyProtectedTimelock
         });
+    }
+
+    function deployEmergencyExecutionCommittee(
+        address owner,
+        address[] memory committeeMembers,
+        uint256 executionQuorum,
+        address emergencyProtectedTimelock
+    ) internal returns (EmergencyExecutionCommittee) {
+        return new EmergencyExecutionCommittee(owner, committeeMembers, executionQuorum, emergencyProtectedTimelock);
     }
 
     function deployTiebreakerCoreCommittee(
@@ -168,41 +175,66 @@ library Deployment {
         });
     }
 
+    function deployTiebreakerSubCommittee(
+        address owner,
+        address[] memory committeeMembers,
+        uint256 executionQuorum,
+        address tiebreakerCore
+    ) internal returns (TiebreakerSubCommittee) {
+        return new TiebreakerSubCommittee(owner, committeeMembers, executionQuorum, tiebreakerCore);
+    }
+
     // ---
     // Dual Governance Setup Deployment
     // ---
 
     struct DualGovernanceSetup {
         Executor adminExecutor;
-        Escrow escrowMasterCopy;
-        ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider;
-        ImmutableEmergencyProtectedTimelockConfigProvider timelockConfigProvider;
+        ResealManager resealManager;
         EmergencyProtectedTimelock timelock;
+        TimelockedGovernance emergencyGovernance;
+        ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider;
         DualGovernance dualGovernance;
     }
 
-    function deployDualGovernanceSetup(
-        address stETH,
-        address wstETH,
-        address withdrawalQueue
+    function deployDualGovernanceContracts(
+        IStETH stETH,
+        IWstETH wstETH,
+        IWithdrawalQueue withdrawalQueue,
+        address emergencyGovernance
     ) internal returns (DualGovernanceSetup memory setup) {
         address tmpExecutorOwner = address(this);
-        setup.adminExecutor = deployAdminExecutor({owner: tmpExecutorOwner});
-        setup.escrowMasterCopy =
-            deployEscrowMasterCopy({stETH: stETH, wstETH: wstETH, withdrawalQueue: withdrawalQueue});
-
-        setup.dualGovernanceConfigProvider = deployDualGovernanceConfigProvider();
-        setup.timelockConfigProvider = deployEmergencyProtectedTimelockConfigProvider();
+        setup.adminExecutor = deployExecutor({owner: tmpExecutorOwner});
 
         setup.timelock = deployEmergencyProtectedTimelock({
             adminExecutor: setup.adminExecutor,
-            configProvider: setup.timelockConfigProvider
+            sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
+                maxAfterSubmitDelay: Durations.from(45 days),
+                maxAfterScheduleDelay: Durations.from(45 days),
+                maxEmergencyModeDuration: Durations.from(365 days),
+                maxEmergencyProtectionDuration: Durations.from(180 days)
+            })
         });
+
+        setup.resealManager = deployResealManager(setup.timelock);
+        setup.dualGovernanceConfigProvider = deployDualGovernanceConfigProvider();
+        setup.emergencyGovernance = deployTimelockedGovernance(emergencyGovernance, setup.timelock);
 
         setup.dualGovernance = deployDualGovernance({
             timelock: setup.timelock,
+            resealManager: setup.resealManager,
             configProvider: setup.dualGovernanceConfigProvider,
-            escrowMasterCopy: setup.escrowMasterCopy
+            dualGovernanceSanityCheckParams: DualGovernance.SanityCheckParams({
+                minTiebreakerActivationTimeout: Durations.from(180 days),
+                maxTiebreakerActivationTimeout: Durations.from(365 days),
+                maxSealableWithdrawalBlockersCount: 255
+            }),
+            escrowSanityCheckParams: Escrow.SanityCheckParams({minWithdrawalsBatchSize: 4}),
+            escrowProtocolDependencies: Escrow.ProtocolDependencies({
+                stETH: stETH,
+                wstETH: wstETH,
+                withdrawalQueue: withdrawalQueue
+            })
         });
     }
 }

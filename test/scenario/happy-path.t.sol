@@ -30,14 +30,14 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _assertProposalSubmitted(proposalId);
         _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
-        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
+        _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
         // the min execution delay hasn't elapsed yet
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposal(_dualGovernance, proposalId);
 
         // wait till the first phase of timelock passes
-        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
+        _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
         _assertCanSchedule(_dualGovernance, proposalId, true);
         _scheduleProposal(_dualGovernance, proposalId);
@@ -48,12 +48,12 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _assertCanExecute(proposalId, true);
         _executeProposal(proposalId);
 
-        _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
+        _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
     }
 
     function testFork_HappyPathWithMultipleItems() external {
         // additional phase required here, grant rights to call DAO Agent to the admin executor
-        Utils.grantPermission(DAO_AGENT, IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE(), _config.ADMIN_EXECUTOR());
+        Utils.grantPermission(DAO_AGENT, IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE(), _timelock.getAdminExecutor());
 
         bytes memory agentDoRegularStaffPayload = abi.encodeCall(IDangerousContract.doRegularStaff, (42));
         bytes memory targetCallEvmScript = Utils.encodeEvmCallScript(address(_target), agentDoRegularStaffPayload);
@@ -68,7 +68,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
 
         uint256 proposalId = _submitProposal(_dualGovernance, "Multiple items", multipleCalls);
 
-        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
+        _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
         // proposal can't be scheduled before the after submit delay has passed
         _assertCanSchedule(_dualGovernance, proposalId, false);
@@ -78,7 +78,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _scheduleProposal(_dualGovernance, proposalId);
 
         // wait till the DG-enforced timelock elapses
-        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
+        _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
         _assertCanSchedule(_dualGovernance, proposalId, true);
         _scheduleProposal(_dualGovernance, proposalId);
@@ -91,7 +91,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
 
         address[] memory senders = new address[](2);
         senders[0] = DAO_AGENT;
-        senders[1] = _config.ADMIN_EXECUTOR();
+        senders[1] = _timelock.getAdminExecutor();
 
         ExternalCall[] memory expectedTargetCalls = ExternalCallHelpers.create(
             [DAO_AGENT, address(_target)],

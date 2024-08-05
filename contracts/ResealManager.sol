@@ -2,21 +2,20 @@
 pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
 import {ISealable} from "./interfaces/ISealable.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
+import {IResealManager} from "./interfaces/IResealManager.sol";
 
-interface IEmergencyProtectedTimelock {
-    function getGovernance() external view returns (address);
-}
-
-contract ResealManager {
+contract ResealManager is IResealManager {
     error SealableWrongPauseState();
     error SenderIsNotGovernance();
     error NotAllowed();
 
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
-    address public immutable EMERGENCY_PROTECTED_TIMELOCK;
+    ITimelock public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
-    constructor(address emergencyProtectedTimelock) {
+    constructor(ITimelock emergencyProtectedTimelock) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
@@ -40,7 +39,7 @@ contract ResealManager {
     }
 
     modifier onlyGovernance() {
-        address governance = IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).getGovernance();
+        address governance = EMERGENCY_PROTECTED_TIMELOCK.getGovernance();
         if (msg.sender != governance) {
             revert SenderIsNotGovernance();
         }

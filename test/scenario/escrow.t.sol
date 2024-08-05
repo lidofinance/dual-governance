@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {WithdrawalRequestStatus} from "../utils/interfaces.sol";
 import {Duration as DurationType} from "contracts/types/Duration.sol";
+import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
+
 import {
     Escrow,
     Balances,
@@ -10,8 +12,7 @@ import {
     ScenarioTestBlueprint,
     VetoerState,
     LockedAssetsTotals,
-    Durations,
-    EscrowState
+    Durations
 } from "../utils/scenario-test-blueprint.sol";
 
 contract TestHelpers is ScenarioTestBlueprint {
@@ -104,7 +105,7 @@ contract EscrowHappyPath is TestHelpers {
         _lockStETH(_VETOER_2, secondVetoerLockStETHAmount);
         _lockWstETH(_VETOER_2, secondVetoerLockWstETHAmount);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
         assertApproxEqAbs(
@@ -147,7 +148,7 @@ contract EscrowHappyPath is TestHelpers {
         uint256 secondVetoerStETHSharesAfterRebase = _ST_ETH.sharesOf(_VETOER_2);
         uint256 secondVetoerWstETHBalanceAfterRebase = _WST_ETH.balanceOf(_VETOER_2);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         _unlockWstETH(_VETOER_1);
         assertApproxEqAbs(
@@ -188,7 +189,7 @@ contract EscrowHappyPath is TestHelpers {
 
         rebase(-100);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
         assertApproxEqAbs(
@@ -221,7 +222,7 @@ contract EscrowHappyPath is TestHelpers {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         _unlockUnstETH(_VETOER_1, unstETHIds);
     }
@@ -467,7 +468,7 @@ contract EscrowHappyPath is TestHelpers {
         );
         assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, totalSharesLocked, 2);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         uint256[] memory stETHWithdrawalRequestAmounts = new uint256[](1);
         stETHWithdrawalRequestAmounts[0] = firstVetoerStETHAmount;
@@ -508,7 +509,7 @@ contract EscrowHappyPath is TestHelpers {
         assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, 0, 2);
         assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, 0, 2);
 
-        _wait(_config.SIGNALLING_ESCROW_MIN_LOCK_TIME().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         vm.prank(_VETOER_1);
         escrow.unlockUnstETH(stETHWithdrawalRequestIds);
@@ -540,46 +541,22 @@ contract EscrowHappyPath is TestHelpers {
         // After the Escrow enters RageQuitEscrow state, lock/unlock of tokens is forbidden
         // ---
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
         this.externalLockStETH(_VETOER_1, 1 ether);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
         this.externalLockWstETH(_VETOER_1, 1 ether);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
         this.externalLockUnstETH(_VETOER_1, notLockedWithdrawalNfts);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
         this.externalUnlockStETH(_VETOER_1);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
         this.externalUnlockWstETH(_VETOER_1);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Escrow.InvalidState.selector, EscrowState.RageQuitEscrow, EscrowState.SignallingEscrow
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
         this.externalUnlockUnstETH(_VETOER_1, lockedWithdrawalNfts);
     }
 

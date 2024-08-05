@@ -1,53 +1,101 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IGovernance} from "./interfaces/ITimelock.sol";
+import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
-import {ITimelock, IGovernance} from "./interfaces/ITimelock.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
-import {Proposers, Proposer} from "./libraries/Proposers.sol";
-import {ExternalCall} from "./libraries/ExternalCalls.sol";
-import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
-import {IDualGovernanceConfigProvider} from "./configuration/DualGovernanceConfigProvider.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
+import {ExternalCall} from "./libraries/ExternalCalls.sol";
+import {Proposers, Proposer} from "./libraries/Proposers.sol";
+import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
+import {IDualGovernanceConfigProvider} from "./DualGovernanceConfigProvider.sol";
+
 import {Escrow} from "./Escrow.sol";
 
-contract DualGovernance is IGovernance {
+contract DualGovernance is IDualGovernance {
     using Proposers for Proposers.State;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
+    // ---
+    // Errors
+    // ---
+
     error InvalidConfigProvider(IDualGovernanceConfigProvider configProvider);
-    error NotResealCommitttee(address account);
+    error NotResealCommittee(address account);
     error ProposalSubmissionBlocked();
     error InvalidAdminExecutor(address value);
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
 
+    // ---
+    // Events
+    // ---
+
+    event EscrowMasterCopyDeployed(address escrowMasterCopy);
     event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
 
+    // ---
+    // Tiebreaker Sanity Check Param Immutables
+    // ---
+
+    struct SanityCheckParams {
+        Duration minTiebreakerActivationTimeout;
+        Duration maxTiebreakerActivationTimeout;
+        uint256 maxSealableWithdrawalBlockersCount;
+    }
+
+    Duration public immutable MIN_TIEBREAKER_ACTIVATION_TIMEOUT;
+    Duration public immutable MAX_TIEBREAKER_ACTIVATION_TIMEOUT;
+    uint256 public immutable MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT;
+
+    // ---
+    // External Parts Immutables
+
     ITimelock public immutable TIMELOCK;
+    IResealManager public immutable RESEAL_MANAGER;
     address public immutable ESCROW_MASTER_COPY;
+
+    // ---
+    // Aspects
+    // ---
 
     Proposers.State internal _proposers;
     Tiebreaker.Context internal _tiebreaker;
     DualGovernanceStateMachine.Context internal _stateMachine;
 
+    // ---
+    // Standalone State Variables
+    // ---
     IDualGovernanceConfigProvider internal _configProvider;
-
     address internal _resealCommittee;
-    IResealManager internal _resealManager;
 
-    constructor(address configProvider, address timelock, address stETH, address wstETH, address withdrawalQueue) {
-        TIMELOCK = ITimelock(timelock);
-        ESCROW_MASTER_COPY = address(new Escrow(stETH, wstETH, withdrawalQueue, address(this)));
+    constructor(
+        ITimelock timelock,
+        IResealManager resealManager,
+        IDualGovernanceConfigProvider configProvider,
+        SanityCheckParams memory dualGovernanceSanityCheckParams,
+        Escrow.SanityCheckParams memory escrowSanityCheckParams,
+        Escrow.ProtocolDependencies memory escrowProtocolDependencies
+    ) {
+        TIMELOCK = timelock;
+        RESEAL_MANAGER = resealManager;
 
-        _configProvider = IDualGovernanceConfigProvider(configProvider);
-        _stateMachine.initialize(ESCROW_MASTER_COPY);
+        MIN_TIEBREAKER_ACTIVATION_TIMEOUT = dualGovernanceSanityCheckParams.minTiebreakerActivationTimeout;
+        MAX_TIEBREAKER_ACTIVATION_TIMEOUT = dualGovernanceSanityCheckParams.maxTiebreakerActivationTimeout;
+        MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = dualGovernanceSanityCheckParams.maxSealableWithdrawalBlockersCount;
+
+        _setConfigProvider(configProvider);
+
+        ESCROW_MASTER_COPY = address(new Escrow(this, escrowSanityCheckParams, escrowProtocolDependencies));
+        emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
+
+        _stateMachine.initialize(configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
     }
 
     // ---
@@ -55,7 +103,7 @@ contract DualGovernance is IGovernance {
     // ---
 
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
-        activateNextState();
+        _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
         _proposers.checkProposer(msg.sender);
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
@@ -65,7 +113,7 @@ contract DualGovernance is IGovernance {
     }
 
     function scheduleProposal(uint256 proposalId) external {
-        activateNextState();
+        _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
         ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
             TIMELOCK.getProposalInfo(proposalId);
         if (!_stateMachine.canScheduleProposal(submittedAt)) {
@@ -93,21 +141,23 @@ contract DualGovernance is IGovernance {
     // Dual Governance State
     // ---
 
-    function activateNextState() public {
-        _stateMachine.activateNextState(_getDualGovernanceStateMachineConfig());
+    function activateNextState() external {
+        _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
     }
 
     function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external {
         _checkAdminExecutor(msg.sender);
-        if (address(newConfigProvider) == address(0)) {
-            revert InvalidConfigProvider(newConfigProvider);
-        }
+        _setConfigProvider(newConfigProvider);
 
-        if (newConfigProvider == _configProvider) {
-            return;
-        }
-        _configProvider = IDualGovernanceConfigProvider(newConfigProvider);
-        emit ConfigProviderSet(newConfigProvider);
+        /// @dev the minAssetsLockDuration is kept as a storage variable in the signalling Escrow instance
+        /// to sync the new value with current signalling escrow, it's value must be manually updated
+        _stateMachine.signallingEscrow.setMinAssetsLockDuration(
+            newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
+        );
+    }
+
+    function getConfigProvider() external view returns (IDualGovernanceConfigProvider) {
+        return _configProvider;
     }
 
     function getVetoSignallingEscrow() external view returns (address) {
@@ -127,7 +177,7 @@ contract DualGovernance is IGovernance {
     }
 
     function getDynamicDelayDuration() external view returns (Duration) {
-        return _stateMachine.getDynamicDelayDuration(_getDualGovernanceStateMachineConfig());
+        return _stateMachine.getDynamicDelayDuration(_configProvider.getDualGovernanceConfig());
     }
 
     // ---
@@ -164,31 +214,52 @@ contract DualGovernance is IGovernance {
     // Tiebreaker Protection
     // ---
 
-    function setupTiebreaker(
-        address resealManager,
-        address tiebreakerCommittee,
-        Duration tiebreakerActivationTimeout,
-        address[] memory sealableWithdrawalBlockers
-    ) external {
-        Tiebreaker.Config memory config = _configProvider.getTiebreakerConfig();
-        _tiebreaker.setResealManager(resealManager);
+    function addTiebreakerSealableWithdrawalBlocker(address sealableWithdrawalBlocker) external {
+        _checkAdminExecutor(msg.sender);
+        _tiebreaker.addSealableWithdrawalBlocker(sealableWithdrawalBlocker, MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT);
+    }
+
+    function removeTiebreakerSealableWithdrawalBlocker(address sealableWithdrawalBlocker) external {
+        _checkAdminExecutor(msg.sender);
+        _tiebreaker.removeSealableWithdrawalBlocker(sealableWithdrawalBlocker);
+    }
+
+    function setTiebreakerCommittee(address tiebreakerCommittee) external {
+        _checkAdminExecutor(msg.sender);
         _tiebreaker.setTiebreakerCommittee(tiebreakerCommittee);
-        _tiebreaker.setTiebreakerActivationTimeout(config, tiebreakerActivationTimeout);
-        _tiebreaker.setSealableWithdrawalBlockers(config, sealableWithdrawalBlockers);
+    }
+
+    function setTiebreakerActivationTimeout(Duration tiebreakerActivationTimeout) external {
+        _checkAdminExecutor(msg.sender);
+        _tiebreaker.setTiebreakerActivationTimeout(
+            MIN_TIEBREAKER_ACTIVATION_TIMEOUT, tiebreakerActivationTimeout, MAX_TIEBREAKER_ACTIVATION_TIMEOUT
+        );
     }
 
     function tiebreakerResumeSealable(address sealable) external {
-        Tiebreaker.Context memory tiebreaker = _tiebreaker;
-        tiebreaker.checkTiebreakerCommittee(msg.sender);
-        tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
-        tiebreaker.resumeSealable(sealable);
+        _tiebreaker.checkTiebreakerCommittee(msg.sender);
+        _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
+        RESEAL_MANAGER.resume(sealable);
     }
 
     function tiebreakerScheduleProposal(uint256 proposalId) external {
-        Tiebreaker.Context memory tiebreaker = _tiebreaker;
-        tiebreaker.checkTiebreakerCommittee(msg.sender);
-        tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
+        _tiebreaker.checkTiebreakerCommittee(msg.sender);
+        _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
         TIMELOCK.schedule(proposalId);
+    }
+
+    struct TiebreakerState {
+        address tiebreakerCommittee;
+        Duration tiebreakerActivationTimeout;
+        address[] sealableWithdrawalBlockers;
+    }
+
+    function getTiebreakerState() external view returns (TiebreakerState memory tiebreakerState) {
+        (
+            tiebreakerState.tiebreakerCommittee,
+            tiebreakerState.tiebreakerActivationTimeout,
+            tiebreakerState.sealableWithdrawalBlockers
+        ) = _tiebreaker.getTiebreakerInfo();
     }
 
     // ---
@@ -197,22 +268,29 @@ contract DualGovernance is IGovernance {
 
     function resealSealables(address[] memory sealables) external {
         if (msg.sender != _resealCommittee) {
-            revert NotResealCommitttee(msg.sender);
+            revert NotResealCommittee(msg.sender);
         }
         if (_stateMachine.getCurrentState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
-        _resealManager.reseal(sealables);
+        RESEAL_MANAGER.reseal(sealables);
     }
 
-    function setReseal(address resealManager, address resealCommittee) external {
-        _checkAdminExecutor(msg.sender);
-        _resealCommittee = resealCommittee;
-        _resealManager = IResealManager(resealManager);
-    }
+    // ---
+    // Private methods
+    // ---
 
-    function _getDualGovernanceStateMachineConfig() internal view returns (DualGovernanceStateMachine.Config memory) {
-        return _configProvider.getDualGovernanceStateMachineConfig();
+    function _setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) internal {
+        if (address(newConfigProvider) == address(0)) {
+            revert InvalidConfigProvider(newConfigProvider);
+        }
+
+        if (newConfigProvider == _configProvider) {
+            return;
+        }
+
+        _configProvider = IDualGovernanceConfigProvider(newConfigProvider);
+        emit ConfigProviderSet(newConfigProvider);
     }
 
     function _checkAdminExecutor(address account) internal view {

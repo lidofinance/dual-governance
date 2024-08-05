@@ -16,9 +16,9 @@ contract TimelockedGovernance is IGovernance {
     /// @dev Initializes the TimelockedGovernance contract.
     /// @param governance The address of the governance contract.
     /// @param timelock The address of the timelock contract.
-    constructor(address governance, address timelock) {
+    constructor(address governance, ITimelock timelock) {
         GOVERNANCE = governance;
-        TIMELOCK = ITimelock(timelock);
+        TIMELOCK = timelock;
     }
 
     /// @dev Submits a proposal to the timelock.

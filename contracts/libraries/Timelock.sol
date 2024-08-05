@@ -5,8 +5,8 @@ import {Duration} from "../types/Duration.sol";
 
 library Timelock {
     error InvalidGovernance(address value);
-    error InvalidAdminExecutor(address value);
     error InvalidAfterSubmitDelay(Duration value);
+    error InvalidAfterScheduleDelay(Duration value);
 
     event GovernanceSet(address newGovernance);
     event AdminExecutorSet(address newAdminExecutor);
@@ -27,23 +27,10 @@ library Timelock {
         Duration afterSubmitDelay;
         /// @dev slot0 [192..224]
         Duration afterScheduleDelay;
-        /// @dev slot1 [0..159]
-        address adminExecutor;
-    }
-
-    function setAdminExecutor(Context storage self, address newAdminExecutor) internal {
-        if (self.adminExecutor == address(0)) {
-            revert InvalidAdminExecutor(address(0));
-        }
-        if (self.adminExecutor == newAdminExecutor) {
-            return;
-        }
-        self.adminExecutor = newAdminExecutor;
-        emit AdminExecutorSet(newAdminExecutor);
     }
 
     function setGovernance(Context storage self, address newGovernance) internal {
-        if (self.governance == address(0)) {
+        if (newGovernance == address(0)) {
             revert InvalidGovernance(newGovernance);
         }
         if (self.governance == newGovernance) {
@@ -61,9 +48,13 @@ library Timelock {
         return self.afterScheduleDelay;
     }
 
-    function setAfterSubmitDelay(Context storage self, Config memory config, Duration newAfterSubmitDelay) internal {
-        if (newAfterSubmitDelay < config.minSubmitDelay || newAfterSubmitDelay > config.maxSubmitDelay) {
-            revert InvalidAfterSubmitDelay(newAfterSubmitDelay);
+    function setAfterSubmitDelay(
+        Context storage self,
+        Duration newAfterSubmitDelay,
+        Duration maxAfterSubmitDelay
+    ) internal {
+        if (newAfterSubmitDelay > maxAfterSubmitDelay) {
+            revert InvalidAfterScheduleDelay(newAfterSubmitDelay);
         }
         if (self.afterSubmitDelay == newAfterSubmitDelay) {
             return;
@@ -74,11 +65,11 @@ library Timelock {
 
     function setAfterScheduleDelay(
         Context storage self,
-        Config memory config,
-        Duration newAfterScheduleDelay
+        Duration newAfterScheduleDelay,
+        Duration maxAfterScheduleDelay
     ) internal {
-        if (newAfterScheduleDelay < config.minScheduleDelay || newAfterScheduleDelay > config.maxScheduleDelay) {
-            revert InvalidAfterSubmitDelay(newAfterScheduleDelay);
+        if (newAfterScheduleDelay > maxAfterScheduleDelay) {
+            revert InvalidAfterScheduleDelay(newAfterScheduleDelay);
         }
         if (self.afterScheduleDelay == newAfterScheduleDelay) {
             return;
@@ -90,12 +81,6 @@ library Timelock {
     function checkGovernance(Context storage self, address account) internal view {
         if (self.governance != account) {
             revert InvalidGovernance(account);
-        }
-    }
-
-    function checkAdminExecutor(Context storage self, address account) internal view {
-        if (self.adminExecutor != account) {
-            revert InvalidAdminExecutor(account);
         }
     }
 }
