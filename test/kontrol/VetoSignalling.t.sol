@@ -37,26 +37,27 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      * Invariants that should hold while in the Veto Signalling state
      * (including Deactivation sub-state)
      */
-    function _vetoSignallingInvariants(Mode mode, StateRecord memory sr) internal view {
+    function _vetoSignallingInvariants(Mode mode, StateRecord memory sr) internal view returns (bool) {
         require(
             sr.state != State.Normal && sr.state != State.VetoCooldown && sr.state != State.RageQuit,
             "Invariants only apply to the Veto Signalling states."
         );
 
-        _vetoSignallingTimesInvariant(mode, sr);
-        _vetoSignallingRageQuitInvariant(mode, sr);
-        _vetoSignallingMaxDelayInvariant(mode, sr);
-        _vetoSignallingDeactivationInvariant(mode, sr);
+        return (
+            _vetoSignallingTimesInvariant(mode, sr) && _vetoSignallingRageQuitInvariant(mode, sr)
+                && _vetoSignallingMaxDelayInvariant(mode, sr) && _vetoSignallingDeactivationInvariant(mode, sr)
+        );
     }
 
     /**
      * Veto Signalling Invariant: At any given point t up to the present time,
      * the Veto Signalling activation and reactivation times must be before t.
      */
-    function _vetoSignallingTimesInvariant(Mode mode, StateRecord memory sr) internal view {
-        _establish(mode, sr.timestamp <= Timestamps.now());
-        _establish(mode, sr.activationTime <= sr.timestamp);
-        _establish(mode, sr.reactivationTime <= sr.timestamp);
+    function _vetoSignallingTimesInvariant(Mode mode, StateRecord memory sr) internal view returns (bool) {
+        return (
+            _establish(mode, sr.timestamp <= Timestamps.now()) && _establish(mode, sr.activationTime <= sr.timestamp)
+                && _establish(mode, sr.reactivationTime <= sr.timestamp)
+        );
     }
 
     /**
@@ -65,9 +66,11 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      * and the maximum rage quit support must be greater than the first seal
      * threshold.
      */
-    function _vetoSignallingRageQuitInvariant(Mode mode, StateRecord memory sr) internal view {
-        _establish(mode, sr.rageQuitSupport <= sr.maxRageQuitSupport);
-        _establish(mode, config.FIRST_SEAL_RAGE_QUIT_SUPPORT() < sr.maxRageQuitSupport);
+    function _vetoSignallingRageQuitInvariant(Mode mode, StateRecord memory sr) internal view returns (bool) {
+        return (
+            _establish(mode, sr.rageQuitSupport <= sr.maxRageQuitSupport)
+                && _establish(mode, config.FIRST_SEAL_RAGE_QUIT_SUPPORT() < sr.maxRageQuitSupport)
+        );
     }
 
     function _calculateDynamicTimelock(Configuration _config, uint256 rageQuitSupport) public view returns (Duration) {
@@ -100,22 +103,22 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      * the Deactivation sub-state was last exited have passed, the protocol is
      * in the Deactivation sub-state. Otherwise, it is in the parent state.
      */
-    function _vetoSignallingDeactivationInvariant(Mode mode, StateRecord memory sr) internal view {
+    function _vetoSignallingDeactivationInvariant(Mode mode, StateRecord memory sr) internal view returns (bool) {
         Duration dynamicTimelock = _calculateDynamicTimelock(config, sr.rageQuitSupport);
 
         // Note: creates three branches in symbolic execution
         if (sr.timestamp <= addTo(dynamicTimelock, sr.activationTime)) {
-            _establish(mode, sr.state == State.VetoSignalling);
-        } else if (
+            return _establish(mode, sr.state == State.VetoSignalling);
+        }
+        if (
             sr.timestamp
                 <= addTo(
                     config.VETO_SIGNALLING_MIN_ACTIVE_DURATION(), _maxTimestamp(sr.reactivationTime, sr.activationTime)
                 )
         ) {
-            _establish(mode, sr.state == State.VetoSignalling);
-        } else {
-            _establish(mode, sr.state == State.VetoSignallingDeactivation);
+            return _establish(mode, sr.state == State.VetoSignalling);
         }
+        return _establish(mode, sr.state == State.VetoSignallingDeactivation);
     }
 
     /**
@@ -128,11 +131,12 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      * - D is the minimum active duration before the Deactivation sub-state can
      *   be re-entered.
      */
-    function _vetoSignallingMaxDelayInvariant(Mode mode, StateRecord memory sr) internal view {
+    function _vetoSignallingMaxDelayInvariant(Mode mode, StateRecord memory sr) internal view returns (bool) {
         // Note: creates two branches in symbolic execution
         if (_maxDeactivationDelayPassed(sr)) {
-            _establish(mode, sr.state == State.VetoSignallingDeactivation);
+            return _establish(mode, sr.state == State.VetoSignallingDeactivation);
         }
+        return true;
     }
 
     function _maxDeactivationDelayPassed(StateRecord memory sr) internal view returns (bool) {
@@ -224,13 +228,23 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         vm.assume(previous.state != State.VetoCooldown);
         vm.assume(previous.state != State.RageQuit);
 
-        _vetoSignallingInvariants(Mode.Assume, previous);
         dualGovernance.activateNextState();
 
         StateRecord memory current = _recordCurrentState(maxRageQuitSupport);
 
         if (current.state != State.Normal && current.state != State.VetoCooldown && current.state != State.RageQuit) {
-            _vetoSignallingInvariants(Mode.Assert, current);
+            // Assume the first two invariants, see what happens
+            _vetoSignallingTimesInvariant(Mode.Assume, previous);
+            _vetoSignallingRageQuitInvariant(Mode.Assume, previous);
+            if (!_vetoSignallingInvariants(Mode.Try, current)) {
+                // Assume the third invariant, see what happens
+                _vetoSignallingMaxDelayInvariant(Mode.Assume, previous);
+                if (!_vetoSignallingInvariants(Mode.Try, current)) {
+                    // Assume the fourth and final invariant, test must pass
+                    _vetoSignallingDeactivationInvariant(Mode.Assume, previous);
+                    _vetoSignallingInvariants(Mode.Assert, current);
+                }
+            }
         }
     }
 

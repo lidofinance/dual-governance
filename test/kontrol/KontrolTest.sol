@@ -19,14 +19,19 @@ contract KontrolTest is Test, KontrolCheats {
 
     enum Mode {
         Assume,
+        Try,
         Assert
     }
 
-    function _establish(Mode mode, bool condition) internal pure {
+    function _establish(Mode mode, bool condition) internal pure returns (bool) {
         if (mode == Mode.Assume) {
             vm.assume(condition);
+            return true;
+        } else if (mode == Mode.Try) {
+            return condition;
         } else {
             assert(condition);
+            return true;
         }
     }
 
