@@ -109,6 +109,7 @@ contract Escrow is IEscrow {
         SanityCheckParams memory sanityCheckParams,
         ProtocolDependencies memory dependencies
     ) {
+        _SELF = address(this);
         DUAL_GOVERNANCE = dualGovernance;
 
         ST_ETH = dependencies.stETH;
