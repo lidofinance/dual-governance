@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Duration} from "../types/Duration.sol";
 
-library Timelock {
+library TimelockState {
     error InvalidGovernance(address value);
     error InvalidAfterSubmitDelay(Duration value);
     error InvalidAfterScheduleDelay(Duration value);

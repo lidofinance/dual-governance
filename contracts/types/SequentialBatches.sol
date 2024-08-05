@@ -8,7 +8,7 @@ uint256 constant MAX_BATCH_SIZE = BATCH_SIZE_MASK;
 uint256 constant MAX_BATCH_VALUE = 2 ** (256 - BATCH_SIZE_LENGTH) - 1;
 
 // Stores the info about the withdrawals batch encoded as single uint256
-// The 230 MST bits stores the id of the UnstETH id
+// The 240 MST bits stores the id of the UnstETH id
 // the 16 LST bits stores the size of the batch (max size is 2 ^ 16 - 1= 65535)
 type SequentialBatch is uint256;
 

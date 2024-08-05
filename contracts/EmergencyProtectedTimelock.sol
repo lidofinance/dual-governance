@@ -7,7 +7,7 @@ import {Timestamp} from "./types/Timestamp.sol";
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {ITimelock, ProposalStatus} from "./interfaces/ITimelock.sol";
 
-import {Timelock} from "./libraries/Timelock.sol";
+import {TimelockState} from "./libraries/TimelockState.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
@@ -18,7 +18,7 @@ import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 /// while providing emergency protection features to prevent unauthorized
 /// execution during emergency situations.
 contract EmergencyProtectedTimelock is ITimelock {
-    using Timelock for Timelock.Context;
+    using TimelockState for TimelockState.Context;
     using ExecutableProposals for ExecutableProposals.State;
     using EmergencyProtection for EmergencyProtection.Context;
 
@@ -50,7 +50,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     // Aspects
     // ---
 
-    Timelock.Context internal _timelock;
+    TimelockState.Context internal _timelockState;
     ExecutableProposals.State internal _proposals;
     EmergencyProtection.Context internal _emergencyProtection;
 
@@ -73,7 +73,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
     /// @return newProposalId The ID of the newly created proposal.
     function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId) {
-        _timelock.checkGovernance(msg.sender);
+        _timelockState.checkGovernance(msg.sender);
         newProposalId = _proposals.submit(executor, calls);
     }
 
@@ -81,8 +81,8 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// Only the governance contract can call this function.
     /// @param proposalId The ID of the proposal to be scheduled.
     function schedule(uint256 proposalId) external {
-        _timelock.checkGovernance(msg.sender);
-        _proposals.schedule(proposalId, _timelock.afterSubmitDelay);
+        _timelockState.checkGovernance(msg.sender);
+        _proposals.schedule(proposalId, _timelockState.getAfterSubmitDelay());
     }
 
     /// @dev Executes a scheduled proposal.
@@ -90,13 +90,13 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @param proposalId The ID of the proposal to be executed.
     function execute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyMode({isActive: false});
-        _proposals.execute(proposalId, _timelock.getAfterScheduleDelay());
+        _proposals.execute(proposalId, _timelockState.getAfterScheduleDelay());
     }
 
     /// @dev Cancels all non-executed proposals.
     /// Only the governance contract can call this function.
     function cancelAllNonExecutedProposals() external {
-        _timelock.checkGovernance(msg.sender);
+        _timelockState.checkGovernance(msg.sender);
         _proposals.cancelAll();
     }
 
@@ -106,13 +106,13 @@ contract EmergencyProtectedTimelock is ITimelock {
 
     function setGovernance(address newGovernance) external {
         _checkAdminExecutor(msg.sender);
-        _timelock.setGovernance(newGovernance);
+        _timelockState.setGovernance(newGovernance);
     }
 
     function setDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
         _checkAdminExecutor(msg.sender);
-        _timelock.setAfterSubmitDelay(afterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
-        _timelock.setAfterScheduleDelay(afterScheduleDelay, MAX_AFTER_SCHEDULE_DELAY);
+        _timelockState.setAfterSubmitDelay(afterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
+        _timelockState.setAfterScheduleDelay(afterScheduleDelay, MAX_AFTER_SCHEDULE_DELAY);
     }
 
     /// @dev Transfers ownership of the executor contract to a new owner.
@@ -181,7 +181,7 @@ contract EmergencyProtectedTimelock is ITimelock {
         _emergencyProtection.checkEmergencyMode({isActive: true});
         _emergencyProtection.deactivateEmergencyMode();
 
-        _timelock.setGovernance(_emergencyProtection.emergencyGovernance);
+        _timelockState.setGovernance(_emergencyProtection.emergencyGovernance);
         _proposals.cancelAll();
     }
 
@@ -202,7 +202,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     // ---
 
     function getGovernance() external view returns (address) {
-        return _timelock.governance;
+        return _timelockState.governance;
     }
 
     function getAdminExecutor() external view returns (address) {
@@ -210,11 +210,11 @@ contract EmergencyProtectedTimelock is ITimelock {
     }
 
     function getAfterSubmitDelay() external view returns (Duration) {
-        return _timelock.afterSubmitDelay;
+        return _timelockState.getAfterSubmitDelay();
     }
 
     function getAfterScheduleDelay() external view returns (Duration) {
-        return _timelock.afterScheduleDelay;
+        return _timelockState.getAfterScheduleDelay();
     }
 
     /// @dev Retrieves the details of a proposal.
@@ -268,14 +268,14 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @return A boolean indicating if the proposal can be executed.
     function canExecute(uint256 proposalId) external view returns (bool) {
         return !_emergencyProtection.isEmergencyModeActive()
-            && _proposals.canExecute(proposalId, _timelock.getAfterScheduleDelay());
+            && _proposals.canExecute(proposalId, _timelockState.getAfterScheduleDelay());
     }
 
     /// @dev Checks if a proposal can be scheduled.
     /// @param proposalId The ID of the proposal.
     /// @return A boolean indicating if the proposal can be scheduled.
     function canSchedule(uint256 proposalId) external view returns (bool) {
-        return _proposals.canSchedule(proposalId, _timelock.getAfterSubmitDelay());
+        return _proposals.canSchedule(proposalId, _timelockState.getAfterSubmitDelay());
     }
 
     function _checkAdminExecutor(address account) internal view {
