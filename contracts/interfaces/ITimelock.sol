@@ -39,4 +39,5 @@ interface ITimelock {
         returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt);
 
     function getGovernance() external view returns (address);
+    function setGovernance(address governance) external;
 }

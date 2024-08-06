@@ -10,7 +10,7 @@ import {IConfiguration, Configuration} from "contracts/Configuration.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/utils.sol";
 
-import {TimelockMock} from "./mocks/TimelockMock.sol";
+import {TimelockMock} from "../mocks/TimelockMock.sol";
 
 contract SingleGovernanceUnitTests is UnitTest {
     TimelockMock private _timelock;
