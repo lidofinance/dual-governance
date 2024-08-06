@@ -403,6 +403,37 @@ module LIDO-LEMMAS
       requires X <Int 0 orBool X >=Int pow256
       [concrete(X), simplification]
 
+    rule lengthBytes ( #padToWidth ( 32 , #asByteStack ( VALUE ) ) ) => 32
+        requires #rangeUInt(256, VALUE)
+        [simplification]
+
+    rule bool2Word ( X ) <=Int 1 => true
+        [simplification, smt-lemma]
+
+    rule chop ( X -Int Y ) => X -Int Y
+        requires #rangeUInt(256, X)
+         andBool #rangeUInt(256, Y)
+         andBool Y <=Int X
+        [simplification]
+
+    rule X -Int Y <=Int Z => true
+        requires X <=Int Z
+         andBool 0 <=Int Y
+        [simplification, smt-lemma]
+
+    rule X modInt pow256 => X
+        requires 0 <=Int X
+         andBool X <=Int maxUInt128
+        [simplification]
+
+    rule X *Int Y <Int Z => true
+        requires #rangeUInt(256, X)
+         andBool #rangeUInt(256, Y)
+         andBool #rangeUInt(256, Z)
+         andBool X <Int 2 ^Int ( log2Int(Z) /Int 2 )
+         andBool Y <Int 2 ^Int ( log2Int(Z) /Int 2 )
+        [simplification, concrete(Z)]
+
     //
     // Rules
     //
@@ -545,5 +576,7 @@ module LIDO-LEMMAS-SPEC
           requires 0 <=Int WORD5 andBool WORD5 <Int 2 ^Int 35
            andBool 0 <=Int WORD6 andBool WORD6 <Int 2 ^Int 35
            andBool 0 <=Int WORD7 andBool WORD7 <Int 256
+
+    claim [length-bytestack]: <k> runLemma ( lengthBytes ( #padToWidth ( 32 , #asByteStack ( ( ( ( ( ( ?WORD0:Int *Int VV0_amount_114b9705:Int ) /Int ?WORD:Int ) +Int ?WORD8:Int ) |Int #asWord ( #buf ( 16 , ?WORD9:Int ) +Bytes b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" ) ) /Int pow128 ) ) ) ) ) => doneLemma ( 32 ) ... </k>
 
 endmodule
