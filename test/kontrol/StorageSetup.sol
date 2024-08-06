@@ -28,6 +28,7 @@ contract StorageSetup is KontrolTest {
         // Slot 2
         uint256 shares = kevm.freshUInt(32);
         vm.assume(shares < totalShares);
+        vm.assume(shares < ethUpperBound);
         _stEth.setShares(address(_escrow), shares);
     }
 
