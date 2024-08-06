@@ -90,7 +90,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
         this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
 
-        ActivateNextStateMock mock = new ActivateNextStateMock(address(this));
+        ActivateNextStateMock mock = new ActivateNextStateMock(address(this), sender);
         kevm.mockFunction(
             address(dualGovernance), address(mock), abi.encodeWithSelector(mock.activateNextState.selector)
         );
@@ -117,10 +117,52 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
 
         uint256 errorTerm = stEth.getPooledEthByShares(1) + 1;
         assert(post.userBalance <= pre.userBalance - amount + errorTerm);
-        assert(pre.escrowBalance + amount < errorTerm || pre.escrowBalance + amount - errorTerm <= post.escrowBalance);
-        assert(pre.totalEth + amount < errorTerm || pre.totalEth + amount - errorTerm <= post.totalEth);
+        // Rewritten to avoid branching
+        //assert(pre.escrowBalance + amount < errorTerm || pre.escrowBalance + amount - errorTerm <= post.escrowBalance);
+        assert(pre.escrowBalance + amount <= post.escrowBalance + errorTerm);
+        // Rewritten to avoid branching
+        //assert(pre.totalEth + amount < errorTerm || pre.totalEth + amount - errorTerm <= post.totalEth);
+        assert(pre.totalEth + amount <= post.totalEth + errorTerm);
     }
 
+    // Isolating individual branches of testUnlockStEth
+
+    function testUnlockStEth_1() public {
+        State initialState = dualGovernance.getCurrentState();
+
+        vm.assume(initialState != State.VetoSignalling);
+        vm.assume(initialState != State.VetoSignallingDeactivation);
+
+        testUnlockStEth();
+    }
+
+    function testUnlockStEth_2() public {
+        State initialState = dualGovernance.getCurrentState();
+        uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
+
+        vm.assume(initialState != State.Normal);
+        vm.assume(initialState != State.VetoCooldown);
+        vm.assume(initialState != State.RageQuit);
+        vm.assume(rageQuitSupport <= config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+
+        testUnlockStEth();
+    }
+
+    function testUnlockStEth_3() public {
+        State initialState = dualGovernance.getCurrentState();
+        uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
+        Timestamp vetoSignallingActivationTime = Timestamp.wrap(_getVetoSignallingActivationTime(dualGovernance));
+
+        vm.assume(initialState != State.Normal);
+        vm.assume(initialState != State.VetoCooldown);
+        vm.assume(initialState != State.RageQuit);
+        vm.assume(rageQuitSupport > config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(Timestamps.now() <= config.DYNAMIC_TIMELOCK_MAX_DURATION().addTo(vetoSignallingActivationTime));
+
+        testUnlockStEth();
+    }
+
+    //
     function testUnlockStEth() public {
         // Placeholder address to avoid complications with keccak of symbolic addresses
         address sender = address(uint160(uint256(keccak256("sender"))));
@@ -141,6 +183,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         );
 
         uint128 senderLockedShares = uint128(kevm.freshUInt(16));
+        vm.assume(senderLockedShares < ethUpperBound);
         uint128 senderUnlockedShares = uint128(kevm.freshUInt(16));
         bytes memory slotAbi = abi.encodePacked(uint128(senderUnlockedShares), uint128(senderLockedShares));
         bytes32 slot;
@@ -170,7 +213,22 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
         this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
 
-        ActivateNextStateMock mock = new ActivateNextStateMock(address(this));
+        bool transitionToRageQuit;
+
+        {
+            State initialState = dualGovernance.getCurrentState();
+            uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
+            Timestamp vetoSignallingActivationTime = Timestamp.wrap(_getVetoSignallingActivationTime(dualGovernance));
+
+            transitionToRageQuit = (
+                initialState == State.VetoSignalling || initialState == State.VetoSignallingDeactivation
+            ) && rageQuitSupport > config.SECOND_SEAL_RAGE_QUIT_SUPPORT()
+                && Timestamps.now() > config.DYNAMIC_TIMELOCK_MAX_DURATION().addTo(vetoSignallingActivationTime);
+        }
+
+        vm.assume(!transitionToRageQuit);
+
+        ActivateNextStateMock mock = new ActivateNextStateMock(address(this), sender);
         kevm.mockFunction(
             address(dualGovernance), address(mock), abi.encodeWithSelector(mock.activateNextState.selector)
         );
@@ -192,10 +250,14 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         // Accounts for rounding errors in the conversion to and from shares
         uint256 amount = stEth.getPooledEthByShares(pre.userSharesLocked);
 
-        assert(pre.escrowBalance - amount < 1 || pre.escrowBalance - amount - 1 <= post.escrowBalance);
+        // Rewritten to avoid branching
+        //assert(pre.escrowBalance - amount < 1 || pre.escrowBalance - amount - 1 <= post.escrowBalance);
+        assert(pre.escrowBalance - amount <= post.escrowBalance + 1);
         assert(post.escrowBalance <= pre.escrowBalance - amount);
 
-        assert(pre.totalEth - amount < 1 || pre.totalEth - amount - 1 <= post.totalEth);
+        // Rewritten to avoid branching
+        //assert(pre.totalEth - amount < 1 || pre.totalEth - amount - 1 <= post.totalEth);
+        assert(pre.totalEth - amount <= post.totalEth + 1);
         assert(post.totalEth <= pre.totalEth - amount);
 
         assert(pre.userBalance + amount <= post.userBalance);

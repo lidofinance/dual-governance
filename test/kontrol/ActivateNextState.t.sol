@@ -6,9 +6,11 @@ import "test/kontrol/DualGovernanceSetUp.sol";
 
 contract ActivateNextStateMock is StorageSetup {
     StorageSetup public immutable STORAGE_SETUP;
+    address public immutable USER;
 
-    constructor(address storageSetup) {
+    constructor(address storageSetup, address user) {
         STORAGE_SETUP = StorageSetup(storageSetup);
+        USER = user;
     }
 
     function activateNextState() external {
@@ -22,13 +24,59 @@ contract ActivateNextStateMock is StorageSetup {
         STORAGE_SETUP.escrowStorageInvariants(Mode.Assert, rageQuitEscrow);
         STORAGE_SETUP.rageQuitEscrowStorageInvariants(Mode.Assert, rageQuitEscrow);
 
-        address escrowMasterCopy = signallingEscrow.MASTER_COPY();
-        IEscrow newSignallingEscrow = IEscrow(Clones.clone(escrowMasterCopy));
-        IEscrow newRageQuitEscrow = IEscrow(Clones.clone(escrowMasterCopy));
+        AccountingRecord memory pre = STORAGE_SETUP.saveAccountingRecord(USER, signallingEscrow);
+
+        State initialState = dualGovernance.getCurrentState();
+        uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
+        Timestamp vetoSignallingActivationTime = Timestamp.wrap(_getVetoSignallingActivationTime(dualGovernance));
+        IConfiguration config = dualGovernance.CONFIG();
+
+        IEscrow newSignallingEscrow;
+        IEscrow newRageQuitEscrow;
+
+        bool transitionToRageQuit = (
+            initialState == State.VetoSignalling || initialState == State.VetoSignallingDeactivation
+        ) && rageQuitSupport > config.SECOND_SEAL_RAGE_QUIT_SUPPORT()
+            && Timestamps.now() > config.DYNAMIC_TIMELOCK_MAX_DURATION().addTo(vetoSignallingActivationTime);
+
+        if (transitionToRageQuit) {
+            address escrowMasterCopy = signallingEscrow.MASTER_COPY();
+            newSignallingEscrow = IEscrow(Clones.clone(escrowMasterCopy));
+            newRageQuitEscrow = signallingEscrow;
+        } else {
+            newSignallingEscrow = signallingEscrow;
+            newRageQuitEscrow = rageQuitEscrow;
+        }
 
         STORAGE_SETUP.dualGovernanceInitializeStorage(dualGovernance, newSignallingEscrow, newRageQuitEscrow);
+
+        if (transitionToRageQuit) {
+            vm.assume(dualGovernance.getCurrentState() == State.RageQuit);
+        }
+
         STORAGE_SETUP.signallingEscrowInitializeStorage(newSignallingEscrow, dualGovernance);
         STORAGE_SETUP.rageQuitEscrowInitializeStorage(newRageQuitEscrow, dualGovernance);
+        vm.assume(_getLastAssetsLockTimestamp(signallingEscrow, USER) < timeUpperBound);
+
+        {
+            uint128 senderLockedShares = uint128(kevm.freshUInt(16));
+            vm.assume(senderLockedShares < ethUpperBound);
+            uint128 senderUnlockedShares = uint128(kevm.freshUInt(16));
+            bytes memory slotAbi = abi.encodePacked(uint128(senderUnlockedShares), uint128(senderLockedShares));
+            bytes32 slot;
+            assembly {
+                slot := mload(add(slotAbi, 0x20))
+            }
+            _storeBytes32(
+                address(signallingEscrow),
+                93842437974268059396725027201531251382101332839645030345425397622830526343272,
+                slot
+            );
+        }
+
+        AccountingRecord memory post = STORAGE_SETUP.saveAccountingRecord(USER, signallingEscrow);
+
+        STORAGE_SETUP.establishEqualAccountingRecords(Mode.Assume, pre, post);
     }
 }
 
