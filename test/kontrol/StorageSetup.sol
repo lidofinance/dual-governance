@@ -32,6 +32,26 @@ contract StorageSetup is KontrolTest {
         _stEth.setShares(address(_escrow), shares);
     }
 
+    function stEthStorageInvariants(Mode mode, StETHModel _stEth, IEscrow _escrow) external {
+        uint256 totalPooledEther = _stEth.getTotalPooledEther();
+        uint256 totalShares = _stEth.getTotalShares();
+        uint256 escrowShares = _stEth.sharesOf(address(_escrow));
+
+        _establish(mode, 0 < _stEth.getTotalPooledEther());
+        _establish(mode, 0 < _stEth.getTotalShares());
+        _establish(mode, escrowShares < totalShares);
+    }
+
+    function stEthAssumeBounds(StETHModel _stEth, IEscrow _escrow) external {
+        uint256 totalPooledEther = _stEth.getTotalPooledEther();
+        uint256 totalShares = _stEth.getTotalShares();
+        uint256 escrowShares = _stEth.sharesOf(address(_escrow));
+
+        vm.assume(totalPooledEther < ethUpperBound);
+        vm.assume(totalShares < ethUpperBound);
+        vm.assume(escrowShares < ethUpperBound);
+    }
+
     function _wstEthStorageSetup(WstETHAdapted _wstEth, IStETH _stEth) internal {
         kevm.symbolicStorage(address(_wstEth));
     }
