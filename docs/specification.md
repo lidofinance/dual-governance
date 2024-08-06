@@ -424,7 +424,7 @@ Extends the pause of the specified `sealable` contract. This function can be cal
 
 #### Preconditions
 
-- The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
+- The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contract.
 - The target contract MUST be paused until a future timestamp and not indefinitely.
 - The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
 

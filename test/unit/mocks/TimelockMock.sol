@@ -71,6 +71,10 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
+    function getGovernance() external view returns (address) {
+        revert("Not Implemented");
+    }
+
     function getProposalInfo(uint256 proposalId)
         external
         view
