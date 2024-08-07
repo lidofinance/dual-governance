@@ -200,11 +200,10 @@ abstract contract HashConsensus is Ownable {
     }
 
     /// @notice Restricts access to only committee members
-    /// @dev Modifier to ensure that only members can call a function
-    modifier onlyMember() {
+    /// @dev Reverts if the sender is not a member
+    function _checkSenderIsMember() internal view {
         if (!_members.contains(msg.sender)) {
             revert SenderIsNotMember();
         }
-        _;
     }
 }
