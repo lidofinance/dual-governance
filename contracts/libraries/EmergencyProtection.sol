@@ -52,7 +52,6 @@ library EmergencyProtection {
         }
 
         self.emergencyModeEndsAfter = self.emergencyModeDuration.addTo(now_);
-        self.emergencyProtectionEndsAfter = now_;
 
         emit EmergencyModeActivated();
     }
@@ -73,7 +72,7 @@ library EmergencyProtection {
     // ---
 
     function setEmergencyGovernance(Context storage self, address newEmergencyGovernance) internal {
-        if (self.emergencyGovernance == newEmergencyGovernance) {
+        if (newEmergencyGovernance == self.emergencyGovernance) {
             return;
         }
         self.emergencyGovernance = newEmergencyGovernance;
@@ -82,18 +81,18 @@ library EmergencyProtection {
 
     function setEmergencyProtectionEndDate(
         Context storage self,
-        Timestamp emergencyProtectionEndDate,
+        Timestamp newEmergencyProtectionEndDate,
         Duration maxEmergencyProtectionDuration
     ) internal {
-        if (emergencyProtectionEndDate > maxEmergencyProtectionDuration.addTo(Timestamps.now())) {
-            revert InvalidEmergencyProtectionEndDate(emergencyProtectionEndDate);
+        if (newEmergencyProtectionEndDate > maxEmergencyProtectionDuration.addTo(Timestamps.now())) {
+            revert InvalidEmergencyProtectionEndDate(newEmergencyProtectionEndDate);
         }
 
-        if (self.emergencyProtectionEndsAfter == emergencyProtectionEndDate) {
+        if (newEmergencyProtectionEndDate == self.emergencyProtectionEndsAfter) {
             return;
         }
-        self.emergencyProtectionEndsAfter = emergencyProtectionEndDate;
-        emit EmergencyProtectionEndDateSet(emergencyProtectionEndDate);
+        self.emergencyProtectionEndsAfter = newEmergencyProtectionEndDate;
+        emit EmergencyProtectionEndDateSet(newEmergencyProtectionEndDate);
     }
 
     function setEmergencyModeDuration(
@@ -113,7 +112,7 @@ library EmergencyProtection {
     }
 
     function setEmergencyActivationCommittee(Context storage self, address newActivationCommittee) internal {
-        if (self.emergencyActivationCommittee == newActivationCommittee) {
+        if (newActivationCommittee == self.emergencyActivationCommittee) {
             return;
         }
         self.emergencyActivationCommittee = newActivationCommittee;
@@ -121,7 +120,7 @@ library EmergencyProtection {
     }
 
     function setEmergencyExecutionCommittee(Context storage self, address newExecutionCommittee) internal {
-        if (self.emergencyActivationCommittee == newExecutionCommittee) {
+        if (newExecutionCommittee == self.emergencyExecutionCommittee) {
             return;
         }
         self.emergencyExecutionCommittee = newExecutionCommittee;

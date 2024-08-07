@@ -8,6 +8,12 @@ import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 contract TimelockMock is ITimelock {
     uint8 public constant OFFSET = 1;
 
+    address internal immutable _ADMIN_EXECUTOR;
+
+    constructor(address adminExecutor) {
+        _ADMIN_EXECUTOR = adminExecutor;
+    }
+
     mapping(uint256 => bool) public canScheduleProposal;
 
     uint256[] public submittedProposals;
@@ -84,6 +90,6 @@ contract TimelockMock is ITimelock {
     }
 
     function getAdminExecutor() external view returns (address) {
-        revert("Not Implemented");
+        return _ADMIN_EXECUTOR;
     }
 }

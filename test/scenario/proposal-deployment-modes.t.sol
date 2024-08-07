@@ -1,35 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Durations} from "contracts/types/Duration.sol";
-import {Timestamps} from "contracts/types/Timestamp.sol";
-
-import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
-import {percents, ScenarioTestBlueprint, ExternalCall} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint, ExternalCall} from "../utils/scenario-test-blueprint.sol";
 
 contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
-    function setUp() external {
-        _selectFork();
-
-        _deployTarget();
-    }
-
     function test_regular_deployment_mode() external {
-        _deployDualGovernanceSetup(false);
+        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
 
         (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
-        _scheduleProposal(_dualGovernance, proposalId);
+        _scheduleProposalViaDualGovernance(proposalId);
 
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-        _assertCanSchedule(_dualGovernance, proposalId, true);
-        _scheduleProposal(_dualGovernance, proposalId);
+        _assertCanScheduleViaDualGovernance(proposalId, true);
+        _scheduleProposalViaDualGovernance(proposalId);
         _assertProposalScheduled(proposalId);
 
         _waitAfterScheduleDelayPassed();
@@ -41,19 +31,19 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     }
 
     function test_protected_deployment_mode_execute_after_timelock() external {
-        _deployDualGovernanceSetup(true);
+        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
 
         (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
-        _scheduleProposal(_dualGovernance, proposalId);
+        _scheduleProposalViaDualGovernance(proposalId);
 
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-        _assertCanSchedule(_dualGovernance, proposalId, true);
-        _scheduleProposal(_dualGovernance, proposalId);
+        _assertCanScheduleViaDualGovernance(proposalId, true);
+        _scheduleProposalViaDualGovernance(proposalId);
         _assertProposalScheduled(proposalId);
 
         _waitAfterScheduleDelayPassed();
@@ -65,19 +55,19 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     }
 
     function test_protected_deployment_mode_execute_in_emergency_mode() external {
-        _deployDualGovernanceSetup(true);
+        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
 
         (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
-        _scheduleProposal(_dualGovernance, proposalId);
+        _scheduleProposalViaDualGovernance(proposalId);
 
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-        _assertCanSchedule(_dualGovernance, proposalId, true);
-        _scheduleProposal(_dualGovernance, proposalId);
+        _assertCanScheduleViaDualGovernance(proposalId, true);
+        _scheduleProposalViaDualGovernance(proposalId);
         _assertProposalScheduled(proposalId);
 
         _waitAfterScheduleDelayPassed();
@@ -105,12 +95,12 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
-        _scheduleProposal(_dualGovernance, proposalId);
+        _scheduleProposalViaDualGovernance(proposalId);
 
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-        _assertCanSchedule(_dualGovernance, proposalId, true);
-        _scheduleProposal(_dualGovernance, proposalId);
+        _assertCanScheduleViaDualGovernance(proposalId, true);
+        _scheduleProposalViaDualGovernance(proposalId);
         _assertProposalScheduled(proposalId);
 
         _waitAfterScheduleDelayPassed();
@@ -139,7 +129,7 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     }
 
     function _createAndAssertProposal() internal returns (uint256, ExternalCall[] memory) {
-        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId = _submitProposal(
             _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls

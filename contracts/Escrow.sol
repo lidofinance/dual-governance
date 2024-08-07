@@ -5,6 +5,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
+import {PercentD16, PercentsD16} from "./types/PercentD16.sol";
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
 
@@ -376,17 +377,17 @@ contract Escrow is IEscrow {
         return _escrowState.rageQuitExtensionDelayStartedAt;
     }
 
-    function getRageQuitSupport() external view returns (uint256 rageQuitSupport) {
+    function getRageQuitSupport() external view returns (PercentD16) {
         StETHAccounting memory stETHTotals = _accounting.stETHTotals;
         UnstETHAccounting memory unstETHTotals = _accounting.unstETHTotals;
 
         uint256 finalizedETH = unstETHTotals.finalizedETH.toUint256();
         uint256 ufinalizedShares = (stETHTotals.lockedShares + unstETHTotals.unfinalizedShares).toUint256();
 
-        rageQuitSupport = (
-            10 ** 18 * (ST_ETH.getPooledEthByShares(ufinalizedShares) + finalizedETH)
-                / (ST_ETH.totalSupply() + finalizedETH)
-        );
+        return PercentsD16.fromFraction({
+            numerator: ST_ETH.getPooledEthByShares(ufinalizedShares) + finalizedETH,
+            denominator: ST_ETH.totalSupply() + finalizedETH
+        });
     }
 
     function isRageQuitFinalized() external view returns (bool) {

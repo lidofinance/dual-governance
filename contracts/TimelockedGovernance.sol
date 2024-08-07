@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IGovernance, ITimelock} from "./interfaces/ITimelock.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
+import {IGovernance} from "./interfaces/IGovernance.sol";
 
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
 
