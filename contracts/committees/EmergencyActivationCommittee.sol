@@ -2,11 +2,9 @@
 pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {HashConsensus} from "./HashConsensus.sol";
 
-interface IEmergencyProtectedTimelock {
-    function activateEmergencyMode() external;
-}
+import {HashConsensus} from "./HashConsensus.sol";
+import {ITimelock} from "../interfaces/ITimelock.sol";
 
 /// @title Emergency Activation Committee Contract
 /// @notice This contract allows a committee to approve and execute an emergency activation
@@ -48,8 +46,7 @@ contract EmergencyActivationCommittee is HashConsensus {
     function executeActivateEmergencyMode() external {
         _markUsed(EMERGENCY_ACTIVATION_HASH);
         Address.functionCall(
-            EMERGENCY_PROTECTED_TIMELOCK,
-            abi.encodeWithSelector(IEmergencyProtectedTimelock.activateEmergencyMode.selector)
+            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.activateEmergencyMode.selector)
         );
     }
 }

@@ -3,8 +3,6 @@ pragma solidity 0.8.26;
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {IAdminExecutorConfiguration as IConfiguration} from "../interfaces/IConfiguration.sol";
-
 struct Proposer {
     bool isAdmin;
     address account;
@@ -56,9 +54,9 @@ library Proposers {
 
     /// @dev Unregisters a proposer.
     /// @param self The storage state of the Proposers library.
-    /// @param config The configuration contract.
+    /// @param adminExecutor The address of the admin executor.
     /// @param proposer The address of the proposer to unregister.
-    function unregister(State storage self, IConfiguration config, address proposer) internal {
+    function unregister(State storage self, address adminExecutor, address proposer) internal {
         uint256 proposerIndexToDelete;
         ExecutorData memory executorData = self.executors[proposer];
         unchecked {
@@ -76,7 +74,7 @@ library Proposers {
         delete self.executors[proposer];
 
         address executor = executorData.executor;
-        if (executor == config.ADMIN_EXECUTOR() && self.executorRefsCounts[executor] == 1) {
+        if (executor == adminExecutor && self.executorRefsCounts[executor] == 1) {
             revert LastAdminProposerRemoval();
         }
 
@@ -117,12 +115,12 @@ library Proposers {
 
     /// @dev Checks if an account is an admin proposer.
     /// @param self The storage state of the Proposers library.
-    /// @param config The configuration contract.
+    /// @param adminExecutor The address of the admin executor
     /// @param account The address to check.
     /// @return A boolean indicating whether the account is an admin proposer.
-    function isAdminProposer(State storage self, IConfiguration config, address account) internal view returns (bool) {
+    function isAdminProposer(State storage self, address adminExecutor, address account) internal view returns (bool) {
         ExecutorData memory executorData = self.executors[account];
-        return executorData.proposerIndexOneBased != 0 && executorData.executor == config.ADMIN_EXECUTOR();
+        return executorData.proposerIndexOneBased != 0 && executorData.executor == adminExecutor;
     }
 
     /// @dev Checks if an account is an executor.
@@ -156,11 +154,11 @@ library Proposers {
 
     /// @dev Checks if an account is an admin proposer and reverts if not.
     /// @param self The storage state of the Proposers library.
-    /// @param config The configuration contract.
+    /// @param adminExecutor The address of the admin executor.
     /// @param account The address to check.
-    function checkAdminProposer(State storage self, IConfiguration config, address account) internal view {
+    function checkAdminProposer(State storage self, address adminExecutor, address account) internal view {
         checkProposer(self, account);
-        if (!isAdminProposer(self, config, account)) {
+        if (!isAdminProposer(self, adminExecutor, account)) {
             revert NotAdminProposer(account);
         }
     }

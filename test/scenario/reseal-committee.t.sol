@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ScenarioTestBlueprint, ExternalCall, percents} from "../utils/scenario-test-blueprint.sol";
-import {DualGovernance} from "../../contracts/DualGovernance.sol";
-import {ResealManager} from "../../contracts/ResealManager.sol";
+import {DualGovernance} from "contracts/DualGovernance.sol";
+import {ResealManager} from "contracts/ResealManager.sol";
+import {PercentsD16} from "contracts/types/PercentD16.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+
+import {ScenarioTestBlueprint, ExternalCall} from "../utils/scenario-test-blueprint.sol";
 import {DAO_AGENT} from "../utils/mainnet-addresses.sol";
 
 contract ResealCommitteeTest is ScenarioTestBlueprint {
@@ -11,10 +14,9 @@ contract ResealCommitteeTest is ScenarioTestBlueprint {
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
 
     function setUp() external {
-        _selectFork();
-        _deployTarget();
-        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
-        _depositStETH(_VETOER, 1 ether);
+        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
+        _setupStETHBalance(_VETOER, PercentsD16.fromBasisPoints(10_00));
+        _lockStETH(_VETOER, 1 ether);
     }
 
     function test_reseal_committees_happy_path() external {
@@ -24,10 +26,12 @@ contract ResealCommitteeTest is ScenarioTestBlueprint {
 
         address[] memory members;
 
-        address sealable = address(_WITHDRAWAL_QUEUE);
+        address sealable = address(_lido.withdrawalQueue);
 
         vm.prank(DAO_AGENT);
-        _WITHDRAWAL_QUEUE.grantRole(0x139c2898040ef16910dc9f44dc697df79363da767d8bc92f2e310312b816e46d, address(this));
+        _lido.withdrawalQueue.grantRole(
+            0x139c2898040ef16910dc9f44dc697df79363da767d8bc92f2e310312b816e46d, address(this)
+        );
 
         // Reseal
         members = _resealCommittee.getMembers();
@@ -50,16 +54,16 @@ contract ResealCommitteeTest is ScenarioTestBlueprint {
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.ResealIsNotAllowedInNormalState.selector));
         _resealCommittee.executeReseal(sealable);
 
-        _lockStETH(_VETOER, percents(_config.FIRST_SEAL_RAGE_QUIT_SUPPORT()));
+        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT());
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        assertEq(_WITHDRAWAL_QUEUE.isPaused(), false);
+        assertEq(_lido.withdrawalQueue.isPaused(), false);
         vm.expectRevert(abi.encodeWithSelector(ResealManager.SealableWrongPauseState.selector));
         _resealCommittee.executeReseal(sealable);
 
-        _WITHDRAWAL_QUEUE.pauseFor(3600 * 24 * 6);
-        assertEq(_WITHDRAWAL_QUEUE.isPaused(), true);
+        _lido.withdrawalQueue.pauseFor(3600 * 24 * 6);
+        assertEq(_lido.withdrawalQueue.isPaused(), true);
 
         _resealCommittee.executeReseal(sealable);
     }

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {
-    ScenarioTestBlueprint, percents, ExternalCall, ExternalCallHelpers
-} from "../utils/scenario-test-blueprint.sol";
-
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
+import {PercentsD16} from "contracts/types/PercentD16.sol";
 
+import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
+import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
 import {DAO_AGENT} from "../utils/mainnet-addresses.sol";
 
 contract EmergencyCommitteeTest is ScenarioTestBlueprint {
@@ -14,10 +13,9 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
 
     function setUp() external {
-        _selectFork();
-        _deployTarget();
-        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
-        _depositStETH(_VETOER, 1 ether);
+        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
+        _setupStETHBalance(_VETOER, PercentsD16.fromBasisPoints(10_00));
+        _lockStETH(_VETOER, 1 ether);
     }
 
     function test_emergency_committees_happy_path() external {
@@ -27,10 +25,12 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
 
         address[] memory members;
 
-        ExternalCall[] memory proposalCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory proposalCalls = ExternalCallHelpers.create(
+            address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (0))
+        );
         uint256 proposalIdToExecute = _submitProposal(_dualGovernance, "Proposal for execution", proposalCalls);
 
-        _wait(_config.AFTER_SUBMIT_DELAY().plusSeconds(1));
+        _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
         _assertCanSchedule(_dualGovernance, proposalIdToExecute, true);
         _scheduleProposal(_dualGovernance, proposalIdToExecute);
 

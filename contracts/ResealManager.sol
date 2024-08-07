@@ -3,23 +3,24 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {ITimelock} from "./interfaces/ITimelock.sol";
 import {ISealable} from "./interfaces/ISealable.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
+import {IResealManager} from "./interfaces/IResealManager.sol";
 
 /// @title ResealManager
 /// @dev Allows to extend pause of temporarily paused contracts to permanent pause or resume it.
-contract ResealManager {
+contract ResealManager is IResealManager {
     error SealableWrongPauseState();
     error SenderIsNotGovernance();
     error NotAllowed();
 
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
-    address public immutable EMERGENCY_PROTECTED_TIMELOCK;
+    ITimelock public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
     /// @notice Initializes the ResealManager contract.
     /// @param emergencyProtectedTimelock The address of the EmergencyProtectedTimelock contract.
-    constructor(address emergencyProtectedTimelock) {
-        EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
+    constructor(ITimelock emergencyProtectedTimelock) {
+        EMERGENCY_PROTECTED_TIMELOCK = ITimelock(emergencyProtectedTimelock);
     }
 
     /// @notice Extends the pause of the specified sealable contract.
@@ -59,7 +60,7 @@ contract ResealManager {
     /// @notice Ensures that the function can only be called by the governance address.
     /// @dev Reverts if the sender is not the governance address.
     function _checkSenderIsGovernance() internal view {
-        address governance = ITimelock(EMERGENCY_PROTECTED_TIMELOCK).getGovernance();
+        address governance = EMERGENCY_PROTECTED_TIMELOCK.getGovernance();
         if (msg.sender != governance) {
             revert SenderIsNotGovernance();
         }

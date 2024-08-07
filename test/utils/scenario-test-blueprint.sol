@@ -1,114 +1,71 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
-import {Durations, Duration as DurationType} from "contracts/types/Duration.sol";
-
+import {console} from "forge-std/Test.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {
-    TransparentUpgradeableProxy,
-    ProxyAdmin
-} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {EscrowState, Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
-import {IConfiguration, Configuration} from "contracts/Configuration.sol";
-import {Executor} from "contracts/Executor.sol";
+// ---
+// Types
+// ---
 
-import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
-import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
-import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
-import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
-import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
+import {PercentD16} from "contracts/types/PercentD16.sol";
+import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
-import {ResealManager} from "contracts/ResealManager.sol";
+import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 
-import {
-    ProposalStatus,
-    EmergencyState,
-    EmergencyProtection,
-    EmergencyProtectedTimelock
-} from "contracts/EmergencyProtectedTimelock.sol";
+// ---
+// Interfaces
+// ---
 
-import {DualGovernance, State as DGState, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
-import {TimelockedGovernance, IGovernance} from "contracts/TimelockedGovernance.sol";
+import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
+
+// ---
+// Main Contracts
+// ---
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
+import {ProposalStatus, EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
+import {IGovernance} from "contracts/TimelockedGovernance.sol";
+import {State as DGState, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
 
-import {Percents, percents} from "../utils/percents.sol";
-import {
-    IERC20,
-    IStEth,
-    IWstETH,
-    IWithdrawalQueue,
-    WithdrawalRequestStatus,
-    IDangerousContract
-} from "../utils/interfaces.sol";
+// ---
+// Test Utils
+// ---
+
+import {TargetMock} from "../utils/target-mock.sol";
+
+import {Random} from "../utils/random.sol";
 import {ExternalCallHelpers} from "../utils/executor-calls.sol";
-import {Utils, TargetMock, console} from "../utils/utils.sol";
 
-import {DAO_VOTING, ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, DAO_AGENT} from "../utils/mainnet-addresses.sol";
+import {LidoUtils, EvmScriptUtils} from "./lido-utils.sol";
 
-struct Balances {
-    uint256 stETHAmount;
-    uint256 stETHShares;
-    uint256 wstETHAmount;
-    uint256 wstETHShares;
-}
+import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
 
-uint256 constant PERCENTS_PRECISION = 16;
+import {SetupDeployment} from "./SetupDeployment.sol";
+import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 
-function countDigits(uint256 number) pure returns (uint256 digitsCount) {
-    do {
-        digitsCount++;
-    } while (number / 10 != 0);
-}
+uint256 constant FORK_BLOCK_NUMBER = 20218312;
 
-DurationType constant ONE_SECOND = DurationType.wrap(1);
+contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
+    using LidoUtils for LidoUtils.Context;
 
-contract ScenarioTestBlueprint is Test {
-    address internal immutable _ADMIN_PROPOSER = DAO_VOTING;
-    DurationType internal immutable _EMERGENCY_MODE_DURATION = Durations.from(180 days);
-    DurationType internal immutable _EMERGENCY_PROTECTION_DURATION = Durations.from(90 days);
-    address internal immutable _EMERGENCY_ACTIVATION_COMMITTEE = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
-    address internal immutable _EMERGENCY_EXECUTION_COMMITTEE = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
-
-    DurationType internal immutable _SEALING_DURATION = Durations.from(14 days);
-    DurationType internal immutable _SEALING_COMMITTEE_LIFETIME = Durations.from(365 days);
-    address internal immutable _SEALING_COMMITTEE = makeAddr("SEALING_COMMITTEE");
-
-    IStEth public immutable _ST_ETH = IStEth(ST_ETH);
-    IWstETH public immutable _WST_ETH = IWstETH(WST_ETH);
-    IWithdrawalQueue public immutable _WITHDRAWAL_QUEUE = IWithdrawalQueue(WITHDRAWAL_QUEUE);
-
-    EmergencyActivationCommittee internal _emergencyActivationCommittee;
-    EmergencyExecutionCommittee internal _emergencyExecutionCommittee;
-    ResealCommittee internal _resealCommittee;
-    TiebreakerCore internal _tiebreakerCommittee;
-    TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
-
-    TargetMock internal _target;
-
-    IConfiguration internal _config;
-    IConfiguration internal _configImpl;
-    ProxyAdmin internal _configProxyAdmin;
-    TransparentUpgradeableProxy internal _configProxy;
-
-    Escrow internal _escrowMasterCopy;
-
-    Executor internal _adminExecutor;
-
-    EmergencyProtectedTimelock internal _timelock;
-    TimelockedGovernance internal _timelockedGovernance;
-    DualGovernance internal _dualGovernance;
-
-    ResealManager internal _resealManager;
-
-    address[] internal _sealableWithdrawalBlockers = [WITHDRAWAL_QUEUE];
+    constructor() SetupDeployment(LidoUtils.mainnet(), Random.create(block.timestamp)) {
+        /// Maybe not the best idea to do it in the constructor, consider move it into setUp method
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        vm.rollFork(FORK_BLOCK_NUMBER);
+        _lido.removeStakingLimit();
+    }
 
     // ---
     // Helper Getters
     // ---
+
+    function _getAdminExecutor() internal view returns (address) {
+        return _timelock.getAdminExecutor();
+    }
+
     function _getVetoSignallingEscrow() internal view returns (Escrow) {
         return Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
     }
@@ -118,8 +75,10 @@ contract ScenarioTestBlueprint is Test {
         return Escrow(payable(rageQuitEscrow));
     }
 
-    function _getTargetRegularStaffCalls() internal view returns (ExternalCall[] memory) {
-        return ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRegularStaff, (42)));
+    function _getMockTargetRegularStaffCalls() internal view returns (ExternalCall[] memory) {
+        return ExternalCallHelpers.create(
+            address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (42))
+        );
     }
 
     function _getVetoSignallingState()
@@ -141,65 +100,75 @@ contract ScenarioTestBlueprint is Test {
     {
         DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
         isActive = stateContext.state == DGState.VetoSignallingDeactivation;
-        duration = _dualGovernance.CONFIG().VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
+        duration = _dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
-    }
-
-    // ---
-    // Network Configuration
-    // ---
-    function _selectFork() internal {
-        Utils.selectFork();
     }
 
     // ---
     // Balances Manipulation
     // ---
 
-    function _depositStETH(
+    function _setupStETHBalance(address account, uint256 amount) internal {
+        _lido.submitStETH(account, amount);
+    }
+
+    function _setupStETHBalance(address account, PercentD16 tvlPercentage) internal {
+        _lido.submitStETH(account, _lido.calcAmountToDepositFromPercentageOfTVL(tvlPercentage));
+    }
+
+    function _setupWstETHBalance(address account, uint256 amount) internal {
+        _lido.submitWstETH(account, amount);
+    }
+
+    function _setupWstETHBalance(address account, PercentD16 tvlPercentage) internal {
+        _lido.submitWstETH(account, _lido.calcSharesToDepositFromPercentageOfTVL(tvlPercentage));
+    }
+
+    function _submitStETH(
         address account,
         uint256 amountToMint
     ) internal returns (uint256 sharesMinted, uint256 amountMinted) {
-        return Utils.depositStETH(account, amountToMint);
-    }
-
-    function _setupStETHWhale(address vetoer) internal returns (uint256 shares, uint256 amount) {
-        Utils.removeLidoStakingLimit();
-        return Utils.setupStETHWhale(vetoer, percents("10.0"));
-    }
-
-    function _setupStETHWhale(
-        address vetoer,
-        Percents memory vetoPowerInPercents
-    ) internal returns (uint256 shares, uint256 amount) {
-        Utils.removeLidoStakingLimit();
-        return Utils.setupStETHWhale(vetoer, vetoPowerInPercents);
+        _lido.submitStETH(account, amountToMint);
     }
 
     function _getBalances(address vetoer) internal view returns (Balances memory balances) {
-        uint256 stETHAmount = _ST_ETH.balanceOf(vetoer);
-        uint256 wstETHShares = _WST_ETH.balanceOf(vetoer);
+        uint256 stETHAmount = _lido.stETH.balanceOf(vetoer);
+        uint256 wstETHShares = _lido.wstETH.balanceOf(vetoer);
         balances = Balances({
             stETHAmount: stETHAmount,
-            stETHShares: _ST_ETH.getSharesByPooledEth(stETHAmount),
-            wstETHAmount: _ST_ETH.getPooledEthByShares(wstETHShares),
+            stETHShares: _lido.stETH.getSharesByPooledEth(stETHAmount),
+            wstETHAmount: _lido.stETH.getPooledEthByShares(wstETHShares),
             wstETHShares: wstETHShares
         });
     }
 
     // ---
+    // Withdrawal Queue Operations
+    // ---
+    function _finalizeWithdrawalQueue() internal {
+        _lido.finalizeWithdrawalQueue();
+    }
+
+    function _finalizeWithdrawalQueue(uint256 id) internal {
+        _lido.finalizeWithdrawalQueue(id);
+    }
+
+    function _simulateRebase(PercentD16 rebaseFactor) internal {
+        _lido.simulateRebase(rebaseFactor);
+    }
+
+    // ---
     // Escrow Manipulation
     // ---
-    function _lockStETH(address vetoer, Percents memory vetoPowerInPercents) internal returns (uint256 amount) {
-        (, amount) = _setupStETHWhale(vetoer, vetoPowerInPercents);
-        _lockStETH(vetoer, amount);
+    function _lockStETH(address vetoer, PercentD16 tvlPercentage) internal {
+        _lockStETH(vetoer, _lido.calcAmountFromPercentageOfTVL(tvlPercentage));
     }
 
     function _lockStETH(address vetoer, uint256 amount) internal {
         Escrow escrow = _getVetoSignallingEscrow();
         vm.startPrank(vetoer);
-        if (_ST_ETH.allowance(vetoer, address(escrow)) < amount) {
-            _ST_ETH.approve(address(escrow), amount);
+        if (_lido.stETH.allowance(vetoer, address(escrow)) < amount) {
+            _lido.stETH.approve(address(escrow), amount);
         }
         escrow.lockStETH(amount);
         vm.stopPrank();
@@ -211,11 +180,15 @@ contract ScenarioTestBlueprint is Test {
         vm.stopPrank();
     }
 
+    function _lockWstETH(address vetoer, PercentD16 tvlPercentage) internal {
+        _lockStETH(vetoer, _lido.calcSharesFromPercentageOfTVL(tvlPercentage));
+    }
+
     function _lockWstETH(address vetoer, uint256 amount) internal {
         Escrow escrow = _getVetoSignallingEscrow();
         vm.startPrank(vetoer);
-        if (_WST_ETH.allowance(vetoer, address(escrow)) < amount) {
-            _WST_ETH.approve(address(escrow), amount);
+        if (_lido.wstETH.allowance(vetoer, address(escrow)) < amount) {
+            _lido.wstETH.approve(address(escrow), amount);
         }
         escrow.lockWstETH(amount);
         vm.stopPrank();
@@ -223,7 +196,7 @@ contract ScenarioTestBlueprint is Test {
 
     function _unlockWstETH(address vetoer) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        uint256 wstETHBalanceBefore = _WST_ETH.balanceOf(vetoer);
+        uint256 wstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
         VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
 
         vm.startPrank(vetoer);
@@ -233,7 +206,7 @@ contract ScenarioTestBlueprint is Test {
         // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
         // sending funds to the user
         assertApproxEqAbs(wstETHUnlocked, vetoerStateBefore.stETHLockedShares, 1);
-        assertApproxEqAbs(_WST_ETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerStateBefore.stETHLockedShares, 1);
+        assertApproxEqAbs(_lido.wstETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerStateBefore.stETHLockedShares, 1);
     }
 
     function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
@@ -242,19 +215,19 @@ contract ScenarioTestBlueprint is Test {
         LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
 
         uint256 unstETHTotalSharesLocked = 0;
-        WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+        WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             unstETHTotalSharesLocked += statuses[i].amountOfShares;
         }
 
         vm.startPrank(vetoer);
-        _WITHDRAWAL_QUEUE.setApprovalForAll(address(escrow), true);
+        _lido.withdrawalQueue.setApprovalForAll(address(escrow), true);
         escrow.lockUnstETH(unstETHIds);
-        _WITHDRAWAL_QUEUE.setApprovalForAll(address(escrow), false);
+        _lido.withdrawalQueue.setApprovalForAll(address(escrow), false);
         vm.stopPrank();
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), address(escrow));
+            assertEq(_lido.withdrawalQueue.ownerOf(unstETHIds[i]), address(escrow));
         }
 
         VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
@@ -273,7 +246,7 @@ contract ScenarioTestBlueprint is Test {
         LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
 
         uint256 unstETHTotalSharesUnlocked = 0;
-        WithdrawalRequestStatus[] memory statuses = _WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+        WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             unstETHTotalSharesUnlocked += statuses[i].amountOfShares;
         }
@@ -283,7 +256,7 @@ contract ScenarioTestBlueprint is Test {
         vm.stopPrank();
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            assertEq(_WITHDRAWAL_QUEUE.ownerOf(unstETHIds[i]), vetoer);
+            assertEq(_lido.withdrawalQueue.ownerOf(unstETHIds[i]), vetoer);
         }
 
         VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
@@ -307,6 +280,20 @@ contract ScenarioTestBlueprint is Test {
     // ---
     // Proposals Submission
     // ---
+    function _submitProposalViaDualGovernance(
+        string memory description,
+        ExternalCall[] memory calls
+    ) internal returns (uint256 proposalId) {
+        proposalId = _submitProposal(_dualGovernance, description, calls);
+    }
+
+    function _submitProposalViaTimelockedGovernance(
+        string memory description,
+        ExternalCall[] memory calls
+    ) internal returns (uint256 proposalId) {
+        proposalId = _submitProposal(_timelockedGovernance, description, calls);
+    }
+
     function _submitProposal(
         IGovernance governance,
         string memory description,
@@ -315,18 +302,26 @@ contract ScenarioTestBlueprint is Test {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
         bytes memory script =
-            Utils.encodeEvmCallScript(address(governance), abi.encodeCall(IGovernance.submitProposal, (calls)));
-        uint256 voteId = Utils.adoptVote(DAO_VOTING, description, script);
+            EvmScriptUtils.encodeEvmCallScript(address(governance), abi.encodeCall(IGovernance.submitProposal, (calls)));
+        uint256 voteId = _lido.adoptVote(description, script);
 
         // The scheduled calls count is the same until the vote is enacted
         assertEq(_timelock.getProposalsCount(), proposalsCountBefore);
 
         // executing the vote
-        Utils.executeVote(DAO_VOTING, voteId);
+        _lido.executeVote(voteId);
 
         proposalId = _timelock.getProposalsCount();
         // new call is scheduled but has not executable yet
         assertEq(proposalId, proposalsCountBefore + 1);
+    }
+
+    function _scheduleProposalViaDualGovernance(uint256 proposalId) internal {
+        _scheduleProposal(_dualGovernance, proposalId);
+    }
+
+    function _scheduleProposalViaTimelockedGovernance(uint256 proposalId) internal {
+        _scheduleProposal(_timelockedGovernance, proposalId);
     }
 
     function _scheduleProposal(IGovernance governance, uint256 proposalId) internal {
@@ -347,7 +342,7 @@ contract ScenarioTestBlueprint is Test {
     // ---
 
     function _assertSubmittedProposalData(uint256 proposalId, ExternalCall[] memory calls) internal {
-        _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), calls);
+        _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), calls);
     }
 
     function _assertSubmittedProposalData(uint256 proposalId, address executor, ExternalCall[] memory calls) internal {
@@ -369,7 +364,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertTargetMockCalls(address sender, ExternalCall[] memory calls) internal {
-        TargetMock.Call[] memory called = _target.getCalls();
+        TargetMock.Call[] memory called = _targetMock.getCalls();
         assertEq(called.length, calls.length);
 
         for (uint256 i = 0; i < calls.length; ++i) {
@@ -378,11 +373,11 @@ contract ScenarioTestBlueprint is Test {
             assertEq(called[i].data, calls[i].payload);
             assertEq(called[i].blockNumber, block.number);
         }
-        _target.reset();
+        _targetMock.reset();
     }
 
     function _assertTargetMockCalls(address[] memory senders, ExternalCall[] memory calls) internal {
-        TargetMock.Call[] memory called = _target.getCalls();
+        TargetMock.Call[] memory called = _targetMock.getCalls();
         assertEq(called.length, calls.length);
         assertEq(called.length, senders.length);
 
@@ -392,11 +387,19 @@ contract ScenarioTestBlueprint is Test {
             assertEq(called[i].data, calls[i].payload, "Unexpected payload");
             assertEq(called[i].blockNumber, block.number);
         }
-        _target.reset();
+        _targetMock.reset();
     }
 
     function _assertCanExecute(uint256 proposalId, bool canExecute) internal {
         assertEq(_timelock.canExecute(proposalId), canExecute, "unexpected canExecute() value");
+    }
+
+    function _assertCanScheduleViaDualGovernance(uint256 proposalId, bool canSchedule) internal {
+        _assertCanSchedule(_dualGovernance, proposalId, canSchedule);
+    }
+
+    function _assertCanScheduleViaTimelockedGovernance(uint256 proposalId, bool canSchedule) internal {
+        _assertCanSchedule(_timelockedGovernance, proposalId, canSchedule);
     }
 
     function _assertCanSchedule(IGovernance governance, uint256 proposalId, bool canSchedule) internal {
@@ -460,7 +463,7 @@ contract ScenarioTestBlueprint is Test {
     }
 
     function _assertNoTargetMockCalls() internal {
-        assertEq(_target.getCalls().length, 0, "Unexpected target calls count");
+        assertEq(_targetMock.getCalls().length, 0, "Unexpected target calls count");
     }
 
     // ---
@@ -519,178 +522,6 @@ contract ScenarioTestBlueprint is Test {
     }
 
     // ---
-    // Test Setup Deployment
-    // ---
-
-    function _deployDualGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
-        _deployAdminExecutor(address(this));
-        _deployConfigImpl();
-        _deployConfigProxy(address(this));
-        _deployEscrowMasterCopy();
-        _deployUngovernedTimelock();
-        _deployDualGovernance();
-        _deployEmergencyActivationCommittee();
-        _deployEmergencyExecutionCommittee();
-        _deployResealCommittee();
-        _deployTiebreaker();
-        _finishTimelockSetup(address(_dualGovernance), isEmergencyProtectionEnabled);
-    }
-
-    function _deployTimelockedGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
-        _deployAdminExecutor(address(this));
-        _deployConfigImpl();
-        _deployConfigProxy(address(this));
-        _deployEscrowMasterCopy();
-        _deployUngovernedTimelock();
-        _deployTimelockedGovernance();
-        _deployEmergencyActivationCommittee();
-        _deployEmergencyExecutionCommittee();
-        _deployResealCommittee();
-        _deployTiebreaker();
-        _finishTimelockSetup(address(_timelockedGovernance), isEmergencyProtectionEnabled);
-    }
-
-    function _deployTarget() internal {
-        _target = new TargetMock();
-    }
-
-    function _deployAdminExecutor(address owner) internal {
-        _adminExecutor = new Executor(owner);
-    }
-
-    function _deployConfigImpl() internal {
-        _configImpl = new Configuration(address(_adminExecutor), address(DAO_VOTING), _sealableWithdrawalBlockers);
-    }
-
-    function _deployConfigProxy(address owner) internal {
-        _configProxy = new TransparentUpgradeableProxy(address(_configImpl), address(owner), new bytes(0));
-        _configProxyAdmin = ProxyAdmin(Utils.predictDeployedAddress(address(_configProxy), 1));
-        _config = Configuration(address(_configProxy));
-    }
-
-    function _deployUngovernedTimelock() internal {
-        _timelock = new EmergencyProtectedTimelock(address(_config));
-    }
-
-    function _deployTimelockedGovernance() internal {
-        _timelockedGovernance = new TimelockedGovernance(address(_config), DAO_VOTING, address(_timelock));
-    }
-
-    function _deployDualGovernance() internal {
-        _dualGovernance =
-            new DualGovernance(address(_config), address(_timelock), address(_escrowMasterCopy), _ADMIN_PROPOSER);
-    }
-
-    function _deployEscrowMasterCopy() internal {
-        _escrowMasterCopy = new Escrow(ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, address(_config));
-    }
-
-    function _deployTiebreaker() internal {
-        uint256 subCommitteeMembersCount = 5;
-        uint256 subCommitteeQuorum = 5;
-        uint256 subCommitteesCount = 2;
-
-        _tiebreakerCommittee =
-            new TiebreakerCore(address(_adminExecutor), new address[](0), 1, address(_dualGovernance), 0);
-
-        for (uint256 i = 0; i < subCommitteesCount; ++i) {
-            address[] memory committeeMembers = new address[](subCommitteeMembersCount);
-            for (uint256 j = 0; j < subCommitteeMembersCount; j++) {
-                committeeMembers[j] = makeAddr(string(abi.encode(i + j * subCommitteeMembersCount + 65)));
-            }
-            _tiebreakerSubCommittees.push(
-                new TiebreakerSubCommittee(
-                    address(_adminExecutor), committeeMembers, subCommitteeQuorum, address(_tiebreakerCommittee)
-                )
-            );
-
-            vm.prank(address(_adminExecutor));
-            _tiebreakerCommittee.addMember(address(_tiebreakerSubCommittees[i]), i + 1);
-        }
-    }
-
-    function _deployEmergencyActivationCommittee() internal {
-        uint256 quorum = 3;
-        uint256 membersCount = 5;
-        address[] memory committeeMembers = new address[](membersCount);
-        for (uint256 i = 0; i < membersCount; ++i) {
-            committeeMembers[i] = makeAddr(string(abi.encode(0xFE + i * membersCount + 65)));
-        }
-        _emergencyActivationCommittee =
-            new EmergencyActivationCommittee(address(_adminExecutor), committeeMembers, quorum, address(_timelock));
-    }
-
-    function _deployEmergencyExecutionCommittee() internal {
-        uint256 quorum = 3;
-        uint256 membersCount = 5;
-        address[] memory committeeMembers = new address[](membersCount);
-        for (uint256 i = 0; i < membersCount; ++i) {
-            committeeMembers[i] = makeAddr(string(abi.encode(0xFD + i * membersCount + 65)));
-        }
-        _emergencyExecutionCommittee =
-            new EmergencyExecutionCommittee(address(_adminExecutor), committeeMembers, quorum, address(_timelock));
-    }
-
-    function _deployResealCommittee() internal {
-        uint256 quorum = 3;
-        uint256 membersCount = 5;
-        address[] memory committeeMembers = new address[](membersCount);
-        for (uint256 i = 0; i < membersCount; ++i) {
-            committeeMembers[i] = makeAddr(string(abi.encode(0xFA + i * membersCount + 65)));
-        }
-        _resealCommittee =
-            new ResealCommittee(address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), 0);
-    }
-
-    function _finishTimelockSetup(address governance, bool isEmergencyProtectionEnabled) internal {
-        if (isEmergencyProtectionEnabled) {
-            _adminExecutor.execute(
-                address(_timelock),
-                0,
-                abi.encodeCall(
-                    _timelock.setEmergencyProtection,
-                    (
-                        address(_emergencyActivationCommittee),
-                        address(_emergencyExecutionCommittee),
-                        _EMERGENCY_PROTECTION_DURATION,
-                        _EMERGENCY_MODE_DURATION
-                    )
-                )
-            );
-
-            assertEq(_timelock.isEmergencyProtectionEnabled(), true);
-        }
-
-        _resealManager = new ResealManager(address(_timelock));
-
-        vm.prank(DAO_AGENT);
-        _WITHDRAWAL_QUEUE.grantRole(
-            0x139c2898040ef16910dc9f44dc697df79363da767d8bc92f2e310312b816e46d, address(_resealManager)
-        );
-        vm.prank(DAO_AGENT);
-        _WITHDRAWAL_QUEUE.grantRole(
-            0x2fc10cc8ae19568712f7a176fb4978616a610650813c9d05326c34abb62749c7, address(_resealManager)
-        );
-        if (governance == address(_dualGovernance)) {
-            _adminExecutor.execute(
-                address(_dualGovernance),
-                0,
-                abi.encodeCall(
-                    _dualGovernance.setTiebreakerProtection, (address(_tiebreakerCommittee), address(_resealManager))
-                )
-            );
-
-            _adminExecutor.execute(
-                address(_dualGovernance),
-                0,
-                abi.encodeCall(_dualGovernance.setReseal, (address(_resealManager), address(_resealCommittee)))
-            );
-        }
-        _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (governance)));
-        _adminExecutor.transferOwnership(address(_timelock));
-    }
-
-    // ---
     // Utils Methods
     // ---
 
@@ -699,16 +530,16 @@ contract ScenarioTestBlueprint is Test {
         console.log(string.concat(">>> ", text, " <<<"));
     }
 
-    function _wait(DurationType duration) internal {
+    function _wait(Duration duration) internal {
         vm.warp(duration.addTo(Timestamps.now()).toSeconds());
     }
 
     function _waitAfterSubmitDelayPassed() internal {
-        _wait(_config.AFTER_SUBMIT_DELAY() + ONE_SECOND);
+        _wait(_timelock.getAfterSubmitDelay() + Durations.from(1 seconds));
     }
 
     function _waitAfterScheduleDelayPassed() internal {
-        _wait(_config.AFTER_SCHEDULE_DELAY() + ONE_SECOND);
+        _wait(_timelock.getAfterScheduleDelay() + Durations.from(1 seconds));
     }
 
     function _executeActivateEmergencyMode() internal {
@@ -738,21 +569,21 @@ contract ScenarioTestBlueprint is Test {
         _emergencyExecutionCommittee.executeEmergencyReset();
     }
 
-    struct Duration {
+    struct DurationStruct {
         uint256 _days;
         uint256 _hours;
         uint256 _minutes;
         uint256 _seconds;
     }
 
-    function _toDuration(uint256 timestamp) internal view returns (Duration memory duration) {
+    function _toDuration(uint256 timestamp) internal view returns (DurationStruct memory duration) {
         duration._days = timestamp / 1 days;
         duration._hours = (timestamp - 1 days * duration._days) / 1 hours;
         duration._minutes = (timestamp - 1 days * duration._days - 1 hours * duration._hours) / 1 minutes;
         duration._seconds = timestamp % 1 minutes;
     }
 
-    function _formatDuration(Duration memory duration) internal pure returns (string memory) {
+    function _formatDuration(DurationStruct memory duration) internal pure returns (string memory) {
         // format example: 1d:22h:33m:12s
         return string(
             abi.encodePacked(
@@ -766,38 +597,5 @@ contract ScenarioTestBlueprint is Test {
                 "s"
             )
         );
-    }
-
-    function assertEq(uint40 a, uint40 b) internal {
-        assertEq(uint256(a), uint256(b));
-    }
-
-    function assertEq(Timestamp a, Timestamp b) internal {
-        assertEq(uint256(Timestamp.unwrap(a)), uint256(Timestamp.unwrap(b)));
-    }
-
-    function assertEq(DurationType a, DurationType b) internal {
-        assertEq(uint256(DurationType.unwrap(a)), uint256(DurationType.unwrap(b)));
-    }
-
-    function assertEq(ProposalStatus a, ProposalStatus b) internal {
-        assertEq(uint256(a), uint256(b));
-    }
-
-    function assertEq(ProposalStatus a, ProposalStatus b, string memory message) internal {
-        assertEq(uint256(a), uint256(b), message);
-    }
-
-    function assertEq(DGState a, DGState b) internal {
-        assertEq(uint256(a), uint256(b));
-    }
-
-    function assertEq(Balances memory b1, Balances memory b2, uint256 stETHSharesEpsilon) internal {
-        assertEq(b1.wstETHShares, b2.wstETHShares);
-        assertEq(b1.wstETHAmount, b2.wstETHAmount);
-
-        uint256 stETHAmountEpsilon = _ST_ETH.getPooledEthByShares(stETHSharesEpsilon);
-        assertApproxEqAbs(b1.stETHShares, b2.stETHShares, stETHSharesEpsilon);
-        assertApproxEqAbs(b1.stETHAmount, b2.stETHAmount, stETHAmountEpsilon);
     }
 }

@@ -3,16 +3,8 @@ pragma solidity 0.8.26;
 
 import {Timestamp} from "../types/Timestamp.sol";
 
-import {Status as ProposalStatus} from "../libraries/ExecutableProposals.sol";
 import {ExternalCall} from "../libraries/ExternalCalls.sol";
-
-interface IGovernance {
-    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId);
-    function scheduleProposal(uint256 proposalId) external;
-    function cancelAllPendingProposals() external;
-
-    function canScheduleProposal(uint256 proposalId) external view returns (bool);
-}
+import {Status as ProposalStatus} from "../libraries/ExecutableProposals.sol";
 
 interface ITimelock {
     struct Proposal {
@@ -32,6 +24,8 @@ interface ITimelock {
     function canSchedule(uint256 proposalId) external view returns (bool);
     function canExecute(uint256 proposalId) external view returns (bool);
 
+    function getAdminExecutor() external view returns (address);
+
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal);
     function getProposalInfo(uint256 proposalId)
         external
@@ -40,4 +34,8 @@ interface ITimelock {
 
     function getGovernance() external view returns (address);
     function setGovernance(address governance) external;
+
+    function activateEmergencyMode() external;
+    function emergencyExecute(uint256 proposalId) external;
+    function emergencyReset() external;
 }

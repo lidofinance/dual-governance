@@ -8,6 +8,12 @@ import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 contract TimelockMock is ITimelock {
     uint8 public constant OFFSET = 1;
 
+    address internal immutable _ADMIN_EXECUTOR;
+
+    constructor(address adminExecutor) {
+        _ADMIN_EXECUTOR = adminExecutor;
+    }
+
     mapping(uint256 => bool) public canScheduleProposal;
 
     uint256[] public submittedProposals;
@@ -81,11 +87,27 @@ contract TimelockMock is ITimelock {
         return governance;
     }
 
+    function emergencyReset() external {
+        revert("Not Implemented");
+    }
+
+    function emergencyExecute(uint256 proposalId) external {
+        revert("Not Implemented");
+    }
+
+    function activateEmergencyMode() external {
+        revert("Not Implemented");
+    }
+
     function getProposalInfo(uint256 proposalId)
         external
         view
         returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
     {
         revert("Not Implemented");
+    }
+
+    function getAdminExecutor() external view returns (address) {
+        return _ADMIN_EXECUTOR;
     }
 }

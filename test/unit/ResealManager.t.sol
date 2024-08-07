@@ -18,7 +18,7 @@ contract ResealManagerUnitTests is UnitTest {
     function setUp() external {
         vm.mockCall(timelock, abi.encodeWithSelector(ITimelock.getGovernance.selector), abi.encode(governance));
 
-        resealManager = new ResealManager(timelock);
+        resealManager = new ResealManager(ITimelock(timelock));
     }
 
     function test_resealSuccess() public {
