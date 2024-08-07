@@ -13,7 +13,8 @@ contract Executor is IExternalExecutor, Ownable {
         address target,
         uint256 value,
         bytes calldata payload
-    ) external payable onlyOwner returns (bytes memory result) {
+    ) external payable returns (bytes memory result) {
+        _checkOwner();
         result = Address.functionCallWithValue(target, payload, value);
     }
 
