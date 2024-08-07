@@ -22,6 +22,8 @@ contract TimelockMock is ITimelock {
 
     uint256 public lastCancelledProposalId;
 
+    address internal governance;
+
     function submit(address, ExternalCall[] calldata) external returns (uint256 newProposalId) {
         newProposalId = submittedProposals.length + OFFSET;
         submittedProposals.push(newProposalId);
@@ -77,15 +79,31 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
+    function setGovernance(address newGovernance) external {
+        governance = newGovernance;
+    }
+
+    function getGovernance() external view returns (address) {
+        return governance;
+    }
+
+    function emergencyReset() external {
+        revert("Not Implemented");
+    }
+
+    function emergencyExecute(uint256 proposalId) external {
+        revert("Not Implemented");
+    }
+
+    function activateEmergencyMode() external {
+        revert("Not Implemented");
+    }
+
     function getProposalInfo(uint256 proposalId)
         external
         view
         returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
     {
-        revert("Not Implemented");
-    }
-
-    function getGovernance() external view returns (address) {
         revert("Not Implemented");
     }
 

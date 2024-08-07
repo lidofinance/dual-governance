@@ -2,11 +2,9 @@
 pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {HashConsensus} from "./HashConsensus.sol";
 
-interface IEmergencyProtectedTimelock {
-    function emergencyActivate() external;
-}
+import {HashConsensus} from "./HashConsensus.sol";
+import {ITimelock} from "../interfaces/ITimelock.sol";
 
 /// @title Emergency Activation Committee Contract
 /// @notice This contract allows a committee to approve and execute an emergency activation
@@ -27,7 +25,7 @@ contract EmergencyActivationCommittee is HashConsensus {
 
     /// @notice Approves the emergency activation by casting a vote
     /// @dev Only callable by committee members
-    function approveEmergencyActivate() public {
+    function approveActivateEmergencyMode() public {
         _checkSenderIsMember();
         _vote(EMERGENCY_ACTIVATION_HASH, true);
     }
@@ -36,7 +34,7 @@ contract EmergencyActivationCommittee is HashConsensus {
     /// @return support The number of votes in support of the activation
     /// @return execuitionQuorum The required number of votes for execution
     /// @return isExecuted Whether the activation has been executed
-    function getEmergencyActivateState()
+    function getActivateEmergencyModeState()
         public
         view
         returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
@@ -46,10 +44,10 @@ contract EmergencyActivationCommittee is HashConsensus {
 
     /// @notice Executes the emergency activation if the quorum is reached
     /// @dev Calls the emergencyActivate function on the Emergency Protected Timelock contract
-    function executeEmergencyActivate() external {
+    function executeActivateEmergencyMode() external {
         _markUsed(EMERGENCY_ACTIVATION_HASH);
         Address.functionCall(
-            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyActivate.selector)
+            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.activateEmergencyMode.selector)
         );
     }
 }

@@ -24,7 +24,6 @@ interface ITimelock {
     function canSchedule(uint256 proposalId) external view returns (bool);
     function canExecute(uint256 proposalId) external view returns (bool);
 
-    function getGovernance() external view returns (address);
     function getAdminExecutor() external view returns (address);
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal);
@@ -32,4 +31,11 @@ interface ITimelock {
         external
         view
         returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt);
+
+    function getGovernance() external view returns (address);
+    function setGovernance(address governance) external;
+
+    function activateEmergencyMode() external;
+    function emergencyExecute(uint256 proposalId) external;
+    function emergencyReset() external;
 }

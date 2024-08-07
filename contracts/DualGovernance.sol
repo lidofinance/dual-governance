@@ -266,14 +266,19 @@ contract DualGovernance is IDualGovernance {
     // Reseal executor
     // ---
 
-    function resealSealables(address[] memory sealables) external {
+    function resealSealable(address sealable) external {
         if (msg.sender != _resealCommittee) {
             revert NotResealCommittee(msg.sender);
         }
         if (_stateMachine.getCurrentState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
-        RESEAL_MANAGER.reseal(sealables);
+        RESEAL_MANAGER.reseal(sealable);
+    }
+
+    function setResealCommittee(address resealCommittee) external {
+        _checkSenderIsAdminExecutor();
+        _resealCommittee = resealCommittee;
     }
 
     // ---

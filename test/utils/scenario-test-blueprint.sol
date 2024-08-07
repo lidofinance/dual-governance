@@ -542,13 +542,13 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         _wait(_timelock.getAfterScheduleDelay() + Durations.from(1 seconds));
     }
 
-    function _executeEmergencyActivate() internal {
+    function _executeActivateEmergencyMode() internal {
         address[] memory members = _emergencyActivationCommittee.getMembers();
         for (uint256 i = 0; i < _emergencyActivationCommittee.quorum(); ++i) {
             vm.prank(members[i]);
-            _emergencyActivationCommittee.approveEmergencyActivate();
+            _emergencyActivationCommittee.approveActivateEmergencyMode();
         }
-        _emergencyActivationCommittee.executeEmergencyActivate();
+        _emergencyActivationCommittee.executeActivateEmergencyMode();
     }
 
     function _executeEmergencyExecute(uint256 proposalId) internal {

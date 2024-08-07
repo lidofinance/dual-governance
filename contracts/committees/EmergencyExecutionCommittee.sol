@@ -4,11 +4,7 @@ pragma solidity 0.8.26;
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-
-interface IEmergencyProtectedTimelock {
-    function emergencyExecute(uint256 proposalId) external;
-    function emergencyReset() external;
-}
+import {ITimelock} from "../interfaces/ITimelock.sol";
 
 enum ProposalType {
     EmergencyExecute,
@@ -65,8 +61,7 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         (, bytes32 key) = _encodeEmergencyExecute(proposalId);
         _markUsed(key);
         Address.functionCall(
-            EMERGENCY_PROTECTED_TIMELOCK,
-            abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyExecute.selector, proposalId)
+            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.emergencyExecute.selector, proposalId)
         );
     }
 
@@ -113,9 +108,7 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     function executeEmergencyReset() external {
         bytes32 proposalKey = _encodeEmergencyResetProposalKey();
         _markUsed(proposalKey);
-        Address.functionCall(
-            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyReset.selector)
-        );
+        Address.functionCall(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.emergencyReset.selector));
     }
 
     /// @notice Encodes the proposal key for an emergency reset

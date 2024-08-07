@@ -6,7 +6,7 @@ import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 
-import {TimelockMock} from "./mocks/TimelockMock.sol";
+import {TimelockMock} from "../mocks/TimelockMock.sol";
 
 contract TimelockedGovernanceUnitTests is UnitTest {
     TimelockMock private _timelock;

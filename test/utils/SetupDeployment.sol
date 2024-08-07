@@ -185,6 +185,8 @@ abstract contract SetupDeployment is Test {
 
         _tiebreakerCoreCommittee.transferOwnership(address(_adminExecutor));
 
+        _resealCommittee = _deployResealCommittee();
+
         // ---
         // Finalize Setup
         // ---
@@ -207,6 +209,9 @@ abstract contract SetupDeployment is Test {
             address(_dualGovernance),
             0,
             abi.encodeCall(_dualGovernance.addTiebreakerSealableWithdrawalBlocker, address(_lido.withdrawalQueue))
+        );
+        _adminExecutor.execute(
+            address(_dualGovernance), 0, abi.encodeCall(_dualGovernance.setResealCommittee, address(_resealCommittee))
         );
 
         _finalizeEmergencyProtectedTimelockDeploy(_dualGovernance);
@@ -305,6 +310,17 @@ abstract contract SetupDeployment is Test {
         address[] memory members
     ) internal returns (EmergencyExecutionCommittee) {
         return new EmergencyExecutionCommittee(owner, members, quorum, address(timelock));
+    }
+
+    function _deployResealCommittee() internal returns (ResealCommittee) {
+        uint256 quorum = 3;
+        uint256 membersCount = 5;
+        address[] memory committeeMembers = new address[](membersCount);
+        for (uint256 i = 0; i < membersCount; ++i) {
+            committeeMembers[i] = makeAddr(string(abi.encode(0xFA + i * membersCount + 65)));
+        }
+
+        return new ResealCommittee(address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), 0);
     }
 
     function _deployTimelockedGovernance(

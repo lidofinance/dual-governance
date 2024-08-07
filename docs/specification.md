@@ -417,15 +417,15 @@ Initializes the contract with the address of the EmergencyProtectedTimelock cont
 ### Function ResealManager.reseal
 
 ```solidity
-function reseal(address[] memory sealables) public
+function reseal(address sealable) public
 ```
 
-Extends the pause of the specified `sealables` contracts. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
+Extends the pause of the specified `sealable` contract. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
 
 #### Preconditions
 
-- The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
-- The target contracts MUST be paused until a future timestamp and not indefinitely.
+- The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contract.
+- The target contract MUST be paused until a future timestamp and not indefinitely.
 - The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
 
 #### Errors
@@ -1318,10 +1318,10 @@ executionQuorum MUST be greater than 0.
 emergencyProtectedTimelock MUST be a valid address.
 
 
-### Function: EmergencyActivationCommittee.approveEmergencyActivate
+### Function: EmergencyActivationCommittee.approveActivateEmergencyMode
 
 ```solidity
-function approveEmergencyActivate() public
+function approveActivateEmergencyMode() public
 ```
 
 Approves the emergency activation by voting on the EMERGENCY_ACTIVATION_HASH.
@@ -1330,10 +1330,10 @@ Approves the emergency activation by voting on the EMERGENCY_ACTIVATION_HASH.
 
 * MUST be called by a member.
 
-### Function: EmergencyActivationCommittee.getEmergencyActivateState
+### Function: EmergencyActivationCommittee.getActivateEmergencyModeState
 
 ```solidity
-function getEmergencyActivateState()
+function getActivateEmergencyModeState()
     public
     view
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
@@ -1341,10 +1341,10 @@ function getEmergencyActivateState()
 
 Returns the state of the emergency activation proposal including support count, quorum, and execution status.
 
-### Function: EmergencyActivationCommittee.executeEmergencyActivate
+### Function: EmergencyActivationCommittee.executeActivateEmergencyMode
 
 ```solidity
-function executeEmergencyActivate() external
+function executeActivateEmergencyMode() external
 ```
 
 Executes the emergency activation by calling the emergencyActivate function on the EmergencyProtectedTimelock contract.
