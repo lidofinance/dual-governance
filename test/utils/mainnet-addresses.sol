@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
 address constant DAO_ACL = 0x9895F0F17cc1d1891b6f18ee0b483B6f221b37Bb;

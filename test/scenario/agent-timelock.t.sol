@@ -5,30 +5,28 @@ import {ExternalCall, ScenarioTestBlueprint} from "../utils/scenario-test-bluepr
 
 contract AgentTimelockTest is ScenarioTestBlueprint {
     function setUp() external {
-        _selectFork();
-        _deployTarget();
-        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 
     function testFork_AgentTimelockHappyPath() external {
-        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId;
         _step("1. THE PROPOSAL IS SUBMITTED");
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
+            proposalId = _submitProposalViaDualGovernance(
+                "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
 
-            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+            _assertSubmittedProposalData(proposalId, _getAdminExecutor(), regularStaffCalls);
+            _assertCanScheduleViaDualGovernance(proposalId, false);
         }
 
         _step("2. THE PROPOSAL IS SCHEDULED");
         {
             _waitAfterSubmitDelayPassed();
-            _assertCanSchedule(_dualGovernance, proposalId, true);
-            _scheduleProposal(_dualGovernance, proposalId);
+            _assertCanScheduleViaDualGovernance(proposalId, true);
+            _scheduleProposalViaDualGovernance(proposalId);
 
             _assertProposalScheduled(proposalId);
             _assertCanExecute(proposalId, false);
@@ -48,27 +46,27 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _assertProposalExecuted(proposalId);
 
             _assertCanExecute(proposalId, false);
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+            _assertCanScheduleViaDualGovernance(proposalId, false);
 
-            _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
+            _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
         }
     }
 
     function testFork_TimelockEmergencyReset() external {
-        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         // ---
         // 1. THE PROPOSAL IS SUBMITTED
         // ---
         uint256 proposalId;
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
+            proposalId = _submitProposalViaDualGovernance(
+                "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
-            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
+            _assertSubmittedProposalData(proposalId, _getAdminExecutor(), regularStaffCalls);
 
             // proposal can't be scheduled until the AFTER_SUBMIT_DELAY has passed
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+            _assertCanScheduleViaDualGovernance(proposalId, false);
         }
 
         // ---
@@ -80,9 +78,9 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
 
             // when the first delay is passed and the is no opposition from the stETH holders
             // the proposal can be scheduled
-            _assertCanSchedule(_dualGovernance, proposalId, true);
+            _assertCanScheduleViaDualGovernance(proposalId, true);
 
-            _scheduleProposal(_dualGovernance, proposalId);
+            _scheduleProposalViaDualGovernance(proposalId);
 
             // proposal can't be executed until the second delay has ended
             _assertProposalScheduled(proposalId);

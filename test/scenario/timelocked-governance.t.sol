@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IGovernance} from "contracts/interfaces/ITimelock.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
-import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
-import {Durations, minus} from "contracts/types/Duration.sol";
+
+import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 import {ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
-import {ScenarioTestBlueprint, ExternalCallHelpers, IDangerousContract} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
+
+import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
     function setUp() external {
-        _selectFork();
-        _deployTarget();
-        _deployTimelockedGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+        _deployTimelockedGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 
     function test_operatesAsDefault() external {
@@ -77,7 +76,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         (uint256 maliciousProposalId,) = _submitAndAssertMaliciousProposal();
         {
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, false);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, false);
         }
 
         // ---
@@ -91,8 +90,8 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
 
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, true);
-            _scheduleProposal(_timelockedGovernance, maliciousProposalId);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, true);
+            _scheduleProposalViaTimelockedGovernance(maliciousProposalId);
 
             _waitAfterScheduleDelayPassed();
 
@@ -114,8 +113,8 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
 
             _waitAfterSubmitDelayPassed();
 
-            _assertCanSchedule(_timelockedGovernance, deactivateEmergencyModeProposalId, true);
-            _scheduleProposal(_timelockedGovernance, deactivateEmergencyModeProposalId);
+            _assertCanScheduleViaTimelockedGovernance(deactivateEmergencyModeProposalId, true);
+            _scheduleProposalViaTimelockedGovernance(deactivateEmergencyModeProposalId);
             _assertProposalScheduled(deactivateEmergencyModeProposalId);
 
             _waitAfterScheduleDelayPassed();
@@ -152,7 +151,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         (uint256 maliciousProposalId,) = _submitAndAssertMaliciousProposal();
         {
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, false);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, false);
         }
 
         // ---
@@ -166,8 +165,8 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
 
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, true);
-            _scheduleProposal(_timelockedGovernance, maliciousProposalId);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, true);
+            _scheduleProposalViaTimelockedGovernance(maliciousProposalId);
 
             _waitAfterScheduleDelayPassed();
 
@@ -213,10 +212,20 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         // Act 2. DAO decides to upgrade system to dual governance.
         // ---
         {
-            _deployDualGovernance();
+            _resealManager = _deployResealManager(_timelock);
+            _dualGovernanceConfigProvider = _deployDualGovernanceConfigProvider();
+            _dualGovernance = _deployDualGovernance({
+                timelock: _timelock,
+                resealManager: _resealManager,
+                configProvider: _dualGovernanceConfigProvider
+            });
 
             ExternalCall[] memory dualGovernanceLaunchCalls = ExternalCallHelpers.create(
-                [address(_timelock)], [abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance)))]
+                [address(_dualGovernance), address(_timelock)],
+                [
+                    abi.encodeCall(_dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())),
+                    abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance)))
+                ]
             );
 
             uint256 dualGovernanceLunchProposalId =
@@ -224,8 +233,8 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
 
             _waitAfterSubmitDelayPassed();
 
-            _assertCanSchedule(_timelockedGovernance, dualGovernanceLunchProposalId, true);
-            _scheduleProposal(_timelockedGovernance, dualGovernanceLunchProposalId);
+            _assertCanScheduleViaTimelockedGovernance(dualGovernanceLunchProposalId, true);
+            _scheduleProposalViaTimelockedGovernance(dualGovernanceLunchProposalId);
             _assertProposalScheduled(dualGovernanceLunchProposalId);
 
             _waitAfterScheduleDelayPassed();
@@ -264,8 +273,8 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
 
             _waitAfterSubmitDelayPassed();
 
-            _assertCanSchedule(_dualGovernance, timelockedGovernanceLunchProposalId, true);
-            _scheduleProposal(_dualGovernance, timelockedGovernanceLunchProposalId);
+            _assertCanScheduleViaDualGovernance(timelockedGovernanceLunchProposalId, true);
+            _scheduleProposalViaDualGovernance(timelockedGovernanceLunchProposalId);
 
             _waitAfterScheduleDelayPassed();
 
@@ -284,7 +293,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
     }
 
     function _submitAndAssertProposal(IGovernance governance) internal returns (uint256, ExternalCall[] memory) {
-        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
         uint256 proposalId =
             _submitProposal(governance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls);
 
@@ -295,8 +304,9 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
     }
 
     function _submitAndAssertMaliciousProposal() internal returns (uint256, ExternalCall[] memory) {
-        ExternalCall[] memory maliciousCalls =
-            ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
+        ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
+            address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
+        );
 
         uint256 proposalId = _submitProposal(
             _timelockedGovernance, "DAO does malicious staff on potentially dangerous contract", maliciousCalls

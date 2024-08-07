@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 type PercentD16 is uint256;
 
-uint256 constant HUNDRED_PERCENTS_UINT256 = 100 * 10 ** 18;
+uint256 constant HUNDRED_PERCENTS_UINT256 = 100 * 10 ** 16;
 
 error Overflow();
 

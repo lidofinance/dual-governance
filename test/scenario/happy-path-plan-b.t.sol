@@ -1,29 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
+
 import {
-    IDangerousContract,
     ScenarioTestBlueprint,
     ExternalCall,
     ExternalCallHelpers,
-    DualGovernance,
     Timestamp,
     Timestamps,
     Durations
 } from "../utils/scenario-test-blueprint.sol";
 
+import {DualGovernance} from "contracts/DualGovernance.sol";
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
 contract PlanBSetup is ScenarioTestBlueprint {
     function setUp() external {
-        _selectFork();
-        _deployTarget();
-        _deployTimelockedGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+        _deployTimelockedGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 
     function testFork_PlanB_Scenario() external {
-        ExternalCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         // ---
         // ACT 1. 📈 DAO OPERATES AS USUALLY
@@ -35,12 +34,12 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
-            _assertCanSchedule(_timelockedGovernance, proposalId, false);
+            _assertCanScheduleViaTimelockedGovernance(proposalId, false);
 
             _waitAfterSubmitDelayPassed();
 
-            _assertCanSchedule(_timelockedGovernance, proposalId, true);
-            _scheduleProposal(_timelockedGovernance, proposalId);
+            _assertCanScheduleViaTimelockedGovernance(proposalId, true);
+            _scheduleProposalViaTimelockedGovernance(proposalId);
             _assertProposalScheduled(proposalId);
 
             _waitAfterScheduleDelayPassed();
@@ -58,20 +57,21 @@ contract PlanBSetup is ScenarioTestBlueprint {
         EmergencyProtection.Context memory emergencyState;
         {
             // Malicious vote was proposed by the attacker with huge LDO wad (but still not the majority)
-            ExternalCall[] memory maliciousCalls =
-                ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
+            ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
+                address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
+            );
 
-            maliciousProposalId = _submitProposal(_timelockedGovernance, "Rug Pool attempt", maliciousCalls);
+            maliciousProposalId = _submitProposalViaTimelockedGovernance("Rug Pool attempt", maliciousCalls);
 
             // the call isn't executable until the delay has passed
             _assertProposalSubmitted(maliciousProposalId);
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, false);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, false);
 
             // some time required to assemble the emergency committee and activate emergency mode
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
             // malicious call still can't be scheduled
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, false);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, false);
 
             // emergency committee activates emergency mode
             vm.prank(address(_emergencyActivationCommittee));
@@ -88,15 +88,15 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // only the emergency committee
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, true);
-            _scheduleProposal(_timelockedGovernance, maliciousProposalId);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, true);
+            _scheduleProposalViaTimelockedGovernance(maliciousProposalId);
 
             _waitAfterScheduleDelayPassed();
 
             // but the call still not executable
             _assertCanExecute(maliciousProposalId, false);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, true));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
             _executeProposal(maliciousProposalId);
         }
 
@@ -112,11 +112,18 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertCanExecute(maliciousProposalId, false);
 
             // Dual Governance is deployed into mainnet
-            _deployDualGovernance();
+            _resealManager = _deployResealManager(_timelock);
+            _dualGovernanceConfigProvider = _deployDualGovernanceConfigProvider();
+            _dualGovernance = _deployDualGovernance({
+                timelock: _timelock,
+                resealManager: _resealManager,
+                configProvider: _dualGovernanceConfigProvider
+            });
 
             ExternalCall[] memory dualGovernanceLaunchCalls = ExternalCallHelpers.create(
-                address(_timelock),
+                [address(_dualGovernance), address(_timelock), address(_timelock), address(_timelock)],
                 [
+                    abi.encodeCall(_dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())),
                     // Only Dual Governance contract can call the Timelock contract
                     abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance))),
                     // Now the emergency mode may be deactivated (all scheduled calls will be canceled)
@@ -125,11 +132,11 @@ contract PlanBSetup is ScenarioTestBlueprint {
                     abi.encodeCall(
                         _timelock.setupEmergencyProtection,
                         (
-                            address(_ADMIN_PROPOSER), // DAO_VOTING TODO: declare variable in scenario test blueprint
+                            address(_emergencyGovernance),
                             address(_emergencyActivationCommittee),
                             address(_emergencyExecutionCommittee),
                             _EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
-                            Durations.from(30 days)
+                            _EMERGENCY_MODE_DURATION
                         )
                     )
                 ]
@@ -137,13 +144,13 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             // The vote to launch Dual Governance is launched and reached the quorum (the major part of LDO holder still have power)
             uint256 dualGovernanceLunchProposalId =
-                _submitProposal(_timelockedGovernance, "Launch the Dual Governance", dualGovernanceLaunchCalls);
+                _submitProposalViaTimelockedGovernance("Launch the Dual Governance", dualGovernanceLaunchCalls);
 
             // wait until the after submit delay has passed
             _waitAfterSubmitDelayPassed();
 
-            _assertCanSchedule(_timelockedGovernance, dualGovernanceLunchProposalId, true);
-            _scheduleProposal(_timelockedGovernance, dualGovernanceLunchProposalId);
+            _assertCanScheduleViaTimelockedGovernance(dualGovernanceLunchProposalId, true);
+            _scheduleProposalViaTimelockedGovernance(dualGovernanceLunchProposalId);
             _assertProposalScheduled(dualGovernanceLunchProposalId);
 
             _waitAfterScheduleDelayPassed();
@@ -173,8 +180,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             _waitAfterSubmitDelayPassed();
 
-            _assertCanSchedule(_dualGovernance, proposalId, true);
-            _scheduleProposal(_dualGovernance, proposalId);
+            _assertCanScheduleViaDualGovernance(proposalId, true);
+            _scheduleProposalViaDualGovernance(proposalId);
 
             _waitAfterScheduleDelayPassed();
 
@@ -184,105 +191,112 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
         }
-        // TODO: update the deployment logic below
-        // // ---
-        // // ACT 5. 🔜 NEW DUAL GOVERNANCE VERSION IS COMING
-        // // ---
-        // {
-        //     // some time later, the major Dual Governance update release is ready to be launched
-        //     _wait(Durations.from(365 days));
-        //     DualGovernance dualGovernanceV2 =
-        //         new DualGovernance(address(_config), address(_timelock), address(_escrowMasterCopy), _ADMIN_PROPOSER);
 
-        //     ExternalCall[] memory dualGovernanceUpdateCalls = ExternalCallHelpers.create(
-        //         address(_timelock),
-        //         [
-        //             // Update the controller for timelock
-        //             abi.encodeCall(_timelock.setGovernance, address(dualGovernanceV2)),
-        //             // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
-        //             abi.encodeCall(
-        //                 _timelock.setEmergencyProtection,
-        //                 (
-        //                     address(_emergencyActivationCommittee),
-        //                     address(_emergencyExecutionCommittee),
-        //                     _EMERGENCY_PROTECTION_DURATION,
-        //                     Durations.from(30 days)
-        //                 )
-        //             )
-        //         ]
-        //     );
+        // ---
+        // ACT 5. 🔜 NEW DUAL GOVERNANCE VERSION IS COMING
+        // ---
+        {
+            // some time later, the major Dual Governance update release is ready to be launched
+            _wait(Durations.from(365 days));
+            DualGovernance dualGovernanceV2 = _deployDualGovernance({
+                timelock: _timelock,
+                resealManager: _resealManager,
+                configProvider: _dualGovernanceConfigProvider
+            });
 
-        //     uint256 updateDualGovernanceProposalId =
-        //         _submitProposal(_dualGovernance, "Update Dual Governance to V2", dualGovernanceUpdateCalls);
+            ExternalCall[] memory dualGovernanceUpdateCalls = ExternalCallHelpers.create(
+                [address(dualGovernanceV2), address(_timelock), address(_timelock)],
+                [
+                    abi.encodeCall(_dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())),
+                    // Update the controller for timelock
+                    abi.encodeCall(_timelock.setGovernance, address(dualGovernanceV2)),
+                    // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
+                    abi.encodeCall(
+                        _timelock.setupEmergencyProtection,
+                        (
+                            address(_emergencyGovernance),
+                            address(_emergencyActivationCommittee),
+                            address(_emergencyExecutionCommittee),
+                            _EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
+                            Durations.from(30 days)
+                        )
+                    )
+                ]
+            );
 
-        //     _waitAfterSubmitDelayPassed();
+            uint256 updateDualGovernanceProposalId =
+                _submitProposalViaDualGovernance("Update Dual Governance to V2", dualGovernanceUpdateCalls);
 
-        //     _assertCanSchedule(_dualGovernance, updateDualGovernanceProposalId, true);
-        //     _scheduleProposal(_dualGovernance, updateDualGovernanceProposalId);
+            _waitAfterSubmitDelayPassed();
 
-        //     _waitAfterScheduleDelayPassed();
+            _assertCanScheduleViaDualGovernance(updateDualGovernanceProposalId, true);
+            _scheduleProposalViaDualGovernance(updateDualGovernanceProposalId);
 
-        //     // but the call still not executable
-        //     _assertCanExecute(updateDualGovernanceProposalId, true);
-        //     _executeProposal(updateDualGovernanceProposalId);
+            _waitAfterScheduleDelayPassed();
 
-        //     // new version of dual governance attached to timelock
-        //     assertEq(_timelock.getGovernance(), address(dualGovernanceV2));
+            // but the call still not executable
+            _assertCanExecute(updateDualGovernanceProposalId, true);
+            _executeProposal(updateDualGovernanceProposalId);
 
-        //     // - emergency protection enabled
-        //     assertTrue(_timelock.isEmergencyProtectionEnabled());
+            // new version of dual governance attached to timelock
+            assertEq(_timelock.getGovernance(), address(dualGovernanceV2));
 
-        //     emergencyState = _timelock.getEmergencyState();
-        //     assertEq(emergencyState.activationCommittee, address(_emergencyActivationCommittee));
-        //     assertEq(emergencyState.executionCommittee, address(_emergencyExecutionCommittee));
-        //     assertFalse(emergencyState.isEmergencyModeActivated);
-        //     assertEq(emergencyState.emergencyModeDuration, Durations.from(30 days));
-        //     assertEq(emergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
+            // - emergency protection enabled
+            assertTrue(_timelock.isEmergencyProtectionEnabled());
 
-        //     // use the new version of the dual governance in the future calls
-        //     _dualGovernance = dualGovernanceV2;
-        // }
+            assertFalse(_timelock.isEmergencyModeActive());
 
-        // // ---
-        // // ACT 7. 📆 DAO CONTINUES THEIR REGULAR DUTIES (PROTECTED BY DUAL GOVERNANCE V2)
-        // // ---
-        // {
-        //     uint256 proposalId = _submitProposal(
-        //         _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
-        //     );
-        //     _assertProposalSubmitted(proposalId);
-        //     _assertSubmittedProposalData(proposalId, regularStaffCalls);
+            EmergencyProtection.Context memory emergencyState = _timelock.getEmergencyProtectionContext();
+            assertEq(emergencyState.emergencyActivationCommittee, address(_emergencyActivationCommittee));
+            assertEq(emergencyState.emergencyExecutionCommittee, address(_emergencyExecutionCommittee));
+            assertEq(emergencyState.emergencyModeDuration, Durations.from(30 days));
+            assertEq(emergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
 
-        //     _waitAfterSubmitDelayPassed();
+            // use the new version of the dual governance in the future calls
+            _dualGovernance = dualGovernanceV2;
+        }
 
-        //     _assertCanSchedule(_dualGovernance, proposalId, true);
-        //     _scheduleProposal(_dualGovernance, proposalId);
-        //     _assertProposalScheduled(proposalId);
+        // ---
+        // ACT 7. 📆 DAO CONTINUES THEIR REGULAR DUTIES (PROTECTED BY DUAL GOVERNANCE V2)
+        // ---
+        {
+            uint256 proposalId = _submitProposal(
+                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            );
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
-        //     // wait while the after schedule delay has passed
-        //     _waitAfterScheduleDelayPassed();
+            _waitAfterSubmitDelayPassed();
 
-        //     // execute the proposal
-        //     _assertCanExecute(proposalId, true);
-        //     _executeProposal(proposalId);
-        //     _assertProposalExecuted(proposalId);
+            _assertCanScheduleViaDualGovernance(proposalId, true);
+            _scheduleProposalViaDualGovernance(proposalId);
+            _assertProposalScheduled(proposalId);
 
-        //     // call successfully executed
-        //     _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
-        // }
+            // wait while the after schedule delay has passed
+            _waitAfterScheduleDelayPassed();
+
+            // execute the proposal
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
+            _assertProposalExecuted(proposalId);
+
+            // call successfully executed
+            _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
+        }
     }
 
     function testFork_SubmittedCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
-        ExternalCall[] memory maliciousCalls =
-            ExternalCallHelpers.create(address(_target), abi.encodeCall(IDangerousContract.doRugPool, ()));
+        ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
+            address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
+        );
 
         // schedule some malicious call
         uint256 maliciousProposalId;
         {
-            maliciousProposalId = _submitProposal(_timelockedGovernance, "Rug Pool attempt", maliciousCalls);
+            maliciousProposalId = _submitProposalViaTimelockedGovernance("Rug Pool attempt", maliciousCalls);
 
             // malicious calls can't be executed until the delays have passed
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, false);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, false);
         }
 
         // activate emergency mode
@@ -301,14 +315,14 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // the after submit delay has passed, and proposal can be scheduled, but not executed
             _wait(_timelock.getAfterScheduleDelay() + Durations.from(1 seconds));
             _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
-            _assertCanSchedule(_timelockedGovernance, maliciousProposalId, true);
+            _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, true);
 
-            _scheduleProposal(_timelockedGovernance, maliciousProposalId);
+            _scheduleProposalViaTimelockedGovernance(maliciousProposalId);
 
             _wait(_timelock.getAfterScheduleDelay().plusSeconds(1));
             _assertCanExecute(maliciousProposalId, false);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, true));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
             _executeProposal(maliciousProposalId);
         }
 
@@ -318,22 +332,22 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
 
             // emergency mode still active
-            assertTrue(emergencyState.emergencyModeEndsAfter > Timestamps.now());
+            assertTrue(_timelock.getEmergencyProtectionContext().emergencyModeEndsAfter > Timestamps.now());
 
             anotherMaliciousProposalId =
-                _submitProposal(_timelockedGovernance, "Another Rug Pool attempt", maliciousCalls);
+                _submitProposalViaTimelockedGovernance("Another Rug Pool attempt", maliciousCalls);
 
             // malicious calls can't be executed until the delays have passed
             _assertCanExecute(anotherMaliciousProposalId, false);
 
             // the after submit delay has passed, and proposal can not be executed
             _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
-            _assertCanSchedule(_timelockedGovernance, anotherMaliciousProposalId, true);
+            _assertCanScheduleViaTimelockedGovernance(anotherMaliciousProposalId, true);
 
             _wait(_timelock.getAfterScheduleDelay().plusSeconds(1));
             _assertCanExecute(anotherMaliciousProposalId, false);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, true));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
             _executeProposal(anotherMaliciousProposalId);
         }
 
@@ -342,10 +356,10 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
             assertTrue(emergencyState.emergencyModeEndsAfter < Timestamps.now());
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, true));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
             _executeProposal(maliciousProposalId);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, true));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
             _executeProposal(anotherMaliciousProposalId);
         }
 
@@ -377,23 +391,25 @@ contract PlanBSetup is ScenarioTestBlueprint {
     function testFork_EmergencyResetGovernance() external {
         // deploy dual governance full setup
         {
-            _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+            _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
             assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyProtectionContext().emergencyGovernance);
         }
 
         // emergency committee activates emergency mode
-        EmergencyProtection.Context memory emergencyState;
         {
             vm.prank(address(_emergencyActivationCommittee));
             _timelock.activateEmergencyMode();
 
-            assertFalse(_timelock.isEmergencyModeActive());
+            assertTrue(_timelock.isEmergencyModeActive());
         }
 
         // before the end of the emergency mode emergency committee can reset the controller to
         // disable dual governance
         {
             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
+
+            EmergencyProtection.Context memory emergencyState = _timelock.getEmergencyProtectionContext();
+
             assertTrue(emergencyState.emergencyModeEndsAfter > Timestamps.now());
 
             _executeEmergencyReset();
@@ -412,7 +428,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
     function testFork_ExpiredEmergencyCommitteeHasNoPower() external {
         // deploy dual governance full setup
         {
-            _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+            _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
             assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyProtectionContext().emergencyGovernance);
         }
 
