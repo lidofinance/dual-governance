@@ -1324,6 +1324,42 @@ contract AssetsAccountingUnitTests is UnitTest {
         AssetsAccounting.accountUnstETHClaimed(_accountingState, unstETHIds, claimableAmountsPrepared);
     }
 
+    function testFuzz_accountUnstETHClaimed_When_UnstETHRecordIsFinalizedAndClaimableAmountIsCorrect(
+        uint64[] memory claimableAmounts
+    ) external {
+        vm.assume(claimableAmounts.length > 0);
+        vm.assume(claimableAmounts.length <= 500);
+
+        uint256 expectedTotalAmountClaimed = 0;
+
+        uint256[] memory unstETHIds = new uint256[](claimableAmounts.length);
+        uint256[] memory claimableAmountsPrepared = new uint256[](claimableAmounts.length);
+
+        for (uint256 i = 0; i < claimableAmounts.length; ++i) {
+            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Finalized;
+            _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(claimableAmounts[i]);
+            claimableAmountsPrepared[i] = claimableAmounts[i];
+            expectedTotalAmountClaimed += claimableAmounts[i];
+        }
+
+        vm.expectEmit();
+        emit AssetsAccounting.UnstETHClaimed(unstETHIds, ETHValues.from(expectedTotalAmountClaimed));
+
+        AssetsAccounting.accountUnstETHClaimed(_accountingState, unstETHIds, claimableAmountsPrepared);
+
+        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
+        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
+        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
+        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            assert(
+                _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.from(claimableAmounts[i])
+            );
+            assert(_accountingState.unstETHRecords[unstETHIds[i]].status == UnstETHRecordStatus.Claimed);
+        }
+    }
+
     function test_accountUnstETHClaimed_RevertWhen_ClaimableAmountsOverflow() external {
         uint256[] memory unstETHIds = new uint256[](1);
         uint256[] memory claimableAmountsPrepared = new uint256[](1);
@@ -1335,6 +1371,116 @@ contract AssetsAccountingUnitTests is UnitTest {
         vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHClaimed(_accountingState, unstETHIds, claimableAmountsPrepared);
+    }
+
+    // ---
+    // accountUnstETHWithdraw
+    // ---
+
+    // TODO: make a research on gas consumption when a lot of unstNFTs provided.
+    function testFuzz_accountUnstETHWithdraw_happyPath(address holder, uint64[] memory claimableAmounts) external {
+        vm.assume(claimableAmounts.length > 0);
+        vm.assume(claimableAmounts.length <= 500);
+
+        uint256 expectedAmountWithdrawn = 0;
+
+        uint256[] memory unstETHIds = new uint256[](claimableAmounts.length);
+
+        for (uint256 i = 0; i < claimableAmounts.length; ++i) {
+            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Claimed;
+            _accountingState.unstETHRecords[unstETHIds[i]].lockedBy = holder;
+            _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(claimableAmounts[i]);
+            expectedAmountWithdrawn += claimableAmounts[i];
+        }
+
+        vm.expectEmit();
+        emit AssetsAccounting.UnstETHWithdrawn(unstETHIds, ETHValues.from(expectedAmountWithdrawn));
+
+        ETHValue amountWithdrawn = AssetsAccounting.accountUnstETHWithdraw(_accountingState, holder, unstETHIds);
+
+        assert(amountWithdrawn == ETHValues.from(expectedAmountWithdrawn));
+
+        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
+        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
+        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
+        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            assert(
+                _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.from(claimableAmounts[i])
+            );
+            assert(_accountingState.unstETHRecords[unstETHIds[i]].status == UnstETHRecordStatus.Withdrawn);
+            assert(_accountingState.unstETHRecords[unstETHIds[i]].lockedBy == holder);
+        }
+    }
+
+    function testFuzz_accountUnstETHWithdraw_WhenNoUnstETHIdsProvided(address holder) external {
+        uint256[] memory unstETHIds = new uint256[](0);
+
+        vm.expectEmit();
+        emit AssetsAccounting.UnstETHWithdrawn(unstETHIds, ETHValues.ZERO);
+
+        ETHValue amountWithdrawn = AssetsAccounting.accountUnstETHWithdraw(_accountingState, holder, unstETHIds);
+
+        assert(amountWithdrawn == ETHValues.ZERO);
+    }
+
+    function testFuzz_accountUnstETHWithdraw_RevertWhen_UnstETHRecordNotFound(
+        address holder,
+        uint64[] memory claimableAmounts
+    ) external {
+        vm.assume(claimableAmounts.length > 0);
+        vm.assume(claimableAmounts.length <= 500);
+
+        uint256[] memory unstETHIds = new uint256[](claimableAmounts.length);
+
+        for (uint256 i = 0; i < claimableAmounts.length; ++i) {
+            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+        }
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetsAccounting.InvalidUnstETHStatus.selector, unstETHIds[0], UnstETHRecordStatus.NotLocked
+            )
+        );
+
+        AssetsAccounting.accountUnstETHWithdraw(_accountingState, holder, unstETHIds);
+    }
+
+    function testFuzz_accountUnstETHWithdraw_RevertWhen_UnstETHRecordDoesNotBelongToCurrent(
+        address holder,
+        address current
+    ) external {
+        vm.assume(holder != current);
+
+        uint256[] memory unstETHIds = new uint256[](1);
+
+        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint64(567)))); // random id
+        _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Claimed;
+        _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
+        _accountingState.unstETHRecords[unstETHIds[0]].claimableAmount = ETHValues.from(123);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current, holder)
+        );
+
+        AssetsAccounting.accountUnstETHWithdraw(_accountingState, current, unstETHIds);
+    }
+
+    function testFuzz_accountUnstETHWithdraw_RevertOn_WithdrawnAmountOverflow(address holder) external {
+        uint256[] memory unstETHIds = new uint256[](2);
+
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Claimed;
+            _accountingState.unstETHRecords[unstETHIds[i]].lockedBy = holder;
+            _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount =
+                ETHValues.from(uint256(type(uint128).max) / 2 + 1);
+        }
+
+        vm.expectRevert(stdError.arithmeticError);
+
+        AssetsAccounting.accountUnstETHWithdraw(_accountingState, holder, unstETHIds);
     }
 
     // ---

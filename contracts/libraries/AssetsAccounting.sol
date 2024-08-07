@@ -227,7 +227,7 @@ library AssetsAccounting {
     function accountUnstETHWithdraw(
         State storage self,
         address holder,
-        uint256[] calldata unstETHIds
+        uint256[] memory unstETHIds
     ) internal returns (ETHValue amountWithdrawn) {
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
