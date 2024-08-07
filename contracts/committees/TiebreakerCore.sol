@@ -42,7 +42,8 @@ contract TiebreakerCore is HashConsensus, ProposalsList {
     /// @notice Votes on a proposal to schedule
     /// @dev Allows committee members to vote on scheduling a proposal
     /// @param proposalId The ID of the proposal to schedule
-    function scheduleProposal(uint256 proposalId) public onlyMember {
+    function scheduleProposal(uint256 proposalId) public {
+        _checkSenderIsMember();
         (bytes memory proposalData, bytes32 key) = _encodeScheduleProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);
@@ -96,7 +97,8 @@ contract TiebreakerCore is HashConsensus, ProposalsList {
         return _sealableResumeNonces[sealable];
     }
 
-    function sealableResume(address sealable, uint256 nonce) public onlyMember {
+    function sealableResume(address sealable, uint256 nonce) public {
+        _checkSenderIsMember();
         if (nonce != _sealableResumeNonces[sealable]) {
             revert ResumeSealableNonceMismatch();
         }

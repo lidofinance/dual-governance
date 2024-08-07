@@ -26,7 +26,7 @@ contract TimelockedGovernance is IGovernance {
     /// @param calls An array of ExternalCall structs representing the calls to be executed in the proposal.
     /// @return proposalId The ID of the submitted proposal.
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
-        _checkGovernance(msg.sender);
+        _checkSenderIsGovernance();
         return TIMELOCK.submit(TIMELOCK.getAdminExecutor(), calls);
     }
 
@@ -51,15 +51,14 @@ contract TimelockedGovernance is IGovernance {
 
     /// @dev Cancels all pending proposals that have not been executed.
     function cancelAllPendingProposals() external {
-        _checkGovernance(msg.sender);
+        _checkSenderIsGovernance();
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
-    /// @dev Checks if the given account is the governance address.
-    /// @param account The address to check.
-    function _checkGovernance(address account) internal view {
-        if (account != GOVERNANCE) {
-            revert NotGovernance(account);
+    /// @dev Checks if the msg.sender is the governance address.
+    function _checkSenderIsGovernance() internal view {
+        if (msg.sender != GOVERNANCE) {
+            revert NotGovernance(msg.sender);
         }
     }
 }

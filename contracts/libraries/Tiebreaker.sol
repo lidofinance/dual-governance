@@ -102,9 +102,9 @@ library Tiebreaker {
     // Checks
     // ---
 
-    function checkTiebreakerCommittee(Context storage self, address account) internal view {
-        if (account != self.tiebreakerCommittee) {
-            revert InvalidTiebreakerCommittee(account);
+    function checkSenderIsTiebreakerCommittee(Context storage self) internal view {
+        if (msg.sender != self.tiebreakerCommittee) {
+            revert InvalidTiebreakerCommittee(msg.sender);
         }
     }
 

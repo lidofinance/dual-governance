@@ -73,7 +73,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
     /// @return newProposalId The ID of the newly created proposal.
     function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId) {
-        _timelockState.checkGovernance(msg.sender);
+        _timelockState.checkSenderIsGovernance();
         newProposalId = _proposals.submit(executor, calls);
     }
 
@@ -81,7 +81,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// Only the governance contract can call this function.
     /// @param proposalId The ID of the proposal to be scheduled.
     function schedule(uint256 proposalId) external {
-        _timelockState.checkGovernance(msg.sender);
+        _timelockState.checkSenderIsGovernance();
         _proposals.schedule(proposalId, _timelockState.getAfterSubmitDelay());
     }
 
@@ -96,7 +96,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @dev Cancels all non-executed proposals.
     /// Only the governance contract can call this function.
     function cancelAllNonExecutedProposals() external {
-        _timelockState.checkGovernance(msg.sender);
+        _timelockState.checkSenderIsGovernance();
         _proposals.cancelAll();
     }
 
@@ -105,12 +105,12 @@ contract EmergencyProtectedTimelock is ITimelock {
     // ---
 
     function setGovernance(address newGovernance) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _timelockState.setGovernance(newGovernance);
     }
 
     function setDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _timelockState.setAfterSubmitDelay(afterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
         _timelockState.setAfterScheduleDelay(afterScheduleDelay, MAX_AFTER_SCHEDULE_DELAY);
     }
@@ -120,7 +120,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @param executor The address of the executor contract.
     /// @param owner The address of the new owner.
     function transferExecutorOwnership(address executor, address owner) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         IOwnable(executor).transferOwnership(owner);
     }
 
@@ -135,7 +135,7 @@ contract EmergencyProtectedTimelock is ITimelock {
         Timestamp emergencyProtectionEndDate,
         Duration emergencyModeDuration
     ) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
 
         _emergencyProtection.setEmergencyGovernance(emergencyGovernance);
         _emergencyProtection.setEmergencyActivationCommittee(emergencyActivationCommittee);
@@ -149,7 +149,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @dev Activates the emergency mode.
     /// Only the activation committee can call this function.
     function activateEmergencyMode() external {
-        _emergencyProtection.checkEmergencyActivationCommittee(msg.sender);
+        _emergencyProtection.checkSenderIsEmergencyActivationCommittee();
         _emergencyProtection.checkEmergencyMode({isActive: false});
         _emergencyProtection.activateEmergencyMode();
     }
@@ -159,7 +159,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @param proposalId The ID of the proposal to be executed.
     function emergencyExecute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyMode({isActive: true});
-        _emergencyProtection.checkEmergencyExecutionCommittee(msg.sender);
+        _emergencyProtection.checkSenderIsEmergencyExecutionCommittee();
         _proposals.execute({proposalId: proposalId, afterScheduleDelay: Duration.wrap(0)});
     }
 
@@ -168,7 +168,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     function deactivateEmergencyMode() external {
         _emergencyProtection.checkEmergencyMode({isActive: true});
         if (!_emergencyProtection.isEmergencyModeDurationPassed()) {
-            _checkAdminExecutor(msg.sender);
+            _checkSenderIsAdminExecutor();
         }
         _emergencyProtection.deactivateEmergencyMode();
         _proposals.cancelAll();
@@ -177,7 +177,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// @dev Resets the system after entering the emergency mode.
     /// Only the execution committee can call this function.
     function emergencyReset() external {
-        _emergencyProtection.checkEmergencyExecutionCommittee(msg.sender);
+        _emergencyProtection.checkSenderIsEmergencyExecutionCommittee();
         _emergencyProtection.checkEmergencyMode({isActive: true});
         _emergencyProtection.deactivateEmergencyMode();
 
@@ -278,9 +278,9 @@ contract EmergencyProtectedTimelock is ITimelock {
         return _proposals.canSchedule(proposalId, _timelockState.getAfterSubmitDelay());
     }
 
-    function _checkAdminExecutor(address account) internal view {
-        if (account != _ADMIN_EXECUTOR) {
-            revert InvalidAdminExecutor(account);
+    function _checkSenderIsAdminExecutor() internal view {
+        if (msg.sender != _ADMIN_EXECUTOR) {
+            revert InvalidAdminExecutor(msg.sender);
         }
     }
 }

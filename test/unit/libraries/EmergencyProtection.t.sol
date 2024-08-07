@@ -321,52 +321,6 @@ contract EmergencyProtectionUnitTests is UnitTest {
         assertEq(_emergencyProtection.isEmergencyProtectionEnabled(), false);
     }
 
-    function testFuzz_check_activation_committee(address committee, address stranger) external {
-        vm.assume(committee != address(0));
-        vm.assume(stranger != address(0) && stranger != committee);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyActivationCommittee.selector, [stranger])
-        );
-        _emergencyProtection.checkEmergencyActivationCommittee(stranger);
-        _emergencyProtection.checkEmergencyActivationCommittee(address(0));
-
-        Duration protectionDuration = Durations.from(100 seconds);
-        Duration emergencyModeDuration = Durations.from(100 seconds);
-
-        _setup(_emergencyGovernance, committee, address(0x2), protectionDuration, emergencyModeDuration);
-
-        _emergencyProtection.checkEmergencyActivationCommittee(committee);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyActivationCommittee.selector, [stranger])
-        );
-        _emergencyProtection.checkEmergencyActivationCommittee(stranger);
-    }
-
-    function testFuzz_check_execution_committee(address committee, address stranger) external {
-        vm.assume(committee != address(0));
-        vm.assume(stranger != address(0) && stranger != committee);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyExecutionCommittee.selector, [stranger])
-        );
-        _emergencyProtection.checkEmergencyExecutionCommittee(stranger);
-        _emergencyProtection.checkEmergencyExecutionCommittee(address(0));
-
-        Duration protectionDuration = Durations.from(100 seconds);
-        Duration emergencyModeDuration = Durations.from(100 seconds);
-
-        _setup(_emergencyGovernance, address(0x1), committee, protectionDuration, emergencyModeDuration);
-
-        _emergencyProtection.checkEmergencyExecutionCommittee(committee);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyExecutionCommittee.selector, [stranger])
-        );
-        _emergencyProtection.checkEmergencyExecutionCommittee(stranger);
-    }
-
     function test_check_emergency_mode_active() external {
         vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [true]));
         _emergencyProtection.checkEmergencyMode(true);

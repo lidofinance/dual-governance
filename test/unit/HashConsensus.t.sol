@@ -206,7 +206,8 @@ contract HashConsensusWrapper is HashConsensus {
         return _getSupport(hash);
     }
 
-    function onlyMemberProtected() public onlyMember {
+    function onlyMemberProtected() public {
+        _checkSenderIsMember();
         emit OnlyMemberModifierPassed();
     }
 }

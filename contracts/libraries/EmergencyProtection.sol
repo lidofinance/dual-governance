@@ -133,19 +133,17 @@ library EmergencyProtection {
 
     /// @dev Checks if the caller is the emergency activator and reverts if not.
     /// @param self The storage reference to the Context struct.
-    /// @param account The account to check.
-    function checkEmergencyActivationCommittee(Context storage self, address account) internal view {
-        if (self.emergencyActivationCommittee != account) {
-            revert InvalidEmergencyActivationCommittee(account);
+    function checkSenderIsEmergencyActivationCommittee(Context storage self) internal view {
+        if (self.emergencyActivationCommittee != msg.sender) {
+            revert InvalidEmergencyActivationCommittee(msg.sender);
         }
     }
 
     /// @dev Checks if the caller is the emergency enactor and reverts if not.
     /// @param self The storage reference to the Context struct.
-    /// @param account The account to check.
-    function checkEmergencyExecutionCommittee(Context storage self, address account) internal view {
-        if (self.emergencyExecutionCommittee != account) {
-            revert InvalidEmergencyExecutionCommittee(account);
+    function checkSenderIsEmergencyExecutionCommittee(Context storage self) internal view {
+        if (self.emergencyExecutionCommittee != msg.sender) {
+            revert InvalidEmergencyExecutionCommittee(msg.sender);
         }
     }
 

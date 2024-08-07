@@ -131,35 +131,21 @@ library Proposers {
         return self.executorRefsCounts[account] > 0;
     }
 
-    /// @dev Checks if an account is a registered proposer and reverts if not.
+    /// @dev Checks if msg.sender is a registered proposer and reverts if not.
     /// @param self The storage state of the Proposers library.
-    /// @param account The address to check.
-    function checkProposer(State storage self, address account) internal view {
-        if (!isProposer(self, account)) {
-            revert NotProposer(account);
+    function checkSenderIsProposer(State storage self) internal view {
+        if (!isProposer(self, msg.sender)) {
+            revert NotProposer(msg.sender);
         }
     }
 
-    /// @dev Checks if an account is a registered proposer assigned to the expected executor and reverts if not.
-    /// @param self The storage state of the Proposers library.
-    /// @param account The address of the proposer.
-    /// @param executor The address of the expected executor.
-    function checkExecutor(State storage self, address account, address executor) internal view {
-        checkProposer(self, account);
-        ExecutorData memory executorData = self.executors[account];
-        if (executor != executorData.executor) {
-            revert NotAssignedExecutor(account, executor, executorData.executor);
-        }
-    }
-
-    /// @dev Checks if an account is an admin proposer and reverts if not.
+    /// @dev Checks if msg.sender is an admin proposer and reverts if not.
     /// @param self The storage state of the Proposers library.
     /// @param adminExecutor The address of the admin executor.
-    /// @param account The address to check.
-    function checkAdminProposer(State storage self, address adminExecutor, address account) internal view {
-        checkProposer(self, account);
-        if (!isAdminProposer(self, adminExecutor, account)) {
-            revert NotAdminProposer(account);
+    function checkSenderIsAdminProposer(State storage self, address adminExecutor) internal view {
+        checkSenderIsProposer(self);
+        if (!isAdminProposer(self, adminExecutor, msg.sender)) {
+            revert NotAdminProposer(msg.sender);
         }
     }
 }

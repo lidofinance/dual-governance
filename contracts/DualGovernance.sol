@@ -104,7 +104,7 @@ contract DualGovernance is IDualGovernance {
 
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
-        _proposers.checkProposer(msg.sender);
+        _proposers.checkSenderIsProposer();
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
         }
@@ -123,7 +123,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     function cancelAllPendingProposals() external {
-        _proposers.checkAdminProposer(TIMELOCK.getAdminExecutor(), msg.sender);
+        _proposers.checkSenderIsAdminProposer(TIMELOCK.getAdminExecutor());
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
@@ -146,7 +146,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _setConfigProvider(newConfigProvider);
 
         /// @dev the minAssetsLockDuration is kept as a storage variable in the signalling Escrow instance
@@ -185,12 +185,12 @@ contract DualGovernance is IDualGovernance {
     // ---
 
     function registerProposer(address proposer, address executor) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _proposers.register(proposer, executor);
     }
 
     function unregisterProposer(address proposer) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _proposers.unregister(TIMELOCK.getAdminExecutor(), proposer);
     }
 
@@ -215,35 +215,35 @@ contract DualGovernance is IDualGovernance {
     // ---
 
     function addTiebreakerSealableWithdrawalBlocker(address sealableWithdrawalBlocker) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _tiebreaker.addSealableWithdrawalBlocker(sealableWithdrawalBlocker, MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT);
     }
 
     function removeTiebreakerSealableWithdrawalBlocker(address sealableWithdrawalBlocker) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _tiebreaker.removeSealableWithdrawalBlocker(sealableWithdrawalBlocker);
     }
 
     function setTiebreakerCommittee(address tiebreakerCommittee) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _tiebreaker.setTiebreakerCommittee(tiebreakerCommittee);
     }
 
     function setTiebreakerActivationTimeout(Duration tiebreakerActivationTimeout) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _tiebreaker.setTiebreakerActivationTimeout(
             MIN_TIEBREAKER_ACTIVATION_TIMEOUT, tiebreakerActivationTimeout, MAX_TIEBREAKER_ACTIVATION_TIMEOUT
         );
     }
 
     function tiebreakerResumeSealable(address sealable) external {
-        _tiebreaker.checkTiebreakerCommittee(msg.sender);
+        _tiebreaker.checkSenderIsTiebreakerCommittee();
         _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
         RESEAL_MANAGER.resume(sealable);
     }
 
     function tiebreakerScheduleProposal(uint256 proposalId) external {
-        _tiebreaker.checkTiebreakerCommittee(msg.sender);
+        _tiebreaker.checkSenderIsTiebreakerCommittee();
         _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
         TIMELOCK.schedule(proposalId);
     }
@@ -277,7 +277,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     function setResealCommittee(address resealCommittee) external {
-        _checkAdminExecutor(msg.sender);
+        _checkSenderIsAdminExecutor();
         _resealCommittee = resealCommittee;
     }
 
@@ -298,9 +298,9 @@ contract DualGovernance is IDualGovernance {
         emit ConfigProviderSet(newConfigProvider);
     }
 
-    function _checkAdminExecutor(address account) internal view {
-        if (TIMELOCK.getAdminExecutor() != account) {
-            revert InvalidAdminExecutor(account);
+    function _checkSenderIsAdminExecutor() internal view {
+        if (TIMELOCK.getAdminExecutor() != msg.sender) {
+            revert InvalidAdminExecutor(msg.sender);
         }
     }
 }

@@ -379,7 +379,7 @@ Initializes the contract with an owner, committee members, a quorum, and the add
 
 ### Function: `EmergencyExecutionCommittee.voteEmergencyExecute`
 ```solidity
-function voteEmergencyExecute(uint256 proposalId, bool _supports) public onlyMember
+function voteEmergencyExecute(uint256 proposalId, bool _supports) public
 ```
 Allows committee members to vote on an emergency execution proposal.
 
@@ -406,7 +406,7 @@ Executes an emergency execution proposal by calling the `emergencyExecute` funct
 
 ### Function: `EmergencyExecutionCommittee.approveEmergencyReset`
 ```solidity
-function approveEmergencyReset() public onlyMember
+function approveEmergencyReset() public
 ```
 Approves the governance reset by voting on the reset proposal.
 

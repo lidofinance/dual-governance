@@ -31,7 +31,8 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @dev Allows committee members to vote on resealing a sealed address
     /// @param sealable The address to reseal
     /// @param support Indicates whether the member supports the proposal
-    function voteReseal(address sealable, bool support) public onlyMember {
+    function voteReseal(address sealable, bool support) public {
+        _checkSenderIsMember();
         (bytes memory proposalData, bytes32 key) = _encodeResealProposal(sealable);
         _vote(key, support);
         _pushProposal(key, 0, proposalData);
@@ -59,9 +60,7 @@ contract ResealCommittee is HashConsensus, ProposalsList {
         (, bytes32 key) = _encodeResealProposal(sealable);
         _markUsed(key);
 
-        Address.functionCall(
-            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.resealSealable.selector, sealable)
-        );
+        Address.functionCall(DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.resealSealable.selector, sealable));
 
         bytes32 resealNonceHash = keccak256(abi.encode(sealable));
         _resealNonces[resealNonceHash]++;

@@ -113,7 +113,8 @@ abstract contract HashConsensus is Ownable {
     /// @dev Only callable by the owner
     /// @param newMember The address of the new member
     /// @param newQuorum The new quorum value
-    function addMember(address newMember, uint256 newQuorum) public onlyOwner {
+    function addMember(address newMember, uint256 newQuorum) public {
+        _checkOwner();
         _addMember(newMember);
 
         if (newQuorum == 0 || newQuorum > _members.length()) {
@@ -127,7 +128,9 @@ abstract contract HashConsensus is Ownable {
     /// @dev Only callable by the owner
     /// @param memberToRemove The address of the member to remove
     /// @param newQuorum The new quorum value
-    function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner {
+    function removeMember(address memberToRemove, uint256 newQuorum) public {
+        _checkOwner();
+
         if (!_members.contains(memberToRemove)) {
             revert IsNotMember();
         }
@@ -159,7 +162,8 @@ abstract contract HashConsensus is Ownable {
     /// @notice Sets the timelock duration
     /// @dev Only callable by the owner
     /// @param timelock The new timelock duration in seconds
-    function setTimelockDuration(uint256 timelock) public onlyOwner {
+    function setTimelockDuration(uint256 timelock) public {
+        _checkOwner();
         timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
     }
@@ -167,7 +171,8 @@ abstract contract HashConsensus is Ownable {
     /// @notice Sets the quorum value
     /// @dev Only callable by the owner
     /// @param newQuorum The new quorum value
-    function setQuorum(uint256 newQuorum) public onlyOwner {
+    function setQuorum(uint256 newQuorum) public {
+        _checkOwner();
         if (newQuorum == 0 || newQuorum > _members.length()) {
             revert InvalidQuorum();
         }
@@ -200,11 +205,10 @@ abstract contract HashConsensus is Ownable {
     }
 
     /// @notice Restricts access to only committee members
-    /// @dev Modifier to ensure that only members can call a function
-    modifier onlyMember() {
+    /// @dev Reverts if the sender is not a member
+    function _checkSenderIsMember() internal view {
         if (!_members.contains(msg.sender)) {
             revert SenderIsNotMember();
         }
-        _;
     }
 }
