@@ -151,7 +151,7 @@ contract DualGovernance is IDualGovernance {
 
         /// @dev the minAssetsLockDuration is kept as a storage variable in the signalling Escrow instance
         /// to sync the new value with current signalling escrow, it's value must be manually updated
-        _stateMachine.signallingEscrow.setMinAssetsLockDuration(
+        _stateMachine.getSignallingEscrow(ESCROW_MASTER_COPY).setMinAssetsLockDuration(
             newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
         );
     }
@@ -161,11 +161,11 @@ contract DualGovernance is IDualGovernance {
     }
 
     function getVetoSignallingEscrow() external view returns (address) {
-        return address(_stateMachine.signallingEscrow);
+        return address(_stateMachine.getSignallingEscrow(ESCROW_MASTER_COPY));
     }
 
     function getRageQuitEscrow() external view returns (address) {
-        return address(_stateMachine.rageQuitEscrow);
+        return address(_stateMachine.getLastRageQuitEscrow(ESCROW_MASTER_COPY));
     }
 
     function getCurrentState() external view returns (State currentState) {
@@ -177,7 +177,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     function getDynamicDelayDuration() external view returns (Duration) {
-        return _stateMachine.getDynamicDelayDuration(_configProvider.getDualGovernanceConfig());
+        return _stateMachine.getDynamicDelayDuration(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
     }
 
     // ---
