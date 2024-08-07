@@ -1500,10 +1500,10 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingState.unstETHTotals.unfinalizedShares = totalUnfinalizedShares;
         _accountingState.stETHTotals.lockedShares = totalLockedShares;
 
-        // TODO: typo - ufinalizedShares
-        (SharesValue ufinalizedShares, ETHValue finalizedETH) = AssetsAccounting.getLockedAssetsTotals(_accountingState);
+        (SharesValue unfinalizedShares, ETHValue finalizedETH) =
+            AssetsAccounting.getLockedAssetsTotals(_accountingState);
 
-        assert(ufinalizedShares == totalLockedShares + totalUnfinalizedShares);
+        assert(unfinalizedShares == totalLockedShares + totalUnfinalizedShares);
         assert(finalizedETH == totalFinalizedETH);
     }
 

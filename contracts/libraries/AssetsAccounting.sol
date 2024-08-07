@@ -243,10 +243,10 @@ library AssetsAccounting {
     function getLockedAssetsTotals(State storage self)
         internal
         view
-        returns (SharesValue ufinalizedShares, ETHValue finalizedETH)
+        returns (SharesValue unfinalizedShares, ETHValue finalizedETH)
     {
         finalizedETH = self.unstETHTotals.finalizedETH;
-        ufinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
+        unfinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
     }
 
     function checkMinAssetsLockDurationPassed(
