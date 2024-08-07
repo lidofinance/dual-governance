@@ -7,6 +7,7 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IEscrow} from "../interfaces/IEscrow.sol";
 
 import {Duration} from "../types/Duration.sol";
+import {PercentD16} from "../types/PercentD16.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
@@ -200,7 +201,7 @@ library DualGovernanceStateTransitions {
         DualGovernanceStateMachine.Context storage self,
         DualGovernanceConfig.Context memory config
     ) private view returns (State) {
-        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
+        PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
         if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
@@ -219,7 +220,7 @@ library DualGovernanceStateTransitions {
         DualGovernanceStateMachine.Context storage self,
         DualGovernanceConfig.Context memory config
     ) private view returns (State) {
-        uint256 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
+        PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
         if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;

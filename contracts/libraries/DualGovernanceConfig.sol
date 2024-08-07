@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {PercentD16} from "../types/PercentD16.sol";
 import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 library DualGovernanceConfig {
     struct Context {
-        uint256 firstSealRageQuitSupport;
-        uint256 secondSealRageQuitSupport;
+        PercentD16 firstSealRageQuitSupport;
+        PercentD16 secondSealRageQuitSupport;
         Duration minAssetsLockDuration;
         Duration dynamicTimelockMaxDuration;
         Duration dynamicTimelockMinDuration;
@@ -22,14 +23,14 @@ library DualGovernanceConfig {
 
     function isFirstSealRageQuitSupportCrossed(
         Context memory self,
-        uint256 rageQuitSupport
+        PercentD16 rageQuitSupport
     ) internal pure returns (bool) {
         return rageQuitSupport > self.firstSealRageQuitSupport;
     }
 
     function isSecondSealRageQuitSupportCrossed(
         Context memory self,
-        uint256 rageQuitSupport
+        PercentD16 rageQuitSupport
     ) internal pure returns (bool) {
         return rageQuitSupport > self.secondSealRageQuitSupport;
     }
@@ -44,7 +45,7 @@ library DualGovernanceConfig {
     function isDynamicTimelockDurationPassed(
         Context memory self,
         Timestamp vetoSignallingActivatedAt,
-        uint256 rageQuitSupport
+        PercentD16 rageQuitSupport
     ) internal view returns (bool) {
         Duration dynamicTimelock = calcDynamicDelayDuration(self, rageQuitSupport);
         return Timestamps.now() > dynamicTimelock.addTo(vetoSignallingActivatedAt);
@@ -73,10 +74,11 @@ library DualGovernanceConfig {
 
     function calcDynamicDelayDuration(
         Context memory self,
-        uint256 rageQuitSupport
+        PercentD16 rageQuitSupport
     ) internal pure returns (Duration duration_) {
-        uint256 firstSealRageQuitSupport = self.firstSealRageQuitSupport;
-        uint256 secondSealRageQuitSupport = self.secondSealRageQuitSupport;
+        PercentD16 firstSealRageQuitSupport = self.firstSealRageQuitSupport;
+        PercentD16 secondSealRageQuitSupport = self.secondSealRageQuitSupport;
+
         Duration dynamicTimelockMinDuration = self.dynamicTimelockMinDuration;
         Duration dynamicTimelockMaxDuration = self.dynamicTimelockMaxDuration;
 
@@ -90,9 +92,9 @@ library DualGovernanceConfig {
 
         duration_ = dynamicTimelockMinDuration
             + Durations.from(
-                (rageQuitSupport - firstSealRageQuitSupport)
+                PercentD16.unwrap(rageQuitSupport - firstSealRageQuitSupport)
                     * (dynamicTimelockMaxDuration - dynamicTimelockMinDuration).toSeconds()
-                    / (secondSealRageQuitSupport - firstSealRageQuitSupport)
+                    / PercentD16.unwrap(secondSealRageQuitSupport - firstSealRageQuitSupport)
             );
     }
 

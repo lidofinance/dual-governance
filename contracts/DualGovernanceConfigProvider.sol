@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "./types/Duration.sol";
+import {PercentD16} from "./types/PercentD16.sol";
 import {DualGovernanceConfig} from "./libraries/DualGovernanceConfig.sol";
 
 interface IDualGovernanceConfigProvider {
@@ -9,8 +10,8 @@ interface IDualGovernanceConfigProvider {
 }
 
 contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider {
-    uint256 public immutable FIRST_SEAL_RAGE_QUIT_SUPPORT;
-    uint256 public immutable SECOND_SEAL_RAGE_QUIT_SUPPORT;
+    PercentD16 public immutable FIRST_SEAL_RAGE_QUIT_SUPPORT;
+    PercentD16 public immutable SECOND_SEAL_RAGE_QUIT_SUPPORT;
 
     Duration public immutable MIN_ASSETS_LOCK_DURATION;
     Duration public immutable DYNAMIC_TIMELOCK_MIN_DURATION;

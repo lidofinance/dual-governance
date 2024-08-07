@@ -18,16 +18,12 @@ interface IWithdrawalQueue is IERC721 {
 
     function claimWithdrawals(uint256[] calldata requestIds, uint256[] calldata hints) external;
 
-    function getLastFinalizedRequestId() external view returns (uint256);
-
     function transferFrom(address from, address to, uint256 requestId) external;
 
     function getWithdrawalStatus(uint256[] calldata _requestIds)
         external
         view
         returns (WithdrawalRequestStatus[] memory statuses);
-
-    function getLastRequestId() external view returns (uint256);
 
     /// @notice Returns amount of ether available for claim for each provided request id
     /// @param _requestIds array of request ids
@@ -46,22 +42,8 @@ interface IWithdrawalQueue is IERC721 {
     ) external view returns (uint256[] memory hintIds);
     function getLastCheckpointIndex() external view returns (uint256);
 
-    function balanceOf(address owner) external view returns (uint256);
-
     function requestWithdrawals(
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds);
-
-    function setApprovalForAll(address _operator, bool _approved) external;
-
-    function requestWithdrawalsWstETH(
-        uint256[] calldata _amounts,
-        address _owner
-    ) external returns (uint256[] memory requestIds);
-
-    function grantRole(bytes32 role, address account) external;
-    function pauseFor(uint256 duration) external;
-    function isPaused() external returns (bool);
-    function finalize(uint256 _lastRequestIdToBeFinalized, uint256 _maxShareRate) external payable;
 }
