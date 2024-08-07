@@ -78,9 +78,9 @@ library TimelockState {
         emit AfterScheduleDelaySet(newAfterScheduleDelay);
     }
 
-    function checkGovernance(Context storage self, address account) internal view {
-        if (self.governance != account) {
-            revert InvalidGovernance(account);
+    function checkSenderIsGovernance(Context storage self) internal view {
+        if (self.governance != msg.sender) {
+            revert InvalidGovernance(msg.sender);
         }
     }
 }

@@ -140,18 +140,6 @@ library Proposers {
         }
     }
 
-    /// @dev Checks if an account is a registered proposer assigned to the expected executor and reverts if not.
-    /// @param self The storage state of the Proposers library.
-    /// @param account The address of the proposer.
-    /// @param executor The address of the expected executor.
-    function checkExecutor(State storage self, address account, address executor) internal view {
-        checkProposer(self, account);
-        ExecutorData memory executorData = self.executors[account];
-        if (executor != executorData.executor) {
-            revert NotAssignedExecutor(account, executor, executorData.executor);
-        }
-    }
-
     /// @dev Checks if an account is an admin proposer and reverts if not.
     /// @param self The storage state of the Proposers library.
     /// @param adminExecutor The address of the admin executor.

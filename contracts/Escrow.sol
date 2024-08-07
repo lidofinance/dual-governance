@@ -124,7 +124,7 @@ contract Escrow is IEscrow {
         if (address(this) == _SELF) {
             revert NonProxyCallsForbidden();
         }
-        _checkDualGovernance(msg.sender);
+        _checkSenderIsDualGovernance();
 
         _escrowState.initialize(minAssetsLockDuration);
 
@@ -243,7 +243,7 @@ contract Escrow is IEscrow {
     // ---
 
     function startRageQuit(Duration rageQuitExtensionDelay, Duration rageQuitWithdrawalsTimelock) external {
-        _checkDualGovernance(msg.sender);
+        _checkSenderIsDualGovernance();
         _escrowState.startRageQuit(rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
         _batchesQueue.open();
     }
@@ -316,7 +316,7 @@ contract Escrow is IEscrow {
     // ---
 
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
-        _checkDualGovernance(msg.sender);
+        _checkSenderIsDualGovernance();
         _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration);
     }
 
@@ -422,9 +422,9 @@ contract Escrow is IEscrow {
         }
     }
 
-    function _checkDualGovernance(address account) internal view {
-        if (account != address(DUAL_GOVERNANCE)) {
-            revert InvalidDualGovernance(account);
+    function _checkSenderIsDualGovernance() internal view {
+        if (msg.sender != address(DUAL_GOVERNANCE)) {
+            revert InvalidDualGovernance(msg.sender);
         }
     }
 }
