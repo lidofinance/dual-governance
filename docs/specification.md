@@ -417,7 +417,7 @@ Initializes the contract with the address of the EmergencyProtectedTimelock cont
 ### Function ResealManager.reseal
 
 ```solidity
-function reseal(address[] memory sealables) public onlyGovernance
+function reseal(address[] memory sealables) public
 ```
 
 Extends the pause of the specified `sealables` contracts. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
@@ -435,7 +435,7 @@ Extends the pause of the specified `sealables` contracts. This function can be c
 ### Function: ResealManager.resume
 
 ```solidity
-function resume(address sealable) external onlyGovernance
+function resume(address sealable) external
 ```
 
 Resumes the specified `sealable` contract if it is scheduled to resume in the future.
@@ -449,14 +449,6 @@ Resumes the specified `sealable` contract if it is scheduled to resume in the fu
 #### Errors
 - `SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
 - `SenderIsNotGovernance`: Thrown if the sender is not the governance address.
-
-### Modifier: ResealManager.onlyGovernance
-
-```solidity
-modifier onlyGovernance()
-```
-
-Ensures that the function can only be called by the governance address.
 
 #### Preconditions
 
@@ -1139,7 +1131,7 @@ Initializes the contract with an owner, committee members, a quorum, the address
 ### Function: TiebreakerCore.scheduleProposal
 
 ```solidity
-function scheduleProposal(uint256 proposalId) public onlyMember
+function scheduleProposal(uint256 proposalId) public
 ```
 
 Schedules a proposal for execution by voting on it and adding it to the proposal list.
@@ -1182,7 +1174,7 @@ Returns the current nonce for resuming operations of a sealable contract.
 ### Function: TiebreakerCore.sealableResume
 
 ```solidity
-function sealableResume(address sealable, uint256 nonce) public onlyMember
+function sealableResume(address sealable, uint256 nonce) public
 ```
 
 Submits a request to resume operations of a sealable contract by voting on it and adding it to the proposal list.
@@ -1239,7 +1231,7 @@ Initializes the contract with an owner, committee members, a quorum, and the add
 ### Function: TiebreakerSubCommittee.scheduleProposal
 
 ```solidity
-function scheduleProposal(uint256 proposalId) public onlyMember
+function scheduleProposal(uint256 proposalId) public
 ```
 
 Schedules a proposal for execution by voting on it and adding it to the proposal list.
@@ -1329,7 +1321,7 @@ emergencyProtectedTimelock MUST be a valid address.
 ### Function: EmergencyActivationCommittee.approveEmergencyActivate
 
 ```solidity
-function approveEmergencyActivate() public onlyMember
+function approveEmergencyActivate() public
 ```
 
 Approves the emergency activation by voting on the EMERGENCY_ACTIVATION_HASH.
@@ -1387,7 +1379,7 @@ Initializes the contract with an owner, committee members, a quorum, and the add
 ### Function: EmergencyExecutionCommittee.voteEmergencyExecute
 
 ```solidity
-function voteEmergencyExecute(uint256 proposalId, bool _supports) public onlyMember
+function voteEmergencyExecute(uint256 proposalId, bool _supports) public
 ```
 
 Allows committee members to vote on an emergency execution proposal.
@@ -1422,7 +1414,7 @@ Emergency execution proposal MUST have reached quorum and passed the timelock du
 ### Function: EmergencyExecutionCommittee.approveEmergencyReset
 
 ```solidity
-function approveEmergencyReset() public onlyMember
+function approveEmergencyReset() public
 ```
 
 Approves the governance reset by voting on the reset proposal.

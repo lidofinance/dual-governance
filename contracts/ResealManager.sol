@@ -19,7 +19,8 @@ contract ResealManager is IResealManager {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
-    function reseal(address[] memory sealables) public onlyGovernance {
+    function reseal(address[] memory sealables) public {
+        _checkSenderIsGovernance();
         for (uint256 i = 0; i < sealables.length; ++i) {
             uint256 sealableResumeSinceTimestamp = ISealable(sealables[i]).getResumeSinceTimestamp();
             if (sealableResumeSinceTimestamp < block.timestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {
@@ -30,7 +31,8 @@ contract ResealManager is IResealManager {
         }
     }
 
-    function resume(address sealable) public onlyGovernance {
+    function resume(address sealable) public {
+        _checkSenderIsGovernance();
         uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
         if (sealableResumeSinceTimestamp < block.timestamp) {
             revert SealableWrongPauseState();
@@ -38,11 +40,10 @@ contract ResealManager is IResealManager {
         Address.functionCall(sealable, abi.encodeWithSelector(ISealable.resume.selector));
     }
 
-    modifier onlyGovernance() {
+    function _checkSenderIsGovernance() internal view {
         address governance = EMERGENCY_PROTECTED_TIMELOCK.getGovernance();
         if (msg.sender != governance) {
             revert SenderIsNotGovernance();
         }
-        _;
     }
 }
