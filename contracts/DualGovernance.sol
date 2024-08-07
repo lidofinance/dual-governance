@@ -104,7 +104,7 @@ contract DualGovernance is IDualGovernance {
 
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
-        _proposers.checkProposer(msg.sender);
+        _proposers.checkSenderIsProposer();
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
         }
@@ -123,7 +123,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     function cancelAllPendingProposals() external {
-        _proposers.checkAdminProposer(TIMELOCK.getAdminExecutor(), msg.sender);
+        _proposers.checkSenderIsAdminProposer(TIMELOCK.getAdminExecutor());
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
