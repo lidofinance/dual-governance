@@ -53,7 +53,7 @@ contract Escrow is IEscrow {
     error UnexpectedUnstETHId();
     error NonProxyCallsForbidden();
     error InvalidBatchSize(uint256 size);
-    error InvalidDualGovernance(address value);
+    error CallerIsNotGovernance(address caller);
     error InvalidHintsLength(uint256 actual, uint256 expected);
     error InvalidETHSender(address actual, address expected);
 
@@ -124,7 +124,7 @@ contract Escrow is IEscrow {
         if (address(this) == _SELF) {
             revert NonProxyCallsForbidden();
         }
-        _checkSenderIsDualGovernance();
+        _checkCallerIsGovernance();
 
         _escrowState.initialize(minAssetsLockDuration);
 
@@ -243,7 +243,7 @@ contract Escrow is IEscrow {
     // ---
 
     function startRageQuit(Duration rageQuitExtensionDelay, Duration rageQuitWithdrawalsTimelock) external {
-        _checkSenderIsDualGovernance();
+        _checkCallerIsGovernance();
         _escrowState.startRageQuit(rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
         _batchesQueue.open();
     }
@@ -316,7 +316,7 @@ contract Escrow is IEscrow {
     // ---
 
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
-        _checkSenderIsDualGovernance();
+        _checkCallerIsGovernance();
         _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration);
     }
 
@@ -422,9 +422,9 @@ contract Escrow is IEscrow {
         }
     }
 
-    function _checkSenderIsDualGovernance() internal view {
+    function _checkCallerIsGovernance() internal view {
         if (msg.sender != address(DUAL_GOVERNANCE)) {
-            revert InvalidDualGovernance(msg.sender);
+            revert CallerIsNotGovernance(msg.sender);
         }
     }
 }

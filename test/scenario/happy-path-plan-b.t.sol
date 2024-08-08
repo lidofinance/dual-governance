@@ -96,7 +96,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             // but the call still not executable
             _assertCanExecute(maliciousProposalId, false);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
             _executeProposal(maliciousProposalId);
         }
 
@@ -322,7 +322,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _wait(_timelock.getAfterScheduleDelay().plusSeconds(1));
             _assertCanExecute(maliciousProposalId, false);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
             _executeProposal(maliciousProposalId);
         }
 
@@ -347,7 +347,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _wait(_timelock.getAfterScheduleDelay().plusSeconds(1));
             _assertCanExecute(anotherMaliciousProposalId, false);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
             _executeProposal(anotherMaliciousProposalId);
         }
 
@@ -356,10 +356,10 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
             assertTrue(emergencyState.emergencyModeEndsAfter < Timestamps.now());
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
             _executeProposal(maliciousProposalId);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
             _executeProposal(anotherMaliciousProposalId);
         }
 

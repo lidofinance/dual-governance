@@ -16,9 +16,8 @@ struct Proposer {
 library Proposers {
     using SafeCast for uint256;
 
-    error NotProposer(address account);
-    error NotAdminProposer(address account);
-    error NotAssignedExecutor(address account, address actualExecutor, address expectedExecutor);
+    error CallerIsNotProposer(address caller);
+    error CallerIsNotAdminProposer(address caller);
     error ProposerNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
     error LastAdminProposerRemoval();
@@ -133,19 +132,19 @@ library Proposers {
 
     /// @dev Checks if msg.sender is a registered proposer and reverts if not.
     /// @param self The storage state of the Proposers library.
-    function checkSenderIsProposer(State storage self) internal view {
+    function checkCallerIsProposer(State storage self) internal view {
         if (!isProposer(self, msg.sender)) {
-            revert NotProposer(msg.sender);
+            revert CallerIsNotProposer(msg.sender);
         }
     }
 
     /// @dev Checks if msg.sender is an admin proposer and reverts if not.
     /// @param self The storage state of the Proposers library.
     /// @param adminExecutor The address of the admin executor.
-    function checkSenderIsAdminProposer(State storage self, address adminExecutor) internal view {
-        checkSenderIsProposer(self);
+    function checkCallerIsAdminProposer(State storage self, address adminExecutor) internal view {
+        checkCallerIsProposer(self);
         if (!isAdminProposer(self, adminExecutor, msg.sender)) {
-            revert NotAdminProposer(msg.sender);
+            revert CallerIsNotAdminProposer(msg.sender);
         }
     }
 }

@@ -43,7 +43,7 @@ contract TimelockedGovernanceUnitTests is UnitTest {
         assertEq(_timelock.getSubmittedProposals().length, 0);
 
         vm.startPrank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.NotGovernance.selector, [stranger]));
+        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.CallerIsNotGovernance.selector, [stranger]));
         _timelockedGovernance.submitProposal(_getMockTargetRegularStaffCalls(address(0x1)));
 
         assertEq(_timelock.getSubmittedProposals().length, 0);
@@ -96,7 +96,7 @@ contract TimelockedGovernanceUnitTests is UnitTest {
         assertEq(_timelock.getLastCancelledProposalId(), 0);
 
         vm.startPrank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.NotGovernance.selector, [stranger]));
+        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.CallerIsNotGovernance.selector, [stranger]));
         _timelockedGovernance.cancelAllPendingProposals();
 
         assertEq(_timelock.getLastCancelledProposalId(), 0);

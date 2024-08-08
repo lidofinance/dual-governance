@@ -121,7 +121,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         assertEq(_hashConsensus.isMember(_stranger), false);
 
         vm.prank(_owner);
-        vm.expectRevert(abi.encodeWithSignature("IsNotMember()"));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.AccountIsNotMember.selector, _stranger));
         _hashConsensus.removeMember(_stranger, _quorum);
     }
 
@@ -207,7 +207,7 @@ contract HashConsensusWrapper is HashConsensus {
     }
 
     function onlyMemberProtected() public {
-        _checkSenderIsMember();
+        _checkCallerIsMember();
         emit OnlyMemberModifierPassed();
     }
 }
@@ -332,7 +332,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.execute(dataHash);
 
         vm.prank(_committeeMembers[0]);
-        vm.expectRevert(abi.encodeWithSignature("HashAlreadyUsed()"));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, dataHash));
         _hashConsensusWrapper.vote(dataHash, true);
     }
 
@@ -359,13 +359,13 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.execute(dataHash);
 
         vm.prank(_stranger);
-        vm.expectRevert(abi.encodeWithSignature("HashAlreadyUsed()"));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, dataHash));
         _hashConsensusWrapper.execute(dataHash);
     }
 
     function test_onlyMemberModifier() public {
         vm.prank(_stranger);
-        vm.expectRevert(abi.encodeWithSignature("SenderIsNotMember()"));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.CallerIsNotMember.selector, _stranger));
         _hashConsensusWrapper.onlyMemberProtected();
 
         vm.prank(_committeeMembers[0]);

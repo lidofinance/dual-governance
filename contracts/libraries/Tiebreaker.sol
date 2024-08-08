@@ -102,7 +102,7 @@ library Tiebreaker {
     // Checks
     // ---
 
-    function checkSenderIsTiebreakerCommittee(Context storage self) internal view {
+    function checkCallerIsTiebreakerCommittee(Context storage self) internal view {
         if (msg.sender != self.tiebreakerCommittee) {
             revert InvalidTiebreakerCommittee(msg.sender);
         }

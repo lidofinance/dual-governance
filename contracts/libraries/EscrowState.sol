@@ -12,8 +12,7 @@ enum State {
 
 library EscrowState {
     error ClaimingIsFinished();
-    error InvalidState(State value);
-    error InvalidDualGovernance(address value);
+    error UnexpectedState(State value);
     error RageQuitExtraTimelockNotStarted();
     error WithdrawalsTimelockNotPassed();
 
@@ -116,7 +115,7 @@ library EscrowState {
 
     function _checkState(Context storage self, State state) private view {
         if (self.state != state) {
-            revert InvalidState(state);
+            revert UnexpectedState(state);
         }
     }
 
