@@ -2,14 +2,10 @@
 pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
+import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-
-interface ITiebreakerCore {
-    function getSealableResumeNonce(address sealable) external view returns (uint256 nonce);
-    function scheduleProposal(uint256 _proposalId) external;
-    function sealableResume(address sealable, uint256 nonce) external;
-}
 
 enum ProposalType {
     ScheduleProposal,

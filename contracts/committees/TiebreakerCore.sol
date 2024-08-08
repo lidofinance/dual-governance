@@ -2,13 +2,11 @@
 pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
+import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
+import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-
-interface IDualGovernance {
-    function tiebreakerScheduleProposal(uint256 proposalId) external;
-    function tiebreakerResumeSealable(address sealable) external;
-}
 
 enum ProposalType {
     ScheduleProposal,
@@ -18,7 +16,7 @@ enum ProposalType {
 /// @title Tiebreaker Core Contract
 /// @notice This contract allows a committee to vote on and execute proposals for scheduling and resuming sealable addresses
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
-contract TiebreakerCore is HashConsensus, ProposalsList {
+contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     error ResumeSealableNonceMismatch();
 
     address immutable DUAL_GOVERNANCE;

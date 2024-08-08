@@ -2,12 +2,10 @@
 pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
+import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-
-interface IDualGovernance {
-    function resealSealable(address sealables) external;
-}
 
 /// @title Reseal Committee Contract
 /// @notice This contract allows a committee to vote on and execute resealing proposals
