@@ -392,7 +392,7 @@ library DualGovernanceState {
             return Durations.ZERO;
         }
 
-        if (rageQuitSupport >= secondSealRageQuitSupport) {
+        if (rageQuitSupport > secondSealRageQuitSupport) {
             return dynamicTimelockMaxDuration;
         }
 
