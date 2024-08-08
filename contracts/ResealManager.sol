@@ -11,8 +11,7 @@ import {IResealManager} from "./interfaces/IResealManager.sol";
 /// @dev Allows to extend pause of temporarily paused contracts to permanent pause or resume it.
 contract ResealManager is IResealManager {
     error SealableWrongPauseState();
-    error SenderIsNotGovernance();
-    error NotAllowed();
+    error CallerIsNotGovernance(address caller);
 
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
     ITimelock public immutable EMERGENCY_PROTECTED_TIMELOCK;
@@ -31,7 +30,7 @@ contract ResealManager is IResealManager {
     /// - Function is called by the governance contract.
     /// @param sealable The address of the sealable contract.
     function reseal(address sealable) public {
-        _checkSenderIsGovernance();
+        _checkCallerIsGovernance();
 
         uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
         if (sealableResumeSinceTimestamp < block.timestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {
@@ -48,7 +47,7 @@ contract ResealManager is IResealManager {
     /// - Function is called by the governance contract.
     /// @param sealable The address of the sealable contract.
     function resume(address sealable) public {
-        _checkSenderIsGovernance();
+        _checkCallerIsGovernance();
 
         uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
         if (sealableResumeSinceTimestamp < block.timestamp) {
@@ -59,10 +58,10 @@ contract ResealManager is IResealManager {
 
     /// @notice Ensures that the function can only be called by the governance address.
     /// @dev Reverts if the sender is not the governance address.
-    function _checkSenderIsGovernance() internal view {
+    function _checkCallerIsGovernance() internal view {
         address governance = EMERGENCY_PROTECTED_TIMELOCK.getGovernance();
         if (msg.sender != governance) {
-            revert SenderIsNotGovernance();
+            revert CallerIsNotGovernance(msg.sender);
         }
     }
 }

@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Duration} from "../types/Duration.sol";
 
 library TimelockState {
+    error CallerIsNotGovernance(address caller);
     error InvalidGovernance(address value);
     error InvalidAfterSubmitDelay(Duration value);
     error InvalidAfterScheduleDelay(Duration value);
@@ -78,9 +79,9 @@ library TimelockState {
         emit AfterScheduleDelaySet(newAfterScheduleDelay);
     }
 
-    function checkSenderIsGovernance(Context storage self) internal view {
+    function checkCallerIsGovernance(Context storage self) internal view {
         if (self.governance != msg.sender) {
-            revert InvalidGovernance(msg.sender);
+            revert CallerIsNotGovernance(msg.sender);
         }
     }
 }

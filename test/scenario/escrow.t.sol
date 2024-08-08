@@ -498,22 +498,22 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         // After the Escrow enters RageQuitEscrow state, lock/unlock of tokens is forbidden
         // ---
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
         this.externalLockStETH(_VETOER_1, 1 ether);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
         this.externalLockWstETH(_VETOER_1, 1 ether);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
         this.externalLockUnstETH(_VETOER_1, notLockedWithdrawalNfts);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
         this.externalUnlockStETH(_VETOER_1);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
         this.externalUnlockWstETH(_VETOER_1);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
         this.externalUnlockUnstETH(_VETOER_1, lockedWithdrawalNfts);
     }
 

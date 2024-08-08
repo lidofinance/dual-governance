@@ -61,7 +61,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _dualGovernance);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidGovernance.selector, [stranger]));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotGovernance.selector, [stranger]));
         _timelock.submit(_adminExecutor, new ExternalCall[](0));
         assertEq(_timelock.getProposalsCount(), 0);
     }
@@ -98,7 +98,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _submitProposal();
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidGovernance.selector, [stranger]));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotGovernance.selector, [stranger]));
 
         _timelock.schedule(1);
 
@@ -140,7 +140,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         _activateEmergencyMode();
 
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [false]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [false]));
         _timelock.execute(1);
 
         ITimelock.Proposal memory proposal = _timelock.getProposal(1);
@@ -181,7 +181,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != address(0));
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidGovernance.selector, [stranger]));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotGovernance.selector, [stranger]));
 
         _timelock.cancelAllNonExecutedProposals();
     }
@@ -210,7 +210,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.InvalidAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
         _timelock.transferExecutorOwnership(_adminExecutor, makeAddr("newOwner"));
     }
 
@@ -254,7 +254,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.InvalidAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
         _timelock.setGovernance(makeAddr("newGovernance"));
     }
 
@@ -273,7 +273,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.prank(stranger);
         vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyActivationCommittee.selector, stranger)
+            abi.encodeWithSelector(EmergencyProtection.CallerIsNotEmergencyActivationCommittee.selector, stranger)
         );
         _timelock.activateEmergencyMode();
 
@@ -286,7 +286,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), true);
 
         vm.prank(_emergencyActivator);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [false]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [false]));
         _timelock.activateEmergencyMode();
 
         assertEq(_isEmergencyStateActivated(), true);
@@ -331,7 +331,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.isEmergencyModeActive(), false);
 
         vm.prank(_emergencyActivator);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
         _timelock.emergencyExecute(1);
     }
 
@@ -355,7 +355,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.prank(stranger);
         vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyExecutionCommittee.selector, stranger)
+            abi.encodeWithSelector(EmergencyProtection.CallerIsNotEmergencyExecutionCommittee.selector, stranger)
         );
         _timelock.emergencyExecute(1);
     }
@@ -408,11 +408,11 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
         _timelock.deactivateEmergencyMode();
 
         vm.prank(_adminExecutor);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
         _timelock.deactivateEmergencyMode();
     }
 
@@ -423,7 +423,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), true);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.InvalidAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
         _timelock.deactivateEmergencyMode();
     }
 
@@ -474,7 +474,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.prank(stranger);
         vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyExecutionCommittee.selector, stranger)
+            abi.encodeWithSelector(EmergencyProtection.CallerIsNotEmergencyExecutionCommittee.selector, stranger)
         );
         _timelock.emergencyReset();
 
@@ -486,7 +486,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         EmergencyProtection.Context memory state = _timelock.getEmergencyProtectionContext();
 
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
         vm.prank(_emergencyEnactor);
         _timelock.emergencyReset();
 
@@ -531,7 +531,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.InvalidAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
         _localTimelock.setupEmergencyProtection(
             _emergencyGovernance,
             _emergencyActivator,

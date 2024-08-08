@@ -89,7 +89,7 @@ contract ResealManagerUnitTests is UnitTest {
         );
 
         vm.prank(address(0x123));
-        vm.expectRevert(ResealManager.SenderIsNotGovernance.selector);
+        vm.expectRevert(abi.encodeWithSelector(ResealManager.CallerIsNotGovernance.selector, address(0x123)));
         resealManager.reseal(sealable);
     }
 
@@ -100,7 +100,7 @@ contract ResealManagerUnitTests is UnitTest {
         );
 
         vm.prank(address(0x123));
-        vm.expectRevert(ResealManager.SenderIsNotGovernance.selector);
+        vm.expectRevert(abi.encodeWithSelector(ResealManager.CallerIsNotGovernance.selector, address(0x123)));
         resealManager.resume(sealable);
     }
 }

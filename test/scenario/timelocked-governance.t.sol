@@ -97,7 +97,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
 
             _assertCanExecute(maliciousProposalId, false);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
             _executeProposal(maliciousProposalId);
         }
 
@@ -172,7 +172,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
 
             _assertCanExecute(maliciousProposalId, false);
 
-            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, false));
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
             _executeProposal(maliciousProposalId);
         }
 

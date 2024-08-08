@@ -17,12 +17,12 @@ abstract contract HashConsensus is Ownable {
     event Voted(address indexed signer, bytes32 hash, bool support);
     event TimelockDurationSet(uint256 timelockDuration);
 
-    error IsNotMember();
-    error SenderIsNotMember();
-    error HashAlreadyUsed();
+    error DuplicatedMember(address account);
+    error AccountIsNotMember(address account);
+    error CallerIsNotMember(address caller);
+    error HashAlreadyUsed(bytes32 hash);
     error QuorumIsNotReached();
     error InvalidQuorum();
-    error DuplicatedMember(address member);
     error TimelockNotPassed();
 
     struct HashState {
@@ -58,7 +58,7 @@ abstract contract HashConsensus is Ownable {
     /// @param support Indicates whether the member supports the hash
     function _vote(bytes32 hash, bool support) internal {
         if (_hashStates[hash].usedAt > 0) {
-            revert HashAlreadyUsed();
+            revert HashAlreadyUsed(hash);
         }
 
         if (approves[msg.sender][hash] == support) {
@@ -79,7 +79,7 @@ abstract contract HashConsensus is Ownable {
     /// @param hash The hash to mark as used
     function _markUsed(bytes32 hash) internal {
         if (_hashStates[hash].usedAt > 0) {
-            revert HashAlreadyUsed();
+            revert HashAlreadyUsed(hash);
         }
         if (_getSupport(hash) < quorum) {
             revert QuorumIsNotReached();
@@ -132,7 +132,7 @@ abstract contract HashConsensus is Ownable {
         _checkOwner();
 
         if (!_members.contains(memberToRemove)) {
-            revert IsNotMember();
+            revert AccountIsNotMember(memberToRemove);
         }
         _members.remove(memberToRemove);
         emit MemberRemoved(memberToRemove);
@@ -206,9 +206,9 @@ abstract contract HashConsensus is Ownable {
 
     /// @notice Restricts access to only committee members
     /// @dev Reverts if the sender is not a member
-    function _checkSenderIsMember() internal view {
+    function _checkCallerIsMember() internal view {
         if (!_members.contains(msg.sender)) {
-            revert SenderIsNotMember();
+            revert CallerIsNotMember(msg.sender);
         }
     }
 }

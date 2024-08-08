@@ -32,7 +32,7 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @param sealable The address to reseal
     /// @param support Indicates whether the member supports the proposal
     function voteReseal(address sealable, bool support) public {
-        _checkSenderIsMember();
+        _checkCallerIsMember();
         (bytes memory proposalData, bytes32 key) = _encodeResealProposal(sealable);
         _vote(key, support);
         _pushProposal(key, 0, proposalData);

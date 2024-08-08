@@ -322,7 +322,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
     }
 
     function test_check_emergency_mode_active() external {
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
         _emergencyProtection.checkEmergencyMode(true);
         _emergencyProtection.checkEmergencyMode(false);
 
@@ -333,7 +333,7 @@ contract EmergencyProtectionUnitTests is UnitTest {
         _emergencyProtection.activateEmergencyMode();
 
         _emergencyProtection.checkEmergencyMode(true);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
     }
 
     function _setup(

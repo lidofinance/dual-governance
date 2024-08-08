@@ -9,7 +9,7 @@ import {ExternalCall} from "./libraries/ExternalCalls.sol";
 /// @title TimelockedGovernance
 /// @dev A contract that serves as the interface for submitting and scheduling the execution of governance proposals.
 contract TimelockedGovernance is IGovernance {
-    error NotGovernance(address account);
+    error CallerIsNotGovernance(address caller);
 
     address public immutable GOVERNANCE;
     ITimelock public immutable TIMELOCK;
@@ -26,7 +26,7 @@ contract TimelockedGovernance is IGovernance {
     /// @param calls An array of ExternalCall structs representing the calls to be executed in the proposal.
     /// @return proposalId The ID of the submitted proposal.
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
-        _checkSenderIsGovernance();
+        _checkCallerIsGovernance();
         return TIMELOCK.submit(TIMELOCK.getAdminExecutor(), calls);
     }
 
@@ -51,14 +51,14 @@ contract TimelockedGovernance is IGovernance {
 
     /// @dev Cancels all pending proposals that have not been executed.
     function cancelAllPendingProposals() external {
-        _checkSenderIsGovernance();
+        _checkCallerIsGovernance();
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
     /// @dev Checks if the msg.sender is the governance address.
-    function _checkSenderIsGovernance() internal view {
+    function _checkCallerIsGovernance() internal view {
         if (msg.sender != GOVERNANCE) {
-            revert NotGovernance(msg.sender);
+            revert CallerIsNotGovernance(msg.sender);
         }
     }
 }

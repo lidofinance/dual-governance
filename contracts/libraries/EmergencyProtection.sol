@@ -8,12 +8,12 @@ import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 /// @dev This library manages emergency protection functionality, allowing for
 /// the activation and deactivation of emergency mode by designated committees.
 library EmergencyProtection {
-    error InvalidEmergencyActivationCommittee(address account);
-    error InvalidEmergencyExecutionCommittee(address account);
+    error CallerIsNotEmergencyActivationCommittee(address caller);
+    error CallerIsNotEmergencyExecutionCommittee(address caller);
     error EmergencyProtectionExpired(Timestamp protectedTill);
-    error InvalidEmergencyModeState(bool value);
     error InvalidEmergencyModeDuration(Duration value);
     error InvalidEmergencyProtectionEndDate(Timestamp value);
+    error UnexpectedEmergencyModeState(bool value);
 
     event EmergencyModeActivated();
     event EmergencyModeDeactivated();
@@ -133,17 +133,17 @@ library EmergencyProtection {
 
     /// @dev Checks if the caller is the emergency activator and reverts if not.
     /// @param self The storage reference to the Context struct.
-    function checkSenderIsEmergencyActivationCommittee(Context storage self) internal view {
+    function checkCallerIsEmergencyActivationCommittee(Context storage self) internal view {
         if (self.emergencyActivationCommittee != msg.sender) {
-            revert InvalidEmergencyActivationCommittee(msg.sender);
+            revert CallerIsNotEmergencyActivationCommittee(msg.sender);
         }
     }
 
     /// @dev Checks if the caller is the emergency enactor and reverts if not.
     /// @param self The storage reference to the Context struct.
-    function checkSenderIsEmergencyExecutionCommittee(Context storage self) internal view {
+    function checkCallerIsEmergencyExecutionCommittee(Context storage self) internal view {
         if (self.emergencyExecutionCommittee != msg.sender) {
-            revert InvalidEmergencyExecutionCommittee(msg.sender);
+            revert CallerIsNotEmergencyExecutionCommittee(msg.sender);
         }
     }
 
@@ -152,7 +152,7 @@ library EmergencyProtection {
     /// @param isActive The expected value of the emergency mode.
     function checkEmergencyMode(Context storage self, bool isActive) internal view {
         if (isEmergencyModeActive(self) != isActive) {
-            revert InvalidEmergencyModeState(isActive);
+            revert UnexpectedEmergencyModeState(isActive);
         }
     }
 
