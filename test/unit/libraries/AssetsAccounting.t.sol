@@ -27,7 +27,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         SharesValue totalLockedShares = SharesValues.from(3);
         SharesValue holderLockedShares = SharesValues.from(1);
 
-        vm.assume(sharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(sharesAmount > 0);
         vm.assume(
             sharesAmount < type(uint128).max - Math.max(totalLockedShares.toUint256(), holderLockedShares.toUint256())
         );
@@ -42,10 +42,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountStETHSharesLock(_accountingState, holder, shares);
 
-        assert(_accountingState.stETHTotals.lockedShares == totalLockedShares + shares);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(totalLockedShares + shares, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
         assert(_accountingState.assets[holder].stETHLockedShares == holderLockedShares + shares);
         assert(_accountingState.assets[holder].unstETHLockedShares == SharesValues.ZERO);
         assert(_accountingState.assets[holder].lastAssetsLockTimestamp <= Timestamps.now());
@@ -66,7 +63,7 @@ contract AssetsAccountingUnitTests is UnitTest {
     ) external {
         SharesValue totalLockedShares = SharesValues.from(3);
 
-        vm.assume(sharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(sharesAmount > 0);
         vm.assume(sharesAmount < type(uint128).max - totalLockedShares.toUint256());
 
         SharesValue shares = SharesValues.from(sharesAmount);
@@ -93,7 +90,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint128 holderSharesAmount
     ) external {
         SharesValue totalLockedSharesWithoutHolder = SharesValues.from(3);
-        vm.assume(sharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(sharesAmount > 0);
         vm.assume(holderSharesAmount < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
         vm.assume(sharesAmount <= holderSharesAmount);
 
@@ -109,10 +106,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountStETHSharesUnlock(_accountingState, holder, shares);
 
-        assert(_accountingState.stETHTotals.lockedShares == totalLockedShares - shares);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(totalLockedShares - shares, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
         assert(_accountingState.assets[holder].stETHLockedShares == holderLockedShares - shares);
         assert(_accountingState.assets[holder].unstETHLockedShares == SharesValues.ZERO);
         assert(_accountingState.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
@@ -133,7 +127,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint128 holderSharesAmount
     ) external {
         SharesValue totalLockedSharesWithoutHolder = SharesValues.from(3);
-        vm.assume(sharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(sharesAmount > 0);
         vm.assume(holderSharesAmount < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
         vm.assume(sharesAmount > holderSharesAmount);
 
@@ -154,7 +148,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint128 sharesAmount,
         uint128 totalSharesAmount
     ) external {
-        vm.assume(sharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(sharesAmount > 0);
         vm.assume(totalSharesAmount < sharesAmount);
 
         SharesValue shares = SharesValues.from(sharesAmount);
@@ -173,7 +167,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         address stranger,
         uint128 sharesAmount
     ) external {
-        vm.assume(sharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(sharesAmount > 0);
 
         SharesValue shares = SharesValues.from(sharesAmount);
 
@@ -188,7 +182,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesUnlock_simple_happyPath(address holder, uint128 holderSharesAmount) external {
         SharesValue totalLockedSharesWithoutHolder = SharesValues.from(3);
-        vm.assume(holderSharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(holderSharesAmount > 0);
         vm.assume(holderSharesAmount < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
 
         SharesValue holderLockedShares = SharesValues.from(holderSharesAmount);
@@ -203,10 +197,9 @@ contract AssetsAccountingUnitTests is UnitTest {
         SharesValue unlockedShares = AssetsAccounting.accountStETHSharesUnlock(_accountingState, holder);
 
         assert(unlockedShares == holderLockedShares);
-        assert(_accountingState.stETHTotals.lockedShares == totalLockedShares - holderLockedShares);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(
+            totalLockedShares - holderLockedShares, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO
+        );
         assert(_accountingState.assets[holder].stETHLockedShares == holderLockedShares - holderLockedShares);
         assert(_accountingState.assets[holder].unstETHLockedShares == SharesValues.ZERO);
         assert(_accountingState.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
@@ -229,8 +222,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint128 totalLockedSharesAmount,
         uint128 totalClaimedETHAmount
     ) external {
-        vm.assume(totalLockedSharesAmount > SharesValues.ZERO.toUint256());
-        vm.assume(holderLockedSharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(totalLockedSharesAmount > 0);
+        vm.assume(holderLockedSharesAmount > 0);
         vm.assume(holderLockedSharesAmount <= totalLockedSharesAmount);
 
         SharesValue holderLockedShares = SharesValues.from(holderLockedSharesAmount);
@@ -250,10 +243,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         ETHValue ethWithdrawn = AssetsAccounting.accountStETHSharesWithdraw(_accountingState, holder);
 
         assert(ethWithdrawn == expectedETHWithdrawn);
-        assert(_accountingState.stETHTotals.lockedShares == totalLockedShares);
-        assert(_accountingState.stETHTotals.claimedETH == totalClaimedETH);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(totalLockedShares, totalClaimedETH, SharesValues.ZERO, ETHValues.ZERO);
         assert(_accountingState.assets[holder].stETHLockedShares == SharesValues.ZERO);
         assert(_accountingState.assets[holder].unstETHLockedShares == SharesValues.ZERO);
         assert(_accountingState.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
@@ -271,7 +261,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint128 holderLockedSharesAmount,
         uint128 totalClaimedETHAmount
     ) external {
-        vm.assume(holderLockedSharesAmount > SharesValues.ZERO.toUint256());
+        vm.assume(holderLockedSharesAmount > 0);
 
         SharesValue holderLockedShares = SharesValues.from(holderLockedSharesAmount);
         ETHValue totalClaimedETH = ETHValues.from(totalClaimedETHAmount);
@@ -350,10 +340,9 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountClaimedStETH(_accountingState, amount);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == totalClaimedETH + amount);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO, totalClaimedETH + amount, SharesValues.ZERO, ETHValues.ZERO
+        );
     }
 
     // ---
@@ -375,9 +364,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256 expectedTotalUnstETHLockedAmount = 0;
 
         _accountingState.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
-        _accountingState.assets[holder].unstETHIds.push(
-            uint256(keccak256(abi.encodePacked(block.timestamp, uint16(1024))))
-        ); // random id
+        _accountingState.assets[holder].unstETHIds.push(genRandomUnstEthId(1024));
         _accountingState.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
         WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
@@ -385,7 +372,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             withdrawalRequestStatuses[i].amountOfShares = amountsOfShares[i];
             withdrawalRequestStatuses[i].isFinalized = false;
             withdrawalRequestStatuses[i].isClaimed = false;
@@ -397,13 +384,12 @@ contract AssetsAccountingUnitTests is UnitTest {
         emit AssetsAccounting.UnstETHLocked(holder, unstETHIds, SharesValues.from(expectedTotalUnstETHLockedAmount));
         AssetsAccounting.accountUnstETHLock(_accountingState, holder, unstETHIds, withdrawalRequestStatuses);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(
-            _accountingState.unstETHTotals.unfinalizedShares
-                == initialTotalUnfinalizedShares + SharesValues.from(expectedTotalUnstETHLockedAmount)
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO,
+            ETHValues.ZERO,
+            initialTotalUnfinalizedShares + SharesValues.from(expectedTotalUnstETHLockedAmount),
+            ETHValues.ZERO
         );
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
         assert(_accountingState.assets[holder].stETHLockedShares == SharesValues.ZERO);
         assert(
             _accountingState.assets[holder].unstETHLockedShares
@@ -451,7 +437,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             withdrawalRequestStatuses[i].amountOfShares = amountsOfShares[i];
             withdrawalRequestStatuses[i].isFinalized = false;
             withdrawalRequestStatuses[i].isClaimed = false;
@@ -491,7 +477,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             withdrawalRequestStatuses[i].amountOfShares = amountsOfShares[i];
             withdrawalRequestStatuses[i].isFinalized = false;
             withdrawalRequestStatuses[i].isClaimed = false;
@@ -525,7 +511,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             withdrawalRequestStatuses[i].amountOfShares = amountsOfShares[i];
             withdrawalRequestStatuses[i].isFinalized = false;
             withdrawalRequestStatuses[i].isClaimed = false;
@@ -565,7 +551,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             withdrawalRequestStatuses[i].amountOfShares = amountsOfShares[i];
             withdrawalRequestStatuses[i].isFinalized = false;
             withdrawalRequestStatuses[i].isClaimed = false;
@@ -604,10 +590,9 @@ contract AssetsAccountingUnitTests is UnitTest {
         emit AssetsAccounting.UnstETHLocked(holder, unstETHIds, SharesValues.ZERO);
         AssetsAccounting.accountUnstETHLock(_accountingState, holder, unstETHIds, withdrawalRequestStatuses);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == initialTotalUnfinalizedShares);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO, ETHValues.ZERO, initialTotalUnfinalizedShares, ETHValues.ZERO
+        );
         assert(_accountingState.assets[holder].stETHLockedShares == SharesValues.ZERO);
         assert(_accountingState.assets[holder].unstETHLockedShares == holderUnstETHLockedShares);
         assert(_accountingState.assets[holder].lastAssetsLockTimestamp <= Timestamps.now());
@@ -628,7 +613,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         WithdrawalRequestStatus[] memory withdrawalRequestStatuses = new WithdrawalRequestStatus[](1);
         uint256[] memory unstETHIds = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint8(0)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(0);
         withdrawalRequestStatuses[0].amountOfShares = uint256(type(uint128).max) + 1;
         withdrawalRequestStatuses[0].isFinalized = false;
         withdrawalRequestStatuses[0].isClaimed = false;
@@ -652,7 +637,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         WithdrawalRequestStatus[] memory withdrawalRequestStatuses = new WithdrawalRequestStatus[](1);
         uint256[] memory unstETHIds = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint8(0)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(0);
         withdrawalRequestStatuses[0].amountOfShares = uint128(type(uint128).max / 2) + 1;
         withdrawalRequestStatuses[0].isFinalized = false;
         withdrawalRequestStatuses[0].isClaimed = false;
@@ -676,7 +661,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         WithdrawalRequestStatus[] memory withdrawalRequestStatuses = new WithdrawalRequestStatus[](1);
         uint256[] memory unstETHIds = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint8(0)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(0);
         withdrawalRequestStatuses[0].amountOfShares = uint128(type(uint128).max / 2) + 1;
         withdrawalRequestStatuses[0].isFinalized = false;
         withdrawalRequestStatuses[0].isClaimed = false;
@@ -716,7 +701,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].lockedBy = holder;
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Locked;
             _accountingState.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(amountsOfShares[i]);
@@ -732,13 +717,12 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHUnlock(_accountingState, holder, unstETHIds);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(
-            _accountingState.unstETHTotals.unfinalizedShares
-                == initialTotalUnfinalizedShares - SharesValues.from(expectedTotalSharesUnlockedAmount)
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO,
+            ETHValues.ZERO,
+            initialTotalUnfinalizedShares - SharesValues.from(expectedTotalSharesUnlockedAmount),
+            initialTotalFinalizedETH
         );
-        assert(_accountingState.unstETHTotals.finalizedETH == initialTotalFinalizedETH);
         assert(_accountingState.assets[holder].stETHLockedShares == SharesValues.ZERO);
         assert(
             _accountingState.assets[holder].unstETHLockedShares
@@ -776,7 +760,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].lockedBy = holder;
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Finalized;
             _accountingState.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(amountsOfShares[i]);
@@ -796,12 +780,11 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHUnlock(_accountingState, holder, unstETHIds);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == initialTotalUnfinalizedShares);
-        assert(
-            _accountingState.unstETHTotals.finalizedETH
-                == initialTotalFinalizedETH - ETHValues.from(expectedTotalSharesUnlockedAmount)
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO,
+            ETHValues.ZERO,
+            initialTotalUnfinalizedShares,
+            initialTotalFinalizedETH - ETHValues.from(expectedTotalSharesUnlockedAmount)
         );
         assert(_accountingState.assets[holder].stETHLockedShares == SharesValues.ZERO);
         assert(
@@ -819,7 +802,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         vm.assume(holder != address(0x0));
 
         uint256[] memory unstETHIds = new uint256[](1);
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint32(1234)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(1234);
 
         vm.expectRevert(
             abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], holder, address(0x0))
@@ -835,7 +818,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         vm.assume(holder != current);
 
         uint256[] memory unstETHIds = new uint256[](1);
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint32(1234)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(1234);
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
 
         vm.expectRevert(
@@ -847,7 +830,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountUnstETHUnlock_RevertWhen_UnstETHRecordStatusInvalid(address holder) external {
         uint256[] memory unstETHIds = new uint256[](1);
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint32(1234)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(1234);
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.NotLocked;
 
@@ -862,7 +845,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountUnstETHUnlock_RevertWhen_UnstETHRecordIndexInvalid_OOB(address holder) external {
         uint256[] memory unstETHIds = new uint256[](1);
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint32(1234)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(1234);
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(1234);
@@ -899,10 +882,9 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHUnlock(_accountingState, holder, unstETHIds);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == initialTotalUnfinalizedShares);
-        assert(_accountingState.unstETHTotals.finalizedETH == initialTotalFinalizedETH);
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO, ETHValues.ZERO, initialTotalUnfinalizedShares, initialTotalFinalizedETH
+        );
         assert(_accountingState.assets[holder].stETHLockedShares == SharesValues.ZERO);
         assert(_accountingState.assets[holder].unstETHLockedShares == holderUnstETHLockedShares);
         assert(_accountingState.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
@@ -915,7 +897,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingState.assets[holder].unstETHLockedShares = SharesValues.from(5);
 
         uint256[] memory unstETHIds = new uint256[](1);
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint32(1234)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(1234);
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(10);
@@ -934,7 +916,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingState.unstETHTotals.finalizedETH = ETHValues.from(5);
 
         uint256[] memory unstETHIds = new uint256[](1);
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint32(1234)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(1234);
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Finalized;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(5);
@@ -954,7 +936,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingState.unstETHTotals.unfinalizedShares = SharesValues.from(5);
 
         uint256[] memory unstETHIds = new uint256[](1);
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint32(1234)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(1234);
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(10);
@@ -992,7 +974,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory claimableAmountsPrepared = new uint256[](claimableAmounts.length);
 
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Locked;
             uint256 sharesAmount = 5 * uint256(claimableAmounts[i]);
             _accountingState.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(sharesAmount);
@@ -1008,15 +990,11 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHFinalized(_accountingState, unstETHIds, claimableAmountsPrepared);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(
-            _accountingState.unstETHTotals.unfinalizedShares
-                == initialTotalUnfinalizedShares - SharesValues.from(expectedTotalSharesFinalized)
-        );
-        assert(
-            _accountingState.unstETHTotals.finalizedETH
-                == initialTotalFinalizedETH + ETHValues.from(expectedTotalAmountFinalized)
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO,
+            ETHValues.ZERO,
+            initialTotalUnfinalizedShares - SharesValues.from(expectedTotalSharesFinalized),
+            initialTotalFinalizedETH + ETHValues.from(expectedTotalAmountFinalized)
         );
     }
 
@@ -1054,10 +1032,9 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHFinalized(_accountingState, unstETHIds, claimableAmountsPrepared);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == initialTotalUnfinalizedShares);
-        assert(_accountingState.unstETHTotals.finalizedETH == initialTotalFinalizedETH);
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO, ETHValues.ZERO, initialTotalUnfinalizedShares, initialTotalFinalizedETH
+        );
     }
 
     function testFuzz_accountUnstETHFinalized_When_UnstETHRecordNotFound(
@@ -1076,7 +1053,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](1);
         uint256[] memory claimableAmountsPrepared = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint256(9876)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(9876);
         claimableAmountsPrepared[0] = claimableAmount;
 
         vm.expectEmit();
@@ -1084,10 +1061,9 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHFinalized(_accountingState, unstETHIds, claimableAmountsPrepared);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == initialTotalUnfinalizedShares);
-        assert(_accountingState.unstETHTotals.finalizedETH == initialTotalFinalizedETH);
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO, ETHValues.ZERO, initialTotalUnfinalizedShares, initialTotalFinalizedETH
+        );
     }
 
     function testFuzz_accountUnstETHFinalized_When_ClaimableAmountIsZero(
@@ -1105,7 +1081,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](1);
         uint256[] memory claimableAmountsPrepared = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint256(9876)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(9876);
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(123);
         claimableAmountsPrepared[0] = 0;
@@ -1115,10 +1091,9 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHFinalized(_accountingState, unstETHIds, claimableAmountsPrepared);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == initialTotalUnfinalizedShares);
-        assert(_accountingState.unstETHTotals.finalizedETH == initialTotalFinalizedETH);
+        checkAccountingStateTotalCounters(
+            SharesValues.ZERO, ETHValues.ZERO, initialTotalUnfinalizedShares, initialTotalFinalizedETH
+        );
     }
 
     function testFuzz_accountUnstETHFinalized_RevertOn_ClaimableAmountOverflow(
@@ -1136,7 +1111,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](1);
         uint256[] memory claimableAmountsPrepared = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint256(9876)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(9876);
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(123);
         claimableAmountsPrepared[0] = uint256(type(uint128).max) + 1;
@@ -1161,7 +1136,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](1);
         uint256[] memory claimableAmountsPrepared = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint256(9876)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(9876);
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(123);
         claimableAmountsPrepared[0] = uint256(type(uint128).max - 2);
@@ -1186,7 +1161,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](1);
         uint256[] memory claimableAmountsPrepared = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint256(9876)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(9876);
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(type(uint64).max);
         claimableAmountsPrepared[0] = 1;
@@ -1211,7 +1186,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory claimableAmountsPrepared = new uint256[](claimableAmounts.length);
 
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Locked;
             expectedTotalAmountClaimed += claimableAmounts[i];
             claimableAmountsPrepared[i] = claimableAmounts[i];
@@ -1222,10 +1197,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHClaimed(_accountingState, unstETHIds, claimableAmountsPrepared);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(SharesValues.ZERO, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             assert(
                 _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.from(claimableAmounts[i])
@@ -1245,7 +1217,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory claimableAmountsPrepared = new uint256[](claimableAmounts.length);
 
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Locked;
             claimableAmountsPrepared[i] = claimableAmounts[i];
         }
@@ -1266,10 +1238,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHClaimed(_accountingState, unstETHIds, claimableAmountsPrepared);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(SharesValues.ZERO, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
     }
 
     function testFuzz_accountUnstETHClaimed_RevertWhen_UnstETHRecordNotFoundOrHasWrongStatus(
@@ -1282,7 +1251,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory claimableAmountsPrepared = new uint256[](claimableAmounts.length);
 
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             claimableAmountsPrepared[i] = claimableAmounts[i];
         }
 
@@ -1305,7 +1274,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory claimableAmountsPrepared = new uint256[](claimableAmounts.length);
 
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Finalized;
             _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount =
                 ETHValues.from(uint256(claimableAmounts[i]) + 1);
@@ -1336,7 +1305,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory claimableAmountsPrepared = new uint256[](claimableAmounts.length);
 
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Finalized;
             _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(claimableAmounts[i]);
             claimableAmountsPrepared[i] = claimableAmounts[i];
@@ -1348,10 +1317,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountUnstETHClaimed(_accountingState, unstETHIds, claimableAmountsPrepared);
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(SharesValues.ZERO, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             assert(
                 _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.from(claimableAmounts[i])
@@ -1364,7 +1330,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](1);
         uint256[] memory claimableAmountsPrepared = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint8(1)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(1);
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         claimableAmountsPrepared[0] = uint256(type(uint128).max) + 1;
 
@@ -1387,7 +1353,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](claimableAmounts.length);
 
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Claimed;
             _accountingState.unstETHRecords[unstETHIds[i]].lockedBy = holder;
             _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(claimableAmounts[i]);
@@ -1401,10 +1367,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         assert(amountWithdrawn == ETHValues.from(expectedAmountWithdrawn));
 
-        assert(_accountingState.stETHTotals.lockedShares == SharesValues.ZERO);
-        assert(_accountingState.stETHTotals.claimedETH == ETHValues.ZERO);
-        assert(_accountingState.unstETHTotals.unfinalizedShares == SharesValues.ZERO);
-        assert(_accountingState.unstETHTotals.finalizedETH == ETHValues.ZERO);
+        checkAccountingStateTotalCounters(SharesValues.ZERO, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             assert(
                 _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.from(claimableAmounts[i])
@@ -1435,7 +1398,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](claimableAmounts.length);
 
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
         }
 
         vm.expectRevert(
@@ -1455,7 +1418,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         uint256[] memory unstETHIds = new uint256[](1);
 
-        unstETHIds[0] = uint256(keccak256(abi.encodePacked(block.timestamp, uint64(567)))); // random id
+        unstETHIds[0] = genRandomUnstEthId(567);
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Claimed;
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].claimableAmount = ETHValues.from(123);
@@ -1471,7 +1434,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](2);
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            unstETHIds[i] = uint256(keccak256(abi.encodePacked(block.timestamp, i))); // random id
+            unstETHIds[i] = genRandomUnstEthId(i);
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Claimed;
             _accountingState.unstETHRecords[unstETHIds[i]].lockedBy = holder;
             _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount =
@@ -1542,5 +1505,25 @@ contract AssetsAccountingUnitTests is UnitTest {
         );
 
         AssetsAccounting.checkMinAssetsLockDurationPassed(_accountingState, holder, minAssetsLockDuration);
+    }
+
+    // ---
+    // helpers
+    // ---
+
+    function genRandomUnstEthId(uint256 salt) internal view returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(block.timestamp, salt))); // random id
+    }
+
+    function checkAccountingStateTotalCounters(
+        SharesValue lockedShares,
+        ETHValue claimedETH,
+        SharesValue unfinalizedShares,
+        ETHValue finalizedETH
+    ) internal view {
+        assert(_accountingState.stETHTotals.lockedShares == lockedShares);
+        assert(_accountingState.stETHTotals.claimedETH == claimedETH);
+        assert(_accountingState.unstETHTotals.unfinalizedShares == unfinalizedShares);
+        assert(_accountingState.unstETHTotals.finalizedETH == finalizedETH);
     }
 }
