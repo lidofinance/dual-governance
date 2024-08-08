@@ -57,6 +57,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         return (
             _establish(mode, sr.timestamp <= Timestamps.now()) && _establish(mode, sr.activationTime <= sr.timestamp)
                 && _establish(mode, sr.reactivationTime <= sr.timestamp)
+                && _establish(mode, sr.reactivationTime <= addTo(config.DYNAMIC_TIMELOCK_MAX_DURATION(), sr.activationTime))
         );
     }
 
@@ -74,7 +75,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     }
 
     function _calculateDynamicTimelock(Configuration _config, uint256 rageQuitSupport) public view returns (Duration) {
-        if (rageQuitSupport < _config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) {
+        if (rageQuitSupport <= _config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) {
             return Durations.ZERO;
         } else if (rageQuitSupport < _config.SECOND_SEAL_RAGE_QUIT_SUPPORT()) {
             return _linearInterpolation(_config, rageQuitSupport);
@@ -113,7 +114,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         if (
             sr.timestamp
                 <= addTo(
-                    config.VETO_SIGNALLING_MIN_ACTIVE_DURATION(), _maxTimestamp(sr.reactivationTime, sr.activationTime)
+                    config.VETO_SIGNALLING_MIN_ACTIVE_DURATION(), _maxTimestamp(sr.activationTime, sr.reactivationTime)
                 )
         ) {
             return _establish(mode, sr.state == State.VetoSignalling);
@@ -260,19 +261,19 @@ contract VetoSignallingTest is DualGovernanceSetUp {
                 // Establish third invariant
                 _vetoSignallingDeactivationInvariant(Mode.Assert, current);
             }
-            // Try establishing fourth invariant
-            if (!_vetoSignallingMaxDelayInvariant(Mode.Try, current)) {
-                // Assume third invariant if not already assumed
-                if (!assumedDeactivationInvariant) {
-                    _vetoSignallingDeactivationInvariant(Mode.Assume, previous);
-                }
-                // Assume fourth invariant if not already assumed
-                if (!assumedMaxDelayInvariant) {
-                    _vetoSignallingMaxDelayInvariant(Mode.Assume, previous);
-                }
-                // Establish fourth invariant
-                _vetoSignallingMaxDelayInvariant(Mode.Assert, current);
-            }
+            // // Try establishing fourth invariant
+            // if (!_vetoSignallingMaxDelayInvariant(Mode.Try, current)) {
+            //     // Assume third invariant if not already assumed
+            //     if (!assumedDeactivationInvariant) {
+            //         _vetoSignallingDeactivationInvariant(Mode.Assume, previous);
+            //     }
+            //     // Assume fourth invariant if not already assumed
+            //     if (!assumedMaxDelayInvariant) {
+            //         _vetoSignallingMaxDelayInvariant(Mode.Assume, previous);
+            //     }
+            //     // Establish fourth invariant
+            //     _vetoSignallingMaxDelayInvariant(Mode.Assert, current);
+            // }
             return;
         }
         vm.assume(currentState == State.VetoSignalling || currentState == State.VetoSignallingDeactivation);

@@ -90,11 +90,6 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         this.signallingEscrowInvariants(Mode.Assume, signallingEscrow);
         this.escrowUserInvariants(Mode.Assume, signallingEscrow, sender);
 
-        ActivateNextStateMock mock = new ActivateNextStateMock(address(this), sender);
-        kevm.mockFunction(
-            address(dualGovernance), address(mock), abi.encodeWithSelector(mock.activateNextState.selector)
-        );
-
         vm.startPrank(sender);
         signallingEscrow.lockStETH(amount);
         vm.stopPrank();
@@ -117,11 +112,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
 
         uint256 errorTerm = stEth.getPooledEthByShares(1) + 1;
         assert(post.userBalance <= pre.userBalance - amount + errorTerm);
-        // Rewritten to avoid branching
-        //assert(pre.escrowBalance + amount < errorTerm || pre.escrowBalance + amount - errorTerm <= post.escrowBalance);
         assert(pre.escrowBalance + amount <= post.escrowBalance + errorTerm);
-        // Rewritten to avoid branching
-        //assert(pre.totalEth + amount < errorTerm || pre.totalEth + amount - errorTerm <= post.totalEth);
         assert(pre.totalEth + amount <= post.totalEth + errorTerm);
     }
 

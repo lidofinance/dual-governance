@@ -114,6 +114,9 @@ module LIDO-LEMMAS
     rule [bool2Word-gt-zero]:  0 <Int bool2Word(B:Bool)     => B                           [simplification(30)]
     rule [bool2Word-gt-false]: X:Int <Int bool2Word(_:Bool) => false     requires 1 <Int X [simplification(30), concrete(X)]
 
+    rule 0 <=Int bool2Word(X) => true [simplification, smt-lemma]
+    rule bool2Word(X) <=Int 1 => true [simplification, smt-lemma]
+
     //
     // .Bytes
     //
@@ -406,9 +409,6 @@ module LIDO-LEMMAS
     rule lengthBytes ( #padToWidth ( 32 , #asByteStack ( VALUE ) ) ) => 32
         requires #rangeUInt(256, VALUE)
         [simplification]
-
-    rule bool2Word ( X ) <=Int 1 => true
-        [simplification, smt-lemma]
 
     rule chop ( X -Int Y ) => X -Int Y
         requires #rangeUInt(256, X)

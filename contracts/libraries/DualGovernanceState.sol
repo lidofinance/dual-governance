@@ -388,7 +388,7 @@ library DualGovernanceState {
         Duration dynamicTimelockMinDuration = config.dynamicTimelockMinDuration;
         Duration dynamicTimelockMaxDuration = config.dynamicTimelockMaxDuration;
 
-        if (rageQuitSupport < firstSealRageQuitSupport) {
+        if (rageQuitSupport <= firstSealRageQuitSupport) {
             return Durations.ZERO;
         }
 
