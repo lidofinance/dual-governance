@@ -2,11 +2,21 @@
 pragma solidity 0.8.26;
 
 import {UnitTest} from "test/utils/unit-test.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Vm} from "forge-std/Test.sol";
 
 import {HashConsensus} from "../../contracts/committees/HashConsensus.sol";
 import {Duration} from "../../contracts/types/Duration.sol";
+
+contract HashConsensusInstance is HashConsensus {
+    constructor(
+        address owner,
+        address[] memory newMembers,
+        uint256 executionQuorum,
+        uint256 timelock
+    ) HashConsensus(owner, newMembers, executionQuorum, timelock) {}
+}
 
 abstract contract HashConsensusUnitTest is UnitTest {
     HashConsensus internal _hashConsensus;
@@ -23,6 +33,24 @@ abstract contract HashConsensusUnitTest is UnitTest {
         for (uint256 i = 0; i < _membersCount; ++i) {
             _committeeMembers[i] = makeAddr(string(abi.encode(0xFE + i * _membersCount + 65)));
         }
+    }
+
+    function test_constructorInitializesCorrectly() public {
+        uint256 timelock = 1;
+
+        vm.expectEmit(true, false, false, true);
+        emit HashConsensus.QuorumSet(_quorum);
+        vm.expectEmit(true, false, false, true);
+        emit HashConsensus.TimelockDurationSet(timelock);
+
+        HashConsensusInstance instance = new HashConsensusInstance(_owner, _committeeMembers, _quorum, timelock);
+    }
+
+    function test_constructorRevertsWithZeroQuorum() public {
+        uint256 invalidQuorum = 0;
+
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.InvalidQuorum.selector));
+        new HashConsensusInstance(_owner, _committeeMembers, invalidQuorum, 1);
     }
 
     function test_isMember() public {
@@ -159,6 +187,83 @@ abstract contract HashConsensusUnitTest is UnitTest {
         for (uint256 i = 0; i < committeeMembers.length; ++i) {
             assertNotEq(committeeMembers[i], memberToRemove);
         }
+    }
+
+    function test_setTimelockDurationByOwner() public {
+        uint256 newTimelockDuration = 200;
+
+        vm.expectEmit(true, false, false, true);
+        emit HashConsensus.TimelockDurationSet(newTimelockDuration);
+
+        vm.prank(_owner);
+        _hashConsensus.setTimelockDuration(newTimelockDuration);
+
+        assertEq(_hashConsensus.timelockDuration(), newTimelockDuration);
+    }
+
+    function test_setTimelockDurationRevertsIfNotOwner() public {
+        uint256 newTimelockDuration = 200;
+
+        vm.prank(address(0x123));
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(0x123)));
+        _hashConsensus.setTimelockDuration(newTimelockDuration);
+    }
+
+    function testTimelockDurationEventEmitted() public {
+        uint256 newTimelockDuration = 300;
+
+        vm.expectEmit(true, false, false, true);
+        emit HashConsensus.TimelockDurationSet(newTimelockDuration);
+
+        vm.prank(_owner);
+        _hashConsensus.setTimelockDuration(newTimelockDuration);
+    }
+
+    function test_setQuorumByOwner() public {
+        uint256 newQuorum = 2;
+
+        vm.expectEmit(true, false, false, true);
+        emit HashConsensus.QuorumSet(newQuorum);
+
+        vm.prank(_owner);
+        _hashConsensus.setQuorum(newQuorum);
+
+        // Assert that the quorum was updated correctly
+        assertEq(_hashConsensus.quorum(), newQuorum);
+    }
+
+    function test_setQuorumRevertsIfNotOwner() public {
+        uint256 newQuorum = 2;
+
+        vm.prank(address(0x123));
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(0x123)));
+        _hashConsensus.setQuorum(newQuorum);
+    }
+
+    function test_setQuorumRevertsIfZeroQuorum() public {
+        uint256 invalidQuorum = 0;
+
+        vm.prank(_owner);
+        vm.expectRevert(abi.encodeWithSignature("InvalidQuorum()"));
+        _hashConsensus.setQuorum(invalidQuorum);
+    }
+
+    function test_setQuorumRevertsIfQuorumExceedsMembers() public {
+        uint256 invalidQuorum = _committeeMembers.length + 1;
+
+        vm.prank(_owner);
+        vm.expectRevert(abi.encodeWithSignature("InvalidQuorum()"));
+        _hashConsensus.setQuorum(invalidQuorum);
+    }
+
+    function test_quorumEventEmitted() public {
+        uint256 newQuorum = 3;
+
+        vm.expectEmit(true, false, false, true);
+        emit HashConsensus.QuorumSet(newQuorum);
+
+        vm.prank(_owner);
+        _hashConsensus.setQuorum(newQuorum);
     }
 }
 
