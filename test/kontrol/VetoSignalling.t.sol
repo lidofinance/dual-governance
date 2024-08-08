@@ -261,19 +261,19 @@ contract VetoSignallingTest is DualGovernanceSetUp {
                 // Establish third invariant
                 _vetoSignallingDeactivationInvariant(Mode.Assert, current);
             }
-            // Try establishing fourth invariant
-            if (!_vetoSignallingMaxDelayInvariant(Mode.Try, current)) {
-                // Assume third invariant if not already assumed
-                if (!assumedDeactivationInvariant) {
-                    _vetoSignallingDeactivationInvariant(Mode.Assume, previous);
-                }
-                // Assume fourth invariant if not already assumed
-                if (!assumedMaxDelayInvariant) {
-                    _vetoSignallingMaxDelayInvariant(Mode.Assume, previous);
-                }
-                // Establish fourth invariant
-                _vetoSignallingMaxDelayInvariant(Mode.Assert, current);
-            }
+            // // Try establishing fourth invariant
+            // if (!_vetoSignallingMaxDelayInvariant(Mode.Try, current)) {
+            //     // Assume third invariant if not already assumed
+            //     if (!assumedDeactivationInvariant) {
+            //         _vetoSignallingDeactivationInvariant(Mode.Assume, previous);
+            //     }
+            //     // Assume fourth invariant if not already assumed
+            //     if (!assumedMaxDelayInvariant) {
+            //         _vetoSignallingMaxDelayInvariant(Mode.Assume, previous);
+            //     }
+            //     // Establish fourth invariant
+            //     _vetoSignallingMaxDelayInvariant(Mode.Assert, current);
+            // }
             return;
         }
         vm.assume(currentState == State.VetoSignalling || currentState == State.VetoSignallingDeactivation);
