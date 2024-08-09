@@ -88,13 +88,13 @@ contract ProposalOperationsSetup is DualGovernanceSetUp {
             uint256 numCalls = kevm.freshUInt(32);
             vm.assume(numCalls < type(uint256).max);
             vm.assume(numCalls > 0);
-            uint256 callsSlot = uint256(keccak256(abi.encodePacked(baseSlot + 2)));
-            vm.assume(numCalls <= (type(uint256).max - callsSlot) / 3);
             _storeUInt256(address(_timelock), baseSlot + 2, numCalls);
         }
     }
 
-    function _storeExecutorCalls(EmergencyProtectedTimelock _timelock, uint256 baseSlot, uint256 numCalls) public {
+    function _storeExecutorCalls(EmergencyProtectedTimelock _timelock, uint256 _proposalId) public {
+        uint256 baseSlot = _getProposalsSlot(_proposalId);
+        uint256 numCalls = _getCallsCount(_timelock, _proposalId);
         uint256 callsSlot = uint256(keccak256(abi.encodePacked(baseSlot + 2)));
 
         for (uint256 j = 0; j < numCalls; j++) {

@@ -21,10 +21,9 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
         uint256 _proposalId
     ) public {
         _timelockStorageSetup(_dualGovernance, _timelock);
+        _proposalIdAssumeBound(_proposalId);
         _proposalStorageSetup(_timelock, _proposalId);
-        uint256 baseSlot = _getProposalsSlot(_proposalId);
-        uint256 numCalls = _getCallsCount(_timelock, _proposalId);
-        _storeExecutorCalls(_timelock, baseSlot, numCalls);
+        _storeExecutorCalls(_timelock, _proposalId);
     }
 
     struct ProposalRecord {
@@ -38,19 +37,15 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
     }
 
     // Record a proposal's details with the current governance state.
-    function _recordProposal(
-        DualGovernance _dualGovernance,
-        EmergencyProtectedTimelock _timelock,
-        uint256 proposalId
-    ) internal returns (ProposalRecord memory pr) {
+    function _recordProposal(uint256 proposalId) internal returns (ProposalRecord memory pr) {
         uint256 baseSlot = _getProposalsSlot(proposalId);
         pr.id = proposalId;
-        pr.state = _dualGovernance.getCurrentState();
+        pr.state = dualGovernance.getCurrentState();
         pr.lastCancelledProposalId = _getLastCancelledProposalId(timelock);
-        pr.submittedAt = Timestamp.wrap(_getSubmittedAt(_timelock, baseSlot));
-        pr.scheduledAt = Timestamp.wrap(_getScheduledAt(_timelock, baseSlot));
-        pr.executedAt = Timestamp.wrap(_getExecutedAt(_timelock, baseSlot));
-        (,, pr.vetoSignallingActivationTime,) = _dualGovernance.getVetoSignallingState();
+        pr.submittedAt = Timestamp.wrap(_getSubmittedAt(timelock, baseSlot));
+        pr.scheduledAt = Timestamp.wrap(_getScheduledAt(timelock, baseSlot));
+        pr.executedAt = Timestamp.wrap(_getExecutedAt(timelock, baseSlot));
+        pr.vetoSignallingActivationTime = Timestamp.wrap(_getVetoSignallingActivationTime(dualGovernance));
     }
 
     // Validate that a pending proposal meets the criteria.
@@ -67,8 +62,6 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
         _establish(mode, pr.submittedAt != Timestamp.wrap(0));
         _establish(mode, pr.scheduledAt != Timestamp.wrap(0));
         _establish(mode, pr.executedAt == Timestamp.wrap(0));
-        _assumeNoOverflow(config.AFTER_SUBMIT_DELAY().toSeconds(), pr.submittedAt.toSeconds());
-        _establish(mode, config.AFTER_SUBMIT_DELAY().toSeconds() + pr.submittedAt.toSeconds() <= type(uint40).max);
         _establish(mode, config.AFTER_SUBMIT_DELAY().addTo(pr.submittedAt) <= Timestamps.now());
     }
 
@@ -77,8 +70,6 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
         _establish(mode, pr.submittedAt != Timestamp.wrap(0));
         _establish(mode, pr.scheduledAt != Timestamp.wrap(0));
         _establish(mode, pr.executedAt != Timestamp.wrap(0));
-        _assumeNoOverflow(config.AFTER_SUBMIT_DELAY().toSeconds(), pr.submittedAt.toSeconds());
-        _assumeNoOverflow(config.AFTER_SCHEDULE_DELAY().toSeconds(), pr.scheduledAt.toSeconds());
         _establish(mode, config.AFTER_SUBMIT_DELAY().addTo(pr.submittedAt) <= Timestamps.now());
         _establish(mode, config.AFTER_SCHEDULE_DELAY().addTo(pr.scheduledAt) <= Timestamps.now());
     }
@@ -124,7 +115,7 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
         _proposalIdAssumeBound(proposalId);
         _proposalStorageSetup(timelock, proposalId);
 
-        ProposalRecord memory pre = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory pre = _recordProposal(proposalId);
         _validPendingProposal(Mode.Assume, pre);
         vm.assume(timelock.canSchedule(proposalId));
         vm.assume(!dualGovernance.isSchedulingEnabled());
@@ -132,7 +123,7 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
         vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
         dualGovernance.scheduleProposal(proposalId);
 
-        ProposalRecord memory post = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory post = _recordProposal(proposalId);
         _validPendingProposal(Mode.Assert, post);
     }
 
@@ -141,26 +132,27 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
      */
     function testCannotScheduleSubmissionAfterLastVetoSignalling(uint256 proposalId) external {
         _timelockStorageSetup(dualGovernance, timelock);
-        _proposalOperationsInitializeStorage(dualGovernance, timelock, proposalId);
+        _proposalIdAssumeBound(proposalId);
+        _proposalStorageSetup(timelock, proposalId);
 
-        ProposalRecord memory pre = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory pre = _recordProposal(proposalId);
         _validPendingProposal(Mode.Assume, pre);
+        vm.assume(timelock.canSchedule(proposalId));
         vm.assume(pre.state == State.VetoCooldown);
         vm.assume(pre.submittedAt > pre.vetoSignallingActivationTime);
 
         vm.expectRevert(DualGovernanceState.ProposalsAdoptionSuspended.selector);
         dualGovernance.scheduleProposal(proposalId);
 
-        ProposalRecord memory post = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory post = _recordProposal(proposalId);
         _validPendingProposal(Mode.Assert, post);
     }
 
     // Test that actions that are canceled or executed cannot be rescheduled
     function testCanceledOrExecutedActionsCannotBeRescheduled(uint256 proposalId) external {
-        _proposalIdAssumeBound(proposalId);
         _proposalOperationsInitializeStorage(dualGovernance, timelock, proposalId);
 
-        ProposalRecord memory pre = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory pre = _recordProposal(proposalId);
         vm.assume(pre.submittedAt != Timestamp.wrap(0));
         vm.assume(dualGovernance.isSchedulingEnabled());
         if (pre.state == State.VetoCooldown) {
@@ -174,7 +166,7 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
             vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotSubmitted.selector, proposalId));
             dualGovernance.scheduleProposal(proposalId);
 
-            ProposalRecord memory post = _recordProposal(dualGovernance, timelock, proposalId);
+            ProposalRecord memory post = _recordProposal(proposalId);
             _validExecutedProposal(Mode.Assert, post);
         } else if (pre.lastCancelledProposalId >= proposalId) {
             // Check if the proposal has been cancelled
@@ -183,7 +175,7 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
             vm.expectRevert(abi.encodeWithSelector(Proposals.ProposalNotSubmitted.selector, proposalId));
             dualGovernance.scheduleProposal(proposalId);
 
-            ProposalRecord memory post = _recordProposal(dualGovernance, timelock, proposalId);
+            ProposalRecord memory post = _recordProposal(proposalId);
             _validCanceledProposal(Mode.Assert, post);
         }
     }
@@ -192,10 +184,9 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
      * Test that a proposal cannot be scheduled for execution before ProposalExecutionMinTimelock has passed since its submission.
      */
     function testCannotScheduleBeforeMinTimelock(uint256 proposalId) external {
-        _proposalIdAssumeBound(proposalId);
         _proposalOperationsInitializeStorage(dualGovernance, timelock, proposalId);
 
-        ProposalRecord memory pre = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory pre = _recordProposal(proposalId);
         _validPendingProposal(Mode.Assume, pre);
 
         vm.assume(dualGovernance.isSchedulingEnabled());
@@ -207,7 +198,7 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
         vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, proposalId));
         dualGovernance.scheduleProposal(proposalId);
 
-        ProposalRecord memory post = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory post = _recordProposal(proposalId);
         _validPendingProposal(Mode.Assert, post);
     }
 
@@ -215,10 +206,9 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
      * Test that a proposal cannot be executed until the emergency protection timelock has passed since it was scheduled.
      */
     function testCannotExecuteBeforeEmergencyProtectionTimelock(uint256 proposalId) external {
-        _proposalIdAssumeBound(proposalId);
         _proposalOperationsInitializeStorage(dualGovernance, timelock, proposalId);
 
-        ProposalRecord memory pre = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory pre = _recordProposal(proposalId);
         _validScheduledProposal(Mode.Assume, pre);
         vm.assume(_getEmergencyModeEndsAfter(timelock) == 0);
         vm.assume(Timestamps.now() < addTo(config.AFTER_SCHEDULE_DELAY(), pre.scheduledAt));
@@ -226,7 +216,7 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
         vm.expectRevert(abi.encodeWithSelector(Proposals.AfterScheduleDelayNotPassed.selector, proposalId));
         timelock.execute(proposalId);
 
-        ProposalRecord memory post = _recordProposal(dualGovernance, timelock, proposalId);
+        ProposalRecord memory post = _recordProposal(proposalId);
         _validScheduledProposal(Mode.Assert, post);
     }
 
