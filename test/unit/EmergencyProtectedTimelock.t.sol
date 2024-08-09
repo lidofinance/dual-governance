@@ -847,6 +847,46 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.getProposal(1).submittedAt, Timestamps.now());
     }
 
+    function test_getProposalInfo() external {
+        _submitProposal();
+
+        (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt) =
+            _timelock.getProposalInfo(1);
+
+        assertEq(id, 1);
+        assert(status == ProposalStatus.Submitted);
+        assertEq(executor, _adminExecutor);
+        assertEq(submittedAt, Timestamps.from(block.timestamp));
+        assertEq(scheduledAt, Timestamps.from(0));
+    }
+
+    function test_getProposalCalls() external {
+        ExternalCall[] memory executorCalls = _getMockTargetRegularStaffCalls(address(_targetMock));
+        vm.prank(_dualGovernance);
+        _timelock.submit(_adminExecutor, executorCalls);
+
+        ExternalCall[] memory calls = _timelock.getProposalCalls(1);
+
+        assertEq(calls.length, executorCalls.length);
+        assertEq(calls[0].target, executorCalls[0].target);
+        assertEq(calls[0].value, executorCalls[0].value);
+        assertEq(calls[0].payload, executorCalls[0].payload);
+    }
+
+    function testFuzz_getAdminExecutor(address executor) external {
+        EmergencyProtectedTimelock timelock = new EmergencyProtectedTimelock(
+            EmergencyProtectedTimelock.SanityCheckParams({
+                maxAfterSubmitDelay: Durations.from(45 days),
+                maxAfterScheduleDelay: Durations.from(45 days),
+                maxEmergencyModeDuration: Durations.from(365 days),
+                maxEmergencyProtectionDuration: Durations.from(365 days)
+            }),
+            executor
+        );
+
+        assertEq(timelock.getAdminExecutor(), executor);
+    }
+
     // Utils
 
     function _submitProposal() internal {
