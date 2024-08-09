@@ -15,9 +15,56 @@ import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 import {DualGovernanceSetUp} from "test/kontrol/DualGovernanceSetUp.sol";
 
 contract ProposalOperationsSetup is DualGovernanceSetUp {
+    DualGovernance auxDualGovernance;
+    EmergencyProtectedTimelock auxTimelock;
+    Escrow auxSignallingEscrow;
+    Escrow auxRageQuitEscrow;
+
+    function _initializeAuxDualGovernance() public {
+        address adminProposer = address(uint160(uint256(keccak256("adminProposer"))));
+        auxTimelock = new EmergencyProtectedTimelock(address(config));
+        kevm.symbolicStorage(address(auxTimelock));
+
+        auxDualGovernance =
+            new DualGovernance(address(config), address(timelock), address(escrowMasterCopy), adminProposer);
+        kevm.copyStorage(address(dualGovernance), address(auxDualGovernance));
+
+        auxSignallingEscrow = Escrow(payable(Clones.clone(dualGovernance.getVetoSignallingEscrow())));
+        auxRageQuitEscrow = Escrow(payable(Clones.clone(dualGovernance.getRageQuitEscrow())));
+        kevm.copyStorage(dualGovernance.getVetoSignallingEscrow(), address(auxSignallingEscrow));
+        kevm.copyStorage(dualGovernance.getRageQuitEscrow(), address(auxRageQuitEscrow));
+
+        uint256 signallingEscrowSlot = _loadUInt256(address(auxDualGovernance), 5);
+        uint256 rageQuitEscrowSlot = _loadUInt256(address(auxDualGovernance), 6);
+
+        uint256 signallingEscrowMask = type(uint256).max ^ ((2 ** 160 - 1) << 88);
+        uint256 rageQuitEscrowMask = type(uint256).max ^ ((2 ** 160 - 1) << 80);
+
+        signallingEscrowSlot =
+            (uint256(uint160(address(auxSignallingEscrow))) * (2 ** 88)) | (signallingEscrowMask & signallingEscrowSlot);
+        rageQuitEscrowSlot =
+            (uint256(uint160(address(auxRageQuitEscrow))) * (2 ** 80)) | (rageQuitEscrowMask & rageQuitEscrowSlot);
+
+        _storeUInt256(address(auxDualGovernance), 5, signallingEscrowSlot);
+        _storeUInt256(address(auxDualGovernance), 6, rageQuitEscrowSlot);
+
+        uint256 dualGovernanceMask = type(uint256).max ^ ((2 ** 160 - 1) << 8);
+
+        uint256 dualGovernanceSlotSE = _loadUInt256(address(auxSignallingEscrow), 0);
+        uint256 dualGovernanceSlotRE = _loadUInt256(address(auxRageQuitEscrow), 0);
+
+        dualGovernanceSlotSE =
+            (uint256(uint160(address(auxDualGovernance))) * (2 ** 8)) | (dualGovernanceMask & dualGovernanceSlotSE);
+        dualGovernanceSlotRE =
+            (uint256(uint160(address(auxDualGovernance))) * (2 ** 8)) | (dualGovernanceMask & dualGovernanceSlotRE);
+
+        _storeUInt256(address(auxSignallingEscrow), 0, dualGovernanceSlotSE);
+        _storeUInt256(address(auxRageQuitEscrow), 0, dualGovernanceSlotRE);
+    }
+
     // ?STORAGE3
     // ?WORD21: lastCancelledProposalId
-    // ?WROD22: proposalsLength
+    // ?WORD22: proposalsLength
     // ?WORD23: protectedTill
     // ?WORD24: emergencyModeEndsAfter
     function _timelockStorageSetup(DualGovernance _dualGovernance, EmergencyProtectedTimelock _timelock) public {
@@ -29,7 +76,7 @@ contract ProposalOperationsSetup is DualGovernanceSetUp {
         _storeUInt256(address(timelock), 1, lastCancelledProposalId);
         // Slot 2
         uint256 proposalsLength = kevm.freshUInt(32);
-        vm.assume(proposalsLength < type(uint256).max);
+        vm.assume(proposalsLength < type(uint64).max);
         vm.assume(lastCancelledProposalId <= proposalsLength);
         _storeUInt256(address(_timelock), 2, proposalsLength);
         // Slot 3
@@ -54,7 +101,7 @@ contract ProposalOperationsSetup is DualGovernanceSetUp {
 
     // Set up the storage for a proposal.
     // ?WORD25: submittedAt
-    // ?WROD26: scheduledAt
+    // ?WORD26: scheduledAt
     // ?WORD27: executedAt
     // ?WORD28: numCalls
     function _proposalStorageSetup(EmergencyProtectedTimelock _timelock, uint256 _proposalId) public {

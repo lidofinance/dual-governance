@@ -89,16 +89,29 @@ contract ProposalOperationsTest is ProposalOperationsSetup {
     }
 
     function testCannotProposeInInvalidState() external {
+        _initializeAuxDualGovernance();
+
         _timelockStorageSetup(dualGovernance, timelock);
         uint256 newProposalIndex = timelock.getProposalsCount();
 
-        vm.assume(
-            dualGovernance.getCurrentState() == State.VetoSignallingDeactivation
-                || dualGovernance.getCurrentState() == State.VetoCooldown
+        address proposer = address(uint160(uint256(keccak256("proposer"))));
+        uint8 proposerIndexOneBased = uint8(kevm.freshUInt(1));
+        vm.assume(proposerIndexOneBased != 0);
+        uint160 executor = uint160(kevm.freshUInt(20));
+        bytes memory slotAbi = abi.encodePacked(uint88(0), uint160(executor), uint8(proposerIndexOneBased));
+        bytes32 slot;
+        assembly {
+            slot := mload(add(slotAbi, 0x20))
+        }
+        _storeBytes32(
+            address(dualGovernance), 28324487748957058971331294301258181510018269374235438230632061138814754629752, slot
         );
 
-        address proposer = address(uint160(uint256(keccak256("proposer"))));
-        vm.assume(dualGovernance.isProposer(proposer));
+        auxDualGovernance.activateNextState();
+        State nextState = auxDualGovernance.getCurrentState();
+        vm.assume(nextState != State.Normal);
+        vm.assume(nextState != State.VetoSignalling);
+        vm.assume(nextState != State.RageQuit);
 
         vm.prank(proposer);
         vm.expectRevert(DualGovernanceState.ProposalsCreationSuspended.selector);

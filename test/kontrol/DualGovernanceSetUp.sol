@@ -21,6 +21,7 @@ contract DualGovernanceSetUp is StorageSetup {
     StETHModel stEth;
     WstETHAdapted wstEth;
     WithdrawalQueueModel withdrawalQueue;
+    Escrow escrowMasterCopy;
     Escrow signallingEscrow;
     Escrow rageQuitEscrow;
 
@@ -39,7 +40,7 @@ contract DualGovernanceSetUp is StorageSetup {
 
         config = new Configuration(adminExecutor, emergencyGovernance, new address[](0));
         timelock = new EmergencyProtectedTimelock(address(config));
-        Escrow escrowMasterCopy = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
+        escrowMasterCopy = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
         dualGovernance =
             new DualGovernance(address(config), address(timelock), address(escrowMasterCopy), adminProposer);
         signallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
