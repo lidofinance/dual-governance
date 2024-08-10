@@ -331,7 +331,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         vm.assume(block.timestamp < timeUpperBound);
         vm.assume(lastInteractionTimestamp < timeUpperBound);
         vm.assume(signallingEscrow.getRageQuitSupport() <= maxRageQuitSupport);
-        vm.assume(maxRageQuitSupport <= config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(maxRageQuitSupport < config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
 
         StateRecord memory previous = _recordPreviousState(
             Timestamp.wrap(uint40(lastInteractionTimestamp)), previousRageQuitSupport, maxRageQuitSupport
