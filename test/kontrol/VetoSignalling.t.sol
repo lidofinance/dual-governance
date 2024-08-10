@@ -75,9 +75,9 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     }
 
     function _calculateDynamicTimelock(Configuration _config, uint256 rageQuitSupport) public view returns (Duration) {
-        if (rageQuitSupport <= _config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) {
+        if (rageQuitSupport < _config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) {
             return Durations.ZERO;
-        } else if (rageQuitSupport <= _config.SECOND_SEAL_RAGE_QUIT_SUPPORT()) {
+        } else if (rageQuitSupport < _config.SECOND_SEAL_RAGE_QUIT_SUPPORT()) {
             return _linearInterpolation(_config, rageQuitSupport);
         } else {
             return _config.DYNAMIC_TIMELOCK_MAX_DURATION();

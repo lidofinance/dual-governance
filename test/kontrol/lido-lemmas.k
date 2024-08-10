@@ -43,11 +43,12 @@ module LIDO-LEMMAS
     // *Int
     rule A *Int B ==Int 0 => A ==Int 0 orBool B ==Int 0 [simplification]
 
+    rule A *Int B => B *Int A [simplification(30), symbolic(A), concrete(B)]
+
     // /Int
     rule 0 /Int B         => 0         requires B =/=Int 0 [simplification, preserves-definedness]
     rule A /Int B ==Int 0 => A ==Int 0 requires B =/=Int 0 [simplification, preserves-definedness]
 
-    rule ( A *Int B ) /Int C => A *Int ( B /Int C ) requires B modInt C ==Int 0 [simplification, concrete(B, C), preserves-definedness]
     rule ( A *Int B ) /Int C => ( A /Int C ) *Int B requires A modInt C ==Int 0 [simplification, concrete(A, C), preserves-definedness]
 
     // /Word
@@ -77,7 +78,6 @@ module LIDO-LEMMAS
 
     // modInt
     rule (X *Int Y) modInt Z => 0 requires X modInt Z ==Int 0 [simplification, concrete(X, Z), preserves-definedness]
-    rule (X *Int Y) modInt Z => 0 requires Y modInt Z ==Int 0 [simplification, concrete(Y, Z), preserves-definedness]
 
     // Further generalization of: maxUIntXXX &Int #asWord ( BA )
     rule X &Int #asWord ( BA ) => #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) )
@@ -220,13 +220,6 @@ module LIDO-LEMMAS
      andBool log2Int(X +Int 1) <=Int log2Int(Y)
      [simplification, concrete(X, Y), preserves-definedness]
 
-    rule X &Int ( Y *Int Z ) => 0
-    requires 0 <=Int X andBool 0 <=Int Y andBool 0 <=Int Z
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool Z ==Int 2 ^Int log2Int(Z)
-     andBool log2Int(X +Int 1) <=Int log2Int(Z)
-     [simplification, concrete(X, Z), preserves-definedness]
-
     rule chop ( X *Int Y ) => X *Int Y
       requires 0 <=Int X andBool X <Int ethUpperBound
        andBool 0 <=Int Y andBool Y <Int 2 ^Int ( 256 -Int ethMaxWidth )
@@ -242,17 +235,27 @@ module LIDO-LEMMAS
       requires #rangeUInt(256, X) andBool 0 <Int Y
       [simplification, preserves-definedness]
 
+    rule [mul-cancel-10-le]:
+      A *Int B <=Int C *Int D => (A /Int 10) *Int B <=Int (C /Int 10) *Int D
+      requires 0 <=Int A andBool 0 <=Int C andBool A modInt 10 ==Int 0 andBool C modInt 10 ==Int 0
+      [simplification, concrete(A, C), preserves-definedness]
+
+    rule [mul-cancel-10-lt]:
+      A *Int B <Int C *Int D => (A /Int 10) *Int B <Int (C /Int 10) *Int D
+      requires 0 <=Int A andBool 0 <=Int C andBool A modInt 10 ==Int 0 andBool C modInt 10 ==Int 0
+      [simplification, concrete(A, C), preserves-definedness]
+
     //
     //  Overflows and ranges
     //
-    // rule X <=Int A +Int B => true requires X <=Int 0 andBool 0 <=Int A andBool 0 <=Int B [concrete(X), simplification, preserves-definedness]
-    // rule X <=Int A *Int B => true requires X <=Int 0 andBool 0 <=Int A andBool 0 <=Int B [concrete(X), simplification, preserves-definedness]
-    // rule X <=Int A /Int B => true requires X <=Int 0 andBool 0 <=Int A andBool 0  <Int B [concrete(X), simplification, preserves-definedness]
+    rule X <=Int A +Int B => true requires X <=Int 0 andBool 0 <=Int A andBool 0 <=Int B [concrete(X), simplification, preserves-definedness]
+    rule X <=Int A *Int B => true requires X <=Int 0 andBool 0 <=Int A andBool 0 <=Int B [concrete(X), simplification, preserves-definedness]
+    rule X <=Int A /Int B => true requires X <=Int 0 andBool 0 <=Int A andBool 0  <Int B [concrete(X), simplification, preserves-definedness]
 
-    // rule X <Int A +Int B => true requires X <=Int 0 andBool 0  <Int A andBool 0 <=Int B [concrete(X), simplification]
-    // rule X <Int A +Int B => true requires X <=Int 0 andBool 0 <=Int A andBool 0  <Int B [concrete(X), simplification]
-    // rule X <Int A *Int B => true requires X <=Int 0 andBool 0  <Int A andBool 0  <Int B [concrete(X), simplification]
-    // rule X <Int A /Int B => true requires X <=Int 0 andBool 0  <Int A andBool 0  <Int B [concrete(X), simplification, preserves-definedness]
+    rule X <Int A +Int B => true requires X <=Int 0 andBool 0  <Int A andBool 0 <=Int B [concrete(X), simplification]
+    rule X <Int A +Int B => true requires X <=Int 0 andBool 0 <=Int A andBool 0  <Int B [concrete(X), simplification]
+    rule X <Int A *Int B => true requires X <=Int 0 andBool 0  <Int A andBool 0  <Int B [concrete(X), simplification]
+    rule X <Int A /Int B => true requires X <=Int 0 andBool 0  <Int A andBool 0  <Int B [concrete(X), simplification, preserves-definedness]
 
     rule [chop-no-overflow-add-l]: X:Int <=Int chop ( X +Int Y:Int ) => X +Int Y <Int pow256 requires #rangeUInt(256, X) andBool #rangeUInt(256, Y)             [simplification]
     rule [chop-no-overflow-add-r]: X:Int <=Int chop ( Y +Int X:Int ) => X +Int Y <Int pow256 requires #rangeUInt(256, X) andBool #rangeUInt(256, Y)             [simplification]
@@ -328,7 +331,7 @@ module LIDO-LEMMAS
 
     // #buf and |Int
     rule [buf-bor-split-l]:
-      #buf ( W, ( X *Int SHIFT ) |Int Y ) => #buf( W -Int ( log2Int(SHIFT) /Int 8 ), X ) +Bytes #buf( log2Int(SHIFT) /Int 8, Y)
+      #buf ( W, ( SHIFT *Int X ) |Int Y ) => #buf( W -Int ( log2Int(SHIFT) /Int 8 ), X ) +Bytes #buf( log2Int(SHIFT) /Int 8, Y)
       requires 0 <=Int W andBool W <=Int 32 andBool rangeUInt(256, SHIFT)
        andBool SHIFT ==Int 2 ^Int log2Int(SHIFT)
        andBool log2Int(SHIFT) modInt 8 ==Int 0
@@ -337,7 +340,7 @@ module LIDO-LEMMAS
        [simplification, concrete(W, SHIFT), preserves-definedness]
 
     rule [buf-bor-split-r]:
-      #buf ( W, Y |Int ( X *Int SHIFT ) ) => #buf(W -Int ( log2Int(SHIFT) /Int 8 ), X) +Bytes #buf(log2Int(SHIFT) /Int 8, Y)
+      #buf ( W, Y |Int ( SHIFT *Int X ) ) => #buf(W -Int ( log2Int(SHIFT) /Int 8 ), X) +Bytes #buf(log2Int(SHIFT) /Int 8, Y)
       requires 0 <=Int W andBool W <=Int 32 andBool rangeUInt(256, SHIFT)
        andBool SHIFT ==Int 2 ^Int log2Int(SHIFT)
        andBool log2Int(SHIFT) modInt 8 ==Int 0
@@ -347,7 +350,7 @@ module LIDO-LEMMAS
 
     // #buf and |Int
     rule [buf-split-l]:
-      #buf ( W, X *Int SHIFT ) => #buf( W -Int ( log2Int(SHIFT) /Int 8 ), X ) +Bytes #buf( log2Int(SHIFT) /Int 8, 0)
+      #buf ( W, SHIFT *Int X ) => #buf( W -Int ( log2Int(SHIFT) /Int 8 ), X ) +Bytes #buf( log2Int(SHIFT) /Int 8, 0)
       requires 0 <=Int W andBool W <=Int 32 andBool rangeUInt(256, SHIFT)
        andBool SHIFT ==Int 2 ^Int log2Int(SHIFT)
        andBool log2Int(SHIFT) modInt 8 ==Int 0

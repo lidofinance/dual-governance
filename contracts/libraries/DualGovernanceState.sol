@@ -298,14 +298,14 @@ library DualGovernanceState {
         DualGovernanceConfig memory config,
         uint256 rageQuitSupport
     ) private pure returns (bool) {
-        return rageQuitSupport > config.firstSealRageQuitSupport;
+        return rageQuitSupport >= config.firstSealRageQuitSupport;
     }
 
     function _isSecondSealRageQuitSupportCrossed(
         DualGovernanceConfig memory config,
         uint256 rageQuitSupport
     ) private pure returns (bool) {
-        return rageQuitSupport > config.secondSealRageQuitSupport;
+        return rageQuitSupport >= config.secondSealRageQuitSupport;
     }
 
     function _isDynamicTimelockMaxDurationPassed(
@@ -388,19 +388,19 @@ library DualGovernanceState {
         Duration dynamicTimelockMinDuration = config.dynamicTimelockMinDuration;
         Duration dynamicTimelockMaxDuration = config.dynamicTimelockMaxDuration;
 
-        if (rageQuitSupport <= firstSealRageQuitSupport) {
+        if (rageQuitSupport < firstSealRageQuitSupport) {
             return Durations.ZERO;
         }
 
-        if (rageQuitSupport > secondSealRageQuitSupport) {
-            return dynamicTimelockMaxDuration;
+        if (rageQuitSupport < secondSealRageQuitSupport) {
+            duration_ = dynamicTimelockMinDuration
+                + Durations.from(
+                    (rageQuitSupport - firstSealRageQuitSupport)
+                        * (dynamicTimelockMaxDuration - dynamicTimelockMinDuration).toSeconds()
+                        / (secondSealRageQuitSupport - firstSealRageQuitSupport)
+                );
         }
 
-        duration_ = dynamicTimelockMinDuration
-            + Durations.from(
-                (rageQuitSupport - firstSealRageQuitSupport)
-                    * (dynamicTimelockMaxDuration - dynamicTimelockMinDuration).toSeconds()
-                    / (secondSealRageQuitSupport - firstSealRageQuitSupport)
-            );
+        return dynamicTimelockMaxDuration;
     }
 }
