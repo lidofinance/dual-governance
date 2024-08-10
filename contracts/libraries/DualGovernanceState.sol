@@ -393,7 +393,7 @@ library DualGovernanceState {
         }
 
         if (rageQuitSupport < secondSealRageQuitSupport) {
-            duration_ = dynamicTimelockMinDuration
+            return dynamicTimelockMinDuration
                 + Durations.from(
                     (rageQuitSupport - firstSealRageQuitSupport)
                         * (dynamicTimelockMaxDuration - dynamicTimelockMinDuration).toSeconds()
