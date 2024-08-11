@@ -9,16 +9,16 @@ import {Timestamp} from "./types/Timestamp.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
+import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
-import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
 import {IDualGovernanceConfigProvider} from "./DualGovernanceConfigProvider.sol";
 
 import {Escrow} from "./Escrow.sol";
 
 contract DualGovernance is IDualGovernance {
-    using Proposers for Proposers.State;
+    using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
@@ -26,6 +26,8 @@ contract DualGovernance is IDualGovernance {
     // Errors
     // ---
 
+    error NotAdminProposer();
+    error UnownedAdminExecutor();
     error CallerIsNotResealCommittee(address caller);
     error CallerIsNotAdminExecutor(address caller);
     error InvalidConfigProvider(IDualGovernanceConfigProvider configProvider);
@@ -65,7 +67,7 @@ contract DualGovernance is IDualGovernance {
     // Aspects
     // ---
 
-    Proposers.State internal _proposers;
+    Proposers.Context internal _proposers;
     Tiebreaker.Context internal _tiebreaker;
     DualGovernanceStateMachine.Context internal _stateMachine;
 
@@ -104,11 +106,10 @@ contract DualGovernance is IDualGovernance {
 
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
-        _proposers.checkCallerIsProposer();
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
         }
-        Proposer memory proposer = _proposers.get(msg.sender);
+        Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
         proposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
@@ -123,7 +124,10 @@ contract DualGovernance is IDualGovernance {
     }
 
     function cancelAllPendingProposals() external {
-        _proposers.checkCallerIsAdminProposer(TIMELOCK.getAdminExecutor());
+        Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
+        if (proposer.executor != TIMELOCK.getAdminExecutor()) {
+            revert NotAdminProposer();
+        }
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
@@ -191,19 +195,24 @@ contract DualGovernance is IDualGovernance {
 
     function unregisterProposer(address proposer) external {
         _checkCallerIsAdminExecutor();
-        _proposers.unregister(TIMELOCK.getAdminExecutor(), proposer);
-    }
+        _proposers.unregister(proposer);
 
-    function getProposer(address account) external view returns (Proposer memory proposer) {
-        proposer = _proposers.get(account);
-    }
-
-    function getProposers() external view returns (Proposer[] memory proposers) {
-        proposers = _proposers.all();
+        /// @dev after the removal of the proposer, check that admin executor still belongs to some proposer
+        if (!_proposers.isExecutor(TIMELOCK.getAdminExecutor())) {
+            revert UnownedAdminExecutor();
+        }
     }
 
     function isProposer(address account) external view returns (bool) {
         return _proposers.isProposer(account);
+    }
+
+    function getProposer(address account) external view returns (Proposers.Proposer memory proposer) {
+        proposer = _proposers.getProposer(account);
+    }
+
+    function getProposers() external view returns (Proposers.Proposer[] memory proposers) {
+        proposers = _proposers.getAllProposers();
     }
 
     function isExecutor(address account) external view returns (bool) {
