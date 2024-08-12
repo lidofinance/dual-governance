@@ -265,7 +265,7 @@ library AssetsAccounting {
     function accountUnstETHWithdraw(
         Context storage self,
         address holder,
-        uint256[] calldata unstETHIds
+        uint256[] memory unstETHIds
     ) internal returns (ETHValue amountWithdrawn) {
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
@@ -281,10 +281,10 @@ library AssetsAccounting {
     function getLockedAssetsTotals(Context storage self)
         internal
         view
-        returns (SharesValue ufinalizedShares, ETHValue finalizedETH)
+        returns (SharesValue unfinalizedShares, ETHValue finalizedETH)
     {
         finalizedETH = self.unstETHTotals.finalizedETH;
-        ufinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
+        unfinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
     }
 
     function checkMinAssetsLockDurationPassed(

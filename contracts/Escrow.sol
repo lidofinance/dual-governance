@@ -418,10 +418,10 @@ contract Escrow is IEscrow {
         UnstETHAccounting memory unstETHTotals = _accounting.unstETHTotals;
 
         uint256 finalizedETH = unstETHTotals.finalizedETH.toUint256();
-        uint256 ufinalizedShares = (stETHTotals.lockedShares + unstETHTotals.unfinalizedShares).toUint256();
+        uint256 unfinalizedShares = (stETHTotals.lockedShares + unstETHTotals.unfinalizedShares).toUint256();
 
         return PercentsD16.fromFraction({
-            numerator: ST_ETH.getPooledEthByShares(ufinalizedShares) + finalizedETH,
+            numerator: ST_ETH.getPooledEthByShares(unfinalizedShares) + finalizedETH,
             denominator: ST_ETH.totalSupply() + finalizedETH
         });
     }
