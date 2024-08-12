@@ -97,7 +97,8 @@ library Proposers {
 
         IndexOneBased lastProposerIndex = IndicesOneBased.fromOneBasedValue(self.proposers.length);
         if (executorData.proposerIndex != lastProposerIndex) {
-            self.proposers[executorData.proposerIndex.toZeroBased()] = self.proposers[lastProposerIndex.toZeroBased()];
+            self.proposers[executorData.proposerIndex.toZeroBasedValue()] =
+                self.proposers[lastProposerIndex.toZeroBasedValue()];
         }
 
         self.proposers.pop();

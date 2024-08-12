@@ -356,8 +356,8 @@ library AssetsAccounting {
         IndexOneBased lastUnstETHIdIndex = IndicesOneBased.fromOneBasedValue(assets.unstETHIds.length);
 
         if (lastUnstETHIdIndex != unstETHIdIndex) {
-            uint256 lastUnstETHId = assets.unstETHIds[lastUnstETHIdIndex.toZeroBased()];
-            assets.unstETHIds[unstETHIdIndex.toZeroBased()] = lastUnstETHId;
+            uint256 lastUnstETHId = assets.unstETHIds[lastUnstETHIdIndex.toZeroBasedValue()];
+            assets.unstETHIds[unstETHIdIndex.toZeroBasedValue()] = lastUnstETHId;
             self.unstETHRecords[lastUnstETHId].index = unstETHIdIndex;
         }
         assets.unstETHIds.pop();

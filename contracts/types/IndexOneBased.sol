@@ -6,7 +6,7 @@ type IndexOneBased is uint32;
 error IndexOneBasedOverflow();
 error IndexOneBasedUnderflow();
 
-using {neq as !=, isEmpty, isNotEmpty, toZeroBased} for IndexOneBased global;
+using {neq as !=, isEmpty, isNotEmpty, toZeroBasedValue} for IndexOneBased global;
 
 function neq(IndexOneBased i1, IndexOneBased i2) pure returns (bool) {
     return IndexOneBased.unwrap(i1) != IndexOneBased.unwrap(i2);
@@ -20,7 +20,7 @@ function isNotEmpty(IndexOneBased index) pure returns (bool) {
     return IndexOneBased.unwrap(index) != 0;
 }
 
-function toZeroBased(IndexOneBased index) pure returns (uint256) {
+function toZeroBasedValue(IndexOneBased index) pure returns (uint256) {
     if (IndexOneBased.unwrap(index) == 0) {
         revert IndexOneBasedUnderflow();
     }
