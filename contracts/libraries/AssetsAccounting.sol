@@ -1,40 +1,57 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {Duration} from "../types/Duration.sol";
+import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 import {ETHValue, ETHValues} from "../types/ETHValue.sol";
 import {SharesValue, SharesValues} from "../types/SharesValue.sol";
 import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
 import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
 
-import {Duration} from "../types/Duration.sol";
-import {Timestamps, Timestamp} from "../types/Timestamp.sol";
-
+/// @notice Tracks the stETH and unstETH tokens associated with users
+/// @param stETHLockedShares Total number of stETH shares held by the user
+/// @param unstETHLockedShares Total number of shares contained in the unstETH NFTs held by the user
+/// @param lastAssetsLockTimestamp Timestamp of the most recent lock of stETH shares or unstETH NFTs
+/// @param unstETHIds List of unstETH ids locked by the user
 struct HolderAssets {
-    // The total shares amount of stETH/wstETH accounted to the holder
-    SharesValue stETHLockedShares;
-    // The total shares amount of unstETH NFTs accounted to the holder
-    SharesValue unstETHLockedShares;
-    // The timestamp when the last time was accounted lock of shares or unstETHs
+    /// @dev slot0: [0..39]
     Timestamp lastAssetsLockTimestamp;
-    // The ids of the unstETH NFTs accounted to the holder
+    /// @dev slot0: [40..167]
+    SharesValue stETHLockedShares;
+    /// @dev slot1: [0..127]
+    SharesValue unstETHLockedShares;
+    /// @dev slot2: [0..255] - the length of the array + each item occupies 1 slot
     uint256[] unstETHIds;
 }
 
+/// @notice Tracks the unfinalized shares and finalized ETH amount of unstETH NFTs
+/// @param unfinalizedShares Total number of unfinalized unstETH shares
+/// @param finalizedETH Total amount of ETH claimable from finalized unstETH
 struct UnstETHAccounting {
-    // The cumulative amount of unfinalized unstETH shares locked in the Escrow
+    /// @dev slot0: [0..127]
     SharesValue unfinalizedShares;
-    // The total amount of ETH claimable from the finalized unstETH locked in the Escrow
+    /// @dev slot1: [128..255]
     ETHValue finalizedETH;
 }
 
+/// @notice Tracks the locked shares and claimed ETH amounts
+/// @param lockedShares Total number of accounted stETH shares
+/// @param claimedETH Total amount of ETH received from claiming the locked stETH shares
 struct StETHAccounting {
-    // The total amount of shares of locked stETH and wstETH tokens
+    /// @dev slot0: [0..127]
     SharesValue lockedShares;
-    // The total amount of ETH received during the claiming of the locked stETH
+    /// @dev slot0: [128..255]
     ETHValue claimedETH;
 }
 
+/// @notice Represents the state of an accounted WithdrawalRequest
+/// @param NotLocked Indicates the default value of the unstETH record, meaning it was not accounted as locked or
+///        was unlocked by the account that previously locked it
+/// @param Locked Indicates the unstETH record was accounted as locked
+/// @param Finalized Indicates the unstETH record was marked as finalized
+/// @param Claimed Indicates the unstETH record was claimed
+/// @param Withdrawn Indicates the unstETH record was withdrawn after a successful claim
 enum UnstETHRecordStatus {
     NotLocked,
     Locked,
@@ -43,24 +60,42 @@ enum UnstETHRecordStatus {
     Withdrawn
 }
 
+/// @notice Stores information about an accounted unstETH NFT
+/// @param state The current state of the unstETH record. Refer to `UnstETHRecordStatus` for details.
+/// @param index The one-based index of the unstETH record in the `UnstETHAccounting.unstETHIds` array
+/// @param lockedBy The address of the account that locked the unstETH
+/// @param shares The amount of shares contained in the unstETH
+/// @param claimableAmount The amount of claimable ETH contained in the unstETH. This value is 0
+///        until the NFT is marked as finalized or claimed.
 struct UnstETHRecord {
-    // The one based index of the unstETH record in the UnstETHAccounting.unstETHIds list
-    IndexOneBased index;
-    // The address of the holder who locked unstETH
-    address lockedBy;
-    // The current status of the unstETH
+    /// @dev slot 0: [0..7]
     UnstETHRecordStatus status;
-    // The amount of shares contained in the unstETH
+    /// @dev slot 0: [8..39]
+    IndexOneBased index;
+    /// @dev slot 0: [40..199]
+    address lockedBy;
+    /// @dev slot 1: [0..127]
     SharesValue shares;
-    // The amount of ETH contained in the unstETH (this value equals to 0 until NFT is mark as finalized or claimed)
+    /// @dev slot 1: [128..255]
     ETHValue claimableAmount;
 }
 
+/// @notice Provides functionality for accounting user stETH and unstETH tokens
+///         locked in the Escrow contract
 library AssetsAccounting {
-    struct State {
+    /// @notice The context of the AssetsAccounting library
+    /// @param stETHTotals The total number of shares and the amount of stETH locked by users
+    /// @param unstETHTotals The total number of shares and the amount of unstETH locked by users
+    /// @param assets Mapping to store information about the assets locked by each user
+    /// @param unstETHRecords Mapping to track the state of the locked unstETH ids
+    struct Context {
+        /// @dev slot0: [0..255]
         StETHAccounting stETHTotals;
+        /// @dev slot1: [0..255]
         UnstETHAccounting unstETHTotals;
+        /// @dev slot2: [0..255] empty slot for mapping track in the storage
         mapping(address account => HolderAssets) assets;
+        /// @dev slot3: [0..255] empty slot for mapping track in the storage
         mapping(uint256 unstETHId => UnstETHRecord) unstETHRecords;
     }
 
@@ -95,7 +130,7 @@ library AssetsAccounting {
     // stETH shares operations accounting
     // ---
 
-    function accountStETHSharesLock(State storage self, address holder, SharesValue shares) internal {
+    function accountStETHSharesLock(Context storage self, address holder, SharesValue shares) internal {
         _checkNonZeroShares(shares);
         self.stETHTotals.lockedShares = self.stETHTotals.lockedShares + shares;
         HolderAssets storage assets = self.assets[holder];
@@ -104,12 +139,12 @@ library AssetsAccounting {
         emit StETHSharesLocked(holder, shares);
     }
 
-    function accountStETHSharesUnlock(State storage self, address holder) internal returns (SharesValue shares) {
+    function accountStETHSharesUnlock(Context storage self, address holder) internal returns (SharesValue shares) {
         shares = self.assets[holder].stETHLockedShares;
         accountStETHSharesUnlock(self, holder, shares);
     }
 
-    function accountStETHSharesUnlock(State storage self, address holder, SharesValue shares) internal {
+    function accountStETHSharesUnlock(Context storage self, address holder, SharesValue shares) internal {
         _checkNonZeroShares(shares);
 
         HolderAssets storage assets = self.assets[holder];
@@ -122,7 +157,10 @@ library AssetsAccounting {
         emit StETHSharesUnlocked(holder, shares);
     }
 
-    function accountStETHSharesWithdraw(State storage self, address holder) internal returns (ETHValue ethWithdrawn) {
+    function accountStETHSharesWithdraw(
+        Context storage self,
+        address holder
+    ) internal returns (ETHValue ethWithdrawn) {
         HolderAssets storage assets = self.assets[holder];
         SharesValue stETHSharesToWithdraw = assets.stETHLockedShares;
 
@@ -135,7 +173,7 @@ library AssetsAccounting {
         emit ETHWithdrawn(holder, stETHSharesToWithdraw, ethWithdrawn);
     }
 
-    function accountClaimedStETH(State storage self, ETHValue amount) internal {
+    function accountClaimedStETH(Context storage self, ETHValue amount) internal {
         self.stETHTotals.claimedETH = self.stETHTotals.claimedETH + amount;
         emit ETHClaimed(amount);
     }
@@ -145,7 +183,7 @@ library AssetsAccounting {
     // ---
 
     function accountUnstETHLock(
-        State storage self,
+        Context storage self,
         address holder,
         uint256[] memory unstETHIds,
         WithdrawalRequestStatus[] memory statuses
@@ -164,7 +202,7 @@ library AssetsAccounting {
         emit UnstETHLocked(holder, unstETHIds, totalUnstETHLocked);
     }
 
-    function accountUnstETHUnlock(State storage self, address holder, uint256[] memory unstETHIds) internal {
+    function accountUnstETHUnlock(Context storage self, address holder, uint256[] memory unstETHIds) internal {
         SharesValue totalSharesUnlocked;
         SharesValue totalFinalizedSharesUnlocked;
         ETHValue totalFinalizedAmountUnlocked;
@@ -188,7 +226,7 @@ library AssetsAccounting {
     }
 
     function accountUnstETHFinalized(
-        State storage self,
+        Context storage self,
         uint256[] memory unstETHIds,
         uint256[] memory claimableAmounts
     ) internal {
@@ -211,7 +249,7 @@ library AssetsAccounting {
     }
 
     function accountUnstETHClaimed(
-        State storage self,
+        Context storage self,
         uint256[] memory unstETHIds,
         uint256[] memory claimableAmounts
     ) internal returns (ETHValue totalAmountClaimed) {
@@ -225,7 +263,7 @@ library AssetsAccounting {
     }
 
     function accountUnstETHWithdraw(
-        State storage self,
+        Context storage self,
         address holder,
         uint256[] calldata unstETHIds
     ) internal returns (ETHValue amountWithdrawn) {
@@ -240,7 +278,7 @@ library AssetsAccounting {
     // Getters
     // ---
 
-    function getLockedAssetsTotals(State storage self)
+    function getLockedAssetsTotals(Context storage self)
         internal
         view
         returns (SharesValue ufinalizedShares, ETHValue finalizedETH)
@@ -250,7 +288,7 @@ library AssetsAccounting {
     }
 
     function checkMinAssetsLockDurationPassed(
-        State storage self,
+        Context storage self,
         address holder,
         Duration minAssetsLockDuration
     ) internal view {
@@ -265,7 +303,7 @@ library AssetsAccounting {
     // ---
 
     function _addUnstETHRecord(
-        State storage self,
+        Context storage self,
         address holder,
         uint256 unstETHId,
         WithdrawalRequestStatus memory status
@@ -287,14 +325,14 @@ library AssetsAccounting {
         self.unstETHRecords[unstETHId] = UnstETHRecord({
             lockedBy: holder,
             status: UnstETHRecordStatus.Locked,
-            index: IndicesOneBased.from(assets.unstETHIds.length),
+            index: IndicesOneBased.fromOneBasedValue(assets.unstETHIds.length),
             shares: shares,
             claimableAmount: ETHValues.ZERO
         });
     }
 
     function _removeUnstETHRecord(
-        State storage self,
+        Context storage self,
         address holder,
         uint256 unstETHId
     ) private returns (SharesValue sharesUnlocked, ETHValue finalizedAmountUnlocked) {
@@ -315,11 +353,11 @@ library AssetsAccounting {
 
         HolderAssets storage assets = self.assets[holder];
         IndexOneBased unstETHIdIndex = unstETHRecord.index;
-        IndexOneBased lastUnstETHIdIndex = IndicesOneBased.from(assets.unstETHIds.length);
+        IndexOneBased lastUnstETHIdIndex = IndicesOneBased.fromOneBasedValue(assets.unstETHIds.length);
 
         if (lastUnstETHIdIndex != unstETHIdIndex) {
-            uint256 lastUnstETHId = assets.unstETHIds[lastUnstETHIdIndex.value()];
-            assets.unstETHIds[unstETHIdIndex.value()] = lastUnstETHId;
+            uint256 lastUnstETHId = assets.unstETHIds[lastUnstETHIdIndex.toZeroBased()];
+            assets.unstETHIds[unstETHIdIndex.toZeroBased()] = lastUnstETHId;
             self.unstETHRecords[lastUnstETHId].index = unstETHIdIndex;
         }
         assets.unstETHIds.pop();
@@ -327,7 +365,7 @@ library AssetsAccounting {
     }
 
     function _finalizeUnstETHRecord(
-        State storage self,
+        Context storage self,
         uint256 unstETHId,
         uint256 claimableAmount
     ) private returns (SharesValue sharesFinalized, ETHValue amountFinalized) {
@@ -344,7 +382,7 @@ library AssetsAccounting {
         self.unstETHRecords[unstETHId] = unstETHRecord;
     }
 
-    function _claimUnstETHRecord(State storage self, uint256 unstETHId, ETHValue claimableAmount) private {
+    function _claimUnstETHRecord(Context storage self, uint256 unstETHId, ETHValue claimableAmount) private {
         UnstETHRecord storage unstETHRecord = self.unstETHRecords[unstETHId];
         if (unstETHRecord.status != UnstETHRecordStatus.Locked && unstETHRecord.status != UnstETHRecordStatus.Finalized)
         {
@@ -363,7 +401,7 @@ library AssetsAccounting {
     }
 
     function _withdrawUnstETHRecord(
-        State storage self,
+        Context storage self,
         address holder,
         uint256 unstETHId
     ) private returns (ETHValue amountWithdrawn) {
