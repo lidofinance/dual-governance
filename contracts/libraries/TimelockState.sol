@@ -14,13 +14,6 @@ library TimelockState {
     event AfterSubmitDelaySet(Duration newAfterSubmitDelay);
     event AfterScheduleDelaySet(Duration newAfterScheduleDelay);
 
-    struct Config {
-        Duration maxSubmitDelay;
-        Duration minSubmitDelay;
-        Duration minScheduleDelay;
-        Duration maxScheduleDelay;
-    }
-
     struct Context {
         /// @dev slot0 [0..159]
         address governance;

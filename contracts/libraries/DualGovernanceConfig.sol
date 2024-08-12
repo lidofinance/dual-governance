@@ -10,8 +10,8 @@ library DualGovernanceConfig {
         PercentD16 firstSealRageQuitSupport;
         PercentD16 secondSealRageQuitSupport;
         Duration minAssetsLockDuration;
-        Duration dynamicTimelockMaxDuration;
         Duration dynamicTimelockMinDuration;
+        Duration dynamicTimelockMaxDuration;
         Duration vetoSignallingMinActiveDuration;
         Duration vetoSignallingDeactivationMaxDuration;
         Duration vetoCooldownDuration;
@@ -47,8 +47,7 @@ library DualGovernanceConfig {
         Timestamp vetoSignallingActivatedAt,
         PercentD16 rageQuitSupport
     ) internal view returns (bool) {
-        Duration dynamicTimelock = calcDynamicDelayDuration(self, rageQuitSupport);
-        return Timestamps.now() > dynamicTimelock.addTo(vetoSignallingActivatedAt);
+        return Timestamps.now() > calcDynamicDelayDuration(self, rageQuitSupport).addTo(vetoSignallingActivatedAt);
     }
 
     function isVetoSignallingReactivationDurationPassed(
@@ -82,7 +81,7 @@ library DualGovernanceConfig {
         Duration dynamicTimelockMinDuration = self.dynamicTimelockMinDuration;
         Duration dynamicTimelockMaxDuration = self.dynamicTimelockMaxDuration;
 
-        if (rageQuitSupport < firstSealRageQuitSupport) {
+        if (rageQuitSupport <= firstSealRageQuitSupport) {
             return Durations.ZERO;
         }
 

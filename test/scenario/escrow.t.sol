@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {console} from "forge-std/Test.sol";
+
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
@@ -8,7 +10,7 @@ import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol
 
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 
-import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
+import {Escrow, VetoerState, LockedAssetsTotals, WithdrawalsBatchesQueue} from "contracts/Escrow.sol";
 
 import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
 
@@ -332,10 +334,11 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
             unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
         );
 
-        while (!escrow.isWithdrawalsClaimed()) {
+        while (escrow.getUnclaimedUnstETHIdsCount() > 0) {
             escrow.claimNextWithdrawalsBatch(32);
         }
 
+        escrow.startRageQuitExtensionDelay();
         assertEq(escrow.isRageQuitFinalized(), false);
 
         // ---
@@ -387,9 +390,60 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         escrow.requestNextWithdrawalsBatch(96);
 
+        vm.expectRevert();
         escrow.claimNextWithdrawalsBatch(0, new uint256[](0));
 
+        escrow.startRageQuitExtensionDelay();
+
         assertEq(escrow.isRageQuitFinalized(), false);
+
+        uint256[] memory hints =
+            _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
+
+        escrow.claimUnstETH(unstETHIds, hints);
+
+        assertEq(escrow.isRageQuitFinalized(), false);
+
+        _wait(_RAGE_QUIT_EXTRA_TIMELOCK.plusSeconds(1));
+        assertEq(escrow.isRageQuitFinalized(), true);
+
+        _wait(_RAGE_QUIT_WITHDRAWALS_TIMELOCK.plusSeconds(1));
+
+        vm.startPrank(_VETOER_1);
+        escrow.withdrawETH(unstETHIds);
+        vm.stopPrank();
+    }
+
+    function test_wq_requests_onlyUnstETHWithUnfinalizedRequestsFails() external {
+        uint256 requestAmount = 10 * 1e18;
+        uint256 requestsCount = 10;
+        uint256[] memory amounts = new uint256[](requestsCount);
+        for (uint256 i = 0; i < requestsCount; ++i) {
+            amounts[i] = requestAmount;
+        }
+
+        vm.prank(_VETOER_1);
+        uint256[] memory unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
+
+        _lockUnstETH(_VETOER_1, unstETHIds);
+
+        vm.prank(address(_dualGovernance));
+        escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
+
+        vm.expectRevert(Escrow.BatchesQueueIsNotClosed.selector);
+        escrow.startRageQuitExtensionDelay();
+
+        escrow.requestNextWithdrawalsBatch(96);
+
+        vm.expectRevert(WithdrawalsBatchesQueue.EmptyBatch.selector);
+        escrow.claimNextWithdrawalsBatch(0);
+
+        vm.expectRevert(Escrow.UnfinalizedUnstETHIds.selector);
+        escrow.startRageQuitExtensionDelay();
+
+        _finalizeWithdrawalQueue();
+
+        escrow.startRageQuitExtensionDelay();
 
         uint256[] memory hints =
             _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
@@ -516,6 +570,10 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
         this.externalUnlockUnstETH(_VETOER_1, lockedWithdrawalNfts);
     }
+
+    // ---
+    // Helper external methods to test reverts
+    // ---
 
     function externalLockUnstETH(address vetoer, uint256[] memory unstETHIds) external {
         _lockUnstETH(vetoer, unstETHIds);

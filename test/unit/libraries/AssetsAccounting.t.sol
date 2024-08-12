@@ -17,7 +17,7 @@ import {
 import {UnitTest, Duration} from "test/utils/unit-test.sol";
 
 contract AssetsAccountingUnitTests is UnitTest {
-    AssetsAccounting.State private _accountingState;
+    AssetsAccounting.Context private _accountingState;
 
     // ---
     // accountStETHSharesLock()
@@ -400,7 +400,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             assert(_accountingState.unstETHRecords[unstETHIds[i]].lockedBy == holder);
             assert(_accountingState.unstETHRecords[unstETHIds[i]].status == UnstETHRecordStatus.Locked);
-            assert(_accountingState.unstETHRecords[unstETHIds[i]].index.value() == i + 1);
+            assert(_accountingState.unstETHRecords[unstETHIds[i]].index.toZeroBasedValue() == i + 1);
             assert(_accountingState.unstETHRecords[unstETHIds[i]].shares == SharesValues.from(amountsOfShares[i]));
             assert(_accountingState.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.ZERO);
         }
@@ -705,7 +705,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             _accountingState.unstETHRecords[unstETHIds[i]].lockedBy = holder;
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Locked;
             _accountingState.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(amountsOfShares[i]);
-            _accountingState.unstETHRecords[unstETHIds[i]].index = IndicesOneBased.from(i + 1);
+            _accountingState.unstETHRecords[unstETHIds[i]].index = IndicesOneBased.fromOneBasedValue(i + 1);
             _accountingState.assets[holder].unstETHIds.push(unstETHIds[i]);
             expectedTotalSharesUnlockedAmount += amountsOfShares[i];
         }
@@ -765,7 +765,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             _accountingState.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Finalized;
             _accountingState.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(amountsOfShares[i]);
             _accountingState.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(amountsOfShares[i]);
-            _accountingState.unstETHRecords[unstETHIds[i]].index = IndicesOneBased.from(i + 1);
+            _accountingState.unstETHRecords[unstETHIds[i]].index = IndicesOneBased.fromOneBasedValue(i + 1);
             _accountingState.assets[holder].unstETHIds.push(unstETHIds[i]);
             expectedTotalSharesUnlockedAmount += amountsOfShares[i];
         }
@@ -849,7 +849,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(1234);
-        _accountingState.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.from(10);
+        _accountingState.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(10);
         _accountingState.assets[holder].unstETHIds.push(unstETHIds[0]);
 
         vm.expectRevert(stdError.indexOOBError);
@@ -901,7 +901,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(10);
-        _accountingState.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.from(1);
+        _accountingState.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
         _accountingState.assets[holder].unstETHIds.push(unstETHIds[0]);
 
         vm.expectRevert(stdError.arithmeticError);
@@ -920,7 +920,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Finalized;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(5);
-        _accountingState.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.from(1);
+        _accountingState.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
         _accountingState.unstETHRecords[unstETHIds[0]].claimableAmount = ETHValues.from(10);
         _accountingState.assets[holder].unstETHIds.push(unstETHIds[0]);
 
@@ -940,7 +940,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingState.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingState.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingState.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(10);
-        _accountingState.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.from(1);
+        _accountingState.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
         _accountingState.assets[holder].unstETHIds.push(unstETHIds[0]);
 
         vm.expectRevert(stdError.arithmeticError);

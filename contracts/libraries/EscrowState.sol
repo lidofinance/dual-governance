@@ -4,23 +4,48 @@ pragma solidity 0.8.26;
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
+/// @notice The state of Escrow representing the current set of actions allowed to be called
+///         on the Escrow instance.
+/// @param NotInitialized The default (uninitialized) state of the Escrow contract. Only the master
+///        copy of the Escrow contract is expected to be in this state.
+/// @param SignallingEscrow In this state, the Escrow contract functions as an on-chain oracle for measuring stakers' disagreement
+///        with DAO decisions. Users are allowed to lock and unlock funds in the Escrow contract in this state.
+/// @param RageQuitEscrow The final state of the Escrow contract. In this state, the Escrow instance acts as an accumulator
+///        for withdrawn funds locked during the VetoSignalling phase.
 enum State {
     NotInitialized,
     SignallingEscrow,
     RageQuitEscrow
 }
 
+/// @notice Represents the logic to manipulate the state of the Escrow
 library EscrowState {
+    // ---
+    // Errors
+    // ---
+
     error ClaimingIsFinished();
     error UnexpectedState(State value);
     error RageQuitExtraTimelockNotStarted();
     error WithdrawalsTimelockNotPassed();
+    error BatchesCreationNotInProgress();
+
+    // ---
+    // Events
+    // ---
 
     event RageQuitTimelockStarted();
     event EscrowStateChanged(State from, State to);
     event RageQuitStarted(Duration rageQuitExtensionDelay, Duration rageQuitWithdrawalsTimelock);
     event MinAssetsLockDurationSet(Duration newAssetsLockDuration);
 
+    /// @notice Stores the context of the state of the Escrow instance
+    /// @param state The current state of the Escrow instance
+    /// @param minAssetsLockDuration The minimum time required to pass before tokens can be unlocked from the Escrow
+    ///        contract instance
+    /// @param rageQuitExtensionDelay The period of time that starts after all withdrawal batches are formed, which delays
+    ///        the exit from the RageQuit state of the DualGovernance. The main purpose of the rage quit extension delay is to provide
+    ///        enough time for users who locked their unstETH to claim it.
     struct Context {
         /// @dev slot0: [0..7]
         State state;
@@ -28,10 +53,10 @@ library EscrowState {
         Duration minAssetsLockDuration;
         /// @dev slot0: [40..71]
         Duration rageQuitExtensionDelay;
-        /// @dev slot1: [72..103]
-        Duration rageQuitWithdrawalsTimelock;
-        /// @dev slot1: [104..144]
+        /// @dev slot0: [72..111]
         Timestamp rageQuitExtensionDelayStartedAt;
+        /// @dev slot0: [112..143]
+        Duration rageQuitWithdrawalsTimelock;
     }
 
     function initialize(Context storage self, Duration minAssetsLockDuration) internal {
@@ -76,7 +101,7 @@ library EscrowState {
         _checkState(self, State.RageQuitEscrow);
     }
 
-    function checkBatchesClaimInProgress(Context storage self) internal view {
+    function checkBatchesClaimingInProgress(Context storage self) internal view {
         if (!self.rageQuitExtensionDelayStartedAt.isZero()) {
             revert ClaimingIsFinished();
         }
@@ -95,7 +120,7 @@ library EscrowState {
     // ---
     // Getters
     // ---
-    function isWithdrawalsClaimed(Context storage self) internal view returns (bool) {
+    function isRageQuitExtensionDelayStarted(Context storage self) internal view returns (bool) {
         return self.rageQuitExtensionDelayStartedAt.isNotZero();
     }
 

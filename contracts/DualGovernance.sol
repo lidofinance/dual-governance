@@ -1,24 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
-import {IResealManager} from "./interfaces/IResealManager.sol";
-
 import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
+import {IStETH} from "./interfaces/IStETH.sol";
+import {IWstETH} from "./interfaces/IWstETH.sol";
+import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
+import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
+import {IResealManager} from "./interfaces/IResealManager.sol";
+
+import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
-import {Proposers, Proposer} from "./libraries/Proposers.sol";
 import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
 import {IDualGovernanceConfigProvider} from "./DualGovernanceConfigProvider.sol";
 
 import {Escrow} from "./Escrow.sol";
 
 contract DualGovernance is IDualGovernance {
-    using Proposers for Proposers.State;
+    using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
@@ -26,6 +29,8 @@ contract DualGovernance is IDualGovernance {
     // Errors
     // ---
 
+    error NotAdminProposer();
+    error UnownedAdminExecutor();
     error CallerIsNotResealCommittee(address caller);
     error CallerIsNotAdminExecutor(address caller);
     error InvalidConfigProvider(IDualGovernanceConfigProvider configProvider);
@@ -45,6 +50,7 @@ contract DualGovernance is IDualGovernance {
     // ---
 
     struct SanityCheckParams {
+        uint256 minWithdrawalsBatchSize;
         Duration minTiebreakerActivationTimeout;
         Duration maxTiebreakerActivationTimeout;
         uint256 maxSealableWithdrawalBlockersCount;
@@ -57,6 +63,15 @@ contract DualGovernance is IDualGovernance {
     // ---
     // External Parts Immutables
 
+    struct ExternalDependencies {
+        IStETH stETH;
+        IWstETH wstETH;
+        IWithdrawalQueue withdrawalQueue;
+        ITimelock timelock;
+        IResealManager resealManager;
+        IDualGovernanceConfigProvider configProvider;
+    }
+
     ITimelock public immutable TIMELOCK;
     IResealManager public immutable RESEAL_MANAGER;
     address public immutable ESCROW_MASTER_COPY;
@@ -65,7 +80,7 @@ contract DualGovernance is IDualGovernance {
     // Aspects
     // ---
 
-    Proposers.State internal _proposers;
+    Proposers.Context internal _proposers;
     Tiebreaker.Context internal _tiebreaker;
     DualGovernanceStateMachine.Context internal _stateMachine;
 
@@ -75,27 +90,28 @@ contract DualGovernance is IDualGovernance {
     IDualGovernanceConfigProvider internal _configProvider;
     address internal _resealCommittee;
 
-    constructor(
-        ITimelock timelock,
-        IResealManager resealManager,
-        IDualGovernanceConfigProvider configProvider,
-        SanityCheckParams memory dualGovernanceSanityCheckParams,
-        Escrow.SanityCheckParams memory escrowSanityCheckParams,
-        Escrow.ProtocolDependencies memory escrowProtocolDependencies
-    ) {
-        TIMELOCK = timelock;
-        RESEAL_MANAGER = resealManager;
+    constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
+        TIMELOCK = dependencies.timelock;
+        RESEAL_MANAGER = dependencies.resealManager;
 
-        MIN_TIEBREAKER_ACTIVATION_TIMEOUT = dualGovernanceSanityCheckParams.minTiebreakerActivationTimeout;
-        MAX_TIEBREAKER_ACTIVATION_TIMEOUT = dualGovernanceSanityCheckParams.maxTiebreakerActivationTimeout;
-        MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = dualGovernanceSanityCheckParams.maxSealableWithdrawalBlockersCount;
+        MIN_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.minTiebreakerActivationTimeout;
+        MAX_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.maxTiebreakerActivationTimeout;
+        MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = sanityCheckParams.maxSealableWithdrawalBlockersCount;
 
-        _setConfigProvider(configProvider);
+        _setConfigProvider(dependencies.configProvider);
 
-        ESCROW_MASTER_COPY = address(new Escrow(this, escrowSanityCheckParams, escrowProtocolDependencies));
+        ESCROW_MASTER_COPY = address(
+            new Escrow({
+                dualGovernance: this,
+                stETH: dependencies.stETH,
+                wstETH: dependencies.wstETH,
+                withdrawalQueue: dependencies.withdrawalQueue,
+                minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize
+            })
+        );
         emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
-        _stateMachine.initialize(configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
+        _stateMachine.initialize(dependencies.configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
     }
 
     // ---
@@ -104,11 +120,10 @@ contract DualGovernance is IDualGovernance {
 
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
-        _proposers.checkCallerIsProposer();
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
         }
-        Proposer memory proposer = _proposers.get(msg.sender);
+        Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
         proposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
@@ -123,7 +138,10 @@ contract DualGovernance is IDualGovernance {
     }
 
     function cancelAllPendingProposals() external {
-        _proposers.checkCallerIsAdminProposer(TIMELOCK.getAdminExecutor());
+        Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
+        if (proposer.executor != TIMELOCK.getAdminExecutor()) {
+            revert NotAdminProposer();
+        }
         TIMELOCK.cancelAllNonExecutedProposals();
     }
 
@@ -191,19 +209,24 @@ contract DualGovernance is IDualGovernance {
 
     function unregisterProposer(address proposer) external {
         _checkCallerIsAdminExecutor();
-        _proposers.unregister(TIMELOCK.getAdminExecutor(), proposer);
-    }
+        _proposers.unregister(proposer);
 
-    function getProposer(address account) external view returns (Proposer memory proposer) {
-        proposer = _proposers.get(account);
-    }
-
-    function getProposers() external view returns (Proposer[] memory proposers) {
-        proposers = _proposers.all();
+        /// @dev after the removal of the proposer, check that admin executor still belongs to some proposer
+        if (!_proposers.isExecutor(TIMELOCK.getAdminExecutor())) {
+            revert UnownedAdminExecutor();
+        }
     }
 
     function isProposer(address account) external view returns (bool) {
         return _proposers.isProposer(account);
+    }
+
+    function getProposer(address account) external view returns (Proposers.Proposer memory proposer) {
+        proposer = _proposers.getProposer(account);
+    }
+
+    function getProposers() external view returns (Proposers.Proposer[] memory proposers) {
+        proposers = _proposers.getAllProposers();
     }
 
     function isExecutor(address account) external view returns (bool) {

@@ -70,7 +70,7 @@ library ExecutableProposals {
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
     event ProposalsCancelledTill(uint256 proposalId);
 
-    struct State {
+    struct Context {
         uint64 proposalsCount;
         uint64 lastCancelledProposalId;
         mapping(uint256 proposalId => Proposal) proposals;
@@ -81,7 +81,7 @@ library ExecutableProposals {
     // ---
 
     function submit(
-        State storage self,
+        Context storage self,
         address executor,
         ExternalCall[] memory calls
     ) internal returns (uint256 newProposalId) {
@@ -105,7 +105,7 @@ library ExecutableProposals {
         emit ProposalSubmitted(newProposalId, executor, calls);
     }
 
-    function schedule(State storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
+    function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
         ProposalData memory proposalState = self.proposals[proposalId].data;
 
         if (proposalState.status != Status.Submitted || _isProposalMarkedCancelled(self, proposalId, proposalState)) {
@@ -123,7 +123,7 @@ library ExecutableProposals {
         emit ProposalScheduled(proposalId);
     }
 
-    function execute(State storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
+    function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
         if (proposal.data.status != Status.Scheduled || _isProposalMarkedCancelled(self, proposalId, proposal.data)) {
@@ -144,7 +144,7 @@ library ExecutableProposals {
         emit ProposalExecuted(proposalId, results);
     }
 
-    function cancelAll(State storage self) internal {
+    function cancelAll(Context storage self) internal {
         uint64 lastCancelledProposalId = self.proposalsCount;
         self.lastCancelledProposalId = lastCancelledProposalId;
         emit ProposalsCancelledTill(lastCancelledProposalId);
@@ -155,7 +155,7 @@ library ExecutableProposals {
     // ---
 
     function canExecute(
-        State storage self,
+        Context storage self,
         uint256 proposalId,
         Duration afterScheduleDelay
     ) internal view returns (bool) {
@@ -166,7 +166,7 @@ library ExecutableProposals {
     }
 
     function canSchedule(
-        State storage self,
+        Context storage self,
         uint256 proposalId,
         Duration afterSubmitDelay
     ) internal view returns (bool) {
@@ -176,12 +176,12 @@ library ExecutableProposals {
             && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
     }
 
-    function getProposalsCount(State storage self) internal view returns (uint256) {
+    function getProposalsCount(Context storage self) internal view returns (uint256) {
         return self.proposalsCount;
     }
 
     function getProposalInfo(
-        State storage self,
+        Context storage self,
         uint256 proposalId
     ) internal view returns (Status status, address executor, Timestamp submittedAt, Timestamp scheduledAt) {
         ProposalData memory proposalData = self.proposals[proposalId].data;
@@ -194,7 +194,7 @@ library ExecutableProposals {
     }
 
     function getProposalCalls(
-        State storage self,
+        Context storage self,
         uint256 proposalId
     ) internal view returns (ExternalCall[] memory calls) {
         Proposal memory proposal = self.proposals[proposalId];
@@ -213,7 +213,7 @@ library ExecutableProposals {
     }
 
     function _isProposalMarkedCancelled(
-        State storage self,
+        Context storage self,
         uint256 proposalId,
         ProposalData memory proposalData
     ) private view returns (bool) {

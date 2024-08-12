@@ -7,10 +7,14 @@ uint256 constant HUNDRED_PERCENTS_UINT256 = 100 * 10 ** 16;
 
 error Overflow();
 
-using {lt as <, gte as >=, gt as >, minus as -, plus as +} for PercentD16 global;
+using {lt as <, lte as <=, gte as >=, gt as >, minus as -, plus as +} for PercentD16 global;
 
 function lt(PercentD16 a, PercentD16 b) pure returns (bool) {
     return PercentD16.unwrap(a) < PercentD16.unwrap(b);
+}
+
+function lte(PercentD16 a, PercentD16 b) pure returns (bool) {
+    return PercentD16.unwrap(a) <= PercentD16.unwrap(b);
 }
 
 function gt(PercentD16 a, PercentD16 b) pure returns (bool) {

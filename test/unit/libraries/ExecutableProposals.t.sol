@@ -15,11 +15,11 @@ import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 
 contract ExecutableProposalsUnitTests is UnitTest {
-    using ExecutableProposals for ExecutableProposals.State;
+    using ExecutableProposals for ExecutableProposals.Context;
 
     Executor private _executor;
     TargetMock private _targetMock;
-    ExecutableProposals.State internal _proposals;
+    ExecutableProposals.Context internal _proposals;
 
     uint256 private constant PROPOSAL_ID_OFFSET = 1;
 

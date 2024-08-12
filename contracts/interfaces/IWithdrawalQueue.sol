@@ -20,6 +20,9 @@ interface IWithdrawalQueue is IERC721 {
 
     function transferFrom(address from, address to, uint256 requestId) external;
 
+    function getLastRequestId() external view returns (uint256);
+    function getLastFinalizedRequestId() external view returns (uint256);
+
     function getWithdrawalStatus(uint256[] calldata _requestIds)
         external
         view
