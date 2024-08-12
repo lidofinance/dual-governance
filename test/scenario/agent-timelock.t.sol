@@ -1,34 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ExecutorCall, ScenarioTestBlueprint, ExecutorCall} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCall, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 
 contract AgentTimelockTest is ScenarioTestBlueprint {
     function setUp() external {
-        _selectFork();
-        _deployTarget();
-        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ true);
+        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 
     function testFork_AgentTimelockHappyPath() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId;
         _step("1. THE PROPOSAL IS SUBMITTED");
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
+            proposalId = _submitProposalViaDualGovernance(
+                "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
 
-            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+            _assertSubmittedProposalData(proposalId, _getAdminExecutor(), regularStaffCalls);
+            _assertCanScheduleViaDualGovernance(proposalId, false);
         }
 
         _step("2. THE PROPOSAL IS SCHEDULED");
         {
             _waitAfterSubmitDelayPassed();
-            _assertCanSchedule(_dualGovernance, proposalId, true);
-            _scheduleProposal(_dualGovernance, proposalId);
+            _assertCanScheduleViaDualGovernance(proposalId, true);
+            _scheduleProposalViaDualGovernance(proposalId);
 
             _assertProposalScheduled(proposalId);
             _assertCanExecute(proposalId, false);
@@ -48,27 +46,27 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _assertProposalExecuted(proposalId);
 
             _assertCanExecute(proposalId, false);
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+            _assertCanScheduleViaDualGovernance(proposalId, false);
 
-            _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
+            _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
         }
     }
 
     function testFork_TimelockEmergencyReset() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         // ---
         // 1. THE PROPOSAL IS SUBMITTED
         // ---
         uint256 proposalId;
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
+            proposalId = _submitProposalViaDualGovernance(
+                "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
-            _assertSubmittedProposalData(proposalId, _config.ADMIN_EXECUTOR(), regularStaffCalls);
+            _assertSubmittedProposalData(proposalId, _getAdminExecutor(), regularStaffCalls);
 
             // proposal can't be scheduled until the AFTER_SUBMIT_DELAY has passed
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+            _assertCanScheduleViaDualGovernance(proposalId, false);
         }
 
         // ---
@@ -76,13 +74,13 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         // ---
         {
             // wait until the delay has passed
-            _wait(_config.AFTER_SUBMIT_DELAY().plusSeconds(1));
+            _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
 
             // when the first delay is passed and the is no opposition from the stETH holders
             // the proposal can be scheduled
-            _assertCanSchedule(_dualGovernance, proposalId, true);
+            _assertCanScheduleViaDualGovernance(proposalId, true);
 
-            _scheduleProposal(_dualGovernance, proposalId);
+            _scheduleProposalViaDualGovernance(proposalId);
 
             // proposal can't be executed until the second delay has ended
             _assertProposalScheduled(proposalId);
@@ -95,7 +93,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         {
             // some time passes and emergency committee activates emergency mode
             // and resets the controller
-            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
+            _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
             // committee resets governance
             vm.prank(address(_emergencyActivationCommittee));
@@ -105,11 +103,11 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _timelock.emergencyReset();
 
             // proposal is canceled now
-            _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
+            _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
             // remove canceled call from the timelock
             _assertCanExecute(proposalId, false);
-            _assertProposalCanceled(proposalId);
+            _assertProposalCancelled(proposalId);
         }
     }
 }

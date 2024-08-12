@@ -7,9 +7,9 @@ import "kontrol-cheatcodes/KontrolCheats.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "contracts/model/DualGovernance.sol";
-import "contracts/model/EmergencyProtectedTimelock.sol";
-import "contracts/model/Escrow.sol";
+import "./model/DualGovernance.sol";
+import "./model/EmergencyProtectedTimelock.sol";
+import "./model/Escrow.sol";
 
 contract FakeETH is ERC20("fakeETH", "fETH") {}
 

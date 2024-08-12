@@ -1,27 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {
-    Utils,
-    ExecutorCall,
-    IDangerousContract,
-    ExecutorCallHelpers,
-    ScenarioTestBlueprint
-} from "../utils/scenario-test-blueprint.sol";
-import {Proposals} from "contracts/libraries/Proposals.sol";
+import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
+import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
-import {IAragonAgent, IAragonForwarder} from "../utils/interfaces.sol";
-import {DAO_AGENT} from "../utils/mainnet-addresses.sol";
+import {ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
+
+import {LidoUtils, EvmScriptUtils} from "../utils/lido-utils.sol";
 
 contract HappyPathTest is ScenarioTestBlueprint {
+    using LidoUtils for LidoUtils.Context;
+
     function setUp() external {
-        _selectFork();
-        _deployTarget();
-        _deployDualGovernanceSetup( /* isEmergencyProtectionEnabled */ false);
+        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
     }
 
     function testFork_HappyPath() external {
-        ExecutorCall[] memory regularStaffCalls = _getTargetRegularStaffCalls();
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId = _submitProposal(
             _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
@@ -29,17 +26,17 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _assertProposalSubmitted(proposalId);
         _assertSubmittedProposalData(proposalId, regularStaffCalls);
 
-        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
+        _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
         // the min execution delay hasn't elapsed yet
-        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
-        _scheduleProposal(_dualGovernance, proposalId);
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        _scheduleProposalViaDualGovernance(proposalId);
 
         // wait till the first phase of timelock passes
-        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
+        _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-        _assertCanSchedule(_dualGovernance, proposalId, true);
-        _scheduleProposal(_dualGovernance, proposalId);
+        _assertCanScheduleViaDualGovernance(proposalId, true);
+        _scheduleProposalViaDualGovernance(proposalId);
         _assertProposalScheduled(proposalId);
 
         _waitAfterScheduleDelayPassed();
@@ -47,40 +44,41 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _assertCanExecute(proposalId, true);
         _executeProposal(proposalId);
 
-        _assertTargetMockCalls(_config.ADMIN_EXECUTOR(), regularStaffCalls);
+        _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
     }
 
     function testFork_HappyPathWithMultipleItems() external {
         // additional phase required here, grant rights to call DAO Agent to the admin executor
-        Utils.grantPermission(DAO_AGENT, IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE(), _config.ADMIN_EXECUTOR());
+        _lido.grantPermission(address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE(), _timelock.getAdminExecutor());
 
-        bytes memory agentDoRegularStaffPayload = abi.encodeCall(IDangerousContract.doRegularStaff, (42));
-        bytes memory targetCallEvmScript = Utils.encodeEvmCallScript(address(_target), agentDoRegularStaffPayload);
+        bytes memory agentDoRegularStaffPayload = abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (42));
+        bytes memory targetCallEvmScript =
+            EvmScriptUtils.encodeEvmCallScript(address(_targetMock), agentDoRegularStaffPayload);
 
-        ExecutorCall[] memory multipleCalls = ExecutorCallHelpers.create(
-            [DAO_AGENT, address(_target)],
+        ExternalCall[] memory multipleCalls = ExternalCallHelpers.create(
+            [address(_lido.agent), address(_targetMock)],
             [
-                abi.encodeCall(IAragonForwarder.forward, (targetCallEvmScript)),
-                abi.encodeCall(IDangerousContract.doRegularStaff, (43))
+                abi.encodeCall(_lido.agent.forward, (targetCallEvmScript)),
+                abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (43))
             ]
         );
 
         uint256 proposalId = _submitProposal(_dualGovernance, "Multiple items", multipleCalls);
 
-        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2));
+        _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
         // proposal can't be scheduled before the after submit delay has passed
-        _assertCanSchedule(_dualGovernance, proposalId, false);
+        _assertCanScheduleViaDualGovernance(proposalId, false);
 
         // the min execution delay hasn't elapsed yet
-        vm.expectRevert(abi.encodeWithSelector(Proposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
-        _scheduleProposal(_dualGovernance, proposalId);
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
+        _scheduleProposalViaDualGovernance(proposalId);
 
         // wait till the DG-enforced timelock elapses
-        _wait(_config.AFTER_SUBMIT_DELAY().dividedBy(2).plusSeconds(1));
+        _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
-        _assertCanSchedule(_dualGovernance, proposalId, true);
-        _scheduleProposal(_dualGovernance, proposalId);
+        _assertCanScheduleViaDualGovernance(proposalId, true);
+        _scheduleProposalViaDualGovernance(proposalId);
         _assertProposalScheduled(proposalId);
 
         _waitAfterScheduleDelayPassed();
@@ -89,12 +87,12 @@ contract HappyPathTest is ScenarioTestBlueprint {
         _executeProposal(proposalId);
 
         address[] memory senders = new address[](2);
-        senders[0] = DAO_AGENT;
-        senders[1] = _config.ADMIN_EXECUTOR();
+        senders[0] = address(_lido.agent);
+        senders[1] = _timelock.getAdminExecutor();
 
-        ExecutorCall[] memory expectedTargetCalls = ExecutorCallHelpers.create(
-            [DAO_AGENT, address(_target)],
-            [agentDoRegularStaffPayload, abi.encodeCall(IDangerousContract.doRegularStaff, (43))]
+        ExternalCall[] memory expectedTargetCalls = ExternalCallHelpers.create(
+            [address(_lido.agent), address(_targetMock)],
+            [agentDoRegularStaffPayload, abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (43))]
         );
 
         _assertTargetMockCalls(senders, expectedTargetCalls);
@@ -104,7 +102,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
     // function test_escalation_and_one_sided_de_escalation() external {
     //     Target target = new Target();
 
-    //     ExecutorCall[] memory calls = new ExecutorCall[](1);
+    //     ExternalCall[] memory calls = new ExternalCall[](1);
     //     calls[0].value = 0;
     //     calls[0].target = address(target);
     //     calls[0].payload = abi.encodeCall(target.doSmth, (42));

@@ -109,7 +109,11 @@ The protected deployment mode is a temporary mode designed to be active during a
 
 In this mode, an **emergency activation committee** has the one-off and time-limited right to activate an adversarial **emergency mode** if they see a scheduled proposal that was created or altered due to a vulnerability in the DG contracts or if governance execution is prevented by such a vulnerability. Once the emergency mode is activated, the emergency activation committee is disabled, i.e. loses the ability to activate the emergency mode again. If the emergency activation committee doesn't activate the emergency mode within the duration of the **emergency protection duration** since the committee was configured by the DAO, it gets automatically disabled as well.
 
-The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, 1) only the **emergency execution committee** has the right to execute scheduled proposals, and 2) the same committee has the one-off right to **disable the DG subsystem**, i.e. disconnect the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect it to the Lido DAO Voting/Agent contract. The latter also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
+The emergency mode lasts up to the **emergency mode max duration** counting from the moment of its activation. While it's active, the following conditions apply:
+1) Only the **emergency execution committee** has the right to execute scheduled proposals
+2) The same committee has the one-off right to **disable the DG subsystem**. After this action, the system should start behaving according to [this specification](plan-b.md)). This involves disconnecting the `EmergencyProtectedTimelock` contract and its associated executor contracts from the DG contracts and reconnect them to the `TimelockedGovernance` contract instance.
+
+Disabling the DG subsystem also disables also disables the emergency mode and the emergency execution committee, so any proposal can be executed by the DAO without cooperation from any other actors.
 
 If the emergency execution committee doesn't disable the DG until the emergency mode max duration elapses, anyone gets the right to deactivate the emergency mode, switching the system back to the protected mode and disabling the emergency committee.
 
@@ -394,42 +398,44 @@ In the Lido protocol, specific critical components (`WithdrawalQueue` and `Valid
 
 However, the effectiveness of this approach is contingent upon the predictability of the DAO's solution adoption timeframe. With the dual governance system, proposal execution may experience significant delays based on the current state of the `DualGovernance` contract. There's a risk that `GateSeal`'s pause period may expire before the Lido DAO can implement the necessary fixes.
 
-To address the compatibility challenge between gate seals and dual governance, the `ResealManager` contract is introduced. This smart contract is designed to manage the resealing and resuming of sealable contracts during emergencies. The `ResealManager` can extend the pause of temporarily paused contracts to a permanent pause or resume them if the following conditions are met:
-
-- The `ResealManager` holds the `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
-- Contracts are paused until a specific timestamp that is in the future and not indefinitely.
-- DAO governance is blocked by `DualGovernance`.
-
-### Constructor
+To address this compatibility challenge between gate seals and dual governance, the `ResealManager` contract is introduced. The `ResealManager` allows to extend pause of temporarily paused contracts to permanent pause or resume it, if conditions are met:
+- `ResealManager` has `PAUSE_ROLE` and `RESUME_ROLE` for target contracts.
+- Contracts are paused until timestamp after current timestamp and not for infinite time.
+- The DAO governance is blocked by `DualGovernance`
+- Only governance address obtained from `EmergencyProtectedTimelock` can trigger these actions.
 
 ```solidity
 constructor(address emergencyProtectedTimelock)
 ```
 
-Initializes the contract with the address of the `EmergencyProtectedTimelock` contract.
+Initializes the contract with the address of the EmergencyProtectedTimelock contract.
 
 #### Preconditions
 
-* `emergencyProtectedTimelock` MUST be a valid address.
+* emergencyProtectedTimelock MUST be a valid address.
 
-### Function: ResealManager.reseal
+### Function ResealManager.reseal
 
 ```solidity
-function reseal(address[] memory sealables) external onlyGovernance
+function reseal(address sealable) public
 ```
 
-Extends the pause of the specified `sealables` contracts. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
+Extends the pause of the specified `sealable` contract. This function can be called by the governance address defined in the `EmergencyProtectedTimelock`.
 
 #### Preconditions
 
-- The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contracts.
-- The target contracts MUST be paused until a future timestamp and not indefinitely.
+- The `ResealManager` MUST have `PAUSE_ROLE` and `RESUME_ROLE` for the target contract.
+- The target contract MUST be paused until a future timestamp and not indefinitely.
 - The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
+
+#### Errors
+- `SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+- `SenderIsNotGovernance`: Thrown if the sender is not the governance address.
 
 ### Function: ResealManager.resume
 
 ```solidity
-function resume(address sealable) external onlyGovernance
+function resume(address sealable) external
 ```
 
 Resumes the specified `sealable` contract if it is scheduled to resume in the future.
@@ -440,23 +446,13 @@ Resumes the specified `sealable` contract if it is scheduled to resume in the fu
 - The target contract MUST be paused.
 - The function MUST be called by the governance address defined in `EmergencyProtectedTimelock`.
 
-### Modifier: ResealManager.onlyGovernance
-
-```solidity
-modifier onlyGovernance()
-```
-
-Ensures that the function can only be called by the governance address.
+#### Errors
+- `SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
+- `SenderIsNotGovernance`: Thrown if the sender is not the governance address.
 
 #### Preconditions
 
 - The sender MUST be the governance address obtained from the `EmergencyProtectedTimelock` contract.
-
-### Errors
-
-- `SealableWrongPauseState`: Thrown if the sealable contract is in the wrong pause state.
-- `SenderIsNotGovernance`: Thrown if the sender is not the governance address.
-
 
 ## Contract: Escrow.sol
 
@@ -476,7 +472,7 @@ At any point in time, there can be only one instance of the contract in the `Sig
 
 After the `Escrow` instance transitions into the `RageQuitEscrow` state, all locked stETH and wstETH tokens are meant to be converted into withdrawal NFTs using the permissionless `Escrow.requestNextWithdrawalsBatch()` function.
 
-Once all funds locked in the `Escrow` instance are converted into withdrawal NFTs, finalized, and claimed, the main rage quit phase concludes, and the `RageQuitExtensionDelay` period begins.
+Once all funds locked in the `Escrow` instance are converted into withdrawal NFTs, finalized, and claimed, the main rage quit phase concludes, and the `Escrow.startRageQuitExtensionDelay()` method may be used to start the `RageQuitExtensionDelay` period.
 
 The purpose of the `RageQuitExtensionDelay` phase is to provide sufficient time to participants who locked withdrawal NFTs to claim them before Lido DAO's proposal execution is unblocked. As soon as a withdrawal NFT is claimed, the user's ETH is no longer affected by any code controlled by the DAO.
 
@@ -503,7 +499,7 @@ stETHTotals.lockedShares += amountInShares;
 
 The rage quit support will be dynamically updated to reflect changes in the stETH balance due to protocol rewards or validators slashing.
 
-Finally, the function calls `DualGovernance.activateNextState()`, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
+The method calls the `DualGovernance.activateNextState()` function at the beginning and end of the execution, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
 
 #### Returns
 
@@ -561,7 +557,7 @@ assets[msg.sender].stETHLockedShares += stETHShares;
 stETHTotals.lockedShares += stETHShares;
 ```
 
-Finally, the function calls the `DualGovernance.activateNextState()`. This action may transition the `Escrow` instance from the `SignallingEscrow` state into the `RageQuitEscrow` state.
+The method calls the `DualGovernance.activateNextState()` function at the beginning and end of the execution, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
 
 #### Returns
 
@@ -619,7 +615,7 @@ assets[msg.sender].unstETHLockedShares += amountOfShares;
 unstETHTotals.unfinalizedShares += amountOfShares;
 ```
 
-Finally, calls the `DualGovernance.activateNextState()` function. This action may transition the `Escrow` instance from the `SignallingEscrow` state into the `RageQuitEscrow` state.
+The method calls the `DualGovernance.activateNextState()` function at the beginning and end of the execution, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
 
 #### Preconditions
 
@@ -702,6 +698,24 @@ Withdrawal NFTs belonging to any of the following categories are excluded from t
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
 
+### Function Escrow.requestWithdrawals
+
+```solidity
+function requestWithdrawals(uint256[] calldata stETHAmounts) returns (uint256[] memory unstETHIds)
+```
+
+Allows users who have locked their stETH and wstETH to convert it into unstETH NFTs by requesting withdrawals on the Lido's `WithdrawalQueue` contract.
+
+Internally, this function marks the total amount specified in `stETHAmounts` as unlocked from the `Escrow` and accounts for it in the form of a list of unstETH NFTs, with amounts corresponding to `stETHAmounts`.
+
+#### Preconditions
+- The total amount specified in `stETHAmounts` MUST NOT exceed the user's currently locked stETH and wstETH.
+- The `stETHAmounts` values MUST be in range [`WithdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()`, `WithdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT()`].
+
+#### Returns
+
+An array of ids for the generated unstETH NFTs.
+
 ### Function Escrow.getRageQuitSupport()
 
 ```solidity
@@ -752,7 +766,7 @@ Upon execution, the function tracks the ids of the withdrawal requests generated
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
-- The `maxBatchSize` MUST be greater than or equal to `CONFIG.MIN_WITHDRAWALS_BATCH_SIZE()` and less than or equal to `CONFIG.MAX_WITHDRAWALS_BATCH_SIZE()`.
+- The `maxBatchSize` MUST be greater than or equal to `Escrow.MIN_WITHDRAWALS_BATCH_SIZE()`.
 - The generation of withdrawal request batches MUST not be concluded
 
 ### Function Escrow.claimNextWithdrawalsBatch(uint256, uint256[])
@@ -762,12 +776,13 @@ function claimNextWithdrawalsBatch(uint256 fromUnstETHId, uint256[] hints)
 ```
 
 Allows users to claim finalized withdrawal NFTs generated by the `Escrow.requestNextWithdrawalsBatch()` function.
-Tracks the total amount of claimed ETH updating the `stETHTotals.claimedETH` variable. Upon claiming the last batch, the `RageQuitExtensionDelay` period commences.
+This function updates the `stETHTotals.claimedETH` variable to track the total amount of claimed ETH.
 
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The `fromUnstETHId` MUST be equal to the id of the first unclaimed withdrawal NFT locked in the `Escrow`. The ids of the unclaimed withdrawal NFTs can be retrieved via the `getNextWithdrawalBatch()` method.
+- There MUST be at least one unclaimed withdrawal NFT.
 
 ### Function Escrow.claimNextWithdrawalsBatch(uint256)
 
@@ -791,6 +806,19 @@ To safeguard the ETH associated with withdrawal NFTs, this function should be in
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The provided `unstETHIds` MUST only contain finalized but unclaimed withdrawal requests with the owner set to `msg.sender`.
+
+### Function Escrow.startRageQuitExtensionDelay
+
+```solidity
+function startRageQuitExtensionDelay()
+```
+
+Initiates the `RageQuitExtensionDelay` once all withdrawal batches have been claimed. In cases where the `Escrow` instance only has locked unstETH NFTs, it verifies that the last unstETH NFT registered in the `WithdrawalQueue` at the time of the `Escrow.startRageQuit()` call is finalized. This ensures that every unstETH NFT locked in the Escrow can be claimed by the user during the `RageQuitExtensionDelay`.
+
+#### Preconditions
+- All withdrawal batches MUST be formed using the `Escrow.requestNextWithdrawalsBatch()`.
+- The last unstETH NFT in the `WithdrawalQueue` at the time of the `Escrow.startRageQuit()` call MUST be finalized.
+- All withdrawal batches generated during `Escrow.requestNextWithdrawalsBatch()` MUST be claimed.
 
 ### Function Escrow.isRageQuitFinalized
 
@@ -1034,31 +1062,32 @@ Returns total list of `Proposal`s keys with offset and limit.
 
 `HashConsensus` is an abstract contract that allows for consensus-based decision-making among a set of members. The consensus is achieved by members voting on a specific hash, and decisions can only be executed if a quorum is reached and a timelock period has elapsed.
 
-### Function: HashConsensus.addMember
+### Function: HashConsensus.addMembers
 
 ```solidity
-function addMember(address newMember, uint256 newQuorum) public onlyOwner
+function addMembers(address[] memory newMembers, uint256 newQuorum) public onlyOwner
 ```
 
-Adds a new member and updates the quorum.
+Adds new members and updates the quorum.
 
 #### Preconditions
 
 * Only the owner can call this function.
+* Members MUST NOT be part of the set.
 * `newQuorum` MUST be greater than 0 and less than or equal to the number of members.
 
 ### Function: HashConsensus.removeMember
 
 ```solidity
-function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner
+function removeMembers(address[] memory membersToRemove, uint256 newQuorum) public onlyOwner
 ```
 
-Removes a member and updates the quorum.
+Removes members and updates the quorum.
 
 #### Preconditions
 
 * Only the owner can call this function.
-* Member MUST be part of the set.
+* Members MUST be part of the set.
 * `newQuorum` MUST be greater than 0 and less than or equal to the number of remaining members.
 
 ### Function: HashConsensus.getMembers
@@ -1135,7 +1164,7 @@ Initializes the contract with an owner, committee members, a quorum, the address
 ### Function: TiebreakerCore.scheduleProposal
 
 ```solidity
-function scheduleProposal(uint256 proposalId) public onlyMember
+function scheduleProposal(uint256 proposalId) public
 ```
 
 Schedules a proposal for execution by voting on it and adding it to the proposal list.
@@ -1178,7 +1207,7 @@ Returns the current nonce for resuming operations of a sealable contract.
 ### Function: TiebreakerCore.sealableResume
 
 ```solidity
-function sealableResume(address sealable, uint256 nonce) public onlyMember
+function sealableResume(address sealable, uint256 nonce) public
 ```
 
 Submits a request to resume operations of a sealable contract by voting on it and adding it to the proposal list.
@@ -1235,7 +1264,7 @@ Initializes the contract with an owner, committee members, a quorum, and the add
 ### Function: TiebreakerSubCommittee.scheduleProposal
 
 ```solidity
-function scheduleProposal(uint256 proposalId) public onlyMember
+function scheduleProposal(uint256 proposalId) public
 ```
 
 Schedules a proposal for execution by voting on it and adding it to the proposal list.
@@ -1322,10 +1351,10 @@ executionQuorum MUST be greater than 0.
 emergencyProtectedTimelock MUST be a valid address.
 
 
-### Function: EmergencyActivationCommittee.approveEmergencyActivate
+### Function: EmergencyActivationCommittee.approveActivateEmergencyMode
 
 ```solidity
-function approveEmergencyActivate() public onlyMember
+function approveActivateEmergencyMode() public
 ```
 
 Approves the emergency activation by voting on the EMERGENCY_ACTIVATION_HASH.
@@ -1334,10 +1363,10 @@ Approves the emergency activation by voting on the EMERGENCY_ACTIVATION_HASH.
 
 * MUST be called by a member.
 
-### Function: EmergencyActivationCommittee.getEmergencyActivateState
+### Function: EmergencyActivationCommittee.getActivateEmergencyModeState
 
 ```solidity
-function getEmergencyActivateState()
+function getActivateEmergencyModeState()
     public
     view
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
@@ -1345,10 +1374,10 @@ function getEmergencyActivateState()
 
 Returns the state of the emergency activation proposal including support count, quorum, and execution status.
 
-### Function: EmergencyActivationCommittee.executeEmergencyActivate
+### Function: EmergencyActivationCommittee.executeActivateEmergencyMode
 
 ```solidity
-function executeEmergencyActivate() external
+function executeActivateEmergencyMode() external
 ```
 
 Executes the emergency activation by calling the emergencyActivate function on the EmergencyProtectedTimelock contract.
@@ -1383,7 +1412,7 @@ Initializes the contract with an owner, committee members, a quorum, and the add
 ### Function: EmergencyExecutionCommittee.voteEmergencyExecute
 
 ```solidity
-function voteEmergencyExecute(uint256 proposalId, bool _supports) public onlyMember
+function voteEmergencyExecute(uint256 proposalId, bool _supports) public
 ```
 
 Allows committee members to vote on an emergency execution proposal.
@@ -1418,7 +1447,7 @@ Emergency execution proposal MUST have reached quorum and passed the timelock du
 ### Function: EmergencyExecutionCommittee.approveEmergencyReset
 
 ```solidity
-function approveEmergencyReset() public onlyMember
+function approveEmergencyReset() public
 ```
 
 Approves the governance reset by voting on the reset proposal.
