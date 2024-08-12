@@ -102,21 +102,6 @@ abstract contract HashConsensus is Ownable {
         isUsed = _hashStates[hash].usedAt > 0;
     }
 
-    /// @notice Adds a new member to the committee and updates the quorum
-    /// @dev Only callable by the owner
-    /// @param newMember The address of the new member
-    /// @param newQuorum The new quorum value
-    function addMember(address newMember, uint256 newQuorum) public {
-        _checkOwner();
-        _addMember(newMember);
-
-        if (newQuorum == 0 || newQuorum > _members.length()) {
-            revert InvalidQuorum();
-        }
-        quorum = newQuorum;
-        emit QuorumSet(newQuorum);
-    }
-
     /// @notice Adds new members to the contract and sets the execution quorum.
     /// @dev This function allows the contract owner to add multiple new members and set the execution quorum.
     ///      The function reverts if the caller is not the owner, if the execution quorum is set to zero,
@@ -129,24 +114,25 @@ abstract contract HashConsensus is Ownable {
         _addMembers(newMembers, executionQuorum);
     }
 
-    /// @notice Removes a member from the committee and updates the quorum
-    /// @dev Only callable by the owner
-    /// @param memberToRemove The address of the member to remove
-    /// @param newQuorum The new quorum value
-    function removeMember(address memberToRemove, uint256 newQuorum) public {
+    /// @notice Removes specified members from the contract and updates the execution quorum.
+    /// @dev This function can only be called by the contract owner. It removes multiple members from
+    ///      the contract. If any of the specified members are not found in the members list, the
+    ///      function will revert. The quorum is also updated and must not be zero or greater than
+    ///      the new total number of members.
+    /// @param membersToRemove The array of addresses to be removed from the members list.
+    /// @param newQuorum The updated minimum number of members required for executing certain operations.
+    function removeMembers(address[] memory membersToRemove, uint256 newQuorum) public {
         _checkOwner();
 
-        if (!_members.contains(memberToRemove)) {
-            revert AccountIsNotMember(memberToRemove);
+        for (uint256 i = 0; i < membersToRemove.length; ++i) {
+            if (!_members.contains(membersToRemove[i])) {
+                revert AccountIsNotMember(membersToRemove[i]);
+            }
+            _members.remove(membersToRemove[i]);
+            emit MemberRemoved(membersToRemove[i]);
         }
-        _members.remove(memberToRemove);
-        emit MemberRemoved(memberToRemove);
 
-        if (newQuorum == 0 || newQuorum > _members.length()) {
-            revert InvalidQuorum();
-        }
-        quorum = newQuorum;
-        emit QuorumSet(newQuorum);
+        _setQuorum(newQuorum);
     }
 
     /// @notice Gets the list of committee members
@@ -178,23 +164,18 @@ abstract contract HashConsensus is Ownable {
     /// @param newQuorum The new quorum value
     function setQuorum(uint256 newQuorum) public {
         _checkOwner();
-        if (newQuorum == 0 || newQuorum > _members.length()) {
-            revert InvalidQuorum();
-        }
-
-        quorum = newQuorum;
-        emit QuorumSet(newQuorum);
+        _setQuorum(newQuorum);
     }
 
-    /// @notice Adds a new member to the committee
-    /// @dev Internal function to add a new member
-    /// @param newMember The address of the new member
-    function _addMember(address newMember) internal {
-        if (_members.contains(newMember)) {
-            revert DuplicatedMember(newMember);
+    /// @notice Sets the execution quorum required for certain operations.
+    /// @dev The quorum value must be greater than zero and not exceed the current number of members.
+    /// @param executionQuorum The new quorum value to be set.
+    function _setQuorum(uint256 executionQuorum) internal {
+        if (executionQuorum == 0 || executionQuorum > _members.length()) {
+            revert InvalidQuorum();
         }
-        _members.add(newMember);
-        emit MemberAdded(newMember);
+        quorum = executionQuorum;
+        emit QuorumSet(executionQuorum);
     }
 
     /// @notice Adds new members to the contract and sets the execution quorum.
@@ -204,14 +185,14 @@ abstract contract HashConsensus is Ownable {
     /// @param executionQuorum The minimum number of members required for executing certain operations.
     function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
         for (uint256 i = 0; i < newMembers.length; ++i) {
-            _addMember(newMembers[i]);
+            if (_members.contains(newMembers[i])) {
+                revert DuplicatedMember(newMembers[i]);
+            }
+            _members.add(newMembers[i]);
+            emit MemberAdded(newMembers[i]);
         }
 
-        if (executionQuorum == 0 || executionQuorum > _members.length()) {
-            revert InvalidQuorum();
-        }
-        quorum = executionQuorum;
-        emit QuorumSet(executionQuorum);
+        _setQuorum(executionQuorum);
     }
 
     /// @notice Gets the number of votes in support of a given hash

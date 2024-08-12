@@ -1062,31 +1062,32 @@ Returns total list of `Proposal`s keys with offset and limit.
 
 `HashConsensus` is an abstract contract that allows for consensus-based decision-making among a set of members. The consensus is achieved by members voting on a specific hash, and decisions can only be executed if a quorum is reached and a timelock period has elapsed.
 
-### Function: HashConsensus.addMember
+### Function: HashConsensus.addMembers
 
 ```solidity
-function addMember(address newMember, uint256 newQuorum) public onlyOwner
+function addMembers(address[] memory newMembers, uint256 newQuorum) public onlyOwner
 ```
 
-Adds a new member and updates the quorum.
+Adds new members and updates the quorum.
 
 #### Preconditions
 
 * Only the owner can call this function.
+* Members MUST NOT be part of the set.
 * `newQuorum` MUST be greater than 0 and less than or equal to the number of members.
 
 ### Function: HashConsensus.removeMember
 
 ```solidity
-function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner
+function removeMembers(address[] memory membersToRemove, uint256 newQuorum) public onlyOwner
 ```
 
-Removes a member and updates the quorum.
+Removes members and updates the quorum.
 
 #### Preconditions
 
 * Only the owner can call this function.
-* Member MUST be part of the set.
+* Members MUST be part of the set.
 * `newQuorum` MUST be greater than 0 and less than or equal to the number of remaining members.
 
 ### Function: HashConsensus.getMembers
