@@ -132,6 +132,7 @@ contract Escrow is IEscrow {
 
     function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares) {
         _escrowState.checkSignallingEscrow();
+        DUAL_GOVERNANCE.activateNextState();
 
         lockedStETHShares = ST_ETH.getSharesByPooledEth(amount);
         _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
@@ -157,6 +158,7 @@ contract Escrow is IEscrow {
 
     function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares) {
         _escrowState.checkSignallingEscrow();
+        DUAL_GOVERNANCE.activateNextState();
 
         WST_ETH.transferFrom(msg.sender, address(this), amount);
         lockedStETHShares = ST_ETH.getSharesByPooledEth(WST_ETH.unwrap(amount));
@@ -182,6 +184,7 @@ contract Escrow is IEscrow {
     // ---
     function lockUnstETH(uint256[] memory unstETHIds) external {
         _escrowState.checkSignallingEscrow();
+        DUAL_GOVERNANCE.activateNextState();
 
         WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
         _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
