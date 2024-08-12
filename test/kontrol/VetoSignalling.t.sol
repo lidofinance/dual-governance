@@ -18,7 +18,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      */
     function testTransitionNormalToVetoSignalling() external {
         uint256 rageQuitSupport = signallingEscrow.getRageQuitSupport();
-        vm.assume(rageQuitSupport > config.FIRST_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(rageQuitSupport >= config.FIRST_SEAL_RAGE_QUIT_SUPPORT());
         vm.assume(dualGovernance.getCurrentState() == State.Normal);
         dualGovernance.activateNextState();
         assert(dualGovernance.getCurrentState() == State.VetoSignalling);
@@ -70,7 +70,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
     function _vetoSignallingRageQuitInvariant(Mode mode, StateRecord memory sr) internal view returns (bool) {
         return (
             _establish(mode, sr.rageQuitSupport <= sr.maxRageQuitSupport)
-                && _establish(mode, config.FIRST_SEAL_RAGE_QUIT_SUPPORT() < sr.maxRageQuitSupport)
+                && _establish(mode, config.FIRST_SEAL_RAGE_QUIT_SUPPORT() <= sr.maxRageQuitSupport)
         );
     }
 
