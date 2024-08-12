@@ -221,10 +221,10 @@ contract Escrow is IEscrow {
     // Convert to NFT
     // ---
 
-    function requestWithdrawals(uint256[] calldata stEthAmounts) external returns (uint256[] memory unstETHIds) {
+    function requestWithdrawals(uint256[] calldata stETHAmounts) external returns (uint256[] memory unstETHIds) {
         _escrowState.checkSignallingEscrow();
 
-        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stEthAmounts, address(this));
+        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stETHAmounts, address(this));
         WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
 
         uint256 sharesTotal = 0;
