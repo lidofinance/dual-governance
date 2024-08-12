@@ -15,7 +15,9 @@ contract HashConsensusInstance is HashConsensus {
         address[] memory newMembers,
         uint256 executionQuorum,
         uint256 timelock
-    ) HashConsensus(owner, newMembers, executionQuorum, timelock) {}
+    ) HashConsensus(owner, timelock) {
+        _addMembers(newMembers, executionQuorum);
+    }
 }
 
 abstract contract HashConsensusUnitTest is UnitTest {
@@ -38,12 +40,18 @@ abstract contract HashConsensusUnitTest is UnitTest {
     function test_constructorInitializesCorrectly() public {
         uint256 timelock = 1;
 
-        vm.expectEmit(true, false, false, true);
-        emit HashConsensus.QuorumSet(_quorum);
-        vm.expectEmit(true, false, false, true);
+        vm.expectEmit();
+        emit Ownable.OwnershipTransferred(address(0), _owner);
+        vm.expectEmit();
         emit HashConsensus.TimelockDurationSet(timelock);
+        for (uint256 i = 0; i < _committeeMembers.length; i++) {
+            vm.expectEmit();
+            emit HashConsensus.MemberAdded(_committeeMembers[i]);
+        }
+        vm.expectEmit();
+        emit HashConsensus.QuorumSet(_quorum);
 
-        HashConsensusInstance instance = new HashConsensusInstance(_owner, _committeeMembers, _quorum, timelock);
+        new HashConsensusInstance(_owner, _committeeMembers, _quorum, timelock);
     }
 
     function test_constructorRevertsWithZeroQuorum() public {
@@ -72,120 +80,163 @@ abstract contract HashConsensusUnitTest is UnitTest {
         }
     }
 
-    function test_addMember_stranger_call() public {
-        address newMember = makeAddr("NEW_MEMBER");
-        assertEq(_hashConsensus.isMember(newMember), false);
+    function test_addMembers_stranger_call() public {
+        address[] memory membersToAdd = new address[](1);
+        membersToAdd[0] = makeAddr("NEW_MEMBER");
+        assertEq(_hashConsensus.isMember(membersToAdd[0]), false);
 
         vm.prank(_stranger);
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", _stranger));
-        _hashConsensus.addMember(newMember, _quorum);
+        _hashConsensus.addMembers(membersToAdd, _quorum);
 
         for (uint256 i = 0; i < _membersCount; ++i) {
             vm.prank(_committeeMembers[i]);
             vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", _committeeMembers[i]));
-            _hashConsensus.addMember(newMember, _quorum);
+            _hashConsensus.addMembers(membersToAdd, _quorum);
         }
     }
 
-    function test_addMember_reverts_on_duplicate() public {
-        address existedMember = _committeeMembers[0];
-        assertEq(_hashConsensus.isMember(existedMember), true);
+    function test_addMembers_reverts_on_duplicate() public {
+        address[] memory membersToAdd = new address[](1);
+        membersToAdd[0] = _committeeMembers[0];
+        assertEq(_hashConsensus.isMember(membersToAdd[0]), true);
 
         vm.prank(_owner);
-        vm.expectRevert(abi.encodeWithSignature("DuplicatedMember(address)", existedMember));
-        _hashConsensus.addMember(existedMember, _quorum);
+        vm.expectRevert(abi.encodeWithSignature("DuplicatedMember(address)", membersToAdd[0]));
+        _hashConsensus.addMembers(membersToAdd, _quorum);
+    }
+
+    function test_addMembers_reverts_on_duplicate_in_array() public {
+        address[] memory membersToAdd = new address[](2);
+        membersToAdd[0] = makeAddr("NEW_MEMBER");
+        membersToAdd[1] = makeAddr("NEW_MEMBER");
+        assertEq(_hashConsensus.isMember(membersToAdd[0]), false);
+
+        vm.prank(_owner);
+        vm.expectRevert(abi.encodeWithSignature("DuplicatedMember(address)", membersToAdd[1]));
+        _hashConsensus.addMembers(membersToAdd, _quorum);
     }
 
     function test_addMember_reverts_on_invalid_quorum() public {
-        address newMember = makeAddr("NEW_MEMBER");
-        assertEq(_hashConsensus.isMember(newMember), false);
+        address[] memory membersToAdd = new address[](1);
+        membersToAdd[0] = makeAddr("NEW_MEMBER");
+        assertEq(_hashConsensus.isMember(membersToAdd[0]), false);
 
         vm.prank(_owner);
         vm.expectRevert(abi.encodeWithSignature("InvalidQuorum()"));
-        _hashConsensus.addMember(newMember, 0);
+        _hashConsensus.addMembers(membersToAdd, 0);
 
         vm.prank(_owner);
         vm.expectRevert(abi.encodeWithSignature("InvalidQuorum()"));
-        _hashConsensus.addMember(newMember, _membersCount + 2);
+        _hashConsensus.addMembers(membersToAdd, _membersCount + 2);
     }
 
     function test_addMember() public {
-        address newMember = makeAddr("NEW_MEMBER");
-        uint256 newQuorum = _quorum + 1;
+        address[] memory membersToAdd = new address[](2);
+        membersToAdd[0] = makeAddr("NEW_MEMBER_1");
+        membersToAdd[1] = makeAddr("NEW_MEMBER_2");
+        assertEq(_hashConsensus.isMember(membersToAdd[0]), false);
+        assertEq(_hashConsensus.isMember(membersToAdd[1]), false);
 
-        assertEq(_hashConsensus.isMember(newMember), false);
+        uint256 newQuorum = _quorum + 1;
 
         vm.prank(_owner);
         vm.expectEmit(address(_hashConsensus));
-        emit HashConsensus.MemberAdded(newMember);
+        emit HashConsensus.MemberAdded(membersToAdd[0]);
+        vm.expectEmit(address(_hashConsensus));
+        emit HashConsensus.MemberAdded(membersToAdd[1]);
         vm.expectEmit(address(_hashConsensus));
         emit HashConsensus.QuorumSet(newQuorum);
-        _hashConsensus.addMember(newMember, newQuorum);
+        _hashConsensus.addMembers(membersToAdd, newQuorum);
 
-        assertEq(_hashConsensus.isMember(newMember), true);
+        assertEq(_hashConsensus.isMember(membersToAdd[0]), true);
+        assertEq(_hashConsensus.isMember(membersToAdd[1]), true);
 
         address[] memory committeeMembers = _hashConsensus.getMembers();
 
-        assertEq(committeeMembers.length, _membersCount + 1);
-        assertEq(committeeMembers[committeeMembers.length - 1], newMember);
+        assertEq(committeeMembers.length, _membersCount + 2);
+        assertEq(committeeMembers[committeeMembers.length - 2], membersToAdd[0]);
+        assertEq(committeeMembers[committeeMembers.length - 1], membersToAdd[1]);
     }
 
-    function test_removeMember_stranger_call() public {
-        address memberToRemove = _committeeMembers[0];
-        assertEq(_hashConsensus.isMember(memberToRemove), true);
+    function test_removeMembers_stranger_call() public {
+        address[] memory membersToRemove = new address[](1);
+        membersToRemove[0] = _committeeMembers[0];
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), true);
 
         vm.prank(_stranger);
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", _stranger));
-        _hashConsensus.removeMember(memberToRemove, _quorum);
+        _hashConsensus.removeMembers(membersToRemove, _quorum);
 
         for (uint256 i = 0; i < _membersCount; ++i) {
             vm.prank(_committeeMembers[i]);
             vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", _committeeMembers[i]));
-            _hashConsensus.removeMember(memberToRemove, _quorum);
+            _hashConsensus.removeMembers(membersToRemove, _quorum);
         }
     }
 
-    function test_removeMember_reverts_on_member_is_not_exist() public {
-        assertEq(_hashConsensus.isMember(_stranger), false);
+    function test_removeMembers_reverts_on_member_is_not_exist() public {
+        address[] memory membersToRemove = new address[](1);
+        membersToRemove[0] = _stranger;
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), false);
 
         vm.prank(_owner);
         vm.expectRevert(abi.encodeWithSelector(HashConsensus.AccountIsNotMember.selector, _stranger));
-        _hashConsensus.removeMember(_stranger, _quorum);
+        _hashConsensus.removeMembers(membersToRemove, _quorum);
     }
 
-    function test_removeMember_reverts_on_invalid_quorum() public {
-        address memberToRemove = _committeeMembers[0];
-        assertEq(_hashConsensus.isMember(memberToRemove), true);
+    function test_removeMembers_reverts_on_member_duplicate_in_array() public {
+        address[] memory membersToRemove = new address[](2);
+        membersToRemove[0] = _committeeMembers[0];
+        membersToRemove[1] = _committeeMembers[0];
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), true);
+        assertEq(_hashConsensus.isMember(membersToRemove[1]), true);
+
+        vm.prank(_owner);
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.AccountIsNotMember.selector, _committeeMembers[0]));
+        _hashConsensus.removeMembers(membersToRemove, _quorum);
+    }
+
+    function test_removeMembers_reverts_on_invalid_quorum() public {
+        address[] memory membersToRemove = new address[](1);
+        membersToRemove[0] = _committeeMembers[0];
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), true);
 
         vm.prank(_owner);
         vm.expectRevert(abi.encodeWithSignature("InvalidQuorum()"));
-        _hashConsensus.removeMember(memberToRemove, 0);
+        _hashConsensus.removeMembers(membersToRemove, 0);
 
         vm.prank(_owner);
         vm.expectRevert(abi.encodeWithSignature("InvalidQuorum()"));
-        _hashConsensus.removeMember(memberToRemove, _membersCount);
+        _hashConsensus.removeMembers(membersToRemove, _membersCount);
     }
 
-    function test_removeMember() public {
-        address memberToRemove = _committeeMembers[0];
-        uint256 newQuorum = _quorum - 1;
-
-        assertEq(_hashConsensus.isMember(memberToRemove), true);
+    function test_removeMembers() public {
+        address[] memory membersToRemove = new address[](2);
+        membersToRemove[0] = _committeeMembers[0];
+        membersToRemove[1] = _committeeMembers[1];
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), true);
+        assertEq(_hashConsensus.isMember(membersToRemove[1]), true);
+        uint256 newQuorum = _quorum - 2;
 
         vm.prank(_owner);
         vm.expectEmit(address(_hashConsensus));
-        emit HashConsensus.MemberRemoved(memberToRemove);
+        emit HashConsensus.MemberRemoved(membersToRemove[0]);
+        vm.expectEmit(address(_hashConsensus));
+        emit HashConsensus.MemberRemoved(membersToRemove[1]);
         vm.expectEmit(address(_hashConsensus));
         emit HashConsensus.QuorumSet(newQuorum);
-        _hashConsensus.removeMember(memberToRemove, newQuorum);
+        _hashConsensus.removeMembers(membersToRemove, newQuorum);
 
-        assertEq(_hashConsensus.isMember(memberToRemove), false);
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), false);
+        assertEq(_hashConsensus.isMember(membersToRemove[1]), false);
 
         address[] memory committeeMembers = _hashConsensus.getMembers();
 
-        assertEq(committeeMembers.length, _membersCount - 1);
+        assertEq(committeeMembers.length, _membersCount - 2);
         for (uint256 i = 0; i < committeeMembers.length; ++i) {
-            assertNotEq(committeeMembers[i], memberToRemove);
+            assertNotEq(committeeMembers[i], membersToRemove[0]);
+            assertNotEq(committeeMembers[i], membersToRemove[1]);
         }
     }
 
@@ -286,8 +337,9 @@ contract HashConsensusWrapper is HashConsensus {
         uint256 executionQuorum,
         uint256 timelock,
         Target target
-    ) HashConsensus(owner, newMembers, executionQuorum, timelock) {
+    ) HashConsensus(owner, timelock) {
         _target = target;
+        _addMembers(newMembers, executionQuorum);
     }
 
     function vote(bytes32 hash, bool support) public {

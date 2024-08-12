@@ -23,8 +23,10 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address tiebreakerCore
-    ) HashConsensus(owner, committeeMembers, executionQuorum, 0) {
+    ) HashConsensus(owner, 0) {
         TIEBREAKER_CORE = tiebreakerCore;
+
+        _addMembers(committeeMembers, executionQuorum);
     }
 
     // ---
@@ -73,7 +75,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @return data The encoded proposal data
     /// @return key The generated proposal key
     function _encodeAproveProposal(uint256 proposalId) internal pure returns (bytes memory data, bytes32 key) {
-        data = abi.encode(ProposalType.ScheduleProposal, data);
+        data = abi.encode(ProposalType.ScheduleProposal, proposalId);
         key = keccak256(data);
     }
 

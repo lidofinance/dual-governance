@@ -169,6 +169,7 @@ abstract contract SetupDeployment is Test {
             dualGovernance: _dualGovernance,
             timelock: TIEBREAKER_EXECUTION_DELAY.toSeconds()
         });
+        address[] memory coreCommitteeMembers = new address[](TIEBREAKER_SUB_COMMITTEES_COUNT);
 
         for (uint256 i = 0; i < TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
             address[] memory members = _generateRandomAddresses(TIEBREAKER_SUB_COMMITTEE_MEMBERS_COUNT);
@@ -180,8 +181,10 @@ abstract contract SetupDeployment is Test {
                     tiebreakerCore: _tiebreakerCoreCommittee
                 })
             );
-            _tiebreakerCoreCommittee.addMember(address(_tiebreakerSubCommittees[i]), i + 1);
+            coreCommitteeMembers[i] = address(_tiebreakerSubCommittees[i]);
         }
+
+        _tiebreakerCoreCommittee.addMembers(coreCommitteeMembers, coreCommitteeMembers.length);
 
         _tiebreakerCoreCommittee.transferOwnership(address(_adminExecutor));
 
@@ -388,13 +391,7 @@ abstract contract SetupDeployment is Test {
         IDualGovernance dualGovernance,
         uint256 timelock
     ) internal returns (TiebreakerCore) {
-        return new TiebreakerCore({
-            owner: owner,
-            executionQuorum: TIEBREAKER_CORE_QUORUM,
-            committeeMembers: new address[](0),
-            dualGovernance: address(dualGovernance),
-            timelock: timelock
-        });
+        return new TiebreakerCore({owner: owner, dualGovernance: address(dualGovernance), timelock: timelock});
     }
 
     function _deployTiebreakerSubCommittee(
