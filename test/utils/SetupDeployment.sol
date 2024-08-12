@@ -366,19 +366,19 @@ abstract contract SetupDeployment is Test {
         IDualGovernanceConfigProvider configProvider
     ) internal returns (DualGovernance) {
         return new DualGovernance({
-            timelock: timelock,
-            resealManager: resealManager,
-            configProvider: configProvider,
-            dualGovernanceSanityCheckParams: DualGovernance.SanityCheckParams({
+            dependencies: DualGovernance.ExternalDependencies({
+                stETH: _lido.stETH,
+                wstETH: _lido.wstETH,
+                withdrawalQueue: _lido.withdrawalQueue,
+                timelock: timelock,
+                resealManager: resealManager,
+                configProvider: configProvider
+            }),
+            sanityCheckParams: DualGovernance.SanityCheckParams({
+                minWithdrawalsBatchSize: 4,
                 minTiebreakerActivationTimeout: MIN_TIEBREAKER_ACTIVATION_TIMEOUT,
                 maxTiebreakerActivationTimeout: MAX_TIEBREAKER_ACTIVATION_TIMEOUT,
                 maxSealableWithdrawalBlockersCount: MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT
-            }),
-            escrowSanityCheckParams: Escrow.SanityCheckParams({minWithdrawalsBatchSize: 4}),
-            escrowProtocolDependencies: Escrow.ProtocolDependencies({
-                stETH: _lido.stETH,
-                wstETH: _lido.wstETH,
-                withdrawalQueue: _lido.withdrawalQueue
             })
         });
     }

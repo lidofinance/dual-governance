@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
-import {IResealManager} from "./interfaces/IResealManager.sol";
-
 import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
+import {IResealManager} from "./interfaces/IResealManager.sol";
+
+import {IStETH} from "./interfaces/IStETH.sol";
+import {IWstETH} from "./interfaces/IWstETH.sol";
+import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
+import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {Proposers} from "./libraries/Proposers.sol";
@@ -47,6 +50,7 @@ contract DualGovernance is IDualGovernance {
     // ---
 
     struct SanityCheckParams {
+        uint256 minWithdrawalsBatchSize;
         Duration minTiebreakerActivationTimeout;
         Duration maxTiebreakerActivationTimeout;
         uint256 maxSealableWithdrawalBlockersCount;
@@ -58,6 +62,15 @@ contract DualGovernance is IDualGovernance {
 
     // ---
     // External Parts Immutables
+
+    struct ExternalDependencies {
+        IStETH stETH;
+        IWstETH wstETH;
+        IWithdrawalQueue withdrawalQueue;
+        ITimelock timelock;
+        IResealManager resealManager;
+        IDualGovernanceConfigProvider configProvider;
+    }
 
     ITimelock public immutable TIMELOCK;
     IResealManager public immutable RESEAL_MANAGER;
@@ -77,27 +90,28 @@ contract DualGovernance is IDualGovernance {
     IDualGovernanceConfigProvider internal _configProvider;
     address internal _resealCommittee;
 
-    constructor(
-        ITimelock timelock,
-        IResealManager resealManager,
-        IDualGovernanceConfigProvider configProvider,
-        SanityCheckParams memory dualGovernanceSanityCheckParams,
-        Escrow.SanityCheckParams memory escrowSanityCheckParams,
-        Escrow.ProtocolDependencies memory escrowProtocolDependencies
-    ) {
-        TIMELOCK = timelock;
-        RESEAL_MANAGER = resealManager;
+    constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
+        TIMELOCK = dependencies.timelock;
+        RESEAL_MANAGER = dependencies.resealManager;
 
-        MIN_TIEBREAKER_ACTIVATION_TIMEOUT = dualGovernanceSanityCheckParams.minTiebreakerActivationTimeout;
-        MAX_TIEBREAKER_ACTIVATION_TIMEOUT = dualGovernanceSanityCheckParams.maxTiebreakerActivationTimeout;
-        MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = dualGovernanceSanityCheckParams.maxSealableWithdrawalBlockersCount;
+        MIN_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.minTiebreakerActivationTimeout;
+        MAX_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.maxTiebreakerActivationTimeout;
+        MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = sanityCheckParams.maxSealableWithdrawalBlockersCount;
 
-        _setConfigProvider(configProvider);
+        _setConfigProvider(dependencies.configProvider);
 
-        ESCROW_MASTER_COPY = address(new Escrow(this, escrowSanityCheckParams, escrowProtocolDependencies));
+        ESCROW_MASTER_COPY = address(
+            new Escrow({
+                dualGovernance: this,
+                stETH: dependencies.stETH,
+                wstETH: dependencies.wstETH,
+                withdrawalQueue: dependencies.withdrawalQueue,
+                minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize
+            })
+        );
         emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
-        _stateMachine.initialize(configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
+        _stateMachine.initialize(dependencies.configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
     }
 
     // ---

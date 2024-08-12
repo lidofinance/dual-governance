@@ -69,21 +69,11 @@ contract Escrow is IEscrow {
     // Sanity check params immutables
     // ---
 
-    struct SanityCheckParams {
-        uint256 minWithdrawalsBatchSize;
-    }
-
     uint256 public immutable MIN_WITHDRAWALS_BATCH_SIZE;
 
     // ---
     // Dependencies immutables
     // ---
-
-    struct ProtocolDependencies {
-        IStETH stETH;
-        IWstETH wstETH;
-        IWithdrawalQueue withdrawalQueue;
-    }
 
     IStETH public immutable ST_ETH;
     IWstETH public immutable WST_ETH;
@@ -108,18 +98,20 @@ contract Escrow is IEscrow {
     // ---
 
     constructor(
+        IStETH stETH,
+        IWstETH wstETH,
+        IWithdrawalQueue withdrawalQueue,
         IDualGovernance dualGovernance,
-        SanityCheckParams memory sanityCheckParams,
-        ProtocolDependencies memory dependencies
+        uint256 minWithdrawalsBatchSize
     ) {
         _SELF = address(this);
         DUAL_GOVERNANCE = dualGovernance;
 
-        ST_ETH = dependencies.stETH;
-        WST_ETH = dependencies.wstETH;
-        WITHDRAWAL_QUEUE = dependencies.withdrawalQueue;
+        ST_ETH = stETH;
+        WST_ETH = wstETH;
+        WITHDRAWAL_QUEUE = withdrawalQueue;
 
-        MIN_WITHDRAWALS_BATCH_SIZE = sanityCheckParams.minWithdrawalsBatchSize;
+        MIN_WITHDRAWALS_BATCH_SIZE = minWithdrawalsBatchSize;
     }
 
     function initialize(Duration minAssetsLockDuration) external {
