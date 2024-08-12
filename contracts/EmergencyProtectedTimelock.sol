@@ -19,7 +19,7 @@ import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 /// execution during emergency situations.
 contract EmergencyProtectedTimelock is ITimelock {
     using TimelockState for TimelockState.Context;
-    using ExecutableProposals for ExecutableProposals.State;
+    using ExecutableProposals for ExecutableProposals.Context;
     using EmergencyProtection for EmergencyProtection.Context;
 
     error CallerIsNotAdminExecutor(address value);
@@ -51,7 +51,7 @@ contract EmergencyProtectedTimelock is ITimelock {
     // ---
 
     TimelockState.Context internal _timelockState;
-    ExecutableProposals.State internal _proposals;
+    ExecutableProposals.Context internal _proposals;
     EmergencyProtection.Context internal _emergencyProtection;
 
     constructor(SanityCheckParams memory sanityCheckParams, address adminExecutor) {
