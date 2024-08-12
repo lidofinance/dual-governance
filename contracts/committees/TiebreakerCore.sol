@@ -23,13 +23,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
 
     mapping(address => uint256) private _sealableResumeNonces;
 
-    constructor(
-        address owner,
-        address[] memory committeeMembers,
-        uint256 executionQuorum,
-        address dualGovernance,
-        uint256 timelock
-    ) HashConsensus(owner, committeeMembers, executionQuorum, timelock) {
+    constructor(address owner, address dualGovernance, uint256 timelock) HashConsensus(owner, timelock) {
         DUAL_GOVERNANCE = dualGovernance;
     }
 

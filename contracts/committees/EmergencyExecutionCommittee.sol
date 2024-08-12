@@ -22,8 +22,10 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address emergencyProtectedTimelock
-    ) HashConsensus(owner, committeeMembers, executionQuorum, 0) {
+    ) HashConsensus(owner, 0) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
+
+        _addMembers(committeeMembers, executionQuorum);
     }
 
     // ---

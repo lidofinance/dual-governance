@@ -21,8 +21,10 @@ contract ResealCommittee is HashConsensus, ProposalsList {
         uint256 executionQuorum,
         address dualGovernance,
         uint256 timelock
-    ) HashConsensus(owner, committeeMembers, executionQuorum, timelock) {
+    ) HashConsensus(owner, timelock) {
         DUAL_GOVERNANCE = dualGovernance;
+
+        _addMembers(committeeMembers, executionQuorum);
     }
 
     /// @notice Votes on a reseal proposal

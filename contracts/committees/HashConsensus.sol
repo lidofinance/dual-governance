@@ -37,19 +37,9 @@ abstract contract HashConsensus is Ownable {
     EnumerableSet.AddressSet private _members;
     mapping(address signer => mapping(bytes32 => bool)) public approves;
 
-    constructor(address owner, address[] memory newMembers, uint256 executionQuorum, uint256 timelock) Ownable(owner) {
-        if (executionQuorum == 0) {
-            revert InvalidQuorum();
-        }
-        quorum = executionQuorum;
-        emit QuorumSet(executionQuorum);
-
+    constructor(address owner, uint256 timelock) Ownable(owner) {
         timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
-
-        for (uint256 i = 0; i < newMembers.length; ++i) {
-            _addMember(newMembers[i]);
-        }
     }
 
     /// @notice Casts a vote on a given hash if hash has not been used
@@ -81,7 +71,10 @@ abstract contract HashConsensus is Ownable {
         if (_hashStates[hash].usedAt > 0) {
             revert HashAlreadyUsed(hash);
         }
-        if (_getSupport(hash) < quorum) {
+
+        uint256 support = _getSupport(hash);
+
+        if (support == 0 || support < quorum) {
             revert QuorumIsNotReached();
         }
         if (block.timestamp < _hashStates[hash].quorumAt + timelockDuration) {
@@ -122,6 +115,18 @@ abstract contract HashConsensus is Ownable {
         }
         quorum = newQuorum;
         emit QuorumSet(newQuorum);
+    }
+
+    /// @notice Adds new members to the contract and sets the execution quorum.
+    /// @dev This function allows the contract owner to add multiple new members and set the execution quorum.
+    ///      The function reverts if the caller is not the owner, if the execution quorum is set to zero,
+    ///      or if it exceeds the total number of members.
+    /// @param newMembers The array of addresses to be added as new members
+    /// @param executionQuorum The minimum number of members required for executing certain operations
+    function addMembers(address[] memory newMembers, uint256 executionQuorum) public {
+        _checkOwner();
+
+        _addMembers(newMembers, executionQuorum);
     }
 
     /// @notice Removes a member from the committee and updates the quorum
@@ -190,6 +195,23 @@ abstract contract HashConsensus is Ownable {
         }
         _members.add(newMember);
         emit MemberAdded(newMember);
+    }
+
+    /// @notice Adds new members to the contract and sets the execution quorum.
+    /// @dev This internal function adds multiple new members and sets the execution quorum.
+    ///      The function reverts if the execution quorum is set to zero or exceeds the total number of members.
+    /// @param newMembers The array of addresses to be added as new members.
+    /// @param executionQuorum The minimum number of members required for executing certain operations.
+    function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
+        for (uint256 i = 0; i < newMembers.length; ++i) {
+            _addMember(newMembers[i]);
+        }
+
+        if (executionQuorum == 0 || executionQuorum > _members.length()) {
+            revert InvalidQuorum();
+        }
+        quorum = executionQuorum;
+        emit QuorumSet(executionQuorum);
     }
 
     /// @notice Gets the number of votes in support of a given hash
