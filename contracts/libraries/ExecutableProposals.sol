@@ -217,6 +217,6 @@ library ExecutableProposals {
         uint256 proposalId,
         ProposalData memory proposalData
     ) private view returns (bool) {
-        return proposalId <= self.lastCancelledProposalId || proposalData.status == Status.Cancelled;
+        return proposalId <= self.lastCancelledProposalId && proposalData.status != Status.Executed;
     }
 }
