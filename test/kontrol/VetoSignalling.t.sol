@@ -210,7 +210,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      * Veto Signalling invariants, test that when we call activateNextState()
      * the state remains consistent with the invariants.
      */
-    function testVetoSignallingInvariantsArePreserved1To3(
+    function testVetoSignallingInvariantsArePreserved(
         uint256 lastInteractionTimestamp,
         uint256 previousRageQuitSupport,
         uint256 maxRageQuitSupport
@@ -260,57 +260,19 @@ contract VetoSignallingTest is DualGovernanceSetUp {
                 }
                 // Establish third invariant
                 _vetoSignallingDeactivationInvariant(Mode.Assert, current);
-            }
-            return;
-        }
-        vm.assume(currentState == State.VetoSignalling || currentState == State.VetoSignallingDeactivation);
-    }
-
-    function testVetoSignallingInvariantsArePreserved4(
-        uint256 lastInteractionTimestamp,
-        uint256 previousRageQuitSupport,
-        uint256 maxRageQuitSupport
-    ) external {
-        vm.assume(block.timestamp < timeUpperBound);
-
-        vm.assume(lastInteractionTimestamp < timeUpperBound);
-        vm.assume(previousRageQuitSupport < ethUpperBound);
-        vm.assume(maxRageQuitSupport < ethUpperBound);
-
-        StateRecord memory previous = _recordPreviousState(
-            Timestamp.wrap(uint40(lastInteractionTimestamp)), previousRageQuitSupport, maxRageQuitSupport
-        );
-
-        vm.assume(previous.state != State.Normal);
-        vm.assume(previous.state != State.VetoCooldown);
-        vm.assume(previous.state != State.RageQuit);
-
-        // Assume the first two invariants, which are non-branching
-        _vetoSignallingTimesInvariant(Mode.Assume, previous);
-        _vetoSignallingRageQuitInvariant(Mode.Assume, previous);
-
-        dualGovernance.activateNextState();
-
-        State currentState = dualGovernance.getCurrentState();
-
-        if (currentState != State.Normal && currentState != State.VetoCooldown && currentState != State.RageQuit) {
-            bool assumedDeactivationInvariant = false;
-            bool assumedMaxDelayInvariant = false;
-
-            StateRecord memory current = _recordCurrentState(maxRageQuitSupport);
-
-            // Try establishing fourth invariant
-            if (!_vetoSignallingMaxDelayInvariant(Mode.Try, current)) {
-                // Assume fourth invariant if not already assumed
-                if (!assumedMaxDelayInvariant) {
-                    _vetoSignallingMaxDelayInvariant(Mode.Assume, previous);
+                if (!_vetoSignallingMaxDelayInvariant(Mode.Try, current)) {
+                    // Assume fourth invariant if not already assumed
+                    if (!assumedMaxDelayInvariant) {
+                        _vetoSignallingMaxDelayInvariant(Mode.Assume, previous);
+                    }
+                    // If we still fail, it means that we have not assumed the third invariant,
+                    // which has to eliminate all of the remaining branches
+                    if (!_vetoSignallingMaxDelayInvariant(Mode.Try, current)) {
+                        assert(!assumedDeactivationInvariant);
+                        _vetoSignallingDeactivationInvariant(Mode.Assume, previous);
+                        assert(false);
+                    }
                 }
-                // Assume third invariant if not already assumed
-                if (!assumedDeactivationInvariant) {
-                    _vetoSignallingDeactivationInvariant(Mode.Assume, previous);
-                }
-                // Establish fourth invariant
-                _vetoSignallingMaxDelayInvariant(Mode.Assert, current);
             }
             return;
         }
