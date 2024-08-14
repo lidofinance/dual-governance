@@ -34,12 +34,13 @@ contract EmergencyActivationCommittee is HashConsensus {
 
     /// @notice Gets the current state of the emergency activation vote
     /// @return support The number of votes in support of the activation
-    /// @return execuitionQuorum The required number of votes for execution
+    /// @return executionQuorum The required number of votes for execution
+    /// @return quorumAt The timestamp when the quorum was reached
     /// @return isExecuted Whether the activation has been executed
     function getActivateEmergencyModeState()
         public
         view
-        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
     {
         return _getHashState(EMERGENCY_ACTIVATION_HASH);
     }

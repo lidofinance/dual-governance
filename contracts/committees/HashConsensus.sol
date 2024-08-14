@@ -90,15 +90,17 @@ abstract contract HashConsensus is Ownable {
     /// @dev Internal function to retrieve the state of a hash
     /// @param hash The hash to get the state for
     /// @return support The number of votes in support of the hash
-    /// @return execuitionQuorum The required number of votes for execution
+    /// @return executionQuorum The required number of votes for execution
+    /// @return quorumAt The timestamp when the quorum was reached
     /// @return isUsed Whether the hash has been used
     function _getHashState(bytes32 hash)
         internal
         view
-        returns (uint256 support, uint256 execuitionQuorum, bool isUsed)
+        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isUsed)
     {
         support = _getSupport(hash);
-        execuitionQuorum = quorum;
+        executionQuorum = quorum;
+        quorumAt = _hashStates[hash].quorumAt;
         isUsed = _hashStates[hash].usedAt > 0;
     }
 
@@ -165,6 +167,20 @@ abstract contract HashConsensus is Ownable {
     function setQuorum(uint256 newQuorum) public {
         _checkOwner();
         _setQuorum(newQuorum);
+    }
+
+    /// @notice Updates the quorum for a given hash if the quorum is reached and not set
+    ///      and the hash has not been used
+    /// @param hash The hash to update the quorum for
+    function updateQuorum(bytes32 hash) public {
+        if (_hashStates[hash].usedAt > 0) {
+            revert HashAlreadyUsed(hash);
+        }
+
+        uint256 support = _getSupport(hash);
+        if (support >= quorum && _hashStates[hash].quorumAt == 0) {
+            _hashStates[hash].quorumAt = uint40(block.timestamp);
+        }
     }
 
     /// @notice Sets the execution quorum required for certain operations.

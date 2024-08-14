@@ -45,12 +45,13 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     /// @dev Retrieves the state of the schedule proposal for a given proposal ID
     /// @param proposalId The ID of the proposal
     /// @return support The number of votes in support of the proposal
-    /// @return execuitionQuorum The required number of votes for execution
+    /// @return executionQuorum The required number of votes for execution
+    /// @return quorumAt The timestamp when the quorum was reached
     /// @return isExecuted Whether the proposal has been executed
     function getScheduleProposalState(uint256 proposalId)
         public
         view
-        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
     {
         (, bytes32 key) = _encodeScheduleProposal(proposalId);
         return _getHashState(key);
@@ -104,12 +105,13 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     /// @param sealable The address to resume
     /// @param nonce The nonce for the resume proposal
     /// @return support The number of votes in support of the proposal
-    /// @return execuitionQuorum The required number of votes for execution
+    /// @return executionQuorum The required number of votes for execution
+    /// @return quorumAt The timestamp when the quorum was reached
     /// @return isExecuted Whether the proposal has been executed
     function getSealableResumeState(
         address sealable,
         uint256 nonce
-    ) public view returns (uint256 support, uint256 execuitionQuorum, bool isExecuted) {
+    ) public view returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted) {
         (, bytes32 key) = _encodeSealableResume(sealable, nonce);
         return _getHashState(key);
     }

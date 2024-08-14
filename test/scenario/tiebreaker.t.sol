@@ -42,19 +42,19 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         for (uint256 i = 0; i < _tiebreakerSubCommittees[0].quorum() - 1; i++) {
             vm.prank(members[i]);
             _tiebreakerSubCommittees[0].scheduleProposal(proposalIdToExecute);
-            (support, quorum, isExecuted) = _tiebreakerSubCommittees[0].getScheduleProposalState(proposalIdToExecute);
+            (support, quorum,, isExecuted) = _tiebreakerSubCommittees[0].getScheduleProposalState(proposalIdToExecute);
             assertTrue(support < quorum);
             assertFalse(isExecuted);
         }
 
         vm.prank(members[members.length - 1]);
         _tiebreakerSubCommittees[0].scheduleProposal(proposalIdToExecute);
-        (support, quorum, isExecuted) = _tiebreakerSubCommittees[0].getScheduleProposalState(proposalIdToExecute);
+        (support, quorum,, isExecuted) = _tiebreakerSubCommittees[0].getScheduleProposalState(proposalIdToExecute);
         assertEq(support, quorum);
         assertFalse(isExecuted);
 
         _tiebreakerSubCommittees[0].executeScheduleProposal(proposalIdToExecute);
-        (support, quorum, isExecuted) = _tiebreakerCoreCommittee.getScheduleProposalState(proposalIdToExecute);
+        (support, quorum,, isExecuted) = _tiebreakerCoreCommittee.getScheduleProposalState(proposalIdToExecute);
         assertTrue(support < quorum);
 
         // Tiebreaker subcommittee 1
@@ -62,20 +62,20 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         for (uint256 i = 0; i < _tiebreakerSubCommittees[1].quorum() - 1; i++) {
             vm.prank(members[i]);
             _tiebreakerSubCommittees[1].scheduleProposal(proposalIdToExecute);
-            (support, quorum, isExecuted) = _tiebreakerSubCommittees[1].getScheduleProposalState(proposalIdToExecute);
+            (support, quorum,, isExecuted) = _tiebreakerSubCommittees[1].getScheduleProposalState(proposalIdToExecute);
             assertTrue(support < quorum);
             assertEq(isExecuted, false);
         }
 
         vm.prank(members[members.length - 1]);
         _tiebreakerSubCommittees[1].scheduleProposal(proposalIdToExecute);
-        (support, quorum, isExecuted) = _tiebreakerSubCommittees[1].getScheduleProposalState(proposalIdToExecute);
+        (support, quorum,, isExecuted) = _tiebreakerSubCommittees[1].getScheduleProposalState(proposalIdToExecute);
         assertEq(support, quorum);
         assertFalse(isExecuted);
 
         // Approve proposal for scheduling
         _tiebreakerSubCommittees[1].executeScheduleProposal(proposalIdToExecute);
-        (support, quorum, isExecuted) = _tiebreakerCoreCommittee.getScheduleProposalState(proposalIdToExecute);
+        (support, quorum,, isExecuted) = _tiebreakerCoreCommittee.getScheduleProposalState(proposalIdToExecute);
         assertEq(support, quorum);
 
         // Waiting for submit delay pass
@@ -114,7 +114,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         for (uint256 i = 0; i < _tiebreakerSubCommittees[0].quorum() - 1; i++) {
             vm.prank(members[i]);
             _tiebreakerSubCommittees[0].sealableResume(address(_lido.withdrawalQueue));
-            (support, quorum, isExecuted) =
+            (support, quorum,, isExecuted) =
                 _tiebreakerSubCommittees[0].getSealableResumeState(address(_lido.withdrawalQueue));
             assertTrue(support < quorum);
             assertFalse(isExecuted);
@@ -122,13 +122,13 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         vm.prank(members[members.length - 1]);
         _tiebreakerSubCommittees[0].sealableResume(address(_lido.withdrawalQueue));
-        (support, quorum, isExecuted) =
+        (support, quorum,, isExecuted) =
             _tiebreakerSubCommittees[0].getSealableResumeState(address(_lido.withdrawalQueue));
         assertEq(support, quorum);
         assertFalse(isExecuted);
 
         _tiebreakerSubCommittees[0].executeSealableResume(address(_lido.withdrawalQueue));
-        (support, quorum, isExecuted) = _tiebreakerCoreCommittee.getSealableResumeState(
+        (support, quorum,, isExecuted) = _tiebreakerCoreCommittee.getSealableResumeState(
             address(_lido.withdrawalQueue),
             _tiebreakerCoreCommittee.getSealableResumeNonce(address(_lido.withdrawalQueue))
         );
@@ -139,7 +139,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         for (uint256 i = 0; i < _tiebreakerSubCommittees[1].quorum() - 1; i++) {
             vm.prank(members[i]);
             _tiebreakerSubCommittees[1].sealableResume(address(_lido.withdrawalQueue));
-            (support, quorum, isExecuted) =
+            (support, quorum,, isExecuted) =
                 _tiebreakerSubCommittees[1].getSealableResumeState(address(_lido.withdrawalQueue));
             assertTrue(support < quorum);
             assertEq(isExecuted, false);
@@ -147,13 +147,13 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         vm.prank(members[members.length - 1]);
         _tiebreakerSubCommittees[1].sealableResume(address(_lido.withdrawalQueue));
-        (support, quorum, isExecuted) =
+        (support, quorum,, isExecuted) =
             _tiebreakerSubCommittees[1].getSealableResumeState(address(_lido.withdrawalQueue));
         assertEq(support, quorum);
         assertFalse(isExecuted);
 
         _tiebreakerSubCommittees[1].executeSealableResume(address(_lido.withdrawalQueue));
-        (support, quorum, isExecuted) = _tiebreakerCoreCommittee.getSealableResumeState(
+        (support, quorum,, isExecuted) = _tiebreakerCoreCommittee.getSealableResumeState(
             address(_lido.withdrawalQueue),
             _tiebreakerCoreCommittee.getSealableResumeNonce(address(_lido.withdrawalQueue))
         );

@@ -354,7 +354,7 @@ contract HashConsensusWrapper is HashConsensus {
     function getHashState(bytes32 hash)
         public
         view
-        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
     {
         return _getHashState(hash);
     }
@@ -410,41 +410,57 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
 
     function test_getHashState() public {
         uint256 support;
-        uint256 execuitionQuorum;
+        uint256 executionQuorum;
+        uint256 quorumAt;
         bool isExecuted;
 
-        (support, execuitionQuorum, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+        (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
         assertEq(support, 0);
-        assertEq(execuitionQuorum, _quorum);
+        assertEq(executionQuorum, _quorum);
+        assertEq(quorumAt, 0);
         assertEq(isExecuted, false);
 
+        uint256 expectedQuorumAt = block.timestamp;
+
         for (uint256 i = 0; i < _membersCount; ++i) {
-            (support, execuitionQuorum, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+            (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
             assertEq(support, i);
-            assertEq(execuitionQuorum, _quorum);
+            assertEq(executionQuorum, _quorum);
+            if (i >= executionQuorum) {
+                assertEq(quorumAt, expectedQuorumAt);
+            } else {
+                assertEq(quorumAt, 0);
+            }
             assertEq(isExecuted, false);
 
             vm.prank(_committeeMembers[i]);
             _hashConsensusWrapper.vote(dataHash, true);
 
-            (support, execuitionQuorum, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+            (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
             assertEq(support, i + 1);
-            assertEq(execuitionQuorum, _quorum);
+            assertEq(executionQuorum, _quorum);
+            if (i >= executionQuorum - 1) {
+                assertEq(quorumAt, expectedQuorumAt);
+            } else {
+                assertEq(quorumAt, 0);
+            }
             assertEq(isExecuted, false);
         }
 
-        (support, execuitionQuorum, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+        (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
         assertEq(support, _membersCount);
-        assertEq(execuitionQuorum, _quorum);
+        assertEq(executionQuorum, _quorum);
+        assertEq(quorumAt, expectedQuorumAt);
         assertEq(isExecuted, false);
 
         _wait(_timelock);
 
         _hashConsensusWrapper.execute(dataHash);
 
-        (support, execuitionQuorum, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+        (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
         assertEq(support, _membersCount);
-        assertEq(execuitionQuorum, _quorum);
+        assertEq(executionQuorum, _quorum);
+        assertEq(quorumAt, expectedQuorumAt);
         assertEq(isExecuted, true);
     }
 
@@ -529,5 +545,78 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         vm.expectEmit(address(_hashConsensus));
         emit HashConsensusWrapper.OnlyMemberModifierPassed();
         _hashConsensusWrapper.onlyMemberProtected();
+    }
+
+    function test_updateQuorumRevertsIfHashIsUsed() public {
+        bytes32 hash = keccak256("hash");
+
+        for (uint256 i = 0; i < _quorum; ++i) {
+            vm.prank(_committeeMembers[i]);
+            _hashConsensusWrapper.vote(hash, true);
+        }
+
+        _wait(Duration.wrap(3600));
+
+        _hashConsensusWrapper.execute(hash);
+
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, hash));
+        _hashConsensusWrapper.updateQuorum(hash);
+    }
+
+    function test_updateQuorumDoNothingIfQuorumAlreadyReached() public {
+        bytes32 hash = keccak256("hash");
+
+        for (uint256 i = 0; i < _quorum; ++i) {
+            vm.prank(_committeeMembers[i]);
+            _hashConsensusWrapper.vote(hash, true);
+        }
+
+        (,, uint256 quorumAtBefore,) = _hashConsensusWrapper.getHashState(hash);
+
+        _wait(_timelock);
+        _hashConsensusWrapper.updateQuorum(hash);
+
+        (,, uint256 quorumAtAfter,) = _hashConsensusWrapper.getHashState(hash);
+
+        assertEq(quorumAtBefore, quorumAtAfter);
+    }
+
+    function test_updateQuorumDoNothingIfQuorumIsNotReached() public {
+        bytes32 hash = keccak256("hash");
+
+        for (uint256 i = 0; i < _quorum - 1; ++i) {
+            vm.prank(_committeeMembers[i]);
+            _hashConsensusWrapper.vote(hash, true);
+        }
+
+        (,, uint256 quorumAtBefore,) = _hashConsensusWrapper.getHashState(hash);
+        assertEq(quorumAtBefore, 0);
+
+        _hashConsensusWrapper.updateQuorum(hash);
+
+        (,, uint256 quorumAtAfter,) = _hashConsensusWrapper.getHashState(hash);
+        assertEq(quorumAtAfter, 0);
+    }
+
+    function test_updateQuorum() public {
+        bytes32 hash = keccak256("hash");
+
+        for (uint256 i = 0; i < _quorum - 1; ++i) {
+            vm.prank(_committeeMembers[i]);
+            _hashConsensusWrapper.vote(hash, true);
+        }
+
+        vm.prank(_owner);
+        _hashConsensusWrapper.setQuorum(_quorum - 1);
+
+        (,, uint256 quorumAtBefore,) = _hashConsensusWrapper.getHashState(hash);
+
+        assertEq(quorumAtBefore, 0);
+
+        _hashConsensusWrapper.updateQuorum(hash);
+
+        (,, uint256 quorumAtAfter,) = _hashConsensusWrapper.getHashState(hash);
+
+        assertEq(quorumAtAfter, block.timestamp);
     }
 }
