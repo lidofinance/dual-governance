@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {stdError} from "forge-std/StdError.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 import {WithdrawalsBatchesQueue, State} from "contracts/libraries/WithdrawalBatchesQueue.sol";
 
@@ -147,7 +148,8 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         // violate the order of the NFT ids
         unstETHIds[2] = unstETHIds[3];
 
-        vm.expectRevert();
+        vm.expectRevert(stdError.assertionError);
+
         _batchesQueue.addUnstETHIds(unstETHIds);
     }
 
@@ -285,6 +287,55 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         }
     }
 
+    function test_claimNextBatch_RevertWhen_EmptyQueue() external {
+        _openBatchesQueue();
+
+        vm.expectRevert(WithdrawalsBatchesQueue.EmptyBatch.selector);
+        _batchesQueue.claimNextBatch(100);
+    }
+
+    function test_claimNextBatch_RevertWhen_NothingToClaim() external {
+        _openBatchesQueue();
+
+        uint256 unstETHIdsCount = 5;
+        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
+        uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
+
+        _batchesQueue.addUnstETHIds(unstETHIds);
+        assertEq(_batchesQueue.info.totalUnstETHIdsCount, unstETHIdsCount);
+        assertEq(_batchesQueue.batches.length, 2);
+
+        uint256 maxUnstETHIdsCount = 5;
+        uint256[] memory claimedIds = _batchesQueue.claimNextBatch(maxUnstETHIdsCount);
+
+        assertEq(claimedIds.length, maxUnstETHIdsCount);
+        assertEq(_batchesQueue.info.totalUnstETHIdsClaimed, maxUnstETHIdsCount);
+
+        vm.expectRevert(WithdrawalsBatchesQueue.EmptyBatch.selector);
+        _batchesQueue.claimNextBatch(100);
+    }
+
+    function test_claimNextBatch_RevertOn_AccountingError_TotalUnstETHClaimed_GT_TotalUnstETHCount() external {
+        _openBatchesQueue();
+
+        _batchesQueue.info.totalUnstETHIdsClaimed = 1;
+        vm.expectRevert(stdError.arithmeticError);
+        _batchesQueue.claimNextBatch(100);
+    }
+
+    function test_claimNextBatch_RevertOn_AccountingError_LastClaimedBatchIndexOutOfArrayBounds() external {
+        _openBatchesQueue();
+
+        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
+        uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: 1, firstUnstETHId: firstUnstETHId});
+
+        _batchesQueue.addUnstETHIds(unstETHIds);
+
+        _batchesQueue.info.lastClaimedBatchIndex = 2;
+        vm.expectRevert(stdError.indexOOBError);
+        _batchesQueue.claimNextBatch(100);
+    }
+
     // ---
     // close()
     // ---
@@ -322,7 +373,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     // calcRequestAmounts()
     // ---
 
-    function test_calcRequestAmounts_HappyPath_WithoutReminder() external {
+    function test_calcRequestAmounts_HappyPath_WithoutRemainder() external {
         _openBatchesQueue();
         assertEq(_batchesQueue.info.state, State.Opened);
 
@@ -347,7 +398,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         }
     }
 
-    function test_calcRequestAmounts_HappyPath_WithReminder() external {
+    function test_calcRequestAmounts_HappyPath_WithRemainder() external {
         _openBatchesQueue();
         assertEq(_batchesQueue.info.state, State.Opened);
 
@@ -371,6 +422,13 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         for (uint256 i = 0; i < requestAmounts.length; ++i) {
             assertEq(requestAmounts[i], expected[i]);
         }
+    }
+
+    function test_calcRequestAmounts_RevertOn_DivisionByZero() external {
+        _openBatchesQueue();
+
+        vm.expectRevert(stdError.divisionError);
+        WithdrawalsBatchesQueue.calcRequestAmounts({minRequestAmount: 1, maxRequestAmount: 0, remainingAmount: 100});
     }
 
     // ---
@@ -474,6 +532,24 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         assertEq(_batchesQueue.info.totalUnstETHIdsClaimed, 0);
     }
 
+    function test_getNextWithdrawalsBatches_RevertOn_AccountingError_TotalUnstETHClaimed_GT_TotalUnstETHCount()
+        external
+    {
+        _openBatchesQueue();
+
+        _batchesQueue.info.totalUnstETHIdsClaimed = 1;
+        vm.expectRevert(stdError.arithmeticError);
+        _batchesQueue.getNextWithdrawalsBatches(10);
+    }
+
+    function test_getNextWithdrawalsBatches_RevertOn_AccountingError_LastClaimedBatchIndexOutOfArrayBounds() external {
+        _openBatchesQueue();
+
+        _batchesQueue.info.lastClaimedBatchIndex = 2;
+        vm.expectRevert(stdError.indexOOBError);
+        _batchesQueue.getNextWithdrawalsBatches(10);
+    }
+
     // ---
     // getBoundaryUnstETHId()
     // ---
@@ -520,6 +596,28 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     // ---
+    // getTotalUnclaimedUnstETHIdsCount()
+    // ---
+
+    function testFuzz_getTotalUnclaimedUnstETHIdsCount_HappyPath(uint64 totalCount, uint64 totalClaimed) external {
+        vm.assume(totalClaimed < totalCount);
+
+        _batchesQueue.info.totalUnstETHIdsCount = totalCount;
+        _batchesQueue.info.totalUnstETHIdsClaimed = totalClaimed;
+
+        uint256 res = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+
+        assert(res == totalCount - totalClaimed);
+    }
+
+    function testFuzz_getTotalUnclaimedUnstETHIdsCount_RevertOn_AccountingError_IncorrectTotals() external {
+        _batchesQueue.info.totalUnstETHIdsClaimed = 1;
+
+        vm.expectRevert(stdError.arithmeticError);
+        _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+    }
+
+    // ---
     // getLastClaimedOrBoundaryUnstETHId()
     // ---
 
@@ -549,6 +647,38 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     function test_getLastClaimedOrBoundaryUnstETHId_RevertOn_AbsentQueueState() external {
         vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsInAbsentState.selector);
         _batchesQueue.getLastClaimedOrBoundaryUnstETHId();
+    }
+
+    function test_getLastClaimedOrBoundaryUnstETHId_RevertOn_LastClaimedBatchIndexOutOfArrayBounds() external {
+        _openBatchesQueue();
+        _batchesQueue.info.lastClaimedBatchIndex = 2;
+
+        vm.expectRevert(stdError.indexOOBError);
+        _batchesQueue.getLastClaimedOrBoundaryUnstETHId();
+    }
+
+    // ---
+    // isAllBatchesClaimed()
+    // ---
+
+    function testFuzz_isAllBatchesClaimed_HappyPath_ReturnsTrue(uint64 count) external {
+        _batchesQueue.info.totalUnstETHIdsClaimed = count;
+        _batchesQueue.info.totalUnstETHIdsCount = count;
+
+        bool res = _batchesQueue.isAllBatchesClaimed();
+        assert(res == true);
+    }
+
+    function testFuzz_isAllBatchesClaimed_HappyPath_ReturnsFalse(
+        uint64 totalUnstETHClaimed,
+        uint64 totalUnstETHCount
+    ) external {
+        vm.assume(totalUnstETHClaimed != totalUnstETHCount);
+        _batchesQueue.info.totalUnstETHIdsClaimed = totalUnstETHClaimed;
+        _batchesQueue.info.totalUnstETHIdsCount = totalUnstETHCount;
+
+        bool res = _batchesQueue.isAllBatchesClaimed();
+        assert(res == false);
     }
 
     // ---
