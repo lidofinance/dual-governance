@@ -246,7 +246,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             assertFalse(_timelock.isEmergencyModeActive());
 
-            EmergencyProtection.Context memory emergencyState = _timelock.getEmergencyProtectionContext();
+            emergencyState = _timelock.getEmergencyProtectionContext();
             assertEq(emergencyState.emergencyActivationCommittee, address(_emergencyActivationCommittee));
             assertEq(emergencyState.emergencyExecutionCommittee, address(_emergencyExecutionCommittee));
             assertEq(emergencyState.emergencyModeDuration, Durations.from(30 days));

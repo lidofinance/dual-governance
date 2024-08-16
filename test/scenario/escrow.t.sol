@@ -201,7 +201,6 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
     }
 
     function test_check_finalization() public {
-        uint256 totalAmountLocked = 2 ether;
         uint256[] memory amounts = new uint256[](2);
         for (uint256 i = 0; i < 2; ++i) {
             amounts[i] = 1 ether;
@@ -345,7 +344,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         // unstETH holders claim their withdrawal requests
         // ---
         {
-            uint256[] memory hints =
+            hints =
                 _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
             escrow.claimUnstETH(unstETHIds, hints);
 

@@ -90,7 +90,7 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
     function test_protected_deployment_mode_deactivation_in_emergency_mode() external {
         _deployDualGovernanceSetup(true);
 
-        (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
+        (uint256 proposalId,) = _createAndAssertProposal();
 
         _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
