@@ -1,7 +1,7 @@
 [build.default]
 foundry-project-root       = '.'
-regen                      = false
-rekompile                  = false
+regen                      = true
+rekompile                  = true
 verbose                    = true
 debug                      = false
 require                    = 'test/kontrol/lido-lemmas.k'
@@ -9,20 +9,24 @@ module-import              = 'VetoSignallingTest:LIDO-LEMMAS'
 
 [prove.default]
 foundry-project-root       = '.'
-verbose                    = true
+verbose                    = false
 debug                      = false
-max-depth                  = 10000
+max-depth                  = 100000
 max-iterations             = 10000
 reinit                     = false
 cse                        = false
-workers                    = 16
+workers                    = 1
 max-frontier-parallel      = 6
+maintenance-rate           = 24
+assume-defined             = true
+no-log-rewrites            = true
+kore-rpc-command           = 'kore-rpc-booster --no-post-exec-simplify'
 failure-information        = true
 counterexample-information = true
 minimize-proofs            = false
 fail-fast                  = true
-smt-timeout                = 1000
-smt-retry-limit            = 5
+smt-timeout                = 64000
+smt-retry-limit            = 0
 break-every-step           = false
 break-on-jumpi             = false
 break-on-calls             = false
