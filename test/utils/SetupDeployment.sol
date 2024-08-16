@@ -260,15 +260,29 @@ abstract contract SetupDeployment is Test {
                 address(_timelock),
                 0,
                 abi.encodeCall(
-                    _timelock.setupEmergencyProtection,
-                    (
-                        address(_emergencyGovernance),
-                        address(_emergencyActivationCommittee),
-                        address(_emergencyExecutionCommittee),
-                        _EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
-                        _EMERGENCY_MODE_DURATION
-                    )
+                    _timelock.setEmergencyProtectionActivationCommittee, (address(_emergencyActivationCommittee))
                 )
+            );
+            _adminExecutor.execute(
+                address(_timelock),
+                0,
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionExecutionCommittee, (address(_emergencyExecutionCommittee))
+                )
+            );
+            _adminExecutor.execute(
+                address(_timelock),
+                0,
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionEndDate, (_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
+                )
+            );
+            _adminExecutor.execute(
+                address(_timelock), 0, abi.encodeCall(_timelock.setEmergencyModeDuration, (_EMERGENCY_MODE_DURATION))
+            );
+
+            _adminExecutor.execute(
+                address(_timelock), 0, abi.encodeCall(_timelock.setEmergencyGovernance, (address(_emergencyGovernance)))
             );
         }
     }

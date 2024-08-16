@@ -35,6 +35,27 @@ library ExternalCallHelpers {
         }
     }
 
+    function create(ExternalCall[5] memory calls) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](5);
+        for (uint256 i = 0; i < 5; ++i) {
+            res[i] = calls[i];
+        }
+    }
+
+    function create(ExternalCall[6] memory calls) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](6);
+        for (uint256 i = 0; i < 6; ++i) {
+            res[i] = calls[i];
+        }
+    }
+
+    function create(ExternalCall[7] memory calls) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](7);
+        for (uint256 i = 0; i < 7; ++i) {
+            res[i] = calls[i];
+        }
+    }
+
     // calls with value equal to 0
 
     function create(
@@ -74,6 +95,39 @@ library ExternalCallHelpers {
     ) internal pure returns (ExternalCall[] memory res) {
         res = new ExternalCall[](4);
         for (uint256 i = 0; i < 4; ++i) {
+            res[i].target = targets[i];
+            res[i].payload = payloads[i];
+        }
+    }
+
+    function create(
+        address[5] memory targets,
+        bytes[5] memory payloads
+    ) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](5);
+        for (uint256 i = 0; i < 5; ++i) {
+            res[i].target = targets[i];
+            res[i].payload = payloads[i];
+        }
+    }
+
+    function create(
+        address[6] memory targets,
+        bytes[6] memory payloads
+    ) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](6);
+        for (uint256 i = 0; i < 6; ++i) {
+            res[i].target = targets[i];
+            res[i].payload = payloads[i];
+        }
+    }
+
+    function create(
+        address[7] memory targets,
+        bytes[7] memory payloads
+    ) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](7);
+        for (uint256 i = 0; i < 7; ++i) {
             res[i].target = targets[i];
             res[i].payload = payloads[i];
         }

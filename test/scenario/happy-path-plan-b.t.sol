@@ -121,7 +121,15 @@ contract PlanBSetup is ScenarioTestBlueprint {
             });
 
             ExternalCall[] memory dualGovernanceLaunchCalls = ExternalCallHelpers.create(
-                [address(_dualGovernance), address(_timelock), address(_timelock), address(_timelock)],
+                [
+                    address(_dualGovernance),
+                    address(_timelock),
+                    address(_timelock),
+                    address(_timelock),
+                    address(_timelock),
+                    address(_timelock),
+                    address(_timelock)
+                ],
                 [
                     abi.encodeCall(_dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())),
                     // Only Dual Governance contract can call the Timelock contract
@@ -130,15 +138,15 @@ contract PlanBSetup is ScenarioTestBlueprint {
                     abi.encodeCall(_timelock.deactivateEmergencyMode, ()),
                     // Setup emergency committee for some period of time until the Dual Governance is battle tested
                     abi.encodeCall(
-                        _timelock.setupEmergencyProtection,
-                        (
-                            address(_emergencyGovernance),
-                            address(_emergencyActivationCommittee),
-                            address(_emergencyExecutionCommittee),
-                            _EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
-                            _EMERGENCY_MODE_DURATION
-                        )
-                    )
+                        _timelock.setEmergencyProtectionActivationCommittee, (address(_emergencyActivationCommittee))
+                    ),
+                    abi.encodeCall(
+                        _timelock.setEmergencyProtectionExecutionCommittee, (address(_emergencyExecutionCommittee))
+                    ),
+                    abi.encodeCall(
+                        _timelock.setEmergencyProtectionEndDate, (_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
+                    ),
+                    abi.encodeCall(_timelock.setEmergencyModeDuration, (_EMERGENCY_MODE_DURATION))
                 ]
             );
 
@@ -205,22 +213,16 @@ contract PlanBSetup is ScenarioTestBlueprint {
             });
 
             ExternalCall[] memory dualGovernanceUpdateCalls = ExternalCallHelpers.create(
-                [address(dualGovernanceV2), address(_timelock), address(_timelock)],
+                [address(dualGovernanceV2), address(_timelock), address(_timelock), address(_timelock)],
                 [
                     abi.encodeCall(_dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())),
                     // Update the controller for timelock
                     abi.encodeCall(_timelock.setGovernance, address(dualGovernanceV2)),
                     // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
                     abi.encodeCall(
-                        _timelock.setupEmergencyProtection,
-                        (
-                            address(_emergencyGovernance),
-                            address(_emergencyActivationCommittee),
-                            address(_emergencyExecutionCommittee),
-                            _EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
-                            Durations.from(30 days)
-                        )
-                    )
+                        _timelock.setEmergencyProtectionEndDate, (_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
+                    ),
+                    abi.encodeCall(_timelock.setEmergencyModeDuration, (Durations.from(30 days)))
                 ]
             );
 
@@ -246,11 +248,11 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             assertFalse(_timelock.isEmergencyModeActive());
 
-            EmergencyProtection.Context memory emergencyState = _timelock.getEmergencyProtectionContext();
-            assertEq(emergencyState.emergencyActivationCommittee, address(_emergencyActivationCommittee));
-            assertEq(emergencyState.emergencyExecutionCommittee, address(_emergencyExecutionCommittee));
-            assertEq(emergencyState.emergencyModeDuration, Durations.from(30 days));
-            assertEq(emergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
+            EmergencyProtection.Context memory localEmergencyState = _timelock.getEmergencyProtectionContext();
+            assertEq(localEmergencyState.emergencyActivationCommittee, address(_emergencyActivationCommittee));
+            assertEq(localEmergencyState.emergencyExecutionCommittee, address(_emergencyExecutionCommittee));
+            assertEq(localEmergencyState.emergencyModeDuration, Durations.from(30 days));
+            assertEq(localEmergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
 
             // use the new version of the dual governance in the future calls
             _dualGovernance = dualGovernanceV2;

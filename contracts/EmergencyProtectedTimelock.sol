@@ -126,24 +126,43 @@ contract EmergencyProtectedTimelock is ITimelock {
 
     // ---
     // Emergency Protection Functionality
-    // ---
+    //
 
-    function setupEmergencyProtection(
-        address emergencyGovernance,
-        address emergencyActivationCommittee,
-        address emergencyExecutionCommittee,
-        Timestamp emergencyProtectionEndDate,
-        Duration emergencyModeDuration
-    ) external {
+    /// @dev Sets the emergency activation committee address.
+    /// @param emergencyActivationCommittee The address of the emergency activation committee.
+    function setEmergencyProtectionActivationCommittee(address emergencyActivationCommittee) external {
         _checkCallerIsAdminExecutor();
-
-        _emergencyProtection.setEmergencyGovernance(emergencyGovernance);
         _emergencyProtection.setEmergencyActivationCommittee(emergencyActivationCommittee);
+    }
+
+    /// @dev Sets the emergency execution committee address.
+    /// @param emergencyExecutionCommittee The address of the emergency execution committee.
+    function setEmergencyProtectionExecutionCommittee(address emergencyExecutionCommittee) external {
+        _checkCallerIsAdminExecutor();
+        _emergencyProtection.setEmergencyExecutionCommittee(emergencyExecutionCommittee);
+    }
+
+    /// @dev Sets the emergency protection end date.
+    /// @param emergencyProtectionEndDate The timestamp of the emergency protection end date.
+    function setEmergencyProtectionEndDate(Timestamp emergencyProtectionEndDate) external {
+        _checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyProtectionEndDate(
             emergencyProtectionEndDate, MAX_EMERGENCY_PROTECTION_DURATION
         );
+    }
+
+    /// @dev Sets the emergency mode duration.
+    /// @param emergencyModeDuration The duration of the emergency mode.
+    function setEmergencyModeDuration(Duration emergencyModeDuration) external {
+        _checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyModeDuration(emergencyModeDuration, MAX_EMERGENCY_MODE_DURATION);
-        _emergencyProtection.setEmergencyExecutionCommittee(emergencyExecutionCommittee);
+    }
+
+    /// @dev Sets the emergency governance address.
+    /// @param emergencyGovernance The address of the emergency governance.
+    function setEmergencyGovernance(address emergencyGovernance) external {
+        _checkCallerIsAdminExecutor();
+        _emergencyProtection.setEmergencyGovernance(emergencyGovernance);
     }
 
     /// @dev Activates the emergency mode.
