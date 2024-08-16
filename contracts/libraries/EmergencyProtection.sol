@@ -11,12 +11,15 @@ library EmergencyProtection {
     error CallerIsNotEmergencyActivationCommittee(address caller);
     error CallerIsNotEmergencyExecutionCommittee(address caller);
     error EmergencyProtectionExpired(Timestamp protectedTill);
+    error InvalidEmergencyGovernance(address governance);
+    error InvalidEmergencyActivationCommittee(address committee);
+    error InvalidEmergencyExecutionCommittee(address committee);
     error InvalidEmergencyModeDuration(Duration value);
     error InvalidEmergencyProtectionEndDate(Timestamp value);
     error UnexpectedEmergencyModeState(bool value);
 
-    event EmergencyModeActivated();
-    event EmergencyModeDeactivated();
+    event EmergencyModeActivated(Timestamp activatedAt);
+    event EmergencyModeDeactivated(Timestamp deactivatedAt);
     event EmergencyGovernanceSet(address newEmergencyGovernance);
     event EmergencyActivationCommitteeSet(address newActivationCommittee);
     event EmergencyExecutionCommitteeSet(address newActivationCommittee);
@@ -52,8 +55,7 @@ library EmergencyProtection {
         }
 
         self.emergencyModeEndsAfter = self.emergencyModeDuration.addTo(now_);
-
-        emit EmergencyModeActivated();
+        emit EmergencyModeActivated(Timestamps.now());
     }
 
     /// @dev Deactivates the emergency mode.
@@ -64,64 +66,80 @@ library EmergencyProtection {
         self.emergencyProtectionEndsAfter = Timestamps.ZERO;
         self.emergencyModeEndsAfter = Timestamps.ZERO;
         self.emergencyModeDuration = Durations.ZERO;
-        emit EmergencyModeDeactivated();
+        emit EmergencyModeDeactivated(Timestamps.now());
     }
 
     // ---
     // Setup functionality
     // ---
 
+    /// @dev Sets the emergency governance address.
+    /// @param self The storage reference to the Context struct.
+    /// @param newEmergencyGovernance The new emergency governance address.
     function setEmergencyGovernance(Context storage self, address newEmergencyGovernance) internal {
         if (newEmergencyGovernance == self.emergencyGovernance) {
-            return;
+            revert InvalidEmergencyGovernance(newEmergencyGovernance);
         }
         self.emergencyGovernance = newEmergencyGovernance;
         emit EmergencyGovernanceSet(newEmergencyGovernance);
     }
 
+    /// @dev Sets the emergency protection end date.
+    /// @param self The storage reference to the Context struct.
+    /// @param newEmergencyProtectionEndDate The new emergency protection end date.
+    /// @param maxEmergencyProtectionDuration The maximum duration for the emergency protection.
     function setEmergencyProtectionEndDate(
         Context storage self,
         Timestamp newEmergencyProtectionEndDate,
         Duration maxEmergencyProtectionDuration
     ) internal {
-        if (newEmergencyProtectionEndDate > maxEmergencyProtectionDuration.addTo(Timestamps.now())) {
+        if (
+            newEmergencyProtectionEndDate > maxEmergencyProtectionDuration.addTo(Timestamps.now())
+                || newEmergencyProtectionEndDate == self.emergencyProtectionEndsAfter
+        ) {
             revert InvalidEmergencyProtectionEndDate(newEmergencyProtectionEndDate);
-        }
-
-        if (newEmergencyProtectionEndDate == self.emergencyProtectionEndsAfter) {
-            return;
         }
         self.emergencyProtectionEndsAfter = newEmergencyProtectionEndDate;
         emit EmergencyProtectionEndDateSet(newEmergencyProtectionEndDate);
     }
 
+    /// @dev Sets the emergency mode duration.
+    /// @param self The storage reference to the Context struct.
+    /// @param newEmergencyModeDuration The new emergency mode duration.
+    /// @param maxEmergencyModeDuration The maximum duration for the emergency mode.
     function setEmergencyModeDuration(
         Context storage self,
         Duration newEmergencyModeDuration,
         Duration maxEmergencyModeDuration
     ) internal {
-        if (newEmergencyModeDuration > maxEmergencyModeDuration) {
+        if (
+            newEmergencyModeDuration > maxEmergencyModeDuration
+                || newEmergencyModeDuration == self.emergencyModeDuration
+        ) {
             revert InvalidEmergencyModeDuration(newEmergencyModeDuration);
-        }
-        if (newEmergencyModeDuration == self.emergencyModeDuration) {
-            return;
         }
 
         self.emergencyModeDuration = newEmergencyModeDuration;
         emit EmergencyModeDurationSet(newEmergencyModeDuration);
     }
 
+    /// @dev Sets the emergency activation committee address.
+    /// @param self The storage reference to the Context struct.
+    /// @param newActivationCommittee The new emergency activation committee address.
     function setEmergencyActivationCommittee(Context storage self, address newActivationCommittee) internal {
         if (newActivationCommittee == self.emergencyActivationCommittee) {
-            return;
+            revert InvalidEmergencyActivationCommittee(newActivationCommittee);
         }
         self.emergencyActivationCommittee = newActivationCommittee;
         emit EmergencyActivationCommitteeSet(newActivationCommittee);
     }
 
+    /// @dev Sets the emergency execution committee address.
+    /// @param self The storage reference to the Context struct.
+    /// @param newExecutionCommittee The new emergency execution committee address.
     function setEmergencyExecutionCommittee(Context storage self, address newExecutionCommittee) internal {
         if (newExecutionCommittee == self.emergencyExecutionCommittee) {
-            return;
+            revert InvalidEmergencyExecutionCommittee(newExecutionCommittee);
         }
         self.emergencyExecutionCommittee = newExecutionCommittee;
         emit EmergencyExecutionCommitteeSet(newExecutionCommittee);
