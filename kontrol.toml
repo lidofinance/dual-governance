@@ -1,0 +1,57 @@
+[build.default]
+foundry-project-root       = '.'
+regen                      = false
+rekompile                  = false
+verbose                    = true
+debug                      = false
+require                    = 'test/kontrol/lido-lemmas.k'
+module-import              = 'VetoSignallingTest:LIDO-LEMMAS'
+
+[prove.default]
+foundry-project-root       = '.'
+verbose                    = true
+debug                      = false
+max-depth                  = 10000
+max-iterations             = 10000
+reinit                     = false
+cse                        = false
+workers                    = 16
+max-frontier-parallel      = 6
+failure-information        = true
+counterexample-information = true
+minimize-proofs            = false
+fail-fast                  = true
+smt-timeout                = 1000
+smt-retry-limit            = 5
+break-every-step           = false
+break-on-jumpi             = false
+break-on-calls             = false
+break-on-storage           = false
+break-on-basic-blocks      = false
+break-on-cheatcodes        = false
+auto_abstract              = true
+run-constructor            = false
+match-test                 = [
+        "RageQuitTest.testRageQuitDuration",
+        "VetoCooldownTest.testVetoCooldownDuration",
+        "VetoSignallingTest.testTransitionNormalToVetoSignalling",
+        "VetoSignallingTest.testVetoSignallingInvariantsHoldInitially",
+        "VetoSignallingTest.testVetoSignallingInvariantsArePreserved",
+        "VetoSignallingTest.testDeactivationNotCancelled",
+        "EscrowAccountingTest.testRageQuitSupport",
+        "EscrowAccountingTest.testEscrowInvariantsHoldInitially",
+        "EscrowLockUnlockTest.testLockStEth",
+        #"EscrowAccountingTest.testUnlockStEth",
+        #"EscrowOperationsTest.testCannotUnlockBeforeMinLockTime",
+        #"EscrowOperationsTest.testCannotLockUnlockInRageQuitEscrowState",
+        #"EscrowOperationsTest.testCannotWithdrawBeforeEthClaimTimelockElapsed",
+        "ProposalOperationsTest.testOnlyAdminProposersCanCancelProposals",
+        "ProposalOperationsTest.testCannotProposeInInvalidState",
+        #"ActivateNextStateTest.testEscrowStateTransition"
+    ]
+# bug-report               = disabled by default
+
+[show.default]
+foundry-project-root       = '.'
+verbose                    = true
+debug                      = false

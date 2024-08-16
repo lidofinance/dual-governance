@@ -5,7 +5,7 @@ SCRIPT_HOME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # shellcheck source=/dev/null
 source "$SCRIPT_HOME/common.sh"
 export RUN_KONTROL=true
-CUSTOM_FOUNDRY_PROFILE=kprove
+CUSTOM_FOUNDRY_PROFILE=default
 export FOUNDRY_PROFILE=$CUSTOM_FOUNDRY_PROFILE
 export OUT_DIR=kout # out dir of $FOUNDRY_PROFILE
 parse_args "$@"
@@ -16,32 +16,14 @@ parse_args "$@"
 kontrol_build() {
   notif "Kontrol Build"
   # shellcheck disable=SC2086
-  run kontrol build \
-    --verbose \
-    --require $lemmas \
-    --module-import $module \
-    $rekompile
+  run kontrol build
   return $?
 }
 
 kontrol_prove() {
   notif "Kontrol Prove"
   # shellcheck disable=SC2086
-  run kontrol prove \
-    --verbose \
-    --max-depth $max_depth \
-    --max-iterations $max_iterations \
-    --smt-timeout $smt_timeout \
-    --workers $workers \
-    --max-frontier-parallel $max_frontier_parallel \
-    --smt-retry-limit 5 \
-    $reinit \
-    $bug_report \
-    $break_on_calls \
-    $break_every_step \
-    $auto_abstract \
-    $tests \
-    $use_booster
+  run kontrol prove
   return $?
 }
 
@@ -51,8 +33,8 @@ get_log_results(){
     LOG_PATH="$SCRIPT_HOME/logs"
     RESULTS_LOG="$LOG_PATH/$RESULTS_FILE"
 
-    if [ ! -d "$LOG_PATH" ]; then
-      mkdir "$LOG_PATH"
+    if [ ! -d $LOG_PATH ]; then
+      mkdir $LOG_PATH
     fi
 
     notif "Generating Results Log: $LOG_PATH"
@@ -62,7 +44,7 @@ get_log_results(){
       mv results.tar.gz "$RESULTS_LOG"
     else
       docker cp "$CONTAINER_NAME:/home/user/workspace/results.tar.gz" "$RESULTS_LOG"
-      tar -xzvf "$RESULTS_LOG"
+      tar -xzvf "$RESULTS_LOG" > /dev/null 2>&1
     fi
     if [ -f "$RESULTS_LOG" ]; then
       cp "$RESULTS_LOG" "$LOG_PATH/kontrol-results_latest.tar.gz"
@@ -79,91 +61,12 @@ get_log_results(){
     fi
 }
 
-#########################
-# kontrol build options #
-#########################
-# NOTE: This script has a recurring pattern of setting and unsetting variables,
-# such as `rekompile`. Such a pattern is intended for easy use while locally
-# developing and executing the proofs via this script. Comment/uncomment the
-# empty assignment to activate/deactivate the corresponding flag
-lemmas=test/kontrol/lido-lemmas.k
-base_module=LIDO-LEMMAS
-module=VetoSignallingTest:$base_module
-rekompile=--rekompile
-rekompile=
-regen=--regen
-# shellcheck disable=SC2034
-regen=
-
-#################################
-# Tests to symbolically execute #
-#################################
-test_list=()
-if [ "$SCRIPT_TESTS" == true ]; then
-    # Here go the list of tests to execute with the `script` option
-    test_list=(
-        "RageQuitTest.testRageQuitDuration"
-        "VetoCooldownTest.testVetoCooldownDuration"
-        "VetoSignallingTest.testTransitionNormalToVetoSignalling"
-        "VetoSignallingTest.testVetoSignallingInvariantsHoldInitially"
-        "VetoSignallingTest.testVetoSignallingInvariantsArePreserved"
-        "VetoSignallingTest.testDeactivationNotCancelled"
-        "EscrowAccountingTest.testRageQuitSupport"
-        "EscrowAccountingTest.testEscrowInvariantsHoldInitially"
-        "EscrowLockUnlockTest.testLockStEth"
-        #"EscrowAccountingTest.testUnlockStEth"
-        #"EscrowOperationsTest.testCannotUnlockBeforeMinLockTime"
-        #"EscrowOperationsTest.testCannotLockUnlockInRageQuitEscrowState"
-        #"EscrowOperationsTest.testCannotWithdrawBeforeEthClaimTimelockElapsed"
-        "ProposalOperationsSetup.testOnlyAdminProposersCanCancelProposals"
-        "ProposalOperationsSetup.testCannotProposeInInvalidState"
-        #"ActivateNextStateTest.testEscrowStateTransition"
-    )
-elif [ "$CUSTOM_TESTS" != 0 ]; then
-    test_list=( "${@:${CUSTOM_TESTS}}" )
-fi
-tests=""
-# If test_list is empty, tests will be empty as well
-# This will make kontrol execute any `test`, `prove` or `check` prefixed-function
-# under the foundry-defined `test` directory
-for test_name in "${test_list[@]}"; do
-    tests+="--match-test $test_name "
-done
-
-#########################
-# kontrol prove options #
-#########################
-max_depth=10000
-max_iterations=10000
-smt_timeout=1000
-max_workers=16 # Should be at most (M - 8) / 8 in a machine with M GB of RAM
-# workers is the minimum between max_workers and the length of test_list
-# unless no test arguments are provided, in which case we default to max_workers
-if [ "$CUSTOM_TESTS" == 0 ] && [ "$SCRIPT_TESTS" == false ]; then
-    workers=${max_workers}
-else
-    workers=$((${#test_list[@]}>max_workers ? max_workers : ${#test_list[@]}))
-fi
-max_frontier_parallel=6
-reinit=--reinit
-reinit=
-break_on_calls=--no-break-on-calls
-break_on_calls=
-break_every_step=--no-break-every-step
-break_every_step=
-auto_abstract=--auto-abstract-gas
-auto_abstract=
-bug_report=--bug-report
-bug_report=
-use_booster=--no-use-booster
-use_booster=
-
 
 #############
 # RUN TESTS #
 #############
 # Set up the trap to run the function on failure
-trap on_failure ERR INT
+trap on_failure ERR INT TERM
 trap clean_docker EXIT
 conditionally_start_docker
 
