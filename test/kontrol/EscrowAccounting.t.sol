@@ -125,6 +125,8 @@ contract EscrowAccountingTest is EscrowInvariants {
         _setUpGenericState();
 
         vm.assume(EscrowState(_getCurrentState(escrow)) == EscrowState.RageQuitEscrow);
+        vm.assume(maxBatchSize >= config.MIN_WITHDRAWALS_BATCH_SIZE());
+        vm.assume(maxBatchSize <= config.MAX_WITHDRAWALS_BATCH_SIZE());
 
         this.escrowInvariants(Mode.Assume, escrow);
 
@@ -141,6 +143,7 @@ contract EscrowAccountingTest is EscrowInvariants {
         vm.assume(stEth.sharesOf(sender) < ethUpperBound);
 
         vm.assume(EscrowState(_getCurrentState(escrow)) == EscrowState.RageQuitEscrow);
+        vm.assume(_getRageQuitTimelockStartedAt(escrow) == 0);
 
         this.escrowInvariants(Mode.Assume, escrow);
         this.escrowUserInvariants(Mode.Assume, escrow, sender);
