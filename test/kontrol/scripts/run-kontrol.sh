@@ -106,6 +106,8 @@ if [ "$SCRIPT_TESTS" == true ]; then
         "VetoCooldownTest.testVetoCooldownDuration"
         "VetoSignallingTest.testTransitionNormalToVetoSignalling"
         "VetoSignallingTest.testVetoSignallingInvariantsHoldInitially"
+        "VetoSignallingTest.testVetoSignallingInvariantsArePreserved"
+        "VetoSignallingTest.testDeactivationNotCancelled"
         "EscrowAccountingTest.testRageQuitSupport"
         "EscrowAccountingTest.testEscrowInvariantsHoldInitially"
         "EscrowLockUnlockTest.testLockStEth"
@@ -113,6 +115,8 @@ if [ "$SCRIPT_TESTS" == true ]; then
         #"EscrowOperationsTest.testCannotUnlockBeforeMinLockTime"
         #"EscrowOperationsTest.testCannotLockUnlockInRageQuitEscrowState"
         #"EscrowOperationsTest.testCannotWithdrawBeforeEthClaimTimelockElapsed"
+        "ProposalOperationsSetup.testOnlyAdminProposersCanCancelProposals"
+        "ProposalOperationsSetup.testCannotProposeInInvalidState"
         #"ActivateNextStateTest.testEscrowStateTransition"
     )
 elif [ "$CUSTOM_TESTS" != 0 ]; then
