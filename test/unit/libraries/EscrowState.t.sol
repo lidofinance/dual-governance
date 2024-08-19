@@ -263,7 +263,7 @@ contract EscrowStateUnitTests is UnitTest {
     function testFuzz_isRageQuitExtensionDelayStarted_happyPath(Timestamp rageQuitExtensionDelayStartedAt) external {
         _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
         bool res = EscrowState.isRageQuitExtensionDelayStarted(_context);
-        assert(res == _context.rageQuitExtensionDelayStartedAt.isNotZero());
+        assertEq(res, _context.rageQuitExtensionDelayStartedAt.isNotZero());
     }
 
     // ---
@@ -283,7 +283,7 @@ contract EscrowStateUnitTests is UnitTest {
 
         vm.warp(rageQuitExtensionDelayStartedAt.toSeconds() + rageQuitExtensionDelay.toSeconds() + 1);
         bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
-        assert(res == true);
+        assertTrue(res);
     }
 
     function testFuzz_isRageQuitExtensionDelayPassed_ReturnsFalse(
@@ -299,13 +299,13 @@ contract EscrowStateUnitTests is UnitTest {
 
         vm.warp(rageQuitExtensionDelayStartedAt.toSeconds() + rageQuitExtensionDelay.toSeconds());
         bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
-        assert(res == false);
+        assertFalse(res);
     }
 
     function test_isRageQuitExtensionDelayPassed_ReturnsFalseWhenRageQuitExtraTimelockNotStarted() external {
         vm.warp(1234);
         bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
-        assert(res == false);
+        assertFalse(res);
     }
 
     // ---
@@ -317,7 +317,7 @@ contract EscrowStateUnitTests is UnitTest {
             _context.state = State.RageQuitEscrow;
         }
         bool actualResult = EscrowState.isRageQuitEscrow(_context);
-        assert(actualResult == expectedResult);
+        assertEq(actualResult, expectedResult);
     }
 
     // ---
@@ -330,11 +330,15 @@ contract EscrowStateUnitTests is UnitTest {
         Duration rageQuitExtensionDelay,
         Duration rageQuitWithdrawalsTimelock,
         Timestamp rageQuitExtensionDelayStartedAt
-    ) internal view {
-        assert(_context.state == state);
-        assert(_context.minAssetsLockDuration == minAssetsLockDuration);
-        assert(_context.rageQuitExtensionDelay == rageQuitExtensionDelay);
-        assert(_context.rageQuitWithdrawalsTimelock == rageQuitWithdrawalsTimelock);
-        assert(_context.rageQuitExtensionDelayStartedAt == rageQuitExtensionDelayStartedAt);
+    ) internal {
+        assertEq(_context.state, state);
+        assertEq(_context.minAssetsLockDuration, minAssetsLockDuration);
+        assertEq(_context.rageQuitExtensionDelay, rageQuitExtensionDelay);
+        assertEq(_context.rageQuitWithdrawalsTimelock, rageQuitWithdrawalsTimelock);
+        assertEq(_context.rageQuitExtensionDelayStartedAt, rageQuitExtensionDelayStartedAt);
+    }
+
+    function assertEq(State a, State b) internal {
+        assertEq(uint256(a), uint256(b));
     }
 }
