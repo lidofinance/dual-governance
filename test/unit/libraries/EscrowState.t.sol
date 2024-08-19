@@ -28,7 +28,13 @@ contract EscrowStateUnitTests is UnitTest {
 
         EscrowState.initialize(_context, minAssetsLockDuration);
 
-        checkContext(State.SignallingEscrow, minAssetsLockDuration, D0, D0, T0);
+        checkContext({
+            state: State.SignallingEscrow,
+            minAssetsLockDuration: minAssetsLockDuration,
+            rageQuitExtensionDelay: D0,
+            rageQuitWithdrawalsTimelock: D0,
+            rageQuitExtensionDelayStartedAt: T0
+        });
     }
 
     function testFuzz_initialize_RevertOn_InvalidState(Duration minAssetsLockDuration) external {
@@ -56,7 +62,13 @@ contract EscrowStateUnitTests is UnitTest {
 
         EscrowState.startRageQuit(_context, rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
 
-        checkContext(State.RageQuitEscrow, D0, rageQuitExtensionDelay, rageQuitWithdrawalsTimelock, T0);
+        checkContext({
+            state: State.RageQuitEscrow,
+            minAssetsLockDuration: D0,
+            rageQuitExtensionDelay: rageQuitExtensionDelay,
+            rageQuitWithdrawalsTimelock: rageQuitWithdrawalsTimelock,
+            rageQuitExtensionDelayStartedAt: T0
+        });
     }
 
     function testFuzz_startRageQuit_RevertOn_InvalidState(
@@ -80,7 +92,13 @@ contract EscrowStateUnitTests is UnitTest {
 
         EscrowState.startRageQuitExtensionDelay(_context);
 
-        checkContext(State.NotInitialized, D0, D0, D0, Timestamps.now());
+        checkContext({
+            state: State.NotInitialized,
+            minAssetsLockDuration: D0,
+            rageQuitExtensionDelay: D0,
+            rageQuitWithdrawalsTimelock: D0,
+            rageQuitExtensionDelayStartedAt: Timestamps.now()
+        });
     }
 
     // ---
@@ -95,7 +113,13 @@ contract EscrowStateUnitTests is UnitTest {
 
         EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
 
-        checkContext(State.NotInitialized, minAssetsLockDuration, D0, D0, T0);
+        checkContext({
+            state: State.NotInitialized,
+            minAssetsLockDuration: minAssetsLockDuration,
+            rageQuitExtensionDelay: D0,
+            rageQuitWithdrawalsTimelock: D0,
+            rageQuitExtensionDelayStartedAt: T0
+        });
     }
 
     function test_setMinAssetsLockDuration_WhenDurationNotChanged(Duration minAssetsLockDuration) external {
@@ -105,7 +129,13 @@ contract EscrowStateUnitTests is UnitTest {
 
         EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
 
-        checkContext(State.NotInitialized, minAssetsLockDuration, D0, D0, T0);
+        checkContext({
+            state: State.NotInitialized,
+            minAssetsLockDuration: minAssetsLockDuration,
+            rageQuitExtensionDelay: D0,
+            rageQuitWithdrawalsTimelock: D0,
+            rageQuitExtensionDelayStartedAt: T0
+        });
 
         assertEq(entries.length, 0);
     }
