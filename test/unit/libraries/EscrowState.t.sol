@@ -206,9 +206,13 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
         _context.rageQuitWithdrawalsTimelock = rageQuitWithdrawalsTimelock;
 
-        vm.warp(
-            rageQuitExtensionDelayStartedAt.toSeconds() + rageQuitExtensionDelay.toSeconds()
-                + rageQuitWithdrawalsTimelock.toSeconds() + 1
+        _wait(
+            Durations.between(
+                (rageQuitExtensionDelay + rageQuitWithdrawalsTimelock).plusSeconds(1).addTo(
+                    rageQuitExtensionDelayStartedAt
+                ),
+                Timestamps.now()
+            )
         );
         EscrowState.checkWithdrawalsTimelockPassed(_context);
     }
@@ -233,9 +237,11 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
         _context.rageQuitWithdrawalsTimelock = rageQuitWithdrawalsTimelock;
 
-        vm.warp(
-            rageQuitExtensionDelayStartedAt.toSeconds() + rageQuitExtensionDelay.toSeconds()
-                + rageQuitWithdrawalsTimelock.toSeconds()
+        _wait(
+            Durations.between(
+                (rageQuitExtensionDelay + rageQuitWithdrawalsTimelock).addTo(rageQuitExtensionDelayStartedAt),
+                Timestamps.now()
+            )
         );
 
         vm.expectRevert(EscrowState.WithdrawalsTimelockNotPassed.selector);
@@ -281,7 +287,11 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
         _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
 
-        vm.warp(rageQuitExtensionDelayStartedAt.toSeconds() + rageQuitExtensionDelay.toSeconds() + 1);
+        _wait(
+            Durations.between(
+                rageQuitExtensionDelay.plusSeconds(1).addTo(rageQuitExtensionDelayStartedAt), Timestamps.now()
+            )
+        );
         bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
         assertTrue(res);
     }
@@ -297,13 +307,13 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
         _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
 
-        vm.warp(rageQuitExtensionDelayStartedAt.toSeconds() + rageQuitExtensionDelay.toSeconds());
+        _wait(Durations.between(rageQuitExtensionDelay.addTo(rageQuitExtensionDelayStartedAt), Timestamps.now()));
         bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
         assertFalse(res);
     }
 
     function test_isRageQuitExtensionDelayPassed_ReturnsFalseWhenRageQuitExtraTimelockNotStarted() external {
-        vm.warp(1234);
+        _wait(Durations.from(1234));
         bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
         assertFalse(res);
     }
