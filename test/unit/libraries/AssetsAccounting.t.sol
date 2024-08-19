@@ -23,16 +23,15 @@ contract AssetsAccountingUnitTests is UnitTest {
     // accountStETHSharesLock()
     // ---
 
-    function testFuzz_accountStETHSharesLock_happyPath(address holder, uint128 sharesAmount) external {
+    function testFuzz_accountStETHSharesLock_happyPath(address holder, SharesValue shares) external {
         SharesValue totalLockedShares = SharesValues.from(3);
         SharesValue holderLockedShares = SharesValues.from(1);
 
-        vm.assume(sharesAmount > 0);
+        vm.assume(shares.toUint256() > 0);
         vm.assume(
-            sharesAmount < type(uint128).max - Math.max(totalLockedShares.toUint256(), holderLockedShares.toUint256())
+            shares.toUint256()
+                < type(uint128).max - Math.max(totalLockedShares.toUint256(), holderLockedShares.toUint256())
         );
-
-        SharesValue shares = SharesValues.from(sharesAmount);
 
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
         _accountingContext.assets[holder].stETHLockedShares = holderLockedShares;
@@ -45,10 +44,10 @@ contract AssetsAccountingUnitTests is UnitTest {
         checkAccountingContextTotalCounters(
             totalLockedShares + shares, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO
         );
-        assert(_accountingContext.assets[holder].stETHLockedShares == holderLockedShares + shares);
-        assert(_accountingContext.assets[holder].unstETHLockedShares == SharesValues.ZERO);
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp <= Timestamps.now());
-        assert(_accountingContext.assets[holder].unstETHIds.length == 0);
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, holderLockedShares + shares);
+        assertEq(_accountingContext.assets[holder].unstETHLockedShares, SharesValues.ZERO);
+        assertLe(_accountingContext.assets[holder].lastAssetsLockTimestamp.toSeconds(), Timestamps.now().toSeconds());
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
     }
 
     function testFuzz_accountStETHSharesLock_RevertWhen_ZeroSharesProvided(address holder) external {
@@ -61,14 +60,12 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesLock_WhenNoSharesWereLockedBefore(
         address stranger,
-        uint128 sharesAmount
+        SharesValue shares
     ) external {
         SharesValue totalLockedShares = SharesValues.from(3);
 
-        vm.assume(sharesAmount > 0);
-        vm.assume(sharesAmount < type(uint128).max - totalLockedShares.toUint256());
-
-        SharesValue shares = SharesValues.from(sharesAmount);
+        vm.assume(shares.toUint256() > 0);
+        vm.assume(shares.toUint256() < type(uint128).max - totalLockedShares.toUint256());
 
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
 
@@ -77,9 +74,9 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         AssetsAccounting.accountStETHSharesLock(_accountingContext, stranger, shares);
 
-        assert(_accountingContext.stETHTotals.lockedShares == totalLockedShares + shares);
-        assert(_accountingContext.assets[stranger].stETHLockedShares == shares);
-        assert(_accountingContext.assets[stranger].lastAssetsLockTimestamp <= Timestamps.now());
+        assertEq(_accountingContext.stETHTotals.lockedShares, totalLockedShares + shares);
+        assertEq(_accountingContext.assets[stranger].stETHLockedShares, shares);
+        assertLe(_accountingContext.assets[stranger].lastAssetsLockTimestamp.toSeconds(), Timestamps.now().toSeconds());
     }
 
     // ---
@@ -88,16 +85,14 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesUnlock_happyPath(
         address holder,
-        uint128 sharesAmount,
-        uint128 holderSharesAmount
+        SharesValue shares,
+        SharesValue holderLockedShares
     ) external {
         SharesValue totalLockedSharesWithoutHolder = SharesValues.from(3);
-        vm.assume(sharesAmount > 0);
-        vm.assume(holderSharesAmount < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
-        vm.assume(sharesAmount <= holderSharesAmount);
+        vm.assume(shares.toUint256() > 0);
+        vm.assume(holderLockedShares.toUint256() < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
+        vm.assume(shares.toUint256() <= holderLockedShares.toUint256());
 
-        SharesValue shares = SharesValues.from(sharesAmount);
-        SharesValue holderLockedShares = SharesValues.from(holderSharesAmount);
         SharesValue totalLockedShares = totalLockedSharesWithoutHolder + holderLockedShares;
 
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
@@ -111,10 +106,10 @@ contract AssetsAccountingUnitTests is UnitTest {
         checkAccountingContextTotalCounters(
             totalLockedShares - shares, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO
         );
-        assert(_accountingContext.assets[holder].stETHLockedShares == holderLockedShares - shares);
-        assert(_accountingContext.assets[holder].unstETHLockedShares == SharesValues.ZERO);
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
-        assert(_accountingContext.assets[holder].unstETHIds.length == 0);
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, holderLockedShares - shares);
+        assertEq(_accountingContext.assets[holder].unstETHLockedShares, SharesValues.ZERO);
+        assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
     }
 
     function testFuzz_accountStETHSharesUnlock_RevertOn_ZeroSharesProvided(address holder) external {
@@ -127,19 +122,15 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesUnlock_RevertWhen_HolderHaveLessSharesThanProvided(
         address holder,
-        uint128 sharesAmount,
-        uint128 holderSharesAmount
+        SharesValue shares,
+        SharesValue holderLockedShares
     ) external {
         SharesValue totalLockedSharesWithoutHolder = SharesValues.from(3);
-        vm.assume(sharesAmount > 0);
-        vm.assume(holderSharesAmount < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
-        vm.assume(sharesAmount > holderSharesAmount);
+        vm.assume(shares.toUint256() > 0);
+        vm.assume(holderLockedShares.toUint256() < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
+        vm.assume(shares.toUint256() > holderLockedShares.toUint256());
 
-        SharesValue shares = SharesValues.from(sharesAmount);
-        SharesValue holderLockedShares = SharesValues.from(holderSharesAmount);
-        SharesValue totalLockedShares = totalLockedSharesWithoutHolder + holderLockedShares;
-
-        _accountingContext.stETHTotals.lockedShares = totalLockedShares;
+        _accountingContext.stETHTotals.lockedShares = totalLockedSharesWithoutHolder + holderLockedShares;
         _accountingContext.assets[holder].stETHLockedShares = holderLockedShares;
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidSharesValue.selector, shares));
@@ -149,18 +140,14 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesUnlock_RevertOn_AccountingError_TotalLockedSharesCounterIsLessThanProvidedSharesAmount(
         address holder,
-        uint128 sharesAmount,
-        uint128 totalSharesAmount
+        SharesValue shares,
+        SharesValue totalLockedShares
     ) external {
-        vm.assume(sharesAmount > 0);
-        vm.assume(totalSharesAmount < sharesAmount);
-
-        SharesValue shares = SharesValues.from(sharesAmount);
-        SharesValue holderLockedShares = SharesValues.from(sharesAmount);
-        SharesValue totalLockedShares = SharesValues.from(totalSharesAmount);
+        vm.assume(shares.toUint256() > 0);
+        vm.assume(totalLockedShares.toUint256() < shares.toUint256());
 
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
-        _accountingContext.assets[holder].stETHLockedShares = holderLockedShares;
+        _accountingContext.assets[holder].stETHLockedShares = shares;
 
         vm.expectRevert(stdError.arithmeticError);
 
@@ -169,11 +156,9 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesUnlock_RevertWhen_NoSharesWereLockedBefore(
         address stranger,
-        uint128 sharesAmount
+        SharesValue shares
     ) external {
-        vm.assume(sharesAmount > 0);
-
-        SharesValue shares = SharesValues.from(sharesAmount);
+        vm.assume(shares.toUint256() > 0);
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidSharesValue.selector, shares));
 
@@ -184,12 +169,14 @@ contract AssetsAccountingUnitTests is UnitTest {
     // accountStETHSharesUnlock(Context storage self, address holder)
     // ---
 
-    function testFuzz_accountStETHSharesUnlock_simple_happyPath(address holder, uint128 holderSharesAmount) external {
+    function testFuzz_accountStETHSharesUnlock_simple_happyPath(
+        address holder,
+        SharesValue holderLockedShares
+    ) external {
         SharesValue totalLockedSharesWithoutHolder = SharesValues.from(3);
-        vm.assume(holderSharesAmount > 0);
-        vm.assume(holderSharesAmount < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
+        vm.assume(holderLockedShares.toUint256() > 0);
+        vm.assume(holderLockedShares.toUint256() < type(uint128).max - totalLockedSharesWithoutHolder.toUint256());
 
-        SharesValue holderLockedShares = SharesValues.from(holderSharesAmount);
         SharesValue totalLockedShares = totalLockedSharesWithoutHolder + holderLockedShares;
 
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
@@ -200,14 +187,14 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         SharesValue unlockedShares = AssetsAccounting.accountStETHSharesUnlock(_accountingContext, holder);
 
-        assert(unlockedShares == holderLockedShares);
+        assertEq(unlockedShares, holderLockedShares);
         checkAccountingContextTotalCounters(
             totalLockedShares - holderLockedShares, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO
         );
-        assert(_accountingContext.assets[holder].stETHLockedShares == holderLockedShares - holderLockedShares);
-        assert(_accountingContext.assets[holder].unstETHLockedShares == SharesValues.ZERO);
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
-        assert(_accountingContext.assets[holder].unstETHIds.length == 0);
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, holderLockedShares - holderLockedShares);
+        assertEq(_accountingContext.assets[holder].unstETHLockedShares, SharesValues.ZERO);
+        assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
     }
 
     function testFuzz_accountStETHSharesUnlock_simple_RevertWhen_NoSharesWereLockedBefore(address stranger) external {
@@ -222,36 +209,33 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesWithdraw_happyPath(
         address holder,
-        uint128 holderLockedSharesAmount,
-        uint128 totalLockedSharesAmount,
-        uint128 totalClaimedETHAmount
+        SharesValue holderLockedShares,
+        SharesValue totalLockedShares,
+        ETHValue totalClaimedETH
     ) external {
-        vm.assume(totalLockedSharesAmount > 0);
-        vm.assume(holderLockedSharesAmount > 0);
-        vm.assume(holderLockedSharesAmount <= totalLockedSharesAmount);
-
-        SharesValue holderLockedShares = SharesValues.from(holderLockedSharesAmount);
-        SharesValue totalLockedShares = SharesValues.from(totalLockedSharesAmount);
-        ETHValue totalClaimedETH = ETHValues.from(totalClaimedETHAmount);
+        vm.assume(totalLockedShares.toUint256() > 0);
+        vm.assume(holderLockedShares.toUint256() > 0);
+        vm.assume(holderLockedShares.toUint256() <= totalLockedShares.toUint256());
 
         _accountingContext.assets[holder].stETHLockedShares = holderLockedShares;
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
         _accountingContext.stETHTotals.claimedETH = totalClaimedETH;
 
-        ETHValue expectedETHWithdrawn =
-            ETHValues.from((uint256(totalClaimedETHAmount) * holderLockedSharesAmount) / totalLockedSharesAmount);
+        ETHValue expectedETHWithdrawn = ETHValues.from(
+            (totalClaimedETH.toUint256() * holderLockedShares.toUint256()) / totalLockedShares.toUint256()
+        );
 
         vm.expectEmit();
         emit AssetsAccounting.ETHWithdrawn(holder, holderLockedShares, expectedETHWithdrawn);
 
         ETHValue ethWithdrawn = AssetsAccounting.accountStETHSharesWithdraw(_accountingContext, holder);
 
-        assert(ethWithdrawn == expectedETHWithdrawn);
+        assertEq(ethWithdrawn, expectedETHWithdrawn);
         checkAccountingContextTotalCounters(totalLockedShares, totalClaimedETH, SharesValues.ZERO, ETHValues.ZERO);
-        assert(_accountingContext.assets[holder].stETHLockedShares == SharesValues.ZERO);
-        assert(_accountingContext.assets[holder].unstETHLockedShares == SharesValues.ZERO);
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
-        assert(_accountingContext.assets[holder].unstETHIds.length == 0);
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHLockedShares, SharesValues.ZERO);
+        assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
     }
 
     function testFuzz_accountStETHSharesWithdraw_RevertWhen_HolderHaveZeroShares(address stranger) external {
@@ -262,13 +246,10 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesWithdraw_RevertOn_AccountingError_TotalLockedSharesCounterIsZero(
         address holder,
-        uint128 holderLockedSharesAmount,
-        uint128 totalClaimedETHAmount
+        SharesValue holderLockedShares,
+        ETHValue totalClaimedETH
     ) external {
-        vm.assume(holderLockedSharesAmount > 0);
-
-        SharesValue holderLockedShares = SharesValues.from(holderLockedSharesAmount);
-        ETHValue totalClaimedETH = ETHValues.from(totalClaimedETHAmount);
+        vm.assume(holderLockedShares.toUint256() > 0);
 
         _accountingContext.assets[holder].stETHLockedShares = holderLockedShares;
         _accountingContext.stETHTotals.lockedShares = SharesValues.ZERO;
@@ -281,33 +262,31 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountStETHSharesWithdraw_AccountingError_WithdrawAmountMoreThanTotalClaimedETH(
         address holder,
-        uint128 holderLockedSharesAmount,
-        uint128 totalClaimedETHAmount
+        SharesValue holderLockedShares,
+        ETHValue totalClaimedETH
     ) external {
         uint128 totalLockedSharesAmount = 10;
-        vm.assume(holderLockedSharesAmount > totalLockedSharesAmount);
-        vm.assume(holderLockedSharesAmount < type(uint64).max);
-        vm.assume(totalClaimedETHAmount < type(uint64).max);
+        vm.assume(holderLockedShares.toUint256() > totalLockedSharesAmount);
+        vm.assume(holderLockedShares.toUint256() < type(uint64).max);
+        vm.assume(totalClaimedETH.toUint256() < type(uint64).max);
 
-        SharesValue holderLockedShares = SharesValues.from(holderLockedSharesAmount);
         SharesValue totalLockedShares = SharesValues.from(totalLockedSharesAmount);
-        ETHValue totalClaimedETH = ETHValues.from(totalClaimedETHAmount);
 
         _accountingContext.assets[holder].stETHLockedShares = holderLockedShares;
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
         _accountingContext.stETHTotals.claimedETH = totalClaimedETH;
 
         ETHValue expectedETHWithdrawn =
-            ETHValues.from((uint256(totalClaimedETHAmount) * holderLockedSharesAmount) / totalLockedSharesAmount);
+            ETHValues.from((totalClaimedETH.toUint256() * holderLockedShares.toUint256()) / totalLockedSharesAmount);
 
         vm.expectEmit();
         emit AssetsAccounting.ETHWithdrawn(holder, holderLockedShares, expectedETHWithdrawn);
 
         ETHValue ethWithdrawn = AssetsAccounting.accountStETHSharesWithdraw(_accountingContext, holder);
 
-        assert(ethWithdrawn == expectedETHWithdrawn);
-        assert(ethWithdrawn.toUint256() >= totalClaimedETHAmount);
-        assert(_accountingContext.assets[holder].stETHLockedShares == SharesValues.ZERO);
+        assertEq(ethWithdrawn, expectedETHWithdrawn);
+        assertGe(ethWithdrawn.toUint256(), totalClaimedETH.toUint256());
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
     }
 
     function testFuzz_accountStETHSharesWithdraw_RevertOn_AccountingError_WithdrawAmountOverflow(address holder)
@@ -330,12 +309,9 @@ contract AssetsAccountingUnitTests is UnitTest {
     // accountClaimedStETH
     // ---
 
-    function testFuzz_accountClaimedStETH_happyPath(uint128 ethAmount, uint128 totalClaimedETHAmount) external {
-        vm.assume(ethAmount < type(uint128).max / 2);
-        vm.assume(totalClaimedETHAmount < type(uint128).max / 2);
-
-        ETHValue amount = ETHValues.from(ethAmount);
-        ETHValue totalClaimedETH = ETHValues.from(totalClaimedETHAmount);
+    function testFuzz_accountClaimedStETH_happyPath(ETHValue amount, ETHValue totalClaimedETH) external {
+        vm.assume(amount.toUint256() < type(uint128).max / 2);
+        vm.assume(totalClaimedETH.toUint256() < type(uint128).max / 2);
 
         _accountingContext.stETHTotals.claimedETH = totalClaimedETH;
 
@@ -357,14 +333,14 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountUnstETHLock_happyPath(
         address holder,
         uint96[] memory amountsOfShares,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
         vm.assume(amountsOfShares.length > 1);
         vm.assume(amountsOfShares.length <= 500);
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
         uint256 expectedTotalUnstETHLockedAmount = 0;
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
@@ -394,19 +370,19 @@ contract AssetsAccountingUnitTests is UnitTest {
             initialTotalUnfinalizedShares + SharesValues.from(expectedTotalUnstETHLockedAmount),
             ETHValues.ZERO
         );
-        assert(_accountingContext.assets[holder].stETHLockedShares == SharesValues.ZERO);
-        assert(
-            _accountingContext.assets[holder].unstETHLockedShares
-                == holderUnstETHLockedShares + SharesValues.from(expectedTotalUnstETHLockedAmount)
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
+        assertEq(
+            _accountingContext.assets[holder].unstETHLockedShares,
+            holderUnstETHLockedShares + SharesValues.from(expectedTotalUnstETHLockedAmount)
         );
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp <= Timestamps.now());
-        assert(_accountingContext.assets[holder].unstETHIds.length == amountsOfShares.length + 1);
+        assertLe(_accountingContext.assets[holder].lastAssetsLockTimestamp.toSeconds(), Timestamps.now().toSeconds());
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, amountsOfShares.length + 1);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].lockedBy == holder);
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].status == UnstETHRecordStatus.Locked);
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].index.toZeroBasedValue() == i + 1);
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].shares == SharesValues.from(amountsOfShares[i]));
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.ZERO);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].lockedBy, holder);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].status, UnstETHRecordStatus.Locked);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].index.toZeroBasedValue(), i + 1);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].shares, SharesValues.from(amountsOfShares[i]));
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount, ETHValues.ZERO);
         }
     }
 
@@ -424,14 +400,13 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountUnstETHLock_RevertOn_WithdrawalRequestStatusIsFinalized(
         address holder,
         uint96[] memory amountsOfShares,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
         vm.assume(amountsOfShares.length > 0);
         vm.assume(amountsOfShares.length <= 500);
-
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -464,14 +439,13 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountUnstETHLock_RevertOn_WithdrawalRequestStatusIsClaimed(
         address holder,
         uint96[] memory amountsOfShares,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
         vm.assume(amountsOfShares.length > 0);
         vm.assume(amountsOfShares.length <= 500);
-
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -498,14 +472,13 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountUnstETHLock_RevertOn_UnstETHRecordStatusIsNot_NotLocked(
         address holder,
         uint96[] memory amountsOfShares,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
         vm.assume(amountsOfShares.length > 0);
         vm.assume(amountsOfShares.length <= 500);
-
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -538,14 +511,13 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountUnstETHLock_RevertWhen_DuplicatingUnstETHIdsProvided(
         address holder,
         uint96[] memory amountsOfShares,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
         vm.assume(amountsOfShares.length > 1);
         vm.assume(amountsOfShares.length <= 500);
-
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -578,11 +550,11 @@ contract AssetsAccountingUnitTests is UnitTest {
     // TODO: is it expected behavior?
     function testFuzz_accountUnstETHLock_WhenNoUnstETHIdsProvided(
         address holder,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -597,19 +569,19 @@ contract AssetsAccountingUnitTests is UnitTest {
         checkAccountingContextTotalCounters(
             SharesValues.ZERO, ETHValues.ZERO, initialTotalUnfinalizedShares, ETHValues.ZERO
         );
-        assert(_accountingContext.assets[holder].stETHLockedShares == SharesValues.ZERO);
-        assert(_accountingContext.assets[holder].unstETHLockedShares == holderUnstETHLockedShares);
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp <= Timestamps.now());
-        assert(_accountingContext.assets[holder].unstETHIds.length == 0);
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHLockedShares, holderUnstETHLockedShares);
+        assertLe(_accountingContext.assets[holder].lastAssetsLockTimestamp.toSeconds(), Timestamps.now().toSeconds());
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
     }
 
     function testFuzz_accountUnstETHLock_AccountingError_WithdrawalRequestStatusAmountOfSharesOverflow(
         address holder,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -630,10 +602,11 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountUnstETHLock_AccountingError_HolderUnstETHLockedSharesOverflow(
         address holder,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue initialTotalUnfinalizedShares
     ) external {
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
+
         SharesValue holderUnstETHLockedShares = SharesValues.from(type(uint128).max / 2 + 1);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -654,9 +627,9 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountUnstETHLock_AccountingError_TotalUnfinalizedSharesOverflow(
         address holder,
-        uint96 holderUnstETHLockedSharesAmount
+        SharesValue holderUnstETHLockedShares
     ) external {
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
         SharesValue initialTotalUnfinalizedShares = SharesValues.from(type(uint128).max / 2 + 1);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
@@ -684,18 +657,18 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountUnstETHUnlock_happyPath(
         address holder,
         uint64[] memory amountsOfShares,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
         vm.assume(amountsOfShares.length > 0);
         vm.assume(amountsOfShares.length <= 500);
-        vm.assume(holderUnstETHLockedSharesAmount > 500 * uint128(type(uint64).max));
-        vm.assume(initialTotalUnfinalizedSharesAmount > 500 * uint128(type(uint64).max));
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
+        vm.assume(holderUnstETHLockedShares.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalUnfinalizedShares.toUint256() > 500 * uint128(type(uint64).max));
 
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
         uint256 expectedTotalSharesUnlockedAmount = 0;
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
@@ -727,34 +700,34 @@ contract AssetsAccountingUnitTests is UnitTest {
             initialTotalUnfinalizedShares - SharesValues.from(expectedTotalSharesUnlockedAmount),
             initialTotalFinalizedETH
         );
-        assert(_accountingContext.assets[holder].stETHLockedShares == SharesValues.ZERO);
-        assert(
-            _accountingContext.assets[holder].unstETHLockedShares
-                == holderUnstETHLockedShares - SharesValues.from(expectedTotalSharesUnlockedAmount)
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
+        assertEq(
+            _accountingContext.assets[holder].unstETHLockedShares,
+            holderUnstETHLockedShares - SharesValues.from(expectedTotalSharesUnlockedAmount)
         );
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
-        assert(_accountingContext.assets[holder].unstETHIds.length == 0);
+        assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].shares == SharesValues.ZERO);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].shares, SharesValues.ZERO);
         }
     }
 
     function testFuzz_accountUnstETHUnlock_WhenFinalizedUnstETHUnlocked(
         address holder,
         uint64[] memory amountsOfShares,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
         vm.assume(amountsOfShares.length > 0);
         vm.assume(amountsOfShares.length <= 500);
-        vm.assume(holderUnstETHLockedSharesAmount > 500 * uint128(type(uint64).max));
-        vm.assume(initialTotalFinalizedETHAmount > 500 * uint128(type(uint64).max));
-        vm.assume(initialTotalUnfinalizedSharesAmount > 500 * uint128(type(uint64).max));
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
+        vm.assume(holderUnstETHLockedShares.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalFinalizedETH.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalFinalizedETH.toUint256() > 500 * uint128(type(uint64).max));
 
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
         uint256 expectedTotalSharesUnlockedAmount = 0;
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
@@ -790,15 +763,15 @@ contract AssetsAccountingUnitTests is UnitTest {
             initialTotalUnfinalizedShares,
             initialTotalFinalizedETH - ETHValues.from(expectedTotalSharesUnlockedAmount)
         );
-        assert(_accountingContext.assets[holder].stETHLockedShares == SharesValues.ZERO);
-        assert(
-            _accountingContext.assets[holder].unstETHLockedShares
-                == holderUnstETHLockedShares - SharesValues.from(expectedTotalSharesUnlockedAmount)
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
+        assertEq(
+            _accountingContext.assets[holder].unstETHLockedShares,
+            holderUnstETHLockedShares - SharesValues.from(expectedTotalSharesUnlockedAmount)
         );
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
-        assert(_accountingContext.assets[holder].unstETHIds.length == 0);
+        assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].shares == SharesValues.ZERO);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].shares, SharesValues.ZERO);
         }
     }
 
@@ -864,16 +837,15 @@ contract AssetsAccountingUnitTests is UnitTest {
     // TODO: is it expected behavior?
     function testFuzz_accountUnstETHUnlock_WhenNoUnstETHIdsProvided(
         address holder,
-        uint96 holderUnstETHLockedSharesAmount,
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        SharesValue holderUnstETHLockedShares,
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        vm.assume(holderUnstETHLockedSharesAmount > 500 * uint128(type(uint64).max));
-        vm.assume(initialTotalUnfinalizedSharesAmount > 500 * uint128(type(uint64).max));
-
-        SharesValue holderUnstETHLockedShares = SharesValues.from(holderUnstETHLockedSharesAmount);
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(holderUnstETHLockedShares.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalFinalizedETH.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(holderUnstETHLockedShares.toUint256() < type(uint96).max);
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.finalizedETH = initialTotalFinalizedETH;
@@ -889,10 +861,10 @@ contract AssetsAccountingUnitTests is UnitTest {
         checkAccountingContextTotalCounters(
             SharesValues.ZERO, ETHValues.ZERO, initialTotalUnfinalizedShares, initialTotalFinalizedETH
         );
-        assert(_accountingContext.assets[holder].stETHLockedShares == SharesValues.ZERO);
-        assert(_accountingContext.assets[holder].unstETHLockedShares == holderUnstETHLockedShares);
-        assert(_accountingContext.assets[holder].lastAssetsLockTimestamp == Timestamps.ZERO);
-        assert(_accountingContext.assets[holder].unstETHIds.length == 0);
+        assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHLockedShares, holderUnstETHLockedShares);
+        assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
+        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
     }
 
     function testFuzz_accountUnstETHUnlock_RevertOn_AccountingError_HolderUnstETHLockedSharesUnderflow(address holder)
@@ -959,15 +931,15 @@ contract AssetsAccountingUnitTests is UnitTest {
     // TODO: make a research on gas consumption when a lot of unstNFTs provided.
     function testFuzz_accountUnstETHFinalized_happyPath(
         uint64[] memory claimableAmounts,
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
         vm.assume(claimableAmounts.length > 0);
         vm.assume(claimableAmounts.length <= 500);
-        vm.assume(initialTotalUnfinalizedSharesAmount > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalUnfinalizedShares.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
         uint256 expectedTotalSharesFinalized = 0;
         uint256 expectedTotalAmountFinalized = 0;
 
@@ -1017,13 +989,12 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     function testFuzz_accountUnstETHFinalized_When_NoClaimableAmountsProvided(
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        vm.assume(initialTotalUnfinalizedSharesAmount > 500 * uint128(type(uint64).max));
-
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(initialTotalFinalizedETH.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.unstETHTotals.finalizedETH = initialTotalFinalizedETH;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -1043,13 +1014,12 @@ contract AssetsAccountingUnitTests is UnitTest {
 
     function testFuzz_accountUnstETHFinalized_When_UnstETHRecordNotFound(
         uint64 claimableAmount,
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        vm.assume(initialTotalUnfinalizedSharesAmount > 500 * uint128(type(uint64).max));
-
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(initialTotalFinalizedETH.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.unstETHTotals.finalizedETH = initialTotalFinalizedETH;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -1071,13 +1041,12 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     function testFuzz_accountUnstETHFinalized_When_ClaimableAmountIsZero(
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        vm.assume(initialTotalUnfinalizedSharesAmount > 500 * uint128(type(uint64).max));
-
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(initialTotalFinalizedETH.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.unstETHTotals.finalizedETH = initialTotalFinalizedETH;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -1101,13 +1070,12 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     function testFuzz_accountUnstETHFinalized_RevertOn_ClaimableAmountOverflow(
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        vm.assume(initialTotalUnfinalizedSharesAmount > 500 * uint128(type(uint64).max));
-
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(initialTotalFinalizedETH.toUint256() > 500 * uint128(type(uint64).max));
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.unstETHTotals.finalizedETH = initialTotalFinalizedETH;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -1126,13 +1094,11 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     function testFuzz_accountUnstETHFinalized_RevertOn_TotalFinalizedETHOverflow(
-        uint128 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        vm.assume(initialTotalFinalizedETHAmount > type(uint96).max);
-
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(initialTotalFinalizedETH.toUint256() > type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.unstETHTotals.finalizedETH = initialTotalFinalizedETH;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -1151,13 +1117,12 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     function testFuzz_accountUnstETHFinalized_RevertOn_TotalUnfinalizedSharesUnderflow(
-        uint96 initialTotalFinalizedETHAmount,
-        uint96 initialTotalUnfinalizedSharesAmount
+        ETHValue initialTotalFinalizedETH,
+        SharesValue initialTotalUnfinalizedShares
     ) external {
-        vm.assume(initialTotalUnfinalizedSharesAmount < type(uint64).max);
-
-        ETHValue initialTotalFinalizedETH = ETHValues.from(initialTotalFinalizedETHAmount);
-        SharesValue initialTotalUnfinalizedShares = SharesValues.from(initialTotalUnfinalizedSharesAmount);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint64).max);
+        vm.assume(initialTotalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(initialTotalUnfinalizedShares.toUint256() < type(uint96).max);
 
         _accountingContext.unstETHTotals.finalizedETH = initialTotalFinalizedETH;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
@@ -1203,10 +1168,10 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         checkAccountingContextTotalCounters(SharesValues.ZERO, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            assert(
-                _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.from(claimableAmounts[i])
+            assertEq(
+                _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount, ETHValues.from(claimableAmounts[i])
             );
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].status == UnstETHRecordStatus.Claimed);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].status, UnstETHRecordStatus.Claimed);
         }
     }
 
@@ -1323,10 +1288,10 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         checkAccountingContextTotalCounters(SharesValues.ZERO, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            assert(
-                _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.from(claimableAmounts[i])
+            assertEq(
+                _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount, ETHValues.from(claimableAmounts[i])
             );
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].status == UnstETHRecordStatus.Claimed);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].status, UnstETHRecordStatus.Claimed);
         }
     }
 
@@ -1369,15 +1334,15 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         ETHValue amountWithdrawn = AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
 
-        assert(amountWithdrawn == ETHValues.from(expectedAmountWithdrawn));
+        assertEq(amountWithdrawn, ETHValues.from(expectedAmountWithdrawn));
 
         checkAccountingContextTotalCounters(SharesValues.ZERO, ETHValues.ZERO, SharesValues.ZERO, ETHValues.ZERO);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            assert(
-                _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount == ETHValues.from(claimableAmounts[i])
+            assertEq(
+                _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount, ETHValues.from(claimableAmounts[i])
             );
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].status == UnstETHRecordStatus.Withdrawn);
-            assert(_accountingContext.unstETHRecords[unstETHIds[i]].lockedBy == holder);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].status, UnstETHRecordStatus.Withdrawn);
+            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].lockedBy, holder);
         }
     }
 
@@ -1389,7 +1354,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         ETHValue amountWithdrawn = AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
 
-        assert(amountWithdrawn == ETHValues.ZERO);
+        assertEq(amountWithdrawn, ETHValues.ZERO);
     }
 
     function testFuzz_accountUnstETHWithdraw_RevertWhen_UnstETHRecordNotFound(
@@ -1455,14 +1420,13 @@ contract AssetsAccountingUnitTests is UnitTest {
     // ---
 
     function testFuzz_getLockedAssetsTotals_happyPath(
-        uint96 totalFinalizedETHAmount,
-        uint96 totalLockedSharesAmount,
-        uint96 totalUnfinalizedSharesAmount
+        ETHValue totalFinalizedETH,
+        SharesValue totalLockedShares,
+        SharesValue totalUnfinalizedShares
     ) external {
-        ETHValue totalFinalizedETH = ETHValues.from(totalFinalizedETHAmount);
-        SharesValue totalUnfinalizedShares = SharesValues.from(totalUnfinalizedSharesAmount);
-        SharesValue totalLockedShares = SharesValues.from(totalLockedSharesAmount);
-
+        vm.assume(totalFinalizedETH.toUint256() < type(uint96).max);
+        vm.assume(totalLockedShares.toUint256() < type(uint96).max);
+        vm.assume(totalUnfinalizedShares.toUint256() < type(uint96).max);
         _accountingContext.unstETHTotals.finalizedETH = totalFinalizedETH;
         _accountingContext.unstETHTotals.unfinalizedShares = totalUnfinalizedShares;
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
@@ -1470,8 +1434,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         (SharesValue unfinalizedShares, ETHValue finalizedETH) =
             AssetsAccounting.getLockedAssetsTotals(_accountingContext);
 
-        assert(unfinalizedShares == totalLockedShares + totalUnfinalizedShares);
-        assert(finalizedETH == totalFinalizedETH);
+        assertEq(unfinalizedShares, totalLockedShares + totalUnfinalizedShares);
+        assertEq(finalizedETH, totalFinalizedETH);
     }
 
     function test_getLockedAssetsTotals_RevertOn_UnfinalizedSharesOverflow() external {
@@ -1524,10 +1488,22 @@ contract AssetsAccountingUnitTests is UnitTest {
         ETHValue claimedETH,
         SharesValue unfinalizedShares,
         ETHValue finalizedETH
-    ) internal view {
-        assert(_accountingContext.stETHTotals.lockedShares == lockedShares);
-        assert(_accountingContext.stETHTotals.claimedETH == claimedETH);
-        assert(_accountingContext.unstETHTotals.unfinalizedShares == unfinalizedShares);
-        assert(_accountingContext.unstETHTotals.finalizedETH == finalizedETH);
+    ) internal {
+        assertEq(_accountingContext.stETHTotals.lockedShares, lockedShares);
+        assertEq(_accountingContext.stETHTotals.claimedETH, claimedETH);
+        assertEq(_accountingContext.unstETHTotals.unfinalizedShares, unfinalizedShares);
+        assertEq(_accountingContext.unstETHTotals.finalizedETH, finalizedETH);
+    }
+
+    function assertEq(SharesValue a, SharesValue b) internal {
+        assertEq(a.toUint256(), b.toUint256());
+    }
+
+    function assertEq(ETHValue a, ETHValue b) internal {
+        assertEq(a.toUint256(), b.toUint256());
+    }
+
+    function assertEq(UnstETHRecordStatus a, UnstETHRecordStatus b) internal {
+        assertEq(uint256(a), uint256(b));
     }
 }
