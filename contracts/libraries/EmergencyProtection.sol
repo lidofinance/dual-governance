@@ -18,8 +18,8 @@ library EmergencyProtection {
     error InvalidEmergencyProtectionEndDate(Timestamp value);
     error UnexpectedEmergencyModeState(bool value);
 
-    event EmergencyModeActivated(Timestamp activatedAt);
-    event EmergencyModeDeactivated(Timestamp deactivatedAt);
+    event EmergencyModeActivated();
+    event EmergencyModeDeactivated();
     event EmergencyGovernanceSet(address newEmergencyGovernance);
     event EmergencyActivationCommitteeSet(address newActivationCommittee);
     event EmergencyExecutionCommitteeSet(address newActivationCommittee);
@@ -55,7 +55,7 @@ library EmergencyProtection {
         }
 
         self.emergencyModeEndsAfter = self.emergencyModeDuration.addTo(now_);
-        emit EmergencyModeActivated(Timestamps.now());
+        emit EmergencyModeActivated();
     }
 
     /// @dev Deactivates the emergency mode.
@@ -66,7 +66,7 @@ library EmergencyProtection {
         self.emergencyProtectionEndsAfter = Timestamps.ZERO;
         self.emergencyModeEndsAfter = Timestamps.ZERO;
         self.emergencyModeDuration = Durations.ZERO;
-        emit EmergencyModeDeactivated(Timestamps.now());
+        emit EmergencyModeDeactivated();
     }
 
     // ---

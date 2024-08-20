@@ -109,7 +109,7 @@ contract EmergencyProtectedTimelock is ITimelock {
         _timelockState.setGovernance(newGovernance);
     }
 
-    function setDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
+    function setupDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
         _checkCallerIsAdminExecutor();
         _timelockState.setAfterSubmitDelay(afterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
         _timelockState.setAfterScheduleDelay(afterScheduleDelay, MAX_AFTER_SCHEDULE_DELAY);
@@ -126,7 +126,7 @@ contract EmergencyProtectedTimelock is ITimelock {
 
     // ---
     // Emergency Protection Functionality
-    //
+    // ---
 
     /// @dev Sets the emergency activation committee address.
     /// @param emergencyActivationCommittee The address of the emergency activation committee.

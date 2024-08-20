@@ -25,7 +25,7 @@ contract EmergencyProtectionTest is UnitTest {
 
     function test_ActivateEmergencyMode() external {
         vm.expectEmit();
-        emit EmergencyProtection.EmergencyModeActivated(Timestamps.now());
+        emit EmergencyProtection.EmergencyModeActivated();
         EmergencyProtection.activateEmergencyMode(ctx);
 
         assertTrue(EmergencyProtection.isEmergencyModeActive(ctx));
@@ -50,7 +50,7 @@ contract EmergencyProtectionTest is UnitTest {
         EmergencyProtection.activateEmergencyMode(ctx);
 
         vm.expectEmit();
-        emit EmergencyProtection.EmergencyModeDeactivated(Timestamps.now());
+        emit EmergencyProtection.EmergencyModeDeactivated();
         EmergencyProtection.deactivateEmergencyMode(ctx);
 
         assertFalse(EmergencyProtection.isEmergencyModeActive(ctx));

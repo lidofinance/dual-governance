@@ -289,7 +289,7 @@ abstract contract SetupDeployment is Test {
 
     function _finalizeEmergencyProtectedTimelockDeploy(IGovernance governance) internal {
         _adminExecutor.execute(
-            address(_timelock), 0, abi.encodeCall(_timelock.setDelays, (_AFTER_SUBMIT_DELAY, _AFTER_SCHEDULE_DELAY))
+            address(_timelock), 0, abi.encodeCall(_timelock.setupDelays, (_AFTER_SUBMIT_DELAY, _AFTER_SCHEDULE_DELAY))
         );
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (address(governance))));
         _adminExecutor.transferOwnership(address(_timelock));
