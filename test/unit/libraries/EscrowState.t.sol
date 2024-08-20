@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Vm} from "forge-std/Vm.sol";
-
 import {Duration, Durations, MAX_VALUE as DURATION_MAX_VALUE} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps, MAX_TIMESTAMP_VALUE, TimestampOverflow} from "contracts/types/Timestamp.sol";
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
@@ -88,7 +86,7 @@ contract EscrowStateUnitTests is UnitTest {
 
     function test_startRageQuitExtensionDelay_happyPath() external {
         vm.expectEmit();
-        emit EscrowState.RageQuitTimelockStarted();
+        emit EscrowState.RageQuitTimelockStarted(Timestamps.now());
 
         EscrowState.startRageQuitExtensionDelay(_context);
 
@@ -122,22 +120,13 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function test_setMinAssetsLockDuration_WhenDurationNotChanged(Duration minAssetsLockDuration) external {
+    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
         _context.minAssetsLockDuration = minAssetsLockDuration;
 
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
+        );
         EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
-
-        checkContext({
-            state: State.NotInitialized,
-            minAssetsLockDuration: minAssetsLockDuration,
-            rageQuitExtensionDelay: D0,
-            rageQuitWithdrawalsTimelock: D0,
-            rageQuitExtensionDelayStartedAt: T0
-        });
-
-        assertEq(entries.length, 0);
     }
 
     // ---
