@@ -607,7 +607,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
 
         uint256 res = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
 
-        assert(res == totalCount - totalClaimed);
+        assertEq(res, totalCount - totalClaimed);
     }
 
     function testFuzz_getTotalUnclaimedUnstETHIdsCount_RevertOn_AccountingError_IncorrectTotals() external {
@@ -666,7 +666,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         _batchesQueue.info.totalUnstETHIdsCount = count;
 
         bool res = _batchesQueue.isAllBatchesClaimed();
-        assert(res == true);
+        assertTrue(res);
     }
 
     function testFuzz_isAllBatchesClaimed_HappyPath_ReturnsFalse(
@@ -678,7 +678,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         _batchesQueue.info.totalUnstETHIdsCount = totalUnstETHCount;
 
         bool res = _batchesQueue.isAllBatchesClaimed();
-        assert(res == false);
+        assertFalse(res);
     }
 
     // ---

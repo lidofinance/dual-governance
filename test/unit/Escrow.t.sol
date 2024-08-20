@@ -6,8 +6,6 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IEscrow} from "contracts/interfaces/IEscrow.sol";
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
-import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
-import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {Escrow} from "contracts/Escrow.sol";
 import {EscrowState as EscrowStateLib, State as EscrowState} from "contracts/libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalBatchesQueue.sol";
@@ -18,15 +16,14 @@ import {WstETHMock} from "test/mocks/WstETHMock.sol";
 import {DualGovernanceMock} from "test/mocks/DualGovernanceMock.sol";
 import {WithdrawalQueueMock} from "test/mocks/WithdrawalQueueMock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
-import {LidoUtils} from "test/utils/lido-utils.sol";
 import {Random} from "test/utils/random.sol";
 
 contract EscrowUnitTests is UnitTest {
-    Random.Context _random;
-    IStETH _stETH;
-    IWstETH _wstETH;
-    WithdrawalQueueMock _withdrawalQueue;
-    DualGovernanceMock _dualGovernance;
+    Random.Context private _random;
+    IStETH private _stETH;
+    IWstETH private _wstETH;
+    WithdrawalQueueMock private _withdrawalQueue;
+    DualGovernanceMock private _dualGovernance;
 
     function setUp() external {
         _random = Random.create(block.timestamp);
@@ -204,7 +201,7 @@ contract EscrowUnitTests is UnitTest {
         IEscrow instance = createInitializedEscrowProxy(100, Durations.ZERO);
 
         bool res = instance.isRageQuitExtensionDelayStarted();
-        assert(res == false);
+        assertFalse(res);
     }
 
     // ---
@@ -215,7 +212,7 @@ contract EscrowUnitTests is UnitTest {
         IEscrow instance = createInitializedEscrowProxy(100, Durations.ZERO);
 
         Timestamp res = instance.getRageQuitExtensionDelayStartedAt();
-        assert(res.toSeconds() == Timestamps.ZERO.toSeconds());
+        assertEq(res.toSeconds(), Timestamps.ZERO.toSeconds());
     }
 
     // ---

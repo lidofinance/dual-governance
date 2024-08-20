@@ -6,6 +6,7 @@ import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {IEscrow} from "contracts/interfaces/IEscrow.sol";
 import {Duration} from "contracts/types/Duration.sol";
 
+/* solhint-disable no-unused-vars,custom-errors */
 contract DualGovernanceMock is IDualGovernance {
     function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         revert("Not Implemented");

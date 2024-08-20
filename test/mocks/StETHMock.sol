@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 
+/* solhint-disable no-unused-vars,custom-errors */
 contract StETHMock is ERC20Mock, IStETH {
     function getSharesByPooledEth(uint256 ethAmount) external view returns (uint256) {
         revert("Not Implemented");

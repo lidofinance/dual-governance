@@ -4,12 +4,13 @@ pragma solidity 0.8.26;
 // import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol"; /*, ERC721("test", "test")*/
 import {IWithdrawalQueue, WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
 
+/* solhint-disable no-unused-vars,custom-errors */
 contract WithdrawalQueueMock is IWithdrawalQueue {
-    uint256 _lastRequestId;
-    uint256 _lastFinalizedRequestId;
-    uint256 _minStETHWithdrawalAmount;
-    uint256 _maxStETHWithdrawalAmount;
-    uint256[] _requestWithdrawalsResult;
+    uint256 private _lastRequestId;
+    uint256 private _lastFinalizedRequestId;
+    uint256 private _minStETHWithdrawalAmount;
+    uint256 private _maxStETHWithdrawalAmount;
+    uint256[] private _requestWithdrawalsResult;
 
     constructor() {}
 
