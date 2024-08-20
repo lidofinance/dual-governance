@@ -248,11 +248,11 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             assertFalse(_timelock.isEmergencyModeActive());
 
-            EmergencyProtection.Context memory localEmergencyState = _timelock.getEmergencyProtectionContext();
-            assertEq(localEmergencyState.emergencyActivationCommittee, address(_emergencyActivationCommittee));
-            assertEq(localEmergencyState.emergencyExecutionCommittee, address(_emergencyExecutionCommittee));
-            assertEq(localEmergencyState.emergencyModeDuration, Durations.from(30 days));
-            assertEq(localEmergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
+            emergencyState = _timelock.getEmergencyProtectionContext();
+            assertEq(emergencyState.emergencyActivationCommittee, address(_emergencyActivationCommittee));
+            assertEq(emergencyState.emergencyExecutionCommittee, address(_emergencyExecutionCommittee));
+            assertEq(emergencyState.emergencyModeDuration, Durations.from(30 days));
+            assertEq(emergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
 
             // use the new version of the dual governance in the future calls
             _dualGovernance = dualGovernanceV2;

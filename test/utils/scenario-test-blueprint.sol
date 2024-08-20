@@ -124,13 +124,6 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         _lido.submitWstETH(account, _lido.calcSharesToDepositFromPercentageOfTVL(tvlPercentage));
     }
 
-    function _submitStETH(
-        address account,
-        uint256 amountToMint
-    ) internal returns (uint256 sharesMinted, uint256 amountMinted) {
-        _lido.submitStETH(account, amountToMint);
-    }
-
     function _getBalances(address vetoer) internal view returns (Balances memory balances) {
         uint256 stETHAmount = _lido.stETH.balanceOf(vetoer);
         uint256 wstETHShares = _lido.wstETH.balanceOf(vetoer);
@@ -469,7 +462,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     // ---
     // Logging and Debugging
     // ---
-    function _logVetoSignallingState() internal {
+    function _logVetoSignallingState() internal view {
         /* solhint-disable no-console */
         (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt) = _getVetoSignallingState();
 
@@ -494,7 +487,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         /* solhint-enable no-console */
     }
 
-    function _logVetoSignallingDeactivationState() internal {
+    function _logVetoSignallingDeactivationState() internal view {
         /* solhint-disable no-console */
         (bool isActive, uint256 duration, uint256 enteredAt) = _getVetoSignallingDeactivationState();
 
@@ -525,7 +518,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     // Utils Methods
     // ---
 
-    function _step(string memory text) internal {
+    function _step(string memory text) internal view {
         // solhint-disable-next-line
         console.log(string.concat(">>> ", text, " <<<"));
     }
@@ -576,7 +569,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         uint256 _seconds;
     }
 
-    function _toDuration(uint256 timestamp) internal view returns (DurationStruct memory duration) {
+    function _toDuration(uint256 timestamp) internal pure returns (DurationStruct memory duration) {
         duration._days = timestamp / 1 days;
         duration._hours = (timestamp - 1 days * duration._days) / 1 hours;
         duration._minutes = (timestamp - 1 days * duration._days - 1 hours * duration._hours) / 1 minutes;
