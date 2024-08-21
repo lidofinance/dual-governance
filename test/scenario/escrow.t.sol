@@ -570,6 +570,50 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         this.externalUnlockUnstETH(_VETOER_1, lockedWithdrawalNfts);
     }
 
+    // TODO: rewrite this test to use all stETH/wstETH/unstETH tokens
+    function testFork_EdgeCase_FrontRunningRageQuitWithTokensUnlockForbidden() external {
+        // lock enough funds to initiate RageQuit
+        _lockStETH(_VETOER_1, PercentsD16.fromBasisPoints(7_99));
+        _lockStETH(_VETOER_2, PercentsD16.fromBasisPoints(7_99));
+        _assertVetoSignalingState();
+
+        // wait till the last second of the dynamic timelock duration
+        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION());
+        _activateNextState();
+        _assertVetoSignalingState();
+
+        ( /* bool isActive */ , uint256 duration, uint256 activatedAt, /* uint256 enteredAt */ ) =
+            _getVetoSignallingState();
+        assertEq(duration + activatedAt, block.timestamp);
+
+        // validate that while the VetoSignalling has not passed, vetoer can unlock funds from Escrow
+        uint256 snapshotId = vm.snapshot();
+        _unlockStETH(_VETOER_1);
+        _assertVetoSignalingDeactivationState();
+
+        // Rollback the state of the node before vetoer unlocked his funds
+        vm.revertTo(snapshotId);
+
+        // validate that the DualGovernance still in the VetoSignalling state
+        _activateNextState();
+        _assertVetoSignalingState();
+
+        // wait 1 block duration. Full VetoSignalling duration has passed and RageQuit may be started now
+        _wait(Durations.from(12 seconds));
+
+        // validate that RageQuit will start when the activateNextState() is called
+        snapshotId = vm.snapshot();
+        _activateNextState();
+        _assertRageQuitState();
+
+        // Rollback the state of the node as it was before RageQuit activation
+        vm.revertTo(snapshotId);
+
+        // The attempt to unlock funds from Escrow will fail
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        this.externalUnlockStETH(_VETOER_1);
+    }
+
     // ---
     // Helper external methods to test reverts
     // ---
