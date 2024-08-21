@@ -13,6 +13,7 @@ parse_args "$@"
 #############
 # Functions #
 #############
+GHCRTS=''
 kontrol_build() {
   notif "Kontrol Build"
   # shellcheck disable=SC2086
