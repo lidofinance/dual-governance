@@ -54,6 +54,7 @@ contract Escrow is IEscrow {
     error UnfinalizedUnstETHIds();
     error NonProxyCallsForbidden();
     error BatchesQueueIsNotClosed();
+    error EmptyUnstETHIds();
     error InvalidBatchSize(uint256 size);
     error CallerIsNotDualGovernance(address caller);
     error InvalidHintsLength(uint256 actual, uint256 expected);
@@ -183,6 +184,10 @@ contract Escrow is IEscrow {
     // Lock & unlock unstETH
     // ---
     function lockUnstETH(uint256[] memory unstETHIds) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
+
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 
@@ -261,7 +266,7 @@ contract Escrow is IEscrow {
         uint256 maxStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
 
         if (stETHRemaining < minStETHWithdrawalRequestAmount) {
-            return _batchesQueue.close();
+            _batchesQueue.close();
         }
 
         uint256[] memory requestAmounts = WithdrawalsBatchesQueue.calcRequestAmounts({
@@ -271,6 +276,12 @@ contract Escrow is IEscrow {
         });
 
         _batchesQueue.addUnstETHIds(WITHDRAWAL_QUEUE.requestWithdrawals(requestAmounts, address(this)));
+
+        stETHRemaining = ST_ETH.balanceOf(address(this));
+
+        if (stETHRemaining < minStETHWithdrawalRequestAmount) {
+            _batchesQueue.close();
+        }
     }
 
     // ---
@@ -364,6 +375,9 @@ contract Escrow is IEscrow {
     }
 
     function withdrawETH(uint256[] calldata unstETHIds) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
         _escrowState.checkRageQuitEscrow();
         _escrowState.checkWithdrawalsTimelockPassed();
         ETHValue ethToWithdraw = _accounting.accountUnstETHWithdraw(msg.sender, unstETHIds);
