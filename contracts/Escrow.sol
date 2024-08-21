@@ -184,6 +184,10 @@ contract Escrow is IEscrow {
     // Lock & unlock unstETH
     // ---
     function lockUnstETH(uint256[] memory unstETHIds) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
+
         _escrowState.checkSignallingEscrow();
         DUAL_GOVERNANCE.activateNextState();
 
