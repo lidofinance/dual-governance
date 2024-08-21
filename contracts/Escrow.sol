@@ -54,6 +54,7 @@ contract Escrow is IEscrow {
     error UnfinalizedUnstETHIds();
     error NonProxyCallsForbidden();
     error BatchesQueueIsNotClosed();
+    error EmptyUnstETHIds();
     error InvalidBatchSize(uint256 size);
     error CallerIsNotDualGovernance(address caller);
     error InvalidHintsLength(uint256 actual, uint256 expected);
@@ -364,6 +365,9 @@ contract Escrow is IEscrow {
     }
 
     function withdrawETH(uint256[] calldata unstETHIds) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
         _escrowState.checkRageQuitEscrow();
         _escrowState.checkWithdrawalsTimelockPassed();
         ETHValue ethToWithdraw = _accounting.accountUnstETHWithdraw(msg.sender, unstETHIds);
