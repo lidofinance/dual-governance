@@ -1,9 +1,8 @@
-using Proposals as proposals;
 using Configuration as CONFIG;
 
 methods {
-    //function proposals.getProposalSubmissionTime(uint) internal returns (uint40) envfree;
     function CONFIG.AFTER_SUBMIT_DELAY() external returns (Durations.Duration) envfree;
+    function getProposalSubmissionTime(uint256) external returns (Timestamps.Timestamp) envfree;
 }
 
 rule EPT_KP_1 {
@@ -12,7 +11,7 @@ rule EPT_KP_1 {
 
     schedule(e, proposalId);
 
-    assert currentContract._proposals.proposals[proposalId].submittedAt + CONFIG.AFTER_SUBMIT_DELAY() < e.block.timestamp;
+    assert getProposalSubmissionTime(proposalId) + CONFIG.AFTER_SUBMIT_DELAY() <= e.block.timestamp;
 }
 
 rule EPT_2a {
