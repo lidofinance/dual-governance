@@ -14,7 +14,7 @@ setup_confs = {
     "Escrow",
     "Executor",
     "ResealManager",
-    "TieBreakerCore",
+    "TiebreakerCore",
     "TiebreakerSubCommittee"
 }
 
