@@ -266,7 +266,7 @@ contract Escrow is IEscrow {
         uint256 maxStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
 
         if (stETHRemaining < minStETHWithdrawalRequestAmount) {
-            _batchesQueue.close();
+            return _batchesQueue.close();
         }
 
         uint256[] memory requestAmounts = WithdrawalsBatchesQueue.calcRequestAmounts({
