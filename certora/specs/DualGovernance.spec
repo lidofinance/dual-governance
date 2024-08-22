@@ -1,10 +1,31 @@
 methods {
 	function getProposer(address account) external returns (Proposers.Proposer memory) envfree;
     function getProposerIndexFromExecutor(address proposer) external returns (uint32) envfree;
+	// TODO check these NONDETs. So far they seem pretty irrelevant to the 
+	// rules in scope for this contract.
 	// This is reached by Escrow.withdrawETH() and makes a lowlevel 
-	// call on amount causing a HAVOC. This is not very relevant to these 
-	// rules, so NONDETing
+	// call on amount causing a HAVOC. 
 	function Address.sendValue(address recipient, uint256 amount) internal => NONDET;
+	// This is reached by ResealManager.reseal and makes a low-level call
+	// on target which havocs all contracts. (And we can't NONDET functions
+	// that return bytes).
+	function Address.functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) => CVLFunctionCallWithValue(target, data, value);
+	// This function belongs to ISealble which we do not have an implementation
+	// of and it causes a havoc of all contracts.
+	// It is reached by ResealManager.reaseal/resume
+	function _.getResumeSinceTimestamp() external => CONSTANT;
+	// This function belongs to IOnable which we do not have an implementation
+	// of and it causes a havoc of all contracts. It is reached by EPT.
+	// transferExecutorOwnership
+	function _.transferOwnership(address newOwner) external;
+}
+
+// Ideally we would return a ghost but then we run into the tool bug
+// where a ghost declared bytes is actually given type "hashblob"
+// and this bug won't be fixed :)
+function CVLFunctionCallWithValue(address target, bytes data, uint256 value) returns bytes {
+	bytes ret;
+	return ret;
 }
 // for any registered proposer, his index should be ≤ the length of 
 // the array of proposers
