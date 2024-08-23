@@ -57,7 +57,7 @@ abstract contract HashConsensus is Ownable {
         }
 
         uint256 heads = _getSupport(hash);
-        if (heads == quorum - 1 && support == true) {
+        if (heads >= quorum && support == true) {
             _hashStates[hash].scheduledAt = uint40(block.timestamp);
         }
 
@@ -174,6 +174,9 @@ abstract contract HashConsensus is Ownable {
     }
 
     /// @notice Schedules a proposal for execution if quorum is reached and it has not been scheduled yet.
+    /// @dev This function schedules a proposal for execution if the quorum is reached and
+    ///      the proposal has not been scheduled yet. Could happen when execution quorum was set to the same value as
+    ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
     function schedule(bytes32 hash) public {
         if (_hashStates[hash].usedAt > 0) {
