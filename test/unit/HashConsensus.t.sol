@@ -567,7 +567,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.onlyMemberProtected();
     }
 
-    function test_scheduleProposalRevertsIfHashIsUsed() public {
+    function test_scheduleRevertsIfHashIsUsed() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum; ++i) {
@@ -580,10 +580,10 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.execute(hash);
 
         vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, hash));
-        _hashConsensusWrapper.scheduleProposal(hash);
+        _hashConsensusWrapper.schedule(hash);
     }
 
-    function test_scheduleProposalDoNothingIfQuorumAlreadyReached() public {
+    function test_scheduleDoNothingIfQuorumAlreadyReached() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum; ++i) {
@@ -594,14 +594,14 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         (,, uint256 scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
 
         _wait(_timelock);
-        _hashConsensusWrapper.scheduleProposal(hash);
+        _hashConsensusWrapper.schedule(hash);
 
         (,, uint256 scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);
 
         assertEq(scheduledAtBefore, scheduledAtAfter);
     }
 
-    function test_scheduleProposalDoNothingIfQuorumIsNotReached() public {
+    function test_scheduleDoNothingIfQuorumIsNotReached() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum - 1; ++i) {
@@ -612,13 +612,13 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         (,, uint256 scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
         assertEq(scheduledAtBefore, 0);
 
-        _hashConsensusWrapper.scheduleProposal(hash);
+        _hashConsensusWrapper.schedule(hash);
 
         (,, uint256 scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);
         assertEq(scheduledAtAfter, 0);
     }
 
-    function test_scheduleProposal() public {
+    function test_schedule() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum - 1; ++i) {
@@ -633,7 +633,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
 
         assertEq(scheduledAtBefore, 0);
 
-        _hashConsensusWrapper.scheduleProposal(hash);
+        _hashConsensusWrapper.schedule(hash);
 
         (,, uint256 scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);
 

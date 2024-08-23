@@ -175,7 +175,7 @@ abstract contract HashConsensus is Ownable {
 
     /// @notice Schedules a proposal for execution if quorum is reached and it has not been scheduled yet.
     /// @param hash The hash of the proposal to be scheduled
-    function scheduleProposal(bytes32 hash) public {
+    function schedule(bytes32 hash) public {
         if (_hashStates[hash].usedAt > 0) {
             revert HashAlreadyUsed(hash);
         }
