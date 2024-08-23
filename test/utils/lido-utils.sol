@@ -27,7 +27,7 @@ import {
     DAO_AGENT,
     DAO_VOTING,
     DAO_TOKEN_MANAGER
-} from "./mainnet-addresses.sol";
+} from "addresses/mainnet-addresses.sol";
 
 uint256 constant ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
 
