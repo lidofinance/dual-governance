@@ -260,6 +260,16 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.setTimelockDuration(newTimelockDuration);
     }
 
+    function test_setTimelockDurationRevertsIfValueIsSame() public {
+        uint256 newTimelockDuration = 300;
+
+        vm.startPrank(_owner);
+        _hashConsensus.setTimelockDuration(newTimelockDuration);
+
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.InvalidTimelockDuration.selector, newTimelockDuration));
+        _hashConsensus.setTimelockDuration(newTimelockDuration);
+    }
+
     function testTimelockDurationEventEmitted() public {
         uint256 newTimelockDuration = 300;
 
@@ -303,6 +313,16 @@ abstract contract HashConsensusUnitTest is UnitTest {
         uint256 invalidQuorum = _committeeMembers.length + 1;
 
         vm.prank(_owner);
+        vm.expectRevert(abi.encodeWithSignature("InvalidQuorum()"));
+        _hashConsensus.setQuorum(invalidQuorum);
+    }
+
+    function test_setQuorumRevertsIfQuorumIsSame() public {
+        uint256 invalidQuorum = 2;
+
+        vm.startPrank(_owner);
+        _hashConsensus.setQuorum(invalidQuorum);
+
         vm.expectRevert(abi.encodeWithSignature("InvalidQuorum()"));
         _hashConsensus.setQuorum(invalidQuorum);
     }

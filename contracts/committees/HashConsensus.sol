@@ -23,6 +23,7 @@ abstract contract HashConsensus is Ownable {
     error HashAlreadyUsed(bytes32 hash);
     error QuorumIsNotReached();
     error InvalidQuorum();
+    error InvalidTimelockDuration(uint256 timelock);
     error TimelockNotPassed();
 
     struct HashState {
@@ -157,6 +158,9 @@ abstract contract HashConsensus is Ownable {
     /// @param timelock The new timelock duration in seconds
     function setTimelockDuration(uint256 timelock) public {
         _checkOwner();
+        if (timelock == timelockDuration) {
+            revert InvalidTimelockDuration(timelock);
+        }
         timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
     }
@@ -187,7 +191,7 @@ abstract contract HashConsensus is Ownable {
     /// @dev The quorum value must be greater than zero and not exceed the current number of members.
     /// @param executionQuorum The new quorum value to be set.
     function _setQuorum(uint256 executionQuorum) internal {
-        if (executionQuorum == 0 || executionQuorum > _members.length()) {
+        if (executionQuorum == 0 || executionQuorum > _members.length() || executionQuorum == quorum) {
             revert InvalidQuorum();
         }
         quorum = executionQuorum;
