@@ -11,6 +11,7 @@ import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 string constant ARRAY_SEPARATOR = ",";
 
 struct ConfigValues {
+    uint256 DEPLOYER_PRIVATE_KEY;
     Duration AFTER_SUBMIT_DELAY;
     Duration MAX_AFTER_SUBMIT_DELAY;
     Duration AFTER_SCHEDULE_DELAY;
@@ -99,6 +100,7 @@ contract DGDeployConfig is Script {
 
     function loadAndValidate() external returns (ConfigValues memory config) {
         config = ConfigValues({
+            DEPLOYER_PRIVATE_KEY: vm.envUint("DEPLOYER_PRIVATE_KEY"),
             AFTER_SUBMIT_DELAY: Durations.from(vm.envOr("AFTER_SUBMIT_DELAY", DEFAULT_AFTER_SUBMIT_DELAY)),
             MAX_AFTER_SUBMIT_DELAY: Durations.from(vm.envOr("MAX_AFTER_SUBMIT_DELAY", DEFAULT_MAX_AFTER_SUBMIT_DELAY)),
             AFTER_SCHEDULE_DELAY: Durations.from(vm.envOr("AFTER_SCHEDULE_DELAY", DEFAULT_AFTER_SCHEDULE_DELAY)),
