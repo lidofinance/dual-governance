@@ -27,7 +27,7 @@ abstract contract HashConsensus is Ownable {
     error TimelockNotPassed();
 
     struct HashState {
-        uint40 quorumAt;
+        uint40 scheduledAt;
         uint40 usedAt;
     }
 
@@ -58,7 +58,7 @@ abstract contract HashConsensus is Ownable {
 
         uint256 heads = _getSupport(hash);
         if (heads == quorum - 1 && support == true) {
-            _hashStates[hash].quorumAt = uint40(block.timestamp);
+            _hashStates[hash].scheduledAt = uint40(block.timestamp);
         }
 
         approves[msg.sender][hash] = support;
@@ -78,7 +78,7 @@ abstract contract HashConsensus is Ownable {
         if (support == 0 || support < quorum) {
             revert QuorumIsNotReached();
         }
-        if (block.timestamp < _hashStates[hash].quorumAt + timelockDuration) {
+        if (block.timestamp < _hashStates[hash].scheduledAt + timelockDuration) {
             revert TimelockNotPassed();
         }
 
@@ -92,16 +92,16 @@ abstract contract HashConsensus is Ownable {
     /// @param hash The hash to get the state for
     /// @return support The number of votes in support of the hash
     /// @return executionQuorum The required number of votes for execution
-    /// @return quorumAt The timestamp when the quorum was reached
+    /// @return scheduledAt The timestamp when the quorum was reached or scheduleProposal was called
     /// @return isUsed Whether the hash has been used
     function _getHashState(bytes32 hash)
         internal
         view
-        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isUsed)
+        returns (uint256 support, uint256 executionQuorum, uint256 scheduledAt, bool isUsed)
     {
         support = _getSupport(hash);
         executionQuorum = quorum;
-        quorumAt = _hashStates[hash].quorumAt;
+        scheduledAt = _hashStates[hash].scheduledAt;
         isUsed = _hashStates[hash].usedAt > 0;
     }
 
@@ -173,17 +173,16 @@ abstract contract HashConsensus is Ownable {
         _setQuorum(newQuorum);
     }
 
-    /// @notice Updates the quorum for a given hash if the quorum is reached and not set
-    ///      and the hash has not been used
-    /// @param hash The hash to update the quorum for
-    function updateQuorum(bytes32 hash) public {
+    /// @notice Schedules a proposal for execution if quorum is reached and it has not been scheduled yet.
+    /// @param hash The hash of the proposal to be scheduled
+    function scheduleProposal(bytes32 hash) public {
         if (_hashStates[hash].usedAt > 0) {
             revert HashAlreadyUsed(hash);
         }
 
         uint256 support = _getSupport(hash);
-        if (support >= quorum && _hashStates[hash].quorumAt == 0) {
-            _hashStates[hash].quorumAt = uint40(block.timestamp);
+        if (support >= quorum && _hashStates[hash].scheduledAt == 0) {
+            _hashStates[hash].scheduledAt = uint40(block.timestamp);
         }
     }
 

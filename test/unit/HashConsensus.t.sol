@@ -374,7 +374,7 @@ contract HashConsensusWrapper is HashConsensus {
     function getHashState(bytes32 hash)
         public
         view
-        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, uint256 scheduledAt, bool isExecuted)
     {
         return _getHashState(hash);
     }
@@ -431,56 +431,56 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
     function test_getHashState() public {
         uint256 support;
         uint256 executionQuorum;
-        uint256 quorumAt;
+        uint256 scheduledAt;
         bool isExecuted;
 
-        (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+        (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
         assertEq(support, 0);
         assertEq(executionQuorum, _quorum);
-        assertEq(quorumAt, 0);
+        assertEq(scheduledAt, 0);
         assertEq(isExecuted, false);
 
         uint256 expectedQuorumAt = block.timestamp;
 
         for (uint256 i = 0; i < _membersCount; ++i) {
-            (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+            (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
             assertEq(support, i);
             assertEq(executionQuorum, _quorum);
             if (i >= executionQuorum) {
-                assertEq(quorumAt, expectedQuorumAt);
+                assertEq(scheduledAt, expectedQuorumAt);
             } else {
-                assertEq(quorumAt, 0);
+                assertEq(scheduledAt, 0);
             }
             assertEq(isExecuted, false);
 
             vm.prank(_committeeMembers[i]);
             _hashConsensusWrapper.vote(dataHash, true);
 
-            (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+            (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
             assertEq(support, i + 1);
             assertEq(executionQuorum, _quorum);
             if (i >= executionQuorum - 1) {
-                assertEq(quorumAt, expectedQuorumAt);
+                assertEq(scheduledAt, expectedQuorumAt);
             } else {
-                assertEq(quorumAt, 0);
+                assertEq(scheduledAt, 0);
             }
             assertEq(isExecuted, false);
         }
 
-        (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+        (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
         assertEq(support, _membersCount);
         assertEq(executionQuorum, _quorum);
-        assertEq(quorumAt, expectedQuorumAt);
+        assertEq(scheduledAt, expectedQuorumAt);
         assertEq(isExecuted, false);
 
         _wait(_timelock);
 
         _hashConsensusWrapper.execute(dataHash);
 
-        (support, executionQuorum, quorumAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+        (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
         assertEq(support, _membersCount);
         assertEq(executionQuorum, _quorum);
-        assertEq(quorumAt, expectedQuorumAt);
+        assertEq(scheduledAt, expectedQuorumAt);
         assertEq(isExecuted, true);
     }
 
@@ -567,7 +567,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.onlyMemberProtected();
     }
 
-    function test_updateQuorumRevertsIfHashIsUsed() public {
+    function test_scheduleProposalRevertsIfHashIsUsed() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum; ++i) {
@@ -580,10 +580,10 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.execute(hash);
 
         vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, hash));
-        _hashConsensusWrapper.updateQuorum(hash);
+        _hashConsensusWrapper.scheduleProposal(hash);
     }
 
-    function test_updateQuorumDoNothingIfQuorumAlreadyReached() public {
+    function test_scheduleProposalDoNothingIfQuorumAlreadyReached() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum; ++i) {
@@ -591,17 +591,17 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
             _hashConsensusWrapper.vote(hash, true);
         }
 
-        (,, uint256 quorumAtBefore,) = _hashConsensusWrapper.getHashState(hash);
+        (,, uint256 scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
 
         _wait(_timelock);
-        _hashConsensusWrapper.updateQuorum(hash);
+        _hashConsensusWrapper.scheduleProposal(hash);
 
-        (,, uint256 quorumAtAfter,) = _hashConsensusWrapper.getHashState(hash);
+        (,, uint256 scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);
 
-        assertEq(quorumAtBefore, quorumAtAfter);
+        assertEq(scheduledAtBefore, scheduledAtAfter);
     }
 
-    function test_updateQuorumDoNothingIfQuorumIsNotReached() public {
+    function test_scheduleProposalDoNothingIfQuorumIsNotReached() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum - 1; ++i) {
@@ -609,16 +609,16 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
             _hashConsensusWrapper.vote(hash, true);
         }
 
-        (,, uint256 quorumAtBefore,) = _hashConsensusWrapper.getHashState(hash);
-        assertEq(quorumAtBefore, 0);
+        (,, uint256 scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
+        assertEq(scheduledAtBefore, 0);
 
-        _hashConsensusWrapper.updateQuorum(hash);
+        _hashConsensusWrapper.scheduleProposal(hash);
 
-        (,, uint256 quorumAtAfter,) = _hashConsensusWrapper.getHashState(hash);
-        assertEq(quorumAtAfter, 0);
+        (,, uint256 scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);
+        assertEq(scheduledAtAfter, 0);
     }
 
-    function test_updateQuorum() public {
+    function test_scheduleProposal() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum - 1; ++i) {
@@ -629,14 +629,14 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         vm.prank(_owner);
         _hashConsensusWrapper.setQuorum(_quorum - 1);
 
-        (,, uint256 quorumAtBefore,) = _hashConsensusWrapper.getHashState(hash);
+        (,, uint256 scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
 
-        assertEq(quorumAtBefore, 0);
+        assertEq(scheduledAtBefore, 0);
 
-        _hashConsensusWrapper.updateQuorum(hash);
+        _hashConsensusWrapper.scheduleProposal(hash);
 
-        (,, uint256 quorumAtAfter,) = _hashConsensusWrapper.getHashState(hash);
+        (,, uint256 scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);
 
-        assertEq(quorumAtAfter, block.timestamp);
+        assertEq(scheduledAtAfter, block.timestamp);
     }
 }
