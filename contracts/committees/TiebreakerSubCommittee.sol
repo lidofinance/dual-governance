@@ -9,7 +9,7 @@ import {ProposalsList} from "./ProposalsList.sol";
 
 enum ProposalType {
     ScheduleProposal,
-    ResumeSelable
+    ResumeSealable
 }
 
 /// @title Tiebreaker SubCommittee Contract
@@ -91,7 +91,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         _checkCallerIsMember();
         (bytes memory proposalData, bytes32 key,) = _encodeSealableResume(sealable);
         _vote(key, true);
-        _pushProposal(key, uint256(ProposalType.ResumeSelable), proposalData);
+        _pushProposal(key, uint256(ProposalType.ResumeSealable), proposalData);
     }
 
     /// @notice Gets the current state of a resume sealable proposal

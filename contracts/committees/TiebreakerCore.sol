@@ -10,7 +10,7 @@ import {ProposalsList} from "./ProposalsList.sol";
 
 enum ProposalType {
     ScheduleProposal,
-    ResumeSelable
+    ResumeSealable
 }
 
 /// @title Tiebreaker Core Contract
@@ -97,7 +97,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
         }
         (bytes memory proposalData, bytes32 key) = _encodeSealableResume(sealable, nonce);
         _vote(key, true);
-        _pushProposal(key, uint256(ProposalType.ResumeSelable), proposalData);
+        _pushProposal(key, uint256(ProposalType.ResumeSealable), proposalData);
     }
 
     /// @notice Gets the current state of a resume sealable proposal
@@ -138,7 +138,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
         address sealable,
         uint256 nonce
     ) private pure returns (bytes memory data, bytes32 key) {
-        data = abi.encode(ProposalType.ResumeSelable, sealable, nonce);
+        data = abi.encode(ProposalType.ResumeSealable, sealable, nonce);
         key = keccak256(data);
     }
 }
