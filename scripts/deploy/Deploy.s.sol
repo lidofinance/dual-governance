@@ -57,11 +57,18 @@ contract DeployDG is Script {
     TiebreakerCore internal tiebreakerCoreCommittee;
     TiebreakerSubCommittee[] internal tiebreakerSubCommittees;
 
+    address internal deployer;
+
     function run() external {
-        DGDeployConfig config = new DGDeployConfig();
-        dgDeployConfig = config.loadAndValidate();
+        DGDeployConfig configProvider = new DGDeployConfig();
+        dgDeployConfig = configProvider.loadAndValidate();
+
+        deployer = vm.addr(dgDeployConfig.DEPLOYER_PRIVATE_KEY);
+        vm.startBroadcast(dgDeployConfig.DEPLOYER_PRIVATE_KEY);
 
         deployDualGovernanceSetup();
+
+        vm.stopBroadcast();
 
         console.log("DG deployed successfully");
         console.log("DualGovernance address", address(dualGovernance));
@@ -85,7 +92,7 @@ contract DeployDG is Script {
         dualGovernance = deployDualGovernance({configProvider: dualGovernanceConfigProvider});
 
         tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
-            owner: address(this), // temporary set owner to deployer, to add sub committees manually TODO: check
+            owner: deployer, // temporary set owner to deployer, to add sub committees manually TODO: check
             timelockSeconds: dgDeployConfig.TIEBREAKER_EXECUTION_DELAY.toSeconds()
         });
 
@@ -138,7 +145,7 @@ contract DeployDG is Script {
     }
 
     function deployEmergencyProtectedTimelockContracts() internal {
-        adminExecutor = deployExecutor(address(this));
+        adminExecutor = deployExecutor(deployer);
         timelock = deployEmergencyProtectedTimelock();
 
         emergencyActivationCommittee = deployEmergencyActivationCommittee({
