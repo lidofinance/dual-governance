@@ -68,6 +68,60 @@ rule EPT_KP_2_SchedulingToExecutionDelay {
     assert getProposal(proposalId).scheduledAt + getAfterScheduleDelay() <= e.block.timestamp;
 }
 
+function effectiveEmergencyExecutionCommittee(env e) returns address {
+    if (e.block.timestamp <= getEmergencyProtectionContext().emergencyProtectionEndsAfter || isEmergencyModeActive()) {
+        return getEmergencyProtectionContext().emergencyExecutionCommittee;
+    }
+    return 0;
+}
+
+function effectiveEmergencyActivationCommittee(env e) returns address {
+    if (e.block.timestamp <= getEmergencyProtectionContext().emergencyProtectionEndsAfter) {
+        return getEmergencyProtectionContext().emergencyActivationCommittee;
+    }
+    return 0;
+}
+
+/**
+    @title Emergency protection configuration changes are guarded by committees or admin executor
+*/
+rule EPT_1_EmergencyProtectionConfigurationGuarded(method f) filtered { f -> f.selector != sig:Executor.execute(address, uint256, bytes).selector } {
+    EmergencyProtection.Context before = getEmergencyProtectionContext();
+    
+    env e;
+    require e.block.timestamp <= max_uint40;
+    bool isEmergencyModePassed = before.emergencyModeEndsAfter <= e.block.timestamp;
+    address effectiveEmergencyActivationCommittee = effectiveEmergencyActivationCommittee(e);
+    address effectiveEmergencyExecutionCommittee = effectiveEmergencyExecutionCommittee(e);
+
+    calldataarg args;
+    f(e, args);
+
+    EmergencyProtection.Context after = getEmergencyProtectionContext();
+
+    assert before == after 
+        // emergency mode activation
+        || (after.emergencyModeEndsAfter != 0 && 
+            before.emergencyActivationCommittee == after.emergencyActivationCommittee && 
+            before.emergencyProtectionEndsAfter == after.emergencyProtectionEndsAfter &&
+            before.emergencyExecutionCommittee == after.emergencyExecutionCommittee &&
+            before.emergencyModeDuration == after.emergencyModeDuration &&
+            before.emergencyGovernance == after.emergencyGovernance && 
+            e.msg.sender == effectiveEmergencyActivationCommittee)
+        // emergency mode deactivation
+        || (after.emergencyModeEndsAfter == 0 && 
+            after.emergencyActivationCommittee == 0 && 
+            after.emergencyProtectionEndsAfter == 0 && 
+            after.emergencyExecutionCommittee == 0 &&
+            after.emergencyModeDuration == 0 &&
+            after.emergencyGovernance == before.emergencyGovernance &&
+            // via time passing or execution committee
+            (isEmergencyModePassed || e.msg.sender == effectiveEmergencyExecutionCommittee))
+        // reconfiguration through proposal executed by admin executor
+        || e.msg.sender == getAdminExecutor();
+
+}
+
 /**
     @title Only governance can schedule proposals.
 */
@@ -100,15 +154,33 @@ rule EPT_3_EmergencyModeExecutionRestriction(method f) filtered { f -> f.selecto
     bool executedBefore = getProposal(proposalId).status == ExecutableProposals.Status.Executed;
 
     bool isEmergencyModeActivated = isEmergencyModeActive();
-    address executionCommittee = getEmergencyProtectionContext().emergencyExecutionCommittee;
 
     env e;
+    address effectiveEmergencyExecutionCommittee = effectiveEmergencyExecutionCommittee(e);
+    
     calldataarg args;
     f(e, args);
 
     bool executedAfter = getProposal(proposalId).status == ExecutableProposals.Status.Executed;
 
-    assert isEmergencyModeActivated && !executedBefore && executedAfter => e.msg.sender == executionCommittee;
+    assert isEmergencyModeActivated && !executedBefore && executedAfter => e.msg.sender == effectiveEmergencyExecutionCommittee;
+}
+
+/**
+    @title Emergency Protection deactivation without emergency
+    @notice The usefullness of this rule depends on us using the effectiveXXXCommittee functions also in all other rules 
+            where we check that something is guarded by the committee.
+*/
+rule EPT_5_EmergencyProtectionElapsed(method f) {
+    EmergencyProtection.Context context = getEmergencyProtectionContext();
+    // protected deployment mode was activated, but not emergency mode
+    require context.emergencyProtectionEndsAfter != 0 && !isEmergencyModeActive();
+
+    env e;
+    // protection time has elapsed in our environment
+    require e.block.timestamp > context.emergencyProtectionEndsAfter;
+
+    assert effectiveEmergencyActivationCommittee(e) == 0 && effectiveEmergencyExecutionCommittee(e) == 0;
 }
 
 // Helper for EPT_10_ProposalTimestampConsistency because Proposal contains some other not easily comparable data
