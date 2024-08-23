@@ -5,13 +5,24 @@ import "../../contracts/libraries/Proposers.sol";
 import "../../contracts/DualGovernance.sol";
 // This is to make a type available for a NONDET summary
 import {IExternalExecutor} from "../../contracts/interfaces/IExternalExecutor.sol";
-// import "../../contracts/libraries/DualGovernanceStateMachine.sol";
+import {State, DualGovernanceStateMachine} from "../../contracts/libraries/DualGovernanceStateMachine.sol";
 
 contract DualGovernanceHarness is DualGovernance {
     using Proposers for Proposers.Context;
     using Proposers for Proposers.Proposer;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
+
+    // Needed because DualGovernanceStateMachine.State is not
+    // referrable without redeclaring this here.
+    enum DGHarnessState {
+        Unset,
+        Normal,
+        VetoSignalling,
+        VetoSignallingDeactivation,
+        VetoCooldown,
+        RageQuit
+    }
 
     constructor(
         ExternalDependencies memory dependencies,
@@ -23,7 +34,36 @@ contract DualGovernanceHarness is DualGovernance {
         return IndexOneBased.unwrap(_proposers.executors[proposer].proposerIndex);
     }
 
-    function getState() external view returns (State) {
-        return _stateMachine.state;
+    function asDGHarnessState(State state) public returns (DGHarnessState) {
+        uint256 state_underlying = uint256(state);
+        return DGHarnessState(state_underlying);
+    }
+
+    function getState() external returns (DGHarnessState) {
+        return asDGHarnessState(_stateMachine.state);
+    }
+
+    function isUnset(DGHarnessState state) public returns (bool) {
+        return state == DGHarnessState.Unset;
+    }
+
+    function isNormal(DGHarnessState state) public returns (bool) {
+        return state == DGHarnessState.Normal;
+    }
+
+    function isVetoSignalling(DGHarnessState state) public returns (bool) {
+        return state == DGHarnessState.VetoSignalling;
+    }
+
+    function isVetoSignallingDeactivation(DGHarnessState state) public returns (bool) {
+        return state == DGHarnessState.VetoSignallingDeactivation;
+    }
+
+    function isVetoCooldown(DGHarnessState state) public returns (bool) {
+        return state == DGHarnessState.VetoCooldown;
+    }
+
+    function isRageQuit(DGHarnessState state) public returns (bool) {
+        return state == DGHarnessState.RageQuit;
     }
 }

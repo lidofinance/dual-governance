@@ -2,7 +2,13 @@ methods {
 	// envfrees
 	function getProposer(address account) external returns (Proposers.Proposer memory) envfree;
     function getProposerIndexFromExecutor(address proposer) external returns (uint32) envfree;
-	function getState() external returns (DualGovernanceStateMachine.State) envfree;
+	function getState() external returns (DualGovernanceHarness.DGHarnessState) envfree;
+	function isUnset(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+	function isNormal(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+	function isVetoSignalling(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+	function isVetoSignallingDeactivation(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+	function isVetoCooldown(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+	function isRageQuit(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
 
 	// TODO check these NONDETs. So far they seem pretty irrelevant to the 
 	// rules in scope for this contract.
@@ -61,16 +67,24 @@ rule w2_1a_indexes_match (method f) {
 //  Proposals cannot be executed in the Veto Signaling (both parent state and
 // Deactivation sub-state) and Rage Quit states.
 rule dg_kp_1_proposal_execution {
-	assert false;
+	env e;
 	uint256 proposal_id;
-	scheduleProposal(proposalId);
-	DualGovernanceStateMachine.State state = getState();
-	assert state != state.VetoSignaling && state != state.RageQuit;
+	scheduleProposal(e, proposal_id);
+	DualGovernanceHarness.DGHarnessState state = getState();
+	assert !isVetoSignalling(state) && !isRageQuit(state);
+	// This throws a type error wherein CLV claims DGHarnessState.VetoSignaling
+	// does not exist -- it seems like it starts to assume the type is a struct
+	// if you nest more than one deep
+	// DualGovernanceHarness.DGHarnessState.VetoSignaling && state != DualGovernanceHarness.DGHarnessState.RageQuit;
 }
 
 // Proposals cannot be submitted in the Veto Signaling Deactivation sub-state or in the Veto Cooldown state.
 rule dg_kp_2_proposal_submission {
-	assert false;
+	env e;
+	DualGovernanceHarness.ExternalCall[] calls;
+	submitProposal(e, calls);
+	DualGovernanceHarness.DGHarnessState state = getState();
+	assert !isVetoSignallingDeactivation(state) && !isVetoCooldown(state);
 }
 
 // If a proposal was submitted after the last time the Veto Signaling state was 
