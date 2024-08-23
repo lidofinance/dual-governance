@@ -6,6 +6,8 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+import {Duration} from "../types/Duration.sol";
 
 /// @title Reseal Committee Contract
 /// @notice This contract allows a committee to vote on and execute resealing proposals
@@ -20,7 +22,7 @@ contract ResealCommittee is HashConsensus, ProposalsList {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address dualGovernance,
-        uint256 timelock
+        Duration timelock
     ) HashConsensus(owner, timelock) {
         DUAL_GOVERNANCE = dualGovernance;
 
@@ -48,7 +50,7 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     function getResealState(address sealable)
         public
         view
-        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
         (, bytes32 key) = _encodeResealProposal(sealable);
         return _getHashState(key);

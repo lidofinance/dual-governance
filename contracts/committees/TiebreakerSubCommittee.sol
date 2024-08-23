@@ -6,6 +6,8 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+import {Durations} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,
@@ -23,7 +25,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address tiebreakerCore
-    ) HashConsensus(owner, 0) {
+    ) HashConsensus(owner, Durations.from(0)) {
         TIEBREAKER_CORE = tiebreakerCore;
 
         _addMembers(committeeMembers, executionQuorum);
@@ -53,7 +55,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     function getScheduleProposalState(uint256 proposalId)
         public
         view
-        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
         (, bytes32 key) = _encodeApproveProposal(proposalId);
         return _getHashState(key);
@@ -104,7 +106,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     function getSealableResumeState(address sealable)
         public
         view
-        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
         (, bytes32 key,) = _encodeSealableResume(sealable);
         return _getHashState(key);

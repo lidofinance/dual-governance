@@ -7,6 +7,8 @@ import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+import {Duration} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,
@@ -23,7 +25,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
 
     mapping(address => uint256) private _sealableResumeNonces;
 
-    constructor(address owner, address dualGovernance, uint256 timelock) HashConsensus(owner, timelock) {
+    constructor(address owner, address dualGovernance, Duration timelock) HashConsensus(owner, timelock) {
         DUAL_GOVERNANCE = dualGovernance;
     }
 
@@ -51,7 +53,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     function getScheduleProposalState(uint256 proposalId)
         public
         view
-        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
         (, bytes32 key) = _encodeScheduleProposal(proposalId);
         return _getHashState(key);
@@ -111,7 +113,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     function getSealableResumeState(
         address sealable,
         uint256 nonce
-    ) public view returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted) {
+    ) public view returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) {
         (, bytes32 key) = _encodeSealableResume(sealable, nonce);
         return _getHashState(key);
     }

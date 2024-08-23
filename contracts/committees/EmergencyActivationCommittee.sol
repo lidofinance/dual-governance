@@ -5,6 +5,8 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {HashConsensus} from "./HashConsensus.sol";
 import {ITimelock} from "../interfaces/ITimelock.sol";
+import {Duration, Durations} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
 
 /// @title Emergency Activation Committee Contract
 /// @notice This contract allows a committee to approve and execute an emergency activation
@@ -19,7 +21,7 @@ contract EmergencyActivationCommittee is HashConsensus {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address emergencyProtectedTimelock
-    ) HashConsensus(owner, 0) {
+    ) HashConsensus(owner, Durations.from(0)) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
 
         _addMembers(committeeMembers, executionQuorum);
@@ -40,7 +42,7 @@ contract EmergencyActivationCommittee is HashConsensus {
     function getActivateEmergencyModeState()
         public
         view
-        returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
         return _getHashState(EMERGENCY_ACTIVATION_HASH);
     }

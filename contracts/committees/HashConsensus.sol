@@ -3,6 +3,8 @@ pragma solidity 0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {Duration} from "../types/Duration.sol";
+import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 /// @title HashConsensus Contract
 /// @notice This contract provides a consensus mechanism based on hash voting among members
@@ -15,7 +17,7 @@ abstract contract HashConsensus is Ownable {
     event QuorumSet(uint256 quorum);
     event HashUsed(bytes32 hash);
     event Voted(address indexed signer, bytes32 hash, bool support);
-    event TimelockDurationSet(uint256 timelockDuration);
+    event TimelockDurationSet(Duration timelockDuration);
 
     error DuplicatedMember(address account);
     error AccountIsNotMember(address account);
@@ -23,23 +25,23 @@ abstract contract HashConsensus is Ownable {
     error HashAlreadyUsed(bytes32 hash);
     error QuorumIsNotReached();
     error InvalidQuorum();
-    error InvalidTimelockDuration(uint256 timelock);
+    error InvalidTimelockDuration(Duration timelock);
     error TimelockNotPassed();
     error ProposalAlreadyScheduled(bytes32 hash);
 
     struct HashState {
-        uint40 scheduledAt;
-        uint40 usedAt;
+        Timestamp scheduledAt;
+        Timestamp usedAt;
     }
 
     uint256 public quorum;
-    uint256 public timelockDuration;
+    Duration public timelockDuration;
 
     mapping(bytes32 => HashState) private _hashStates;
     EnumerableSet.AddressSet private _members;
     mapping(address signer => mapping(bytes32 => bool)) public approves;
 
-    constructor(address owner, uint256 timelock) Ownable(owner) {
+    constructor(address owner, Duration timelock) Ownable(owner) {
         timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
     }
@@ -49,7 +51,7 @@ abstract contract HashConsensus is Ownable {
     /// @param hash The hash to vote on
     /// @param support Indicates whether the member supports the hash
     function _vote(bytes32 hash, bool support) internal {
-        if (_hashStates[hash].usedAt > 0) {
+        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
             revert HashAlreadyUsed(hash);
         }
 
@@ -59,8 +61,8 @@ abstract contract HashConsensus is Ownable {
 
         uint256 heads = _getSupport(hash);
         // heads compares to quorum - 1 because the current vote is not counted yet
-        if (heads >= quorum - 1 && support == true && _hashStates[hash].scheduledAt == 0) {
-            _hashStates[hash].scheduledAt = uint40(block.timestamp);
+        if (heads >= quorum - 1 && support == true && _hashStates[hash].scheduledAt == Timestamps.from(0)) {
+            _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
         }
 
         approves[msg.sender][hash] = support;
@@ -71,7 +73,7 @@ abstract contract HashConsensus is Ownable {
     /// @dev Internal function that handles marking a hash as used
     /// @param hash The hash to mark as used
     function _markUsed(bytes32 hash) internal {
-        if (_hashStates[hash].usedAt > 0) {
+        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
             revert HashAlreadyUsed(hash);
         }
 
@@ -80,11 +82,11 @@ abstract contract HashConsensus is Ownable {
         if (support == 0 || support < quorum) {
             revert QuorumIsNotReached();
         }
-        if (block.timestamp < _hashStates[hash].scheduledAt + timelockDuration) {
+        if (timelockDuration.addTo(_hashStates[hash].scheduledAt) > Timestamps.from(block.timestamp)) {
             revert TimelockNotPassed();
         }
 
-        _hashStates[hash].usedAt = uint40(block.timestamp);
+        _hashStates[hash].usedAt = Timestamps.from(block.timestamp);
 
         emit HashUsed(hash);
     }
@@ -99,12 +101,12 @@ abstract contract HashConsensus is Ownable {
     function _getHashState(bytes32 hash)
         internal
         view
-        returns (uint256 support, uint256 executionQuorum, uint256 scheduledAt, bool isUsed)
+        returns (uint256 support, uint256 executionQuorum, Timestamp scheduledAt, bool isUsed)
     {
         support = _getSupport(hash);
         executionQuorum = quorum;
         scheduledAt = _hashStates[hash].scheduledAt;
-        isUsed = _hashStates[hash].usedAt > 0;
+        isUsed = _hashStates[hash].usedAt > Timestamps.from(0);
     }
 
     /// @notice Adds new members to the contract and sets the execution quorum.
@@ -158,7 +160,7 @@ abstract contract HashConsensus is Ownable {
     /// @notice Sets the timelock duration
     /// @dev Only callable by the owner
     /// @param timelock The new timelock duration in seconds
-    function setTimelockDuration(uint256 timelock) public {
+    function setTimelockDuration(Duration timelock) public {
         _checkOwner();
         if (timelock == timelockDuration) {
             revert InvalidTimelockDuration(timelock);
@@ -181,18 +183,18 @@ abstract contract HashConsensus is Ownable {
     ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
     function schedule(bytes32 hash) public {
-        if (_hashStates[hash].usedAt > 0) {
+        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
             revert HashAlreadyUsed(hash);
         }
 
         if (_getSupport(hash) < quorum) {
             revert QuorumIsNotReached();
         }
-        if (_hashStates[hash].scheduledAt > 0) {
+        if (_hashStates[hash].scheduledAt > Timestamps.from(0)) {
             revert ProposalAlreadyScheduled(hash);
         }
 
-        _hashStates[hash].scheduledAt = uint40(block.timestamp);
+        _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
     }
 
     /// @notice Sets the execution quorum required for certain operations.
