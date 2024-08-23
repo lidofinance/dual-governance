@@ -37,7 +37,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         }
     }
 
-    function test_constructorInitializesCorrectly() public {
+    function test_constructor_InitializesCorrectly() public {
         uint256 timelock = 1;
 
         vm.expectEmit();
@@ -54,7 +54,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         new HashConsensusInstance(_owner, _committeeMembers, _quorum, timelock);
     }
 
-    function test_constructorRevertsWithZeroQuorum() public {
+    function test_constructor_RevertOn_WithZeroQuorum() public {
         uint256 invalidQuorum = 0;
 
         vm.expectRevert(abi.encodeWithSelector(HashConsensus.InvalidQuorum.selector));
@@ -80,7 +80,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         }
     }
 
-    function test_addMembers_stranger_call() public {
+    function test_addMembers_RevertOn_StrangerCall() public {
         address[] memory membersToAdd = new address[](1);
         membersToAdd[0] = makeAddr("NEW_MEMBER");
         assertEq(_hashConsensus.isMember(membersToAdd[0]), false);
@@ -96,7 +96,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         }
     }
 
-    function test_addMembers_reverts_on_duplicate() public {
+    function test_addMembers_RevertOn_Duplicate() public {
         address[] memory membersToAdd = new address[](1);
         membersToAdd[0] = _committeeMembers[0];
         assertEq(_hashConsensus.isMember(membersToAdd[0]), true);
@@ -106,7 +106,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.addMembers(membersToAdd, _quorum);
     }
 
-    function test_addMembers_reverts_on_duplicate_in_array() public {
+    function test_addMembers_RevertOn_DuplicateInArray() public {
         address[] memory membersToAdd = new address[](2);
         membersToAdd[0] = makeAddr("NEW_MEMBER");
         membersToAdd[1] = makeAddr("NEW_MEMBER");
@@ -117,7 +117,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.addMembers(membersToAdd, _quorum);
     }
 
-    function test_addMember_reverts_on_invalid_quorum() public {
+    function test_addMember_RevertOn_InvalidQuorum() public {
         address[] memory membersToAdd = new address[](1);
         membersToAdd[0] = makeAddr("NEW_MEMBER");
         assertEq(_hashConsensus.isMember(membersToAdd[0]), false);
@@ -159,7 +159,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         assertEq(committeeMembers[committeeMembers.length - 1], membersToAdd[1]);
     }
 
-    function test_removeMembers_stranger_call() public {
+    function test_removeMembers_RevertOn_StrangerCall() public {
         address[] memory membersToRemove = new address[](1);
         membersToRemove[0] = _committeeMembers[0];
         assertEq(_hashConsensus.isMember(membersToRemove[0]), true);
@@ -175,7 +175,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         }
     }
 
-    function test_removeMembers_reverts_on_member_is_not_exist() public {
+    function test_removeMembers_RevertOn_member_is_not_exist() public {
         address[] memory membersToRemove = new address[](1);
         membersToRemove[0] = _stranger;
         assertEq(_hashConsensus.isMember(membersToRemove[0]), false);
@@ -185,7 +185,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.removeMembers(membersToRemove, _quorum);
     }
 
-    function test_removeMembers_reverts_on_member_duplicate_in_array() public {
+    function test_removeMembers_RevertOn_member_duplicate_in_array() public {
         address[] memory membersToRemove = new address[](2);
         membersToRemove[0] = _committeeMembers[0];
         membersToRemove[1] = _committeeMembers[0];
@@ -197,7 +197,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.removeMembers(membersToRemove, _quorum);
     }
 
-    function test_removeMembers_reverts_on_invalid_quorum() public {
+    function test_removeMembers_RevertOn_invalid_quorum() public {
         address[] memory membersToRemove = new address[](1);
         membersToRemove[0] = _committeeMembers[0];
         assertEq(_hashConsensus.isMember(membersToRemove[0]), true);
@@ -240,7 +240,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         }
     }
 
-    function test_setTimelockDurationByOwner() public {
+    function test_setTimelockDuration_ByOwner() public {
         uint256 newTimelockDuration = 200;
 
         vm.expectEmit(true, false, false, true);
@@ -252,7 +252,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         assertEq(_hashConsensus.timelockDuration(), newTimelockDuration);
     }
 
-    function test_setTimelockDurationRevertsIfNotOwner() public {
+    function test_setTimelockDuration_RevertOn_IfNotOwner() public {
         uint256 newTimelockDuration = 200;
 
         vm.prank(address(0x123));
@@ -260,7 +260,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.setTimelockDuration(newTimelockDuration);
     }
 
-    function test_setTimelockDurationRevertsIfValueIsSame() public {
+    function test_setTimelockDuration_RevertOn_IfValueIsSame() public {
         uint256 newTimelockDuration = 300;
 
         vm.startPrank(_owner);
@@ -270,7 +270,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.setTimelockDuration(newTimelockDuration);
     }
 
-    function testTimelockDurationEventEmitted() public {
+    function test_setTimelockDuration_EventEmitted() public {
         uint256 newTimelockDuration = 300;
 
         vm.expectEmit(true, false, false, true);
@@ -280,7 +280,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.setTimelockDuration(newTimelockDuration);
     }
 
-    function test_setQuorumByOwner() public {
+    function test_setQuorum_ByOwner() public {
         uint256 newQuorum = 2;
 
         vm.expectEmit(true, false, false, true);
@@ -293,7 +293,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         assertEq(_hashConsensus.quorum(), newQuorum);
     }
 
-    function test_setQuorumRevertsIfNotOwner() public {
+    function test_setQuorum_RevertOn_IfNotOwner() public {
         uint256 newQuorum = 2;
 
         vm.prank(address(0x123));
@@ -301,7 +301,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.setQuorum(newQuorum);
     }
 
-    function test_setQuorumRevertsIfZeroQuorum() public {
+    function test_setQuorum_RevertOn_IfZeroQuorum() public {
         uint256 invalidQuorum = 0;
 
         vm.prank(_owner);
@@ -309,7 +309,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.setQuorum(invalidQuorum);
     }
 
-    function test_setQuorumRevertsIfQuorumExceedsMembers() public {
+    function test_setQuorum_RevertOn_IfQuorumExceedsMembers() public {
         uint256 invalidQuorum = _committeeMembers.length + 1;
 
         vm.prank(_owner);
@@ -317,7 +317,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.setQuorum(invalidQuorum);
     }
 
-    function test_setQuorumRevertsIfQuorumIsSame() public {
+    function test_setQuorum_RevertOn_IfQuorumIsSame() public {
         uint256 invalidQuorum = 2;
 
         vm.startPrank(_owner);
