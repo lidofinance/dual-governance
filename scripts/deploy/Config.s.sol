@@ -5,12 +5,31 @@ pragma solidity 0.8.26;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
+import {IStETH} from "contracts/interfaces/IStETH.sol";
+import {IWstETH} from "contracts/interfaces/IWstETH.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {IAragonVoting} from "test/utils/interfaces/IAragonVoting.sol"; // TODO: move to a proper location
+import {
+    ST_ETH as MAINNET_ST_ETH,
+    WST_ETH as MAINNET_WST_ETH,
+    WITHDRAWAL_QUEUE as MAINNET_WITHDRAWAL_QUEUE,
+    DAO_VOTING as MAINNET_DAO_VOTING
+} from "addresses/mainnet-addresses.sol";
+import {
+    ST_ETH as HOLESKY_ST_ETH,
+    WST_ETH as HOLESKY_WST_ETH,
+    WITHDRAWAL_QUEUE as HOLESKY_WITHDRAWAL_QUEUE,
+    DAO_VOTING as HOLESKY_DAO_VOTING
+} from "addresses/holesky-addresses.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 
 string constant ARRAY_SEPARATOR = ",";
+bytes32 constant CHAIN_NAME_MAINNET_HASH = keccak256(bytes("mainnet"));
+bytes32 constant CHAIN_NAME_HOLESKY_HASH = keccak256(bytes("holesky"));
 
 struct ConfigValues {
+    string CHAIN;
     uint256 DEPLOYER_PRIVATE_KEY;
     Duration AFTER_SUBMIT_DELAY;
     Duration MAX_AFTER_SUBMIT_DELAY;
@@ -52,9 +71,17 @@ struct ConfigValues {
     uint256[3] RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS;
 }
 
+struct LidoAddresses {
+    IStETH stETH;
+    IWstETH wstETH;
+    IWithdrawalQueue withdrawalQueue;
+    IAragonVoting voting;
+}
+
 contract DGDeployConfig is Script {
     error InvalidRageQuitETHWithdrawalsTimelockGrowthCoeffs(uint256[] coeffs);
     error InvalidQuorum(string committee, uint256 quorum);
+    error InvalidChain(string chainName);
 
     uint256 internal immutable DEFAULT_AFTER_SUBMIT_DELAY = 3 days;
     uint256 internal immutable DEFAULT_MAX_AFTER_SUBMIT_DELAY = 45 days;
@@ -100,6 +127,7 @@ contract DGDeployConfig is Script {
 
     function loadAndValidate() external returns (ConfigValues memory config) {
         config = ConfigValues({
+            CHAIN: vm.envString("CHAIN"),
             DEPLOYER_PRIVATE_KEY: vm.envUint("DEPLOYER_PRIVATE_KEY"),
             AFTER_SUBMIT_DELAY: Durations.from(vm.envOr("AFTER_SUBMIT_DELAY", DEFAULT_AFTER_SUBMIT_DELAY)),
             MAX_AFTER_SUBMIT_DELAY: Durations.from(vm.envOr("MAX_AFTER_SUBMIT_DELAY", DEFAULT_MAX_AFTER_SUBMIT_DELAY)),
@@ -208,6 +236,11 @@ contract DGDeployConfig is Script {
     }
 
     function validateConfig(ConfigValues memory config) internal pure {
+        bytes32 chainNameHash = keccak256(bytes(config.CHAIN));
+        if (chainNameHash != CHAIN_NAME_MAINNET_HASH && chainNameHash != CHAIN_NAME_HOLESKY_HASH) {
+            revert InvalidChain(config.CHAIN);
+        }
+
         if (
             config.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM == 0
                 || config.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM > config.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS.length
@@ -298,5 +331,23 @@ contract DGDeployConfig is Script {
             console.log(">> #", k, address(config.RESEAL_COMMITTEE_MEMBERS[k]));
         }
         console.log("=================================================");
+    }
+
+    function lidoAddresses(ConfigValues memory config) external pure returns (LidoAddresses memory) {
+        if (keccak256(bytes(config.CHAIN)) == CHAIN_NAME_MAINNET_HASH) {
+            return LidoAddresses({
+                stETH: IStETH(MAINNET_ST_ETH),
+                wstETH: IWstETH(MAINNET_WST_ETH),
+                withdrawalQueue: IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE),
+                voting: IAragonVoting(MAINNET_DAO_VOTING)
+            });
+        }
+
+        return LidoAddresses({
+            stETH: IStETH(HOLESKY_ST_ETH),
+            wstETH: IWstETH(HOLESKY_WST_ETH),
+            withdrawalQueue: IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE),
+            voting: IAragonVoting(HOLESKY_DAO_VOTING)
+        });
     }
 }

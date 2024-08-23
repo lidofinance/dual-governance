@@ -31,11 +31,10 @@ import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
-import {LidoUtils} from "test/utils/lido-utils.sol"; // TODO: del!
-import {DGDeployConfig, ConfigValues} from "./Config.s.sol";
+import {DGDeployConfig, ConfigValues, LidoAddresses} from "./Config.s.sol";
 
 contract DeployDG is Script {
-    LidoUtils.Context internal _lido = LidoUtils.mainnet(); // TODO: del!
+    LidoAddresses internal lidoAddresses;
     ConfigValues private dgDeployConfig;
 
     // Emergency Protected Timelock Contracts
@@ -63,6 +62,9 @@ contract DeployDG is Script {
         DGDeployConfig configProvider = new DGDeployConfig();
         dgDeployConfig = configProvider.loadAndValidate();
 
+        // TODO: check chain id?
+
+        lidoAddresses = configProvider.lidoAddresses(dgDeployConfig);
         deployer = vm.addr(dgDeployConfig.DEPLOYER_PRIVATE_KEY);
         vm.startBroadcast(dgDeployConfig.DEPLOYER_PRIVATE_KEY);
 
@@ -92,7 +94,7 @@ contract DeployDG is Script {
         dualGovernance = deployDualGovernance({configProvider: dualGovernanceConfigProvider});
 
         tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
-            owner: deployer, // temporary set owner to deployer, to add sub committees manually TODO: check
+            owner: deployer, // temporary set owner to deployer, to add sub committees manually
             timelockSeconds: dgDeployConfig.TIEBREAKER_EXECUTION_DELAY.toSeconds()
         });
 
@@ -108,7 +110,7 @@ contract DeployDG is Script {
         adminExecutor.execute(
             address(dualGovernance),
             0,
-            abi.encodeCall(dualGovernance.registerProposer, (address(_lido.voting), address(adminExecutor))) // TODO: check
+            abi.encodeCall(dualGovernance.registerProposer, (address(lidoAddresses.voting), address(adminExecutor)))
         );
         adminExecutor.execute(
             address(dualGovernance),
@@ -123,7 +125,9 @@ contract DeployDG is Script {
         adminExecutor.execute(
             address(dualGovernance),
             0,
-            abi.encodeCall(dualGovernance.addTiebreakerSealableWithdrawalBlocker, address(_lido.withdrawalQueue)) // TODO: check
+            abi.encodeCall(
+                dualGovernance.addTiebreakerSealableWithdrawalBlocker, address(lidoAddresses.withdrawalQueue)
+            )
         );
         adminExecutor.execute(
             address(dualGovernance), 0, abi.encodeCall(dualGovernance.setResealCommittee, address(resealCommittee))
@@ -151,15 +155,15 @@ contract DeployDG is Script {
         emergencyActivationCommittee = deployEmergencyActivationCommittee({
             quorum: dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
             members: dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS,
-            owner: address(adminExecutor) // TODO: check
+            owner: address(adminExecutor)
         });
 
         emergencyExecutionCommittee = deployEmergencyExecutionCommittee({
             quorum: dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
             members: dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS,
-            owner: address(adminExecutor) // TODO: check
+            owner: address(adminExecutor)
         });
-        emergencyGovernance = deployTimelockedGovernance({governance: address(_lido.voting)});
+        emergencyGovernance = deployTimelockedGovernance({governance: address(lidoAddresses.voting)});
 
         adminExecutor.execute(
             address(timelock),
@@ -188,8 +192,6 @@ contract DeployDG is Script {
         adminExecutor.execute(
             address(timelock), 0, abi.encodeCall(timelock.setEmergencyGovernance, (address(emergencyGovernance)))
         );
-
-        // TODO: timelock. transferExecutorOwnership ???
     }
 
     function deployExecutor(address owner) internal returns (Executor) {
@@ -258,9 +260,9 @@ contract DeployDG is Script {
     function deployDualGovernance(IDualGovernanceConfigProvider configProvider) internal returns (DualGovernance) {
         return new DualGovernance({
             dependencies: DualGovernance.ExternalDependencies({
-                stETH: _lido.stETH, // TODO: mainnet addr?
-                wstETH: _lido.wstETH,
-                withdrawalQueue: _lido.withdrawalQueue,
+                stETH: lidoAddresses.stETH,
+                wstETH: lidoAddresses.wstETH,
+                withdrawalQueue: lidoAddresses.withdrawalQueue,
                 timelock: timelock,
                 resealManager: resealManager,
                 configProvider: configProvider
