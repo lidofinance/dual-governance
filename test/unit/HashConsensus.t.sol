@@ -586,6 +586,8 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
     function test_scheduleDoNothingIfQuorumAlreadyReached() public {
         bytes32 hash = keccak256("hash");
 
+        _wait(_timelock);
+
         for (uint256 i = 0; i < _quorum; ++i) {
             vm.prank(_committeeMembers[i]);
             _hashConsensusWrapper.vote(hash, true);
@@ -594,6 +596,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         (,, uint256 scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
 
         _wait(_timelock);
+        vm.expectRevert(abi.encodeWithSignature("ProposalAlreadyScheduled(bytes32)", hash));
         _hashConsensusWrapper.schedule(hash);
 
         (,, uint256 scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);
@@ -612,6 +615,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         (,, uint256 scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
         assertEq(scheduledAtBefore, 0);
 
+        vm.expectRevert(abi.encodeWithSignature("QuorumIsNotReached()"));
         _hashConsensusWrapper.schedule(hash);
 
         (,, uint256 scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);

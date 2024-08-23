@@ -25,6 +25,7 @@ abstract contract HashConsensus is Ownable {
     error InvalidQuorum();
     error InvalidTimelockDuration(uint256 timelock);
     error TimelockNotPassed();
+    error ProposalAlreadyScheduled(bytes32 hash);
 
     struct HashState {
         uint40 scheduledAt;
@@ -57,7 +58,8 @@ abstract contract HashConsensus is Ownable {
         }
 
         uint256 heads = _getSupport(hash);
-        if (heads >= quorum && support == true) {
+        // heads compares to quorum - 1 because the current vote is not counted yet
+        if (heads >= quorum - 1 && support == true && _hashStates[hash].scheduledAt == 0) {
             _hashStates[hash].scheduledAt = uint40(block.timestamp);
         }
 
@@ -183,10 +185,14 @@ abstract contract HashConsensus is Ownable {
             revert HashAlreadyUsed(hash);
         }
 
-        uint256 support = _getSupport(hash);
-        if (support >= quorum && _hashStates[hash].scheduledAt == 0) {
-            _hashStates[hash].scheduledAt = uint40(block.timestamp);
+        if (_getSupport(hash) < quorum) {
+            revert QuorumIsNotReached();
         }
+        if (_hashStates[hash].scheduledAt > 0) {
+            revert ProposalAlreadyScheduled(hash);
+        }
+
+        _hashStates[hash].scheduledAt = uint40(block.timestamp);
     }
 
     /// @notice Sets the execution quorum required for certain operations.
