@@ -347,7 +347,7 @@ contract Target {
 }
 
 contract HashConsensusWrapper is HashConsensus {
-    event OnlyMemberModifierPassed();
+    event OnlyMemberPassed();
 
     Target internal _target;
 
@@ -385,7 +385,7 @@ contract HashConsensusWrapper is HashConsensus {
 
     function onlyMemberProtected() public {
         _checkCallerIsMember();
-        emit OnlyMemberModifierPassed();
+        emit OnlyMemberPassed();
     }
 }
 
@@ -514,7 +514,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         assertEq(_hashConsensusWrapper.approves(_committeeMembers[0], dataHash), false);
     }
 
-    function test_vote_reverts_on_executed() public {
+    function test_vote_RevertsOn_executed() public {
         for (uint256 i = 0; i < _quorum; ++i) {
             vm.prank(_committeeMembers[i]);
             _hashConsensusWrapper.vote(dataHash, true);
@@ -556,18 +556,24 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.execute(dataHash);
     }
 
-    function test_onlyMemberModifier() public {
+    function test_onlyMember() public {
         vm.prank(_stranger);
         vm.expectRevert(abi.encodeWithSelector(HashConsensus.CallerIsNotMember.selector, _stranger));
         _hashConsensusWrapper.onlyMemberProtected();
 
-        vm.prank(_committeeMembers[0]);
-        vm.expectEmit(address(_hashConsensus));
-        emit HashConsensusWrapper.OnlyMemberModifierPassed();
+        vm.prank(_owner);
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.CallerIsNotMember.selector, _owner));
         _hashConsensusWrapper.onlyMemberProtected();
+
+        for (uint256 i = 0; i < _committeeMembers.length; i++) {
+            vm.prank(_committeeMembers[i]);
+            vm.expectEmit(address(_hashConsensus));
+            emit HashConsensusWrapper.OnlyMemberPassed();
+            _hashConsensusWrapper.onlyMemberProtected();
+        }
     }
 
-    function test_scheduleRevertsIfHashIsUsed() public {
+    function test_schedule_RevertOn_IfHashIsUsed() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum; ++i) {
@@ -583,7 +589,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.schedule(hash);
     }
 
-    function test_scheduleDoNothingIfQuorumAlreadyReached() public {
+    function test_schedule_RevertOn_IfQuorumAlreadyReached() public {
         bytes32 hash = keccak256("hash");
 
         _wait(_timelock);
@@ -604,7 +610,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         assertEq(scheduledAtBefore, scheduledAtAfter);
     }
 
-    function test_scheduleDoNothingIfQuorumIsNotReached() public {
+    function test_schedule_RevertOn_IfQuorumIsNotReached() public {
         bytes32 hash = keccak256("hash");
 
         for (uint256 i = 0; i < _quorum - 1; ++i) {
