@@ -1,3 +1,6 @@
+using EscrowA as EscrowA;
+using EscrowB as EscrowB;
+
 methods {
 	// envfrees
 	function getProposer(address account) external returns (Proposers.Proposer memory) envfree;
@@ -107,6 +110,9 @@ rule dg_kp_3_cooldown_execution {
 
 // One rage quit cannot start until the previous rage quit has finalized. In 
 // other words, there can only be at most one active rage quit escrow at a time.
-rule dg_kp_4_single_ragequit {
-	assert false;
+rule dg_kp_4_single_ragequit (method f) {
+	env e;
+	calldataarg args;
+	f(e, args);
+	assert EscrowA == EscrowB || !(EscrowA.isRageQuitState(e) && EscrowB.isRageQuitState(e));
 }
