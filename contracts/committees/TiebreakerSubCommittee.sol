@@ -38,7 +38,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     function scheduleProposal(uint256 proposalId) public {
         _checkCallerIsMember();
-        (bytes memory proposalData, bytes32 key) = _encodeAproveProposal(proposalId);
+        (bytes memory proposalData, bytes32 key) = _encodeApproveProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);
     }
@@ -55,7 +55,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         view
         returns (uint256 support, uint256 executionQuorum, uint256 quorumAt, bool isExecuted)
     {
-        (, bytes32 key) = _encodeAproveProposal(proposalId);
+        (, bytes32 key) = _encodeApproveProposal(proposalId);
         return _getHashState(key);
     }
 
@@ -63,7 +63,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @dev Executes the schedule proposal by calling the scheduleProposal function on the Tiebreaker Core contract
     /// @param proposalId The ID of the proposal to schedule
     function executeScheduleProposal(uint256 proposalId) public {
-        (, bytes32 key) = _encodeAproveProposal(proposalId);
+        (, bytes32 key) = _encodeApproveProposal(proposalId);
         _markUsed(key);
         Address.functionCall(
             TIEBREAKER_CORE, abi.encodeWithSelector(ITiebreakerCore.scheduleProposal.selector, proposalId)
@@ -75,7 +75,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     /// @return data The encoded proposal data
     /// @return key The generated proposal key
-    function _encodeAproveProposal(uint256 proposalId) internal pure returns (bytes memory data, bytes32 key) {
+    function _encodeApproveProposal(uint256 proposalId) internal pure returns (bytes memory data, bytes32 key) {
         data = abi.encode(ProposalType.ScheduleProposal, proposalId);
         key = keccak256(data);
     }
@@ -88,6 +88,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @dev Allows committee members to vote on resuming a sealable address
     /// @param sealable The address to resume
     function sealableResume(address sealable) public {
+        _checkCallerIsMember();
         (bytes memory proposalData, bytes32 key,) = _encodeSealableResume(sealable);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ResumeSelable), proposalData);
