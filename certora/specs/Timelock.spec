@@ -4,6 +4,7 @@ methods {
     function CONFIG.AFTER_SUBMIT_DELAY() external returns (Durations.Duration) envfree;
     function CONFIG.AFTER_SCHEDULE_DELAY() external returns (Durations.Duration) envfree;
     function getProposal(uint256) external returns (Proposals.Proposal) envfree;
+    function getEmergencyState() external returns (EmergencyProtection.EmergencyState) envfree;
 
     // TODO: Improve this to instead resolving the inner unresolved calls to anything in EPT
     function Executor.execute(address, uint256, bytes) external returns (bytes) => NONDET;
@@ -70,6 +71,23 @@ rule EPT_2b_SubmissionGovernanceOnly {
     submit(e, args);
 
     assert e.msg.sender == currentContract._governance;
+}
+
+/**
+    @title If emergency mode is active, only emergency execution committee can execute proposals
+*/
+rule EPT_3_EmergencyModeExecutionRestriction(method f) filtered { f -> f.selector != sig:Executor.execute(address, uint256, bytes).selector } {
+    uint proposalId;
+    uint executedAtBefore = getProposal(proposalId).executedAt;
+
+    bool isEmergencyModeActivated = getEmergencyState().isEmergencyModeActivated;
+    address executionCommittee = getEmergencyState().executionCommittee;
+
+    env e;
+    calldataarg args;
+    f(e, args);
+
+    assert isEmergencyModeActivated && getProposal(proposalId).executedAt != executedAtBefore => e.msg.sender == executionCommittee;
 }
 
 // Helper for EPT_10_ProposalTimestampConsistency because Proposal contains some other not easily comparable data
