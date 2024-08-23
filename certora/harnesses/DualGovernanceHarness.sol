@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import "../../contracts/libraries/Proposers.sol";
 import "../../contracts/DualGovernance.sol";
+import {Status as ProposalStatus} from "../../contracts/libraries/ExecutableProposals.sol";
 // This is to make a type available for a NONDET summary
 import {IExternalExecutor} from "../../contracts/interfaces/IExternalExecutor.sol";
 import {State, DualGovernanceStateMachine} from "../../contracts/libraries/DualGovernanceStateMachine.sol";
@@ -32,6 +33,18 @@ contract DualGovernanceHarness is DualGovernance {
     // Return is uint32 which is the same as IndexOneBased
     function getProposerIndexFromExecutor(address proposer) external view returns (uint32) {
         return IndexOneBased.unwrap(_proposers.executors[proposer].proposerIndex);
+    }
+
+    function getProposalInfoHarnessed(uint256 proposalId)
+        external
+        view
+        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
+    {
+        return TIMELOCK.getProposalInfo(proposalId);
+    }
+
+    function getVetoSignallingActivatedAt() external view returns (Timestamp) {
+        return _stateMachine.vetoSignallingActivatedAt;
     }
 
     function asDGHarnessState(State state) public returns (DGHarnessState) {

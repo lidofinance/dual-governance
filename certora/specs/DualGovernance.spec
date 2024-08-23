@@ -9,6 +9,7 @@ methods {
 	function isVetoSignallingDeactivation(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
 	function isVetoCooldown(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
 	function isRageQuit(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+	function getVetoSignallingActivatedAt() external returns (DualGovernanceHarness.Timestamp) envfree;
 
 	// TODO check these NONDETs. So far they seem pretty irrelevant to the 
 	// rules in scope for this contract.
@@ -90,7 +91,18 @@ rule dg_kp_2_proposal_submission {
 // If a proposal was submitted after the last time the Veto Signaling state was 
 // activated, then it cannot be executed in the Veto Cooldown state.
 rule dg_kp_3_cooldown_execution {
-	assert false;
+	env e;
+	uint256 proposalId;
+	uint256 id;
+	ExecutableProposals.Status proposal_status;
+	address executor;
+	DualGovernanceHarness.Timestamp submittedAt;
+	DualGovernanceHarness.Timestamp scheduledAt;
+	(id, proposal_status, executor, submittedAt, scheduledAt) =
+		getProposalInfoHarnessed(e, proposalId);
+	require isVetoCooldown(getState());
+	scheduleProposal(e, proposalId);
+	assert submittedAt < getVetoSignallingActivatedAt();
 }
 
 // One rage quit cannot start until the previous rage quit has finalized. In 
