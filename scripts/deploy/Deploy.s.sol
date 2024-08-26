@@ -10,6 +10,7 @@ import {console} from "forge-std/console.sol";
 // Contracts
 // ---
 import {Timestamps} from "contracts/types/Timestamp.sol";
+import {Duration, Durations} from "contracts/types/Duration.sol";
 
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
@@ -95,7 +96,7 @@ contract DeployDG is Script {
 
         tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
             owner: deployer, // temporary set owner to deployer, to add sub committees manually
-            timelockSeconds: dgDeployConfig.TIEBREAKER_EXECUTION_DELAY.toSeconds()
+            _timelock: dgDeployConfig.TIEBREAKER_EXECUTION_DELAY
         });
 
         deployTiebreakerSubCommittees();
@@ -276,11 +277,8 @@ contract DeployDG is Script {
         });
     }
 
-    function deployEmptyTiebreakerCoreCommittee(
-        address owner,
-        uint256 timelockSeconds
-    ) internal returns (TiebreakerCore) {
-        return new TiebreakerCore({owner: owner, dualGovernance: address(dualGovernance), timelock: timelockSeconds});
+    function deployEmptyTiebreakerCoreCommittee(address owner, Duration _timelock) internal returns (TiebreakerCore) {
+        return new TiebreakerCore({owner: owner, dualGovernance: address(dualGovernance), timelock: _timelock});
     }
 
     function deployTiebreakerSubCommittees() internal {
@@ -325,7 +323,9 @@ contract DeployDG is Script {
         address[] memory committeeMembers = dgDeployConfig.RESEAL_COMMITTEE_MEMBERS;
 
         // TODO: Do we need to use timelock here?
-        return new ResealCommittee(address(adminExecutor), committeeMembers, quorum, address(dualGovernance), 0);
+        return new ResealCommittee(
+            address(adminExecutor), committeeMembers, quorum, address(dualGovernance), Durations.from(0)
+        );
     }
 
     function finalizeEmergencyProtectedTimelockDeploy() internal {
