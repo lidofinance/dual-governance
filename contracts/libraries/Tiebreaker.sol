@@ -87,11 +87,8 @@ library Tiebreaker {
     /// @param self The context storage.
     /// @param newTiebreakerCommittee The address of the new tiebreaker committee.
     function setTiebreakerCommittee(Context storage self, address newTiebreakerCommittee) internal {
-        if (newTiebreakerCommittee == address(0)) {
+        if (newTiebreakerCommittee == address(0) || newTiebreakerCommittee == self.tiebreakerCommittee) {
             revert InvalidTiebreakerCommittee(newTiebreakerCommittee);
-        }
-        if (self.tiebreakerCommittee == newTiebreakerCommittee) {
-            return;
         }
         self.tiebreakerCommittee = newTiebreakerCommittee;
         emit TiebreakerCommitteeSet(newTiebreakerCommittee);
@@ -112,12 +109,9 @@ library Tiebreaker {
         if (
             newTiebreakerActivationTimeout < minTiebreakerActivationTimeout
                 || newTiebreakerActivationTimeout > maxTiebreakerActivationTimeout
+                || newTiebreakerActivationTimeout == self.tiebreakerActivationTimeout
         ) {
             revert InvalidTiebreakerActivationTimeout(newTiebreakerActivationTimeout);
-        }
-
-        if (self.tiebreakerActivationTimeout == newTiebreakerActivationTimeout) {
-            return;
         }
         self.tiebreakerActivationTimeout = newTiebreakerActivationTimeout;
         emit TiebreakerActivationTimeoutSet(newTiebreakerActivationTimeout);
