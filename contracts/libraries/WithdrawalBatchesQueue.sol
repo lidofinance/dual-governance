@@ -5,7 +5,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @notice The state of the WithdrawalBatchesQueue
-/// @param Empty The initial (uninitialized) state of the WithdrawalBatchesQueue
+/// @param Absent The initial (uninitialized) state of the WithdrawalBatchesQueue
 /// @param Opened In this state, the WithdrawalBatchesQueue allows the addition of new batches of unstETH ids
 /// @param Closed The terminal state of the queue. In this state, the addition of new batches is forbidden
 enum State {
