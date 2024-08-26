@@ -1,7 +1,6 @@
 node_modules/
 .env
-coverage/
-coverage.json
+coverage-report/
 .DS_Store
 
 # Hardhat files
@@ -19,3 +18,4 @@ out/
 
 #Certora 
 .certora_internal/
+.vscode/

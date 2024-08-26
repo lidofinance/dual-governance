@@ -24,7 +24,7 @@ function minus(ETHValue v1, ETHValue v2) pure returns (ETHValue) {
     if (v1 < v2) {
         revert ETHValueUnderflow();
     }
-    return ETHValues.from(ETHValue.unwrap(v1) + ETHValue.unwrap(v2));
+    return ETHValues.from(ETHValue.unwrap(v1) - ETHValue.unwrap(v2));
 }
 
 function lt(ETHValue v1, ETHValue v2) pure returns (bool) {
@@ -55,5 +55,9 @@ library ETHValues {
             revert ETHValueOverflow();
         }
         return ETHValue.wrap(uint128(value));
+    }
+
+    function fromAddressBalance(address account) internal view returns (ETHValue) {
+        return from(account.balance);
     }
 }

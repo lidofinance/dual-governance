@@ -4,6 +4,9 @@ pragma solidity 0.8.26;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+/// @title HashConsensus Contract
+/// @notice This contract provides a consensus mechanism based on hash voting among members
+/// @dev Inherits from Ownable for access control and uses EnumerableSet for member management
 abstract contract HashConsensus is Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -14,12 +17,12 @@ abstract contract HashConsensus is Ownable {
     event Voted(address indexed signer, bytes32 hash, bool support);
     event TimelockDurationSet(uint256 timelockDuration);
 
-    error IsNotMember();
-    error SenderIsNotMember();
-    error HashAlreadyUsed();
+    error DuplicatedMember(address account);
+    error AccountIsNotMember(address account);
+    error CallerIsNotMember(address caller);
+    error HashAlreadyUsed(bytes32 hash);
     error QuorumIsNotReached();
     error InvalidQuorum();
-    error DuplicatedMember(address member);
     error TimelockNotPassed();
 
     struct HashState {
@@ -34,24 +37,18 @@ abstract contract HashConsensus is Ownable {
     EnumerableSet.AddressSet private _members;
     mapping(address signer => mapping(bytes32 => bool)) public approves;
 
-    constructor(address owner, address[] memory newMembers, uint256 executionQuorum, uint256 timelock) Ownable(owner) {
-        if (executionQuorum == 0) {
-            revert InvalidQuorum();
-        }
-        quorum = executionQuorum;
-        emit QuorumSet(executionQuorum);
-
+    constructor(address owner, uint256 timelock) Ownable(owner) {
         timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
-
-        for (uint256 i = 0; i < newMembers.length; ++i) {
-            _addMember(newMembers[i]);
-        }
     }
 
+    /// @notice Casts a vote on a given hash if hash has not been used
+    /// @dev Only callable by members
+    /// @param hash The hash to vote on
+    /// @param support Indicates whether the member supports the hash
     function _vote(bytes32 hash, bool support) internal {
         if (_hashStates[hash].usedAt > 0) {
-            revert HashAlreadyUsed();
+            revert HashAlreadyUsed(hash);
         }
 
         if (approves[msg.sender][hash] == support) {
@@ -67,11 +64,17 @@ abstract contract HashConsensus is Ownable {
         emit Voted(msg.sender, hash, support);
     }
 
+    /// @notice Marks a hash as used if quorum is reached and timelock has passed
+    /// @dev Internal function that handles marking a hash as used
+    /// @param hash The hash to mark as used
     function _markUsed(bytes32 hash) internal {
         if (_hashStates[hash].usedAt > 0) {
-            revert HashAlreadyUsed();
+            revert HashAlreadyUsed(hash);
         }
-        if (_getSupport(hash) < quorum) {
+
+        uint256 support = _getSupport(hash);
+
+        if (support == 0 || support < quorum) {
             revert QuorumIsNotReached();
         }
         if (block.timestamp < _hashStates[hash].quorumAt + timelockDuration) {
@@ -83,6 +86,12 @@ abstract contract HashConsensus is Ownable {
         emit HashUsed(hash);
     }
 
+    /// @notice Gets the state of a given hash
+    /// @dev Internal function to retrieve the state of a hash
+    /// @param hash The hash to get the state for
+    /// @return support The number of votes in support of the hash
+    /// @return execuitionQuorum The required number of votes for execution
+    /// @return isUsed Whether the hash has been used
     function _getHashState(bytes32 hash)
         internal
         view
@@ -93,60 +102,103 @@ abstract contract HashConsensus is Ownable {
         isUsed = _hashStates[hash].usedAt > 0;
     }
 
-    function addMember(address newMember, uint256 newQuorum) public onlyOwner {
-        _addMember(newMember);
+    /// @notice Adds new members to the contract and sets the execution quorum.
+    /// @dev This function allows the contract owner to add multiple new members and set the execution quorum.
+    ///      The function reverts if the caller is not the owner, if the execution quorum is set to zero,
+    ///      or if it exceeds the total number of members.
+    /// @param newMembers The array of addresses to be added as new members
+    /// @param executionQuorum The minimum number of members required for executing certain operations
+    function addMembers(address[] memory newMembers, uint256 executionQuorum) public {
+        _checkOwner();
 
-        if (newQuorum == 0 || newQuorum > _members.length()) {
-            revert InvalidQuorum();
-        }
-        quorum = newQuorum;
-        emit QuorumSet(newQuorum);
+        _addMembers(newMembers, executionQuorum);
     }
 
-    function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner {
-        if (!_members.contains(memberToRemove)) {
-            revert IsNotMember();
-        }
-        _members.remove(memberToRemove);
-        emit MemberRemoved(memberToRemove);
+    /// @notice Removes specified members from the contract and updates the execution quorum.
+    /// @dev This function can only be called by the contract owner. It removes multiple members from
+    ///      the contract. If any of the specified members are not found in the members list, the
+    ///      function will revert. The quorum is also updated and must not be zero or greater than
+    ///      the new total number of members.
+    /// @param membersToRemove The array of addresses to be removed from the members list.
+    /// @param newQuorum The updated minimum number of members required for executing certain operations.
+    function removeMembers(address[] memory membersToRemove, uint256 newQuorum) public {
+        _checkOwner();
 
-        if (newQuorum == 0 || newQuorum > _members.length()) {
-            revert InvalidQuorum();
+        for (uint256 i = 0; i < membersToRemove.length; ++i) {
+            if (!_members.contains(membersToRemove[i])) {
+                revert AccountIsNotMember(membersToRemove[i]);
+            }
+            _members.remove(membersToRemove[i]);
+            emit MemberRemoved(membersToRemove[i]);
         }
-        quorum = newQuorum;
-        emit QuorumSet(newQuorum);
+
+        _setQuorum(newQuorum);
     }
 
+    /// @notice Gets the list of committee members
+    /// @dev Public function to return the list of members
+    /// @return An array of addresses representing the committee members
     function getMembers() public view returns (address[] memory) {
         return _members.values();
     }
 
+    /// @notice Checks if an address is a member of the committee
+    /// @dev Public function to check membership status
+    /// @param member The address to check
+    /// @return A boolean indicating whether the address is a member
     function isMember(address member) public view returns (bool) {
         return _members.contains(member);
     }
 
-    function setTimelockDuration(uint256 timelock) public onlyOwner {
+    /// @notice Sets the timelock duration
+    /// @dev Only callable by the owner
+    /// @param timelock The new timelock duration in seconds
+    function setTimelockDuration(uint256 timelock) public {
+        _checkOwner();
         timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
     }
 
-    function setQuorum(uint256 newQuorum) public onlyOwner {
-        if (newQuorum == 0 || newQuorum > _members.length()) {
+    /// @notice Sets the quorum value
+    /// @dev Only callable by the owner
+    /// @param newQuorum The new quorum value
+    function setQuorum(uint256 newQuorum) public {
+        _checkOwner();
+        _setQuorum(newQuorum);
+    }
+
+    /// @notice Sets the execution quorum required for certain operations.
+    /// @dev The quorum value must be greater than zero and not exceed the current number of members.
+    /// @param executionQuorum The new quorum value to be set.
+    function _setQuorum(uint256 executionQuorum) internal {
+        if (executionQuorum == 0 || executionQuorum > _members.length()) {
             revert InvalidQuorum();
         }
-
-        quorum = newQuorum;
-        emit QuorumSet(newQuorum);
+        quorum = executionQuorum;
+        emit QuorumSet(executionQuorum);
     }
 
-    function _addMember(address newMember) internal {
-        if (_members.contains(newMember)) {
-            revert DuplicatedMember(newMember);
+    /// @notice Adds new members to the contract and sets the execution quorum.
+    /// @dev This internal function adds multiple new members and sets the execution quorum.
+    ///      The function reverts if the execution quorum is set to zero or exceeds the total number of members.
+    /// @param newMembers The array of addresses to be added as new members.
+    /// @param executionQuorum The minimum number of members required for executing certain operations.
+    function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
+        for (uint256 i = 0; i < newMembers.length; ++i) {
+            if (_members.contains(newMembers[i])) {
+                revert DuplicatedMember(newMembers[i]);
+            }
+            _members.add(newMembers[i]);
+            emit MemberAdded(newMembers[i]);
         }
-        _members.add(newMember);
-        emit MemberAdded(newMember);
+
+        _setQuorum(executionQuorum);
     }
 
+    /// @notice Gets the number of votes in support of a given hash
+    /// @dev Internal function to count the votes in support of a hash
+    /// @param hash The hash to check
+    /// @return support The number of votes in support of the hash
     function _getSupport(bytes32 hash) internal view returns (uint256 support) {
         for (uint256 i = 0; i < _members.length(); ++i) {
             if (approves[_members.at(i)][hash]) {
@@ -155,10 +207,11 @@ abstract contract HashConsensus is Ownable {
         }
     }
 
-    modifier onlyMember() {
+    /// @notice Restricts access to only committee members
+    /// @dev Reverts if the sender is not a member
+    function _checkCallerIsMember() internal view {
         if (!_members.contains(msg.sender)) {
-            revert SenderIsNotMember();
+            revert CallerIsNotMember(msg.sender);
         }
-        _;
     }
 }

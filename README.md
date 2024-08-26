@@ -8,14 +8,47 @@ See [this research forum discussion](https://research.lido.fi/t/ldo-steth-dual-g
 
 This project uses NPM for dependency management and Forge for tests so you'll need to have Node.js, NPM, and Foundry installed.
 
-Installing the dependencies:
+* Install NVM https://github.com/nvm-sh/nvm/blob/master/README.md#install--update-script
 
-```sh
-npm install
-```
+* Install specific Node.js version
+    ```sh
+    nvm install
+    ```
+
+* Install the dependencies:
+    ```sh
+    npm ci
+    ```
+
+* Install Foundry and `forge` https://book.getfoundry.sh/getting-started/installation
+
+* Create `.env` file
+    ```sh
+    cp .env.example .env
+    ```
+
+    and specify there your `MAINNET_RPC_URL`.
+
+    > **_NOTE:_**  You may need to specify manually maximum allowed requests per second (rps) value for an API key/RPC url for some providers. In our experience max 100 rps will be enough to run tests.
 
 ## Running tests
 
 ```sh
 forge test
 ```
+
+## Test coverage HTML report generation
+
+1. Install `lcov` package in your OS
+    ```sh
+    brew install lcov
+    
+    -OR-
+
+    apt-get install lcov
+    ```
+2. Run
+    ```sh
+    npm run cov-report
+    ```
+3. Open `./coverage-report/index.html` in your browser.

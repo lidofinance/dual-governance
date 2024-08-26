@@ -6,14 +6,21 @@ type IndexOneBased is uint32;
 error IndexOneBasedOverflow();
 error IndexOneBasedUnderflow();
 
-using {neq as !=} for IndexOneBased global;
-using {value} for IndexOneBased global;
+using {neq as !=, isEmpty, isNotEmpty, toZeroBasedValue} for IndexOneBased global;
 
 function neq(IndexOneBased i1, IndexOneBased i2) pure returns (bool) {
     return IndexOneBased.unwrap(i1) != IndexOneBased.unwrap(i2);
 }
 
-function value(IndexOneBased index) pure returns (uint256) {
+function isEmpty(IndexOneBased index) pure returns (bool) {
+    return IndexOneBased.unwrap(index) == 0;
+}
+
+function isNotEmpty(IndexOneBased index) pure returns (bool) {
+    return IndexOneBased.unwrap(index) != 0;
+}
+
+function toZeroBasedValue(IndexOneBased index) pure returns (uint256) {
     if (IndexOneBased.unwrap(index) == 0) {
         revert IndexOneBasedUnderflow();
     }
@@ -23,10 +30,10 @@ function value(IndexOneBased index) pure returns (uint256) {
 }
 
 library IndicesOneBased {
-    function from(uint256 value) internal pure returns (IndexOneBased) {
-        if (value > type(uint32).max) {
+    function fromOneBasedValue(uint256 oneBasedIndexValue) internal pure returns (IndexOneBased) {
+        if (oneBasedIndexValue > type(uint32).max) {
             revert IndexOneBasedOverflow();
         }
-        return IndexOneBased.wrap(uint32(value));
+        return IndexOneBased.wrap(uint32(oneBasedIndexValue));
     }
 }

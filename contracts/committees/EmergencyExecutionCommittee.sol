@@ -4,17 +4,16 @@ pragma solidity 0.8.26;
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-
-interface IEmergencyProtectedTimelock {
-    function emergencyExecute(uint256 proposalId) external;
-    function emergencyReset() external;
-}
+import {ITimelock} from "../interfaces/ITimelock.sol";
 
 enum ProposalType {
     EmergencyExecute,
     EmergencyReset
 }
 
+/// @title Emergency Execution Committee Contract
+/// @notice This contract allows a committee to vote on and execute emergency proposals
+/// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
@@ -23,18 +22,32 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address emergencyProtectedTimelock
-    ) HashConsensus(owner, committeeMembers, executionQuorum, 0) {
+    ) HashConsensus(owner, 0) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
+
+        _addMembers(committeeMembers, executionQuorum);
     }
 
+    // ---
     // Emergency Execution
+    // ---
 
-    function voteEmergencyExecute(uint256 proposalId, bool _supports) public onlyMember {
+    /// @notice Votes on an emergency execution proposal
+    /// @dev Only callable by committee members
+    /// @param proposalId The ID of the proposal to vote on
+    /// @param _supports Indicates whether the member supports the proposal execution
+    function voteEmergencyExecute(uint256 proposalId, bool _supports) public {
+        _checkCallerIsMember();
         (bytes memory proposalData, bytes32 key) = _encodeEmergencyExecute(proposalId);
         _vote(key, _supports);
         _pushProposal(key, uint256(ProposalType.EmergencyExecute), proposalData);
     }
 
+    /// @notice Gets the current state of an emergency execution proposal
+    /// @param proposalId The ID of the proposal
+    /// @return support The number of votes in support of the proposal
+    /// @return execuitionQuorum The required number of votes for execution
+    /// @return isExecuted Whether the proposal has been executed
     function getEmergencyExecuteState(uint256 proposalId)
         public
         view
@@ -44,15 +57,20 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         return _getHashState(key);
     }
 
+    /// @notice Executes an approved emergency execution proposal
+    /// @param proposalId The ID of the proposal to execute
     function executeEmergencyExecute(uint256 proposalId) public {
         (, bytes32 key) = _encodeEmergencyExecute(proposalId);
         _markUsed(key);
         Address.functionCall(
-            EMERGENCY_PROTECTED_TIMELOCK,
-            abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyExecute.selector, proposalId)
+            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.emergencyExecute.selector, proposalId)
         );
     }
 
+    /// @dev Encodes the proposal data and generates the proposal key for an emergency execution
+    /// @param proposalId The ID of the proposal to encode
+    /// @return proposalData The encoded proposal data
+    /// @return key The generated proposal key
     function _encodeEmergencyExecute(uint256 proposalId)
         private
         pure
@@ -62,14 +80,23 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         key = keccak256(proposalData);
     }
 
+    // ---
     // Governance reset
+    // ---
 
-    function approveEmergencyReset() public onlyMember {
+    /// @notice Approves an emergency reset proposal
+    /// @dev Only callable by committee members
+    function approveEmergencyReset() public {
+        _checkCallerIsMember();
         bytes32 proposalKey = _encodeEmergencyResetProposalKey();
         _vote(proposalKey, true);
         _pushProposal(proposalKey, uint256(ProposalType.EmergencyReset), bytes(""));
     }
 
+    /// @notice Gets the current state of an emergency reset opprosal
+    /// @return support The number of votes in support of the proposal
+    /// @return execuitionQuorum The required number of votes for execution
+    /// @return isExecuted Whether the proposal has been executed
     function getEmergencyResetState()
         public
         view
@@ -79,14 +106,15 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         return _getHashState(proposalKey);
     }
 
+    /// @notice Executes an approved emergency reset proposal
     function executeEmergencyReset() external {
         bytes32 proposalKey = _encodeEmergencyResetProposalKey();
         _markUsed(proposalKey);
-        Address.functionCall(
-            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyReset.selector)
-        );
+        Address.functionCall(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.emergencyReset.selector));
     }
 
+    /// @notice Encodes the proposal key for an emergency reset
+    /// @return The generated proposal key
     function _encodeEmergencyResetProposalKey() internal pure returns (bytes32) {
         return keccak256(abi.encode(ProposalType.EmergencyReset, bytes32(0)));
     }

@@ -4,37 +4,28 @@ pragma solidity 0.8.26;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {Duration} from "./types/Duration.sol";
-import {Timestamp, Timestamps} from "./types/Timestamp.sol";
+import {Timestamp} from "./types/Timestamp.sol";
+import {ETHValue, ETHValues} from "./types/ETHValue.sol";
+import {SharesValue, SharesValues} from "./types/SharesValue.sol";
+import {PercentD16, PercentsD16} from "./types/PercentD16.sol";
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
-import {IEscrowConfigration} from "./interfaces/IConfiguration.sol";
-
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue, WithdrawalRequestStatus} from "./interfaces/IWithdrawalQueue.sol";
+import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 
-import {
-    ETHValue,
-    ETHValues,
-    SharesValue,
-    SharesValues,
-    HolderAssets,
-    StETHAccounting,
-    UnstETHAccounting,
-    AssetsAccounting
-} from "./libraries/AssetsAccounting.sol";
+import {EscrowState} from "./libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalBatchesQueue.sol";
+import {HolderAssets, StETHAccounting, UnstETHAccounting, AssetsAccounting} from "./libraries/AssetsAccounting.sol";
 
-interface IDualGovernance {
-    function activateNextState() external;
-}
-
-enum EscrowState {
-    NotInitialized,
-    SignallingEscrow,
-    RageQuitEscrow
-}
-
+/// @notice Summary of the total locked assets in the Escrow
+/// @param stETHLockedShares Total number of stETH shares locked in the Escrow
+/// @param stETHClaimedETH Total amount of ETH claimed from the stETH locked in the Escrow
+/// @param unstETHUnfinalizedShares Total number of shares from unstETH NFTs that have not yet been
+/// marked as finalized
+/// @param unstETHFinalizedETH Total claimable amount of ETH from unstETH NFTs that have been marked
+/// as finalized
 struct LockedAssetsTotals {
     uint256 stETHLockedShares;
     uint256 stETHClaimedETH;
@@ -50,129 +41,177 @@ struct VetoerState {
 }
 
 contract Escrow is IEscrow {
-    using AssetsAccounting for AssetsAccounting.State;
-    using WithdrawalsBatchesQueue for WithdrawalsBatchesQueue.State;
+    using EscrowState for EscrowState.Context;
+    using AssetsAccounting for AssetsAccounting.Context;
+    using WithdrawalsBatchesQueue for WithdrawalsBatchesQueue.Context;
 
+    // ---
+    // Errors
+    // ---
+
+    error UnclaimedBatches();
     error UnexpectedUnstETHId();
-    error InvalidHintsLength(uint256 actual, uint256 expected);
-    error ClaimingIsFinished();
+    error UnfinalizedUnstETHIds();
+    error NonProxyCallsForbidden();
+    error BatchesQueueIsNotClosed();
     error InvalidBatchSize(uint256 size);
-    error WithdrawalsTimelockNotPassed();
+    error CallerIsNotDualGovernance(address caller);
+    error InvalidHintsLength(uint256 actual, uint256 expected);
     error InvalidETHSender(address actual, address expected);
-    error NotDualGovernance(address actual, address expected);
-    error MasterCopyCallForbidden();
-    error InvalidState(EscrowState actual, EscrowState expected);
-    error RageQuitExtraTimelockNotStarted();
 
-    address public immutable MASTER_COPY;
+    // ---
+    // Events
+    // ---
 
-    uint256 public immutable MIN_WITHDRAWAL_REQUEST_AMOUNT;
-    uint256 public immutable MAX_WITHDRAWAL_REQUEST_AMOUNT;
+    event ConfigProviderSet(address newConfigProvider);
+
+    // ---
+    // Sanity check params immutables
+    // ---
+
+    uint256 public immutable MIN_WITHDRAWALS_BATCH_SIZE;
+
+    // ---
+    // Dependencies immutables
+    // ---
 
     IStETH public immutable ST_ETH;
     IWstETH public immutable WST_ETH;
     IWithdrawalQueue public immutable WITHDRAWAL_QUEUE;
 
-    IEscrowConfigration public immutable CONFIG;
+    // ---
+    // Implementation immutables
 
-    EscrowState internal _escrowState;
-    IDualGovernance private _dualGovernance;
-    AssetsAccounting.State private _accounting;
-    WithdrawalsBatchesQueue.State private _batchesQueue;
+    address private immutable _SELF;
+    IDualGovernance public immutable DUAL_GOVERNANCE;
 
-    Duration internal _rageQuitExtensionDelay;
-    Duration internal _rageQuitWithdrawalsTimelock;
-    Timestamp internal _rageQuitTimelockStartedAt;
+    // ---
+    // Aspects
+    // ---
 
-    constructor(address stETH, address wstETH, address withdrawalQueue, address config) {
-        ST_ETH = IStETH(stETH);
-        WST_ETH = IWstETH(wstETH);
-        MASTER_COPY = address(this);
-        CONFIG = IEscrowConfigration(config);
-        WITHDRAWAL_QUEUE = IWithdrawalQueue(withdrawalQueue);
-        MIN_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
-        MAX_WITHDRAWAL_REQUEST_AMOUNT = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
+    EscrowState.Context internal _escrowState;
+    AssetsAccounting.Context private _accounting;
+    WithdrawalsBatchesQueue.Context private _batchesQueue;
+
+    // ---
+    // Construction & initializing
+    // ---
+
+    constructor(
+        IStETH stETH,
+        IWstETH wstETH,
+        IWithdrawalQueue withdrawalQueue,
+        IDualGovernance dualGovernance,
+        uint256 minWithdrawalsBatchSize
+    ) {
+        _SELF = address(this);
+        DUAL_GOVERNANCE = dualGovernance;
+
+        ST_ETH = stETH;
+        WST_ETH = wstETH;
+        WITHDRAWAL_QUEUE = withdrawalQueue;
+
+        MIN_WITHDRAWALS_BATCH_SIZE = minWithdrawalsBatchSize;
     }
 
-    function initialize(address dualGovernance) external {
-        if (address(this) == MASTER_COPY) {
-            revert MasterCopyCallForbidden();
+    function initialize(Duration minAssetsLockDuration) external {
+        if (address(this) == _SELF) {
+            revert NonProxyCallsForbidden();
         }
-        _checkEscrowState(EscrowState.NotInitialized);
+        _checkCallerIsDualGovernance();
 
-        _escrowState = EscrowState.SignallingEscrow;
-        _dualGovernance = IDualGovernance(dualGovernance);
+        _escrowState.initialize(minAssetsLockDuration);
 
         ST_ETH.approve(address(WST_ETH), type(uint256).max);
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
     }
 
     // ---
-    // Lock & Unlock stETH
+    // Lock & unlock stETH
     // ---
 
     function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares) {
+        _escrowState.checkSignallingEscrow();
+        DUAL_GOVERNANCE.activateNextState();
+
         lockedStETHShares = ST_ETH.getSharesByPooledEth(amount);
         _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
         ST_ETH.transferSharesFrom(msg.sender, address(this), lockedStETHShares);
-        _activateNextGovernanceState();
+
+        DUAL_GOVERNANCE.activateNextState();
     }
 
     function unlockStETH() external returns (uint256 unlockedStETHShares) {
-        _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
+        _escrowState.checkSignallingEscrow();
+
+        DUAL_GOVERNANCE.activateNextState();
+        _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
         unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender).toUint256();
         ST_ETH.transferShares(msg.sender, unlockedStETHShares);
-        _activateNextGovernanceState();
+
+        DUAL_GOVERNANCE.activateNextState();
     }
 
     // ---
-    // Lock / Unlock wstETH
+    // Lock & unlock wstETH
     // ---
 
     function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares) {
+        _escrowState.checkSignallingEscrow();
+        DUAL_GOVERNANCE.activateNextState();
+
         WST_ETH.transferFrom(msg.sender, address(this), amount);
         lockedStETHShares = ST_ETH.getSharesByPooledEth(WST_ETH.unwrap(amount));
         _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
-        _activateNextGovernanceState();
+
+        DUAL_GOVERNANCE.activateNextState();
     }
 
     function unlockWstETH() external returns (uint256 unlockedStETHShares) {
-        _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
+        _escrowState.checkSignallingEscrow();
+        DUAL_GOVERNANCE.activateNextState();
+
+        _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
         SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
         unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
         WST_ETH.transfer(msg.sender, unlockedStETHShares);
-        _activateNextGovernanceState();
+
+        DUAL_GOVERNANCE.activateNextState();
     }
 
     // ---
-    // Lock / Unlock unstETH
+    // Lock & unlock unstETH
     // ---
     function lockUnstETH(uint256[] memory unstETHIds) external {
+        _escrowState.checkSignallingEscrow();
+        DUAL_GOVERNANCE.activateNextState();
+
         WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
         _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
-
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             WITHDRAWAL_QUEUE.transferFrom(msg.sender, address(this), unstETHIds[i]);
         }
-        _activateNextGovernanceState();
+
+        DUAL_GOVERNANCE.activateNextState();
     }
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
-        _activateNextGovernanceState();
-        _accounting.checkAssetsUnlockDelayPassed(msg.sender, CONFIG.SIGNALLING_ESCROW_MIN_LOCK_TIME());
+        _escrowState.checkSignallingEscrow();
+        DUAL_GOVERNANCE.activateNextState();
+
+        _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
         _accounting.accountUnstETHUnlock(msg.sender, unstETHIds);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             WITHDRAWAL_QUEUE.transferFrom(address(this), msg.sender, unstETHIds[i]);
         }
-        _activateNextGovernanceState();
+
+        DUAL_GOVERNANCE.activateNextState();
     }
 
     function markUnstETHFinalized(uint256[] memory unstETHIds, uint256[] calldata hints) external {
-        _checkEscrowState(EscrowState.SignallingEscrow);
+        _escrowState.checkSignallingEscrow();
 
         uint256[] memory claimableAmounts = WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints);
         _accounting.accountUnstETHFinalized(unstETHIds, claimableAmounts);
@@ -182,8 +221,10 @@ contract Escrow is IEscrow {
     // Convert to NFT
     // ---
 
-    function requestWithdrawals(uint256[] calldata stEthAmounts) external returns (uint256[] memory unstETHIds) {
-        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stEthAmounts, address(this));
+    function requestWithdrawals(uint256[] calldata stETHAmounts) external returns (uint256[] memory unstETHIds) {
+        _escrowState.checkSignallingEscrow();
+
+        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stETHAmounts, address(this));
         WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
 
         uint256 sharesTotal = 0;
@@ -195,98 +236,136 @@ contract Escrow is IEscrow {
     }
 
     // ---
-    // State Updates
+    // Start rage quit
     // ---
 
     function startRageQuit(Duration rageQuitExtensionDelay, Duration rageQuitWithdrawalsTimelock) external {
-        _checkDualGovernance(msg.sender);
-        _checkEscrowState(EscrowState.SignallingEscrow);
-
-        _batchesQueue.open();
-        _escrowState = EscrowState.RageQuitEscrow;
-        _rageQuitExtensionDelay = rageQuitExtensionDelay;
-        _rageQuitWithdrawalsTimelock = rageQuitWithdrawalsTimelock;
+        _checkCallerIsDualGovernance();
+        _escrowState.startRageQuit(rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
+        _batchesQueue.open(WITHDRAWAL_QUEUE.getLastRequestId());
     }
 
-    function requestNextWithdrawalsBatch(uint256 maxBatchSize) external {
-        _checkEscrowState(EscrowState.RageQuitEscrow);
-        _batchesQueue.checkOpened();
+    // ---
+    // Request withdrawal batches
+    // ---
 
-        if (maxBatchSize < CONFIG.MIN_WITHDRAWALS_BATCH_SIZE() || maxBatchSize > CONFIG.MAX_WITHDRAWALS_BATCH_SIZE()) {
-            revert InvalidBatchSize(maxBatchSize);
+    function requestNextWithdrawalsBatch(uint256 batchSize) external {
+        _escrowState.checkRageQuitEscrow();
+
+        if (batchSize < MIN_WITHDRAWALS_BATCH_SIZE) {
+            revert InvalidBatchSize(batchSize);
         }
 
         uint256 stETHRemaining = ST_ETH.balanceOf(address(this));
-        if (stETHRemaining < MIN_WITHDRAWAL_REQUEST_AMOUNT) {
+        uint256 minStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
+        uint256 maxStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
+
+        if (stETHRemaining < minStETHWithdrawalRequestAmount) {
             return _batchesQueue.close();
         }
 
         uint256[] memory requestAmounts = WithdrawalsBatchesQueue.calcRequestAmounts({
-            minRequestAmount: MIN_WITHDRAWAL_REQUEST_AMOUNT,
-            requestAmount: MAX_WITHDRAWAL_REQUEST_AMOUNT,
-            amount: Math.min(stETHRemaining, MAX_WITHDRAWAL_REQUEST_AMOUNT * maxBatchSize)
+            minRequestAmount: minStETHWithdrawalRequestAmount,
+            maxRequestAmount: maxStETHWithdrawalRequestAmount,
+            remainingAmount: Math.min(stETHRemaining, maxStETHWithdrawalRequestAmount * batchSize)
         });
 
-        _batchesQueue.add(WITHDRAWAL_QUEUE.requestWithdrawals(requestAmounts, address(this)));
+        _batchesQueue.addUnstETHIds(WITHDRAWAL_QUEUE.requestWithdrawals(requestAmounts, address(this)));
     }
 
+    // ---
+    // Claim requested withdrawal batches
+    // ---
+
     function claimNextWithdrawalsBatch(uint256 maxUnstETHIdsCount) external {
-        _checkEscrowState(EscrowState.RageQuitEscrow);
-        if (!_rageQuitTimelockStartedAt.isZero()) {
-            revert ClaimingIsFinished();
-        }
+        _escrowState.checkRageQuitEscrow();
+        _escrowState.checkBatchesClaimingInProgress();
 
         uint256[] memory unstETHIds = _batchesQueue.claimNextBatch(maxUnstETHIdsCount);
 
         _claimNextWithdrawalsBatch(
-            unstETHIds, WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, WITHDRAWAL_QUEUE.getLastCheckpointIndex())
+            unstETHIds[0],
+            unstETHIds,
+            WITHDRAWAL_QUEUE.findCheckpointHints(unstETHIds, 1, WITHDRAWAL_QUEUE.getLastCheckpointIndex())
         );
     }
 
     function claimNextWithdrawalsBatch(uint256 fromUnstETHId, uint256[] calldata hints) external {
-        _checkEscrowState(EscrowState.RageQuitEscrow);
-        if (!_rageQuitTimelockStartedAt.isZero()) {
-            revert ClaimingIsFinished();
-        }
+        _escrowState.checkRageQuitEscrow();
+        _escrowState.checkBatchesClaimingInProgress();
 
         uint256[] memory unstETHIds = _batchesQueue.claimNextBatch(hints.length);
 
-        if (unstETHIds.length > 0 && fromUnstETHId != unstETHIds[0]) {
-            revert UnexpectedUnstETHId();
-        }
-        if (hints.length != unstETHIds.length) {
-            revert InvalidHintsLength(hints.length, unstETHIds.length);
-        }
-
-        _claimNextWithdrawalsBatch(unstETHIds, hints);
-    }
-
-    function claimUnstETH(uint256[] calldata unstETHIds, uint256[] calldata hints) external {
-        _checkEscrowState(EscrowState.RageQuitEscrow);
-        uint256[] memory claimableAmounts = WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints);
-
-        uint256 ethBalanceBefore = address(this).balance;
-        WITHDRAWAL_QUEUE.claimWithdrawals(unstETHIds, hints);
-        uint256 ethBalanceAfter = address(this).balance;
-
-        ETHValue totalAmountClaimed = _accounting.accountUnstETHClaimed(unstETHIds, claimableAmounts);
-        assert(totalAmountClaimed == ETHValues.from(ethBalanceAfter - ethBalanceBefore));
+        _claimNextWithdrawalsBatch(fromUnstETHId, unstETHIds, hints);
     }
 
     // ---
-    // Withdraw Logic
+    // Start rage quit extension delay
+    // ---
+
+    function startRageQuitExtensionDelay() external {
+        if (!_batchesQueue.isClosed()) {
+            revert BatchesQueueIsNotClosed();
+        }
+
+        /// @dev This check is primarily required when only unstETH NFTs are locked in the Escrow
+        /// and there are no WithdrawalBatches. In this scenario, the RageQuitExtensionDelay can only begin
+        /// when the last locked unstETH id is finalized in the WithdrawalQueue.
+        /// When the WithdrawalBatchesQueue is not empty, this invariant is maintained by the following:
+        /// - Any locked unstETH during the VetoSignalling phase has an id less than any unstETH NFT created
+        ///   during the request for withdrawal batches.
+        /// - Claiming the withdrawal batches requires the finalization of the unstETH with the given id.
+        /// - The finalization of unstETH NFTs occurs in FIFO order.
+        if (_batchesQueue.getLastClaimedOrBoundaryUnstETHId() > WITHDRAWAL_QUEUE.getLastFinalizedRequestId()) {
+            revert UnfinalizedUnstETHIds();
+        }
+
+        if (!_batchesQueue.isAllBatchesClaimed()) {
+            revert UnclaimedBatches();
+        }
+
+        _escrowState.startRageQuitExtensionDelay();
+    }
+
+    // ---
+    // Claim locked unstETH NFTs
+    // ---
+
+    function claimUnstETH(uint256[] calldata unstETHIds, uint256[] calldata hints) external {
+        _escrowState.checkRageQuitEscrow();
+        uint256[] memory claimableAmounts = WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints);
+
+        ETHValue ethBalanceBefore = ETHValues.fromAddressBalance(address(this));
+        WITHDRAWAL_QUEUE.claimWithdrawals(unstETHIds, hints);
+        ETHValue ethBalanceAfter = ETHValues.fromAddressBalance(address(this));
+
+        ETHValue totalAmountClaimed = _accounting.accountUnstETHClaimed(unstETHIds, claimableAmounts);
+        assert(totalAmountClaimed == ethBalanceAfter - ethBalanceBefore);
+    }
+
+    // ---
+    // Escrow management
+    // ---
+
+    function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
+        _checkCallerIsDualGovernance();
+        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration);
+    }
+
+    // ---
+    // Withdraw logic
     // ---
 
     function withdrawETH() external {
-        _checkEscrowState(EscrowState.RageQuitEscrow);
-        _checkWithdrawalsTimelockPassed();
+        _escrowState.checkRageQuitEscrow();
+        _escrowState.checkWithdrawalsTimelockPassed();
         ETHValue ethToWithdraw = _accounting.accountStETHSharesWithdraw(msg.sender);
         ethToWithdraw.sendTo(payable(msg.sender));
     }
 
     function withdrawETH(uint256[] calldata unstETHIds) external {
-        _checkEscrowState(EscrowState.RageQuitEscrow);
-        _checkWithdrawalsTimelockPassed();
+        _escrowState.checkRageQuitEscrow();
+        _escrowState.checkWithdrawalsTimelockPassed();
         ETHValue ethToWithdraw = _accounting.accountUnstETHWithdraw(msg.sender, unstETHIds);
         ethToWithdraw.sendTo(payable(msg.sender));
     }
@@ -314,6 +393,10 @@ contract Escrow is IEscrow {
         state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
     }
 
+    function getUnclaimedUnstETHIdsCount() external view returns (uint256) {
+        return _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+    }
+
     function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds) {
         return _batchesQueue.getNextWithdrawalsBatches(limit);
     }
@@ -322,33 +405,29 @@ contract Escrow is IEscrow {
         return _batchesQueue.isClosed();
     }
 
-    function isWithdrawalsClaimed() external view returns (bool) {
-        return !_rageQuitTimelockStartedAt.isZero();
+    function isRageQuitExtensionDelayStarted() external view returns (bool) {
+        return _escrowState.isRageQuitExtensionDelayStarted();
     }
 
-    function getRageQuitTimelockStartedAt() external view returns (Timestamp) {
-        return _rageQuitTimelockStartedAt;
+    function getRageQuitExtensionDelayStartedAt() external view returns (Timestamp) {
+        return _escrowState.rageQuitExtensionDelayStartedAt;
     }
 
-    function getRageQuitSupport() external view returns (uint256 rageQuitSupport) {
+    function getRageQuitSupport() external view returns (PercentD16) {
         StETHAccounting memory stETHTotals = _accounting.stETHTotals;
         UnstETHAccounting memory unstETHTotals = _accounting.unstETHTotals;
 
         uint256 finalizedETH = unstETHTotals.finalizedETH.toUint256();
-        uint256 ufinalizedShares = (stETHTotals.lockedShares + unstETHTotals.unfinalizedShares).toUint256();
+        uint256 unfinalizedShares = (stETHTotals.lockedShares + unstETHTotals.unfinalizedShares).toUint256();
 
-        rageQuitSupport = (
-            10 ** 18 * (ST_ETH.getPooledEthByShares(ufinalizedShares) + finalizedETH)
-                / (ST_ETH.totalSupply() + finalizedETH)
-        );
+        return PercentsD16.fromFraction({
+            numerator: ST_ETH.getPooledEthByShares(unfinalizedShares) + finalizedETH,
+            denominator: ST_ETH.totalSupply() + finalizedETH
+        });
     }
 
     function isRageQuitFinalized() external view returns (bool) {
-        return (
-            _escrowState == EscrowState.RageQuitEscrow && _batchesQueue.isClosed()
-                && !_rageQuitTimelockStartedAt.isZero()
-                && Timestamps.now() > _rageQuitExtensionDelay.addTo(_rageQuitTimelockStartedAt)
-        );
+        return _escrowState.isRageQuitEscrow() && _escrowState.isRageQuitExtensionDelayPassed();
     }
 
     // ---
@@ -362,46 +441,32 @@ contract Escrow is IEscrow {
     }
 
     // ---
-    // Internal Methods
+    // Internal methods
     // ---
 
-    function _claimNextWithdrawalsBatch(uint256[] memory unstETHIds, uint256[] memory hints) internal {
-        uint256 ethBalanceBefore = address(this).balance;
+    function _claimNextWithdrawalsBatch(
+        uint256 fromUnstETHId,
+        uint256[] memory unstETHIds,
+        uint256[] memory hints
+    ) internal {
+        if (fromUnstETHId != unstETHIds[0]) {
+            revert UnexpectedUnstETHId();
+        }
+
+        if (hints.length != unstETHIds.length) {
+            revert InvalidHintsLength(hints.length, unstETHIds.length);
+        }
+
+        ETHValue ethBalanceBefore = ETHValues.fromAddressBalance(address(this));
         WITHDRAWAL_QUEUE.claimWithdrawals(unstETHIds, hints);
-        uint256 ethAmountClaimed = address(this).balance - ethBalanceBefore;
+        ETHValue ethBalanceAfter = ETHValues.fromAddressBalance(address(this));
 
-        if (ethAmountClaimed > 0) {
-            _accounting.accountClaimedStETH(ETHValues.from(ethAmountClaimed));
-        }
-
-        if (_batchesQueue.isClosed() && _batchesQueue.isAllUnstETHClaimed()) {
-            _rageQuitTimelockStartedAt = Timestamps.now();
-        }
+        _accounting.accountClaimedStETH(ethBalanceAfter - ethBalanceBefore);
     }
 
-    function _activateNextGovernanceState() internal {
-        _dualGovernance.activateNextState();
-    }
-
-    function _checkEscrowState(EscrowState expected) internal view {
-        if (_escrowState != expected) {
-            revert InvalidState(_escrowState, expected);
-        }
-    }
-
-    function _checkDualGovernance(address account) internal view {
-        if (account != address(_dualGovernance)) {
-            revert NotDualGovernance(account, address(_dualGovernance));
-        }
-    }
-
-    function _checkWithdrawalsTimelockPassed() internal view {
-        if (_rageQuitTimelockStartedAt.isZero()) {
-            revert RageQuitExtraTimelockNotStarted();
-        }
-        Duration withdrawalsTimelock = _rageQuitExtensionDelay + _rageQuitWithdrawalsTimelock;
-        if (Timestamps.now() <= withdrawalsTimelock.addTo(_rageQuitTimelockStartedAt)) {
-            revert WithdrawalsTimelockNotPassed();
+    function _checkCallerIsDualGovernance() internal view {
+        if (msg.sender != address(DUAL_GOVERNANCE)) {
+            revert CallerIsNotDualGovernance(msg.sender);
         }
     }
 }
