@@ -167,7 +167,7 @@ abstract contract SetupDeployment is Test {
         _tiebreakerCoreCommittee = _deployEmptyTiebreakerCoreCommittee({
             owner: address(this), // temporary set owner to deployer, to add sub committees manually
             dualGovernance: _dualGovernance,
-            timelock: TIEBREAKER_EXECUTION_DELAY.toSeconds()
+            timelock: TIEBREAKER_EXECUTION_DELAY
         });
         address[] memory coreCommitteeMembers = new address[](TIEBREAKER_SUB_COMMITTEES_COUNT);
 
@@ -337,7 +337,9 @@ abstract contract SetupDeployment is Test {
             committeeMembers[i] = makeAddr(string(abi.encode(0xFA + i * membersCount + 65)));
         }
 
-        return new ResealCommittee(address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), 0);
+        return new ResealCommittee(
+            address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), Durations.from(0)
+        );
     }
 
     function _deployTimelockedGovernance(
@@ -403,7 +405,7 @@ abstract contract SetupDeployment is Test {
     function _deployEmptyTiebreakerCoreCommittee(
         address owner,
         IDualGovernance dualGovernance,
-        uint256 timelock
+        Duration timelock
     ) internal returns (TiebreakerCore) {
         return new TiebreakerCore({owner: owner, dualGovernance: address(dualGovernance), timelock: timelock});
     }

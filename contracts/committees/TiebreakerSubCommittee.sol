@@ -6,10 +6,12 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+import {Durations} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,
-    ResumeSelable
+    ResumeSealable
 }
 
 /// @title Tiebreaker SubCommittee Contract
@@ -23,7 +25,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address tiebreakerCore
-    ) HashConsensus(owner, 0) {
+    ) HashConsensus(owner, Durations.from(0)) {
         TIEBREAKER_CORE = tiebreakerCore;
 
         _addMembers(committeeMembers, executionQuorum);
@@ -38,7 +40,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     function scheduleProposal(uint256 proposalId) public {
         _checkCallerIsMember();
-        (bytes memory proposalData, bytes32 key) = _encodeAproveProposal(proposalId);
+        (bytes memory proposalData, bytes32 key) = _encodeApproveProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);
     }
@@ -47,14 +49,15 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @dev Retrieves the state of the schedule proposal for a given proposal ID
     /// @param proposalId The ID of the proposal
     /// @return support The number of votes in support of the proposal
-    /// @return execuitionQuorum The required number of votes for execution
+    /// @return executionQuorum The required number of votes for execution
+    /// @return quorumAt The number of votes required to reach quorum
     /// @return isExecuted Whether the proposal has been executed
     function getScheduleProposalState(uint256 proposalId)
         public
         view
-        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
-        (, bytes32 key) = _encodeAproveProposal(proposalId);
+        (, bytes32 key) = _encodeApproveProposal(proposalId);
         return _getHashState(key);
     }
 
@@ -62,7 +65,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @dev Executes the schedule proposal by calling the scheduleProposal function on the Tiebreaker Core contract
     /// @param proposalId The ID of the proposal to schedule
     function executeScheduleProposal(uint256 proposalId) public {
-        (, bytes32 key) = _encodeAproveProposal(proposalId);
+        (, bytes32 key) = _encodeApproveProposal(proposalId);
         _markUsed(key);
         Address.functionCall(
             TIEBREAKER_CORE, abi.encodeWithSelector(ITiebreakerCore.scheduleProposal.selector, proposalId)
@@ -74,7 +77,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     /// @return data The encoded proposal data
     /// @return key The generated proposal key
-    function _encodeAproveProposal(uint256 proposalId) internal pure returns (bytes memory data, bytes32 key) {
+    function _encodeApproveProposal(uint256 proposalId) internal pure returns (bytes memory data, bytes32 key) {
         data = abi.encode(ProposalType.ScheduleProposal, proposalId);
         key = keccak256(data);
     }
@@ -87,21 +90,23 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @dev Allows committee members to vote on resuming a sealable address
     /// @param sealable The address to resume
     function sealableResume(address sealable) public {
+        _checkCallerIsMember();
         (bytes memory proposalData, bytes32 key,) = _encodeSealableResume(sealable);
         _vote(key, true);
-        _pushProposal(key, uint256(ProposalType.ResumeSelable), proposalData);
+        _pushProposal(key, uint256(ProposalType.ResumeSealable), proposalData);
     }
 
     /// @notice Gets the current state of a resume sealable proposal
     /// @dev Retrieves the state of the resume sealable proposal for a given address
     /// @param sealable The address to resume
     /// @return support The number of votes in support of the proposal
-    /// @return execuitionQuorum The required number of votes for execution
+    /// @return executionQuorum The required number of votes for execution
+    /// @return quorumAt The timestamp when the quorum was reached
     /// @return isExecuted Whether the proposal has been executed
     function getSealableResumeState(address sealable)
         public
         view
-        returns (uint256 support, uint256 execuitionQuorum, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
         (, bytes32 key,) = _encodeSealableResume(sealable);
         return _getHashState(key);
