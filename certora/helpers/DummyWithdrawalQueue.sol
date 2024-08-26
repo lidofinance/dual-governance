@@ -1,12 +1,11 @@
 pragma solidity ^0.8.26;
 
-import {IWithdrawalQueue, WithdrawalRequestStatus} from "../../contracts/interfaces/IWithdrawalQueue.sol";
 
 
 import "../../contracts/interfaces/IStETH.sol";
 
-// This implementation is only mock which will is later summarised by NONDET and HAVOC summary
-contract DummyWithdrawalQueue is IWithdrawalQueue {
+// This implementation is only mock for ESCROW contract 
+contract DummyWithdrawalQueue  {
 
     // The Prover will assume a contant but random value;
     uint256 public MAX_STETH_WITHDRAWAL_AMOUNT; 
@@ -18,7 +17,7 @@ contract DummyWithdrawalQueue is IWithdrawalQueue {
     mapping(uint256 => address) owner;
 
     IStETH public stETH;
-
+/*
     function getWithdrawalStatus(uint256[] calldata _requestIds)
         external
         view
@@ -27,7 +26,7 @@ contract DummyWithdrawalQueue is IWithdrawalQueue {
 
         //summary as nondet 
     }
-
+*/
     function transferFrom(address from, address to, uint256 requestId) external {
         require (owner[requestId] == from && balances[from] >= 1);
         owner[requestId] = to;
@@ -40,24 +39,28 @@ contract DummyWithdrawalQueue is IWithdrawalQueue {
         return balances[owner];
     }
 
-    mapping(uint256 => uint256) amountOfStETH;
+    mapping(uint256 => uint256) amountOfETH;
     function getClaimableEther(
         uint256[] calldata _requestIds,
         uint256[] calldata _hints
     ) external view returns (uint256[] memory claimableEthValues) {
-        //summary as nondet 
+        claimableEthValues = new uint256[](_requestIds.length);
+        for (uint256 i = 0; i < _requestIds.length; ++i) {
+            claimableEthValues[i] = amountOfETH[_requestIds[i]];
+        }
     }
 
     function requestWithdrawals(
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds) {
+        requestIds = new uint256[](_amounts.length);
         for (uint256 i = 0; i < _amounts.length; ++i) { 
                 stETH.transferFrom(msg.sender, address(this), _amounts[i]);
                 uint256 amountOfShares = stETH.getSharesByPooledEth(_amounts[i]);
                 requestIds[i] = lastRequestId + 1;
                 lastRequestId += 1;
-                //todo - update amountOfStETH
+                amountOfETH[requestIds[i]] = _amounts[i];
                 owner[requestIds[i]] = _owner;
         }
     }
@@ -65,6 +68,8 @@ contract DummyWithdrawalQueue is IWithdrawalQueue {
     function claimWithdrawals(uint256[] calldata requestIds, uint256[] calldata hints) external {
         for (uint256 i = 0; i < requestIds.length; ++i) {
             //todo;
+                (bool success,) = msg.sender.call{value: amountOfETH[requestIds[i]]}("");
+                require(success);
         }
     }
 
@@ -83,39 +88,6 @@ contract DummyWithdrawalQueue is IWithdrawalQueue {
     function getLastCheckpointIndex() external view returns (uint256) {
         return lastCheckpointIndex;
     }
-
-
-
-
-    function grantRole(bytes32 role, address account) external {
-        //unused
-        assert(false);
-    }
-    function pauseFor(uint256 duration) external {}
-
-    function isPaused() external returns (bool b) {
-        //unused
-        assert(false);
-    }
-
-    function getLastRequestId() external view returns (uint256 r) {
-        //unused
-        assert(false);
-    }
-
-    function requestWithdrawalsWstETH(uint256[] calldata amounts, address owner) external returns (uint256[] memory b) {
-        //unused
-    assert(false);
-    }
-
-
-
-    function getLastFinalizedRequestId() external view returns (uint256 c) {
-        //unused
-        assert(false);
-    }
-
-
 
 
 }

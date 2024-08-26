@@ -14,6 +14,9 @@ methods {
 
     //calls to stEthn and wst_eth from spec
 
+    
+    function DummyStETH.getTotalShares() external returns(uint256) envfree;
+    function DummyStETH.totalSupply() external returns(uint256) envfree;
     function DummyStETH.balanceOf(address) external returns(uint256) envfree;
     function DummyWstETH.balanceOf(address) external returns(uint256) envfree;
     function DummyStETH.getPooledEthByShares(uint256) external returns (uint256) envfree; 
@@ -32,10 +35,12 @@ methods {
     function _.canExecute(uint256 proposalId) external => NONDET;
 
     function _.getProposalSubmissionTime(uint256 proposalId) external => NONDET;
+
+
+    function _.getWithdrawalStatus(uint256[] _requestIds) external => NONDET;
 }
 
 use builtin rule sanity; 
-
 
 
 /**
@@ -78,16 +83,16 @@ rule batchesQueueCloseFinalState(method f){
 
 //todo - what else should not change be allowed;
 /**
-@title when ques are closed, no change in batch list.
+@title when queues are closed, no change in batch list.
 
 checked with mutation on version with issue
 https://prover.certora.com/output/40726/dd696d553405430aa40ae244474aa1d0/?anonymousKey=fe11fe659d51d8b9d1c1021a8ec18b9c2e6ab2a9
 
 **/  
 
-rule batchesQueueCloseNochange(method f){
+rule batchesQueueCloseNoChange(method f){
 
-    bool finialize = isWithdrawalsBatchesFinalized();
+    bool finalize = isWithdrawalsBatchesFinalized();
     uint256 any;
     uint256 before =  currentContract._batchesQueue.batches[any];
     
@@ -95,16 +100,47 @@ rule batchesQueueCloseNochange(method f){
     calldataarg argsF;
     f(eF,argsF);
 
-    assert finialize => before == currentContract._batchesQueue.batches[any];
+    assert finalize => before == currentContract._batchesQueue.batches[any];
 }
 
 
-invariant solvency_steth() 
-    stEth.getPooledEthByShares(currentContract._accounting.stETHTotals.lockedShares) <=  stEth.balanceOf(currentContract);
+invariant solvency_stETH() 
+    stEth.getPooledEthByShares(currentContract._accounting.stETHTotals.lockedShares) <=  stEth.balanceOf(currentContract)
+
+    filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
+    preserved with (env e) {
+        require e.msg.sender != currentContract;
+    }
+}
 
 
-//todo (assuming no transfer)
-//    wstEth.balanceOf(currentContract) == 0 ;
+ghost mathint sumStETHLockedShares{
+    // assuming value zero at the initial state before constructor 
+	init_state axiom sumStETHLockedShares == 0; 
+}
+
+
+/* updated sumStETHLockedShares according to the change of a single account */
+hook Sstore currentContract._accounting.assets[KEY address a].stETHLockedShares Escrow.SharesValue new_balance
+// the old value that balances[a] holds before the store
+    (Escrow.SharesValue old_balance) {
+  sumStETHLockedShares = sumStETHLockedShares + new_balance - old_balance;
+}
+
+invariant totalLockedShares()
+    sumStETHLockedShares == currentContract._accounting.stETHTotals.lockedShares;
+
+invariant solvency_claimedETH() 
+    currentContract._accounting.stETHTotals.claimedETH <=  nativeBalances[currentContract]
+
+    filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
+    preserved with (env e) {
+        require e.msg.sender != currentContract;
+    }
+}
+
+
+
 
 rule solvency_wst_eth_test(method f) 
 {
@@ -115,10 +151,12 @@ rule solvency_wst_eth_test(method f)
     uint256 after = wst_eth.balanceOf(currentContract);  
     assert after == before;
 }
+
+
 //todo - StETHAccounting.claimedETH <=  nativeBalances[currentContract]
 // need to prove sum of balance <= self.stETHTotals.lockedShares
 
-rule solvency_eth(method f) 
+rule change_eth(method f) 
 {
     uint256 before = nativeBalances[currentContract];  
     env e;
@@ -128,7 +166,7 @@ rule solvency_eth(method f)
     assert after == before;
 }
 
-rule solvency_st_eth(method f) 
+rule change_st_eth(method f) 
 {
     uint256 before = stEth.balanceOf(currentContract); 
     env e;
