@@ -15,6 +15,16 @@ methods {
 	function getVetoSignallingActivatedAt() external returns (DualGovernanceHarness.Timestamp) envfree;
 	function getRageQuitEscrow() external returns (address) envfree;
 
+	// DualGovernanceConfig summaries
+	function _.isFirstSealRageQuitSupportCrossed(
+		DualGovernanceConfig.Context memory configContext, 
+		DualGovernanceHarness.PercentD16 rageQuitSupport) internal => 
+	isFirstRageQuitCrossedGhost(rageQuitSupport) expect bool;
+	function _.isSecondSealRageQuitSupportCrossed(
+		DualGovernanceConfig.Context memory configContext, 
+		DualGovernanceHarness.PercentD16 rageQuitSupport) internal => 
+	isSecondRageQuitCrossedGhost(rageQuitSupport) expect bool;
+
 	// envfrees escrow
 	function EscrowA.isRageQuitState() external returns (bool) envfree;
 	function EscrowB.isRageQuitState() external returns (bool) envfree;
@@ -56,6 +66,38 @@ function CVLFunctionCallWithValue(address target, bytes data, uint256 value) ret
 	bytes ret;
 	return ret;
 }
+
+function escrowAddressIsRageQuit(address escrow) returns bool {
+	if (escrow == EscrowA) {
+		return EscrowA.isRageQuitState();
+	} else if (escrow == EscrowB) {
+		return EscrowB.isRageQuitState();
+	}
+	return false;
+}
+
+// Ghosts for support thresholds so we do not need to link
+// in DualGovernanceConfig which has some nonlinear functions
+ghost uint256 rageQuitFirstSealGhost {
+	init_state axiom rageQuitFirstSealGhost > 0;
+}
+ghost uint256 rageQuitSecondSealGhost {
+	init_state axiom rageQuitSecondSealGhost > 0 && 
+		rageQuitFirstSealGhost < rageQuitSecondSealGhost;
+}
+function isFirstRageQuitCrossedGhost(uint256 rageQuitSupport) returns bool {
+	require rageQuitFirstSealGhost > 0;
+	require rageQuitSecondSealGhost > 0;
+	require rageQuitFirstSealGhost < rageQuitSecondSealGhost;
+	return rageQuitSupport > rageQuitFirstSealGhost;
+}
+function isSecondRageQuitCrossedGhost(uint256 rageQuitSupport) returns bool {
+	require rageQuitFirstSealGhost > 0;
+	require rageQuitSecondSealGhost > 0;
+	require rageQuitFirstSealGhost < rageQuitSecondSealGhost;
+	return rageQuitSupport > rageQuitSecondSealGhost;
+}
+
 // for any registered proposer, his index should be ≤ the length of 
 // the array of proposers
 // “for each entry in the struct in the array, show that the index inside is the same as the real array index”
@@ -126,15 +168,6 @@ rule dg_kp_3_cooldown_execution (method f) {
 	assert submittedAt <= vetoSignallingActivatedAt;
 }
 
-function escrowAddressIsRageQuit(address escrow) returns bool {
-	if (escrow == EscrowA) {
-		return EscrowA.isRageQuitState();
-	} else if (escrow == EscrowB) {
-		return EscrowB.isRageQuitState();
-	}
-	return false;
-}
-
 // One rage quit cannot start until the previous rage quit has finalized. In 
 // other words, there can only be at most one active rage quit escrow at a time.
 rule dg_kp_4_single_ragequit (method f) {
@@ -152,10 +185,34 @@ rule dg_kp_4_single_ragequit (method f) {
 // the timelock for a proportional time, according to the dynamic timelock 
 // calculation.
 // expected complexity: low
+rule pp_kp_1_ragequit_extends (method f) {
+	env e;
+	calldataarg args;
+	f(e, args);
+	// Note: the only two states where execution is possible are Normal 
+	// and VetoCooldown
+	// assuming there is enough ragequit support and the max timelock
+	// has not exceeded:
+	// - we do not transition into normal state
+	// - if timelock is extended with ragequit support, we
+	// cannot transition into VetoCooldown
+	require getVetoSignallingEscrow(e) == EscrowA;
+	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
+	require isFirstRageQuitCrossedGhost(rageQuitSupport);
+	require !isDynamicTimelockPassed(e, rageQuitSupport);
+	// we cannot transition to normal state above first seal ragequit support
+	assert !isNormal(getState());
+	assert !isVetoCooldown(getState());
+}
+// Alternative: maybe it's more useful to just prove that dynamicDelayDuration
+// is monotonically increasing with increased rageQuitSupport.
 
 // PP-2: It's not possible to prevent a proposal from being executed 
 // indefinitely without triggering a rage quit.
 // expected complexity: extra high
+
+// One option: assume rageQuitSupport == max, show secondSealRageQuit support
+// is crossed. Seems trivial though.
 
 // PP-3: It's not possible to block proposal submission indefinitely.
 // expected complexity: high

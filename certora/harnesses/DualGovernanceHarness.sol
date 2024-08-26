@@ -8,11 +8,16 @@ import {Status as ProposalStatus} from "../../contracts/libraries/ExecutableProp
 import {IExternalExecutor} from "../../contracts/interfaces/IExternalExecutor.sol";
 import {State, DualGovernanceStateMachine} from "../../contracts/libraries/DualGovernanceStateMachine.sol";
 
+// The following two are both for isDynamicTimelockDurationPassed
+import {DualGovernanceConfig} from "../../contracts/libraries/DualGovernanceConfig.sol";
+import {PercentD16} from "../../contracts/types/PercentD16.sol";
+
 contract DualGovernanceHarness is DualGovernance {
     using Proposers for Proposers.Context;
     using Proposers for Proposers.Proposer;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
+    using DualGovernanceConfig for DualGovernanceConfig.Context;
 
     // Needed because DualGovernanceStateMachine.State is not
     // referrable without redeclaring this here.
@@ -63,6 +68,12 @@ contract DualGovernanceHarness is DualGovernance {
     //     );
     //     return (asDGHarnessState(oldState), asDGHarnessState(newState));
     // }
+
+    function isDynamicTimelockPassed(uint256 rageQuitSupport) public returns (bool) {
+        return _configProvider.getDualGovernanceConfig().isDynamicTimelockDurationPassed(
+            _stateMachine.vetoSignallingActivatedAt, PercentD16.wrap(rageQuitSupport)
+        );
+    }
 
     function isUnset(DGHarnessState state) public returns (bool) {
         return state == DGHarnessState.Unset;
