@@ -13,6 +13,17 @@ methods {
 	function isVetoCooldown(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
 	function isRageQuit(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
 	function getVetoSignallingActivatedAt() external returns (DualGovernanceHarness.Timestamp) envfree;
+	function getRageQuitEscrow() external returns (address) envfree;
+
+	// envfrees escrow
+	function EscrowA.isRageQuitState() external returns (bool) envfree;
+	function EscrowB.isRageQuitState() external returns (bool) envfree;
+
+	// route escrow functions to implementations while
+	// still allowing escrow addresses to vary
+	function _.startRageQuit(DualGovernanceHarness.Duration, DualGovernance.Duration) external => DISPATCHER(true);
+	function _.initialize(DualGovernanceHarness.Duration) external => DISPATCHER(true);
+	function _.setMinAssetsLockDuration(DualGovernanceHarness.Duration newMinAssetsLockDuration) external => DISPATCHER(true);
 
 	// TODO check these NONDETs. So far they seem pretty irrelevant to the 
 	// rules in scope for this contract.
@@ -93,7 +104,8 @@ rule dg_kp_2_proposal_submission {
 
 // If a proposal was submitted after the last time the Veto Signaling state was 
 // activated, then it cannot be executed in the Veto Cooldown state.
-rule dg_kp_3_cooldown_execution {
+rule dg_kp_3_cooldown_execution (method f) {
+	calldataarg args;
 	env e;
 	uint256 proposalId;
 	uint256 id;
@@ -103,9 +115,24 @@ rule dg_kp_3_cooldown_execution {
 	DualGovernanceHarness.Timestamp scheduledAt;
 	(id, proposal_status, executor, submittedAt, scheduledAt) =
 		getProposalInfoHarnessed(e, proposalId);
-	require isVetoCooldown(getState());
+
 	scheduleProposal(e, proposalId);
-	assert submittedAt < getVetoSignallingActivatedAt();
+
+	// This requires affects the state that was stepped into at the start of
+	// the scheduleProposal call
+	require isVetoCooldown(getState());
+	DualGovernanceHarness.Timestamp vetoSignallingActivatedAt =
+		getVetoSignallingActivatedAt();
+	assert submittedAt <= vetoSignallingActivatedAt;
+}
+
+function escrowAddressIsRageQuit(address escrow) returns bool {
+	if (escrow == EscrowA) {
+		return EscrowA.isRageQuitState();
+	} else if (escrow == EscrowB) {
+		return EscrowB.isRageQuitState();
+	}
+	return false;
 }
 
 // One rage quit cannot start until the previous rage quit has finalized. In 
@@ -113,6 +140,27 @@ rule dg_kp_3_cooldown_execution {
 rule dg_kp_4_single_ragequit (method f) {
 	env e;
 	calldataarg args;
+	require getRageQuitEscrow() != 0 => escrowAddressIsRageQuit(getRageQuitEscrow());
+	require EscrowA == EscrowB || !(EscrowA.isRageQuitState() && EscrowB.isRageQuitState());
 	f(e, args);
-	assert EscrowA == EscrowB || !(EscrowA.isRageQuitState(e) && EscrowB.isRageQuitState(e));
+	assert EscrowA == EscrowB || !(EscrowA.isRageQuitState() && EscrowB.isRageQuitState());
 }
+
+// PP-1: Regardless of the state in which a proposal is submitted, if the 
+// stakers are able to amass and maintain a certain amount of rage quit 
+// support before the ProposalExecutionMinTimelock expires, they can extend 
+// the timelock for a proportional time, according to the dynamic timelock 
+// calculation.
+// expected complexity: low
+
+// PP-2: It's not possible to prevent a proposal from being executed 
+// indefinitely without triggering a rage quit.
+// expected complexity: extra high
+
+// PP-3: It's not possible to block proposal submission indefinitely.
+// expected complexity: high
+
+// PP-4: Until the Veto Signaling Deactivation sub-state transitions to Veto 
+// Cooldown, there is always a possibility (given enough rage quit support) of 
+// canceling Deactivation and returning to the parent state (possibly 
+// triggering a rage quit immediately afterwards).
