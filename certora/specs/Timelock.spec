@@ -14,7 +14,13 @@ methods {
     function getAfterScheduleDelay() external returns (Durations.Duration) envfree;
 
     // TODO: Improve this to instead resolving the inner unresolved calls to anything in EPT
-    function Executor.execute(address, uint256, bytes) external returns (bytes) => NONDET;
+    function _.execute(address, uint256, bytes) external => nondetBytes() expect bytes;
+}
+
+// somehow, specifying it like this instead of NONDET avoids a revert based on the returned value in EPT_9_EmergencyModeLiveness
+function nondetBytes() returns bytes {
+    bytes b;
+    return b;
 }
 
 // TODO: maybe we can get rid of the filter if we resolve the unresolved calls inside execute, 
@@ -35,12 +41,6 @@ rule W1_4_TerminalityOfExecuted(method f) filtered { f -> f.selector != sig:Exec
     assert getProposal(proposalId).status == ExecutableProposals.Status.Executed;
 }
 
-// invariant proposalHasSubmissionTimeIfItExists(uint proposalId) getProposal(proposalId).status != ExecutableProposals.Status.NotExist <=> getProposal(proposalId).submittedAt != 0 
-//     filtered { f -> f.selector != sig:Executor.execute(address, uint256, bytes).selector } {
-//         preserved {
-//             requireInvariant outOfBoundsProposalDoesNotExist(proposalId);
-//         }
-//     }
 invariant outOfBoundsProposalDoesNotExist(uint proposalId) proposalId == 0 || proposalId > getProposalsCount() => getProposal(proposalId).status == ExecutableProposals.Status.NotExist
     filtered { f -> f.selector != sig:Executor.execute(address, uint256, bytes).selector } {}
 
@@ -171,7 +171,7 @@ rule EPT_3_EmergencyModeExecutionRestriction(method f) filtered { f -> f.selecto
     @notice The usefullness of this rule depends on us using the effectiveXXXCommittee functions also in all other rules 
             where we check that something is guarded by the committee.
 */
-rule EPT_5_EmergencyProtectionElapsed(method f) {
+rule EPT_5_EmergencyProtectionElapsed() {
     EmergencyProtection.Context context = getEmergencyProtectionContext();
     // protected deployment mode was activated, but not emergency mode
     require context.emergencyProtectionEndsAfter != 0 && !isEmergencyModeActive();
@@ -181,6 +181,24 @@ rule EPT_5_EmergencyProtectionElapsed(method f) {
     require e.block.timestamp > context.emergencyProtectionEndsAfter;
 
     assert effectiveEmergencyActivationCommittee(e) == 0 && effectiveEmergencyExecutionCommittee(e) == 0;
+}
+
+/**
+    @title When emergency mode is active, the emergency execution committee can execute proposals successfully
+*/
+rule EPT_9_EmergencyModeLiveness {
+    require isEmergencyModeActive();
+    uint proposalId;
+    requireInvariant outOfBoundsProposalDoesNotExist(proposalId);
+    require getProposal(proposalId).status == ExecutableProposals.Status.Scheduled;
+    env e;
+    require e.msg.value == 0;
+    require e.block.timestamp >= getProposal(proposalId).scheduledAt;
+    require e.block.timestamp < max_uint40;
+    emergencyExecute@withrevert(e, proposalId);
+    bool reverted = lastReverted;
+
+    assert e.msg.sender == effectiveEmergencyExecutionCommittee(e) => !reverted;
 }
 
 // Helper for EPT_10_ProposalTimestampConsistency because Proposal contains some other not easily comparable data
@@ -214,6 +232,26 @@ rule EPT_10_ProposalTimestampConsistency(method f) filtered { f -> f.selector !=
         assert proposalTimestampsEqual(proposal_before, getProposal(proposalId))
             && getProposal(proposalIdToSchedule).scheduledAt == e.block.timestamp;
 
+    } else if (f.selector == sig:execute(uint).selector) {
+        uint proposalId;
+        ITimelock.Proposal proposal_before = getProposal(proposalId);
+        uint proposalIdToExecute;
+        require proposalId != proposalIdToExecute;
+        execute(e, proposalIdToExecute);
+
+        // for the execution methods we also check that they update the status, since executedAt is not longer included as a timestamp, 
+        // but EPT_3_EmergencyModeExecutionRestriction depends on the execution status being recorded correctly to be meaningful
+        assert proposalTimestampsEqual(proposal_before, getProposal(proposalId))
+            && getProposal(proposalIdToExecute).status == ExecutableProposals.Status.Executed;
+    } else if (f.selector == sig:emergencyExecute(uint).selector) {
+        uint proposalId;
+        ITimelock.Proposal proposal_before = getProposal(proposalId);
+        uint proposalIdToExecute;
+        require proposalId != proposalIdToExecute;
+        emergencyExecute(e, proposalIdToExecute);
+
+        assert proposalTimestampsEqual(proposal_before, getProposal(proposalId))
+            && getProposal(proposalIdToExecute).status == ExecutableProposals.Status.Executed;
     } else {
         uint proposalId;
         ITimelock.Proposal proposal_before = getProposal(proposalId);
