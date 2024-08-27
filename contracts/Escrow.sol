@@ -403,7 +403,7 @@ contract Escrow is IEscrow {
 
         state.unstETHIdsCount = assets.unstETHIds.length;
         state.stETHLockedShares = assets.stETHLockedShares.toUint256();
-        state.unstETHLockedShares = assets.stETHLockedShares.toUint256();
+        state.unstETHLockedShares = assets.unstETHLockedShares.toUint256();
         state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
     }
 
