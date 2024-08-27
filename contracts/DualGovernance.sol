@@ -149,13 +149,12 @@ contract DualGovernance is IDualGovernance {
 
         State currentState = _stateMachine.getCurrentState();
         if (currentState != State.VetoSignalling && currentState != State.VetoSignallingDeactivation) {
-            /// @dev Early return to prevent "hanging" cancelPendingProposals() requests that could become unexpectedly
-            /// executable in the future.
-            ///
-            /// Some proposer contracts, such as Aragon Voting, may not support canceling already-consensed decisions.
-            /// This could lead to situations where a proposer’s cancelAllPendingProposals() call becomes unexecutable
-            /// if the Dual Governance state changes. However, it could become executable again if the system state
-            /// reverts to VetoSignalling or VetoSignallingDeactivation.
+            /// @dev Some proposer contracts, like Aragon Voting, may not support canceling decisions that have already
+            /// reached consensus. This could lead to a situation where a proposer’s cancelAllPendingProposals() call
+            /// becomes unexecutable if the Dual Governance state changes. However, it might become executable again if
+            /// the system state shifts back to VetoSignalling or VetoSignallingDeactivation.
+            /// To avoid such a scenario, an early return is used instead of a revert when proposals cannot be canceled
+            /// due to an unsuitable Dual Governance state.
             emit CancelAllPendingProposalsSkipped();
             return;
         }
