@@ -218,7 +218,7 @@ rule pp_kp_1_ragequit_extends {
 // PP-2: It's not possible to prevent a proposal from being executed 
 // indefinitely without triggering a rage quit.
 // expected complexity: extra high
-rule pp_kp_2_ragequit_triggers {
+rule pp_kp_2_ragequit_trigger {
 	env e;
 	calldataarg args;
 
@@ -226,11 +226,10 @@ rule pp_kp_2_ragequit_triggers {
 	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
 	require rageQuitFirstSealGhost > 0;
 	require rageQuitSecondSealGhost > rageQuitFirstSealGhost;
-	// Max out the rageQuitSupport to try to cause the greatest delay
-	require rageQuitSupport == max_uint256;
+	// have large ragequit support to try to maximize delay
+	require rageQuitSupport > rageQuitSecondSealGhost;
 
 	// Assume we have waited long enough if in VetoSignalling
-	// (Check if this is actually needed)
 	require isDynamicTimelockPassed(e, rageQuitSupport);
 
 	DualGovernanceHarness.DGHarnessState old_state = getState();
@@ -240,11 +239,10 @@ rule pp_kp_2_ragequit_triggers {
 	// Show that from normal state we step towards RageQuit
 	assert isNormal(old_state) => isVetoSignalling(new_state);
 	assert isVetoSignalling(old_state) => isRageQuit(new_state);
-
 }
 
 // One option: assume rageQuitSupport == max, show secondSealRageQuit support
-// is crossed. Seems trivial though.
+// is crossed.
 
 // PP-3: It's not possible to block proposal submission indefinitely.
 // expected complexity: high
