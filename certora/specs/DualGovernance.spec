@@ -253,3 +253,17 @@ rule pp_kp_2_ragequit_triggers {
 // Cooldown, there is always a possibility (given enough rage quit support) of 
 // canceling Deactivation and returning to the parent state (possibly 
 // triggering a rage quit immediately afterwards).
+rule pp_kp_4_veto_signalling_deactivation_cancellable() {
+	env e;
+	require getVetoSignallingEscrow(e) == EscrowA;
+	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
+	require isVetoSignallingDeactivation(getState());
+	require isSecondRageQuitCrossedGhost(rageQuitSupport);
+	activateNextState(e);
+
+	// the only way out of veto signalling deactivation that does not go back to the parent is veto cooldown,
+	// so if we can't go here, there is no way to bypass the rage quit support
+	assert !isVetoCooldown(getState());
+	// and we also don't want to be stuck in deactivation, but have a way back to the parent
+	satisfy isVetoSignalling(getState());
+}
