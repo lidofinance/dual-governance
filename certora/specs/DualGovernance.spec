@@ -281,3 +281,27 @@ rule pp_kp_4_veto_signalling_deactivation_cancellable() {
 	// and we also don't want to be stuck in deactivation, but have a way back to the parent
 	satisfy isVetoSignalling(getState());
 }
+
+// If proposal submission succeeds, the system was in on of these states: Normal, Veto Signalling, Rage Quit
+rule dg_states_1_proposal_submission_states() {
+	env e;
+	calldataarg args;
+	submitProposal(e, args);
+	// we take the state after and not before, because state transitions are triggered at the start of actions,
+	// not at the end of the ones that caused them to become possible
+	DualGovernanceHarness.DGHarnessState state = getState();
+
+	assert isNormal(state) || isVetoSignalling(state) || isRageQuit(state);
+}
+
+// If proposal scheduling succeeds, the system was in one of these states: Normal, Veto Cooldown
+rule dg_states_2_proposal_scheduling_states() {
+	env e;
+	calldataarg args;
+	scheduleProposal(e, args);
+	// we take the state after and not before, because state transitions are triggered at the start of actions,
+	// not at the end of the ones that caused them to become possible
+	DualGovernanceHarness.DGHarnessState state = getState();
+
+	assert isNormal(state) || isVetoCooldown(state);
+}
