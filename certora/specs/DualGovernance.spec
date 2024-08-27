@@ -35,6 +35,8 @@ methods {
 	function _.initialize(DualGovernanceHarness.Duration) external => DISPATCHER(true);
 	function _.setMinAssetsLockDuration(DualGovernanceHarness.Duration newMinAssetsLockDuration) external => DISPATCHER(true);
 	function _.getRageQuitSupport() external => DISPATCHER(true);
+	function _.isRageQuitFinalized() external => DISPATCHER(true);
+
 
 	// TODO check these NONDETs. So far they seem pretty irrelevant to the 
 	// rules in scope for this contract.
@@ -186,14 +188,14 @@ rule dg_kp_4_single_ragequit (method f) {
 // the timelock for a proportional time, according to the dynamic timelock 
 // calculation.
 // expected complexity: low
-rule pp_kp_1_ragequit_extends (method f) {
+rule pp_kp_1_ragequit_extends {
 	env e;
-	calldataarg args;
 	// Assume not initially in VetoCooldown as we stay in this state
 	// unless vetoCooldownDuration has passed
 	require !isVetoCooldown(getState());
 
-	f(e, args);
+	activateNextState(e);
+
 	// Note: the only two states where execution is possible are Normal 
 	// and VetoCooldown
 	// assuming there is enough ragequit support and the max timelock
@@ -216,6 +218,30 @@ rule pp_kp_1_ragequit_extends (method f) {
 // PP-2: It's not possible to prevent a proposal from being executed 
 // indefinitely without triggering a rage quit.
 // expected complexity: extra high
+rule pp_kp_2_ragequit_triggers {
+	env e;
+	calldataarg args;
+
+	require getVetoSignallingEscrow(e) == EscrowA;
+	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
+	require rageQuitFirstSealGhost > 0;
+	require rageQuitSecondSealGhost > rageQuitFirstSealGhost;
+	// Max out the rageQuitSupport to try to cause the greatest delay
+	require rageQuitSupport == max_uint256;
+
+	// Assume we have waited long enough if in VetoSignalling
+	// (Check if this is actually needed)
+	require isDynamicTimelockPassed(e, rageQuitSupport);
+
+	DualGovernanceHarness.DGHarnessState old_state = getState();
+	activateNextState(e);
+	DualGovernanceHarness.DGHarnessState new_state = getState();
+
+	// Show that from normal state we step towards RageQuit
+	assert isNormal(old_state) => isVetoSignalling(new_state);
+	assert isVetoSignalling(old_state) => isRageQuit(new_state);
+
+}
 
 // One option: assume rageQuitSupport == max, show secondSealRageQuit support
 // is crossed. Seems trivial though.
