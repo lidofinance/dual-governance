@@ -69,6 +69,14 @@ contract DualGovernanceHarness is DualGovernance {
     //     return (asDGHarnessState(oldState), asDGHarnessState(newState));
     // }
 
+    function getFirstSeal() external view returns (uint256) {
+        return PercentD16.unwrap(_configProvider.getDualGovernanceConfig().firstSealRageQuitSupport);
+    }
+
+    function getSecondSeal() external view returns (uint256) {
+        return PercentD16.unwrap(_configProvider.getDualGovernanceConfig().secondSealRageQuitSupport);
+    }
+
     function isDynamicTimelockPassed(uint256 rageQuitSupport) public returns (bool) {
         return _configProvider.getDualGovernanceConfig().isDynamicTimelockDurationPassed(
             _stateMachine.vetoSignallingActivatedAt, PercentD16.wrap(rageQuitSupport)

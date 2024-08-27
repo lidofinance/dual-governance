@@ -34,6 +34,7 @@ methods {
 	function _.startRageQuit(DualGovernanceHarness.Duration, DualGovernance.Duration) external => DISPATCHER(true);
 	function _.initialize(DualGovernanceHarness.Duration) external => DISPATCHER(true);
 	function _.setMinAssetsLockDuration(DualGovernanceHarness.Duration newMinAssetsLockDuration) external => DISPATCHER(true);
+	function _.getRageQuitSupport() external => DISPATCHER(true);
 
 	// TODO check these NONDETs. So far they seem pretty irrelevant to the 
 	// rules in scope for this contract.
@@ -188,6 +189,10 @@ rule dg_kp_4_single_ragequit (method f) {
 rule pp_kp_1_ragequit_extends (method f) {
 	env e;
 	calldataarg args;
+	// Assume not initially in VetoCooldown as we stay in this state
+	// unless vetoCooldownDuration has passed
+	require !isVetoCooldown(getState());
+
 	f(e, args);
 	// Note: the only two states where execution is possible are Normal 
 	// and VetoCooldown
@@ -204,6 +209,7 @@ rule pp_kp_1_ragequit_extends (method f) {
 	assert !isNormal(getState());
 	assert !isVetoCooldown(getState());
 }
+
 // Alternative: maybe it's more useful to just prove that dynamicDelayDuration
 // is monotonically increasing with increased rageQuitSupport.
 
