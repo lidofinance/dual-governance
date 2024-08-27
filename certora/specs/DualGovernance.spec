@@ -246,6 +246,22 @@ rule pp_kp_2_ragequit_trigger {
 
 // PP-3: It's not possible to block proposal submission indefinitely.
 // expected complexity: high
+rule pp_kp_3_no_indefinite_proposal_submission_block {
+	env e;
+
+	require getVetoSignallingEscrow(e) == EscrowA;
+	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
+	// Assume we have waited long enough
+	require isVetoSignallingDeactivationMaxDurationPassed(e) && isVetoCooldownDurationPassed(e);
+
+	DualGovernanceHarness.DGHarnessState old_state = getState();
+	activateNextState(e);
+	DualGovernanceHarness.DGHarnessState new_state = getState();
+
+	// Show that from any state in which proposal submission is disallowed, we must step on given our waiting time
+	assert isVetoCooldown(old_state) => isNormal(new_state) || isVetoSignalling(new_state);
+	assert isVetoSignallingDeactivation(old_state) => isVetoCooldown(new_state) || isVetoSignalling(new_state) || isRageQuit(new_state);
+}
 
 // PP-4: Until the Veto Signaling Deactivation sub-state transitions to Veto 
 // Cooldown, there is always a possibility (given enough rage quit support) of 

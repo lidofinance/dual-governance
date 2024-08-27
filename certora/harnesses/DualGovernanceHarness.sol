@@ -40,7 +40,9 @@ contract DualGovernanceHarness is DualGovernance {
         return IndexOneBased.unwrap(_proposers.executors[proposer].proposerIndex);
     }
 
-    function getProposalInfoHarnessed(uint256 proposalId)
+    function getProposalInfoHarnessed(
+        uint256 proposalId
+    )
         external
         view
         returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
@@ -81,6 +83,16 @@ contract DualGovernanceHarness is DualGovernance {
         return _configProvider.getDualGovernanceConfig().isDynamicTimelockDurationPassed(
             _stateMachine.vetoSignallingActivatedAt, PercentD16.wrap(rageQuitSupport)
         );
+    }
+
+    function isVetoSignallingDeactivationMaxDurationPassed() public returns (bool) {
+        return _configProvider.getDualGovernanceConfig().isVetoSignallingDeactivationMaxDurationPassed(
+            _stateMachine.enteredAt
+        );
+    }
+
+    function isVetoCooldownDurationPassed() public returns (bool) {
+        return _configProvider.getDualGovernanceConfig().isVetoCooldownDurationPassed(_stateMachine.enteredAt);
     }
 
     function isUnset(DGHarnessState state) public returns (bool) {
