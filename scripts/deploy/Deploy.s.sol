@@ -33,8 +33,11 @@ import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
 import {DGDeployConfig, ConfigValues, LidoAddresses} from "./Config.s.sol";
+import {DeployValidation} from "./DeployValidation.sol";
 
 contract DeployDG is Script {
+    using DeployValidation for DeployValidation.DeployResult;
+
     LidoAddresses internal lidoAddresses;
     ConfigValues private dgDeployConfig;
 
@@ -73,19 +76,27 @@ contract DeployDG is Script {
 
         vm.stopBroadcast();
 
+        DeployValidation.DeployResult memory res = getDeployedAddresses();
+
         console.log("DG deployed successfully");
-        console.log("DualGovernance address", address(dualGovernance));
-        console.log("ResealManager address", address(resealManager));
-        console.log("TiebreakerCoreCommittee address", address(tiebreakerCoreCommittee));
+        console.log("DualGovernance address", res.dualGovernance);
+        console.log("ResealManager address", res.resealManager);
+        console.log("TiebreakerCoreCommittee address", res.tiebreakerCoreCommittee);
         for (uint256 i = 0; i < tiebreakerSubCommittees.length; ++i) {
             console.log("TiebreakerSubCommittee #", i, "address", address(tiebreakerSubCommittees[i]));
         }
-        console.log("AdminExecutor address", address(adminExecutor));
-        console.log("EmergencyProtectedTimelock address", address(timelock));
-        console.log("EmergencyGovernance address", address(emergencyGovernance));
-        console.log("EmergencyActivationCommittee address", address(emergencyActivationCommittee));
-        console.log("EmergencyExecutionCommittee address", address(emergencyExecutionCommittee));
-        console.log("ResealCommittee address", address(resealCommittee));
+        console.log("AdminExecutor address", res.adminExecutor);
+        console.log("EmergencyProtectedTimelock address", res.timelock);
+        console.log("EmergencyGovernance address", res.emergencyGovernance);
+        console.log("EmergencyActivationCommittee address", res.emergencyActivationCommittee);
+        console.log("EmergencyExecutionCommittee address", res.emergencyExecutionCommittee);
+        console.log("ResealCommittee address", res.resealCommittee);
+
+        console.log("Verifying deploy");
+
+        res.check();
+
+        console.log(unicode"Verified ✅");
     }
 
     function deployDualGovernanceSetup() internal {
@@ -176,6 +187,8 @@ contract DeployDG is Script {
             0,
             abi.encodeCall(timelock.setEmergencyProtectionExecutionCommittee, (address(emergencyExecutionCommittee)))
         );
+
+        // TODO: Do we really need to set it?
         adminExecutor.execute(
             address(timelock),
             0,
@@ -322,7 +335,7 @@ contract DeployDG is Script {
         uint256 quorum = dgDeployConfig.RESEAL_COMMITTEE_QUORUM;
         address[] memory committeeMembers = dgDeployConfig.RESEAL_COMMITTEE_MEMBERS;
 
-        // TODO: Do we need to use timelock here?
+        // TODO: Don't we need to use timelock here?
         return new ResealCommittee(
             address(adminExecutor), committeeMembers, quorum, address(dualGovernance), Durations.from(0)
         );
@@ -338,5 +351,22 @@ contract DeployDG is Script {
         );
         adminExecutor.execute(address(timelock), 0, abi.encodeCall(timelock.setGovernance, (address(dualGovernance))));
         adminExecutor.transferOwnership(address(timelock));
+    }
+
+    function getDeployedAddresses() internal view returns (DeployValidation.DeployResult memory) {
+        return DeployValidation.DeployResult({
+            deployer: address(deployer),
+            adminExecutor: payable(address(adminExecutor)),
+            timelock: address(timelock),
+            emergencyGovernance: address(emergencyGovernance),
+            emergencyActivationCommittee: address(emergencyActivationCommittee),
+            emergencyExecutionCommittee: address(emergencyExecutionCommittee),
+            resealManager: address(resealManager),
+            dualGovernance: address(dualGovernance),
+            resealCommittee: address(resealCommittee),
+            tiebreakerCoreCommittee: address(tiebreakerCoreCommittee),
+            tiebreakerSubCommittee1: address(tiebreakerSubCommittees[0]),
+            tiebreakerSubCommittee2: address(tiebreakerSubCommittees[1])
+        });
     }
 }
