@@ -305,3 +305,19 @@ rule dg_states_2_proposal_scheduling_states() {
 
 	assert isNormal(state) || isVetoCooldown(state);
 }
+
+// Only specified transitions are possible 
+rule dg_transitions_1_only_legal_transitions() {
+	env e;
+	DualGovernanceHarness.DGHarnessState old_state = getState();
+	activateNextState(e);
+	DualGovernanceHarness.DGHarnessState new_state = getState();
+	// we are not interested in the cases where no transition happened
+	require old_state != new_state;
+
+	assert isNormal(new_state) => isVetoCooldown(old_state);
+	assert isVetoSignalling(new_state) => isNormal(old_state) || isVetoCooldown(old_state) || isVetoSignallingDeactivation(old_state) || isRageQuit(old_state);
+	assert isRageQuit(new_state) => isVetoSignalling(old_state) || isVetoSignallingDeactivation(old_state);
+	assert isVetoCooldown(new_state) => isRageQuit(old_state) || isVetoSignallingDeactivation(old_state);
+	assert isVetoSignallingDeactivation(new_state) => isVetoSignalling(old_state);
+}
