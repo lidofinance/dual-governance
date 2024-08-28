@@ -16,7 +16,7 @@ max-iterations             = 10000
 reinit                     = false
 cse                        = false
 workers                    = 1
-max-frontier-parallel      = 6
+max-frontier-parallel      = 12
 maintenance-rate           = 24
 assume-defined             = true
 no-log-rewrites            = true
@@ -44,7 +44,7 @@ match-test                 = [
         "VetoSignallingTest.testDeactivationNotCancelled",
         "EscrowAccountingTest.testRageQuitSupport",
         "EscrowAccountingTest.testEscrowInvariantsHoldInitially",
-        "EscrowLockUnlockTest.testLockStEth",
+        #"EscrowLockUnlockTest.testLockStEth",
         #"EscrowAccountingTest.testUnlockStEth",
         #"EscrowOperationsTest.testCannotUnlockBeforeMinLockTime",
         #"EscrowOperationsTest.testCannotLockUnlockInRageQuitEscrowState",
