@@ -8,9 +8,10 @@ import {Status as ProposalStatus} from "../../contracts/libraries/ExecutableProp
 import {IExternalExecutor} from "../../contracts/interfaces/IExternalExecutor.sol";
 import {State, DualGovernanceStateMachine} from "../../contracts/libraries/DualGovernanceStateMachine.sol";
 
-// The following two are both for isDynamicTimelockDurationPassed
+// The following are for methods about checking if max durations have passed
 import {DualGovernanceConfig} from "../../contracts/libraries/DualGovernanceConfig.sol";
 import {PercentD16} from "../../contracts/types/PercentD16.sol";
+import {Timestamp, Timestamps} from "../../contracts/types/Timestamp.sol";
 
 contract DualGovernanceHarness is DualGovernance {
     using Proposers for Proposers.Context;
@@ -40,9 +41,7 @@ contract DualGovernanceHarness is DualGovernance {
         return IndexOneBased.unwrap(_proposers.executors[proposer].proposerIndex);
     }
 
-    function getProposalInfoHarnessed(
-        uint256 proposalId
-    )
+    function getProposalInfoHarnessed(uint256 proposalId)
         external
         view
         returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
@@ -82,6 +81,18 @@ contract DualGovernanceHarness is DualGovernance {
     function isDynamicTimelockPassed(uint256 rageQuitSupport) public returns (bool) {
         return _configProvider.getDualGovernanceConfig().isDynamicTimelockDurationPassed(
             _stateMachine.vetoSignallingActivatedAt, PercentD16.wrap(rageQuitSupport)
+        );
+    }
+
+    function isVetoSignallingReactivationPassed() public returns (bool) {
+        return _configProvider.getDualGovernanceConfig().isVetoSignallingReactivationDurationPassed(
+            Timestamps.max(_stateMachine.vetoSignallingReactivationTime, _stateMachine.vetoSignallingActivatedAt)
+        );
+    }
+
+    function isVetoSignallingDeactivationPassed() public returns (bool) {
+        return _configProvider.getDualGovernanceConfig().isVetoSignallingDeactivationMaxDurationPassed(
+            _stateMachine.enteredAt
         );
     }
 

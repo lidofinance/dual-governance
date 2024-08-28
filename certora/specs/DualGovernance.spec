@@ -227,20 +227,33 @@ rule pp_kp_2_ragequit_trigger {
 	require rageQuitFirstSealGhost > 0;
 	require rageQuitSecondSealGhost > rageQuitFirstSealGhost;
 	// have large ragequit support to try to maximize delay
-	// TODO relax this assumption
-	require rageQuitSupport > rageQuitSecondSealGhost;
+	require rageQuitSupport > rageQuitFirstSealGhost;
 
+	// Assumptions about waiting long enough:
 	// Assume we have waited long enough if in VetoSignalling
 	require isDynamicTimelockPassed(e, rageQuitSupport);
+	// Assume we wait enough time for deactivation if needed
+	require isVetoSignallingReactivationPassed(e);
+	// Assume we have waited enough time to exit deactivation if needed
+	require isVetoSignallingDeactivationPassed(e);
 
 	DualGovernanceHarness.DGHarnessState old_state = getState();
 	activateNextState(e);
 	DualGovernanceHarness.DGHarnessState new_state = getState();
 
-	// Show that from normal state we step towards RageQuit
+	// from normal we eventually make forward progress into veto signalling
 	assert isNormal(old_state) => isVetoSignalling(new_state);
-	assert isVetoSignalling(old_state) => isRageQuit(new_state);
-	// TODO consider old_state is deactivation
+	// from veto signalling we either make forward progress
+	// into rageQuit or vetoSignallingDeactivation
+	// (and we show forward progress is eventually made
+	// from vetoSignallingDeactivation)
+	assert isVetoSignalling(old_state) => 
+		isRageQuit(new_state) || isVetoSignallingDeactivation(new_state);
+	// From VetoSignallingDeactivation we make forward progress
+	// into rageQuit or vetoSignallingCooldown
+	// (and proposal execution is possible from cooldown)
+	assert isVetoSignallingDeactivation(old_state) =>
+		isRageQuit(new_state) || isVetoCooldown(new_state);
 }
 
 // One option: assume rageQuitSupport == max, show secondSealRageQuit support
