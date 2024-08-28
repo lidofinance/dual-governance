@@ -107,6 +107,10 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
+    function getProposalsCount() external view returns (uint256 count) {
+        return submittedProposals.length;
+    }
+
     function getAdminExecutor() external view returns (address) {
         return _ADMIN_EXECUTOR;
     }
