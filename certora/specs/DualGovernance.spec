@@ -227,6 +227,7 @@ rule pp_kp_2_ragequit_trigger {
 	require rageQuitFirstSealGhost > 0;
 	require rageQuitSecondSealGhost > rageQuitFirstSealGhost;
 	// have large ragequit support to try to maximize delay
+	// TODO relax this assumption
 	require rageQuitSupport > rageQuitSecondSealGhost;
 
 	// Assume we have waited long enough if in VetoSignalling
@@ -239,6 +240,7 @@ rule pp_kp_2_ragequit_trigger {
 	// Show that from normal state we step towards RageQuit
 	assert isNormal(old_state) => isVetoSignalling(new_state);
 	assert isVetoSignalling(old_state) => isRageQuit(new_state);
+	// TODO consider old_state is deactivation
 }
 
 // One option: assume rageQuitSupport == max, show secondSealRageQuit support

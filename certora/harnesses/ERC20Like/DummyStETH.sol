@@ -12,11 +12,11 @@ contract DummyStETH is IStETH {
     }
 
     function getSharesByPooledEth(uint256 ethAmount) external view returns (uint256) {
-        return ethAmount * 5 / 3;
+        return ethAmount * 3 / 5;
     }
 
     function getPooledEthByShares(uint256 sharesAmount) external view returns (uint256) {
-        return sharesAmount * 3 / 5;
+        return sharesAmount * 5 / 3;
     }
 
     function transferShares(address to, uint256 amount) external {
@@ -31,9 +31,8 @@ contract DummyStETH is IStETH {
         address _recipient,
         uint256 _sharesAmount
     ) external returns (uint256) {
-        // uint256 tokensAmount = getPooledEthByShares(_sharesAmount);
-        uint256 tokensAmount = _sharesAmount * 3 / 5;
-        _spendAllowance(_sender, msg.sender, tokensAmount);
+        uint256 tokensAmount = _sharesAmount * 5 / 3;
+        _spendAllowance(_sender, msg.sender, _sharesAmount);
         _transferShares(_sender, _recipient, _sharesAmount);
         return tokensAmount;
     }
@@ -62,7 +61,7 @@ contract DummyStETH is IStETH {
     }
 
     function totalSupply() external view returns (uint256) {
-        return totalShares * 3 / 5;
+        return totalShares * 5 / 3;
     }
 
     function approve(address _spender, uint256 _amount) external returns (bool) {
@@ -76,7 +75,7 @@ contract DummyStETH is IStETH {
 
     function balanceOf(address _account) external view returns (uint256) {
         // return getPooledEthByShares(_sharesOf(_account));
-        return _sharesOf(_account) * 3 / 5;
+        return _sharesOf(_account) * 5 / 3;
     }
 
     function _sharesOf(address account) internal view returns (uint256) {
@@ -84,7 +83,7 @@ contract DummyStETH is IStETH {
     }
 
     function _transfer(address sender, address recipient, uint256 amount) internal {
-        uint256 sharesToTransfer = amount * 5 / 3;
+        uint256 sharesToTransfer = amount * 3 / 5;
         _transferShares(sender, recipient, sharesToTransfer);
     }
 
