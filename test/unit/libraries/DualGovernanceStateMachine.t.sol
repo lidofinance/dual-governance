@@ -75,6 +75,8 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
         // after the sequential rage quits chain is broken, the rage quit resets to 0
         _wait(_CONFIG_PROVIDER.VETO_COOLDOWN_DURATION().plusSeconds(1));
         _stateMachine.activateNextState(_CONFIG_PROVIDER.getDualGovernanceConfig(), _ESCROW_MASTER_COPY);
+
+        assertEq(_stateMachine.rageQuitRound, 0);
         assertEq(_stateMachine.state, State.Normal);
     }
 }
