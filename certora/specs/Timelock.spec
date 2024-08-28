@@ -262,3 +262,18 @@ rule EPT_10_ProposalTimestampConsistency(method f) filtered { f -> f.selector !=
         assert proposalTimestampsEqual(proposal_before, getProposal(proposalId));
     }
 }
+
+/**
+    @title Cancelled is a terminal state for a proposal, once cancelled it cannot transition to any other state
+*/
+rule EPT_11_TerminalityOfCancelled(method f) filtered { f -> f.selector != sig:Executor.execute(address, uint256, bytes).selector } {
+    uint proposalId;
+    requireInvariant outOfBoundsProposalDoesNotExist(proposalId);
+    require getProposal(proposalId).status == ExecutableProposals.Status.Cancelled;
+
+    env e;
+    calldataarg args;
+    f(e, args);
+
+    assert getProposal(proposalId).status == ExecutableProposals.Status.Cancelled;
+}
