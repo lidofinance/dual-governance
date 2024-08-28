@@ -42,6 +42,8 @@ contract DualGovernance is IDualGovernance {
     // Events
     // ---
 
+    event CancelAllPendingProposalsSkipped();
+    event CancelAllPendingProposalsExecuted();
     event EscrowMasterCopyDeployed(address escrowMasterCopy);
     event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
 
@@ -138,11 +140,27 @@ contract DualGovernance is IDualGovernance {
     }
 
     function cancelAllPendingProposals() external {
+        _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
+
         Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
         if (proposer.executor != TIMELOCK.getAdminExecutor()) {
             revert NotAdminProposer();
         }
+
+        State currentState = _stateMachine.getCurrentState();
+        if (currentState != State.VetoSignalling && currentState != State.VetoSignallingDeactivation) {
+            /// @dev Some proposer contracts, like Aragon Voting, may not support canceling decisions that have already
+            /// reached consensus. This could lead to a situation where a proposer’s cancelAllPendingProposals() call
+            /// becomes unexecutable if the Dual Governance state changes. However, it might become executable again if
+            /// the system state shifts back to VetoSignalling or VetoSignallingDeactivation.
+            /// To avoid such a scenario, an early return is used instead of a revert when proposals cannot be canceled
+            /// due to an unsuitable Dual Governance state.
+            emit CancelAllPendingProposalsSkipped();
+            return;
+        }
+
         TIMELOCK.cancelAllNonExecutedProposals();
+        emit CancelAllPendingProposalsExecuted();
     }
 
     function canSubmitProposal() public view returns (bool) {
@@ -267,6 +285,7 @@ contract DualGovernance is IDualGovernance {
 
     function tiebreakerScheduleProposal(uint256 proposalId) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
+        _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
         _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
         TIMELOCK.schedule(proposalId);
     }

@@ -167,7 +167,7 @@ abstract contract SetupDeployment is Test {
         _tiebreakerCoreCommittee = _deployEmptyTiebreakerCoreCommittee({
             owner: address(this), // temporary set owner to deployer, to add sub committees manually
             dualGovernance: _dualGovernance,
-            timelock: TIEBREAKER_EXECUTION_DELAY.toSeconds()
+            timelock: TIEBREAKER_EXECUTION_DELAY
         });
         address[] memory coreCommitteeMembers = new address[](TIEBREAKER_SUB_COMMITTEES_COUNT);
 
@@ -260,22 +260,36 @@ abstract contract SetupDeployment is Test {
                 address(_timelock),
                 0,
                 abi.encodeCall(
-                    _timelock.setupEmergencyProtection,
-                    (
-                        address(_emergencyGovernance),
-                        address(_emergencyActivationCommittee),
-                        address(_emergencyExecutionCommittee),
-                        _EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
-                        _EMERGENCY_MODE_DURATION
-                    )
+                    _timelock.setEmergencyProtectionActivationCommittee, (address(_emergencyActivationCommittee))
                 )
+            );
+            _adminExecutor.execute(
+                address(_timelock),
+                0,
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionExecutionCommittee, (address(_emergencyExecutionCommittee))
+                )
+            );
+            _adminExecutor.execute(
+                address(_timelock),
+                0,
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionEndDate, (_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
+                )
+            );
+            _adminExecutor.execute(
+                address(_timelock), 0, abi.encodeCall(_timelock.setEmergencyModeDuration, (_EMERGENCY_MODE_DURATION))
+            );
+
+            _adminExecutor.execute(
+                address(_timelock), 0, abi.encodeCall(_timelock.setEmergencyGovernance, (address(_emergencyGovernance)))
             );
         }
     }
 
     function _finalizeEmergencyProtectedTimelockDeploy(IGovernance governance) internal {
         _adminExecutor.execute(
-            address(_timelock), 0, abi.encodeCall(_timelock.setDelays, (_AFTER_SUBMIT_DELAY, _AFTER_SCHEDULE_DELAY))
+            address(_timelock), 0, abi.encodeCall(_timelock.setupDelays, (_AFTER_SUBMIT_DELAY, _AFTER_SCHEDULE_DELAY))
         );
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (address(governance))));
         _adminExecutor.transferOwnership(address(_timelock));
@@ -323,7 +337,9 @@ abstract contract SetupDeployment is Test {
             committeeMembers[i] = makeAddr(string(abi.encode(0xFA + i * membersCount + 65)));
         }
 
-        return new ResealCommittee(address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), 0);
+        return new ResealCommittee(
+            address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), Durations.from(0)
+        );
     }
 
     function _deployTimelockedGovernance(
@@ -389,7 +405,7 @@ abstract contract SetupDeployment is Test {
     function _deployEmptyTiebreakerCoreCommittee(
         address owner,
         IDualGovernance dualGovernance,
-        uint256 timelock
+        Duration timelock
     ) internal returns (TiebreakerCore) {
         return new TiebreakerCore({owner: owner, dualGovernance: address(dualGovernance), timelock: timelock});
     }

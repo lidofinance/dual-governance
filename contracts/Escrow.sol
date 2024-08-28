@@ -54,6 +54,7 @@ contract Escrow is IEscrow {
     error UnfinalizedUnstETHIds();
     error NonProxyCallsForbidden();
     error BatchesQueueIsNotClosed();
+    error EmptyUnstETHIds();
     error InvalidBatchSize(uint256 size);
     error CallerIsNotDualGovernance(address caller);
     error InvalidHintsLength(uint256 actual, uint256 expected);
@@ -131,8 +132,8 @@ contract Escrow is IEscrow {
     // ---
 
     function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares) {
-        _escrowState.checkSignallingEscrow();
         DUAL_GOVERNANCE.activateNextState();
+        _escrowState.checkSignallingEscrow();
 
         lockedStETHShares = ST_ETH.getSharesByPooledEth(amount);
         _accounting.accountStETHSharesLock(msg.sender, SharesValues.from(lockedStETHShares));
@@ -142,10 +143,10 @@ contract Escrow is IEscrow {
     }
 
     function unlockStETH() external returns (uint256 unlockedStETHShares) {
-        _escrowState.checkSignallingEscrow();
-
         DUAL_GOVERNANCE.activateNextState();
+        _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
+
         unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender).toUint256();
         ST_ETH.transferShares(msg.sender, unlockedStETHShares);
 
@@ -157,8 +158,8 @@ contract Escrow is IEscrow {
     // ---
 
     function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares) {
-        _escrowState.checkSignallingEscrow();
         DUAL_GOVERNANCE.activateNextState();
+        _escrowState.checkSignallingEscrow();
 
         WST_ETH.transferFrom(msg.sender, address(this), amount);
         lockedStETHShares = ST_ETH.getSharesByPooledEth(WST_ETH.unwrap(amount));
@@ -168,10 +169,10 @@ contract Escrow is IEscrow {
     }
 
     function unlockWstETH() external returns (uint256 unlockedStETHShares) {
-        _escrowState.checkSignallingEscrow();
         DUAL_GOVERNANCE.activateNextState();
-
+        _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
+
         SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
         unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
         WST_ETH.transfer(msg.sender, unlockedStETHShares);
@@ -183,8 +184,12 @@ contract Escrow is IEscrow {
     // Lock & unlock unstETH
     // ---
     function lockUnstETH(uint256[] memory unstETHIds) external {
-        _escrowState.checkSignallingEscrow();
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
+
         DUAL_GOVERNANCE.activateNextState();
+        _escrowState.checkSignallingEscrow();
 
         WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
         _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
@@ -197,10 +202,10 @@ contract Escrow is IEscrow {
     }
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
-        _escrowState.checkSignallingEscrow();
         DUAL_GOVERNANCE.activateNextState();
-
+        _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
+
         _accounting.accountUnstETHUnlock(msg.sender, unstETHIds);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
@@ -271,6 +276,12 @@ contract Escrow is IEscrow {
         });
 
         _batchesQueue.addUnstETHIds(WITHDRAWAL_QUEUE.requestWithdrawals(requestAmounts, address(this)));
+
+        stETHRemaining = ST_ETH.balanceOf(address(this));
+
+        if (stETHRemaining < minStETHWithdrawalRequestAmount) {
+            _batchesQueue.close();
+        }
     }
 
     // ---
@@ -364,6 +375,9 @@ contract Escrow is IEscrow {
     }
 
     function withdrawETH(uint256[] calldata unstETHIds) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
         _escrowState.checkRageQuitEscrow();
         _escrowState.checkWithdrawalsTimelockPassed();
         ETHValue ethToWithdraw = _accounting.accountUnstETHWithdraw(msg.sender, unstETHIds);
@@ -389,7 +403,7 @@ contract Escrow is IEscrow {
 
         state.unstETHIdsCount = assets.unstETHIds.length;
         state.stETHLockedShares = assets.stETHLockedShares.toUint256();
-        state.unstETHLockedShares = assets.stETHLockedShares.toUint256();
+        state.unstETHLockedShares = assets.unstETHLockedShares.toUint256();
         state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
     }
 

@@ -63,7 +63,7 @@ library SealableCalls {
     function callResume(ISealable sealable) internal returns (bool success, bytes memory lowLevelError) {
         try sealable.resume() {
             (bool isPausedCallSuccess, bytes memory isPausedLowLevelError, bool isPaused) = callIsPaused(sealable);
-            success = isPausedCallSuccess && isPaused;
+            success = isPausedCallSuccess && !isPaused;
             lowLevelError = isPausedLowLevelError;
         } catch (bytes memory resumeLowLevelError) {
             success = false;

@@ -44,20 +44,18 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.startPrank(_adminExecutor);
         _timelock.setGovernance(_dualGovernance);
-        _timelock.setDelays({afterSubmitDelay: Durations.from(3 days), afterScheduleDelay: Durations.from(2 days)});
-        _timelock.setupEmergencyProtection(
-            _emergencyGovernance,
-            _emergencyActivator,
-            _emergencyEnactor,
-            _emergencyProtectionDuration.addTo(Timestamps.now()),
-            _emergencyModeDuration
-        );
+        _timelock.setupDelays({afterSubmitDelay: Durations.from(3 days), afterScheduleDelay: Durations.from(2 days)});
+        _timelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
+        _timelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
+        _timelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
+        _timelock.setEmergencyModeDuration(_emergencyModeDuration);
+        _timelock.setEmergencyGovernance(_emergencyGovernance);
         vm.stopPrank();
     }
 
     // EmergencyProtectedTimelock.submit()
 
-    function testFuzz_stranger_cannot_submit_proposal(address stranger) external {
+    function testFuzz_submit_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _dualGovernance);
 
         vm.prank(stranger);
@@ -66,7 +64,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.getProposalsCount(), 0);
     }
 
-    function test_governance_can_submit_proposal() external {
+    function test_submit_HappyPath() external {
         vm.prank(_dualGovernance);
         _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)));
 
@@ -78,7 +76,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.schedule()
 
-    function test_governance_can_schedule_proposal() external {
+    function test_schedule_HappyPath() external {
         _submitProposal();
 
         assertEq(_timelock.getProposalsCount(), 1);
@@ -91,7 +89,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(proposal.status, ProposalStatus.Scheduled);
     }
 
-    function testFuzz_stranger_cannot_schedule_proposal(address stranger) external {
+    function testFuzz_schedule_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _dualGovernance);
         vm.assume(stranger != address(0));
 
@@ -108,7 +106,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.execute()
 
-    function testFuzz_anyone_can_execute_proposal(address stranger) external {
+    function testFuzz_execute_HappyPath(address stranger) external {
         vm.assume(stranger != _dualGovernance);
         vm.assume(stranger != address(0));
 
@@ -128,7 +126,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(proposal.status, ProposalStatus.Executed);
     }
 
-    function test_cannot_execute_proposal_if_emergency_mode_active() external {
+    function test_execute_RevertOn_EmergencyModeIsActive() external {
         _submitProposal();
 
         assertEq(_timelock.getProposalsCount(), 1);
@@ -149,7 +147,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.cancelAllNonExecutedProposals()
 
-    function test_governance_can_cancel_all_non_executed_proposals() external {
+    function test_cancelAllNonExecutedProposals_HappyPath() external {
         _submitProposal();
         _submitProposal();
 
@@ -176,7 +174,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(proposal2.status, ProposalStatus.Cancelled);
     }
 
-    function testFuzz_stranger_cannot_cancel_all_non_executed_proposals(address stranger) external {
+    function testFuzz_cancelAllNonExecutedProposals_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _dualGovernance);
         vm.assume(stranger != address(0));
 
@@ -186,9 +184,34 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.cancelAllNonExecutedProposals();
     }
 
+    function testFuzz_setupDelays_HappyPath(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
+        vm.assume(
+            afterSubmitDelay != _timelock.getAfterSubmitDelay() && afterSubmitDelay < _timelock.MAX_AFTER_SUBMIT_DELAY()
+        );
+        vm.assume(
+            afterScheduleDelay != _timelock.getAfterScheduleDelay()
+                && afterScheduleDelay < _timelock.MAX_AFTER_SCHEDULE_DELAY()
+        );
+
+        vm.prank(_adminExecutor);
+        _timelock.setupDelays({afterSubmitDelay: afterSubmitDelay, afterScheduleDelay: afterScheduleDelay});
+
+        assertEq(_timelock.getAfterSubmitDelay(), afterSubmitDelay);
+        assertEq(_timelock.getAfterScheduleDelay(), afterScheduleDelay);
+    }
+
+    function test_setupDelays_RevertOn_ByStranger(address stranger) external {
+        vm.assume(stranger != _adminExecutor);
+        vm.assume(stranger != address(0));
+
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        _timelock.setupDelays({afterSubmitDelay: Durations.from(1 days), afterScheduleDelay: Durations.from(1 days)});
+    }
+
     // EmergencyProtectedTimelock.transferExecutorOwnership()
 
-    function testFuzz_admin_executor_can_transfer_executor_ownership(address newOwner) external {
+    function testFuzz_transferExecutorOwnership_HappyPath(address newOwner) external {
         vm.assume(newOwner != _adminExecutor);
         vm.assume(newOwner != address(0));
 
@@ -206,7 +229,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(executor.owner(), newOwner);
     }
 
-    function test_stranger_cannot_transfer_executor_ownership(address stranger) external {
+    function test_transferExecutorOwnership_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
@@ -216,7 +239,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.setGovernance()
 
-    function testFuzz_admin_executor_can_set_governance(address newGovernance) external {
+    function testFuzz_setGovernance_HappyPath(address newGovernance) external {
         vm.assume(newGovernance != _dualGovernance);
         vm.assume(newGovernance != address(0));
 
@@ -234,23 +257,22 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(entries.length, 1);
     }
 
-    function test_cannot_set_governance_to_zero() external {
+    function test_setGovernance_RevertOn_ZeroAddress() external {
         vm.prank(_adminExecutor);
         vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidGovernance.selector, address(0)));
         _timelock.setGovernance(address(0));
     }
 
-    // TODO: Update test after the convention about return/revert is resolved
-    // function test_cannot_set_governance_to_the_same_address() external {
-    //     address currentGovernance = _timelock.getGovernance();
-    //     vm.prank(_adminExecutor);
-    //     vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidGovernance.selector, _dualGovernance));
-    //     _timelock.setGovernance(currentGovernance);
+    function test_setGovernance_RevertOn_SameAddress() external {
+        address currentGovernance = _timelock.getGovernance();
+        vm.prank(_adminExecutor);
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidGovernance.selector, _dualGovernance));
+        _timelock.setGovernance(currentGovernance);
 
-    //     assertEq(_timelock.getGovernance(), currentGovernance);
-    // }
+        assertEq(_timelock.getGovernance(), currentGovernance);
+    }
 
-    function testFuzz_stranger_cannot_set_governance(address stranger) external {
+    function testFuzz_setGovernance_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
@@ -260,14 +282,14 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.activateEmergencyMode()
 
-    function test_emergency_activator_can_activate_emergency_mode() external {
+    function test_activateEmergencyMode_HappyPath() external {
         vm.prank(_emergencyActivator);
         _timelock.activateEmergencyMode();
 
         assertEq(_isEmergencyStateActivated(), true);
     }
 
-    function testFuzz_stranger_cannot_activate_emergency_mode(address stranger) external {
+    function testFuzz_activateEmergencyMode_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _emergencyActivator);
         vm.assume(stranger != address(0));
 
@@ -280,7 +302,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), false);
     }
 
-    function test_cannot_activate_emergency_mode_if_already_active() external {
+    function test_activateEmergencyMode_RevertOn_AlreadyActive() external {
         _activateEmergencyMode();
 
         assertEq(_isEmergencyStateActivated(), true);
@@ -294,7 +316,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.emergencyExecute()
 
-    function test_emergency_executior_can_execute_proposal() external {
+    function test_emergencyExecute_HappyPath() external {
         _submitProposal();
 
         assertEq(_timelock.getProposalsCount(), 1);
@@ -316,7 +338,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(proposal.status, ProposalStatus.Executed);
     }
 
-    function test_cannot_emergency_execute_proposal_if_mode_not_activated() external {
+    function test_emergencyExecute_RevertOn_ModeNotActive() external {
         vm.startPrank(_dualGovernance);
         _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)));
 
@@ -335,7 +357,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.emergencyExecute(1);
     }
 
-    function testFuzz_stranger_cannot_emergency_execute_proposal(address stranger) external {
+    function testFuzz_emergencyExecute_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _emergencyEnactor);
         vm.assume(stranger != address(0));
 
@@ -362,7 +384,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.deactivateEmergencyMode()
 
-    function test_admin_executor_can_deactivate_emergency_mode_if_delay_not_passed() external {
+    function test_deactivateEmergencyMode_HappyPath() external {
         _submitProposal();
         _activateEmergencyMode();
 
@@ -372,7 +394,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), false);
     }
 
-    function test_after_deactivation_all_proposals_are_cancelled() external {
+    function test_deactivateEmergencyMode_AllProposalsCancelled() external {
         _submitProposal();
 
         assertEq(_timelock.getProposalsCount(), 1);
@@ -388,7 +410,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(proposal.status, ProposalStatus.Cancelled);
     }
 
-    function testFuzz_stranger_can_deactivate_emergency_mode_if_passed(address stranger) external {
+    function testFuzz_deactivateEmergencyMode_HappyPath_ByStranger(address stranger) external {
         vm.assume(stranger != _adminExecutor);
 
         _activateEmergencyMode();
@@ -404,7 +426,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), false);
     }
 
-    function testFuzz_cannot_deactivate_emergency_mode_if_not_activated(address stranger) external {
+    function testFuzz_deactivateEmergencyMode_RevertOn_ModeNotActivated(address stranger) external {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
@@ -416,7 +438,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.deactivateEmergencyMode();
     }
 
-    function testFuzz_stranger_cannot_deactivate_emergency_mode_if_not_passed(address stranger) external {
+    function testFuzz_deactivateEmergencyMode_RevertOn_ByStranger_ModeNotExpired(address stranger) external {
         vm.assume(stranger != _adminExecutor);
 
         _activateEmergencyMode();
@@ -429,7 +451,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.emergencyReset()
 
-    function test_execution_committee_can_emergency_reset() external {
+    function test_emergencyReset_HappyPath() external {
         _activateEmergencyMode();
         assertEq(_isEmergencyStateActivated(), true);
         assertEq(_timelock.isEmergencyProtectionEnabled(), true);
@@ -450,7 +472,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(newState.emergencyModeEndsAfter, Timestamps.ZERO);
     }
 
-    function test_after_emergency_reset_all_proposals_are_cancelled() external {
+    function test_emergencyReset_HappyPath_AllProposalsCancelled() external {
         _submitProposal();
         _activateEmergencyMode();
 
@@ -464,7 +486,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(proposal.status, ProposalStatus.Cancelled);
     }
 
-    function testFuzz_stranger_cannot_emergency_reset_governance(address stranger) external {
+    function testFuzz_emergencyReset_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _emergencyEnactor);
         vm.assume(stranger != address(0));
 
@@ -481,7 +503,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), true);
     }
 
-    function test_cannot_emergency_reset_if_emergency_mode_not_activated() external {
+    function test_emergencyReset_RevertOn_ModeNotActivated() external {
         assertEq(_isEmergencyStateActivated(), false);
 
         EmergencyProtection.Context memory state = _timelock.getEmergencyProtectionContext();
@@ -500,53 +522,119 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertFalse(_timelock.isEmergencyModeActive());
     }
 
-    // EmergencyProtectedTimelock.setupEmergencyProtection()
+    // EmergencyProtectedTimelock.setEmergencyProtectionActivationCommittee()
 
-    function test_admin_executor_can_set_emenrgency_protection() external {
+    function test_setActivationCommittee_HappyPath() external {
         EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
 
-        vm.prank(_adminExecutor);
-        _localTimelock.setupEmergencyProtection(
-            _emergencyGovernance,
-            _emergencyActivator,
-            _emergencyEnactor,
-            _emergencyProtectionDuration.addTo(Timestamps.now()),
-            _emergencyModeDuration
-        );
+        vm.startPrank(_adminExecutor);
+        _localTimelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
+        vm.stopPrank();
 
         EmergencyProtection.Context memory state = _timelock.getEmergencyProtectionContext();
 
         assertEq(state.emergencyActivationCommittee, _emergencyActivator);
-        assertEq(state.emergencyExecutionCommittee, _emergencyEnactor);
-        assertEq(state.emergencyProtectionEndsAfter, _emergencyProtectionDuration.addTo(Timestamps.now()));
-        assertEq(state.emergencyModeDuration, _emergencyModeDuration);
-        assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
         assertFalse(_timelock.isEmergencyModeActive());
     }
 
-    function testFuzz_stranger_cannot_set_emergency_protection(address stranger) external {
+    function testFuzz_setActivationCommittee_RevertOn_ByStranger(address stranger) external {
         vm.assume(stranger != _adminExecutor);
-        vm.assume(stranger != address(0));
-
         EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
 
-        vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
-        _localTimelock.setupEmergencyProtection(
-            _emergencyGovernance,
-            _emergencyActivator,
-            _emergencyEnactor,
-            _emergencyProtectionDuration.addTo(Timestamps.now()),
-            _emergencyModeDuration
-        );
+        vm.prank(stranger);
+        _localTimelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
 
         EmergencyProtection.Context memory state = _localTimelock.getEmergencyProtectionContext();
 
         assertEq(state.emergencyActivationCommittee, address(0));
+        assertFalse(_localTimelock.isEmergencyModeActive());
+    }
+
+    // EmergencyProtectedTimelock.setEmergencyProtectionExecutionCommittee()
+
+    function test_setExecutionCommittee_HappyPath() external {
+        EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
+
+        vm.startPrank(_adminExecutor);
+        _localTimelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
+        vm.stopPrank();
+
+        EmergencyProtection.Context memory state = _localTimelock.getEmergencyProtectionContext();
+
+        assertEq(state.emergencyExecutionCommittee, _emergencyEnactor);
+        assertFalse(_localTimelock.isEmergencyModeActive());
+    }
+
+    function testFuzz_setExecutionCommittee_RevertOn_ByStranger(address stranger) external {
+        vm.assume(stranger != _adminExecutor);
+        EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
+
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.prank(stranger);
+        _localTimelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
+
+        EmergencyProtection.Context memory state = _localTimelock.getEmergencyProtectionContext();
+
         assertEq(state.emergencyExecutionCommittee, address(0));
+        assertFalse(_localTimelock.isEmergencyModeActive());
+    }
+
+    // EmergencyProtectedTimelock.setEmergencyProtectionEndDate()
+
+    function test_setProtectionEndDate_HappyPath() external {
+        EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
+
+        vm.startPrank(_adminExecutor);
+        _localTimelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
+        vm.stopPrank();
+
+        EmergencyProtection.Context memory state = _localTimelock.getEmergencyProtectionContext();
+
+        assertEq(state.emergencyProtectionEndsAfter, _emergencyProtectionDuration.addTo(Timestamps.now()));
+        assertFalse(_localTimelock.isEmergencyModeActive());
+    }
+
+    function testFuzz_setProtectionEndDate_RevertOn_ByStranger(address stranger) external {
+        vm.assume(stranger != _adminExecutor);
+        EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
+
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.prank(stranger);
+        _localTimelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
+
+        EmergencyProtection.Context memory state = _localTimelock.getEmergencyProtectionContext();
+
         assertEq(state.emergencyProtectionEndsAfter, Timestamps.ZERO);
+        assertFalse(_localTimelock.isEmergencyModeActive());
+    }
+
+    // EmergencyProtectedTimelock.setEmergencyModeDuration()
+
+    function test_setModeDuration_HappyPath() external {
+        EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
+
+        vm.startPrank(_adminExecutor);
+        _localTimelock.setEmergencyModeDuration(_emergencyModeDuration);
+        vm.stopPrank();
+
+        EmergencyProtection.Context memory state = _localTimelock.getEmergencyProtectionContext();
+
+        assertEq(state.emergencyModeDuration, _emergencyModeDuration);
+        assertFalse(_localTimelock.isEmergencyModeActive());
+    }
+
+    function testFuzz_setModeDuration_RevertOn_ByStranger(address stranger) external {
+        vm.assume(stranger != _adminExecutor);
+        EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
+
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.prank(stranger);
+        _localTimelock.setEmergencyModeDuration(_emergencyModeDuration);
+
+        EmergencyProtection.Context memory state = _localTimelock.getEmergencyProtectionContext();
+
         assertEq(state.emergencyModeDuration, Durations.ZERO);
-        assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
         assertFalse(_localTimelock.isEmergencyModeActive());
     }
 
@@ -557,14 +645,12 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         assertEq(_localTimelock.isEmergencyProtectionEnabled(), false);
 
-        vm.prank(_adminExecutor);
-        _localTimelock.setupEmergencyProtection(
-            _emergencyGovernance,
-            _emergencyActivator,
-            _emergencyEnactor,
-            _emergencyProtectionDuration.addTo(Timestamps.now()),
-            _emergencyModeDuration
-        );
+        vm.startPrank(_adminExecutor);
+        _localTimelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
+        _localTimelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
+        _localTimelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
+        _localTimelock.setEmergencyModeDuration(_emergencyModeDuration);
+        vm.stopPrank();
 
         assertEq(_localTimelock.isEmergencyProtectionEnabled(), true);
 
@@ -584,14 +670,13 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         assertEq(_localTimelock.isEmergencyProtectionEnabled(), false);
 
-        vm.prank(_adminExecutor);
-        _localTimelock.setupEmergencyProtection(
-            _emergencyGovernance,
-            _emergencyActivator,
-            _emergencyEnactor,
-            _emergencyProtectionDuration.addTo(Timestamps.now()),
-            _emergencyModeDuration
-        );
+        vm.startPrank(_adminExecutor);
+        _localTimelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
+        _localTimelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
+        _localTimelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
+        _localTimelock.setEmergencyModeDuration(_emergencyModeDuration);
+        _localTimelock.setEmergencyGovernance(_emergencyGovernance);
+        vm.stopPrank();
 
         assertEq(_localTimelock.isEmergencyProtectionEnabled(), true);
 
@@ -620,14 +705,12 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(state.emergencyModeDuration, Durations.ZERO);
         assertEq(state.emergencyModeEndsAfter, Timestamps.ZERO);
 
-        vm.prank(_adminExecutor);
-        _localTimelock.setupEmergencyProtection(
-            _emergencyGovernance,
-            _emergencyActivator,
-            _emergencyEnactor,
-            _emergencyProtectionDuration.addTo(Timestamps.now()),
-            _emergencyModeDuration
-        );
+        vm.startPrank(_adminExecutor);
+        _localTimelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
+        _localTimelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
+        _localTimelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
+        _localTimelock.setEmergencyModeDuration(_emergencyModeDuration);
+        vm.stopPrank();
 
         state = _localTimelock.getEmergencyProtectionContext();
 
@@ -666,14 +749,13 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_get_emergency_state_reset() external {
         EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
 
-        vm.prank(_adminExecutor);
-        _localTimelock.setupEmergencyProtection(
-            _emergencyGovernance,
-            _emergencyActivator,
-            _emergencyEnactor,
-            _emergencyProtectionDuration.addTo(Timestamps.now()),
-            _emergencyModeDuration
-        );
+        vm.startPrank(_adminExecutor);
+        _localTimelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
+        _localTimelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
+        _localTimelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
+        _localTimelock.setEmergencyModeDuration(_emergencyModeDuration);
+        _localTimelock.setEmergencyGovernance(_emergencyGovernance);
+        vm.stopPrank();
 
         vm.prank(_emergencyActivator);
         _localTimelock.activateEmergencyMode();

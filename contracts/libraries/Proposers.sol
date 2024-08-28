@@ -96,13 +96,16 @@ library Proposers {
         _checkRegisteredProposer(proposerAccount, executorData);
 
         IndexOneBased lastProposerIndex = IndicesOneBased.fromOneBasedValue(self.proposers.length);
+        IndexOneBased proposerIndex = executorData.proposerIndex;
+
         if (executorData.proposerIndex != lastProposerIndex) {
-            self.proposers[executorData.proposerIndex.toZeroBasedValue()] =
-                self.proposers[lastProposerIndex.toZeroBasedValue()];
+            self.proposers[proposerIndex.toZeroBasedValue()] = self.proposers[lastProposerIndex.toZeroBasedValue()];
+            self.executors[self.proposers[proposerIndex.toZeroBasedValue()]].proposerIndex = proposerIndex;
         }
 
         self.proposers.pop();
         delete self.executors[proposerAccount];
+
         self.executorRefsCounts[executorData.executor] -= 1;
 
         emit ProposerUnregistered(proposerAccount, executorData.executor);
