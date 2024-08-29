@@ -13,7 +13,7 @@ methods {
     function getAfterSubmitDelay() external returns (Durations.Duration) envfree;
     function getAfterScheduleDelay() external returns (Durations.Duration) envfree;
 
-    // TODO: Improve this to instead resolving the inner unresolved calls to anything in EPT
+    // We do not model the calls executed through proposals
     function _.execute(address, uint256, bytes) external => nondetBytes() expect bytes;
 }
 
@@ -23,8 +23,7 @@ function nondetBytes() returns bytes {
     return b;
 }
 
-// TODO: maybe we can get rid of the filter if we resolve the unresolved calls inside execute, 
-//       right now we're just filtering to be in line with treating execute as a NONDET
+
 /**
     @title Executed is a terminal state for a proposal, once executed it cannot transition to any other state
     @notice Expected to fail due to an acknowledged bug whose fix is not merged yet
