@@ -212,9 +212,6 @@ rule pp_kp_1_ragequit_extends {
 	assert !isVetoCooldown(getState());
 }
 
-// Alternative: maybe it's more useful to just prove that dynamicDelayDuration
-// is monotonically increasing with increased rageQuitSupport.
-
 // PP-2: It's not possible to prevent a proposal from being executed 
 // indefinitely without triggering a rage quit.
 // expected complexity: extra high
@@ -255,9 +252,6 @@ rule pp_kp_2_ragequit_trigger {
 	assert isVetoSignallingDeactivation(old_state) =>
 		isRageQuit(new_state) || isVetoCooldown(new_state);
 }
-
-// One option: assume rageQuitSupport == max, show secondSealRageQuit support
-// is crossed.
 
 // PP-3: It's not possible to block proposal submission indefinitely.
 // expected complexity: high
