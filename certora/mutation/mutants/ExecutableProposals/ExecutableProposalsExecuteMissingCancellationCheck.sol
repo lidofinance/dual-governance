@@ -108,10 +108,9 @@ library ExecutableProposals {
     function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
         ProposalData memory proposalState = self.proposals[proposalId].data;
 
-        // mutated
-        // if (proposalState.status != Status.Submitted || _isProposalMarkedCancelled(self, proposalId, proposalState)) {
-        //     revert ProposalNotSubmitted(proposalId);
-        // }
+        if (proposalState.status != Status.Submitted || _isProposalMarkedCancelled(self, proposalId, proposalState)) {
+            revert ProposalNotSubmitted(proposalId);
+        }
 
         if (afterSubmitDelay.addTo(proposalState.submittedAt) > Timestamps.now()) {
             revert AfterSubmitDelayNotPassed(proposalId);
@@ -127,9 +126,10 @@ library ExecutableProposals {
     function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
-        if (proposal.data.status != Status.Scheduled || _isProposalMarkedCancelled(self, proposalId, proposal.data)) {
-            revert ProposalNotScheduled(proposalId);
-        }
+        // mutated
+        // if (proposal.data.status != Status.Scheduled || _isProposalMarkedCancelled(self, proposalId, proposal.data)) {
+        //     revert ProposalNotScheduled(proposalId);
+        // }
 
         if (afterScheduleDelay.addTo(proposal.data.scheduledAt) > Timestamps.now()) {
             revert AfterScheduleDelayNotPassed(proposalId);
