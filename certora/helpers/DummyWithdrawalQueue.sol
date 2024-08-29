@@ -12,24 +12,57 @@ contract DummyWithdrawalQueue  {
     uint256 public MIN_STETH_WITHDRAWAL_AMOUNT;
     
     uint256 internal lastRequestId;
+    uint256 internal lastFinalizedRequestId;
     
     mapping(address => uint256) balances;
-    mapping(uint256 => address) owner;
+    
 
     IStETH public stETH;
-/*
+
+    struct WithdrawalRequestStatus {
+        uint256 amountOfStETH; //
+        uint256 amountOfShares;
+        address owner;
+        uint256 timestamp;
+        bool isFinalized;
+        bool isClaimed;
+    }
+
+    mapping(uint256 => WithdrawalRequestStatus) requests;
+
+
+    function getLastFinalizedRequestId() public view returns (uint256) {
+        return lastFinalizedRequestId;
+    }
+
+    uint256 randomNumOfFinalzied;
+    // if reduction true we simulate reduce by half
+    function finalize(uint256 upToRequestId, bool reduction)  external {
+        for(uint256 i = lastFinalizedRequestId; i <= upToRequestId ; i++) {
+         require(!requests[i].isFinalized);
+         requests[i].isFinalized = true;
+         if (reduction) {
+            requests[i].amountOfStETH =  requests[i].amountOfStETH / 2;
+         }
+        }
+        lastFinalizedRequestId = upToRequestId; 
+    }
+
     function getWithdrawalStatus(uint256[] calldata _requestIds)
         external
         view
         returns (WithdrawalRequestStatus[] memory statuses)
     {
-
-        //summary as nondet 
+        statuses = new WithdrawalRequestStatus[](_requestIds.length);
+        for (uint256 i = 0; i < _requestIds.length; ++i) {
+            require(_requestIds[i] <= lastRequestId);
+            statuses[i] = requests[_requestIds[i]];
+        }
     }
-*/
+
     function transferFrom(address from, address to, uint256 requestId) external {
-        require (owner[requestId] == from && balances[from] >= 1);
-        owner[requestId] = to;
+        require (requests[requestId].owner == from && balances[from] >= 1);
+        requests[requestId].owner = to;
         balances[from] = balances[from] -1;
         balances[to] = balances[to] -1;
     }
@@ -39,14 +72,21 @@ contract DummyWithdrawalQueue  {
         return balances[owner];
     }
 
-    mapping(uint256 => uint256) amountOfETH;
+
     function getClaimableEther(
         uint256[] calldata _requestIds,
         uint256[] calldata _hints
     ) external view returns (uint256[] memory claimableEthValues) {
         claimableEthValues = new uint256[](_requestIds.length);
         for (uint256 i = 0; i < _requestIds.length; ++i) {
-            claimableEthValues[i] = amountOfETH[_requestIds[i]];
+            uint256 _requestId = _requestIds[i];
+            require (_requestId != 0 && _requestId <= lastRequestId) ;
+            if (_requestId > lastFinalizedRequestId ||  requests[_requestId].isClaimed) {
+                claimableEthValues[i] = 0;
+            }
+            else {
+                claimableEthValues[i] = requests[_requestIds[i]].amountOfStETH;
+            }
         }
     }
 
@@ -58,17 +98,24 @@ contract DummyWithdrawalQueue  {
         for (uint256 i = 0; i < _amounts.length; ++i) { 
                 stETH.transferFrom(msg.sender, address(this), _amounts[i]);
                 uint256 amountOfShares = stETH.getSharesByPooledEth(_amounts[i]);
-                requestIds[i] = lastRequestId + 1;
                 lastRequestId += 1;
-                amountOfETH[requestIds[i]] = _amounts[i];
-                owner[requestIds[i]] = _owner;
+                requestIds[i] = lastRequestId;
+                requests[lastRequestId] = 
+                        WithdrawalRequestStatus(
+                            _amounts[i],
+                            amountOfShares,
+                            _owner,
+                            block.timestamp,
+                            false,
+                            false);
         }
     }
 
     function claimWithdrawals(uint256[] calldata requestIds, uint256[] calldata hints) external {
         for (uint256 i = 0; i < requestIds.length; ++i) {
-            //todo;
-                (bool success,) = msg.sender.call{value: amountOfETH[requestIds[i]]}("");
+                require( ! requests[requestIds[i]].isClaimed && requests[requestIds[i]].isFinalized);
+                requests[requestIds[i]].isClaimed = true;
+                (bool success,) = msg.sender.call{value: requests[requestIds[i]].amountOfStETH }("");
                 require(success);
         }
     }
