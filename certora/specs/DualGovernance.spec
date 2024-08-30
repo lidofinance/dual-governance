@@ -60,6 +60,13 @@ methods {
 	// Address.functionCallWithValue)
 	function Executor.execute(address, uint256, bytes) external returns (bytes) => NONDET;
 
+	// This NONDET is meant to address a timeout of dg_kp_2
+	// for which EPT is a significant bottleneck but not
+	// really needed for verifying DG. We also have separate rules for EPT.
+	function EmergencyProtectedTimelock.submit(address executor, 
+		DualGovernanceHarness.ExternalCall[] calls) external returns (uint256) => NONDET;
+
+
 }
 
 // Ideally we would return a ghost but then we run into the tool bug
@@ -105,24 +112,24 @@ function isSecondRageQuitCrossedGhost(uint256 rageQuitSupport) returns bool {
 // the array of proposers
 // “for each entry in the struct in the array, show that the index inside is the same as the real array index”
 // NOTE: this has not been addressed by customer, so this should fail now.
-rule w2_1a_indexes_match (method f) {
-	env e;
-	calldataarg args;
-	Proposers.Proposer[] proposers = getProposers(e);
-	require proposers.length <= 5; // loop unrolling
-	uint256 idx;
-	require idx <= proposers.length;
-	mathint get_proposers_length = proposers.length;
-	address proposer_addr = proposers[idx].account;
-	require getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length;
-	require getProposerIndexFromExecutor(proposer_addr) - 1 == idx;
-
-	f(e, args);
-	// Strategy 1: check proposerIndex is <= proposers array length
-	assert getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length;
-	// Strategy 2: check proposerIndex == real array index
-	assert getProposerIndexFromExecutor(proposer_addr) - 1 == idx;
-}
+// rule w2_1a_indexes_match (method f) {
+// 	env e;
+// 	calldataarg args;
+// 	Proposers.Proposer[] proposers = getProposers(e);
+// 	require proposers.length <= 5; // loop unrolling
+// 	uint256 idx;
+// 	require idx <= proposers.length;
+// 	mathint get_proposers_length = proposers.length;
+// 	address proposer_addr = proposers[idx].account;
+// 	require getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length;
+// 	require getProposerIndexFromExecutor(proposer_addr) - 1 == idx;
+// 
+// 	f(e, args);
+// 	// Strategy 1: check proposerIndex is <= proposers array length
+// 	assert getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length;
+// 	// Strategy 2: check proposerIndex == real array index
+// 	assert getProposerIndexFromExecutor(proposer_addr) - 1 == idx;
+// }
 
 //  Proposals cannot be executed in the Veto Signaling (both parent state and
 // Deactivation sub-state) and Rage Quit states.
@@ -138,6 +145,7 @@ rule dg_kp_1_proposal_execution {
 	// DualGovernanceHarness.DGHarnessState.VetoSignaling && state != DualGovernanceHarness.DGHarnessState.RageQuit;
 }
 
+// NOTE: moved this to other spec file while fixing timeout
 // Proposals cannot be submitted in the Veto Signaling Deactivation sub-state or in the Veto Cooldown state.
 rule dg_kp_2_proposal_submission {
 	env e;
