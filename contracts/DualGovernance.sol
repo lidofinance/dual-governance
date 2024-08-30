@@ -10,6 +10,7 @@ import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
+import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {Proposers} from "./libraries/Proposers.sol";
@@ -290,18 +291,8 @@ contract DualGovernance is IDualGovernance {
         TIMELOCK.schedule(proposalId);
     }
 
-    struct TiebreakerState {
-        address tiebreakerCommittee;
-        Duration tiebreakerActivationTimeout;
-        address[] sealableWithdrawalBlockers;
-    }
-
-    function getTiebreakerState() external view returns (TiebreakerState memory tiebreakerState) {
-        (
-            tiebreakerState.tiebreakerCommittee,
-            tiebreakerState.tiebreakerActivationTimeout,
-            tiebreakerState.sealableWithdrawalBlockers
-        ) = _tiebreaker.getTiebreakerInfo();
+    function getTiebreakerContext() external view returns (ITiebreaker.Context memory tiebreakerState) {
+        return _tiebreaker.getTiebreakerContext();
     }
 
     // ---

@@ -31,7 +31,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
-        _wait(_dualGovernance.getTiebreakerState().tiebreakerActivationTimeout);
+        _wait(_dualGovernance.getTiebreakerContext().tiebreakerActivationTimeout);
         _activateNextState();
 
         ExternalCall[] memory proposalCalls = ExternalCallHelpers.create(address(0), new bytes(0));
@@ -106,7 +106,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
-        _wait(_dualGovernance.getTiebreakerState().tiebreakerActivationTimeout);
+        _wait(_dualGovernance.getTiebreakerContext().tiebreakerActivationTimeout);
         _activateNextState();
 
         // Tiebreaker subcommittee 0
