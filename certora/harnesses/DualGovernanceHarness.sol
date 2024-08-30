@@ -78,6 +78,22 @@ contract DualGovernanceHarness is DualGovernance {
         return PercentD16.unwrap(_configProvider.getDualGovernanceConfig().secondSealRageQuitSupport);
     }
 
+    function getFirstSealRageQuitSupportCrossed() external view returns (bool) {
+        return _configProvider.getDualGovernanceConfig().isFirstSealRageQuitSupportCrossed(
+            _stateMachine.signallingEscrow.getRageQuitSupport()
+        );
+    }
+
+    function getSecondSealRageQuitSupportCrossed() external view returns (bool) {
+        return _configProvider.getDualGovernanceConfig().isSecondSealRageQuitSupportCrossed(
+            _stateMachine.signallingEscrow.getRageQuitSupport()
+        );
+    }
+
+    function getRageQuitSupportHarnessed() external view returns (PercentD16) {
+        return _stateMachine.signallingEscrow.getRageQuitSupport();
+    }
+
     function isDynamicTimelockPassed(uint256 rageQuitSupport) public returns (bool) {
         return _configProvider.getDualGovernanceConfig().isDynamicTimelockDurationPassed(
             _stateMachine.vetoSignallingActivatedAt, PercentD16.wrap(rageQuitSupport)

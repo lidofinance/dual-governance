@@ -150,7 +150,7 @@ library DualGovernanceStateMachine {
         if (state == State.VetoCooldown) {
             // MUTATION
             // change the check on the following line
-            return Timestamps.now() <= self.vetoSignallingActivatedAt;
+            return proposalSubmissionTime <= Timestamps.now();
             // return proposalSubmissionTime <= self.vetoSignallingActivatedAt;
         }
         return false;

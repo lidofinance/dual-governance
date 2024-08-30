@@ -193,10 +193,11 @@ library DualGovernanceStateTransitions {
         DualGovernanceConfig.Context memory config
     ) private view returns (State) {
         // MUTATION
-        // go to ragequit instead of VetoSignalling
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
-            ? State.RageQuit
-            : State.Normal;
+        // go to ragequit always
+        return State.RageQuit;
+        // return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
+        //     ? State.RageQuit
+        //     : State.Normal;
         // return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
         //     ? State.VetoSignalling
         //     : State.Normal;
@@ -227,19 +228,21 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
-            return State.VetoSignalling;
-        }
+        // MUTATION: always go to normal state
+        // if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
+        //     return State.VetoSignalling;
+        // }
 
-        if (config.isSecondSealRageQuitSupportCrossed(rageQuitSupport)) {
-            return State.RageQuit;
-        }
+        // if (config.isSecondSealRageQuitSupportCrossed(rageQuitSupport)) {
+        //     return State.RageQuit;
+        // }
 
-        if (config.isVetoSignallingDeactivationMaxDurationPassed(self.enteredAt)) {
-            return State.VetoCooldown;
-        }
+        // if (config.isVetoSignallingDeactivationMaxDurationPassed(self.enteredAt)) {
+        //     return State.VetoCooldown;
+        // }
 
-        return State.VetoSignallingDeactivation;
+        // return State.VetoSignallingDeactivation;
+        return State.Normal;
     }
 
     function _fromVetoCooldownState(

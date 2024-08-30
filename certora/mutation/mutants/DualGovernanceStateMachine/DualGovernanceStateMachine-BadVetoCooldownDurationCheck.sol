@@ -242,7 +242,7 @@ library DualGovernanceStateTransitions {
         DualGovernanceConfig.Context memory config
     ) private view returns (State) {
         // MUTATION: bad cooldown duration check
-        if (!config.isVetoCooldownDurationPassed(Timestamp.wrap(0))) {
+        if (config.isVetoCooldownDurationPassed(self.enteredAt)) {
             return State.VetoCooldown;
         }
         // if (!config.isVetoCooldownDurationPassed(self.enteredAt)) {

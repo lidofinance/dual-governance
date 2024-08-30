@@ -115,13 +115,11 @@ library DualGovernanceStateMachine {
             );
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
-            // MUTATION
-            // Add following lines (meant to cause newly deployed
-            // signalling escrow to also enter ragequit)
-            signallingEscrow.startRageQuit(
-                config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(rageQuitRound)
-            );
         }
+        // MUTATION
+        // Add following lines (meant to cause both escrows to enter ragequit)
+        self.signallingEscrow.startRageQuit(config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(0));
+        self.rageQuitEscrow.startRageQuit(config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(0));
 
         emit DualGovernanceStateChanged(currentState, newState, self);
     }

@@ -14,16 +14,9 @@ methods {
 	function isRageQuit(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
 	function getVetoSignallingActivatedAt() external returns (DualGovernanceHarness.Timestamp) envfree;
 	function getRageQuitEscrow() external returns (address) envfree;
-
-	// DualGovernanceConfig summaries
-	function _.isFirstSealRageQuitSupportCrossed(
-		DualGovernanceConfig.Context memory configContext, 
-		DualGovernanceHarness.PercentD16 rageQuitSupport) internal => 
-	isFirstRageQuitCrossedGhost(rageQuitSupport) expect bool;
-	function _.isSecondSealRageQuitSupportCrossed(
-		DualGovernanceConfig.Context memory configContext, 
-		DualGovernanceHarness.PercentD16 rageQuitSupport) internal => 
-	isSecondRageQuitCrossedGhost(rageQuitSupport) expect bool;
+	function getVetoSignallingEscrow() external returns (address) envfree;
+	function getFirstSeal() external returns (uint256) envfree;
+	function getSecondSeal() external returns (uint256) envfree;
 
 	// envfrees escrow
 	function EscrowA.isRageQuitState() external returns (bool) envfree;
@@ -66,6 +59,7 @@ methods {
 	function EmergencyProtectedTimelock.submit(address executor, 
 		DualGovernanceHarness.ExternalCall[] calls) external returns (uint256) => NONDET;
 
+	
 
 }
 
@@ -86,26 +80,8 @@ function escrowAddressIsRageQuit(address escrow) returns bool {
 	return false;
 }
 
-// Ghosts for support thresholds so we do not need to link
-// in DualGovernanceConfig which has some nonlinear functions
-ghost uint256 rageQuitFirstSealGhost {
-	init_state axiom rageQuitFirstSealGhost > 0;
-}
-ghost uint256 rageQuitSecondSealGhost {
-	init_state axiom rageQuitSecondSealGhost > 0 && 
-		rageQuitFirstSealGhost < rageQuitSecondSealGhost;
-}
-function isFirstRageQuitCrossedGhost(uint256 rageQuitSupport) returns bool {
-	require rageQuitFirstSealGhost > 0;
-	require rageQuitSecondSealGhost > 0;
-	require rageQuitFirstSealGhost < rageQuitSecondSealGhost;
-	return rageQuitSupport > rageQuitFirstSealGhost;
-}
-function isSecondRageQuitCrossedGhost(uint256 rageQuitSupport) returns bool {
-	require rageQuitFirstSealGhost > 0;
-	require rageQuitSecondSealGhost > 0;
-	require rageQuitFirstSealGhost < rageQuitSecondSealGhost;
-	return rageQuitSupport > rageQuitSecondSealGhost;
+function rageQuitThresholdAssumptions() returns bool {
+	return getFirstSeal() > 0 && getSecondSeal() > getFirstSeal();
 }
 
 // for any registered proposer, his index should be ≤ the length of 
@@ -184,10 +160,9 @@ rule dg_kp_3_cooldown_execution (method f) {
 rule dg_kp_4_single_ragequit (method f) {
 	env e;
 	calldataarg args;
-	require getRageQuitEscrow() != 0 => escrowAddressIsRageQuit(getRageQuitEscrow());
-	require EscrowA == EscrowB || !(EscrowA.isRageQuitState() && EscrowB.isRageQuitState());
+	require !escrowAddressIsRageQuit(getVetoSignallingEscrow());
 	f(e, args);
-	assert EscrowA == EscrowB || !(EscrowA.isRageQuitState() && EscrowB.isRageQuitState());
+	assert !escrowAddressIsRageQuit(getVetoSignallingEscrow());
 }
 
 // PP-1: Regardless of the state in which a proposal is submitted, if the 
@@ -211,10 +186,12 @@ rule pp_kp_1_ragequit_extends {
 	// - we do not transition into normal state
 	// - if timelock is extended with ragequit support, we
 	// cannot transition into VetoCooldown
-	require getVetoSignallingEscrow(e) == EscrowA;
-	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
-	require isFirstRageQuitCrossedGhost(rageQuitSupport);
+	// require getVetoSignallingEscrow(e) == EscrowA;
+	uint256 rageQuitSupport = getRageQuitSupportHarnessed(e);
 	require !isDynamicTimelockPassed(e, rageQuitSupport);
+	require rageQuitThresholdAssumptions();
+	require getFirstSealRageQuitSupportCrossed(e);
+
 	// we cannot transition to normal state above first seal ragequit support
 	assert !isNormal(getState());
 	assert !isVetoCooldown(getState());
@@ -227,12 +204,9 @@ rule pp_kp_2_ragequit_trigger {
 	env e;
 	calldataarg args;
 
-	require getVetoSignallingEscrow(e) == EscrowA;
-	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
-	require rageQuitFirstSealGhost > 0;
-	require rageQuitSecondSealGhost > rageQuitFirstSealGhost;
-	// have large ragequit support to try to maximize delay
-	require rageQuitSupport > rageQuitFirstSealGhost;
+	uint256 rageQuitSupport = getRageQuitSupportHarnessed(e);
+	require rageQuitThresholdAssumptions();
+	require getFirstSealRageQuitSupportCrossed(e);
 
 	// Assumptions about waiting long enough:
 	// Assume we have waited long enough if in VetoSignalling
@@ -266,10 +240,11 @@ rule pp_kp_2_ragequit_trigger {
 rule pp_kp_3_no_indefinite_proposal_submission_block {
 	env e;
 
-	require getVetoSignallingEscrow(e) == EscrowA;
-	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
+	uint256 rageQuitSupport = getRageQuitSupportHarnessed(e);
 	// Assume we have waited long enough
+	require rageQuitThresholdAssumptions();
 	require isVetoSignallingDeactivationMaxDurationPassed(e) && isVetoCooldownDurationPassed(e);
+
 
 	DualGovernanceHarness.DGHarnessState old_state = getState();
 	activateNextState(e);
@@ -286,10 +261,9 @@ rule pp_kp_3_no_indefinite_proposal_submission_block {
 // triggering a rage quit immediately afterwards).
 rule pp_kp_4_veto_signalling_deactivation_cancellable() {
 	env e;
-	require getVetoSignallingEscrow(e) == EscrowA;
-	uint256 rageQuitSupport = EscrowA.getRageQuitSupport(e);
 	require isVetoSignallingDeactivation(getState());
-	require isSecondRageQuitCrossedGhost(rageQuitSupport);
+	require rageQuitThresholdAssumptions();
+	require getSecondSealRageQuitSupportCrossed(e);
 	activateNextState(e);
 
 	// the only way out of veto signalling deactivation that does not go back to the parent is veto cooldown,
@@ -332,9 +306,22 @@ rule dg_transitions_1_only_legal_transitions() {
 	// we are not interested in the cases where no transition happened
 	require old_state != new_state;
 
-	assert isNormal(new_state) => isVetoCooldown(old_state);
-	assert isVetoSignalling(new_state) => isNormal(old_state) || isVetoCooldown(old_state) || isVetoSignallingDeactivation(old_state) || isRageQuit(old_state);
-	assert isRageQuit(new_state) => isVetoSignalling(old_state) || isVetoSignallingDeactivation(old_state);
-	assert isVetoCooldown(new_state) => isRageQuit(old_state) || isVetoSignallingDeactivation(old_state);
-	assert isVetoSignallingDeactivation(new_state) => isVetoSignalling(old_state);
+	require rageQuitThresholdAssumptions();
+
+	if(isNormal(old_state)) {
+		assert isVetoSignalling(new_state);
+	} else if(isVetoSignalling(old_state)) {
+		assert isRageQuit(new_state) || isVetoSignallingDeactivation(new_state);
+	} else if(isVetoSignallingDeactivation(old_state)) {
+		assert isVetoSignalling(new_state) || 
+			isVetoCooldown(new_state) ||
+			isRageQuit(new_state);
+	} else if(isVetoCooldown(old_state)) {
+		assert isNormal(new_state) || isVetoSignalling(new_state);
+	} else if(isRageQuit(old_state)) {
+		assert isVetoSignalling(new_state) || isVetoCooldown(new_state);
+	} else {
+		// unset state should not be reachable
+		assert false;
+	}
 }
