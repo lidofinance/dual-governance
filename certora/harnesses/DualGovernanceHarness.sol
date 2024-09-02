@@ -62,14 +62,6 @@ contract DualGovernanceHarness is DualGovernance {
         return asDGHarnessState(_stateMachine.state);
     }
 
-    // function getStateTransition() external returns (DGHarnessState oldState, DGHarnessState newState) {
-    //     (State oldState, State newState) = _stateMachine.getStateTransition(
-    //         _configProvider.getDualGovernanceConfig(),
-    //         ESCROW_MASTER_COPY
-    //     );
-    //     return (asDGHarnessState(oldState), asDGHarnessState(newState));
-    // }
-
     function getFirstSeal() external view returns (uint256) {
         return PercentD16.unwrap(_configProvider.getDualGovernanceConfig().firstSealRageQuitSupport);
     }

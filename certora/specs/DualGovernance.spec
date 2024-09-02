@@ -31,22 +31,28 @@ methods {
 	function _.isRageQuitFinalized() external => DISPATCHER(true);
 
 
-	// TODO check these NONDETs. So far they seem pretty irrelevant to the 
-	// rules in scope for this contract.
+	// The NONDETs and summaries here essentially introduce an assumption
+	// that the summarized/NONDETed function does not influence the
+	// state of the contracts explicitly added to the scene.
 	// This is reached by Escrow.withdrawETH() and makes a lowlevel 
-	// call on amount causing a HAVOC. 
+	// call on recipient causing a HAVOC. The call in Address passes
+	// an empty payload, so it will call the `receive` function of
+	// the recipient if there is one.
 	function Address.sendValue(address recipient, uint256 amount) internal => NONDET;
 	// This is reached by ResealManager.reseal and makes a low-level call
 	// on target which havocs all contracts. (And we can't NONDET functions
-	// that return bytes).
+	// that return bytes). The implementation of Address is meant
+	// to be a safer alternative to directly using call, according to its
+	// comments.
 	function Address.functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) => CVLFunctionCallWithValue(target, data, value);
 	// This function belongs to ISealble which we do not have an implementation
-	// of and it causes a havoc of all contracts.
-	// It is reached by ResealManager.reaseal/resume
+	// of and it causes a havoc of all contracts. It is reached by 
+	// ResealManager.reseal/resume. This is a view function so it must be safe.
 	function _.getResumeSinceTimestamp() external => CONSTANT;
 	// This function belongs to IOnable which we do not have an implementation
 	// of and it causes a havoc of all contracts. It is reached by EPT.
-	// transferExecutorOwnership
+	// transferExecutorOwnership. It is not a view functionion, 
+	// but from the description it likely only affects its own state.
 	function _.transferOwnership(address newOwner) external => NONDET;
 	// This is in is reached by 2 calls in EPT and reaches a call to 
 	// functionCallWithValue. (It may be subsumed by the summary to 
@@ -58,9 +64,6 @@ methods {
 	// really needed for verifying DG. We also have separate rules for EPT.
 	function EmergencyProtectedTimelock.submit(address executor, 
 		DualGovernanceHarness.ExternalCall[] calls) external returns (uint256) => NONDET;
-
-	
-
 }
 
 // Ideally we would return a ghost but then we run into the tool bug
@@ -77,6 +80,8 @@ function escrowAddressIsRageQuit(address escrow) returns bool {
 	} else if (escrow == EscrowB) {
 		return EscrowB.isRageQuitState();
 	}
+	// EscrowA and EscrowB are the only ones in the scene so this should 
+	// not be reached.
 	return false;
 }
 
@@ -86,8 +91,9 @@ function rageQuitThresholdAssumptions() returns bool {
 
 // for any registered proposer, his index should be ≤ the length of 
 // the array of proposers
-// “for each entry in the struct in the array, show that the index inside is the same as the real array index”
-// NOTE: this has not been addressed by customer, so this should fail now.
+// “for each entry in the struct in the array, show that the index inside is 
+// the same as the real array index”
+// NOTE: this has not yet been addressed by Lido, so this should fail now.
 rule w2_1a_indexes_match (method f) {
 	env e;
 	calldataarg args;
@@ -101,9 +107,9 @@ rule w2_1a_indexes_match (method f) {
 	require getProposerIndexFromExecutor(proposer_addr) - 1 == idx;
 
 	f(e, args);
-	// Strategy 1: check proposerIndex is <= proposers array length
+	// check proposerIndex is <= proposers array length
 	assert getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length;
-	// Strategy 2: check proposerIndex == real array index
+	// check proposerIndex == real array index
 	assert getProposerIndexFromExecutor(proposer_addr) - 1 == idx;
 }
 
@@ -115,14 +121,10 @@ rule dg_kp_1_proposal_execution {
 	scheduleProposal(e, proposal_id);
 	DualGovernanceHarness.DGHarnessState state = getState();
 	assert !isVetoSignalling(state) && !isRageQuit(state);
-	// This throws a type error wherein CLV claims DGHarnessState.VetoSignaling
-	// does not exist -- it seems like it starts to assume the type is a struct
-	// if you nest more than one deep
-	// DualGovernanceHarness.DGHarnessState.VetoSignaling && state != DualGovernanceHarness.DGHarnessState.RageQuit;
 }
 
-// NOTE: moved this to other spec file while fixing timeout
-// Proposals cannot be submitted in the Veto Signaling Deactivation sub-state or in the Veto Cooldown state.
+// Proposals cannot be submitted in the Veto Signaling Deactivation sub-state 
+// or in the Veto Cooldown state.
 rule dg_kp_2_proposal_submission {
 	env e;
 	DualGovernanceHarness.ExternalCall[] calls;
@@ -147,7 +149,7 @@ rule dg_kp_3_cooldown_execution (method f) {
 
 	scheduleProposal(e, proposalId);
 
-	// This requires affects the state that was stepped into at the start of
+	// This requires refers to the state that was stepped into during the
 	// the scheduleProposal call
 	require isVetoCooldown(getState());
 	DualGovernanceHarness.Timestamp vetoSignallingActivatedAt =
@@ -186,7 +188,6 @@ rule pp_kp_1_ragequit_extends {
 	// - we do not transition into normal state
 	// - if timelock is extended with ragequit support, we
 	// cannot transition into VetoCooldown
-	// require getVetoSignallingEscrow(e) == EscrowA;
 	uint256 rageQuitSupport = getRageQuitSupportHarnessed(e);
 	require !isDynamicTimelockPassed(e, rageQuitSupport);
 	require rageQuitThresholdAssumptions();
@@ -278,20 +279,23 @@ rule dg_states_1_proposal_submission_states() {
 	env e;
 	calldataarg args;
 	submitProposal(e, args);
-	// we take the state after and not before, because state transitions are triggered at the start of actions,
-	// not at the end of the ones that caused them to become possible
+	// we take the state after and not before, because state transitions are 
+	// triggered at the start of actions, not at the end of the ones that 
+	// caused them to become possible.
 	DualGovernanceHarness.DGHarnessState state = getState();
 
 	assert isNormal(state) || isVetoSignalling(state) || isRageQuit(state);
 }
 
-// If proposal scheduling succeeds, the system was in one of these states: Normal, Veto Cooldown
+// If proposal scheduling succeeds, the system was in one of these states: 
+// Normal, Veto Cooldown
 rule dg_states_2_proposal_scheduling_states() {
 	env e;
 	calldataarg args;
 	scheduleProposal(e, args);
-	// we take the state after and not before, because state transitions are triggered at the start of actions,
-	// not at the end of the ones that caused them to become possible
+	// we take the state after and not before, because state transitions are 
+	// triggered at the start of actions, not at the end of the ones that 
+	// caused them to become possible.
 	DualGovernanceHarness.DGHarnessState state = getState();
 
 	assert isNormal(state) || isVetoCooldown(state);
