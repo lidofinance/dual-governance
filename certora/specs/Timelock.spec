@@ -17,12 +17,16 @@ methods {
     function _.execute(address, uint256, bytes) external => nondetBytes() expect bytes;
 }
 
-// somehow, specifying it like this instead of NONDET avoids a revert based on the returned value in EPT_9_EmergencyModeLiveness
+// returns default empty bytes object, since we don't need to know anything about the returned value of execute in any of our rules
+// specifying it like this instead of NONDET avoids a revert based on the returned value in EPT_9_EmergencyModeLiveness
 function nondetBytes() returns bytes {
     bytes b;
     return b;
 }
 
+function proposalIsExecuted(uint proposalId) returns bool {
+    return getProposal(proposalId).status == ExecutableProposals.Status.Executed;
+}
 
 /**
     @title Executed is a terminal state for a proposal, once executed it cannot transition to any other state
@@ -31,13 +35,13 @@ function nondetBytes() returns bytes {
 rule W1_4_TerminalityOfExecuted(method f) filtered { f -> f.selector != sig:Executor.execute(address, uint256, bytes).selector } {
     uint proposalId;
     requireInvariant outOfBoundsProposalDoesNotExist(proposalId);
-    require getProposal(proposalId).status == ExecutableProposals.Status.Executed;
+    require proposalIsExecuted(proposalId);
 
     env e;
     calldataarg args;
     f(e, args);
 
-    assert getProposal(proposalId).status == ExecutableProposals.Status.Executed;
+    assert proposalIsExecuted(proposalId);
 }
 
 invariant outOfBoundsProposalDoesNotExist(uint proposalId) proposalId == 0 || proposalId > getProposalsCount() => getProposal(proposalId).status == ExecutableProposals.Status.NotExist
@@ -83,6 +87,8 @@ function effectiveEmergencyActivationCommittee(env e) returns address {
 
 /**
     @title Emergency protection configuration changes are guarded by committees or admin executor
+    We check here that the part of the state that should only be alterable by the respective emergency committees 
+    or through an admin proposal is indeed not changed on any method call other than ones correctly authorized  
 */
 rule EPT_1_EmergencyProtectionConfigurationGuarded(method f) filtered { f -> f.selector != sig:Executor.execute(address, uint256, bytes).selector } {
     EmergencyProtection.Context before = getEmergencyProtectionContext();
@@ -150,7 +156,7 @@ rule EPT_2b_SubmissionGovernanceOnly {
 rule EPT_3_EmergencyModeExecutionRestriction(method f) filtered { f -> f.selector != sig:Executor.execute(address, uint256, bytes).selector } {
     uint proposalId;
     requireInvariant outOfBoundsProposalDoesNotExist(proposalId);
-    bool executedBefore = getProposal(proposalId).status == ExecutableProposals.Status.Executed;
+    bool executedBefore = proposalIsExecuted(proposalId);
 
     bool isEmergencyModeActivated = isEmergencyModeActive();
 
@@ -160,7 +166,7 @@ rule EPT_3_EmergencyModeExecutionRestriction(method f) filtered { f -> f.selecto
     calldataarg args;
     f(e, args);
 
-    bool executedAfter = getProposal(proposalId).status == ExecutableProposals.Status.Executed;
+    bool executedAfter = proposalIsExecuted(proposalId);
 
     assert isEmergencyModeActivated && !executedBefore && executedAfter => e.msg.sender == effectiveEmergencyExecutionCommittee;
 }
@@ -241,7 +247,7 @@ rule EPT_10_ProposalTimestampConsistency(method f) filtered { f -> f.selector !=
         // for the execution methods we also check that they update the status, since executedAt is not longer included as a timestamp, 
         // but EPT_3_EmergencyModeExecutionRestriction depends on the execution status being recorded correctly to be meaningful
         assert proposalTimestampsEqual(proposal_before, getProposal(proposalId))
-            && getProposal(proposalIdToExecute).status == ExecutableProposals.Status.Executed;
+            && proposalIsExecuted(proposalIdToExecute);
     } else if (f.selector == sig:emergencyExecute(uint).selector) {
         uint proposalId;
         ITimelock.Proposal proposal_before = getProposal(proposalId);
@@ -250,7 +256,7 @@ rule EPT_10_ProposalTimestampConsistency(method f) filtered { f -> f.selector !=
         emergencyExecute(e, proposalIdToExecute);
 
         assert proposalTimestampsEqual(proposal_before, getProposal(proposalId))
-            && getProposal(proposalIdToExecute).status == ExecutableProposals.Status.Executed;
+            && proposalIsExecuted(proposalIdToExecute);
     } else {
         uint proposalId;
         ITimelock.Proposal proposal_before = getProposal(proposalId);
