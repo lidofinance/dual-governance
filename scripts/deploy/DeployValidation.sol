@@ -53,38 +53,64 @@ library DeployValidation {
     }
 
     function checkAdminExecutor(address payable executor, address timelock) internal view {
-        require(Executor(executor).owner() == timelock);
+        require(Executor(executor).owner() == timelock, "AdminExecutor owner != EmergencyProtectedTimelock");
     }
 
     function checkTimelock(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
         EmergencyProtectedTimelock timelockInstance = EmergencyProtectedTimelock(res.timelock);
-        require(timelockInstance.getAdminExecutor() == res.adminExecutor);
-        require(timelockInstance.MAX_AFTER_SUBMIT_DELAY() == dgDeployConfig.MAX_AFTER_SUBMIT_DELAY);
-        require(timelockInstance.MAX_AFTER_SCHEDULE_DELAY() == dgDeployConfig.MAX_AFTER_SCHEDULE_DELAY);
-        require(timelockInstance.MAX_EMERGENCY_MODE_DURATION() == dgDeployConfig.MAX_EMERGENCY_MODE_DURATION);
         require(
-            timelockInstance.MAX_EMERGENCY_PROTECTION_DURATION() == dgDeployConfig.MAX_EMERGENCY_PROTECTION_DURATION
+            timelockInstance.getAdminExecutor() == res.adminExecutor,
+            "Incorrect adminExecutor address in EmergencyProtectedTimelock"
+        );
+        require(
+            timelockInstance.MAX_AFTER_SUBMIT_DELAY() == dgDeployConfig.MAX_AFTER_SUBMIT_DELAY,
+            "Incorrect parameter MAX_AFTER_SUBMIT_DELAY"
+        );
+        require(
+            timelockInstance.MAX_AFTER_SCHEDULE_DELAY() == dgDeployConfig.MAX_AFTER_SCHEDULE_DELAY,
+            "Incorrect parameter MAX_AFTER_SCHEDULE_DELAY"
+        );
+        require(
+            timelockInstance.MAX_EMERGENCY_MODE_DURATION() == dgDeployConfig.MAX_EMERGENCY_MODE_DURATION,
+            "Incorrect parameter MAX_EMERGENCY_MODE_DURATION"
+        );
+        require(
+            timelockInstance.MAX_EMERGENCY_PROTECTION_DURATION() == dgDeployConfig.MAX_EMERGENCY_PROTECTION_DURATION,
+            "Incorrect parameter MAX_EMERGENCY_PROTECTION_DURATION"
         );
 
         require(
             timelockInstance.getEmergencyProtectionContext().emergencyActivationCommittee
-                == res.emergencyActivationCommittee
+                == res.emergencyActivationCommittee,
+            "Incorrect emergencyActivationCommittee address in EmergencyProtectedTimelock"
         );
         require(
             timelockInstance.getEmergencyProtectionContext().emergencyExecutionCommittee
-                == res.emergencyExecutionCommittee
+                == res.emergencyExecutionCommittee,
+            "Incorrect emergencyExecutionCommittee address in EmergencyProtectedTimelock"
         );
         require(
             timelockInstance.getEmergencyProtectionContext().emergencyProtectionEndsAfter
-                <= dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now())
+                <= dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
+            "Incorrect value for emergencyProtectionEndsAfter"
         );
         require(
             timelockInstance.getEmergencyProtectionContext().emergencyModeDuration
-                == dgDeployConfig.EMERGENCY_MODE_DURATION
+                == dgDeployConfig.EMERGENCY_MODE_DURATION,
+            "Incorrect value for emergencyModeDuration"
         );
-        require(timelockInstance.getEmergencyProtectionContext().emergencyGovernance == res.emergencyGovernance);
-        require(timelockInstance.getAfterSubmitDelay() == dgDeployConfig.AFTER_SUBMIT_DELAY);
-        require(timelockInstance.getGovernance() == res.dualGovernance);
+        require(
+            timelockInstance.getEmergencyProtectionContext().emergencyGovernance == res.emergencyGovernance,
+            "Incorrect emergencyGovernance address in EmergencyProtectedTimelock"
+        );
+        require(
+            timelockInstance.getAfterSubmitDelay() == dgDeployConfig.AFTER_SUBMIT_DELAY,
+            "Incorrect parameter AFTER_SUBMIT_DELAY"
+        );
+        require(
+            timelockInstance.getGovernance() == res.dualGovernance,
+            "Incorrect governance address in EmergencyProtectedTimelock"
+        );
     }
 
     function checkEmergencyActivationCommittee(
@@ -93,12 +119,18 @@ library DeployValidation {
         ConfigValues memory dgDeployConfig
     ) internal view {
         EmergencyActivationCommittee committee = EmergencyActivationCommittee(emergencyActivationCommittee);
-        require(committee.owner() == adminExecutor);
+        require(committee.owner() == adminExecutor, "EmergencyActivationCommittee owner != adminExecutor");
 
         for (uint256 i = 0; i < dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS.length; ++i) {
-            require(committee.isMember(dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS[i]) == true);
+            require(
+                committee.isMember(dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS[i]) == true,
+                "Incorrect member of EmergencyActivationCommittee"
+            );
         }
-        require(committee.quorum() == dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM);
+        require(
+            committee.quorum() == dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
+            "EmergencyActivationCommittee has incorrect quorum set"
+        );
     }
 
     function checkEmergencyExecutionCommittee(
@@ -107,22 +139,37 @@ library DeployValidation {
         ConfigValues memory dgDeployConfig
     ) internal view {
         EmergencyExecutionCommittee committee = EmergencyExecutionCommittee(emergencyExecutionCommittee);
-        require(committee.owner() == adminExecutor);
+        require(committee.owner() == adminExecutor, "EmergencyExecutionCommittee owner != adminExecutor");
 
         for (uint256 i = 0; i < dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS.length; ++i) {
-            require(committee.isMember(dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS[i]) == true);
+            require(
+                committee.isMember(dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS[i]) == true,
+                "Incorrect member of EmergencyExecutionCommittee"
+            );
         }
-        require(committee.quorum() == dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_QUORUM);
+        require(
+            committee.quorum() == dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
+            "EmergencyExecutionCommittee has incorrect quorum set"
+        );
     }
 
     function checkTimelockedGovernance(DeployResult memory res, LidoAddresses memory lidoAddresses) internal view {
         TimelockedGovernance emergencyTimelockedGovernance = TimelockedGovernance(res.emergencyGovernance);
-        require(emergencyTimelockedGovernance.GOVERNANCE() == address(lidoAddresses.voting));
-        require(address(emergencyTimelockedGovernance.TIMELOCK()) == res.timelock);
+        require(
+            emergencyTimelockedGovernance.GOVERNANCE() == address(lidoAddresses.voting),
+            "TimelockedGovernance governance != Lido voting"
+        );
+        require(
+            address(emergencyTimelockedGovernance.TIMELOCK()) == res.timelock,
+            "Incorrect address for timelock in TimelockedGovernance"
+        );
     }
 
     function checkResealManager(DeployResult memory res) internal view {
-        require(address(ResealManager(res.resealManager).EMERGENCY_PROTECTED_TIMELOCK()) == res.timelock);
+        require(
+            address(ResealManager(res.resealManager).EMERGENCY_PROTECTED_TIMELOCK()) == res.timelock,
+            "Incorrect address for EMERGENCY_PROTECTED_TIMELOCK in ResealManager"
+        );
     }
 
     function checkDualGovernance(
@@ -131,99 +178,161 @@ library DeployValidation {
         LidoAddresses memory lidoAddresses
     ) internal view {
         DualGovernance dg = DualGovernance(res.dualGovernance);
-        require(address(dg.TIMELOCK()) == res.timelock);
-        require(address(dg.RESEAL_MANAGER()) == res.resealManager);
-        require(dg.MIN_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.MIN_TIEBREAKER_ACTIVATION_TIMEOUT);
-        require(dg.MAX_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.MAX_TIEBREAKER_ACTIVATION_TIMEOUT);
-        require(dg.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT() == dgDeployConfig.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT);
+        require(address(dg.TIMELOCK()) == res.timelock, "Incorrect address for timelock in DualGovernance");
+        require(
+            address(dg.RESEAL_MANAGER()) == res.resealManager, "Incorrect address for resealManager in DualGovernance"
+        );
+        require(
+            dg.MIN_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.MIN_TIEBREAKER_ACTIVATION_TIMEOUT,
+            "Incorrect parameter MIN_TIEBREAKER_ACTIVATION_TIMEOUT"
+        );
+        require(
+            dg.MAX_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.MAX_TIEBREAKER_ACTIVATION_TIMEOUT,
+            "Incorrect parameter MAX_TIEBREAKER_ACTIVATION_TIMEOUT"
+        );
+        require(
+            dg.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT() == dgDeployConfig.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT,
+            "Incorrect parameter MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"
+        );
 
         Escrow escrowTemplate = Escrow(payable(dg.ESCROW_MASTER_COPY()));
-        require(escrowTemplate.DUAL_GOVERNANCE() == dg);
-        require(escrowTemplate.ST_ETH() == lidoAddresses.stETH);
-        require(escrowTemplate.WST_ETH() == lidoAddresses.wstETH);
-        require(escrowTemplate.WITHDRAWAL_QUEUE() == lidoAddresses.withdrawalQueue);
-        require(escrowTemplate.MIN_WITHDRAWALS_BATCH_SIZE() == dgDeployConfig.MIN_WITHDRAWALS_BATCH_SIZE);
+        require(escrowTemplate.DUAL_GOVERNANCE() == dg, "Escrow has incorrect DualGovernance address");
+        require(escrowTemplate.ST_ETH() == lidoAddresses.stETH, "Escrow has incorrect StETH address");
+        require(escrowTemplate.WST_ETH() == lidoAddresses.wstETH, "Escrow has incorrect WstETH address");
+        require(
+            escrowTemplate.WITHDRAWAL_QUEUE() == lidoAddresses.withdrawalQueue,
+            "Escrow has incorrect WithdrawalQueue address"
+        );
+        require(
+            escrowTemplate.MIN_WITHDRAWALS_BATCH_SIZE() == dgDeployConfig.MIN_WITHDRAWALS_BATCH_SIZE,
+            "Incorrect parameter MIN_WITHDRAWALS_BATCH_SIZE"
+        );
 
         DualGovernanceConfig.Context memory dgConfig = dg.getConfigProvider().getDualGovernanceConfig();
         require(
             PercentD16.unwrap(dgConfig.firstSealRageQuitSupport)
-                == PercentD16.unwrap(dgDeployConfig.FIRST_SEAL_RAGE_QUIT_SUPPORT)
+                == PercentD16.unwrap(dgDeployConfig.FIRST_SEAL_RAGE_QUIT_SUPPORT),
+            "Incorrect parameter FIRST_SEAL_RAGE_QUIT_SUPPORT"
         );
         require(
             PercentD16.unwrap(dgConfig.secondSealRageQuitSupport)
-                == PercentD16.unwrap(dgDeployConfig.SECOND_SEAL_RAGE_QUIT_SUPPORT)
+                == PercentD16.unwrap(dgDeployConfig.SECOND_SEAL_RAGE_QUIT_SUPPORT),
+            "Incorrect parameter SECOND_SEAL_RAGE_QUIT_SUPPORT"
         );
-        require(dgConfig.minAssetsLockDuration == dgDeployConfig.MIN_ASSETS_LOCK_DURATION);
-        require(dgConfig.dynamicTimelockMinDuration == dgDeployConfig.DYNAMIC_TIMELOCK_MIN_DURATION);
-        require(dgConfig.dynamicTimelockMaxDuration == dgDeployConfig.DYNAMIC_TIMELOCK_MAX_DURATION);
-        require(dgConfig.vetoSignallingMinActiveDuration == dgDeployConfig.VETO_SIGNALLING_MIN_ACTIVE_DURATION);
         require(
-            dgConfig.vetoSignallingDeactivationMaxDuration == dgDeployConfig.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION
+            dgConfig.minAssetsLockDuration == dgDeployConfig.MIN_ASSETS_LOCK_DURATION,
+            "Incorrect parameter MIN_ASSETS_LOCK_DURATION"
         );
-        require(dgConfig.vetoCooldownDuration == dgDeployConfig.VETO_COOLDOWN_DURATION);
-        require(dgConfig.rageQuitExtensionDelay == dgDeployConfig.RAGE_QUIT_EXTENSION_DELAY);
-        require(dgConfig.rageQuitEthWithdrawalsMinTimelock == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK);
+        require(
+            dgConfig.dynamicTimelockMinDuration == dgDeployConfig.DYNAMIC_TIMELOCK_MIN_DURATION,
+            "Incorrect parameter DYNAMIC_TIMELOCK_MIN_DURATION"
+        );
+        require(
+            dgConfig.dynamicTimelockMaxDuration == dgDeployConfig.DYNAMIC_TIMELOCK_MAX_DURATION,
+            "Incorrect parameter DYNAMIC_TIMELOCK_MAX_DURATION"
+        );
+        require(
+            dgConfig.vetoSignallingMinActiveDuration == dgDeployConfig.VETO_SIGNALLING_MIN_ACTIVE_DURATION,
+            "Incorrect parameter VETO_SIGNALLING_MIN_ACTIVE_DURATION"
+        );
+        require(
+            dgConfig.vetoSignallingDeactivationMaxDuration == dgDeployConfig.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION,
+            "Incorrect parameter VETO_SIGNALLING_DEACTIVATION_MAX_DURATION"
+        );
+        require(
+            dgConfig.vetoCooldownDuration == dgDeployConfig.VETO_COOLDOWN_DURATION,
+            "Incorrect parameter VETO_COOLDOWN_DURATION"
+        );
+        require(
+            dgConfig.rageQuitExtensionDelay == dgDeployConfig.RAGE_QUIT_EXTENSION_DELAY,
+            "Incorrect parameter RAGE_QUIT_EXTENSION_DELAY"
+        );
+        require(
+            dgConfig.rageQuitEthWithdrawalsMinTimelock == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK,
+            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK"
+        );
         require(
             dgConfig.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber
-                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER
+                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER,
+            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER"
         );
         require(
             dgConfig.rageQuitEthWithdrawalsTimelockGrowthCoeffs[0]
-                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[0]
+                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[0],
+            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[0]"
         );
         require(
             dgConfig.rageQuitEthWithdrawalsTimelockGrowthCoeffs[1]
-                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[1]
+                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[1],
+            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[1]"
         );
         require(
             dgConfig.rageQuitEthWithdrawalsTimelockGrowthCoeffs[2]
-                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[2]
+                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[2],
+            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[2]"
         );
 
-        require(dg.getCurrentState() == State.Normal);
+        require(dg.getCurrentState() == State.Normal, "Incorrect DualGovernance state");
     }
 
     function checkTiebreakerCoreCommittee(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
         TiebreakerCore tcc = TiebreakerCore(res.tiebreakerCoreCommittee);
-        require(tcc.owner() == res.adminExecutor);
-        require(tcc.timelockDuration() == dgDeployConfig.TIEBREAKER_EXECUTION_DELAY);
+        require(tcc.owner() == res.adminExecutor, "TiebreakerCoreCommittee owner != adminExecutor");
+        require(
+            tcc.timelockDuration() == dgDeployConfig.TIEBREAKER_EXECUTION_DELAY,
+            "Incorrect parameter TIEBREAKER_EXECUTION_DELAY"
+        );
 
         // TODO: N sub committees
-        require(tcc.isMember(res.tiebreakerSubCommittee1) == true);
-        require(tcc.isMember(res.tiebreakerSubCommittee2) == true);
-        require(tcc.quorum() == 2);
+        require(tcc.isMember(res.tiebreakerSubCommittee1) == true, "Incorrect member of TiebreakerCoreCommittee");
+        require(tcc.isMember(res.tiebreakerSubCommittee2) == true, "Incorrect member of TiebreakerCoreCommittee");
+        require(tcc.quorum() == 2, "Incorrect quorum in TiebreakerCoreCommittee");
     }
 
     function checkTiebreakerSubCommittee1(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
         TiebreakerSubCommittee tsc = TiebreakerSubCommittee(res.tiebreakerSubCommittee1);
-        require(tsc.owner() == res.adminExecutor);
-        require(tsc.timelockDuration() == Durations.from(0)); // TODO: is it correct?
+        require(tsc.owner() == res.adminExecutor, "TiebreakerSubCommittee1 owner != adminExecutor");
+        require(tsc.timelockDuration() == Durations.from(0), "TiebreakerSubCommittee1 timelock should be 0"); // TODO: is it correct?
 
         for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS.length; ++i) {
-            require(tsc.isMember(dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS[i]) == true);
+            require(
+                tsc.isMember(dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS[i]) == true,
+                "Incorrect member of TiebreakerSubCommittee1"
+            );
         }
-        require(tsc.quorum() == dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_QUORUM);
+        require(
+            tsc.quorum() == dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_QUORUM,
+            "Incorrect quorum in TiebreakerSubCommittee1"
+        );
     }
 
     function checkTiebreakerSubCommittee2(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
         TiebreakerSubCommittee tsc = TiebreakerSubCommittee(res.tiebreakerSubCommittee2);
-        require(tsc.owner() == res.adminExecutor);
+        require(tsc.owner() == res.adminExecutor, "TiebreakerSubCommittee1 owner != adminExecutor");
         require(tsc.timelockDuration() == Durations.from(0), "TiebreakerSubCommittee2 timelock should be 0"); // TODO: is it correct?
 
         for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS.length; ++i) {
-            require(tsc.isMember(dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS[i]) == true);
+            require(
+                tsc.isMember(dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS[i]) == true,
+                "Incorrect member of TiebreakerSubCommittee2"
+            );
         }
-        require(tsc.quorum() == dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_QUORUM);
+        require(
+            tsc.quorum() == dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_QUORUM,
+            "Incorrect quorum in TiebreakerSubCommittee2"
+        );
     }
 
     function checkResealCommittee(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
         ResealCommittee rc = ResealCommittee(res.resealCommittee);
-        require(rc.owner() == res.adminExecutor);
+        require(rc.owner() == res.adminExecutor, "ResealCommittee owner != adminExecutor");
         require(rc.timelockDuration() == Durations.from(0), "ResealCommittee timelock should be 0"); // TODO: is it correct?
 
         for (uint256 i = 0; i < dgDeployConfig.RESEAL_COMMITTEE_MEMBERS.length; ++i) {
-            require(rc.isMember(dgDeployConfig.RESEAL_COMMITTEE_MEMBERS[i]) == true);
+            require(
+                rc.isMember(dgDeployConfig.RESEAL_COMMITTEE_MEMBERS[i]) == true, "Incorrect member of ResealCommittee"
+            );
         }
-        require(rc.quorum() == dgDeployConfig.RESEAL_COMMITTEE_QUORUM);
+        require(rc.quorum() == dgDeployConfig.RESEAL_COMMITTEE_QUORUM, "Incorrect quorum in ResealCommittee");
     }
 }
