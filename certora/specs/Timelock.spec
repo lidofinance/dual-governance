@@ -218,6 +218,9 @@ rule EPT_10_ProposalTimestampConsistency(method f) filtered { f -> f.selector !=
     env e;
     require e.block.timestamp <= max_uint40;
 
+    // For each function that should update a timestamp, we need to check that the correct timestamp of the correct proposal was updated,
+    // while any proposal that was not the one the function acted on should remain unchanged.
+    // For any other function, all proposals should have their timestamps unchanged.
     if (f.selector == sig:submit(address, ExternalCalls.ExternalCall[]).selector) {
         uint proposalId;
         ITimelock.Proposal proposal_before = getProposal(proposalId);
