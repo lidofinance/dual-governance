@@ -335,7 +335,7 @@ contract DeployDG is Script {
         uint256 quorum = dgDeployConfig.RESEAL_COMMITTEE_QUORUM;
         address[] memory committeeMembers = dgDeployConfig.RESEAL_COMMITTEE_MEMBERS;
 
-        // TODO: Don't we need to use timelock here?
+        // TODO: Don't we need to use non-zero timelock here?
         return new ResealCommittee(
             address(adminExecutor), committeeMembers, quorum, address(dualGovernance), Durations.from(0)
         );
@@ -355,7 +355,6 @@ contract DeployDG is Script {
 
     function getDeployedAddresses() internal view returns (DeployValidation.DeployResult memory) {
         return DeployValidation.DeployResult({
-            deployer: address(deployer),
             adminExecutor: payable(address(adminExecutor)),
             timelock: address(timelock),
             emergencyGovernance: address(emergencyGovernance),

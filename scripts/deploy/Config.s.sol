@@ -120,7 +120,7 @@ contract DGDeployConfig is Script {
 
     constructor() {
         // TODO: are these values correct as a default?
-        DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[0] = 0;
+        DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[0] = 0; // TODO: set to 1 ?
         DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[1] = 0;
         DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[2] = 0;
     }
