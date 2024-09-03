@@ -2,8 +2,8 @@ using EscrowA as EscrowA;
 using EscrowB as EscrowB;
 
 methods {
-	// envfrees
-	function getProposer(address account) external returns (Proposers.Proposer memory) envfree;
+    // envfrees
+    function getProposer(address account) external returns (Proposers.Proposer memory) envfree;
     function getProposerIndexFromExecutor(address proposer) external returns (uint32) envfree;
 	function getState() external returns (DualGovernanceHarness.DGHarnessState) envfree;
 	function isUnset(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
