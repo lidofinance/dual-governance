@@ -45,18 +45,17 @@ methods {
 	// to be a safer alternative to directly using call, according to its
 	// comments.
 	function Address.functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) => CVLFunctionCallWithValue(target, data, value);
-	// This function belongs to ISealble which we do not have an implementation
+	// This function belongs to ISealable which we do not have an implementation
 	// of and it causes a havoc of all contracts. It is reached by 
 	// ResealManager.reseal/resume. This is a view function so it must be safe.
 	function _.getResumeSinceTimestamp() external => CONSTANT;
-	// This function belongs to IOnable which we do not have an implementation
+	// This function belongs to IOwnable which we do not have an implementation
 	// of and it causes a havoc of all contracts. It is reached by EPT.
-	// transferExecutorOwnership. It is not a view functionion, 
+	// transferExecutorOwnership. It is not a view function, 
 	// but from the description it likely only affects its own state.
 	function _.transferOwnership(address newOwner) external => NONDET;
-	// This is in is reached by 2 calls in EPT and reaches a call to 
-	// functionCallWithValue. (It may be subsumed by the summary to 
-	// Address.functionCallWithValue)
+	// This is reached by 2 calls in EPT and reaches a call to 
+	// functionCallWithValue. 
 	function Executor.execute(address, uint256, bytes) external returns (bytes) => NONDET;
 
 	// This NONDET is meant to address a timeout of dg_kp_2
@@ -66,9 +65,6 @@ methods {
 		DualGovernanceHarness.ExternalCall[] calls) external returns (uint256) => NONDET;
 }
 
-// Ideally we would return a ghost but then we run into the tool bug
-// where a ghost declared bytes is actually given type "hashblob"
-// and this bug won't be fixed :)
 function CVLFunctionCallWithValue(address target, bytes data, uint256 value) returns bytes {
 	bytes ret;
 	return ret;
@@ -94,24 +90,13 @@ function rageQuitThresholdAssumptions() returns bool {
 // “for each entry in the struct in the array, show that the index inside is 
 // the same as the real array index”
 // NOTE: this has not yet been addressed by Lido, so this should fail now.
-rule w2_1a_indexes_match (method f) {
-	env e;
-	calldataarg args;
-	Proposers.Proposer[] proposers = getProposers(e);
-	require proposers.length <= 5; // loop unrolling
-	uint256 idx;
-	require idx <= proposers.length;
-	mathint get_proposers_length = proposers.length;
-	address proposer_addr = proposers[idx].account;
-	require getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length;
-	require getProposerIndexFromExecutor(proposer_addr) - 1 == idx;
-
-	f(e, args);
-	// check proposerIndex is <= proposers array length
-	assert getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length;
-	// check proposerIndex == real array index
-	assert getProposerIndexFromExecutor(proposer_addr) - 1 == idx;
-}
+invariant w2_1a_indexes_match (address proposer_addr, uint256 idx, 
+		Proposers.Proposer[] proposers)
+	proposers.length <= 5 && // loop unrolling
+	proposer_addr == proposers[idx].account && 
+	(getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length) &&
+	(getProposerIndexFromExecutor(proposer_addr) - 1 == idx) {
+	}
 
 //  Proposals cannot be executed in the Veto Signaling (both parent state and
 // Deactivation sub-state) and Rage Quit states.
@@ -120,7 +105,8 @@ rule dg_kp_1_proposal_execution {
 	uint256 proposal_id;
 	scheduleProposal(e, proposal_id);
 	DualGovernanceHarness.DGHarnessState state = getState();
-	assert !isVetoSignalling(state) && !isRageQuit(state);
+	assert !isVetoSignalling(state) && !isRageQuit(state) && 
+		!isVetoSignallingDeactivation(state);
 }
 
 // Proposals cannot be submitted in the Veto Signaling Deactivation sub-state 
@@ -159,7 +145,18 @@ rule dg_kp_3_cooldown_execution (method f) {
 
 // One rage quit cannot start until the previous rage quit has finalized. In 
 // other words, there can only be at most one active rage quit escrow at a time.
+// One rage quit cannot start until the previous rage quit has finalized. In 
+// other words, there can only be at most one active rage quit escrow at a time.
 rule dg_kp_4_single_ragequit (method f) {
+	env e;
+	calldataarg args;
+	require getRageQuitEscrow() != 0 => escrowAddressIsRageQuit(getRageQuitEscrow());
+	require EscrowA == EscrowB || !(EscrowA.isRageQuitState() && EscrowB.isRageQuitState());
+	f(e, args);
+	assert EscrowA == EscrowB || !(EscrowA.isRageQuitState() && EscrowB.isRageQuitState());
+}
+
+rule dg_kp_4_single_ragequit_adendum (method f) {
 	env e;
 	calldataarg args;
 	require !escrowAddressIsRageQuit(getVetoSignallingEscrow());
@@ -172,7 +169,6 @@ rule dg_kp_4_single_ragequit (method f) {
 // support before the ProposalExecutionMinTimelock expires, they can extend 
 // the timelock for a proportional time, according to the dynamic timelock 
 // calculation.
-// expected complexity: low
 rule pp_kp_1_ragequit_extends {
 	env e;
 	// Assume not initially in VetoCooldown as we stay in this state
@@ -200,7 +196,6 @@ rule pp_kp_1_ragequit_extends {
 
 // PP-2: It's not possible to prevent a proposal from being executed 
 // indefinitely without triggering a rage quit.
-// expected complexity: extra high
 rule pp_kp_2_ragequit_trigger {
 	env e;
 	calldataarg args;
@@ -237,7 +232,6 @@ rule pp_kp_2_ragequit_trigger {
 }
 
 // PP-3: It's not possible to block proposal submission indefinitely.
-// expected complexity: high
 rule pp_kp_3_no_indefinite_proposal_submission_block {
 	env e;
 
