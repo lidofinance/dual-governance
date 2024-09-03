@@ -22,7 +22,7 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
 
     Duration public immutable VETO_COOLDOWN_DURATION;
 
-    Duration public immutable RAGE_QUIT_EXTENSION_DELAY;
+    Duration public immutable RAGE_QUIT_EXTENSION_PERIOD_DURATION;
     Duration public immutable RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY;
     Duration public immutable RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY;
     Duration public immutable RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH;
@@ -44,7 +44,7 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
 
         VETO_COOLDOWN_DURATION = dualGovernanceConfig.vetoCooldownDuration;
 
-        RAGE_QUIT_EXTENSION_DELAY = dualGovernanceConfig.rageQuitExtensionDelay;
+        RAGE_QUIT_EXTENSION_PERIOD_DURATION = dualGovernanceConfig.rageQuitExtensionPeriodDuration;
         RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY = dualGovernanceConfig.rageQuitEthWithdrawalsMinDelay;
         RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY = dualGovernanceConfig.rageQuitEthWithdrawalsMaxDelay;
         RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH = dualGovernanceConfig.rageQuitEthWithdrawalsDelayGrowth;
@@ -59,8 +59,10 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
         config.vetoSignallingMaxDuration = VETO_SIGNALLING_MAX_DURATION;
         config.vetoSignallingMinActiveDuration = VETO_SIGNALLING_MIN_ACTIVE_DURATION;
         config.vetoSignallingDeactivationMaxDuration = VETO_SIGNALLING_DEACTIVATION_MAX_DURATION;
+
         config.vetoCooldownDuration = VETO_COOLDOWN_DURATION;
-        config.rageQuitExtensionDelay = RAGE_QUIT_EXTENSION_DELAY;
+
+        config.rageQuitExtensionPeriodDuration = RAGE_QUIT_EXTENSION_PERIOD_DURATION;
         config.rageQuitEthWithdrawalsMinDelay = RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY;
         config.rageQuitEthWithdrawalsMaxDelay = RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY;
         config.rageQuitEthWithdrawalsDelayGrowth = RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH;

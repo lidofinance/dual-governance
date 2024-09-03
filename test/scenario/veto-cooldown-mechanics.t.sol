@@ -76,9 +76,9 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
                 rageQuitEscrow.claimNextWithdrawalsBatch(128);
             }
 
-            rageQuitEscrow.startRageQuitExtensionDelay();
+            rageQuitEscrow.startRageQuitExtensionPeriod();
 
-            _wait(_dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_DELAY().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_PERIOD_DURATION().plusSeconds(1));
             assertTrue(rageQuitEscrow.isRageQuitFinalized());
         }
 

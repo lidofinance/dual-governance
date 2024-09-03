@@ -11,13 +11,16 @@ Duration constant D0 = Durations.ZERO;
 Timestamp constant T0 = Timestamps.ZERO;
 
 contract EscrowStateUnitTests is UnitTest {
+
     EscrowState.Context private _context;
 
     // ---
     // initialize()
     // ---
 
-    function testFuzz_initialize_happyPath(Duration minAssetsLockDuration) external {
+    function testFuzz_initialize_happyPath(
+        Duration minAssetsLockDuration
+    ) external {
         _context.state = State.NotInitialized;
 
         vm.expectEmit();
@@ -29,13 +32,15 @@ contract EscrowStateUnitTests is UnitTest {
         checkContext({
             state: State.SignallingEscrow,
             minAssetsLockDuration: minAssetsLockDuration,
-            rageQuitExtensionDelay: D0,
+            rageQuitExtensionPeriodDuration: D0,
             rageQuitWithdrawalsTimelock: D0,
-            rageQuitExtensionDelayStartedAt: T0
+            rageQuitExtensionPeriodStartedAt: T0
         });
     }
 
-    function testFuzz_initialize_RevertOn_InvalidState(Duration minAssetsLockDuration) external {
+    function testFuzz_initialize_RevertOn_InvalidState(
+        Duration minAssetsLockDuration
+    ) external {
         _context.state = State.SignallingEscrow;
 
         // TODO: not very informative, maybe need to change to `revert UnexpectedState(self.state);`: UnexpectedState(NotInitialized)[current implementation] => UnexpectedState(SignallingEscrow)[proposed]
@@ -49,53 +54,53 @@ contract EscrowStateUnitTests is UnitTest {
     // ---
 
     function testFuzz_startRageQuit_happyPath(
-        Duration rageQuitExtensionDelay,
+        Duration rageQuitExtensionPeriodDuration,
         Duration rageQuitWithdrawalsTimelock
     ) external {
         _context.state = State.SignallingEscrow;
 
         vm.expectEmit();
         emit EscrowState.EscrowStateChanged(State.SignallingEscrow, State.RageQuitEscrow);
-        emit EscrowState.RageQuitStarted(rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
+        emit EscrowState.RageQuitStarted(rageQuitExtensionPeriodDuration, rageQuitWithdrawalsTimelock);
 
-        EscrowState.startRageQuit(_context, rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
+        EscrowState.startRageQuit(_context, rageQuitExtensionPeriodDuration, rageQuitWithdrawalsTimelock);
 
         checkContext({
             state: State.RageQuitEscrow,
             minAssetsLockDuration: D0,
-            rageQuitExtensionDelay: rageQuitExtensionDelay,
+            rageQuitExtensionPeriodDuration: rageQuitExtensionPeriodDuration,
             rageQuitWithdrawalsTimelock: rageQuitWithdrawalsTimelock,
-            rageQuitExtensionDelayStartedAt: T0
+            rageQuitExtensionPeriodStartedAt: T0
         });
     }
 
     function testFuzz_startRageQuit_RevertOn_InvalidState(
-        Duration rageQuitExtensionDelay,
+        Duration rageQuitExtensionPeriodDuration,
         Duration rageQuitWithdrawalsTimelock
     ) external {
         _context.state = State.NotInitialized;
 
         vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
 
-        EscrowState.startRageQuit(_context, rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
+        EscrowState.startRageQuit(_context, rageQuitExtensionPeriodDuration, rageQuitWithdrawalsTimelock);
     }
 
     // ---
-    // startRageQuitExtensionDelay()
+    // startRageQuitExtensionPeriod()
     // ---
 
-    function test_startRageQuitExtensionDelay_happyPath() external {
+    function test_startRageQuitExtensionPeriod_happyPath() external {
         vm.expectEmit();
         emit EscrowState.RageQuitTimelockStarted(Timestamps.now());
 
-        EscrowState.startRageQuitExtensionDelay(_context);
+        EscrowState.startRageQuitExtensionPeriod(_context);
 
         checkContext({
             state: State.NotInitialized,
             minAssetsLockDuration: D0,
-            rageQuitExtensionDelay: D0,
+            rageQuitExtensionPeriodDuration: D0,
             rageQuitWithdrawalsTimelock: D0,
-            rageQuitExtensionDelayStartedAt: Timestamps.now()
+            rageQuitExtensionPeriodStartedAt: Timestamps.now()
         });
     }
 
@@ -103,7 +108,9 @@ contract EscrowStateUnitTests is UnitTest {
     // setMinAssetsLockDuration()
     // ---
 
-    function test_setMinAssetsLockDuration_happyPath(Duration minAssetsLockDuration) external {
+    function test_setMinAssetsLockDuration_happyPath(
+        Duration minAssetsLockDuration
+    ) external {
         vm.assume(minAssetsLockDuration != Durations.ZERO);
 
         vm.expectEmit();
@@ -114,13 +121,15 @@ contract EscrowStateUnitTests is UnitTest {
         checkContext({
             state: State.NotInitialized,
             minAssetsLockDuration: minAssetsLockDuration,
-            rageQuitExtensionDelay: D0,
+            rageQuitExtensionPeriodDuration: D0,
             rageQuitWithdrawalsTimelock: D0,
-            rageQuitExtensionDelayStartedAt: T0
+            rageQuitExtensionPeriodStartedAt: T0
         });
     }
 
-    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
+    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(
+        Duration minAssetsLockDuration
+    ) external {
         _context.minAssetsLockDuration = minAssetsLockDuration;
 
         vm.expectRevert(
@@ -167,11 +176,11 @@ contract EscrowStateUnitTests is UnitTest {
         EscrowState.checkBatchesClaimingInProgress(_context);
     }
 
-    function testFuzz_checkBatchesClaimingInProgress_RevertOn_InvalidState(Timestamp rageQuitExtensionDelayStartedAt)
-        external
-    {
-        vm.assume(rageQuitExtensionDelayStartedAt > Timestamps.ZERO);
-        _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
+    function testFuzz_checkBatchesClaimingInProgress_RevertOn_InvalidState(
+        Timestamp rageQuitExtensionPeriodStartedAt
+    ) external {
+        vm.assume(rageQuitExtensionPeriodStartedAt > Timestamps.ZERO);
+        _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
         vm.expectRevert(EscrowState.ClaimingIsFinished.selector);
 
         EscrowState.checkBatchesClaimingInProgress(_context);
@@ -182,23 +191,23 @@ contract EscrowStateUnitTests is UnitTest {
     // ---
 
     function testFuzz_checkWithdrawalsTimelockPassed_happyPath(
-        Timestamp rageQuitExtensionDelayStartedAt,
-        Duration rageQuitExtensionDelay,
+        Timestamp rageQuitExtensionPeriodStartedAt,
+        Duration rageQuitExtensionPeriodDuration,
         Duration rageQuitWithdrawalsTimelock
     ) external {
-        vm.assume(rageQuitExtensionDelayStartedAt > Timestamps.ZERO);
-        vm.assume(rageQuitExtensionDelayStartedAt < Timestamps.from(type(uint16).max));
-        vm.assume(rageQuitExtensionDelay < Durations.from(type(uint16).max));
+        vm.assume(rageQuitExtensionPeriodStartedAt > Timestamps.ZERO);
+        vm.assume(rageQuitExtensionPeriodStartedAt < Timestamps.from(type(uint16).max));
+        vm.assume(rageQuitExtensionPeriodDuration < Durations.from(type(uint16).max));
         vm.assume(rageQuitWithdrawalsTimelock < Durations.from(type(uint16).max));
 
-        _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
-        _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
+        _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
+        _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
         _context.rageQuitWithdrawalsTimelock = rageQuitWithdrawalsTimelock;
 
         _wait(
             Durations.between(
-                (rageQuitExtensionDelay + rageQuitWithdrawalsTimelock).plusSeconds(1).addTo(
-                    rageQuitExtensionDelayStartedAt
+                (rageQuitExtensionPeriodDuration + rageQuitWithdrawalsTimelock).plusSeconds(1).addTo(
+                    rageQuitExtensionPeriodStartedAt
                 ),
                 Timestamps.now()
             )
@@ -213,22 +222,22 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function testFuzz_checkWithdrawalsTimelockPassed_RevertWhen_WithdrawalsTimelockNotPassed(
-        Timestamp rageQuitExtensionDelayStartedAt,
-        Duration rageQuitExtensionDelay,
+        Timestamp rageQuitExtensionPeriodStartedAt,
+        Duration rageQuitExtensionPeriodDuration,
         Duration rageQuitWithdrawalsTimelock
     ) external {
-        vm.assume(rageQuitExtensionDelayStartedAt > Timestamps.ZERO);
-        vm.assume(rageQuitExtensionDelayStartedAt < Timestamps.from(type(uint16).max));
-        vm.assume(rageQuitExtensionDelay < Durations.from(type(uint16).max));
+        vm.assume(rageQuitExtensionPeriodStartedAt > Timestamps.ZERO);
+        vm.assume(rageQuitExtensionPeriodStartedAt < Timestamps.from(type(uint16).max));
+        vm.assume(rageQuitExtensionPeriodDuration < Durations.from(type(uint16).max));
         vm.assume(rageQuitWithdrawalsTimelock < Durations.from(type(uint16).max));
 
-        _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
-        _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
+        _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
+        _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
         _context.rageQuitWithdrawalsTimelock = rageQuitWithdrawalsTimelock;
 
         _wait(
             Durations.between(
-                (rageQuitExtensionDelay + rageQuitWithdrawalsTimelock).addTo(rageQuitExtensionDelayStartedAt),
+                (rageQuitExtensionPeriodDuration + rageQuitWithdrawalsTimelock).addTo(rageQuitExtensionPeriodStartedAt),
                 Timestamps.now()
             )
         );
@@ -239,11 +248,11 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkWithdrawalsTimelockPassed_RevertWhen_WithdrawalsTimelockOverflow() external {
-        Duration rageQuitExtensionDelay = Durations.from(DURATION_MAX_VALUE / 2);
+        Duration rageQuitExtensionPeriodDuration = Durations.from(DURATION_MAX_VALUE / 2);
         Duration rageQuitWithdrawalsTimelock = Durations.from(DURATION_MAX_VALUE / 2 + 1);
 
-        _context.rageQuitExtensionDelayStartedAt = Timestamps.from(MAX_TIMESTAMP_VALUE - 1);
-        _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
+        _context.rageQuitExtensionPeriodStartedAt = Timestamps.from(MAX_TIMESTAMP_VALUE - 1);
+        _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
         _context.rageQuitWithdrawalsTimelock = rageQuitWithdrawalsTimelock;
 
         vm.expectRevert(TimestampOverflow.selector);
@@ -252,58 +261,62 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     // ---
-    // isRageQuitExtensionDelayStarted()
+    // isRageQuitExtensionPeriodStarted()
     // ---
 
-    function testFuzz_isRageQuitExtensionDelayStarted_happyPath(Timestamp rageQuitExtensionDelayStartedAt) external {
-        _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
-        bool res = EscrowState.isRageQuitExtensionDelayStarted(_context);
-        assertEq(res, _context.rageQuitExtensionDelayStartedAt.isNotZero());
+    function testFuzz_isRageQuitExtensionDelayStarted_happyPath(
+        Timestamp rageQuitExtensionPeriodStartedAt
+    ) external {
+        _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
+        bool res = EscrowState.isRageQuitExtensionPeriodStarted(_context);
+        assertEq(res, _context.rageQuitExtensionPeriodStartedAt.isNotZero());
     }
 
     // ---
-    // isRageQuitExtensionDelayPassed()
+    // isRageQuitExtensionPeriodPassed()
     // ---
 
-    function testFuzz_isRageQuitExtensionDelayPassed_ReturnsTrue(
-        Timestamp rageQuitExtensionDelayStartedAt,
-        Duration rageQuitExtensionDelay
+    function testFuzz_isRageQuitExtensionPeriodPassed_ReturnsTrue(
+        Timestamp rageQuitExtensionPeriodStartedAt,
+        Duration rageQuitExtensionPeriodDuration
     ) external {
-        vm.assume(rageQuitExtensionDelayStartedAt > Timestamps.ZERO);
-        vm.assume(rageQuitExtensionDelayStartedAt < Timestamps.from(type(uint16).max));
-        vm.assume(rageQuitExtensionDelay < Durations.from(type(uint16).max));
+        vm.assume(rageQuitExtensionPeriodStartedAt > Timestamps.ZERO);
+        vm.assume(rageQuitExtensionPeriodStartedAt < Timestamps.from(type(uint16).max));
+        vm.assume(rageQuitExtensionPeriodDuration < Durations.from(type(uint16).max));
 
-        _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
-        _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
+        _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
+        _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
 
         _wait(
             Durations.between(
-                rageQuitExtensionDelay.plusSeconds(1).addTo(rageQuitExtensionDelayStartedAt), Timestamps.now()
+                rageQuitExtensionPeriodDuration.plusSeconds(1).addTo(rageQuitExtensionPeriodStartedAt), Timestamps.now()
             )
         );
-        bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
+        bool res = EscrowState.isRageQuitExtensionPeriodPassed(_context);
         assertTrue(res);
     }
 
     function testFuzz_isRageQuitExtensionDelayPassed_ReturnsFalse(
-        Timestamp rageQuitExtensionDelayStartedAt,
-        Duration rageQuitExtensionDelay
+        Timestamp rageQuitExtensionPeriodStartedAt,
+        Duration rageQuitExtensionPeriodDuration
     ) external {
-        vm.assume(rageQuitExtensionDelayStartedAt > Timestamps.ZERO);
-        vm.assume(rageQuitExtensionDelayStartedAt < Timestamps.from(type(uint16).max));
-        vm.assume(rageQuitExtensionDelay < Durations.from(type(uint16).max));
+        vm.assume(rageQuitExtensionPeriodStartedAt > Timestamps.ZERO);
+        vm.assume(rageQuitExtensionPeriodStartedAt < Timestamps.from(type(uint16).max));
+        vm.assume(rageQuitExtensionPeriodDuration < Durations.from(type(uint16).max));
 
-        _context.rageQuitExtensionDelayStartedAt = rageQuitExtensionDelayStartedAt;
-        _context.rageQuitExtensionDelay = rageQuitExtensionDelay;
+        _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
+        _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
 
-        _wait(Durations.between(rageQuitExtensionDelay.addTo(rageQuitExtensionDelayStartedAt), Timestamps.now()));
-        bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
+        _wait(
+            Durations.between(rageQuitExtensionPeriodDuration.addTo(rageQuitExtensionPeriodStartedAt), Timestamps.now())
+        );
+        bool res = EscrowState.isRageQuitExtensionPeriodPassed(_context);
         assertFalse(res);
     }
 
     function test_isRageQuitExtensionDelayPassed_ReturnsFalseWhenRageQuitExtraTimelockNotStarted() external {
         _wait(Durations.from(1234));
-        bool res = EscrowState.isRageQuitExtensionDelayPassed(_context);
+        bool res = EscrowState.isRageQuitExtensionPeriodPassed(_context);
         assertFalse(res);
     }
 
@@ -311,7 +324,9 @@ contract EscrowStateUnitTests is UnitTest {
     // isRageQuitEscrow()
     // ---
 
-    function testFuzz_isRageQuitEscrow(bool expectedResult) external {
+    function testFuzz_isRageQuitEscrow(
+        bool expectedResult
+    ) external {
         if (expectedResult) {
             _context.state = State.RageQuitEscrow;
         }
@@ -326,18 +341,19 @@ contract EscrowStateUnitTests is UnitTest {
     function checkContext(
         State state,
         Duration minAssetsLockDuration,
-        Duration rageQuitExtensionDelay,
+        Duration rageQuitExtensionPeriodDuration,
         Duration rageQuitWithdrawalsTimelock,
-        Timestamp rageQuitExtensionDelayStartedAt
+        Timestamp rageQuitExtensionPeriodStartedAt
     ) internal {
         assertEq(_context.state, state);
         assertEq(_context.minAssetsLockDuration, minAssetsLockDuration);
-        assertEq(_context.rageQuitExtensionDelay, rageQuitExtensionDelay);
+        assertEq(_context.rageQuitExtensionPeriodDuration, rageQuitExtensionPeriodDuration);
         assertEq(_context.rageQuitWithdrawalsTimelock, rageQuitWithdrawalsTimelock);
-        assertEq(_context.rageQuitExtensionDelayStartedAt, rageQuitExtensionDelayStartedAt);
+        assertEq(_context.rageQuitExtensionPeriodStartedAt, rageQuitExtensionPeriodStartedAt);
     }
 
     function assertEq(State a, State b) internal {
         assertEq(uint256(a), uint256(b));
     }
+
 }

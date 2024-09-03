@@ -120,7 +120,7 @@ library DualGovernanceStateMachine {
             self.rageQuitRound = uint8(newRageQuitRound);
 
             signallingEscrow.startRageQuit(
-                config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsDelay(newRageQuitRound)
+                config.rageQuitExtensionPeriodDuration, config.calcRageQuitWithdrawalsDelay(newRageQuitRound)
             );
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);

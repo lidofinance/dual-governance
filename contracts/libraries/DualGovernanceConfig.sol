@@ -28,7 +28,7 @@ library DualGovernanceConfig {
         //
         Duration vetoCooldownDuration;
         //
-        Duration rageQuitExtensionDelay;
+        Duration rageQuitExtensionPeriodDuration;
         Duration rageQuitEthWithdrawalsMinDelay;
         Duration rageQuitEthWithdrawalsMaxDelay;
         Duration rageQuitEthWithdrawalsDelayGrowth;

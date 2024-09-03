@@ -380,7 +380,7 @@ abstract contract SetupDeployment is Test {
                 vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
                 vetoCooldownDuration: Durations.from(4 days),
                 //
-                rageQuitExtensionDelay: Durations.from(7 days),
+                rageQuitExtensionPeriodDuration: Durations.from(7 days),
                 rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
                 rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
                 rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
