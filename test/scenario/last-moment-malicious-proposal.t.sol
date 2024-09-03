@@ -12,6 +12,7 @@ import {
 } from "../utils/scenario-test-blueprint.sol";
 
 contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
+
     function setUp() external {
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
     }
@@ -121,7 +122,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _assertVetoSignalingState();
             _logVetoSignallingState();
 
-            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
             _logVetoSignallingState();
             _activateNextState();
             _assertRageQuitState();
@@ -225,7 +226,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
         _step("3. THE VETO SIGNALLING & DEACTIVATION PASSED BUT PROPOSAL STILL NOT EXECUTABLE");
         {
-            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoSignalingDeactivationState();
             _logVetoSignallingDeactivationState();
@@ -286,7 +287,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
         _step("3. THE VETO SIGNALLING & DEACTIVATION PASSED BUT PROPOSAL STILL NOT EXECUTABLE");
         {
-            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().plusSeconds(1));
             _activateNextState();
             _assertVetoSignalingDeactivationState();
             _logVetoSignallingDeactivationState();
@@ -312,7 +313,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
         _step("5. PROPOSAL EXECUTABLE IN THE NEXT VETO COOLDOWN");
         {
-            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().multipliedBy(2));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().multipliedBy(2));
             _activateNextState();
             _assertVetoSignalingDeactivationState();
             _logVetoSignallingDeactivationState();
@@ -329,7 +330,10 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         }
     }
 
-    function scheduleProposalExternal(uint256 proposalId) external {
+    function scheduleProposalExternal(
+        uint256 proposalId
+    ) external {
         _scheduleProposalViaDualGovernance(proposalId);
     }
+
 }

@@ -15,6 +15,7 @@ import {Escrow, VetoerState, LockedAssetsTotals, WithdrawalsBatchesQueue} from "
 import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
 
 contract EscrowHappyPath is ScenarioTestBlueprint {
+
     using LidoUtils for LidoUtils.Context;
 
     Escrow internal escrow;
@@ -578,7 +579,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         _assertVetoSignalingState();
 
         // wait till the last second of the dynamic timelock duration
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION());
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION());
         _activateNextState();
         _assertVetoSignalingState();
 
@@ -630,15 +631,20 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         _lockWstETH(vetoer, wstEthAmount);
     }
 
-    function externalUnlockStETH(address vetoer) external {
+    function externalUnlockStETH(
+        address vetoer
+    ) external {
         _unlockStETH(vetoer);
     }
 
-    function externalUnlockWstETH(address vetoer) external {
+    function externalUnlockWstETH(
+        address vetoer
+    ) external {
         _unlockWstETH(vetoer);
     }
 
     function externalUnlockUnstETH(address vetoer, uint256[] memory nftIds) external {
         _unlockUnstETH(vetoer, nftIds);
     }
+
 }

@@ -13,6 +13,7 @@ import {UnitTest} from "test/utils/unit-test.sol";
 import {EscrowMock} from "test/mocks/EscrowMock.sol";
 
 contract DualGovernanceStateMachineUnitTests is UnitTest {
+
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
     address private immutable _ESCROW_MASTER_COPY = address(new EscrowMock());
@@ -22,17 +23,18 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
             secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00), // 15%
             //
             minAssetsLockDuration: Durations.from(5 hours),
-            dynamicTimelockMinDuration: Durations.from(3 days),
-            dynamicTimelockMaxDuration: Durations.from(30 days),
             //
+            vetoSignallingMinDuration: Durations.from(3 days),
+            vetoSignallingMaxDuration: Durations.from(30 days),
             vetoSignallingMinActiveDuration: Durations.from(5 hours),
             vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
+            //
             vetoCooldownDuration: Durations.from(4 days),
             //
             rageQuitExtensionDelay: Durations.from(7 days),
-            rageQuitEthWithdrawalsMinTimelock: Durations.from(60 days),
-            rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: 2,
-            rageQuitEthWithdrawalsTimelockGrowthCoeffs: [uint256(0), 0, 0]
+            rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+            rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+            rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
         })
     );
 
@@ -61,7 +63,7 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
             _stateMachine.activateNextState(_CONFIG_PROVIDER.getDualGovernanceConfig(), _ESCROW_MASTER_COPY);
             assertEq(_stateMachine.state, State.VetoSignalling);
 
-            _wait(_CONFIG_PROVIDER.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+            _wait(_CONFIG_PROVIDER.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
             _stateMachine.activateNextState(_CONFIG_PROVIDER.getDualGovernanceConfig(), _ESCROW_MASTER_COPY);
 
             assertEq(_stateMachine.state, State.RageQuit);
@@ -79,4 +81,5 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
         assertEq(_stateMachine.rageQuitRound, 0);
         assertEq(_stateMachine.state, State.Normal);
     }
+
 }

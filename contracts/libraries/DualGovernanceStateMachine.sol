@@ -22,6 +22,7 @@ enum State {
 }
 
 library DualGovernanceStateMachine {
+
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
     struct Context {
@@ -119,7 +120,7 @@ library DualGovernanceStateMachine {
             self.rageQuitRound = uint8(newRageQuitRound);
 
             signallingEscrow.startRageQuit(
-                config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(newRageQuitRound)
+                config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsDelay(newRageQuitRound)
             );
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
@@ -128,33 +129,43 @@ library DualGovernanceStateMachine {
         emit DualGovernanceStateChanged(currentState, newState, self);
     }
 
-    function getCurrentContext(Context storage self) internal pure returns (Context memory) {
+    function getCurrentContext(
+        Context storage self
+    ) internal pure returns (Context memory) {
         return self;
     }
 
-    function getCurrentState(Context storage self) internal view returns (State) {
+    function getCurrentState(
+        Context storage self
+    ) internal view returns (State) {
         return self.state;
     }
 
-    function getNormalOrVetoCooldownStateExitedAt(Context storage self) internal view returns (Timestamp) {
+    function getNormalOrVetoCooldownStateExitedAt(
+        Context storage self
+    ) internal view returns (Timestamp) {
         return self.normalOrVetoCooldownExitedAt;
     }
 
-    function getDynamicDelayDuration(
+    function getVetoSignallingDuration(
         Context storage self,
         DualGovernanceConfig.Context memory config
     ) internal view returns (Duration) {
-        return config.calcDynamicDelayDuration(self.signallingEscrow.getRageQuitSupport());
+        return config.calcVetoSignallingDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
-    function canSubmitProposal(Context storage self) internal view returns (bool) {
+    function canSubmitProposal(
+        Context storage self
+    ) internal view returns (bool) {
         State state = self.state;
         return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
     }
 
     function canScheduleProposal(Context storage self, Timestamp proposalSubmissionTime) internal view returns (bool) {
         State state = self.state;
-        if (state == State.Normal) return true;
+        if (state == State.Normal) {
+            return true;
+        }
         if (state == State.VetoCooldown) {
             return proposalSubmissionTime <= self.vetoSignallingActivatedAt;
         }
@@ -171,9 +182,11 @@ library DualGovernanceStateMachine {
         self.signallingEscrow = newSignallingEscrow;
         emit NewSignallingEscrowDeployed(newSignallingEscrow);
     }
+
 }
 
 library DualGovernanceStateTransitions {
+
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
     function getStateTransition(
@@ -211,7 +224,7 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
+        if (!config.isVetoSignallingDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
         }
 
@@ -230,7 +243,7 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
+        if (!config.isVetoSignallingDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
         }
 
@@ -268,4 +281,5 @@ library DualGovernanceStateTransitions {
             ? State.VetoSignalling
             : State.VetoCooldown;
     }
+
 }

@@ -7,6 +7,7 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
 
 contract TiebreakerScenarioTest is ScenarioTestBlueprint {
+
     address internal immutable _VETOER = makeAddr("VETOER");
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
 
@@ -28,7 +29,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _assertNormalState();
         _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
         _lockStETH(_VETOER, 1 gwei);
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
         _wait(_dualGovernance.getTiebreakerState().tiebreakerActivationTimeout);
@@ -103,7 +104,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _assertNormalState();
         _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
         _lockStETH(_VETOER, 1 gwei);
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
         _wait(_dualGovernance.getTiebreakerState().tiebreakerActivationTimeout);
@@ -166,4 +167,5 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         assertEq(_lido.withdrawalQueue.isPaused(), false);
     }
+
 }
