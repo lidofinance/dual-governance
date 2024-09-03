@@ -145,8 +145,6 @@ rule dg_kp_3_cooldown_execution (method f) {
 
 // One rage quit cannot start until the previous rage quit has finalized. In 
 // other words, there can only be at most one active rage quit escrow at a time.
-// One rage quit cannot start until the previous rage quit has finalized. In 
-// other words, there can only be at most one active rage quit escrow at a time.
 rule dg_kp_4_single_ragequit (method f) {
 	env e;
 	calldataarg args;
