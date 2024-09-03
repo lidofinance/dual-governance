@@ -23,10 +23,15 @@ contract EmergencyActivationCommitteeUnitTest is UnitTest {
             new EmergencyActivationCommittee(owner, committeeMembers, quorum, emergencyProtectedTimelock);
     }
 
-    function test_constructor_HappyPath() external {
+    function testFuzz_constructor_HappyPath(
+        address _owner,
+        uint256 _quorum,
+        address _emergencyProtectedTimelock
+    ) external {
+        vm.assume(_quorum > 0 && _quorum <= committeeMembers.length);
         EmergencyActivationCommittee localCommittee =
-            new EmergencyActivationCommittee(owner, committeeMembers, quorum, emergencyProtectedTimelock);
-        assertEq(localCommittee.EMERGENCY_PROTECTED_TIMELOCK(), emergencyProtectedTimelock);
+            new EmergencyActivationCommittee(_owner, committeeMembers, _quorum, _emergencyProtectedTimelock);
+        assertEq(localCommittee.EMERGENCY_PROTECTED_TIMELOCK(), _emergencyProtectedTimelock);
     }
 
     function test_approveActivateEmergencyMode_HappyPath() external {
