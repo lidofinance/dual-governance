@@ -46,14 +46,13 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @return support The number of votes in support of the proposal
     /// @return executionQuorum The required number of votes for execution
     /// @return quorumAt The timestamp when the quorum was reached
-    /// @return isExecuted Whether the proposal has been executed
     function getResealState(address sealable)
         public
         view
-        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt)
     {
         (, bytes32 key) = _encodeResealProposal(sealable);
-        return _getHashState(key);
+        (support, executionQuorum, quorumAt,) = _getHashState(key);
     }
 
     /// @notice Executes an approved reseal proposal
