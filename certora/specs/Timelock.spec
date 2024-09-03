@@ -71,6 +71,9 @@ rule EPT_KP_2_SchedulingToExecutionDelay {
     assert getProposal(proposalId).scheduledAt + getAfterScheduleDelay() <= e.block.timestamp;
 }
 
+// These functions model the deactivation of the committees after the emergency protection elapses,
+// and are used in place of directly getting the committee addresses in our rules 
+// to make sure that anything we prove about the committee special actions is also guarded by the time
 function effectiveEmergencyExecutionCommittee(env e) returns address {
     if (e.block.timestamp <= getEmergencyProtectionContext().emergencyProtectionEndsAfter || isEmergencyModeActive()) {
         return getEmergencyProtectionContext().emergencyExecutionCommittee;
@@ -173,8 +176,11 @@ rule EPT_3_EmergencyModeExecutionRestriction(method f) filtered { f -> f.selecto
 
 /**
     @title Emergency Protection deactivation without emergency
-    @notice The usefullness of this rule depends on us using the effectiveXXXCommittee functions also in all other rules 
-            where we check that something is guarded by the committee.
+    @notice This rule checks that our effectiveXXXCommittee functions correctly model the expected behaviour upon deactivating
+            emergency mode by the timelock elapsing. It cannot directly catch any bugs in the solidity code, 
+            but checks our helper functions which in turn make sure that other rules take the elapsing of the emergency protection into account.
+            The usefullness of this rule depends on us using the effectiveXXXCommittee functions also in all other rules 
+            where we check that something is guarded by a committee.
 */
 rule EPT_5_EmergencyProtectionElapsed() {
     EmergencyProtection.Context context = getEmergencyProtectionContext();
