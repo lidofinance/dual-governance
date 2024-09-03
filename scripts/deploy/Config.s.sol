@@ -78,6 +78,24 @@ struct LidoAddresses {
     IAragonVoting voting;
 }
 
+function getLidoAddresses(ConfigValues memory config) pure returns (LidoAddresses memory) {
+    if (keccak256(bytes(config.CHAIN)) == CHAIN_NAME_MAINNET_HASH) {
+        return LidoAddresses({
+            stETH: IStETH(MAINNET_ST_ETH),
+            wstETH: IWstETH(MAINNET_WST_ETH),
+            withdrawalQueue: IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE),
+            voting: IAragonVoting(MAINNET_DAO_VOTING)
+        });
+    }
+
+    return LidoAddresses({
+        stETH: IStETH(HOLESKY_ST_ETH),
+        wstETH: IWstETH(HOLESKY_WST_ETH),
+        withdrawalQueue: IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE),
+        voting: IAragonVoting(HOLESKY_DAO_VOTING)
+    });
+}
+
 contract DGDeployConfig is Script {
     error InvalidRageQuitETHWithdrawalsTimelockGrowthCoeffs(uint256[] coeffs);
     error InvalidQuorum(string committee, uint256 quorum);
@@ -275,6 +293,12 @@ contract DGDeployConfig is Script {
         ) {
             revert InvalidQuorum("RESEAL_COMMITTEE", config.RESEAL_COMMITTEE_QUORUM);
         }
+
+        // TODO: AFTER_SUBMIT_DELAY <= MAX_AFTER_SUBMIT_DELAY
+        // TODO: AFTER_SCHEDULE_DELAY <= MAX_AFTER_SCHEDULE_DELAY
+        // TODO: EMERGENCY_MODE_DURATION <= MAX_EMERGENCY_MODE_DURATION
+        // TODO: MIN_TIEBREAKER_ACTIVATION_TIMEOUT <= TIEBREAKER_ACTIVATION_TIMEOUT <= MAX_TIEBREAKER_ACTIVATION_TIMEOUT
+        // TODO: DYNAMIC_TIMELOCK_MIN_DURATION <= DYNAMIC_TIMELOCK_MAX_DURATION
     }
 
     function printCommittees(ConfigValues memory config) internal view {
@@ -331,23 +355,5 @@ contract DGDeployConfig is Script {
             console.log(">> #", k, address(config.RESEAL_COMMITTEE_MEMBERS[k]));
         }
         console.log("=================================================");
-    }
-
-    function lidoAddresses(ConfigValues memory config) external pure returns (LidoAddresses memory) {
-        if (keccak256(bytes(config.CHAIN)) == CHAIN_NAME_MAINNET_HASH) {
-            return LidoAddresses({
-                stETH: IStETH(MAINNET_ST_ETH),
-                wstETH: IWstETH(MAINNET_WST_ETH),
-                withdrawalQueue: IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE),
-                voting: IAragonVoting(MAINNET_DAO_VOTING)
-            });
-        }
-
-        return LidoAddresses({
-            stETH: IStETH(HOLESKY_ST_ETH),
-            wstETH: IWstETH(HOLESKY_WST_ETH),
-            withdrawalQueue: IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE),
-            voting: IAragonVoting(HOLESKY_DAO_VOTING)
-        });
     }
 }

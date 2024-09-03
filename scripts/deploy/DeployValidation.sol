@@ -17,7 +17,7 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
-import {DGDeployConfig, LidoAddresses, ConfigValues} from "./Config.s.sol";
+import {DGDeployConfig, ConfigValues, LidoAddresses, getLidoAddresses} from "./Config.s.sol";
 
 library DeployValidation {
     struct DeployResult {
@@ -37,12 +37,12 @@ library DeployValidation {
     function check(DeployResult memory res) internal {
         DGDeployConfig configProvider = new DGDeployConfig();
         ConfigValues memory dgDeployConfig = configProvider.loadAndValidate();
-        LidoAddresses memory lidoAddresses = configProvider.lidoAddresses(dgDeployConfig);
+        LidoAddresses memory lidoAddresses = getLidoAddresses(dgDeployConfig);
 
         checkAdminExecutor(res.adminExecutor, res.timelock);
         checkTimelock(res, dgDeployConfig);
-        checkEmergencyActivationCommittee(res.emergencyActivationCommittee, res.adminExecutor, dgDeployConfig);
-        checkEmergencyExecutionCommittee(res.emergencyExecutionCommittee, res.adminExecutor, dgDeployConfig);
+        checkEmergencyActivationCommittee(res, dgDeployConfig);
+        checkEmergencyExecutionCommittee(res, dgDeployConfig);
         checkTimelockedGovernance(res, lidoAddresses);
         checkResealManager(res);
         checkDualGovernance(res, dgDeployConfig, lidoAddresses);
@@ -108,18 +108,25 @@ library DeployValidation {
             "Incorrect parameter AFTER_SUBMIT_DELAY"
         );
         require(
+            timelockInstance.getAfterScheduleDelay() == dgDeployConfig.AFTER_SCHEDULE_DELAY,
+            "Incorrect parameter AFTER_SCHEDULE_DELAY"
+        );
+        require(
             timelockInstance.getGovernance() == res.dualGovernance,
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
     }
 
     function checkEmergencyActivationCommittee(
-        address emergencyActivationCommittee,
-        address adminExecutor,
+        DeployResult memory res,
         ConfigValues memory dgDeployConfig
     ) internal view {
-        EmergencyActivationCommittee committee = EmergencyActivationCommittee(emergencyActivationCommittee);
-        require(committee.owner() == adminExecutor, "EmergencyActivationCommittee owner != adminExecutor");
+        EmergencyActivationCommittee committee = EmergencyActivationCommittee(res.emergencyActivationCommittee);
+        require(committee.owner() == res.adminExecutor, "EmergencyActivationCommittee owner != adminExecutor");
+        require(
+            committee.EMERGENCY_PROTECTED_TIMELOCK() == res.timelock,
+            "EmergencyActivationCommittee EMERGENCY_PROTECTED_TIMELOCK != timelock"
+        );
 
         for (uint256 i = 0; i < dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS.length; ++i) {
             require(
@@ -134,12 +141,15 @@ library DeployValidation {
     }
 
     function checkEmergencyExecutionCommittee(
-        address emergencyExecutionCommittee,
-        address adminExecutor,
+        DeployResult memory res,
         ConfigValues memory dgDeployConfig
     ) internal view {
-        EmergencyExecutionCommittee committee = EmergencyExecutionCommittee(emergencyExecutionCommittee);
-        require(committee.owner() == adminExecutor, "EmergencyExecutionCommittee owner != adminExecutor");
+        EmergencyExecutionCommittee committee = EmergencyExecutionCommittee(res.emergencyExecutionCommittee);
+        require(committee.owner() == res.adminExecutor, "EmergencyExecutionCommittee owner != adminExecutor");
+        require(
+            committee.EMERGENCY_PROTECTED_TIMELOCK() == res.timelock,
+            "EmergencyExecutionCommittee EMERGENCY_PROTECTED_TIMELOCK != timelock"
+        );
 
         for (uint256 i = 0; i < dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS.length; ++i) {
             require(
@@ -273,6 +283,20 @@ library DeployValidation {
         );
 
         require(dg.getCurrentState() == State.Normal, "Incorrect DualGovernance state");
+        require(dg.getProposers().length == 1, "Incorrect amount of proposers");
+        require(dg.isProposer(address(lidoAddresses.voting)) == true, "Lido voting is not set as a proposers[0]");
+
+        DualGovernance.TiebreakerState memory ts = dg.getTiebreakerState();
+        require(
+            ts.tiebreakerActivationTimeout == dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT,
+            "Incorrect parameter TIEBREAKER_ACTIVATION_TIMEOUT"
+        );
+        require(ts.tiebreakerCommittee == res.tiebreakerCoreCommittee, "Incorrect tiebreakerCoreCommittee");
+        require(ts.sealableWithdrawalBlockers.length == 1, "Incorrect amount of sealableWithdrawalBlockers");
+        require(
+            ts.sealableWithdrawalBlockers[0] == address(lidoAddresses.withdrawalQueue),
+            "Lido withdrawalQueue is not set as a sealableWithdrawalBlockers[0]"
+        );
     }
 
     function checkTiebreakerCoreCommittee(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
@@ -327,6 +351,7 @@ library DeployValidation {
         ResealCommittee rc = ResealCommittee(res.resealCommittee);
         require(rc.owner() == res.adminExecutor, "ResealCommittee owner != adminExecutor");
         require(rc.timelockDuration() == Durations.from(0), "ResealCommittee timelock should be 0"); // TODO: is it correct?
+        require(rc.DUAL_GOVERNANCE() == res.dualGovernance, "Incorrect dualGovernance in ResealCommittee");
 
         for (uint256 i = 0; i < dgDeployConfig.RESEAL_COMMITTEE_MEMBERS.length; ++i) {
             require(
