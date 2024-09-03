@@ -5,64 +5,64 @@ methods {
     // envfrees
     function getProposer(address account) external returns (Proposers.Proposer memory) envfree;
     function getProposerIndexFromExecutor(address proposer) external returns (uint32) envfree;
-	function getState() external returns (DualGovernanceHarness.DGHarnessState) envfree;
-	function isUnset(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
-	function isNormal(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
-	function isVetoSignalling(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
-	function isVetoSignallingDeactivation(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
-	function isVetoCooldown(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
-	function isRageQuit(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
-	function getVetoSignallingActivatedAt() external returns (DualGovernanceHarness.Timestamp) envfree;
-	function getRageQuitEscrow() external returns (address) envfree;
-	function getVetoSignallingEscrow() external returns (address) envfree;
-	function getFirstSeal() external returns (uint256) envfree;
-	function getSecondSeal() external returns (uint256) envfree;
-
-	// envfrees escrow
-	function EscrowA.isRageQuitState() external returns (bool) envfree;
-	function EscrowB.isRageQuitState() external returns (bool) envfree;
-
-	// route escrow functions to implementations while
-	// still allowing escrow addresses to vary
-	function _.startRageQuit(DualGovernanceHarness.Duration, DualGovernance.Duration) external => DISPATCHER(true);
-	function _.initialize(DualGovernanceHarness.Duration) external => DISPATCHER(true);
-	function _.setMinAssetsLockDuration(DualGovernanceHarness.Duration newMinAssetsLockDuration) external => DISPATCHER(true);
-	function _.getRageQuitSupport() external => DISPATCHER(true);
-	function _.isRageQuitFinalized() external => DISPATCHER(true);
-
-
-	// The NONDETs and summaries here essentially introduce an assumption
-	// that the summarized/NONDETed function does not influence the
-	// state of the contracts explicitly added to the scene.
-	// This is reached by Escrow.withdrawETH() and makes a lowlevel 
-	// call on recipient causing a HAVOC. The call in Address passes
-	// an empty payload, so it will call the `receive` function of
-	// the recipient if there is one.
-	function Address.sendValue(address recipient, uint256 amount) internal => NONDET;
-	// This is reached by ResealManager.reseal and makes a low-level call
-	// on target which havocs all contracts. (And we can't NONDET functions
-	// that return bytes). The implementation of Address is meant
-	// to be a safer alternative to directly using call, according to its
-	// comments.
-	function Address.functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) => CVLFunctionCallWithValue(target, data, value);
-	// This function belongs to ISealable which we do not have an implementation
-	// of and it causes a havoc of all contracts. It is reached by 
-	// ResealManager.reseal/resume. This is a view function so it must be safe.
-	function _.getResumeSinceTimestamp() external => CONSTANT;
-	// This function belongs to IOwnable which we do not have an implementation
-	// of and it causes a havoc of all contracts. It is reached by EPT.
-	// transferExecutorOwnership. It is not a view function, 
-	// but from the description it likely only affects its own state.
-	function _.transferOwnership(address newOwner) external => NONDET;
-	// This is reached by 2 calls in EPT and reaches a call to 
-	// functionCallWithValue. 
-	function Executor.execute(address, uint256, bytes) external returns (bytes) => NONDET;
-
-	// This NONDET is meant to address a timeout of dg_kp_2
-	// for which EPT is a significant bottleneck but not
-	// really needed for verifying DG. We also have separate rules for EPT.
-	function EmergencyProtectedTimelock.submit(address executor, 
-		DualGovernanceHarness.ExternalCall[] calls) external returns (uint256) => NONDET;
+    function getState() external returns (DualGovernanceHarness.DGHarnessState) envfree;
+    function isUnset(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+    function isNormal(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+    function isVetoSignalling(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+    function isVetoSignallingDeactivation(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+    function isVetoCooldown(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+    function isRageQuit(DualGovernanceHarness.DGHarnessState state) external returns (bool) envfree;
+    function getVetoSignallingActivatedAt() external returns (DualGovernanceHarness.Timestamp) envfree;
+    function getRageQuitEscrow() external returns (address) envfree;
+    function getVetoSignallingEscrow() external returns (address) envfree;
+    function getFirstSeal() external returns (uint256) envfree;
+    function getSecondSeal() external returns (uint256) envfree;
+    
+    // envfrees escrow
+    function EscrowA.isRageQuitState() external returns (bool) envfree;
+    function EscrowB.isRageQuitState() external returns (bool) envfree;
+    
+    // route escrow functions to implementations while
+    // still allowing escrow addresses to vary
+    function _.startRageQuit(DualGovernanceHarness.Duration, DualGovernance.Duration) external => DISPATCHER(true);
+    function _.initialize(DualGovernanceHarness.Duration) external => DISPATCHER(true);
+    function _.setMinAssetsLockDuration(DualGovernanceHarness.Duration newMinAssetsLockDuration) external => DISPATCHER(true);
+    function _.getRageQuitSupport() external => DISPATCHER(true);
+    function _.isRageQuitFinalized() external => DISPATCHER(true);
+    
+    
+    // The NONDETs and summaries here essentially introduce an assumption
+    // that the summarized/NONDETed function does not influence the
+    // state of the contracts explicitly added to the scene.
+    // This is reached by Escrow.withdrawETH() and makes a lowlevel 
+    // call on recipient causing a HAVOC. The call in Address passes
+    // an empty payload, so it will call the `receive` function of
+    // the recipient if there is one.
+    function Address.sendValue(address recipient, uint256 amount) internal => NONDET;
+    // This is reached by ResealManager.reseal and makes a low-level call
+    // on target which havocs all contracts. (And we can't NONDET functions
+    // that return bytes). The implementation of Address is meant
+    // to be a safer alternative to directly using call, according to its
+    // comments.
+    function Address.functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) => CVLFunctionCallWithValue(target, data, value);
+    // This function belongs to ISealable which we do not have an implementation
+    // of and it causes a havoc of all contracts. It is reached by 
+    // ResealManager.reseal/resume. This is a view function so it must be safe.
+    function _.getResumeSinceTimestamp() external => CONSTANT;
+    // This function belongs to IOwnable which we do not have an implementation
+    // of and it causes a havoc of all contracts. It is reached by EPT.
+    // transferExecutorOwnership. It is not a view function, 
+    // but from the description it likely only affects its own state.
+    function _.transferOwnership(address newOwner) external => NONDET;
+    // This is reached by 2 calls in EPT and reaches a call to 
+    // functionCallWithValue. 
+    function Executor.execute(address, uint256, bytes) external returns (bytes) => NONDET;
+    
+    // This NONDET is meant to address a timeout of dg_kp_2
+    // for which EPT is a significant bottleneck but not
+    // really needed for verifying DG. We also have separate rules for EPT.
+    function EmergencyProtectedTimelock.submit(address executor, 
+    DualGovernanceHarness.ExternalCall[] calls) external returns (uint256) => NONDET;
 }
 
 function CVLFunctionCallWithValue(address target, bytes data, uint256 value) returns bytes {
