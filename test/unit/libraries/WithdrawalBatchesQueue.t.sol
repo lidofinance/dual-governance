@@ -285,6 +285,13 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         }
     }
 
+    function test_claimNextBatch_RevertOn_EmptyBatch() external {
+        _openBatchesQueue();
+
+        vm.expectRevert(WithdrawalsBatchesQueue.EmptyBatch.selector);
+        _batchesQueue.claimNextBatch(1);
+    }
+
     // ---
     // close()
     // ---
@@ -549,6 +556,61 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     function test_getLastClaimedOrBoundaryUnstETHId_RevertOn_AbsentQueueState() external {
         vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsInAbsentState.selector);
         _batchesQueue.getLastClaimedOrBoundaryUnstETHId();
+    }
+
+    // ---
+    // getTotalUnclaimedUnstETHIdsCount()
+    // ---
+
+    function test_getTotalUnclaimedUnstETHIdsCount_HappyPath() external {
+        _openBatchesQueue();
+
+        uint256 firstBatchCount = 3;
+        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
+        uint256[] memory firstBatch = _generateFakeUnstETHIds({length: firstBatchCount, firstUnstETHId: firstUnstETHId});
+
+        _batchesQueue.addUnstETHIds(firstBatch);
+
+        uint256 secondBatchCount = 2;
+        uint256[] memory secondBatch =
+            _generateFakeUnstETHIds({length: secondBatchCount, firstUnstETHId: firstUnstETHId + firstBatchCount});
+
+        _batchesQueue.addUnstETHIds(secondBatch);
+
+        uint256 totalUnclaimed = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+        assertEq(totalUnclaimed, 5);
+
+        uint256 claimLimit = 2;
+        _batchesQueue.claimNextBatch(claimLimit);
+
+        totalUnclaimed = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+        assertEq(totalUnclaimed, 3);
+
+        _batchesQueue.claimNextBatch(claimLimit);
+        _batchesQueue.claimNextBatch(claimLimit);
+
+        totalUnclaimed = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+        assertEq(totalUnclaimed, 0);
+    }
+
+    // ---
+    // isAllBatchesClaimed()
+    // ---
+
+    function test_isAllBatchesClaimed_HappyPath() external {
+        _openBatchesQueue();
+
+        assertEq(_batchesQueue.isAllBatchesClaimed(), true);
+
+        uint256 unstETHIdsCount = 5;
+        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
+        uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
+        _batchesQueue.addUnstETHIds(unstETHIds);
+
+        assertEq(_batchesQueue.isAllBatchesClaimed(), false);
+
+        _batchesQueue.claimNextBatch(5);
+        assertEq(_batchesQueue.isAllBatchesClaimed(), true);
     }
 
     // ---
