@@ -60,7 +60,7 @@ contract SealableCallsUnitTests is UnitTest {
 
         (bool success, bytes memory lowLevelError) = SealableCalls.callResume(_sealableMock);
 
-        assertFalse(success);
+        assertTrue(success);
         assertEq(lowLevelError.length, 0);
 
         (bool isPausedSuccess,, bool isPaused) = SealableCalls.callIsPaused(_sealableMock);

@@ -401,6 +401,54 @@ contract ExecutableProposalsUnitTests is UnitTest {
         assert(!_proposals.canExecute(proposalId, Durations.ZERO));
     }
 
+    function test_cancelAll_DoesNotModifyStateOfExecutedProposals() external {
+        _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
+        assertEq(_proposals.getProposalsCount(), 1);
+        uint256 executedProposalId = 1;
+        _proposals.schedule(executedProposalId, Durations.ZERO);
+        _proposals.execute(executedProposalId, Durations.ZERO);
+
+        _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
+        assertEq(_proposals.getProposalsCount(), 2);
+        uint256 scheduledProposalId = 2;
+        _proposals.schedule(scheduledProposalId, Durations.ZERO);
+
+        _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
+        assertEq(_proposals.getProposalsCount(), 3);
+        uint256 submittedProposalId = 3;
+
+        // Validate the state of the proposals is correct before proceeding with cancellation.
+
+        (ProposalStatus executedProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
+            _proposals.getProposalInfo(executedProposalId);
+        assertEq(executedProposalStatus, ProposalStatus.Executed);
+
+        (ProposalStatus scheduledProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
+            _proposals.getProposalInfo(scheduledProposalId);
+        assertEq(scheduledProposalStatus, ProposalStatus.Scheduled);
+
+        (ProposalStatus submittedProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
+            _proposals.getProposalInfo(submittedProposalId);
+        assertEq(submittedProposalStatus, ProposalStatus.Submitted);
+
+        // After canceling the proposals, both submitted and scheduled proposals should transition to the Cancelled state.
+        // However, executed proposals should remain in the Executed state.
+
+        _proposals.cancelAll();
+
+        (executedProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
+            _proposals.getProposalInfo(executedProposalId);
+        assertEq(executedProposalStatus, ProposalStatus.Executed);
+
+        (scheduledProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
+            _proposals.getProposalInfo(scheduledProposalId);
+        assertEq(scheduledProposalStatus, ProposalStatus.Cancelled);
+
+        (submittedProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
+            _proposals.getProposalInfo(submittedProposalId);
+        assertEq(submittedProposalStatus, ProposalStatus.Cancelled);
+    }
+
     function test_can_schedule_proposal() external {
         Duration delay = Durations.from(100 seconds);
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));

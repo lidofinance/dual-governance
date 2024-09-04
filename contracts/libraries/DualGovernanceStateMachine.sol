@@ -64,6 +64,8 @@ library DualGovernanceStateMachine {
     event NewSignallingEscrowDeployed(IEscrow indexed escrow);
     event DualGovernanceStateChanged(State from, State to, Context state);
 
+    uint256 internal constant MAX_RAGE_QUIT_ROUND = type(uint8).max;
+
     function initialize(
         Context storage self,
         DualGovernanceConfig.Context memory config,
@@ -108,10 +110,16 @@ library DualGovernanceStateMachine {
             }
         } else if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
-            uint256 rageQuitRound = Math.min(self.rageQuitRound + 1, type(uint8).max);
-            self.rageQuitRound = uint8(rageQuitRound);
+
+            uint256 currentRageQuitRound = self.rageQuitRound;
+
+            /// @dev Limits the maximum value of the rage quit round to prevent failures due to arithmetic overflow
+            /// if the number of consecutive rage quits reaches MAX_RAGE_QUIT_ROUND.
+            uint256 newRageQuitRound = Math.min(currentRageQuitRound + 1, MAX_RAGE_QUIT_ROUND);
+            self.rageQuitRound = uint8(newRageQuitRound);
+
             signallingEscrow.startRageQuit(
-                config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(rageQuitRound)
+                config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(newRageQuitRound)
             );
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);

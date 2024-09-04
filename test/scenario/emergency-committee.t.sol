@@ -39,19 +39,19 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
         for (uint256 i = 0; i < _emergencyActivationCommittee.quorum() - 1; i++) {
             vm.prank(members[i]);
             _emergencyActivationCommittee.approveActivateEmergencyMode();
-            (support, quorum, isExecuted) = _emergencyActivationCommittee.getActivateEmergencyModeState();
+            (support, quorum,, isExecuted) = _emergencyActivationCommittee.getActivateEmergencyModeState();
             assert(support < quorum);
             assert(isExecuted == false);
         }
 
         vm.prank(members[members.length - 1]);
         _emergencyActivationCommittee.approveActivateEmergencyMode();
-        (support, quorum, isExecuted) = _emergencyActivationCommittee.getActivateEmergencyModeState();
+        (support, quorum,, isExecuted) = _emergencyActivationCommittee.getActivateEmergencyModeState();
         assert(support == quorum);
         assert(isExecuted == false);
 
         _emergencyActivationCommittee.executeActivateEmergencyMode();
-        (support, quorum, isExecuted) = _emergencyActivationCommittee.getActivateEmergencyModeState();
+        (support, quorum,, isExecuted) = _emergencyActivationCommittee.getActivateEmergencyModeState();
         assert(isExecuted == true);
 
         // Emergency Execute
@@ -59,19 +59,19 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
         for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum() - 1; i++) {
             vm.prank(members[i]);
             _emergencyExecutionCommittee.voteEmergencyExecute(proposalIdToExecute, true);
-            (support, quorum, isExecuted) = _emergencyExecutionCommittee.getEmergencyExecuteState(proposalIdToExecute);
+            (support, quorum,, isExecuted) = _emergencyExecutionCommittee.getEmergencyExecuteState(proposalIdToExecute);
             assert(support < quorum);
             assert(isExecuted == false);
         }
 
         vm.prank(members[members.length - 1]);
         _emergencyExecutionCommittee.voteEmergencyExecute(proposalIdToExecute, true);
-        (support, quorum, isExecuted) = _emergencyExecutionCommittee.getEmergencyExecuteState(proposalIdToExecute);
+        (support, quorum,, isExecuted) = _emergencyExecutionCommittee.getEmergencyExecuteState(proposalIdToExecute);
         assert(support == quorum);
         assert(isExecuted == false);
 
         _emergencyExecutionCommittee.executeEmergencyExecute(proposalIdToExecute);
-        (support, quorum, isExecuted) = _emergencyExecutionCommittee.getEmergencyExecuteState(proposalIdToExecute);
+        (support, quorum,, isExecuted) = _emergencyExecutionCommittee.getEmergencyExecuteState(proposalIdToExecute);
         assert(isExecuted == true);
     }
 }
