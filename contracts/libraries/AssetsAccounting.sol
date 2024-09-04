@@ -83,6 +83,7 @@ struct UnstETHRecord {
 /// @notice Provides functionality for accounting user stETH and unstETH tokens
 ///         locked in the Escrow contract
 library AssetsAccounting {
+
     /// @notice The context of the AssetsAccounting library
     /// @param stETHTotals The total number of shares and the amount of stETH locked by users
     /// @param unstETHTotals The total number of shares and the amount of unstETH locked by users
@@ -123,7 +124,7 @@ library AssetsAccounting {
     error InvalidSharesValue(SharesValue value);
     error InvalidUnstETHStatus(uint256 unstETHId, UnstETHRecordStatus status);
     error InvalidUnstETHHolder(uint256 unstETHId, address actual, address expected);
-    error MinAssetsLockDurationNotPassed(Timestamp unlockTimelockExpiresAt);
+    error MinAssetsLockDurationNotPassed(Timestamp lockDurationExpiresAt);
     error InvalidClaimableAmount(uint256 unstETHId, ETHValue expected, ETHValue actual);
 
     // ---
@@ -278,11 +279,9 @@ library AssetsAccounting {
     // Getters
     // ---
 
-    function getLockedAssetsTotals(Context storage self)
-        internal
-        view
-        returns (SharesValue unfinalizedShares, ETHValue finalizedETH)
-    {
+    function getLockedAssetsTotals(
+        Context storage self
+    ) internal view returns (SharesValue unfinalizedShares, ETHValue finalizedETH) {
         finalizedETH = self.unstETHTotals.finalizedETH;
         unfinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
     }
@@ -417,9 +416,12 @@ library AssetsAccounting {
         amountWithdrawn = unstETHRecord.claimableAmount;
     }
 
-    function _checkNonZeroShares(SharesValue shares) private pure {
+    function _checkNonZeroShares(
+        SharesValue shares
+    ) private pure {
         if (shares == SharesValues.ZERO) {
             revert InvalidSharesValue(SharesValues.ZERO);
         }
     }
+
 }

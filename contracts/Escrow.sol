@@ -257,9 +257,9 @@ contract Escrow is IEscrow {
     // Start rage quit
     // ---
 
-    function startRageQuit(Duration rageQuitExtensionPeriodDuration, Duration rageQuitWithdrawalsTimelock) external {
+    function startRageQuit(Duration rageQuitExtensionPeriodDuration, Duration rageQuitEthWithdrawalsDelay) external {
         _checkCallerIsDualGovernance();
-        _escrowState.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitWithdrawalsTimelock);
+        _escrowState.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
         _batchesQueue.open(WITHDRAWAL_QUEUE.getLastRequestId());
     }
 
@@ -388,7 +388,7 @@ contract Escrow is IEscrow {
 
     function withdrawETH() external {
         _escrowState.checkRageQuitEscrow();
-        _escrowState.checkWithdrawalsTimelockPassed();
+        _escrowState.checkEthWithdrawalsDelayPassed();
         ETHValue ethToWithdraw = _accounting.accountStETHSharesWithdraw(msg.sender);
         ethToWithdraw.sendTo(payable(msg.sender));
     }
@@ -400,7 +400,7 @@ contract Escrow is IEscrow {
             revert EmptyUnstETHIds();
         }
         _escrowState.checkRageQuitEscrow();
-        _escrowState.checkWithdrawalsTimelockPassed();
+        _escrowState.checkEthWithdrawalsDelayPassed();
         ETHValue ethToWithdraw = _accounting.accountUnstETHWithdraw(msg.sender, unstETHIds);
         ethToWithdraw.sendTo(payable(msg.sender));
     }
