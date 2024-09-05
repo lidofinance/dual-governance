@@ -4,7 +4,8 @@ pragma solidity 0.8.26;
 import {Duration} from "../types/Duration.sol";
 
 interface ITiebreaker {
-    struct Context {
+    struct TiebreakerDetails {
+        bool isTie;
         address tiebreakerCommittee;
         Duration tiebreakerActivationTimeout;
         address[] sealableWithdrawalBlockers;

@@ -186,9 +186,14 @@ library Tiebreaker {
     /// @dev Retrieves the tiebreaker context from the storage.
     /// @param self The storage context.
     /// @return context The tiebreaker context containing the tiebreaker committee, tiebreaker activation timeout, and sealable withdrawal blockers.
-    function getTiebreakerContext(Context storage self) internal view returns (ITiebreaker.Context memory context) {
+    function getTiebreakerDetails(
+        Context storage self,
+        DualGovernanceState state,
+        Timestamp normalOrVetoCooldownExitedAt
+    ) internal view returns (ITiebreaker.TiebreakerDetails memory context) {
         context.tiebreakerCommittee = self.tiebreakerCommittee;
         context.tiebreakerActivationTimeout = self.tiebreakerActivationTimeout;
+        context.isTie = isTie(self, state, normalOrVetoCooldownExitedAt);
 
         uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
         context.sealableWithdrawalBlockers = new address[](sealableWithdrawalBlockersCount);

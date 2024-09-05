@@ -75,7 +75,7 @@ contract TimelockMock is ITimelock {
         return lastCancelledProposalId;
     }
 
-    function getProposal(uint256 proposalId) external view returns (Proposal memory) {
+    function getProposal(uint256 proposalId) external view returns (ProposalDetails memory, ExternalCall[] memory) {
         revert("Not Implemented");
     }
 
@@ -99,11 +99,7 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
-    function getProposalInfo(uint256 proposalId)
-        external
-        view
-        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
-    {
+    function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory) {
         revert("Not Implemented");
     }
 
