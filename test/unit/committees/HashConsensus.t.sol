@@ -6,9 +6,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Vm} from "forge-std/Test.sol";
 
-import {HashConsensus} from "../../contracts/committees/HashConsensus.sol";
-import {Duration, Durations} from "../../contracts/types/Duration.sol";
-import {Timestamp, Timestamps} from "../../contracts/types/Timestamp.sol";
+import {HashConsensus} from "contracts/committees/HashConsensus.sol";
+import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
 contract HashConsensusInstance is HashConsensus {
     constructor(
@@ -409,20 +409,20 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
     function test_getSupport() public {
         assertEq(_hashConsensusWrapper.getSupport(dataHash), 0);
 
-        for (uint256 i = 0; i < _membersCount; ++i) {
+        for (uint256 i = 0; i < _quorum - 1; ++i) {
             assertEq(_hashConsensusWrapper.getSupport(dataHash), i);
             vm.prank(_committeeMembers[i]);
             _hashConsensusWrapper.vote(dataHash, true);
             assertEq(_hashConsensusWrapper.getSupport(dataHash), i + 1);
         }
 
-        assertEq(_hashConsensusWrapper.getSupport(dataHash), _membersCount);
+        assertEq(_hashConsensusWrapper.getSupport(dataHash), _quorum - 1);
 
-        for (uint256 i = 0; i < _membersCount; ++i) {
-            assertEq(_hashConsensusWrapper.getSupport(dataHash), _membersCount - i);
+        for (uint256 i = 0; i < _quorum - 1; ++i) {
+            assertEq(_hashConsensusWrapper.getSupport(dataHash), _quorum - 1 - i);
             vm.prank(_committeeMembers[i]);
             _hashConsensusWrapper.vote(dataHash, false);
-            assertEq(_hashConsensusWrapper.getSupport(dataHash), _membersCount - i - 1);
+            assertEq(_hashConsensusWrapper.getSupport(dataHash), _quorum - 2 - i);
         }
 
         assertEq(_hashConsensusWrapper.getSupport(dataHash), 0);
@@ -442,15 +442,11 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
 
         Timestamp expectedQuorumAt = Timestamps.from(block.timestamp);
 
-        for (uint256 i = 0; i < _membersCount; ++i) {
+        for (uint256 i = 0; i < _quorum; ++i) {
             (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
             assertEq(support, i);
             assertEq(executionQuorum, _quorum);
-            if (i >= executionQuorum) {
-                assertEq(scheduledAt, expectedQuorumAt);
-            } else {
-                assertEq(scheduledAt, Timestamps.from(0));
-            }
+            assertEq(scheduledAt, Timestamps.from(0));
             assertEq(isExecuted, false);
 
             vm.prank(_committeeMembers[i]);
@@ -468,7 +464,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         }
 
         (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
-        assertEq(support, _membersCount);
+        assertEq(support, _quorum);
         assertEq(executionQuorum, _quorum);
         assertEq(scheduledAt, expectedQuorumAt);
         assertEq(isExecuted, false);
@@ -478,7 +474,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.execute(dataHash);
 
         (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
-        assertEq(support, _membersCount);
+        assertEq(support, _quorum);
         assertEq(executionQuorum, _quorum);
         assertEq(scheduledAt, expectedQuorumAt);
         assertEq(isExecuted, true);
@@ -525,13 +521,26 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.execute(dataHash);
 
         vm.prank(_committeeMembers[0]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, dataHash));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, dataHash));
         _hashConsensusWrapper.vote(dataHash, true);
+    }
+
+    function test_vote_RevertOn_IfProposalAlreadyScheduled() public {
+        bytes32 hash = keccak256("hash");
+
+        for (uint256 i = 0; i < _quorum; ++i) {
+            vm.prank(_committeeMembers[i]);
+            _hashConsensusWrapper.vote(hash, true);
+        }
+
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, hash));
+        vm.prank(_committeeMembers[_quorum]);
+        _hashConsensusWrapper.vote(hash, true);
     }
 
     function test_execute_events() public {
         vm.prank(_stranger);
-        vm.expectRevert(abi.encodeWithSignature("QuorumIsNotReached()"));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashIsNotScheduled.selector, dataHash));
         _hashConsensusWrapper.execute(dataHash);
 
         for (uint256 i = 0; i < _quorum; ++i) {
@@ -585,7 +594,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
 
         _hashConsensusWrapper.execute(hash);
 
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, hash));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, hash));
         _hashConsensusWrapper.schedule(hash);
     }
 
@@ -602,7 +611,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         (,, Timestamp scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
 
         _wait(_timelock);
-        vm.expectRevert(abi.encodeWithSignature("ProposalAlreadyScheduled(bytes32)", hash));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, hash));
         _hashConsensusWrapper.schedule(hash);
 
         (,, Timestamp scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);

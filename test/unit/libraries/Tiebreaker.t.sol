@@ -7,6 +7,7 @@ import {State as DualGovernanceState} from "contracts/libraries/DualGovernanceSt
 import {Tiebreaker} from "contracts/libraries/Tiebreaker.sol";
 import {Duration, Durations, Timestamp, Timestamps} from "contracts/types/Duration.sol";
 import {ISealable} from "contracts/interfaces/ISealable.sol";
+import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {SealableMock} from "../../mocks/SealableMock.sol";
@@ -189,13 +190,14 @@ contract TiebreakerTest is UnitTest {
         context.tiebreakerActivationTimeout = timeout;
         context.tiebreakerCommittee = address(0x123);
 
-        (address committee, Duration activationTimeout, address[] memory blockers) =
-            Tiebreaker.getTiebreakerInfo(context);
+        ITiebreaker.TiebreakerDetails memory details =
+            Tiebreaker.getTiebreakerDetails(context, DualGovernanceState.Normal, Timestamps.from(block.timestamp));
 
-        assertEq(committee, context.tiebreakerCommittee);
-        assertEq(activationTimeout, context.tiebreakerActivationTimeout);
-        assertEq(blockers[0], address(mockSealable1));
-        assertEq(blockers.length, 1);
+        assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
+        assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
+        assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
+        assertEq(details.sealableWithdrawalBlockers.length, 1);
+        assertEq(details.isTie, false);
     }
 
     function external__checkCallerIsTiebreakerCommittee() external view {

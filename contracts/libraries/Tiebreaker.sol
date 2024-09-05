@@ -5,6 +5,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Duration.sol";
 import {ISealable} from "../interfaces/ISealable.sol";
+import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
 import {SealableCalls} from "./SealableCalls.sol";
 import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
 
@@ -184,28 +185,23 @@ library Tiebreaker {
         return false;
     }
 
-    /// @notice Gets the tiebreaker information.
-    /// @param self The context storage.
-    /// @return tiebreakerCommittee The address of the tiebreaker committee.
-    /// @return tiebreakerActivationTimeout The duration of the tiebreaker activation timeout.
-    /// @return sealableWithdrawalBlockers The addresses of the sealable withdrawal blockers.
-    function getTiebreakerInfo(Context storage self)
-        internal
-        view
-        returns (
-            address tiebreakerCommittee,
-            Duration tiebreakerActivationTimeout,
-            address[] memory sealableWithdrawalBlockers
-        )
-    {
-        tiebreakerCommittee = self.tiebreakerCommittee;
-        tiebreakerActivationTimeout = self.tiebreakerActivationTimeout;
+    /// @dev Retrieves the tiebreaker context from the storage.
+    /// @param self The storage context.
+    /// @return context The tiebreaker context containing the tiebreaker committee, tiebreaker activation timeout, and sealable withdrawal blockers.
+    function getTiebreakerDetails(
+        Context storage self,
+        DualGovernanceState state,
+        Timestamp normalOrVetoCooldownExitedAt
+    ) internal view returns (ITiebreaker.TiebreakerDetails memory context) {
+        context.tiebreakerCommittee = self.tiebreakerCommittee;
+        context.tiebreakerActivationTimeout = self.tiebreakerActivationTimeout;
+        context.isTie = isTie(self, state, normalOrVetoCooldownExitedAt);
 
         uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
-        sealableWithdrawalBlockers = new address[](sealableWithdrawalBlockersCount);
+        context.sealableWithdrawalBlockers = new address[](sealableWithdrawalBlockersCount);
 
         for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
-            sealableWithdrawalBlockers[i] = self.sealableWithdrawalBlockers.at(i);
+            context.sealableWithdrawalBlockers[i] = self.sealableWithdrawalBlockers.at(i);
         }
     }
 }
