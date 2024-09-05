@@ -51,8 +51,12 @@ abstract contract HashConsensus is Ownable {
     /// @param hash The hash to vote on
     /// @param support Indicates whether the member supports the hash
     function _vote(bytes32 hash, bool support) internal {
-        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
+        if (_hashStates[hash].usedAt.isNotZero()) {
             revert HashAlreadyUsed(hash);
+        }
+
+        if (_hashStates[hash].scheduledAt.isNotZero()) {
+            revert ProposalAlreadyScheduled(hash);
         }
 
         if (approves[msg.sender][hash] == support) {
@@ -61,7 +65,7 @@ abstract contract HashConsensus is Ownable {
 
         uint256 heads = _getSupport(hash);
         // heads compares to quorum - 1 because the current vote is not counted yet
-        if (heads >= quorum - 1 && support == true && _hashStates[hash].scheduledAt == Timestamps.from(0)) {
+        if (heads >= quorum - 1 && support == true) {
             _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
         }
 
@@ -73,7 +77,7 @@ abstract contract HashConsensus is Ownable {
     /// @dev Internal function that handles marking a hash as used
     /// @param hash The hash to mark as used
     function _markUsed(bytes32 hash) internal {
-        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
+        if (_hashStates[hash].usedAt.isNotZero()) {
             revert HashAlreadyUsed(hash);
         }
 
@@ -106,7 +110,7 @@ abstract contract HashConsensus is Ownable {
         support = _getSupport(hash);
         executionQuorum = quorum;
         scheduledAt = _hashStates[hash].scheduledAt;
-        isUsed = _hashStates[hash].usedAt > Timestamps.from(0);
+        isUsed = _hashStates[hash].usedAt.isNotZero();
     }
 
     /// @notice Adds new members to the contract and sets the execution quorum.
@@ -183,14 +187,14 @@ abstract contract HashConsensus is Ownable {
     ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
     function schedule(bytes32 hash) public {
-        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
+        if (_hashStates[hash].usedAt.isNotZero()) {
             revert HashAlreadyUsed(hash);
         }
 
         if (_getSupport(hash) < quorum) {
             revert QuorumIsNotReached();
         }
-        if (_hashStates[hash].scheduledAt > Timestamps.from(0)) {
+        if (_hashStates[hash].scheduledAt.isNotZero()) {
             revert ProposalAlreadyScheduled(hash);
         }
 
