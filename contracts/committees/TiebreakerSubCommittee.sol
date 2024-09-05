@@ -40,6 +40,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     function scheduleProposal(uint256 proposalId) public {
         _checkCallerIsMember();
+        ITiebreakerCore(TIEBREAKER_CORE).checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeApproveProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);

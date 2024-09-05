@@ -10,6 +10,18 @@ import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 
+contract EmergencyProtectedTimelockMock is TargetMock {
+    uint256 public proposalsCount;
+
+    function getProposalsCount() external view returns (uint256 count) {
+        return proposalsCount;
+    }
+
+    function setProposalsCount(uint256 _proposalsCount) external {
+        proposalsCount = _proposalsCount;
+    }
+}
+
 contract EmergencyExecutionCommitteeUnitTest is UnitTest {
     EmergencyExecutionCommittee internal emergencyExecutionCommittee;
     uint256 internal quorum = 2;
@@ -19,7 +31,8 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
     uint256 internal proposalId = 1;
 
     function setUp() external {
-        emergencyProtectedTimelock = address(new TargetMock());
+        emergencyProtectedTimelock = address(new EmergencyProtectedTimelockMock());
+        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(1);
         emergencyExecutionCommittee =
             new EmergencyExecutionCommittee(owner, committeeMembers, quorum, emergencyProtectedTimelock);
     }
@@ -51,6 +64,16 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         assertEq(executionQuorum, quorum);
         assertEq(quorumAt, Timestamp.wrap(uint40(block.timestamp)));
         assertFalse(isExecuted);
+    }
+
+    function test_voteEmergencyExecute_RevertOn_ProposalDoesNotExist() external {
+        uint256 nonExistentProposalId = proposalId + 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EmergencyExecutionCommittee.ProposalDoesNotExist.selector, nonExistentProposalId)
+        );
+        vm.prank(committeeMembers[0]);
+        emergencyExecutionCommittee.voteEmergencyExecute(nonExistentProposalId, true);
     }
 
     function testFuzz_voteEmergencyExecute_RevertOn_NotMember(address caller) external {

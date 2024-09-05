@@ -7,8 +7,30 @@ import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 
+import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+
 import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
+
+contract DualGovernanceMock is TargetMock {
+    ITimelock public TIMELOCK;
+
+    constructor(address _timelock) {
+        TIMELOCK = ITimelock(_timelock);
+    }
+}
+
+contract EmergencyProtectedTimelockMock is TargetMock {
+    uint256 public proposalsCount;
+
+    function getProposalsCount() external view returns (uint256 count) {
+        return proposalsCount;
+    }
+
+    function setProposalsCount(uint256 _proposalsCount) external {
+        proposalsCount = _proposalsCount;
+    }
+}
 
 contract TiebreakerCoreUnitTest is UnitTest {
     TiebreakerCore internal tiebreakerCore;
@@ -16,12 +38,15 @@ contract TiebreakerCoreUnitTest is UnitTest {
     address internal owner = makeAddr("owner");
     address[] internal committeeMembers = [address(0x1), address(0x2), address(0x3)];
     address internal dualGovernance;
+    address internal emergencyProtectedTimelock;
     uint256 internal proposalId = 1;
     address internal sealable = makeAddr("sealable");
     Duration internal timelock = Durations.from(1 days);
 
     function setUp() external {
-        dualGovernance = address(new TargetMock());
+        emergencyProtectedTimelock = address(new EmergencyProtectedTimelockMock());
+        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(1);
+        dualGovernance = address(new DualGovernanceMock(emergencyProtectedTimelock));
         tiebreakerCore = new TiebreakerCore(owner, dualGovernance, timelock);
 
         vm.prank(owner);
@@ -56,6 +81,14 @@ contract TiebreakerCoreUnitTest is UnitTest {
         vm.prank(caller);
         vm.expectRevert(abi.encodeWithSelector(HashConsensus.CallerIsNotMember.selector, caller));
         tiebreakerCore.scheduleProposal(proposalId);
+    }
+
+    function test_scheduleProposal_RevertOn_ProposalDoesNotExist() external {
+        uint256 nonExistentProposalId = proposalId + 1;
+
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCore.ProposalDoesNotExist.selector, nonExistentProposalId));
+        vm.prank(committeeMembers[0]);
+        tiebreakerCore.scheduleProposal(nonExistentProposalId);
     }
 
     function test_executeScheduleProposal_HappyPath() external {

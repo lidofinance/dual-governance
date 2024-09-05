@@ -5,6 +5,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+import {ITimelock} from "../interfaces/ITimelock.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
 import {Timestamp} from "../types/Timestamp.sol";
@@ -20,6 +21,7 @@ enum ProposalType {
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     error ResumeSealableNonceMismatch();
+    error ProposalDoesNotExist(uint256 proposalId);
 
     address immutable DUAL_GOVERNANCE;
 
@@ -38,6 +40,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     function scheduleProposal(uint256 proposalId) public {
         _checkCallerIsMember();
+        checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeScheduleProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);
@@ -68,6 +71,16 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
         Address.functionCall(
             DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerScheduleProposal.selector, proposalId)
         );
+    }
+
+    /// @notice Checks if a proposal exists
+    /// @param proposalId The ID of the proposal to check
+    function checkProposalExists(uint256 proposalId) public view {
+        ITimelock timelock = IDualGovernance(DUAL_GOVERNANCE).TIMELOCK();
+
+        if (proposalId > timelock.getProposalsCount()) {
+            revert ProposalDoesNotExist(proposalId);
+        }
     }
 
     /// @notice Encodes a schedule proposal

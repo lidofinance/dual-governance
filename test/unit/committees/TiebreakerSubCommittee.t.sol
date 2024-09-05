@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
+import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
@@ -9,6 +10,22 @@ import {UnitTest} from "test/utils/unit-test.sol";
 import {ITiebreakerCore} from "contracts/interfaces/ITiebreaker.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
+
+contract TiebreakerCoreMock is TargetMock {
+    error ProposalDoesNotExist(uint256 proposalId);
+
+    uint256 public proposalsCount;
+
+    function checkProposalExists(uint256 _proposalId) external view {
+        if (_proposalId > proposalsCount) {
+            revert ProposalDoesNotExist(_proposalId);
+        }
+    }
+
+    function setProposalsCount(uint256 _proposalsCount) external {
+        proposalsCount = _proposalsCount;
+    }
+}
 
 contract TiebreakerSubCommitteeUnitTest is UnitTest {
     TiebreakerSubCommittee internal tiebreakerSubCommittee;
@@ -20,7 +37,8 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
     address internal sealable = makeAddr("sealable");
 
     function setUp() external {
-        tiebreakerCore = address(new TargetMock());
+        tiebreakerCore = address(new TiebreakerCoreMock());
+        TiebreakerCoreMock(payable(tiebreakerCore)).setProposalsCount(1);
         tiebreakerSubCommittee = new TiebreakerSubCommittee(owner, committeeMembers, quorum, tiebreakerCore);
     }
 
@@ -76,6 +94,14 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         vm.prank(committeeMembers[2]);
         vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
         tiebreakerSubCommittee.executeScheduleProposal(proposalId);
+    }
+
+    function test_scheduleProposal_RevertOn_ProposalDoesNotExist() external {
+        uint256 nonExistentProposalId = proposalId + 1;
+
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCore.ProposalDoesNotExist.selector, nonExistentProposalId));
+        vm.prank(committeeMembers[0]);
+        tiebreakerSubCommittee.scheduleProposal(nonExistentProposalId);
     }
 
     function test_sealableResume_HappyPath() external {

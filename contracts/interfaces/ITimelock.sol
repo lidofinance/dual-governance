@@ -38,4 +38,5 @@ interface ITimelock {
     function activateEmergencyMode() external;
     function emergencyExecute(uint256 proposalId) external;
     function emergencyReset() external;
+    function getProposalsCount() external view returns (uint256 count);
 }
