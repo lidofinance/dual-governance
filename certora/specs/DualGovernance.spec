@@ -90,13 +90,25 @@ function rageQuitThresholdAssumptions() returns bool {
 // “for each entry in the struct in the array, show that the index inside is 
 // the same as the real array index”
 // NOTE: this has not yet been addressed by Lido, so this should fail now.
-invariant w2_1a_indexes_match (address proposer_addr, uint256 idx, 
-		Proposers.Proposer[] proposers)
-	proposers.length <= 5 && // loop unrolling
-	proposer_addr == proposers[idx].account && 
-	(getProposerIndexFromExecutor(proposer_addr) - 1 < proposers.length) &&
-	(getProposerIndexFromExecutor(proposer_addr) - 1 == idx) {
+invariant w2_1_indexes_match(uint idx, address proposer_addr)
+	proposer_addr != 0 && idx > 0 && getProposerIndexFromExecutor(proposer_addr) == idx => 
+	idx <= currentContract._proposers.proposers.length &&
+	currentContract._proposers.proposers[require_uint256(idx - 1)] == proposer_addr
+	&& getProposerIndexFromExecutor(currentContract._proposers.proposers[require_uint256(idx - 1)]) == idx {
+		preserved unregisterProposer(address a) with (env e) {
+			requireInvariant w2_1_indexes_match(getProposerIndexFromExecutor(a), a);
+			requireInvariant zero_address_is_not_valid_proposer();
+		}
+		preserved {
+			// loop unrolling
+			require currentContract._proposers.proposers.length <= 5;
+			requireInvariant zero_address_is_not_valid_proposer();
+		}
 	}
+
+invariant zero_address_is_not_valid_proposer() 
+	currentContract._proposers.executors[0].proposerIndex == 0 && 
+	(forall uint idx. (idx >= 0 && idx < currentContract._proposers.proposers.length => currentContract._proposers.proposers[idx] != 0));
 
 //  Proposals cannot be executed in the Veto Signaling (both parent state and
 // Deactivation sub-state) and Rage Quit states.
@@ -121,7 +133,7 @@ rule dg_kp_2_proposal_submission {
 
 // If a proposal was submitted after the last time the Veto Signaling state was 
 // activated, then it cannot be executed in the Veto Cooldown state.
-rule dg_kp_3_cooldown_execution (method f) {
+rule dg_kp_3_cooldown_execution {
 	calldataarg args;
 	env e;
 	uint256 proposalId;
