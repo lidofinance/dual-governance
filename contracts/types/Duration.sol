@@ -13,7 +13,6 @@ uint256 constant MAX_VALUE = type(uint32).max;
 
 using {lt as <, lte as <=, gt as >, gte as >=, eq as ==, notEq as !=} for Duration global;
 using {plus as +, minus as -} for Duration global;
-
 using {addTo, plusSeconds, minusSeconds, multipliedBy, dividedBy, toSeconds} for Duration global;
 
 // ---
@@ -87,31 +86,24 @@ function addTo(Duration d, Timestamp t) pure returns (Timestamp) {
 // Conversion Ops
 // ---
 
-function toDuration(
-    uint256 value
-) pure returns (Duration) {
+function toDuration(uint256 value) pure returns (Duration) {
     if (value > MAX_VALUE) {
         revert DurationOverflow();
     }
     return Duration.wrap(uint32(value));
 }
 
-function toSeconds(
-    Duration d
-) pure returns (uint256) {
+function toSeconds(Duration d) pure returns (uint256) {
     return Duration.unwrap(d);
 }
 
 library Durations {
-
     Duration internal constant ZERO = Duration.wrap(0);
 
     Duration internal constant MIN = ZERO;
     Duration internal constant MAX = Duration.wrap(uint32(MAX_VALUE));
 
-    function from(
-        uint256 seconds_
-    ) internal pure returns (Duration res) {
+    function from(uint256 seconds_) internal pure returns (Duration res) {
         res = toDuration(seconds_);
     }
 
@@ -119,4 +111,7 @@ library Durations {
         res = toDuration(t1.toSeconds() - t2.toSeconds());
     }
 
+    function min(Duration d1, Duration d2) internal pure returns (Duration res) {
+        res = d1 < d2 ? d1 : d2;
+    }
 }

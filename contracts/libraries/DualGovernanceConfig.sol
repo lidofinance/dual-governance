@@ -1,19 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-
 import {PercentD16} from "../types/PercentD16.sol";
 import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 library DualGovernanceConfig {
+    // ---
+    // Errors
+    // ---
 
+    error InvalidSecondSealRageSupport(PercentD16 secondSealRageQuitSupport);
     error InvalidRageQuitSupportRange(PercentD16 firstSealRageQuitSupport, PercentD16 secondSealRageQuitSupport);
-    error RageQuitEthWithdrawalsDelayRange(
+    error InvalidRageQuitEthWithdrawalsDelayRange(
         Duration rageQuitEthWithdrawalsMinDelay, Duration rageQuitEthWithdrawalsMaxDelay
     );
     error InvalidVetoSignallingDurationRange(Duration vetoSignallingMinDuration, Duration vetoSignallingMaxDuration);
+
+    // ---
+    // Data Types
+    // ---
 
     struct Context {
         PercentD16 firstSealRageQuitSupport;
@@ -34,9 +40,7 @@ library DualGovernanceConfig {
         Duration rageQuitEthWithdrawalsDelayGrowth;
     }
 
-    function validate(
-        Context memory self
-    ) internal pure {
+    function validate(Context memory self) internal pure {
         if (self.firstSealRageQuitSupport >= self.secondSealRageQuitSupport) {
             revert InvalidRageQuitSupportRange(self.firstSealRageQuitSupport, self.secondSealRageQuitSupport);
         }
@@ -46,7 +50,7 @@ library DualGovernanceConfig {
         }
 
         if (self.rageQuitEthWithdrawalsMinDelay > self.rageQuitEthWithdrawalsMaxDelay) {
-            revert RageQuitEthWithdrawalsDelayRange(
+            revert InvalidRageQuitEthWithdrawalsDelayRange(
                 self.rageQuitEthWithdrawalsMinDelay, self.rageQuitEthWithdrawalsMaxDelay
             );
         }
@@ -76,9 +80,9 @@ library DualGovernanceConfig {
 
     function isVetoSignallingReactivationDurationPassed(
         Context memory self,
-        Timestamp vetoSignallingReactivationTime
+        Timestamp vetoSignallingReactivatedAt
     ) internal view returns (bool) {
-        return Timestamps.now() > self.vetoSignallingMinActiveDuration.addTo(vetoSignallingReactivationTime);
+        return Timestamps.now() > self.vetoSignallingMinActiveDuration.addTo(vetoSignallingReactivatedAt);
     }
 
     function isVetoSignallingDeactivationMaxDurationPassed(
@@ -98,7 +102,7 @@ library DualGovernanceConfig {
     function calcVetoSignallingDuration(
         Context memory self,
         PercentD16 rageQuitSupport
-    ) internal pure returns (Duration duration_) {
+    ) internal pure returns (Duration) {
         PercentD16 firstSealRageQuitSupport = self.firstSealRageQuitSupport;
         PercentD16 secondSealRageQuitSupport = self.secondSealRageQuitSupport;
 
@@ -113,7 +117,7 @@ library DualGovernanceConfig {
             return vetoSignallingMaxDuration;
         }
 
-        duration_ = vetoSignallingMinDuration
+        return vetoSignallingMinDuration
             + Durations.from(
                 PercentD16.unwrap(rageQuitSupport - firstSealRageQuitSupport)
                     * (vetoSignallingMaxDuration - vetoSignallingMinDuration).toSeconds()
@@ -125,13 +129,11 @@ library DualGovernanceConfig {
         Context memory self,
         uint256 rageQuitRound
     ) internal pure returns (Duration) {
-        return Durations.from(
-            Math.min(
-                self.rageQuitEthWithdrawalsMinDelay.toSeconds()
-                    + rageQuitRound * self.rageQuitEthWithdrawalsDelayGrowth.toSeconds(),
-                self.rageQuitEthWithdrawalsMaxDelay.toSeconds()
-            )
+        return Durations.min(
+            self.rageQuitEthWithdrawalsMinDelay.plusSeconds(
+                rageQuitRound * self.rageQuitEthWithdrawalsDelayGrowth.toSeconds()
+            ),
+            self.rageQuitEthWithdrawalsMaxDelay
         );
     }
-
 }
