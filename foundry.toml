@@ -13,4 +13,6 @@ out = 'kout'
 test = 'test/kontrol'
 
 [fmt]
-multiline_func_header = 'params_first'
+multiline_func_header = 'params_first_multi'
+single_line_statement_blocks = 'multi'
+line_length = 120
