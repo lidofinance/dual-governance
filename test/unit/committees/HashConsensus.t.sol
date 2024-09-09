@@ -6,9 +6,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Vm} from "forge-std/Test.sol";
 
-import {HashConsensus} from "../../contracts/committees/HashConsensus.sol";
-import {Duration, Durations} from "../../contracts/types/Duration.sol";
-import {Timestamp, Timestamps} from "../../contracts/types/Timestamp.sol";
+import {HashConsensus} from "contracts/committees/HashConsensus.sol";
+import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
 contract HashConsensusInstance is HashConsensus {
     constructor(
