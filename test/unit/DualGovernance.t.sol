@@ -88,7 +88,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getCurrentState(), State.Normal);
+        assertEq(_dualGovernance.getState(), State.Normal);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
@@ -103,7 +103,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getCurrentState(), State.Normal);
+        assertEq(_dualGovernance.getState(), State.Normal);
 
         Escrow signallingEscrow = Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
 
@@ -115,19 +115,19 @@ contract DualGovernanceUnitTests is UnitTest {
         signallingEscrow.lockStETH(5 ether);
         vm.stopPrank();
 
-        assertEq(_dualGovernance.getCurrentState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getState(), State.VetoSignalling);
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         vm.prank(vetoer);
         signallingEscrow.unlockStETH();
 
-        assertEq(_dualGovernance.getCurrentState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
 
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
 
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getCurrentState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getState(), State.VetoCooldown);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
@@ -142,7 +142,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getCurrentState(), State.Normal);
+        assertEq(_dualGovernance.getState(), State.Normal);
 
         Escrow signallingEscrow = Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
 
@@ -154,12 +154,12 @@ contract DualGovernanceUnitTests is UnitTest {
         signallingEscrow.lockStETH(5 ether);
         vm.stopPrank();
 
-        assertEq(_dualGovernance.getCurrentState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getState(), State.VetoSignalling);
 
         _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
 
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getCurrentState(), State.RageQuit);
+        assertEq(_dualGovernance.getState(), State.RageQuit);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
@@ -174,7 +174,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getCurrentState(), State.Normal);
+        assertEq(_dualGovernance.getState(), State.Normal);
 
         Escrow signallingEscrow = Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
 
@@ -186,7 +186,7 @@ contract DualGovernanceUnitTests is UnitTest {
         signallingEscrow.lockStETH(5 ether);
         vm.stopPrank();
 
-        assertEq(_dualGovernance.getCurrentState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getState(), State.VetoSignalling);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
@@ -201,7 +201,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getCurrentState(), State.Normal);
+        assertEq(_dualGovernance.getState(), State.Normal);
 
         Escrow signallingEscrow = Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
 
@@ -213,14 +213,14 @@ contract DualGovernanceUnitTests is UnitTest {
         signallingEscrow.lockStETH(5 ether);
         vm.stopPrank();
 
-        assertEq(_dualGovernance.getCurrentState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getState(), State.VetoSignalling);
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         vm.prank(vetoer);
         signallingEscrow.unlockStETH();
 
-        assertEq(_dualGovernance.getCurrentState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {ITimelock} from "../interfaces/ITimelock.sol";
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
@@ -180,17 +181,19 @@ library ExecutableProposals {
         return self.proposalsCount;
     }
 
-    function getProposalInfo(
+    function getProposalDetails(
         Context storage self,
         uint256 proposalId
-    ) internal view returns (Status status, address executor, Timestamp submittedAt, Timestamp scheduledAt) {
+    ) internal view returns (ITimelock.ProposalDetails memory proposalDetails) {
         ProposalData memory proposalData = self.proposals[proposalId].data;
         _checkProposalExists(proposalId, proposalData);
 
-        status = _isProposalMarkedCancelled(self, proposalId, proposalData) ? Status.Cancelled : proposalData.status;
-        executor = address(proposalData.executor);
-        submittedAt = proposalData.submittedAt;
-        scheduledAt = proposalData.scheduledAt;
+        proposalDetails.id = proposalId;
+        proposalDetails.status =
+            _isProposalMarkedCancelled(self, proposalId, proposalData) ? Status.Cancelled : proposalData.status;
+        proposalDetails.executor = address(proposalData.executor);
+        proposalDetails.submittedAt = proposalData.submittedAt;
+        proposalDetails.scheduledAt = proposalData.scheduledAt;
     }
 
     function getProposalCalls(

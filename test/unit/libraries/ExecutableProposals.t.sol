@@ -6,6 +6,7 @@ import {Vm} from "forge-std/Test.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
+import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {Executor} from "contracts/Executor.sol";
 import {
     ExecutableProposals, ExternalCall, Status as ProposalStatus
@@ -233,15 +234,14 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.submit(address(_executor), expectedCalls);
         uint256 proposalId = _proposals.getProposalsCount();
 
-        (ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt) =
-            _proposals.getProposalInfo(proposalId);
+        ITimelock.ProposalDetails memory proposalDetails = _proposals.getProposalDetails(proposalId);
 
         Timestamp expectedSubmittedAt = Timestamps.now();
 
-        assertEq(status, ProposalStatus.Submitted);
-        assertEq(executor, address(_executor));
-        assertEq(submittedAt, expectedSubmittedAt);
-        assertEq(scheduledAt, Timestamps.ZERO);
+        assertEq(proposalDetails.status, ProposalStatus.Submitted);
+        assertEq(proposalDetails.executor, address(_executor));
+        assertEq(proposalDetails.submittedAt, expectedSubmittedAt);
+        assertEq(proposalDetails.scheduledAt, Timestamps.ZERO);
 
         ExternalCall[] memory calls = _proposals.getProposalCalls(proposalId);
 
@@ -256,12 +256,12 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
         Timestamp expectedScheduledAt = Timestamps.now();
 
-        (status, executor, submittedAt, scheduledAt) = _proposals.getProposalInfo(proposalId);
+        proposalDetails = _proposals.getProposalDetails(proposalId);
 
-        assertEq(status, ProposalStatus.Scheduled);
-        assertEq(executor, address(_executor));
-        assertEq(submittedAt, expectedSubmittedAt);
-        assertEq(scheduledAt, expectedScheduledAt);
+        assertEq(proposalDetails.status, ProposalStatus.Scheduled);
+        assertEq(proposalDetails.executor, address(_executor));
+        assertEq(proposalDetails.submittedAt, expectedSubmittedAt);
+        assertEq(proposalDetails.scheduledAt, expectedScheduledAt);
 
         calls = _proposals.getProposalCalls(proposalId);
 
@@ -274,12 +274,12 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
         _proposals.execute(proposalId, Durations.ZERO);
 
-        (status, executor, submittedAt, scheduledAt) = _proposals.getProposalInfo(proposalId);
+        proposalDetails = _proposals.getProposalDetails(proposalId);
 
-        assertEq(status, ProposalStatus.Executed);
-        assertEq(executor, address(_executor));
-        assertEq(submittedAt, expectedSubmittedAt);
-        assertEq(scheduledAt, expectedScheduledAt);
+        assertEq(proposalDetails.status, ProposalStatus.Executed);
+        assertEq(proposalDetails.executor, address(_executor));
+        assertEq(proposalDetails.submittedAt, expectedSubmittedAt);
+        assertEq(proposalDetails.scheduledAt, expectedScheduledAt);
 
         calls = _proposals.getProposalCalls(proposalId);
 
@@ -296,15 +296,14 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.submit(address(_executor), expectedCalls);
         uint256 proposalId = _proposals.getProposalsCount();
 
-        (ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt) =
-            _proposals.getProposalInfo(proposalId);
+        ITimelock.ProposalDetails memory proposalDetails = _proposals.getProposalDetails(proposalId);
 
         Timestamp expectedSubmittedAt = Timestamps.now();
 
-        assertEq(status, ProposalStatus.Submitted);
-        assertEq(executor, address(_executor));
-        assertEq(submittedAt, expectedSubmittedAt);
-        assertEq(scheduledAt, Timestamps.ZERO);
+        assertEq(proposalDetails.status, ProposalStatus.Submitted);
+        assertEq(proposalDetails.executor, address(_executor));
+        assertEq(proposalDetails.submittedAt, expectedSubmittedAt);
+        assertEq(proposalDetails.scheduledAt, Timestamps.ZERO);
 
         ExternalCall[] memory calls = _proposals.getProposalCalls(proposalId);
 
@@ -317,12 +316,12 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
         ExecutableProposals.cancelAll(_proposals);
 
-        (status, executor, submittedAt, scheduledAt) = _proposals.getProposalInfo(proposalId);
+        proposalDetails = _proposals.getProposalDetails(proposalId);
 
-        assertEq(status, ProposalStatus.Cancelled);
-        assertEq(executor, address(_executor));
-        assertEq(submittedAt, expectedSubmittedAt);
-        assertEq(scheduledAt, Timestamps.ZERO);
+        assertEq(proposalDetails.status, ProposalStatus.Cancelled);
+        assertEq(proposalDetails.executor, address(_executor));
+        assertEq(proposalDetails.submittedAt, expectedSubmittedAt);
+        assertEq(proposalDetails.scheduledAt, Timestamps.ZERO);
 
         calls = _proposals.getProposalCalls(proposalId);
 
@@ -336,7 +335,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
     function testFuzz_get_not_existing_proposal(uint256 proposalId) external {
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotFound.selector, proposalId));
-        _proposals.getProposalInfo(proposalId);
+        _proposals.getProposalDetails(proposalId);
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotFound.selector, proposalId));
         _proposals.getProposalCalls(proposalId);
@@ -419,34 +418,18 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
         // Validate the state of the proposals is correct before proceeding with cancellation.
 
-        (ProposalStatus executedProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
-            _proposals.getProposalInfo(executedProposalId);
-        assertEq(executedProposalStatus, ProposalStatus.Executed);
-
-        (ProposalStatus scheduledProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
-            _proposals.getProposalInfo(scheduledProposalId);
-        assertEq(scheduledProposalStatus, ProposalStatus.Scheduled);
-
-        (ProposalStatus submittedProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
-            _proposals.getProposalInfo(submittedProposalId);
-        assertEq(submittedProposalStatus, ProposalStatus.Submitted);
+        assertEq(_proposals.getProposalDetails(executedProposalId).status, ProposalStatus.Executed);
+        assertEq(_proposals.getProposalDetails(scheduledProposalId).status, ProposalStatus.Scheduled);
+        assertEq(_proposals.getProposalDetails(submittedProposalId).status, ProposalStatus.Submitted);
 
         // After canceling the proposals, both submitted and scheduled proposals should transition to the Cancelled state.
         // However, executed proposals should remain in the Executed state.
 
         _proposals.cancelAll();
 
-        (executedProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
-            _proposals.getProposalInfo(executedProposalId);
-        assertEq(executedProposalStatus, ProposalStatus.Executed);
-
-        (scheduledProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
-            _proposals.getProposalInfo(scheduledProposalId);
-        assertEq(scheduledProposalStatus, ProposalStatus.Cancelled);
-
-        (submittedProposalStatus, /* executor */, /* submittedAt */, /* scheduledAt */ ) =
-            _proposals.getProposalInfo(submittedProposalId);
-        assertEq(submittedProposalStatus, ProposalStatus.Cancelled);
+        assertEq(_proposals.getProposalDetails(executedProposalId).status, ProposalStatus.Executed);
+        assertEq(_proposals.getProposalDetails(scheduledProposalId).status, ProposalStatus.Cancelled);
+        assertEq(_proposals.getProposalDetails(submittedProposalId).status, ProposalStatus.Cancelled);
     }
 
     function test_can_schedule_proposal() external {

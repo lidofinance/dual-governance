@@ -18,6 +18,8 @@ import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 // Interfaces
 // ---
 
+import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
+import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
 
@@ -86,9 +88,9 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
         isActive = stateContext.state == DGState.VetoSignalling;
-        duration = _dualGovernance.getDynamicDelayDuration().toSeconds();
+        duration = _dualGovernance.getStateDetails().dynamicDelay.toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
         activatedAt = stateContext.vetoSignallingActivatedAt.toSeconds();
     }
@@ -98,7 +100,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         view
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
-        DualGovernanceStateMachine.Context memory stateContext = _dualGovernance.getCurrentStateContext();
+        IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
         isActive = stateContext.state == DGState.VetoSignallingDeactivation;
         duration = _dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
@@ -339,16 +341,16 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _assertSubmittedProposalData(uint256 proposalId, address executor, ExternalCall[] memory calls) internal {
-        EmergencyProtectedTimelock.Proposal memory proposal = _timelock.getProposal(proposalId);
+        (ITimelock.ProposalDetails memory proposal, ExternalCall[] memory calls) = _timelock.getProposal(proposalId);
         assertEq(proposal.id, proposalId, "unexpected proposal id");
         assertEq(proposal.status, ProposalStatus.Submitted, "unexpected status value");
         assertEq(proposal.executor, executor, "unexpected executor");
         assertEq(Timestamp.unwrap(proposal.submittedAt), block.timestamp, "unexpected scheduledAt");
-        assertEq(proposal.calls.length, calls.length, "unexpected calls length");
+        assertEq(calls.length, calls.length, "unexpected calls length");
 
-        for (uint256 i = 0; i < proposal.calls.length; ++i) {
+        for (uint256 i = 0; i < calls.length; ++i) {
             ExternalCall memory expected = calls[i];
-            ExternalCall memory actual = proposal.calls[i];
+            ExternalCall memory actual = calls[i];
 
             assertEq(actual.value, expected.value);
             assertEq(actual.target, expected.target);
@@ -409,7 +411,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _assertProposalSubmitted(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposal(proposalId).status,
+            _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Submitted,
             "TimelockProposal not in 'Submitted' state"
         );
@@ -417,7 +419,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _assertProposalScheduled(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposal(proposalId).status,
+            _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Scheduled,
             "TimelockProposal not in 'Scheduled' state"
         );
@@ -425,34 +427,38 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _assertProposalExecuted(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposal(proposalId).status,
+            _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Executed,
             "TimelockProposal not in 'Executed' state"
         );
     }
 
     function _assertProposalCancelled(uint256 proposalId) internal {
-        assertEq(_timelock.getProposal(proposalId).status, ProposalStatus.Cancelled, "Proposal not in 'Canceled' state");
+        assertEq(
+            _timelock.getProposalDetails(proposalId).status,
+            ProposalStatus.Cancelled,
+            "Proposal not in 'Canceled' state"
+        );
     }
 
     function _assertNormalState() internal {
-        assertEq(_dualGovernance.getCurrentState(), DGState.Normal);
+        assertEq(_dualGovernance.getState(), DGState.Normal);
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(_dualGovernance.getCurrentState(), DGState.VetoSignalling);
+        assertEq(_dualGovernance.getState(), DGState.VetoSignalling);
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(_dualGovernance.getCurrentState(), DGState.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getState(), DGState.VetoSignallingDeactivation);
     }
 
     function _assertRageQuitState() internal {
-        assertEq(_dualGovernance.getCurrentState(), DGState.RageQuit);
+        assertEq(_dualGovernance.getState(), DGState.RageQuit);
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(_dualGovernance.getCurrentState(), DGState.VetoCooldown);
+        assertEq(_dualGovernance.getState(), DGState.VetoCooldown);
     }
 
     function _assertNoTargetMockCalls() internal {
