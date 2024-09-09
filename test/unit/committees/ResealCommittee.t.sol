@@ -75,7 +75,11 @@ contract ResealCommitteeUnitTest is UnitTest {
         resealCommittee.voteReseal(sealable, true);
 
         vm.prank(committeeMembers[2]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                HashConsensus.HashIsNotScheduled.selector, keccak256(abi.encode(sealable, /* resealNonce */ 0))
+            )
+        );
         resealCommittee.executeReseal(sealable);
     }
 

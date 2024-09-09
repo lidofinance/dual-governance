@@ -11,6 +11,8 @@ import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 
 contract EmergencyActivationCommitteeUnitTest is UnitTest {
+    bytes32 private constant _EMERGENCY_ACTIVATION_HASH = keccak256("EMERGENCY_ACTIVATE");
+
     EmergencyActivationCommittee internal emergencyActivationCommittee;
     uint256 internal quorum = 2;
     address internal owner = makeAddr("owner");
@@ -82,7 +84,7 @@ contract EmergencyActivationCommitteeUnitTest is UnitTest {
         emergencyActivationCommittee.approveActivateEmergencyMode();
 
         vm.prank(committeeMembers[2]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashIsNotScheduled.selector, _EMERGENCY_ACTIVATION_HASH));
         emergencyActivationCommittee.executeActivateEmergencyMode();
     }
 

@@ -16,6 +16,7 @@ abstract contract HashConsensus is Ownable {
     event MemberRemoved(address indexed member);
     event QuorumSet(uint256 quorum);
     event HashUsed(bytes32 hash);
+    event HashScheduled(bytes32 hash);
     event Voted(address indexed signer, bytes32 hash, bool support);
     event TimelockDurationSet(Duration timelockDuration);
 
@@ -23,6 +24,7 @@ abstract contract HashConsensus is Ownable {
     error AccountIsNotMember(address account);
     error CallerIsNotMember(address caller);
     error HashAlreadyUsed(bytes32 hash);
+    error HashIsNotScheduled(bytes32 hash);
     error HashAlreadyScheduled(bytes32 hash);
     error QuorumIsNotReached();
     error InvalidQuorum();
@@ -51,10 +53,6 @@ abstract contract HashConsensus is Ownable {
     /// @param hash The hash to vote on
     /// @param support Indicates whether the member supports the hash
     function _vote(bytes32 hash, bool support) internal {
-        if (_hashStates[hash].usedAt.isNotZero()) {
-            revert HashAlreadyUsed(hash);
-        }
-
         if (_hashStates[hash].scheduledAt.isNotZero()) {
             revert HashAlreadyScheduled(hash);
         }
@@ -63,34 +61,32 @@ abstract contract HashConsensus is Ownable {
             return;
         }
 
-        uint256 heads = _getSupport(hash);
-        // heads compares to quorum - 1 because the current vote is not counted yet
-        if (heads >= quorum - 1 && support == true) {
-            _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
-        }
-
         approves[msg.sender][hash] = support;
         emit Voted(msg.sender, hash, support);
+
+        if (_getSupport(hash) == quorum) {
+            _hashStates[hash].scheduledAt = Timestamps.now();
+            emit HashScheduled(hash);
+        }
     }
 
     /// @notice Marks a hash as used if quorum is reached and timelock has passed
     /// @dev Internal function that handles marking a hash as used
     /// @param hash The hash to mark as used
     function _markUsed(bytes32 hash) internal {
+        if (_hashStates[hash].scheduledAt.isZero()) {
+            revert HashIsNotScheduled(hash);
+        }
+
         if (_hashStates[hash].usedAt.isNotZero()) {
             revert HashAlreadyUsed(hash);
         }
 
-        uint256 support = _getSupport(hash);
-
-        if (support == 0 || support < quorum) {
-            revert QuorumIsNotReached();
-        }
-        if (timelockDuration.addTo(_hashStates[hash].scheduledAt) > Timestamps.from(block.timestamp)) {
+        if (timelockDuration.addTo(_hashStates[hash].scheduledAt) > Timestamps.now()) {
             revert TimelockNotPassed();
         }
 
-        _hashStates[hash].usedAt = Timestamps.from(block.timestamp);
+        _hashStates[hash].usedAt = Timestamps.now();
 
         emit HashUsed(hash);
     }
@@ -187,18 +183,16 @@ abstract contract HashConsensus is Ownable {
     ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
     function schedule(bytes32 hash) public {
-        if (_hashStates[hash].usedAt.isNotZero()) {
-            revert HashAlreadyUsed(hash);
+        if (_hashStates[hash].scheduledAt.isNotZero()) {
+            revert HashAlreadyScheduled(hash);
         }
 
         if (_getSupport(hash) < quorum) {
             revert QuorumIsNotReached();
         }
-        if (_hashStates[hash].scheduledAt.isNotZero()) {
-            revert HashAlreadyScheduled(hash);
-        }
 
         _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
+        emit HashScheduled(hash);
     }
 
     /// @notice Sets the execution quorum required for certain operations.

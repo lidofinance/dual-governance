@@ -521,7 +521,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         _hashConsensusWrapper.execute(dataHash);
 
         vm.prank(_committeeMembers[0]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, dataHash));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, dataHash));
         _hashConsensusWrapper.vote(dataHash, true);
     }
 
@@ -540,7 +540,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
 
     function test_execute_events() public {
         vm.prank(_stranger);
-        vm.expectRevert(abi.encodeWithSignature("QuorumIsNotReached()"));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashIsNotScheduled.selector, dataHash));
         _hashConsensusWrapper.execute(dataHash);
 
         for (uint256 i = 0; i < _quorum; ++i) {
@@ -594,7 +594,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
 
         _hashConsensusWrapper.execute(hash);
 
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyUsed.selector, hash));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, hash));
         _hashConsensusWrapper.schedule(hash);
     }
 
