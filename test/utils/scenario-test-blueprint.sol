@@ -296,8 +296,9 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     ) internal returns (uint256 proposalId) {
         uint256 proposalsCountBefore = _timelock.getProposalsCount();
 
-        bytes memory script =
-            EvmScriptUtils.encodeEvmCallScript(address(governance), abi.encodeCall(IGovernance.submitProposal, (calls)));
+        bytes memory script = EvmScriptUtils.encodeEvmCallScript(
+            address(governance), abi.encodeCall(IGovernance.submitProposal, (calls, string("")))
+        );
         uint256 voteId = _lido.adoptVote(description, script);
 
         // The scheduled calls count is the same until the vote is enacted

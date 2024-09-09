@@ -121,13 +121,16 @@ contract DualGovernance is IDualGovernance {
     // Proposals Flow
     // ---
 
-    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(
+        ExternalCall[] calldata calls,
+        string calldata metadata
+    ) external returns (uint256 proposalId) {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
         }
         Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
-        proposalId = TIMELOCK.submit(proposer.executor, calls);
+        proposalId = TIMELOCK.submit(proposer.executor, calls, metadata);
     }
 
     function scheduleProposal(uint256 proposalId) external {
