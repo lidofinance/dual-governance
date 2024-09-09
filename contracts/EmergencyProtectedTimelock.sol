@@ -72,6 +72,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// Only the governance contract can call this function.
     /// @param executor The address of the executor contract that will execute the calls.
     /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
+    /// @param metadata A string containing additional information about the proposal.
     /// @return newProposalId The ID of the newly created proposal.
     function submit(
         address executor,
