@@ -32,8 +32,8 @@ contract DummyWstETH is DummyERC20MintBurn {
     /**
      * @param _stETH address of the StETH token to wrap
      */
-    constructor(IStETH _stETH)
-    {
+
+    constructor(IStETH _stETH) {
         stETH = _stETH;
     }
 
@@ -71,5 +71,4 @@ contract DummyWstETH is DummyERC20MintBurn {
         stETH.transfer(msg.sender, stETHAmount);
         return stETHAmount;
     }
-
 }
