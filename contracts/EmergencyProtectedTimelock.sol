@@ -220,9 +220,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @dev Returns the details of the emergency protection.
     /// @return details A struct containing the emergency mode duration, emergency mode ends after, and emergency protection ends after.
     function getEmergencyProtectionDetails() public view returns (EmergencyProtectionDetails memory details) {
-        details.emergencyModeDuration = _emergencyProtection.emergencyModeDuration;
-        details.emergencyModeEndsAfter = _emergencyProtection.emergencyModeEndsAfter;
-        details.emergencyProtectionEndsAfter = _emergencyProtection.emergencyProtectionEndsAfter;
+        return _emergencyProtection.getEmergencyProtectionDetails();
     }
 
     /// @dev Returns the address of the emergency governance.
