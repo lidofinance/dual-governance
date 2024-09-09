@@ -23,11 +23,11 @@ abstract contract HashConsensus is Ownable {
     error AccountIsNotMember(address account);
     error CallerIsNotMember(address caller);
     error HashAlreadyUsed(bytes32 hash);
+    error HashAlreadyScheduled(bytes32 hash);
     error QuorumIsNotReached();
     error InvalidQuorum();
     error InvalidTimelockDuration(Duration timelock);
     error TimelockNotPassed();
-    error ProposalAlreadyScheduled(bytes32 hash);
 
     struct HashState {
         Timestamp scheduledAt;
@@ -56,7 +56,7 @@ abstract contract HashConsensus is Ownable {
         }
 
         if (_hashStates[hash].scheduledAt.isNotZero()) {
-            revert ProposalAlreadyScheduled(hash);
+            revert HashAlreadyScheduled(hash);
         }
 
         if (approves[msg.sender][hash] == support) {
@@ -195,7 +195,7 @@ abstract contract HashConsensus is Ownable {
             revert QuorumIsNotReached();
         }
         if (_hashStates[hash].scheduledAt.isNotZero()) {
-            revert ProposalAlreadyScheduled(hash);
+            revert HashAlreadyScheduled(hash);
         }
 
         _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);

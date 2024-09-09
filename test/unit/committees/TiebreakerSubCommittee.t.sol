@@ -6,7 +6,7 @@ import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
-import {ITiebreakerCore} from "contracts/interfaces/ITiebreaker.sol";
+import {ITiebreakerCore} from "contracts/interfaces/ITiebreakerCore.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 

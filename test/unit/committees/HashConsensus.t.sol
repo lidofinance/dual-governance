@@ -533,7 +533,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
             _hashConsensusWrapper.vote(hash, true);
         }
 
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.ProposalAlreadyScheduled.selector, hash));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, hash));
         vm.prank(_committeeMembers[_quorum]);
         _hashConsensusWrapper.vote(hash, true);
     }
@@ -611,7 +611,7 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         (,, Timestamp scheduledAtBefore,) = _hashConsensusWrapper.getHashState(hash);
 
         _wait(_timelock);
-        vm.expectRevert(abi.encodeWithSignature("ProposalAlreadyScheduled(bytes32)", hash));
+        vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, hash));
         _hashConsensusWrapper.schedule(hash);
 
         (,, Timestamp scheduledAtAfter,) = _hashConsensusWrapper.getHashState(hash);

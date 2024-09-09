@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {Durations} from "contracts/types/Duration.sol";
-import {Timestamp} from "contracts/types/Timestamp.sol";
+import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 
@@ -80,27 +80,29 @@ contract ResealCommitteeUnitTest is UnitTest {
     }
 
     function test_getResealState_HappyPath() external {
+        vm.prank(owner);
+        resealCommittee.setQuorum(3);
+
         (uint256 support, uint256 executionQuorum, Timestamp quorumAt) = resealCommittee.getResealState(sealable);
         assertEq(support, 0);
-        assertEq(executionQuorum, 2);
-        assertEq(quorumAt, Timestamp.wrap(0));
+        assertEq(executionQuorum, 3);
+        assertEq(quorumAt, Timestamps.ZERO);
 
         vm.prank(committeeMembers[0]);
         resealCommittee.voteReseal(sealable, true);
 
         (support, executionQuorum, quorumAt) = resealCommittee.getResealState(sealable);
         assertEq(support, 1);
-        assertEq(executionQuorum, 2);
-        assertEq(quorumAt, Timestamp.wrap(0));
+        assertEq(executionQuorum, 3);
+        assertEq(quorumAt, Timestamps.ZERO);
 
         vm.prank(committeeMembers[1]);
         resealCommittee.voteReseal(sealable, true);
 
         (support, executionQuorum, quorumAt) = resealCommittee.getResealState(sealable);
-        Timestamp quorumAtExpected = Timestamp.wrap(uint40(block.timestamp));
         assertEq(support, 2);
-        assertEq(executionQuorum, 2);
-        assertEq(quorumAt, quorumAtExpected);
+        assertEq(executionQuorum, 3);
+        assertEq(quorumAt, Timestamps.ZERO);
 
         _wait(Durations.from(1));
 
@@ -109,11 +111,25 @@ contract ResealCommitteeUnitTest is UnitTest {
 
         (support, executionQuorum, quorumAt) = resealCommittee.getResealState(sealable);
         assertEq(support, 1);
-        assertEq(executionQuorum, 2);
-        assertEq(quorumAt, quorumAtExpected);
+        assertEq(executionQuorum, 3);
+        assertEq(quorumAt, Timestamps.ZERO);
 
         vm.prank(committeeMembers[1]);
         resealCommittee.voteReseal(sealable, true);
+
+        (support, executionQuorum, quorumAt) = resealCommittee.getResealState(sealable);
+        assertEq(support, 2);
+        assertEq(executionQuorum, 3);
+        assertEq(quorumAt, Timestamps.ZERO);
+
+        vm.prank(committeeMembers[2]);
+        resealCommittee.voteReseal(sealable, true);
+
+        Timestamp quorumAtExpected = Timestamps.now();
+        (support, executionQuorum, quorumAt) = resealCommittee.getResealState(sealable);
+        assertEq(support, 3);
+        assertEq(executionQuorum, 3);
+        assertEq(quorumAt, quorumAtExpected);
 
         vm.prank(committeeMembers[2]);
         vm.expectCall(dualGovernance, abi.encodeWithSelector(IDualGovernance.resealSealable.selector, sealable));
@@ -121,7 +137,7 @@ contract ResealCommitteeUnitTest is UnitTest {
 
         (support, executionQuorum, quorumAt) = resealCommittee.getResealState(sealable);
         assertEq(support, 0);
-        assertEq(executionQuorum, 2);
+        assertEq(executionQuorum, 3);
         assertEq(quorumAt, Timestamp.wrap(0));
     }
 }
