@@ -25,27 +25,36 @@ contract TimelockedGovernance is IGovernance {
     /// @dev Submits a proposal to the timelock.
     /// @param calls An array of ExternalCall structs representing the calls to be executed in the proposal.
     /// @return proposalId The ID of the submitted proposal.
-    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(
+        ExternalCall[] calldata calls,
+        string calldata metadata
+    ) external returns (uint256 proposalId) {
         _checkCallerIsGovernance();
-        return TIMELOCK.submit(TIMELOCK.getAdminExecutor(), calls);
+        return TIMELOCK.submit(TIMELOCK.getAdminExecutor(), calls, metadata);
     }
 
     /// @dev Schedules a submitted proposal.
     /// @param proposalId The ID of the proposal to be scheduled.
-    function scheduleProposal(uint256 proposalId) external {
+    function scheduleProposal(
+        uint256 proposalId
+    ) external {
         TIMELOCK.schedule(proposalId);
     }
 
     /// @dev Executes a scheduled proposal.
     /// @param proposalId The ID of the proposal to be executed.
-    function executeProposal(uint256 proposalId) external {
+    function executeProposal(
+        uint256 proposalId
+    ) external {
         TIMELOCK.execute(proposalId);
     }
 
     /// @dev Checks if a proposal can be scheduled.
     /// @param proposalId The ID of the proposal to check.
     /// @return A boolean indicating whether the proposal can be scheduled.
-    function canScheduleProposal(uint256 proposalId) external view returns (bool) {
+    function canScheduleProposal(
+        uint256 proposalId
+    ) external view returns (bool) {
         return TIMELOCK.canSchedule(proposalId);
     }
 

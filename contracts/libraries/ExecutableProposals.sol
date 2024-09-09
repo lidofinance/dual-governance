@@ -66,7 +66,7 @@ library ExecutableProposals {
     error AfterSubmitDelayNotPassed(uint256 proposalId);
     error AfterScheduleDelayNotPassed(uint256 proposalId);
 
-    event ProposalSubmitted(uint256 indexed id, address indexed executor, ExternalCall[] calls);
+    event ProposalSubmitted(uint256 indexed id, address indexed executor, ExternalCall[] calls, string metadata);
     event ProposalScheduled(uint256 indexed id);
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
     event ProposalsCancelledTill(uint256 proposalId);
@@ -84,7 +84,8 @@ library ExecutableProposals {
     function submit(
         Context storage self,
         address executor,
-        ExternalCall[] memory calls
+        ExternalCall[] memory calls,
+        string memory metadata
     ) internal returns (uint256 newProposalId) {
         if (calls.length == 0) {
             revert EmptyCalls();
@@ -103,7 +104,7 @@ library ExecutableProposals {
             newProposal.calls.push(calls[i]);
         }
 
-        emit ProposalSubmitted(newProposalId, executor, calls);
+        emit ProposalSubmitted(newProposalId, executor, calls, metadata);
     }
 
     function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
@@ -145,7 +146,9 @@ library ExecutableProposals {
         emit ProposalExecuted(proposalId, results);
     }
 
-    function cancelAll(Context storage self) internal {
+    function cancelAll(
+        Context storage self
+    ) internal {
         uint64 lastCancelledProposalId = self.proposalsCount;
         self.lastCancelledProposalId = lastCancelledProposalId;
         emit ProposalsCancelledTill(lastCancelledProposalId);
@@ -177,7 +180,9 @@ library ExecutableProposals {
             && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
     }
 
-    function getProposalsCount(Context storage self) internal view returns (uint256) {
+    function getProposalsCount(
+        Context storage self
+    ) internal view returns (uint256) {
         return self.proposalsCount;
     }
 

@@ -237,6 +237,6 @@ contract DualGovernanceUnitTests is UnitTest {
 
     function _submitMockProposal() internal {
         // mock timelock doesn't uses proposal data
-        _timelock.submit(address(0), new ExternalCall[](0));
+        _timelock.submit(address(0), new ExternalCall[](0), "");
     }
 }
