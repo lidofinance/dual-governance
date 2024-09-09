@@ -66,8 +66,18 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         assertFalse(isExecuted);
     }
 
-    function test_voteEmergencyExecute_RevertOn_ProposalDoesNotExist() external {
+    function test_voteEmergencyExecute_RevertOn_ProposalIdExceedsProposalsCount() external {
         uint256 nonExistentProposalId = proposalId + 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EmergencyExecutionCommittee.ProposalDoesNotExist.selector, nonExistentProposalId)
+        );
+        vm.prank(committeeMembers[0]);
+        emergencyExecutionCommittee.voteEmergencyExecute(nonExistentProposalId, true);
+    }
+
+    function test_voteEmergencyExecute_RevertOn_ProposalIdIsZero() external {
+        uint256 nonExistentProposalId = 0;
 
         vm.expectRevert(
             abi.encodeWithSelector(EmergencyExecutionCommittee.ProposalDoesNotExist.selector, nonExistentProposalId)

@@ -91,6 +91,14 @@ contract TiebreakerCoreUnitTest is UnitTest {
         tiebreakerCore.scheduleProposal(nonExistentProposalId);
     }
 
+    function test_scheduleProposal_RevertOn_ProposalIdIsZero() external {
+        uint256 nonExistentProposalId = 0;
+
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCore.ProposalDoesNotExist.selector, nonExistentProposalId));
+        vm.prank(committeeMembers[0]);
+        tiebreakerCore.scheduleProposal(nonExistentProposalId);
+    }
+
     function test_executeScheduleProposal_HappyPath() external {
         vm.prank(committeeMembers[0]);
         tiebreakerCore.scheduleProposal(proposalId);

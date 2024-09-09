@@ -26,7 +26,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     error ResumeSealableNonceMismatch();
     error ProposalDoesNotExist(uint256 proposalId);
 
-    address immutable DUAL_GOVERNANCE;
+    address public immutable DUAL_GOVERNANCE;
 
     mapping(address => uint256) private _sealableResumeNonces;
 
@@ -81,7 +81,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     function checkProposalExists(uint256 proposalId) public view {
         ITimelock timelock = IDualGovernance(DUAL_GOVERNANCE).TIMELOCK();
 
-        if (proposalId > timelock.getProposalsCount()) {
+        if (proposalId == 0 || proposalId > timelock.getProposalsCount()) {
             revert ProposalDoesNotExist(proposalId);
         }
     }

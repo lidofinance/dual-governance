@@ -76,7 +76,7 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     /// @notice Checks if a proposal exists
     /// @param proposalId The ID of the proposal to check
     function _checkProposalExists(uint256 proposalId) internal view {
-        if (proposalId > ITimelock(EMERGENCY_PROTECTED_TIMELOCK).getProposalsCount()) {
+        if (proposalId == 0 || proposalId > ITimelock(EMERGENCY_PROTECTED_TIMELOCK).getProposalsCount()) {
             revert ProposalDoesNotExist(proposalId);
         }
     }
