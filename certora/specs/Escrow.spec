@@ -3,6 +3,7 @@ using DummyWstETH as wst_eth;
 using Escrow as escrow;
 using DualGovernance as dualGovernance;
 using ImmutableDualGovernanceConfigProvider as config;
+using DummyWithdrawalQueue as withdrawalQueue; 
 
 methods {
     // calls to Escrow from dualGovernance 
@@ -15,6 +16,8 @@ methods {
     //envfree
     function isWithdrawalsBatchesFinalized() external returns (bool) envfree; 
     function getRageQuitSupport() external  returns (Escrow.PercentD16)  envfree;
+    function getRageQuitExtensionDelayStartedAt() external returns (Escrow.Timestamp) envfree;
+
     
     //calls to stEth and wst_eth from spec
     function DummyStETH.getTotalShares() external returns(uint256) envfree;
@@ -22,6 +25,7 @@ methods {
     function DummyStETH.balanceOf(address) external returns(uint256) envfree;
     function DummyWstETH.balanceOf(address) external returns(uint256) envfree;
     function DummyStETH.getPooledEthByShares(uint256) external returns (uint256) envfree; 
+    function DummyWithdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT() external returns (uint256) envfree;
 
     //calls to resealManager are from dualGov are unrelated 
     function _.resume(address sealable) external => NONDET;
@@ -42,16 +46,38 @@ methods {
 
 }
 
-use builtin rule sanity; 
-
-
 /**
-@title Ragequit is a final state of the contract, i.e can not change the state
-
+Helper functions 
 **/
+
+function isNotInitializedState() returns bool {
+    return require_uint8(currentContract._escrowState.state) ==  0 /*EscrowState.State.NotInitialized*/;
+}
+
+function isSignallingState() returns bool {
+    return require_uint8(currentContract._escrowState.state) ==1 /*EscrowState.State.SignallingEscrow*/;
+}
+
 function isRageQuitState() returns bool {
     return require_uint8(currentContract._escrowState.state) ==  2 /*EscrowState.State.RageQuitEscrow*/;
 }
+
+function isBatchQueueStateAbset() returns bool {
+    return require_uint8(currentContract._batchesQueue.info. state) ==  0; 
+}
+
+function isBatchQueueStateOpened() returns bool {
+    return require_uint8(currentContract._batchesQueue.info. state) ==  1; 
+}
+
+function isBatchQueueStateClosed() returns bool {
+    return require_uint8(currentContract._batchesQueue.info. state) ==  2; 
+}
+
+function isAllStEthNFTClaimed() returns bool {
+    return currentContract._batchesQueue.info.totalUnstETHIdsClaimed == currentContract._batchesQueue.info.totalUnstETHIdsCount ;
+}
+
 /**
 @title If the state of an escrow is RageQuitEscrow, we can execute any method and it will still be in the same state afterwards
 **/ 
@@ -69,6 +95,9 @@ rule E_State_1_rageQuitFinalState(method f)
 
 }
 
+/**
+@title only dual governance can start a rage quit
+**/ 
 rule E_KP_5_rageQuitStarter(method f) 
 {
     bool rageQuitStateBefore = isRageQuitState();
@@ -81,15 +110,12 @@ rule E_KP_5_rageQuitStarter(method f)
 
     assert !rageQuitStateBefore && rageQuitStateAfter => 
         e.msg.sender == dualGovernance;
-    // && 
-    // enought support &&  time=> rageQuitStarted
 
 }
 
 /** @title It's not possible to lock funds in or unlock funds from an escrow that is already in the rage quit state.
-locking/unlocking implies chaning the stETHLockedShares or unstETHLockedShares of an account
-
-this can happen only on withdrawEth
+locking/unlocking implies changing the stETHLockedShares or unstETHLockedShares of an account.
+WithdrawEth (after rage quit) is the other option to change account's asset entry.
 **/
 
 rule E_KP_3_rageQuitNolockUnlock(method f, address holder) 
@@ -110,10 +136,10 @@ rule E_KP_3_rageQuitNolockUnlock(method f, address holder)
 }
 
 /** 
-@title An agent cannot unlock their funds until SignallingEscrowMinLockTime has passed since this user last locked funds.
+@title Before rage quit An agent cannot unlock their funds until SignallingEscrowMinLockTime has passed since this user last locked funds.
+funds can move between stEthLocked and unstETHLockedShares
 **/
-//TODO - there is a violation : https://prover.certora.com/output/40726/de13f7a8cc0a43ea9d0a2626098cb465/?anonymousKey=cd50592304ac7f689618e4afa778f954271896cd
-// need to acknowledge  it is ok 
+
 rule E_KP_4_unlockMinTime(method f, address holder) 
 {
     bool rageQuitStateBefore = isRageQuitState();
@@ -130,8 +156,7 @@ rule E_KP_4_unlockMinTime(method f, address holder)
 
     assert (!rageQuitStateBefore && e.block.timestamp < lastTimestamp + min_time) 
         => 
-        beforeStShares <= currentContract._accounting.assets[holder].stETHLockedShares &&
-        beforeUnStShares <= currentContract._accounting.assets[holder].unstETHLockedShares;
+        beforeStShares + beforeUnStShares <= currentContract._accounting.assets[holder].stETHLockedShares + currentContract._accounting.assets[holder].unstETHLockedShares;
 }
 
 /**
@@ -179,7 +204,7 @@ rule W2_2_batchesQueueCloseNoChange(method f){
 /**
 W1-1 Evading Ragequit second seal:
 
-@title when is ragequit the ragequit support is at least SECOND_SEAL_RAGE_QUIT_SUPPORT 
+@title when in ragequit, the ragequit support is at least SECOND_SEAL_RAGE_QUIT_SUPPORT 
 
 **/
 
@@ -191,18 +216,16 @@ invariant W1_1_rageQuitSupportMinValue()
 
 
 /**
-    @title Reage quit support value
-
-ignoring imprecisions due to fixed-point arithmetic, the rage quit support of an escrow is equal to 
-(S+W+U+F) / (T+F)
- where
-S - is the ETH amount locked in the escrow in the form of stET + 
-W - is the ETH amount locked in the escrow in the form of wstETH: _accounting.stETHTotals.lockedShares
-U - is the ETH amount locked in the escrow in the form of unfinalized Withdrawal NFTs: _accounting.unstETHTotals.unfinalizedShares (sum of all nft deposited)
-F - is the ETH amount locked in the escrow in the form of finalized Withdrawal NFTs: _accounting.unstETHTotals.unstETHFinalizedETH (out of unstETHUnfinalizedShares )
-T - is the total supply of stETH.
+    @title Rage quit support value
+    The rage quit support of an escrow is equal to: 
+                (S+W+U+F) / (T+F)
+    where:
+        S - is the ETH amount locked in the escrow in the form of stET 
+        W - is the ETH amount locked in the escrow in the form of wstETH: _accounting.stETHTotals.lockedShares
+        U - is the ETH amount locked in the escrow in the form of unfinalized Withdrawal NFTs: _accounting.unstETHTotals.unfinalizedShares (sum of all nft deposited)
+        F - is the ETH amount locked in the escrow in the form of finalized Withdrawal NFTs: _accounting.unstETHTotals.unstETHFinalizedETH (out of unstETHUnfinalizedShares )
+        T - is the total supply of stETH.
  **/ 
-
 
  rule E_KP_1_rageQuitSupportValue() {
     // this mostly checks for overflow/underflow 
@@ -217,98 +240,47 @@ T - is the total supply of stETH.
     assert  actual == expected;
  }
 
-/************* Solvency  Rules **********/
-/************* E-KP-2 : total holding of each token ***********/
-/** 
-@title total holding of wst_eth is zero as all wst_eth are converted to st_eth
-**/  
-invariant zeroWstEthBalance() 
-    wst_eth.balanceOf(currentContract) == 0
-    filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
-    preserved with (env e) {
-        require e.msg.sender != currentContract;
-    }
-}
 
-ghost mathint sumStETHLockedShares{
-    // assuming value zero at the initial state before constructor 
-	init_state axiom sumStETHLockedShares == 0; 
-}
 
-/* updated sumStETHLockedShares according to the change of a single account */
-hook Sstore currentContract._accounting.assets[KEY address a].stETHLockedShares Escrow.SharesValue new_balance
-// the old value that balances[a] holds before the store
-    (Escrow.SharesValue old_balance) {
-  sumStETHLockedShares = sumStETHLockedShares + new_balance - old_balance;
-}
 
-hook Sload Escrow.SharesValue value currentContract._accounting.assets[KEY address a].stETHLockedShares {
-    require  value <= sumStETHLockedShares;
-}
-
-invariant totalLockedShares()
-    sumStETHLockedShares <= currentContract._accounting.stETHTotals.lockedShares;
-
- /** @title total holding of stEth before rageQuit start 
- **/ 
-invariant solvency_stETH_before_ragequit() 
-    !isRageQuitState() => stEth.getPooledEthByShares(currentContract._accounting.stETHTotals.lockedShares
-    ) <=  stEth.balanceOf(currentContract) 
-
-    filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
-    preserved with (env e) {
-        require e.msg.sender != currentContract;
-    }
-}
-
-//////  Nurit : From here work in progress 
+// make rule of state changed to UnstETHRecordStatus
 /*
-invariant solvency_stETH_before_ragequit() 
-    !isRageQuitState() => 
-        currentContract._accounting.unstETHTotals.unfinalizedShares 
-
-    filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
-    preserved with (env e) {
-        require e.msg.sender != currentContract;
-    }
+enum UnstETHRecordStatus {
+    NotLocked = 0
+    Locked = 1
+    Finalized = 2
+    Claimed = 3
+    Withdrawn =  4
 }
-*/
+Valid transitions are: 
+0 -> 1 
+1 -> 0
+1 -> 2
+1 -> 3
+2 -> 3
+2 -> 0
+3 -> 4 
+4 final state 
+*/ 
 
-
-invariant solvency_claimedETH() 
-    isRageQuitState() =>  currentContract._accounting.stETHTotals.claimedETH * sumStETHLockedShares /*/ currentContract._accounting.stETHTotals.lockedShares*/ <=  nativeBalances[currentContract] * currentContract._accounting.stETHTotals.lockedShares
-
-    filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
-    preserved with (env e) {
-        require e.msg.sender != currentContract;
-    }
-}
-
-
-
-
-//todo - StETHAccounting.claimedETH <=  nativeBalances[currentContract]
-// need to prove sum of balance <= self.stETHTotals.lockedShares
-/*
-rule change_eth(method f) 
-{
-    uint256 before = nativeBalances[currentContract];  
+rule stateTransition_unstethRecord(uint256 unstETHId, method f) {
+    uint8 before = require_uint8(currentContract._accounting.unstETHRecords[unstETHId].status);
+    require before == 3 => isRageQuitState();
     env e;
     calldataarg args;
     f(e,args);
-    uint256 after = nativeBalances[currentContract];  
-    assert after == before;
+
+    uint8 after = require_uint8(currentContract._accounting.unstETHRecords[unstETHId].status);
+    assert before != after =>
+        (  ( before == 0 <=> after == 1)
+        && ( before == 1 => after <= 3)
+        && ( before == 2 => ( after == 0 || after == 3) )
+        && ( before == 3 <=>  after == 4 )
+        && ( after == 2 => before == 1 )
+        && ( after == 3 => (before == 1  || before == 2) )
+        );
+    assert after == 3 => isRageQuitState();
+
 }
 
-rule change_st_eth(method f) 
-{
-    uint256 before = stEth.balanceOf(currentContract); 
-    env e;
-    calldataarg args;
-    f(e,args);
-    uint256 after = stEth.balanceOf(currentContract); 
-    assert after == before;
-}
-*/
-//todo - count of all unstETHIds <= withdrawalQueue.balanaceOf(currentContract)
 
