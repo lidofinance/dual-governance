@@ -116,7 +116,7 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         // emergency protection disabled after emergency mode is activated
 
-        _wait(_timelock.getEmergencyProtectionContext().emergencyModeDuration.plusSeconds(1));
+        _wait(_timelock.getEmergencyProtectionDetails().emergencyModeDuration.plusSeconds(1));
 
         assertEq(_timelock.isEmergencyModeActive(), true);
         assertEq(_timelock.isEmergencyProtectionEnabled(), true);

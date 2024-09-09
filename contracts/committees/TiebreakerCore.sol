@@ -3,13 +3,16 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
-import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+import {Duration} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
 import {ITimelock} from "../interfaces/ITimelock.sol";
+import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
+import {ITiebreakerCore} from "../interfaces/ITiebreakerCore.sol";
+import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Duration} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,
@@ -69,7 +72,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
         (, bytes32 key) = _encodeScheduleProposal(proposalId);
         _markUsed(key);
         Address.functionCall(
-            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerScheduleProposal.selector, proposalId)
+            DUAL_GOVERNANCE, abi.encodeWithSelector(ITiebreaker.tiebreakerScheduleProposal.selector, proposalId)
         );
     }
 
@@ -139,7 +142,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
         _markUsed(key);
         _sealableResumeNonces[sealable]++;
         Address.functionCall(
-            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerResumeSealable.selector, sealable)
+            DUAL_GOVERNANCE, abi.encodeWithSelector(ITiebreaker.tiebreakerResumeSealable.selector, sealable)
         );
     }
 

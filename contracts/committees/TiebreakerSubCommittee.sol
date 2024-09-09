@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
+import {ITiebreakerCore} from "../interfaces/ITiebreakerCore.sol";
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
 import {Timestamp} from "../types/Timestamp.sol";

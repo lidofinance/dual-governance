@@ -5,9 +5,9 @@ import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
-import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
@@ -101,7 +101,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
 
         vm.prank(committeeMembers[2]);
         vm.expectCall(
-            dualGovernance, abi.encodeWithSelector(IDualGovernance.tiebreakerScheduleProposal.selector, proposalId)
+            dualGovernance, abi.encodeWithSelector(ITiebreaker.tiebreakerScheduleProposal.selector, proposalId)
         );
         tiebreakerCore.executeScheduleProposal(proposalId);
 
@@ -148,9 +148,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
         _wait(timelock);
 
         vm.prank(committeeMembers[2]);
-        vm.expectCall(
-            dualGovernance, abi.encodeWithSelector(IDualGovernance.tiebreakerResumeSealable.selector, sealable)
-        );
+        vm.expectCall(dualGovernance, abi.encodeWithSelector(ITiebreaker.tiebreakerResumeSealable.selector, sealable));
         tiebreakerCore.executeSealableResume(sealable);
 
         (,,, bool isExecuted) = tiebreakerCore.getSealableResumeState(sealable, nonce);

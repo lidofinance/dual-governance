@@ -5,7 +5,8 @@ import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {ITimelock, ProposalStatus} from "./interfaces/ITimelock.sol";
+import {ProposalStatus} from "./interfaces/ITimelock.sol";
+import {IEmergencyProtectedTimelock} from "./interfaces/IEmergencyProtectedTimelock.sol";
 
 import {TimelockState} from "./libraries/TimelockState.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
@@ -17,7 +18,7 @@ import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 /// The contract allows for submitting, scheduling, and executing proposals,
 /// while providing emergency protection features to prevent unauthorized
 /// execution during emergency situations.
-contract EmergencyProtectedTimelock is ITimelock {
+contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     using TimelockState for TimelockState.Context;
     using ExecutableProposals for ExecutableProposals.Context;
     using EmergencyProtection for EmergencyProtection.Context;
@@ -71,10 +72,15 @@ contract EmergencyProtectedTimelock is ITimelock {
     /// Only the governance contract can call this function.
     /// @param executor The address of the executor contract that will execute the calls.
     /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
+    /// @param metadata A string containing additional information about the proposal.
     /// @return newProposalId The ID of the newly created proposal.
-    function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId) {
+    function submit(
+        address executor,
+        ExternalCall[] calldata calls,
+        string calldata metadata
+    ) external returns (uint256 newProposalId) {
         _timelockState.checkCallerIsGovernance();
-        newProposalId = _proposals.submit(executor, calls);
+        newProposalId = _proposals.submit(executor, calls, metadata);
     }
 
     /// @dev Schedules a proposal for execution after a specified delay.
@@ -204,16 +210,40 @@ contract EmergencyProtectedTimelock is ITimelock {
         _proposals.cancelAll();
     }
 
-    function getEmergencyProtectionContext() external view returns (EmergencyProtection.Context memory) {
-        return _emergencyProtection;
-    }
-
+    /// @dev Returns whether the emergency protection is enabled.
+    /// @return A boolean indicating whether the emergency protection is enabled.
     function isEmergencyProtectionEnabled() public view returns (bool) {
         return _emergencyProtection.isEmergencyProtectionEnabled();
     }
 
-    function isEmergencyModeActive() public view returns (bool isActive) {
-        isActive = _emergencyProtection.isEmergencyModeActive();
+    /// @dev Returns whether the emergency mode is active.
+    /// @return A boolean indicating whether the emergency protection is enabled.
+    function isEmergencyModeActive() public view returns (bool) {
+        return _emergencyProtection.isEmergencyModeActive();
+    }
+
+    /// @dev Returns the details of the emergency protection.
+    /// @return details A struct containing the emergency mode duration, emergency mode ends after, and emergency protection ends after.
+    function getEmergencyProtectionDetails() public view returns (EmergencyProtectionDetails memory details) {
+        return _emergencyProtection.getEmergencyProtectionDetails();
+    }
+
+    /// @dev Returns the address of the emergency governance.
+    /// @return The address of the emergency governance.
+    function getEmergencyGovernance() external view returns (address) {
+        return _emergencyProtection.emergencyGovernance;
+    }
+
+    /// @dev Returns the address of the emergency activation committee.
+    /// @return The address of the emergency activation committee.
+    function getEmergencyActivationCommittee() external view returns (address) {
+        return _emergencyProtection.emergencyActivationCommittee;
+    }
+
+    /// @dev Returns the address of the emergency execution committee.
+    /// @return The address of the emergency execution committee.
+    function getEmergencyExecutionCommittee() external view returns (address) {
+        return _emergencyProtection.emergencyExecutionCommittee;
     }
 
     // ---
@@ -238,35 +268,34 @@ contract EmergencyProtectedTimelock is ITimelock {
 
     /// @dev Retrieves the details of a proposal.
     /// @param proposalId The ID of the proposal.
-    /// @return proposal The Proposal struct containing the details of the proposal.
-    function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
-        proposal.id = proposalId;
-        (proposal.status, proposal.executor, proposal.submittedAt, proposal.scheduledAt) =
-            _proposals.getProposalInfo(proposalId);
-        proposal.calls = _proposals.getProposalCalls(proposalId);
+    /// @return proposalDetails The Proposal struct containing the details of the proposal.
+    /// @return calls An array of ExternalCall structs representing the sequence of calls to be executed for the proposal.
+    function getProposal(uint256 proposalId)
+        external
+        view
+        returns (ProposalDetails memory proposalDetails, ExternalCall[] memory calls)
+    {
+        proposalDetails = _proposals.getProposalDetails(proposalId);
+        calls = _proposals.getProposalCalls(proposalId);
     }
 
     /// @notice Retrieves information about a proposal, excluding the external calls associated with it.
     /// @param proposalId The ID of the proposal to retrieve information for.
-    /// @return id The ID of the proposal.
-    /// @return status The current status of the proposal. Possible values are:
+    /// @return proposalDetails A ProposalDetails struct containing the details of the proposal.
+    /// id The ID of the proposal.
+    /// status The current status of the proposal. Possible values are:
     /// 0 - The proposal does not exist.
     /// 1 - The proposal was submitted but not scheduled.
     /// 2 - The proposal was submitted and scheduled but not yet executed.
     /// 3 - The proposal was submitted, scheduled, and executed. This is the final state of the proposal lifecycle.
     /// 4 - The proposal was cancelled via cancelAllNonExecutedProposals() and cannot be scheduled or executed anymore.
     ///     This is the final state of the proposal.
-    /// @return executor The address of the executor responsible for executing the proposal's external calls.
-    /// @return submittedAt The timestamp when the proposal was submitted.
-    /// @return scheduledAt The timestamp when the proposal was scheduled for execution. Equals 0 if the proposal
+    /// executor The address of the executor responsible for executing the proposal's external calls.
+    /// submittedAt The timestamp when the proposal was submitted.
+    /// scheduledAt The timestamp when the proposal was scheduled for execution. Equals 0 if the proposal
     /// was submitted but not yet scheduled.
-    function getProposalInfo(uint256 proposalId)
-        external
-        view
-        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
-    {
-        id = proposalId;
-        (status, executor, submittedAt, scheduledAt) = _proposals.getProposalInfo(proposalId);
+    function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory proposalDetails) {
+        return _proposals.getProposalDetails(proposalId);
     }
 
     /// @notice Retrieves the external calls associated with the specified proposal.

@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {ITiebreakerCore} from "contracts/interfaces/ITiebreakerCore.sol";
+
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
-import {ITiebreakerCore} from "contracts/interfaces/ITiebreaker.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 
