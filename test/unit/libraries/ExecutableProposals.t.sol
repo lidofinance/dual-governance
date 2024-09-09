@@ -70,9 +70,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         }
     }
 
-    function testFuzz_schedule_proposal(
-        Duration delay
-    ) external {
+    function testFuzz_schedule_proposal(Duration delay) external {
         vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
@@ -99,9 +97,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         assertEq(proposal.data.scheduledAt, Timestamps.now());
     }
 
-    function testFuzz_cannot_schedule_unsubmitted_proposal(
-        uint256 proposalId
-    ) external {
+    function testFuzz_cannot_schedule_unsubmitted_proposal(uint256 proposalId) external {
         vm.assume(proposalId > 0);
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotSubmitted.selector, proposalId));
@@ -117,9 +113,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.schedule(proposalId, Durations.ZERO);
     }
 
-    function testFuzz_cannot_schedule_proposal_before_delay_passed(
-        Duration delay
-    ) external {
+    function testFuzz_cannot_schedule_proposal_before_delay_passed(Duration delay) external {
         vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
@@ -142,9 +136,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.schedule(proposalId, Durations.ZERO);
     }
 
-    function testFuzz_execute_proposal(
-        Duration delay
-    ) external {
+    function testFuzz_execute_proposal(Duration delay) external {
         vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
@@ -176,9 +168,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         assertEq(proposal.data.scheduledAt, submittedAndScheduledAt);
     }
 
-    function testFuzz_cannot_execute_unsubmitted_proposal(
-        uint256 proposalId
-    ) external {
+    function testFuzz_cannot_execute_unsubmitted_proposal(uint256 proposalId) external {
         vm.assume(proposalId > 0);
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, proposalId));
         _proposals.execute(proposalId, Durations.ZERO);
@@ -212,9 +202,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.execute(proposalId, Durations.ZERO);
     }
 
-    function testFuzz_cannot_execute_before_delay_passed(
-        Duration delay
-    ) external {
+    function testFuzz_cannot_execute_before_delay_passed(Duration delay) external {
         vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
         uint256 proposalId = _proposals.getProposalsCount();
@@ -346,9 +334,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         }
     }
 
-    function testFuzz_get_not_existing_proposal(
-        uint256 proposalId
-    ) external {
+    function testFuzz_get_not_existing_proposal(uint256 proposalId) external {
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotFound.selector, proposalId));
         _proposals.getProposalDetails(proposalId);
 

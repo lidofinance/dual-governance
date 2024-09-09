@@ -8,12 +8,8 @@ interface IGovernance {
         ExternalCall[] calldata calls,
         string calldata metadata
     ) external returns (uint256 proposalId);
-    function scheduleProposal(
-        uint256 proposalId
-    ) external;
+    function scheduleProposal(uint256 proposalId) external;
     function cancelAllPendingProposals() external;
 
-    function canScheduleProposal(
-        uint256 proposalId
-    ) external view returns (bool);
+    function canScheduleProposal(uint256 proposalId) external view returns (bool);
 }

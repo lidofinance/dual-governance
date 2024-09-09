@@ -146,9 +146,7 @@ library ExecutableProposals {
         emit ProposalExecuted(proposalId, results);
     }
 
-    function cancelAll(
-        Context storage self
-    ) internal {
+    function cancelAll(Context storage self) internal {
         uint64 lastCancelledProposalId = self.proposalsCount;
         self.lastCancelledProposalId = lastCancelledProposalId;
         emit ProposalsCancelledTill(lastCancelledProposalId);
@@ -180,9 +178,7 @@ library ExecutableProposals {
             && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
     }
 
-    function getProposalsCount(
-        Context storage self
-    ) internal view returns (uint256) {
+    function getProposalsCount(Context storage self) internal view returns (uint256) {
         return self.proposalsCount;
     }
 

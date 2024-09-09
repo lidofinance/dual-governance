@@ -126,9 +126,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         _lido.submitWstETH(account, _lido.calcSharesToDepositFromPercentageOfTVL(tvlPercentage));
     }
 
-    function _getBalances(
-        address vetoer
-    ) internal view returns (Balances memory balances) {
+    function _getBalances(address vetoer) internal view returns (Balances memory balances) {
         uint256 stETHAmount = _lido.stETH.balanceOf(vetoer);
         uint256 wstETHShares = _lido.wstETH.balanceOf(vetoer);
         balances = Balances({
@@ -146,15 +144,11 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         _lido.finalizeWithdrawalQueue();
     }
 
-    function _finalizeWithdrawalQueue(
-        uint256 id
-    ) internal {
+    function _finalizeWithdrawalQueue(uint256 id) internal {
         _lido.finalizeWithdrawalQueue(id);
     }
 
-    function _simulateRebase(
-        PercentD16 rebaseFactor
-    ) internal {
+    function _simulateRebase(PercentD16 rebaseFactor) internal {
         _lido.simulateRebase(rebaseFactor);
     }
 
@@ -175,9 +169,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         vm.stopPrank();
     }
 
-    function _unlockStETH(
-        address vetoer
-    ) internal {
+    function _unlockStETH(address vetoer) internal {
         vm.startPrank(vetoer);
         _getVetoSignallingEscrow().unlockStETH();
         vm.stopPrank();
@@ -197,9 +189,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         vm.stopPrank();
     }
 
-    function _unlockWstETH(
-        address vetoer
-    ) internal {
+    function _unlockWstETH(address vetoer) internal {
         Escrow escrow = _getVetoSignallingEscrow();
         uint256 wstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
         VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
@@ -322,15 +312,11 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         assertEq(proposalId, proposalsCountBefore + 1);
     }
 
-    function _scheduleProposalViaDualGovernance(
-        uint256 proposalId
-    ) internal {
+    function _scheduleProposalViaDualGovernance(uint256 proposalId) internal {
         _scheduleProposal(_dualGovernance, proposalId);
     }
 
-    function _scheduleProposalViaTimelockedGovernance(
-        uint256 proposalId
-    ) internal {
+    function _scheduleProposalViaTimelockedGovernance(uint256 proposalId) internal {
         _scheduleProposal(_timelockedGovernance, proposalId);
     }
 
@@ -338,9 +324,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         governance.scheduleProposal(proposalId);
     }
 
-    function _executeProposal(
-        uint256 proposalId
-    ) internal {
+    function _executeProposal(uint256 proposalId) internal {
         _timelock.execute(proposalId);
     }
 
@@ -426,9 +410,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         );
     }
 
-    function _assertProposalSubmitted(
-        uint256 proposalId
-    ) internal {
+    function _assertProposalSubmitted(uint256 proposalId) internal {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Submitted,
@@ -436,9 +418,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         );
     }
 
-    function _assertProposalScheduled(
-        uint256 proposalId
-    ) internal {
+    function _assertProposalScheduled(uint256 proposalId) internal {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Scheduled,
@@ -446,9 +426,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         );
     }
 
-    function _assertProposalExecuted(
-        uint256 proposalId
-    ) internal {
+    function _assertProposalExecuted(uint256 proposalId) internal {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Executed,
@@ -456,9 +434,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         );
     }
 
-    function _assertProposalCancelled(
-        uint256 proposalId
-    ) internal {
+    function _assertProposalCancelled(uint256 proposalId) internal {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Cancelled,
@@ -549,16 +525,12 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     // Utils Methods
     // ---
 
-    function _step(
-        string memory text
-    ) internal view {
+    function _step(string memory text) internal view {
         // solhint-disable-next-line
         console.log(string.concat(">>> ", text, " <<<"));
     }
 
-    function _wait(
-        Duration duration
-    ) internal {
+    function _wait(Duration duration) internal {
         vm.warp(duration.addTo(Timestamps.now()).toSeconds());
     }
 
@@ -579,9 +551,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         _emergencyActivationCommittee.executeActivateEmergencyMode();
     }
 
-    function _executeEmergencyExecute(
-        uint256 proposalId
-    ) internal {
+    function _executeEmergencyExecute(uint256 proposalId) internal {
         address[] memory members = _emergencyExecutionCommittee.getMembers();
         for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
             vm.prank(members[i]);
@@ -606,18 +576,14 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         uint256 _seconds;
     }
 
-    function _toDuration(
-        uint256 timestamp
-    ) internal pure returns (DurationStruct memory duration) {
+    function _toDuration(uint256 timestamp) internal pure returns (DurationStruct memory duration) {
         duration._days = timestamp / 1 days;
         duration._hours = (timestamp - 1 days * duration._days) / 1 hours;
         duration._minutes = (timestamp - 1 days * duration._days - 1 hours * duration._hours) / 1 minutes;
         duration._seconds = timestamp % 1 minutes;
     }
 
-    function _formatDuration(
-        DurationStruct memory duration
-    ) internal pure returns (string memory) {
+    function _formatDuration(DurationStruct memory duration) internal pure returns (string memory) {
         // format example: 1d:22h:33m:12s
         return string(
             abi.encodePacked(

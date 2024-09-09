@@ -37,9 +37,7 @@ contract TimelockedGovernanceUnitTests is UnitTest {
         assertEq(_timelock.getSubmittedProposals().length, 1);
     }
 
-    function testFuzz_stranger_cannot_submit_proposal(
-        address stranger
-    ) external {
+    function testFuzz_stranger_cannot_submit_proposal(address stranger) external {
         vm.assume(stranger != address(0) && stranger != _governance);
 
         assertEq(_timelock.getSubmittedProposals().length, 0);
@@ -92,9 +90,7 @@ contract TimelockedGovernanceUnitTests is UnitTest {
         assertEq(_timelock.getLastCancelledProposalId(), 2);
     }
 
-    function testFuzz_stranger_cannot_cancel_all_pending_proposals(
-        address stranger
-    ) external {
+    function testFuzz_stranger_cannot_cancel_all_pending_proposals(address stranger) external {
         vm.assume(stranger != address(0) && stranger != _governance);
 
         assertEq(_timelock.getLastCancelledProposalId(), 0);
