@@ -10,6 +10,7 @@ import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
+import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {Proposers} from "./libraries/Proposers.sol";
@@ -120,20 +121,22 @@ contract DualGovernance is IDualGovernance {
     // Proposals Flow
     // ---
 
-    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
+    function submitProposal(
+        ExternalCall[] calldata calls,
+        string calldata metadata
+    ) external returns (uint256 proposalId) {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
         }
         Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
-        proposalId = TIMELOCK.submit(proposer.executor, calls);
+        proposalId = TIMELOCK.submit(proposer.executor, calls, metadata);
     }
 
     function scheduleProposal(uint256 proposalId) external {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
-        ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
-            TIMELOCK.getProposalInfo(proposalId);
-        if (!_stateMachine.canScheduleProposal(submittedAt)) {
+        ITimelock.ProposalDetails memory proposalDetails = TIMELOCK.getProposalDetails(proposalId);
+        if (!_stateMachine.canScheduleProposal(proposalDetails.submittedAt)) {
             revert ProposalSchedulingBlocked(proposalId);
         }
         TIMELOCK.schedule(proposalId);
@@ -147,8 +150,8 @@ contract DualGovernance is IDualGovernance {
             revert NotAdminProposer();
         }
 
-        State currentState = _stateMachine.getCurrentState();
-        if (currentState != State.VetoSignalling && currentState != State.VetoSignallingDeactivation) {
+        State state = _stateMachine.getState();
+        if (state != State.VetoSignalling && state != State.VetoSignallingDeactivation) {
             /// @dev Some proposer contracts, like Aragon Voting, may not support canceling decisions that have already
             /// reached consensus. This could lead to a situation where a proposer’s cancelAllPendingProposals() call
             /// becomes unexecutable if the Dual Governance state changes. However, it might become executable again if
@@ -168,9 +171,8 @@ contract DualGovernance is IDualGovernance {
     }
 
     function canScheduleProposal(uint256 proposalId) external view returns (bool) {
-        ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
-            TIMELOCK.getProposalInfo(proposalId);
-        return _stateMachine.canScheduleProposal(submittedAt) && TIMELOCK.canSchedule(proposalId);
+        ITimelock.ProposalDetails memory proposalDetails = TIMELOCK.getProposalDetails(proposalId);
+        return _stateMachine.canScheduleProposal(proposalDetails.submittedAt) && TIMELOCK.canSchedule(proposalId);
     }
 
     // ---
@@ -204,16 +206,12 @@ contract DualGovernance is IDualGovernance {
         return address(_stateMachine.rageQuitEscrow);
     }
 
-    function getCurrentState() external view returns (State currentState) {
-        currentState = _stateMachine.getCurrentState();
+    function getState() external view returns (State state) {
+        state = _stateMachine.getState();
     }
 
-    function getCurrentStateContext() external view returns (DualGovernanceStateMachine.Context memory) {
-        return _stateMachine.getCurrentContext();
-    }
-
-    function getDynamicDelayDuration() external view returns (Duration) {
-        return _stateMachine.getDynamicDelayDuration(_configProvider.getDualGovernanceConfig());
+    function getStateDetails() external view returns (IDualGovernance.StateDetails memory stateDetails) {
+        return _stateMachine.getStateDetails(_configProvider.getDualGovernanceConfig());
     }
 
     // ---
@@ -279,29 +277,22 @@ contract DualGovernance is IDualGovernance {
 
     function tiebreakerResumeSealable(address sealable) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
-        _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
+        _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
+        _tiebreaker.checkTie(_stateMachine.getState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
         RESEAL_MANAGER.resume(sealable);
     }
 
     function tiebreakerScheduleProposal(uint256 proposalId) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
-        _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
+        _tiebreaker.checkTie(_stateMachine.getState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
         TIMELOCK.schedule(proposalId);
     }
 
-    struct TiebreakerState {
-        address tiebreakerCommittee;
-        Duration tiebreakerActivationTimeout;
-        address[] sealableWithdrawalBlockers;
-    }
-
-    function getTiebreakerState() external view returns (TiebreakerState memory tiebreakerState) {
-        (
-            tiebreakerState.tiebreakerCommittee,
-            tiebreakerState.tiebreakerActivationTimeout,
-            tiebreakerState.sealableWithdrawalBlockers
-        ) = _tiebreaker.getTiebreakerInfo();
+    function getTiebreakerDetails() external view returns (ITiebreaker.TiebreakerDetails memory tiebreakerState) {
+        return _tiebreaker.getTiebreakerDetails(
+            _stateMachine.getState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt()
+        );
     }
 
     // ---
@@ -312,7 +303,7 @@ contract DualGovernance is IDualGovernance {
         if (msg.sender != _resealCommittee) {
             revert CallerIsNotResealCommittee(msg.sender);
         }
-        if (_stateMachine.getCurrentState() == State.Normal) {
+        if (_stateMachine.getState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
         RESEAL_MANAGER.reseal(sealable);

@@ -5,6 +5,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
+import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 
 import {Duration} from "../types/Duration.sol";
 import {PercentD16} from "../types/PercentD16.sol";
@@ -128,23 +129,25 @@ library DualGovernanceStateMachine {
         emit DualGovernanceStateChanged(currentState, newState, self);
     }
 
-    function getCurrentContext(Context storage self) internal pure returns (Context memory) {
-        return self;
+    function getStateDetails(
+        Context storage self,
+        DualGovernanceConfig.Context memory config
+    ) internal view returns (IDualGovernance.StateDetails memory stateDetails) {
+        stateDetails.state = self.state;
+        stateDetails.enteredAt = self.enteredAt;
+        stateDetails.vetoSignallingActivatedAt = self.vetoSignallingActivatedAt;
+        stateDetails.vetoSignallingReactivationTime = self.vetoSignallingReactivationTime;
+        stateDetails.normalOrVetoCooldownExitedAt = self.normalOrVetoCooldownExitedAt;
+        stateDetails.rageQuitRound = self.rageQuitRound;
+        stateDetails.dynamicDelay = config.calcDynamicDelayDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
-    function getCurrentState(Context storage self) internal view returns (State) {
+    function getState(Context storage self) internal view returns (State) {
         return self.state;
     }
 
     function getNormalOrVetoCooldownStateExitedAt(Context storage self) internal view returns (Timestamp) {
         return self.normalOrVetoCooldownExitedAt;
-    }
-
-    function getDynamicDelayDuration(
-        Context storage self,
-        DualGovernanceConfig.Context memory config
-    ) internal view returns (Duration) {
-        return config.calcDynamicDelayDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
     function canSubmitProposal(Context storage self) internal view returns (bool) {
