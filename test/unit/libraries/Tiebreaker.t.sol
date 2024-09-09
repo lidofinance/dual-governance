@@ -39,16 +39,25 @@ contract TiebreakerTest is UnitTest {
         Tiebreaker.addSealableWithdrawalBlocker(context, address(mockSealable2), 1);
     }
 
+    function test_addSealableWithdrawalBlocker_RevertOn_AlreadyAdded() external {
+        Tiebreaker.addSealableWithdrawalBlocker(context, address(mockSealable1), 2);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Tiebreaker.SealableWithdrawalBlockerAlreadyAdded.selector, address(mockSealable1))
+        );
+        this.external__addSealableWithdrawalBlocker(address(mockSealable1), 2);
+    }
+
     function test_addSealableWithdrawalBlocker_RevertOn_InvalidSealable() external {
         mockSealable1.setShouldRevertIsPaused(true);
 
         vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, address(mockSealable1)));
         // external call should be used to intercept the revert
-        this.external__addSealableWithdrawalBlocker(address(mockSealable1));
+        this.external__addSealableWithdrawalBlocker(address(mockSealable1), 2);
 
         vm.expectRevert();
         // external call should be used to intercept the revert
-        this.external__addSealableWithdrawalBlocker(address(0x123));
+        this.external__addSealableWithdrawalBlocker(address(0x123), 2);
     }
 
     function test_removeSealableWithdrawalBlocker_HappyPath() external {
@@ -60,6 +69,13 @@ contract TiebreakerTest is UnitTest {
 
         Tiebreaker.removeSealableWithdrawalBlocker(context, address(mockSealable1));
         assertFalse(context.sealableWithdrawalBlockers.contains(address(mockSealable1)));
+    }
+
+    function test_removeSealableWithdrawalBlocker_RevertOn_NotFound() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(Tiebreaker.SealableWithdrawalBlockerNotFound.selector, address(mockSealable1))
+        );
+        this.external__removeSealableWithdrawalBlocker(address(mockSealable1));
     }
 
     function test_setTiebreakerCommittee_HappyPath() external {
@@ -188,7 +204,11 @@ contract TiebreakerTest is UnitTest {
         Tiebreaker.checkCallerIsTiebreakerCommittee(context);
     }
 
-    function external__addSealableWithdrawalBlocker(address sealable) external {
-        Tiebreaker.addSealableWithdrawalBlocker(context, sealable, 1);
+    function external__addSealableWithdrawalBlocker(address sealable, uint256 count) external {
+        Tiebreaker.addSealableWithdrawalBlocker(context, sealable, count);
+    }
+
+    function external__removeSealableWithdrawalBlocker(address sealable) external {
+        Tiebreaker.removeSealableWithdrawalBlocker(context, sealable);
     }
 }

@@ -25,6 +25,8 @@ library Tiebreaker {
     error InvalidTiebreakerActivationTimeout(Duration timeout);
     error CallerIsNotTiebreakerCommittee(address caller);
     error SealableWithdrawalBlockersLimitReached();
+    error SealableWithdrawalBlockerNotFound(address sealable);
+    error SealableWithdrawalBlockerAlreadyAdded(address sealable);
 
     event SealableWithdrawalBlockerAdded(address sealable);
     event SealableWithdrawalBlockerRemoved(address sealable);
@@ -67,20 +69,20 @@ library Tiebreaker {
             revert InvalidSealable(sealableWithdrawalBlocker);
         }
 
-        bool isSuccessfullyAdded = self.sealableWithdrawalBlockers.add(sealableWithdrawalBlocker);
-        if (isSuccessfullyAdded) {
-            emit SealableWithdrawalBlockerAdded(sealableWithdrawalBlocker);
+        if (!self.sealableWithdrawalBlockers.add(sealableWithdrawalBlocker)) {
+            revert SealableWithdrawalBlockerAlreadyAdded(sealableWithdrawalBlocker);
         }
+        emit SealableWithdrawalBlockerAdded(sealableWithdrawalBlocker);
     }
 
     /// @notice Removes a sealable withdrawal blocker.
     /// @param self The context storage.
     /// @param sealableWithdrawalBlocker The address of the sealable withdrawal blocker to remove.
     function removeSealableWithdrawalBlocker(Context storage self, address sealableWithdrawalBlocker) internal {
-        bool isSuccessfullyRemoved = self.sealableWithdrawalBlockers.remove(sealableWithdrawalBlocker);
-        if (isSuccessfullyRemoved) {
-            emit SealableWithdrawalBlockerRemoved(sealableWithdrawalBlocker);
+        if (!self.sealableWithdrawalBlockers.remove(sealableWithdrawalBlocker)) {
+            revert SealableWithdrawalBlockerNotFound(sealableWithdrawalBlocker);
         }
+        emit SealableWithdrawalBlockerRemoved(sealableWithdrawalBlocker);
     }
 
     /// @notice Sets the tiebreaker committee.
