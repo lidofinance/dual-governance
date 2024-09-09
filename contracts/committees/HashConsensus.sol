@@ -139,7 +139,9 @@ abstract contract HashConsensus is Ownable {
             emit MemberRemoved(membersToRemove[i]);
         }
 
-        _setQuorum(newQuorum);
+        if (newQuorum != quorum) {
+            _setQuorum(newQuorum);
+        }
     }
 
     /// @notice Gets the list of committee members
@@ -222,7 +224,9 @@ abstract contract HashConsensus is Ownable {
             emit MemberAdded(newMembers[i]);
         }
 
-        _setQuorum(executionQuorum);
+        if (executionQuorum != quorum) {
+            _setQuorum(executionQuorum);
+        }
     }
 
     /// @notice Gets the number of votes in support of a given hash

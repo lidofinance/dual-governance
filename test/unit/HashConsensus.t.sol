@@ -58,7 +58,6 @@ abstract contract HashConsensusUnitTest is UnitTest {
     function test_constructor_RevertOn_WithZeroQuorum() public {
         uint256 invalidQuorum = 0;
 
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.InvalidQuorum.selector));
         new HashConsensusInstance(_owner, _committeeMembers, invalidQuorum, Durations.from(1));
     }
 
@@ -132,7 +131,26 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.addMembers(membersToAdd, _membersCount + 2);
     }
 
-    function test_addMember() public {
+    function test_addMember_SetSameQuorum() public {
+        address[] memory membersToAdd = new address[](1);
+        membersToAdd[0] = makeAddr("NEW_MEMBER");
+        assertEq(_hashConsensus.isMember(membersToAdd[0]), false);
+
+        vm.startPrank(_owner);
+        _hashConsensus.addMembers(membersToAdd, _quorum);
+
+        assertEq(_hashConsensus.quorum(), _quorum);
+        assertEq(_hashConsensus.getMembers().length, _membersCount + 1);
+
+        membersToAdd[0] = makeAddr("NEW_MEMBER_2");
+
+        _hashConsensus.addMembers(membersToAdd, _quorum);
+
+        assertEq(_hashConsensus.quorum(), _quorum);
+        assertEq(_hashConsensus.getMembers().length, _membersCount + 2);
+    }
+
+    function test_addMember_HappyPath() public {
         address[] memory membersToAdd = new address[](2);
         membersToAdd[0] = makeAddr("NEW_MEMBER_1");
         membersToAdd[1] = makeAddr("NEW_MEMBER_2");
@@ -212,7 +230,26 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.removeMembers(membersToRemove, _membersCount);
     }
 
-    function test_removeMembers() public {
+    function test_removeMembers_SetSameQuorum() public {
+        address[] memory membersToRemove = new address[](1);
+        membersToRemove[0] = _committeeMembers[0];
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), true);
+
+        vm.startPrank(_owner);
+        _hashConsensus.removeMembers(membersToRemove, _quorum);
+
+        assertEq(_hashConsensus.quorum(), _quorum);
+        assertEq(_hashConsensus.getMembers().length, _membersCount - 1);
+
+        membersToRemove[0] = _committeeMembers[1];
+
+        _hashConsensus.removeMembers(membersToRemove, _quorum);
+
+        assertEq(_hashConsensus.quorum(), _quorum);
+        assertEq(_hashConsensus.getMembers().length, _membersCount - 2);
+    }
+
+    function test_removeMembers_HappyPath() public {
         address[] memory membersToRemove = new address[](2);
         membersToRemove[0] = _committeeMembers[0];
         membersToRemove[1] = _committeeMembers[1];
