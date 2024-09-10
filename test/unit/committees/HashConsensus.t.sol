@@ -405,22 +405,20 @@ contract HashConsensusWrapper is HashConsensus {
         _vote(hash, support);
     }
 
-    function execute(
-        bytes32 hash
-    ) public {
+    function execute(bytes32 hash) public {
         _markUsed(hash);
         _target.trigger();
     }
 
-    function getHashState(
-        bytes32 hash
-    ) public view returns (uint256 support, uint256 executionQuorum, Timestamp scheduledAt, bool isExecuted) {
+    function getHashState(bytes32 hash)
+        public
+        view
+        returns (uint256 support, uint256 executionQuorum, Timestamp scheduledAt, bool isExecuted)
+    {
         return _getHashState(hash);
     }
 
-    function getSupport(
-        bytes32 hash
-    ) public view returns (uint256 support) {
+    function getSupport(bytes32 hash) public view returns (uint256 support) {
         return _getSupport(hash);
     }
 

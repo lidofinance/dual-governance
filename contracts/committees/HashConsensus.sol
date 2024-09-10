@@ -72,9 +72,7 @@ abstract contract HashConsensus is Ownable {
     /// @notice Marks a hash as used if quorum is reached and timelock has passed
     /// @dev Internal function that handles marking a hash as used
     /// @param hash The hash to mark as used
-    function _markUsed(
-        bytes32 hash
-    ) internal {
+    function _markUsed(bytes32 hash) internal {
         if (_hashStates[hash].usedAt > Timestamps.from(0)) {
             revert HashAlreadyUsed(hash);
         }
@@ -100,9 +98,11 @@ abstract contract HashConsensus is Ownable {
     /// @return executionQuorum The required number of votes for execution
     /// @return scheduledAt The timestamp when the quorum was reached or scheduleProposal was called
     /// @return isUsed Whether the hash has been used
-    function _getHashState(
-        bytes32 hash
-    ) internal view returns (uint256 support, uint256 executionQuorum, Timestamp scheduledAt, bool isUsed) {
+    function _getHashState(bytes32 hash)
+        internal
+        view
+        returns (uint256 support, uint256 executionQuorum, Timestamp scheduledAt, bool isUsed)
+    {
         support = _getSupport(hash);
         executionQuorum = quorum;
         scheduledAt = _hashStates[hash].scheduledAt;
@@ -153,18 +153,14 @@ abstract contract HashConsensus is Ownable {
     /// @dev Public function to check membership status
     /// @param member The address to check
     /// @return A boolean indicating whether the address is a member
-    function isMember(
-        address member
-    ) public view returns (bool) {
+    function isMember(address member) public view returns (bool) {
         return _members.contains(member);
     }
 
     /// @notice Sets the timelock duration
     /// @dev Only callable by the owner
     /// @param timelock The new timelock duration in seconds
-    function setTimelockDuration(
-        Duration timelock
-    ) public {
+    function setTimelockDuration(Duration timelock) public {
         _checkOwner();
         if (timelock == timelockDuration) {
             revert InvalidTimelockDuration(timelock);
@@ -176,9 +172,7 @@ abstract contract HashConsensus is Ownable {
     /// @notice Sets the quorum value
     /// @dev Only callable by the owner
     /// @param newQuorum The new quorum value
-    function setQuorum(
-        uint256 newQuorum
-    ) public {
+    function setQuorum(uint256 newQuorum) public {
         _checkOwner();
         if (newQuorum == quorum) {
             revert InvalidQuorum();
@@ -191,9 +185,7 @@ abstract contract HashConsensus is Ownable {
     ///      the proposal has not been scheduled yet. Could happen when execution quorum was set to the same value as
     ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
-    function schedule(
-        bytes32 hash
-    ) public {
+    function schedule(bytes32 hash) public {
         if (_hashStates[hash].usedAt > Timestamps.from(0)) {
             revert HashAlreadyUsed(hash);
         }
@@ -211,9 +203,7 @@ abstract contract HashConsensus is Ownable {
     /// @notice Sets the execution quorum required for certain operations.
     /// @dev The quorum value must be greater than zero and not exceed the current number of members.
     /// @param executionQuorum The new quorum value to be set.
-    function _setQuorum(
-        uint256 executionQuorum
-    ) internal {
+    function _setQuorum(uint256 executionQuorum) internal {
         if (executionQuorum == 0 || executionQuorum > _members.length()) {
             revert InvalidQuorum();
         }
@@ -242,9 +232,7 @@ abstract contract HashConsensus is Ownable {
     /// @dev Internal function to count the votes in support of a hash
     /// @param hash The hash to check
     /// @return support The number of votes in support of the hash
-    function _getSupport(
-        bytes32 hash
-    ) internal view returns (uint256 support) {
+    function _getSupport(bytes32 hash) internal view returns (uint256 support) {
         for (uint256 i = 0; i < _members.length(); ++i) {
             if (approves[_members.at(i)][hash]) {
                 support++;
