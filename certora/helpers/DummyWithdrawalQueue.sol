@@ -15,6 +15,7 @@ contract DummyWithdrawalQueue  {
     uint256 internal lastFinalizedRequestId;
     
     mapping(address => uint256) balances;
+    mapping(address => mapping(address => bool)) public allowance;
     
 
     IStETH public stETH;
@@ -37,6 +38,8 @@ contract DummyWithdrawalQueue  {
         bool isFinalized;
         bool isClaimed;
     }
+
+    
 
     mapping(uint256 => WithdrawalRequestInfo) public requests;
 
@@ -87,7 +90,8 @@ contract DummyWithdrawalQueue  {
     }
 
     function transferFrom(address from, address to, uint256 requestId) external {
-        require (requests[requestId].owner == from && balances[from] >= 1);
+        require (requests[requestId].owner == from && balances[from] >= 1 );
+        require (allowance[from][msg.sender] || msg.sender == from); 
         requests[requestId].owner = to;
         balances[from] = balances[from] -1;
         balances[to] = balances[to] -1;

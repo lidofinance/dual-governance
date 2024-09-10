@@ -202,20 +202,6 @@ rule W2_2_batchesQueueCloseNoChange(method f){
 
 
 /**
-W1-1 Evading Ragequit second seal:
-
-@title when in ragequit, the ragequit support is at least SECOND_SEAL_RAGE_QUIT_SUPPORT 
-
-**/
-
-invariant W1_1_rageQuitSupportMinValue()
-    isRageQuitState() => getRageQuitSupport() <= config.SECOND_SEAL_RAGE_QUIT_SUPPORT
-    // startRageQuit is only called from DualGoverance (rule ragequitStarter)
-    // and those functions are checked through dual governance 
-    filtered { f-> f.selector !=  sig:startRageQuit(Durations.Duration, Durations.Duration).selector}
-
-
-/**
     @title Rage quit support value
     The rage quit support of an escrow is equal to: 
                 (S+W+U+F) / (T+F)

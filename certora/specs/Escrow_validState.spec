@@ -303,12 +303,17 @@ invariant validState_batchesQueue_ordering()
     }
 
 /** @title Validity of batch queue ids:
-            The last id in the last entry is le than the lastRequestId in withdrawal queue  
+        1. The last id in the last entry is le than the lastRequestId in withdrawal queue  
+        2. Escrow is the owner of the listed ids
     @notice Given the proof that all indexes are ordered, this implies that all ids are le lastRequestId
 **/
 invariant validState_batchesQueue_withdrawalQueue() 
     // last element is le  withdrawalQueue.lastRequestId 
     (currentContract._batchesQueue.batches.length >= 1 => currentContract._batchesQueue.batches[require_uint256(currentContract._batchesQueue.batches.length - 1)].lastUnstETHId <=  withdrawalQueue.lastRequestId) 
+    && ( forall uint256 index. forall uint256 id. 
+        (  ( index < ghostLengthMirror && index != 0 &&
+            currentContract._batchesQueue.batches[index].firstUnstETHId <= id && currentContract._batchesQueue.batches[index].lastUnstETHId >= id  )) => withdrawalQueue.requests[id].owner == currentContract)
+    && (forall address any. (!withdrawalQueue.allowance[currentContract][any])) 
     filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
         preserved with (env e) {
             // no dynamic call so Escrow
@@ -323,13 +328,13 @@ invariant validState_batchesQueue_distinct_unstETHRecords( )
         // if id is an unsetEth
         ( to_mathint(currentContract._accounting.unstETHRecords[id].status) != 0 => 
         // then id is a valid one in withdrawalQueue
-        id <= withdrawalQueue.lastRequestId )
+        (id <= withdrawalQueue.lastRequestId && withdrawalQueue.requests[id].owner == currentContract )
         &&
         // and id is an unsetEth and there are batch queues
         ( ( to_mathint(currentContract._accounting.unstETHRecords[id].status) != 0 && 
         currentContract._batchesQueue.batches.length > 0 ) => 
         // then id has to be le than the batch queues ids (we check the first as the rest are monotonic increasing)
-                id <= currentContract._batchesQueue.batches[0].firstUnstETHId )) 
+                id <= currentContract._batchesQueue.batches[0].firstUnstETHId ))) 
 
     filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
         preserved with (env e) {
@@ -410,6 +415,10 @@ invariant valid_batchIndex()
     ( currentContract._batchesQueue.info.lastClaimedBatchIndex < currentContract._batchesQueue.batches.length ||
         (currentContract._batchesQueue.info.lastClaimedBatchIndex==0 && currentContract._batchesQueue.batches.length==0 )
     )
+    &&
+    ( currentContract._batchesQueue.info.lastClaimedUnstETHIdIndex <= currentContract._batchesQueue.batches[currentContract._batchesQueue.info.lastClaimedBatchIndex].lastUnstETHId -   currentContract._batchesQueue.batches[currentContract._batchesQueue.info.lastClaimedBatchIndex].firstUnstETHId
+    )
+    && ghostLengthMirror == currentContract._batchesQueue.batches.length
     filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
         preserved with (env e) {
             // no dynamic call so Escrow
@@ -430,7 +439,7 @@ invariant validState_batchesQueue_claimed_vs_actual_1(uint256 index, uint256 id)
                 (  index  <  currentContract._batchesQueue.info.lastClaimedBatchIndex || 
                     ( index == currentContract._batchesQueue.info.lastClaimedBatchIndex &&  id <=  currentContract._batchesQueue.batches[index].firstUnstETHId + currentContract._batchesQueue.info.lastClaimedUnstETHIdIndex)
                 ) 
-                =>  withdrawalQueue.requests[id].isClaimed
+                <=>  withdrawalQueue.requests[id].isClaimed
             )
     )
     filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
@@ -598,50 +607,3 @@ function assumingThreeOnly() {
                 to_mathint(currentContract._accounting.unstETHRecords[any].status) == 0 );
 } 
 
-/** Extra rules **/
-/*
-invariant validState_batchesQueue_solvent_leftToClaim(uint256 index, uint256 id) 
-        (( index > 0 && index <  currentContract._batchesQueue.batches.length && id >= currentContract._batchesQueue.batches[index].firstUnstETHId && 
-    id <= currentContract._batchesQueue.batches[index].lastUnstETHId && (!withdrawalQueue.requests[id].isClaimed)) => 
-        ( currentContract._batchesQueue.info.totalUnstETHIdsCount - currentContract._batchesQueue.info.totalUnstETHIdsClaimed >=   (countOFBatchIds[currentContract._batchesQueue.batches.length] - countOFBatchIds[index]) - ( id - (currentContract._batchesQueue.batches[index].firstUnstETHId + 1)) )
-    )
-filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
-        preserved with (env e) {
-            // no dynamic call so Escrow
-            require e.msg.sender != currentContract;
-            validState(); 
-            requireInvariant validState_batchesQueue_solvent_allClaimed(index, id);
-        }
-    }
-
-
-invariant validState_batchesQueue_solvent_allClaimed(uint256 index, uint256 id) 
-
-    // isAllBatchesClaimed and there are batches queues 
-    (currentContract._batchesQueue.batches.length > 1 => 
-        (isAllStEthNFTClaimed()  =>  withdrawalQueue.requests[currentContract._batchesQueue.batches[currentContract._batchesQueue.info.lastClaimedBatchIndex].lastUnstETHId].isClaimed
-    ))
-    &&
-    ( currentContract._batchesQueue.info.lastClaimedBatchIndex < currentContract._batchesQueue.batches.length ||
-    (currentContract._batchesQueue.info.lastClaimedBatchIndex==0 && currentContract._batchesQueue.batches.length==0 )
-    )
-    &&
-    ( getRageQuitExtensionDelayStartedAt() > 0  =>  
-        ((        
-        withdrawalQueue.requests[currentContract._batchesQueue.batches[currentContract._batchesQueue.info.lastClaimedBatchIndex].lastUnstETHId].isFinalized ) 
-        &&
-        ( currentContract._batchesQueue.info.totalUnstETHIdsClaimed == currentContract._batchesQueue.info.totalUnstETHIdsCount && 
-        isBatchQueueStateClosed() )
-        )
-    )
-    
-
-    filtered { f ->  f.contract != stEth && f.contract != wst_eth} {
-        preserved with (env e) {
-            // no dynamic call so Escrow
-            require e.msg.sender != currentContract;
-            validState(); 
-            requireInvariant validState_batchesQueue_solvent_leftToClaim(index, id);
-        }
-    }
-**/ 
