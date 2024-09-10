@@ -50,8 +50,6 @@ function getLidoAddresses(DeployConfig memory config) pure returns (LidoContract
     });
 }
 
-// TODO: rename to EnvConfig
-
 contract DGDeployConfigProvider is Script {
     error InvalidRageQuitETHWithdrawalsTimelockGrowthCoeffs(uint256[] coeffs);
     error InvalidQuorum(string committee, uint256 quorum);
