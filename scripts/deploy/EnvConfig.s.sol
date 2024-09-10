@@ -23,32 +23,12 @@ import {
 } from "addresses/holesky-addresses.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
-import {DeployConfig, LidoContracts} from "./DeployConfig.sol";
+import {DeployConfig, LidoContracts} from "./Config.sol";
 
 string constant ARRAY_SEPARATOR = ",";
 bytes32 constant CHAIN_NAME_MAINNET_HASH = keccak256(bytes("mainnet"));
 bytes32 constant CHAIN_NAME_HOLESKY_HASH = keccak256(bytes("holesky"));
 // TODO: implement "holesky-mocks"
-
-function getLidoAddresses(DeployConfig memory config) pure returns (LidoContracts memory) {
-    if (keccak256(bytes(config.CHAIN)) == CHAIN_NAME_MAINNET_HASH) {
-        return LidoContracts({
-            chainId: 1,
-            stETH: IStETH(MAINNET_ST_ETH),
-            wstETH: IWstETH(MAINNET_WST_ETH),
-            withdrawalQueue: IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE),
-            voting: IAragonVoting(MAINNET_DAO_VOTING)
-        });
-    }
-
-    return LidoContracts({
-        chainId: 17000,
-        stETH: IStETH(HOLESKY_ST_ETH),
-        wstETH: IWstETH(HOLESKY_WST_ETH),
-        withdrawalQueue: IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE),
-        voting: IAragonVoting(HOLESKY_DAO_VOTING)
-    });
-}
 
 contract DGDeployConfigProvider is Script {
     error InvalidRageQuitETHWithdrawalsTimelockGrowthCoeffs(uint256[] coeffs);
@@ -98,7 +78,6 @@ contract DGDeployConfigProvider is Script {
 
     function loadAndValidate() external returns (DeployConfig memory config) {
         config = DeployConfig({
-            CHAIN: vm.envString("CHAIN"),
             AFTER_SUBMIT_DELAY: Durations.from(vm.envOr("AFTER_SUBMIT_DELAY", DEFAULT_AFTER_SUBMIT_DELAY)),
             MAX_AFTER_SUBMIT_DELAY: Durations.from(vm.envOr("MAX_AFTER_SUBMIT_DELAY", DEFAULT_MAX_AFTER_SUBMIT_DELAY)),
             AFTER_SCHEDULE_DELAY: Durations.from(vm.envOr("AFTER_SCHEDULE_DELAY", DEFAULT_AFTER_SCHEDULE_DELAY)),
@@ -209,6 +188,31 @@ contract DGDeployConfigProvider is Script {
         printCommittees(config);
     }
 
+    function getLidoAddresses(string memory chainName) external pure returns (LidoContracts memory) {
+        bytes32 chainNameHash = keccak256(bytes(chainName));
+        if (chainNameHash != CHAIN_NAME_MAINNET_HASH && chainNameHash != CHAIN_NAME_HOLESKY_HASH) {
+            revert InvalidChain(chainName);
+        }
+
+        if (keccak256(bytes(chainName)) == CHAIN_NAME_MAINNET_HASH) {
+            return LidoContracts({
+                chainId: 1,
+                stETH: IStETH(MAINNET_ST_ETH),
+                wstETH: IWstETH(MAINNET_WST_ETH),
+                withdrawalQueue: IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE),
+                voting: IAragonVoting(MAINNET_DAO_VOTING)
+            });
+        }
+
+        return LidoContracts({
+            chainId: 17000,
+            stETH: IStETH(HOLESKY_ST_ETH),
+            wstETH: IWstETH(HOLESKY_WST_ETH),
+            withdrawalQueue: IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE),
+            voting: IAragonVoting(HOLESKY_DAO_VOTING)
+        });
+    }
+
     function getValidCoeffs() internal returns (uint256[3] memory coeffs) {
         uint256[] memory coeffsRaw = vm.envOr(
             "RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS",
@@ -227,11 +231,6 @@ contract DGDeployConfigProvider is Script {
     }
 
     function validateConfig(DeployConfig memory config) internal pure {
-        bytes32 chainNameHash = keccak256(bytes(config.CHAIN));
-        if (chainNameHash != CHAIN_NAME_MAINNET_HASH && chainNameHash != CHAIN_NAME_HOLESKY_HASH) {
-            revert InvalidChain(config.CHAIN);
-        }
-
         checkCommitteeQuorum(
             config.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS,
             config.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
