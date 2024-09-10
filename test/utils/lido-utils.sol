@@ -13,7 +13,7 @@ import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 
 import {IAragonACL} from "./interfaces/IAragonACL.sol";
 import {IAragonAgent} from "./interfaces/IAragonAgent.sol";
-import {IAragonVoting} from "./interfaces/IAragonVoting.sol";
+import {IAragonVoting} from "contracts/interfaces/IAragonVoting.sol";
 import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
 
 import {EvmScriptUtils} from "./evm-script-utils.sol";

@@ -17,7 +17,10 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
-import {DGDeployConfig, ConfigValues, LidoAddresses, getLidoAddresses} from "./Config.s.sol";
+import {DeployConfig, LidoContracts, getSubCommitteeData} from "./DeployConfig.sol";
+import {DGDeployConfigProvider, getLidoAddresses} from "./Config.s.sol";
+
+// TODO: long error texts in require()
 
 library DeployValidation {
     struct DeployResult {
@@ -30,14 +33,13 @@ library DeployValidation {
         address dualGovernance;
         address resealCommittee;
         address tiebreakerCoreCommittee;
-        address tiebreakerSubCommittee1;
-        address tiebreakerSubCommittee2;
+        address[] tiebreakerSubCommittees;
     }
 
     function check(DeployResult memory res) internal {
-        DGDeployConfig configProvider = new DGDeployConfig();
-        ConfigValues memory dgDeployConfig = configProvider.loadAndValidate();
-        LidoAddresses memory lidoAddresses = getLidoAddresses(dgDeployConfig);
+        DGDeployConfigProvider configProvider = new DGDeployConfigProvider();
+        DeployConfig memory dgDeployConfig = configProvider.loadAndValidate();
+        LidoContracts memory lidoAddresses = getLidoAddresses(dgDeployConfig);
 
         checkAdminExecutor(res.adminExecutor, res.timelock);
         checkTimelock(res, dgDeployConfig);
@@ -47,8 +49,11 @@ library DeployValidation {
         checkResealManager(res);
         checkDualGovernance(res, dgDeployConfig, lidoAddresses);
         checkTiebreakerCoreCommittee(res, dgDeployConfig);
-        checkTiebreakerSubCommittee1(res, dgDeployConfig);
-        checkTiebreakerSubCommittee2(res, dgDeployConfig);
+
+        for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
+            checkTiebreakerSubCommittee(res, dgDeployConfig, i);
+        }
+
         checkResealCommittee(res, dgDeployConfig);
     }
 
@@ -56,7 +61,7 @@ library DeployValidation {
         require(Executor(executor).owner() == timelock, "AdminExecutor owner != EmergencyProtectedTimelock");
     }
 
-    function checkTimelock(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
+    function checkTimelock(DeployResult memory res, DeployConfig memory dgDeployConfig) internal view {
         EmergencyProtectedTimelock timelockInstance = EmergencyProtectedTimelock(res.timelock);
         require(
             timelockInstance.getAdminExecutor() == res.adminExecutor,
@@ -119,7 +124,7 @@ library DeployValidation {
 
     function checkEmergencyActivationCommittee(
         DeployResult memory res,
-        ConfigValues memory dgDeployConfig
+        DeployConfig memory dgDeployConfig
     ) internal view {
         EmergencyActivationCommittee committee = EmergencyActivationCommittee(res.emergencyActivationCommittee);
         require(committee.owner() == res.adminExecutor, "EmergencyActivationCommittee owner != adminExecutor");
@@ -142,7 +147,7 @@ library DeployValidation {
 
     function checkEmergencyExecutionCommittee(
         DeployResult memory res,
-        ConfigValues memory dgDeployConfig
+        DeployConfig memory dgDeployConfig
     ) internal view {
         EmergencyExecutionCommittee committee = EmergencyExecutionCommittee(res.emergencyExecutionCommittee);
         require(committee.owner() == res.adminExecutor, "EmergencyExecutionCommittee owner != adminExecutor");
@@ -163,7 +168,7 @@ library DeployValidation {
         );
     }
 
-    function checkTimelockedGovernance(DeployResult memory res, LidoAddresses memory lidoAddresses) internal view {
+    function checkTimelockedGovernance(DeployResult memory res, LidoContracts memory lidoAddresses) internal view {
         TimelockedGovernance emergencyTimelockedGovernance = TimelockedGovernance(res.emergencyGovernance);
         require(
             emergencyTimelockedGovernance.GOVERNANCE() == address(lidoAddresses.voting),
@@ -184,8 +189,8 @@ library DeployValidation {
 
     function checkDualGovernance(
         DeployResult memory res,
-        ConfigValues memory dgDeployConfig,
-        LidoAddresses memory lidoAddresses
+        DeployConfig memory dgDeployConfig,
+        LidoContracts memory lidoAddresses
     ) internal view {
         DualGovernance dg = DualGovernance(res.dualGovernance);
         require(address(dg.TIMELOCK()) == res.timelock, "Incorrect address for timelock in DualGovernance");
@@ -299,7 +304,7 @@ library DeployValidation {
         );
     }
 
-    function checkTiebreakerCoreCommittee(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
+    function checkTiebreakerCoreCommittee(DeployResult memory res, DeployConfig memory dgDeployConfig) internal view {
         TiebreakerCore tcc = TiebreakerCore(res.tiebreakerCoreCommittee);
         require(tcc.owner() == res.adminExecutor, "TiebreakerCoreCommittee owner != adminExecutor");
         require(
@@ -307,50 +312,33 @@ library DeployValidation {
             "Incorrect parameter TIEBREAKER_EXECUTION_DELAY"
         );
 
-        // TODO: N sub committees
-        require(tcc.isMember(res.tiebreakerSubCommittee1) == true, "Incorrect member of TiebreakerCoreCommittee");
-        require(tcc.isMember(res.tiebreakerSubCommittee2) == true, "Incorrect member of TiebreakerCoreCommittee");
-        require(tcc.quorum() == 2, "Incorrect quorum in TiebreakerCoreCommittee");
-    }
-
-    function checkTiebreakerSubCommittee1(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
-        TiebreakerSubCommittee tsc = TiebreakerSubCommittee(res.tiebreakerSubCommittee1);
-        require(tsc.owner() == res.adminExecutor, "TiebreakerSubCommittee1 owner != adminExecutor");
-        require(tsc.timelockDuration() == Durations.from(0), "TiebreakerSubCommittee1 timelock should be 0"); // TODO: is it correct?
-
-        for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS.length; ++i) {
-            require(
-                tsc.isMember(dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS[i]) == true,
-                "Incorrect member of TiebreakerSubCommittee1"
-            );
+        for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
+            require(tcc.isMember(res.tiebreakerSubCommittees[i]) == true, "Incorrect member of TiebreakerCoreCommittee");
         }
-        require(
-            tsc.quorum() == dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_QUORUM,
-            "Incorrect quorum in TiebreakerSubCommittee1"
-        );
+        require(tcc.quorum() == dgDeployConfig.TIEBREAKER_CORE_QUORUM, "Incorrect quorum in TiebreakerCoreCommittee");
     }
 
-    function checkTiebreakerSubCommittee2(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
-        TiebreakerSubCommittee tsc = TiebreakerSubCommittee(res.tiebreakerSubCommittee2);
-        require(tsc.owner() == res.adminExecutor, "TiebreakerSubCommittee1 owner != adminExecutor");
-        require(tsc.timelockDuration() == Durations.from(0), "TiebreakerSubCommittee2 timelock should be 0"); // TODO: is it correct?
+    function checkTiebreakerSubCommittee(
+        DeployResult memory res,
+        DeployConfig memory dgDeployConfig,
+        uint256 index
+    ) internal view {
+        TiebreakerSubCommittee tsc = TiebreakerSubCommittee(res.tiebreakerSubCommittees[index]);
+        require(tsc.owner() == res.adminExecutor, "TiebreakerSubCommittee owner != adminExecutor");
+        require(tsc.timelockDuration() == Durations.from(0), "TiebreakerSubCommittee timelock should be 0");
 
-        for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS.length; ++i) {
-            require(
-                tsc.isMember(dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS[i]) == true,
-                "Incorrect member of TiebreakerSubCommittee2"
-            );
+        (uint256 quorum, address[] memory members) = getSubCommitteeData(index, dgDeployConfig);
+
+        for (uint256 i = 0; i < members.length; ++i) {
+            require(tsc.isMember(members[i]) == true, "Incorrect member of TiebreakerSubCommittee");
         }
-        require(
-            tsc.quorum() == dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_QUORUM,
-            "Incorrect quorum in TiebreakerSubCommittee2"
-        );
+        require(tsc.quorum() == quorum, "Incorrect quorum in TiebreakerSubCommittee");
     }
 
-    function checkResealCommittee(DeployResult memory res, ConfigValues memory dgDeployConfig) internal view {
+    function checkResealCommittee(DeployResult memory res, DeployConfig memory dgDeployConfig) internal view {
         ResealCommittee rc = ResealCommittee(res.resealCommittee);
         require(rc.owner() == res.adminExecutor, "ResealCommittee owner != adminExecutor");
-        require(rc.timelockDuration() == Durations.from(0), "ResealCommittee timelock should be 0"); // TODO: is it correct?
+        require(rc.timelockDuration() == Durations.from(0), "ResealCommittee timelock should be 0");
         require(rc.DUAL_GOVERNANCE() == res.dualGovernance, "Incorrect dualGovernance in ResealCommittee");
 
         for (uint256 i = 0; i < dgDeployConfig.RESEAL_COMMITTEE_MEMBERS.length; ++i) {
