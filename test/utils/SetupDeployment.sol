@@ -56,7 +56,6 @@ import {LidoUtils} from "./lido-utils.sol";
 // ---
 
 abstract contract SetupDeployment is Test {
-
     using Random for Random.Context;
     // ---
     // Helpers
@@ -149,17 +148,13 @@ abstract contract SetupDeployment is Test {
     // Whole Setup Deployments
     // ---
 
-    function _deployTimelockedGovernanceSetup(
-        bool isEmergencyProtectionEnabled
-    ) internal {
+    function _deployTimelockedGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
         _deployEmergencyProtectedTimelockContracts(isEmergencyProtectionEnabled);
         _timelockedGovernance = _deployTimelockedGovernance({governance: address(_lido.voting), timelock: _timelock});
         _finalizeEmergencyProtectedTimelockDeploy(_timelockedGovernance);
     }
 
-    function _deployDualGovernanceSetup(
-        bool isEmergencyProtectionEnabled
-    ) internal {
+    function _deployDualGovernanceSetup(bool isEmergencyProtectionEnabled) internal {
         _deployEmergencyProtectedTimelockContracts(isEmergencyProtectionEnabled);
         _resealManager = _deployResealManager(_timelock);
         _dualGovernanceConfigProvider = _deployDualGovernanceConfigProvider();
@@ -241,9 +236,7 @@ abstract contract SetupDeployment is Test {
     // Emergency Protected Timelock Deployment
     // ---
 
-    function _deployEmergencyProtectedTimelockContracts(
-        bool isEmergencyProtectionEnabled
-    ) internal {
+    function _deployEmergencyProtectedTimelockContracts(bool isEmergencyProtectionEnabled) internal {
         _adminExecutor = _deployExecutor(address(this));
         _timelock = _deployEmergencyProtectedTimelock(_adminExecutor);
 
@@ -294,9 +287,7 @@ abstract contract SetupDeployment is Test {
         }
     }
 
-    function _finalizeEmergencyProtectedTimelockDeploy(
-        IGovernance governance
-    ) internal {
+    function _finalizeEmergencyProtectedTimelockDeploy(IGovernance governance) internal {
         _adminExecutor.execute(
             address(_timelock), 0, abi.encodeCall(_timelock.setupDelays, (_AFTER_SUBMIT_DELAY, _AFTER_SCHEDULE_DELAY))
         );
@@ -304,15 +295,11 @@ abstract contract SetupDeployment is Test {
         _adminExecutor.transferOwnership(address(_timelock));
     }
 
-    function _deployExecutor(
-        address owner
-    ) internal returns (Executor) {
+    function _deployExecutor(address owner) internal returns (Executor) {
         return new Executor(owner);
     }
 
-    function _deployEmergencyProtectedTimelock(
-        Executor adminExecutor
-    ) internal returns (EmergencyProtectedTimelock) {
+    function _deployEmergencyProtectedTimelock(Executor adminExecutor) internal returns (EmergencyProtectedTimelock) {
         return new EmergencyProtectedTimelock({
             adminExecutor: address(adminExecutor),
             sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
@@ -388,9 +375,7 @@ abstract contract SetupDeployment is Test {
         );
     }
 
-    function _deployResealManager(
-        ITimelock timelock
-    ) internal returns (ResealManager) {
+    function _deployResealManager(ITimelock timelock) internal returns (ResealManager) {
         return new ResealManager(timelock);
     }
 
@@ -443,13 +428,10 @@ abstract contract SetupDeployment is Test {
     // Helper methods
     // ---
 
-    function _generateRandomAddresses(
-        uint256 count
-    ) internal returns (address[] memory addresses) {
+    function _generateRandomAddresses(uint256 count) internal returns (address[] memory addresses) {
         addresses = new address[](count);
         for (uint256 i = 0; i < count; ++i) {
             addresses[i] = _random.nextAddress();
         }
     }
-
 }

@@ -21,7 +21,6 @@ enum State {
 /// @title EscrowState
 /// @notice Represents the logic to manipulate the state of the Escrow
 library EscrowState {
-
     // ---
     // Errors
     // ---
@@ -88,9 +87,7 @@ library EscrowState {
 
     /// @notice Starts the rage quit extension period
     /// @param self The context of the Escrow instance
-    function startRageQuitExtensionPeriod(
-        Context storage self
-    ) internal {
+    function startRageQuitExtensionPeriod(Context storage self) internal {
         self.rageQuitExtensionPeriodStartedAt = Timestamps.now();
         emit RageQuitExtensionPeriodStarted(self.rageQuitExtensionPeriodStartedAt);
     }
@@ -111,25 +108,19 @@ library EscrowState {
 
     /// @notice Checks if the Escrow is in the SignallingEscrow state
     /// @param self The context of the Escrow instance
-    function checkSignallingEscrow(
-        Context storage self
-    ) internal view {
+    function checkSignallingEscrow(Context storage self) internal view {
         _checkState(self, State.SignallingEscrow);
     }
 
     /// @notice Checks if the Escrow is in the RageQuitEscrow state
     /// @param self The context of the Escrow instance
-    function checkRageQuitEscrow(
-        Context storage self
-    ) internal view {
+    function checkRageQuitEscrow(Context storage self) internal view {
         _checkState(self, State.RageQuitEscrow);
     }
 
     /// @notice Checks if batch claiming is in progress
     /// @param self The context of the Escrow instance
-    function checkBatchesClaimingInProgress(
-        Context storage self
-    ) internal view {
+    function checkBatchesClaimingInProgress(Context storage self) internal view {
         if (!self.rageQuitExtensionPeriodStartedAt.isZero()) {
             revert ClaimingIsFinished();
         }
@@ -137,9 +128,7 @@ library EscrowState {
 
     /// @notice Checks if the withdrawals delay has passed
     /// @param self The context of the Escrow instance
-    function checkEthWithdrawalsDelayPassed(
-        Context storage self
-    ) internal view {
+    function checkEthWithdrawalsDelayPassed(Context storage self) internal view {
         if (self.rageQuitExtensionPeriodStartedAt.isZero()) {
             revert RageQuitExtensionPeriodNotStarted();
         }
@@ -156,18 +145,14 @@ library EscrowState {
     /// @notice Checks if the rage quit extension period has started
     /// @param self The context of the Escrow instance
     /// @return True if the rage quit extension period has started, false otherwise
-    function isRageQuitExtensionPeriodStarted(
-        Context storage self
-    ) internal view returns (bool) {
+    function isRageQuitExtensionPeriodStarted(Context storage self) internal view returns (bool) {
         return self.rageQuitExtensionPeriodStartedAt.isNotZero();
     }
 
     /// @notice Checks if the rage quit extension period has passed
     /// @param self The context of the Escrow instance
     /// @return True if the rage quit extension period has passed, false otherwise
-    function isRageQuitExtensionPeriodPassed(
-        Context storage self
-    ) internal view returns (bool) {
+    function isRageQuitExtensionPeriodPassed(Context storage self) internal view returns (bool) {
         Timestamp rageQuitExtensionPeriodStartedAt = self.rageQuitExtensionPeriodStartedAt;
         return rageQuitExtensionPeriodStartedAt.isNotZero()
             && Timestamps.now() > self.rageQuitExtensionPeriodDuration.addTo(rageQuitExtensionPeriodStartedAt);
@@ -176,9 +161,7 @@ library EscrowState {
     /// @notice Checks if the Escrow is in the RageQuitEscrow state
     /// @param self The context of the Escrow instance
     /// @return True if the Escrow is in the RageQuitEscrow state, false otherwise
-    function isRageQuitEscrow(
-        Context storage self
-    ) internal view returns (bool) {
+    function isRageQuitEscrow(Context storage self) internal view returns (bool) {
         return self.state == State.RageQuitEscrow;
     }
 
@@ -211,5 +194,4 @@ library EscrowState {
         self.minAssetsLockDuration = newMinAssetsLockDuration;
         emit MinAssetsLockDurationSet(newMinAssetsLockDuration);
     }
-
 }

@@ -10,7 +10,6 @@ import {LidoUtils} from "../utils/lido-utils.sol";
 import {Escrow, ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 
 contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
-
     using LidoUtils for LidoUtils.Context;
 
     function setUp() external {
@@ -103,10 +102,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
         }
     }
 
-    function scheduleProposalExternal(
-        uint256 proposalId
-    ) external {
+    function scheduleProposalExternal(uint256 proposalId) external {
         _scheduleProposal(_dualGovernance, proposalId);
     }
-
 }

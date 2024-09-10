@@ -7,7 +7,6 @@ import {DualGovernanceConfig} from "./libraries/DualGovernanceConfig.sol";
 import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigProvider.sol";
 
 contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider {
-
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
     PercentD16 public immutable FIRST_SEAL_RAGE_QUIT_SUPPORT;
@@ -27,9 +26,7 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
     Duration public immutable RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY;
     Duration public immutable RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH;
 
-    constructor(
-        DualGovernanceConfig.Context memory dualGovernanceConfig
-    ) {
+    constructor(DualGovernanceConfig.Context memory dualGovernanceConfig) {
         dualGovernanceConfig.validate();
 
         FIRST_SEAL_RAGE_QUIT_SUPPORT = dualGovernanceConfig.firstSealRageQuitSupport;
@@ -67,5 +64,4 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
         config.rageQuitEthWithdrawalsMaxDelay = RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY;
         config.rageQuitEthWithdrawalsDelayGrowth = RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH;
     }
-
 }

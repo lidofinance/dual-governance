@@ -7,7 +7,6 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
 
 contract TiebreakerScenarioTest is ScenarioTestBlueprint {
-
     address internal immutable _VETOER = makeAddr("VETOER");
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
 
@@ -167,5 +166,4 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         assertEq(_lido.withdrawalQueue.isPaused(), false);
     }
-
 }

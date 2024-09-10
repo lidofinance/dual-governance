@@ -13,7 +13,6 @@ import {UnitTest} from "test/utils/unit-test.sol";
 import {EscrowMock} from "test/mocks/EscrowMock.sol";
 
 contract DualGovernanceStateMachineUnitTests is UnitTest {
-
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
     address private immutable _ESCROW_MASTER_COPY = address(new EscrowMock());
@@ -81,5 +80,4 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
         assertEq(_stateMachine.rageQuitRound, 0);
         assertEq(_stateMachine.state, State.Normal);
     }
-
 }

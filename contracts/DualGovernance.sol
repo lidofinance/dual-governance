@@ -22,7 +22,6 @@ import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceState
 import {Escrow} from "./Escrow.sol";
 
 contract DualGovernance is IDualGovernance {
-
     using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceConfig for DualGovernanceConfig.Context;
@@ -123,9 +122,7 @@ contract DualGovernance is IDualGovernance {
     // Proposals Flow
     // ---
 
-    function submitProposal(
-        ExternalCall[] calldata calls
-    ) external returns (uint256 proposalId) {
+    function submitProposal(ExternalCall[] calldata calls) external returns (uint256 proposalId) {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
         if (!_stateMachine.canSubmitProposal()) {
             revert ProposalSubmissionBlocked();
@@ -134,9 +131,7 @@ contract DualGovernance is IDualGovernance {
         proposalId = TIMELOCK.submit(proposer.executor, calls);
     }
 
-    function scheduleProposal(
-        uint256 proposalId
-    ) external {
+    function scheduleProposal(uint256 proposalId) external {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
         ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
             TIMELOCK.getProposalInfo(proposalId);
@@ -174,9 +169,7 @@ contract DualGovernance is IDualGovernance {
         return _stateMachine.canSubmitProposal();
     }
 
-    function canScheduleProposal(
-        uint256 proposalId
-    ) external view returns (bool) {
+    function canScheduleProposal(uint256 proposalId) external view returns (bool) {
         ( /* id */ , /* status */, /* executor */, Timestamp submittedAt, /* scheduledAt */ ) =
             TIMELOCK.getProposalInfo(proposalId);
         return _stateMachine.canScheduleProposal(submittedAt) && TIMELOCK.canSchedule(proposalId);
@@ -190,9 +183,7 @@ contract DualGovernance is IDualGovernance {
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
     }
 
-    function setConfigProvider(
-        IDualGovernanceConfigProvider newConfigProvider
-    ) external {
+    function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external {
         _checkCallerIsAdminExecutor();
         _setConfigProvider(newConfigProvider);
 
@@ -236,9 +227,7 @@ contract DualGovernance is IDualGovernance {
         _proposers.register(proposer, executor);
     }
 
-    function unregisterProposer(
-        address proposer
-    ) external {
+    function unregisterProposer(address proposer) external {
         _checkCallerIsAdminExecutor();
         _proposers.unregister(proposer);
 
@@ -248,15 +237,11 @@ contract DualGovernance is IDualGovernance {
         }
     }
 
-    function isProposer(
-        address account
-    ) external view returns (bool) {
+    function isProposer(address account) external view returns (bool) {
         return _proposers.isProposer(account);
     }
 
-    function getProposer(
-        address account
-    ) external view returns (Proposers.Proposer memory proposer) {
+    function getProposer(address account) external view returns (Proposers.Proposer memory proposer) {
         proposer = _proposers.getProposer(account);
     }
 
@@ -264,9 +249,7 @@ contract DualGovernance is IDualGovernance {
         proposers = _proposers.getAllProposers();
     }
 
-    function isExecutor(
-        address account
-    ) external view returns (bool) {
+    function isExecutor(address account) external view returns (bool) {
         return _proposers.isExecutor(account);
     }
 
@@ -274,47 +257,35 @@ contract DualGovernance is IDualGovernance {
     // Tiebreaker Protection
     // ---
 
-    function addTiebreakerSealableWithdrawalBlocker(
-        address sealableWithdrawalBlocker
-    ) external {
+    function addTiebreakerSealableWithdrawalBlocker(address sealableWithdrawalBlocker) external {
         _checkCallerIsAdminExecutor();
         _tiebreaker.addSealableWithdrawalBlocker(sealableWithdrawalBlocker, MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT);
     }
 
-    function removeTiebreakerSealableWithdrawalBlocker(
-        address sealableWithdrawalBlocker
-    ) external {
+    function removeTiebreakerSealableWithdrawalBlocker(address sealableWithdrawalBlocker) external {
         _checkCallerIsAdminExecutor();
         _tiebreaker.removeSealableWithdrawalBlocker(sealableWithdrawalBlocker);
     }
 
-    function setTiebreakerCommittee(
-        address tiebreakerCommittee
-    ) external {
+    function setTiebreakerCommittee(address tiebreakerCommittee) external {
         _checkCallerIsAdminExecutor();
         _tiebreaker.setTiebreakerCommittee(tiebreakerCommittee);
     }
 
-    function setTiebreakerActivationTimeout(
-        Duration tiebreakerActivationTimeout
-    ) external {
+    function setTiebreakerActivationTimeout(Duration tiebreakerActivationTimeout) external {
         _checkCallerIsAdminExecutor();
         _tiebreaker.setTiebreakerActivationTimeout(
             MIN_TIEBREAKER_ACTIVATION_TIMEOUT, tiebreakerActivationTimeout, MAX_TIEBREAKER_ACTIVATION_TIMEOUT
         );
     }
 
-    function tiebreakerResumeSealable(
-        address sealable
-    ) external {
+    function tiebreakerResumeSealable(address sealable) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
         _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
         RESEAL_MANAGER.resume(sealable);
     }
 
-    function tiebreakerScheduleProposal(
-        uint256 proposalId
-    ) external {
+    function tiebreakerScheduleProposal(uint256 proposalId) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
         _stateMachine.activateNextState(_configProvider.getDualGovernanceConfig(), ESCROW_MASTER_COPY);
         _tiebreaker.checkTie(_stateMachine.getCurrentState(), _stateMachine.getNormalOrVetoCooldownStateExitedAt());
@@ -339,9 +310,7 @@ contract DualGovernance is IDualGovernance {
     // Reseal executor
     // ---
 
-    function resealSealable(
-        address sealable
-    ) external {
+    function resealSealable(address sealable) external {
         if (msg.sender != _resealCommittee) {
             revert CallerIsNotResealCommittee(msg.sender);
         }
@@ -351,9 +320,7 @@ contract DualGovernance is IDualGovernance {
         RESEAL_MANAGER.reseal(sealable);
     }
 
-    function setResealCommittee(
-        address resealCommittee
-    ) external {
+    function setResealCommittee(address resealCommittee) external {
         _checkCallerIsAdminExecutor();
         _resealCommittee = resealCommittee;
     }
@@ -362,9 +329,7 @@ contract DualGovernance is IDualGovernance {
     // Private methods
     // ---
 
-    function _setConfigProvider(
-        IDualGovernanceConfigProvider newConfigProvider
-    ) internal {
+    function _setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) internal {
         if (address(newConfigProvider) == address(0)) {
             revert InvalidConfigProvider(newConfigProvider);
         }
@@ -384,5 +349,4 @@ contract DualGovernance is IDualGovernance {
             revert CallerIsNotAdminExecutor(msg.sender);
         }
     }
-
 }

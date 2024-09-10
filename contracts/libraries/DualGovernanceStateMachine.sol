@@ -22,7 +22,6 @@ enum State {
 }
 
 library DualGovernanceStateMachine {
-
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
     struct Context {
@@ -129,21 +128,15 @@ library DualGovernanceStateMachine {
         emit DualGovernanceStateChanged(currentState, newState, self);
     }
 
-    function getCurrentContext(
-        Context storage self
-    ) internal pure returns (Context memory) {
+    function getCurrentContext(Context storage self) internal pure returns (Context memory) {
         return self;
     }
 
-    function getCurrentState(
-        Context storage self
-    ) internal view returns (State) {
+    function getCurrentState(Context storage self) internal view returns (State) {
         return self.state;
     }
 
-    function getNormalOrVetoCooldownStateExitedAt(
-        Context storage self
-    ) internal view returns (Timestamp) {
+    function getNormalOrVetoCooldownStateExitedAt(Context storage self) internal view returns (Timestamp) {
         return self.normalOrVetoCooldownExitedAt;
     }
 
@@ -154,9 +147,7 @@ library DualGovernanceStateMachine {
         return config.calcVetoSignallingDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
-    function canSubmitProposal(
-        Context storage self
-    ) internal view returns (bool) {
+    function canSubmitProposal(Context storage self) internal view returns (bool) {
         State state = self.state;
         return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
     }
@@ -182,11 +173,9 @@ library DualGovernanceStateMachine {
         self.signallingEscrow = newSignallingEscrow;
         emit NewSignallingEscrowDeployed(newSignallingEscrow);
     }
-
 }
 
 library DualGovernanceStateTransitions {
-
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
     function getStateTransition(
@@ -281,5 +270,4 @@ library DualGovernanceStateTransitions {
             ? State.VetoSignalling
             : State.VetoCooldown;
     }
-
 }

@@ -6,7 +6,6 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 
 contract GovernanceStateTransitions is ScenarioTestBlueprint {
-
     address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
@@ -134,5 +133,4 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _activateNextState();
         _assertRageQuitState();
     }
-
 }

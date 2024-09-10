@@ -41,7 +41,6 @@ struct VetoerState {
 }
 
 contract Escrow is IEscrow {
-
     using EscrowState for EscrowState.Context;
     using AssetsAccounting for AssetsAccounting.Context;
     using WithdrawalsBatchesQueue for WithdrawalsBatchesQueue.Context;
@@ -116,9 +115,7 @@ contract Escrow is IEscrow {
         MIN_WITHDRAWALS_BATCH_SIZE = minWithdrawalsBatchSize;
     }
 
-    function initialize(
-        Duration minAssetsLockDuration
-    ) external {
+    function initialize(Duration minAssetsLockDuration) external {
         if (address(this) == _SELF) {
             revert NonProxyCallsForbidden();
         }
@@ -134,9 +131,7 @@ contract Escrow is IEscrow {
     // Lock & unlock stETH
     // ---
 
-    function lockStETH(
-        uint256 amount
-    ) external returns (uint256 lockedStETHShares) {
+    function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares) {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 
@@ -162,9 +157,7 @@ contract Escrow is IEscrow {
     // Lock & unlock wstETH
     // ---
 
-    function lockWstETH(
-        uint256 amount
-    ) external returns (uint256 lockedStETHShares) {
+    function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares) {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 
@@ -190,9 +183,7 @@ contract Escrow is IEscrow {
     // ---
     // Lock & unlock unstETH
     // ---
-    function lockUnstETH(
-        uint256[] memory unstETHIds
-    ) external {
+    function lockUnstETH(uint256[] memory unstETHIds) external {
         if (unstETHIds.length == 0) {
             revert EmptyUnstETHIds();
         }
@@ -210,9 +201,7 @@ contract Escrow is IEscrow {
         DUAL_GOVERNANCE.activateNextState();
     }
 
-    function unlockUnstETH(
-        uint256[] memory unstETHIds
-    ) external {
+    function unlockUnstETH(uint256[] memory unstETHIds) external {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
@@ -237,9 +226,7 @@ contract Escrow is IEscrow {
     // Convert to NFT
     // ---
 
-    function requestWithdrawals(
-        uint256[] calldata stETHAmounts
-    ) external returns (uint256[] memory unstETHIds) {
+    function requestWithdrawals(uint256[] calldata stETHAmounts) external returns (uint256[] memory unstETHIds) {
         _escrowState.checkSignallingEscrow();
 
         unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stETHAmounts, address(this));
@@ -267,9 +254,7 @@ contract Escrow is IEscrow {
     // Request withdrawal batches
     // ---
 
-    function requestNextWithdrawalsBatch(
-        uint256 batchSize
-    ) external {
+    function requestNextWithdrawalsBatch(uint256 batchSize) external {
         _escrowState.checkRageQuitEscrow();
 
         if (batchSize < MIN_WITHDRAWALS_BATCH_SIZE) {
@@ -303,9 +288,7 @@ contract Escrow is IEscrow {
     // Claim requested withdrawal batches
     // ---
 
-    function claimNextWithdrawalsBatch(
-        uint256 maxUnstETHIdsCount
-    ) external {
+    function claimNextWithdrawalsBatch(uint256 maxUnstETHIdsCount) external {
         _escrowState.checkRageQuitEscrow();
         _escrowState.checkBatchesClaimingInProgress();
 
@@ -375,9 +358,7 @@ contract Escrow is IEscrow {
     // Escrow management
     // ---
 
-    function setMinAssetsLockDuration(
-        Duration newMinAssetsLockDuration
-    ) external {
+    function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
         _checkCallerIsDualGovernance();
         _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration);
     }
@@ -393,9 +374,7 @@ contract Escrow is IEscrow {
         ethToWithdraw.sendTo(payable(msg.sender));
     }
 
-    function withdrawETH(
-        uint256[] calldata unstETHIds
-    ) external {
+    function withdrawETH(uint256[] calldata unstETHIds) external {
         if (unstETHIds.length == 0) {
             revert EmptyUnstETHIds();
         }
@@ -419,9 +398,7 @@ contract Escrow is IEscrow {
         totals.unstETHFinalizedETH = unstETHTotals.finalizedETH.toUint256();
     }
 
-    function getVetoerState(
-        address vetoer
-    ) external view returns (VetoerState memory state) {
+    function getVetoerState(address vetoer) external view returns (VetoerState memory state) {
         HolderAssets storage assets = _accounting.assets[vetoer];
 
         state.unstETHIdsCount = assets.unstETHIds.length;
@@ -434,9 +411,7 @@ contract Escrow is IEscrow {
         return _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
     }
 
-    function getNextWithdrawalBatch(
-        uint256 limit
-    ) external view returns (uint256[] memory unstETHIds) {
+    function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds) {
         return _batchesQueue.getNextWithdrawalsBatches(limit);
     }
 
@@ -508,5 +483,4 @@ contract Escrow is IEscrow {
             revert CallerIsNotDualGovernance(msg.sender);
         }
     }
-
 }

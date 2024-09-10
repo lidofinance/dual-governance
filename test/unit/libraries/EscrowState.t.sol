@@ -11,16 +11,13 @@ Duration constant D0 = Durations.ZERO;
 Timestamp constant T0 = Timestamps.ZERO;
 
 contract EscrowStateUnitTests is UnitTest {
-
     EscrowState.Context private _context;
 
     // ---
     // initialize()
     // ---
 
-    function testFuzz_initialize_happyPath(
-        Duration minAssetsLockDuration
-    ) external {
+    function testFuzz_initialize_happyPath(Duration minAssetsLockDuration) external {
         _context.state = State.NotInitialized;
 
         vm.expectEmit();
@@ -38,9 +35,7 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function testFuzz_initialize_RevertOn_InvalidState(
-        Duration minAssetsLockDuration
-    ) external {
+    function testFuzz_initialize_RevertOn_InvalidState(Duration minAssetsLockDuration) external {
         _context.state = State.SignallingEscrow;
 
         // TODO: not very informative, maybe need to change to `revert UnexpectedState(self.state);`: UnexpectedState(NotInitialized)[current implementation] => UnexpectedState(SignallingEscrow)[proposed]
@@ -108,9 +103,7 @@ contract EscrowStateUnitTests is UnitTest {
     // setMinAssetsLockDuration()
     // ---
 
-    function test_setMinAssetsLockDuration_happyPath(
-        Duration minAssetsLockDuration
-    ) external {
+    function test_setMinAssetsLockDuration_happyPath(Duration minAssetsLockDuration) external {
         vm.assume(minAssetsLockDuration != Durations.ZERO);
 
         vm.expectEmit();
@@ -127,9 +120,7 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(
-        Duration minAssetsLockDuration
-    ) external {
+    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
         _context.minAssetsLockDuration = minAssetsLockDuration;
 
         vm.expectRevert(
@@ -176,9 +167,9 @@ contract EscrowStateUnitTests is UnitTest {
         EscrowState.checkBatchesClaimingInProgress(_context);
     }
 
-    function testFuzz_checkBatchesClaimingInProgress_RevertOn_InvalidState(
-        Timestamp rageQuitExtensionPeriodStartedAt
-    ) external {
+    function testFuzz_checkBatchesClaimingInProgress_RevertOn_InvalidState(Timestamp rageQuitExtensionPeriodStartedAt)
+        external
+    {
         vm.assume(rageQuitExtensionPeriodStartedAt > Timestamps.ZERO);
         _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
         vm.expectRevert(EscrowState.ClaimingIsFinished.selector);
@@ -264,9 +255,7 @@ contract EscrowStateUnitTests is UnitTest {
     // isRageQuitExtensionPeriodStarted()
     // ---
 
-    function testFuzz_isRageQuitExtensionDelayStarted_happyPath(
-        Timestamp rageQuitExtensionPeriodStartedAt
-    ) external {
+    function testFuzz_isRageQuitExtensionDelayStarted_happyPath(Timestamp rageQuitExtensionPeriodStartedAt) external {
         _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
         bool res = EscrowState.isRageQuitExtensionPeriodStarted(_context);
         assertEq(res, _context.rageQuitExtensionPeriodStartedAt.isNotZero());
@@ -324,9 +313,7 @@ contract EscrowStateUnitTests is UnitTest {
     // isRageQuitEscrow()
     // ---
 
-    function testFuzz_isRageQuitEscrow(
-        bool expectedResult
-    ) external {
+    function testFuzz_isRageQuitEscrow(bool expectedResult) external {
         if (expectedResult) {
             _context.state = State.RageQuitEscrow;
         }
@@ -355,5 +342,4 @@ contract EscrowStateUnitTests is UnitTest {
     function assertEq(State a, State b) internal {
         assertEq(uint256(a), uint256(b));
     }
-
 }

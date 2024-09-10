@@ -21,7 +21,6 @@ import {TimelockMock} from "test/mocks/TimelockMock.sol";
 import {WithdrawalQueueMock} from "test/mocks/WithdrawalQueueMock.sol";
 
 contract DualGovernanceUnitTests is UnitTest {
-
     Executor private _executor = new Executor(address(this));
 
     StETHMock private immutable _STETH_MOCK = new StETHMock();
@@ -237,5 +236,4 @@ contract DualGovernanceUnitTests is UnitTest {
         // mock timelock doesn't uses proposal data
         _timelock.submit(address(0), new ExternalCall[](0));
     }
-
 }

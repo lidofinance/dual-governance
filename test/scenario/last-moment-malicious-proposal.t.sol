@@ -12,7 +12,6 @@ import {
 } from "../utils/scenario-test-blueprint.sol";
 
 contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
-
     function setUp() external {
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
     }
@@ -330,10 +329,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         }
     }
 
-    function scheduleProposalExternal(
-        uint256 proposalId
-    ) external {
+    function scheduleProposalExternal(uint256 proposalId) external {
         _scheduleProposalViaDualGovernance(proposalId);
     }
-
 }

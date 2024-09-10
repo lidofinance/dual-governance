@@ -15,7 +15,6 @@ import {Escrow, VetoerState, LockedAssetsTotals, WithdrawalsBatchesQueue} from "
 import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
 
 contract EscrowHappyPath is ScenarioTestBlueprint {
-
     using LidoUtils for LidoUtils.Context;
 
     Escrow internal escrow;
@@ -631,20 +630,15 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         _lockWstETH(vetoer, wstEthAmount);
     }
 
-    function externalUnlockStETH(
-        address vetoer
-    ) external {
+    function externalUnlockStETH(address vetoer) external {
         _unlockStETH(vetoer);
     }
 
-    function externalUnlockWstETH(
-        address vetoer
-    ) external {
+    function externalUnlockWstETH(address vetoer) external {
         _unlockWstETH(vetoer);
     }
 
     function externalUnlockUnstETH(address vetoer, uint256[] memory nftIds) external {
         _unlockUnstETH(vetoer, nftIds);
     }
-
 }
