@@ -183,21 +183,7 @@ rule W2_2_batchesQueueCloseNoChange(method f){
 @notice We are filtering out some functions that are not interesting since they cannot 
     successfully be called in a situation where requestNextWithdrawalsBatch makes sense to call.
 */
-rule W2_2_front_running(method f) filtered {
-     f -> f.selector != sig:initialize(Durations.Duration).selector
-     // no longer possible in rage quit state, which we need to be in for requestNextWithdrawalsBatch
-     && f.selector != sig:unlockUnstETH(uint256[]).selector
-     && f.selector != sig:lockUnstETH(uint256[]).selector
-     && f.selector != sig:markUnstETHFinalized(uint256[],uint256[]).selector
-     && f.selector != sig:unlockStETH().selector
-     && f.selector != sig:unlockWstETH().selector
-     && f.selector != sig:lockStETH(uint256).selector
-     && f.selector != sig:lockWstETH(uint256).selector
-     && f.selector != sig:requestWithdrawals(uint256[]).selector
-     && f.selector != sig:startRageQuit(Durations.Duration,Durations.Duration).selector
-     // only possible after batches queue is already closed
-     && f.selector != sig:startRageQuitExtensionDelay().selector
-} {
+rule W2_2_front_running(method f) {
     storage initial_storage = lastStorage;
 
     // set up one run in which requestNextWithdrawalsBatch closes the queue
@@ -209,11 +195,12 @@ rule W2_2_front_running(method f) filtered {
 
     // if we frontrun something else, at the end it should still be closed
     calldataarg args;
-    f(e, args) at initial_storage;
+    f@withrevert(e, args) at initial_storage;
+    bool fReverted = lastReverted;
     requestNextWithdrawalsBatch(e, batchsize);
     uint stETHRemaining = stEth.balanceOf(currentContract);
     uint minStETHWithdrawalRequestAmount = withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT();
-    assert stETHRemaining < minStETHWithdrawalRequestAmount => isWithdrawalsBatchesFinalized();
+    assert fReverted || stETHRemaining < minStETHWithdrawalRequestAmount => isWithdrawalsBatchesFinalized();
 }
 
 /**
