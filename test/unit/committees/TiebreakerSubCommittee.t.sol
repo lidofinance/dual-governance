@@ -3,12 +3,12 @@ pragma solidity 0.8.26;
 
 import {ITiebreakerCore} from "contracts/interfaces/ITiebreakerCore.sol";
 
-import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerSubCommittee, ProposalType} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
-import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
+import {ITiebreakerCore} from "contracts/interfaces/ITiebreakerCore.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 
@@ -93,7 +93,12 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         tiebreakerSubCommittee.scheduleProposal(proposalId);
 
         vm.prank(committeeMembers[2]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                HashConsensus.HashIsNotScheduled.selector,
+                keccak256(abi.encode(ProposalType.ScheduleProposal, proposalId))
+            )
+        );
         tiebreakerSubCommittee.executeScheduleProposal(proposalId);
     }
 
@@ -168,7 +173,11 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         tiebreakerSubCommittee.sealableResume(sealable);
 
         vm.prank(committeeMembers[2]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                HashConsensus.HashIsNotScheduled.selector, keccak256(abi.encode(sealable, /*nonce */ 0))
+            )
+        );
         tiebreakerSubCommittee.executeSealableResume(sealable);
     }
 
