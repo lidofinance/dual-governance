@@ -7,16 +7,19 @@ import {ExternalCall} from "../libraries/ExternalCalls.sol";
 import {Status as ProposalStatus} from "../libraries/ExecutableProposals.sol";
 
 interface ITimelock {
-    struct Proposal {
+    struct ProposalDetails {
         uint256 id;
-        ProposalStatus status;
         address executor;
         Timestamp submittedAt;
         Timestamp scheduledAt;
-        ExternalCall[] calls;
+        ProposalStatus status;
     }
 
-    function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId);
+    function submit(
+        address executor,
+        ExternalCall[] calldata calls,
+        string calldata metadata
+    ) external returns (uint256 newProposalId);
     function schedule(uint256 proposalId) external;
     function execute(uint256 proposalId) external;
     function cancelAllNonExecutedProposals() external;
@@ -26,11 +29,11 @@ interface ITimelock {
 
     function getAdminExecutor() external view returns (address);
 
-    function getProposal(uint256 proposalId) external view returns (Proposal memory proposal);
-    function getProposalInfo(uint256 proposalId)
+    function getProposal(uint256 proposalId)
         external
         view
-        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt);
+        returns (ProposalDetails memory proposal, ExternalCall[] memory calls);
+    function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory proposalDetails);
 
     function getGovernance() external view returns (address);
     function setGovernance(address governance) external;

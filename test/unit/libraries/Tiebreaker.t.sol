@@ -7,6 +7,7 @@ import {State as DualGovernanceState} from "contracts/libraries/DualGovernanceSt
 import {Tiebreaker} from "contracts/libraries/Tiebreaker.sol";
 import {Duration, Durations, Timestamp, Timestamps} from "contracts/types/Duration.sol";
 import {ISealable} from "contracts/interfaces/ISealable.sol";
+import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {SealableMock} from "../../mocks/SealableMock.sol";
@@ -38,16 +39,25 @@ contract TiebreakerTest is UnitTest {
         Tiebreaker.addSealableWithdrawalBlocker(context, address(mockSealable2), 1);
     }
 
+    function test_addSealableWithdrawalBlocker_RevertOn_AlreadyAdded() external {
+        Tiebreaker.addSealableWithdrawalBlocker(context, address(mockSealable1), 2);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Tiebreaker.SealableWithdrawalBlockerAlreadyAdded.selector, address(mockSealable1))
+        );
+        this.external__addSealableWithdrawalBlocker(address(mockSealable1), 2);
+    }
+
     function test_addSealableWithdrawalBlocker_RevertOn_InvalidSealable() external {
         mockSealable1.setShouldRevertIsPaused(true);
 
         vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, address(mockSealable1)));
         // external call should be used to intercept the revert
-        this.external__addSealableWithdrawalBlocker(address(mockSealable1));
+        this.external__addSealableWithdrawalBlocker(address(mockSealable1), 2);
 
         vm.expectRevert();
         // external call should be used to intercept the revert
-        this.external__addSealableWithdrawalBlocker(address(0x123));
+        this.external__addSealableWithdrawalBlocker(address(0x123), 2);
     }
 
     function test_removeSealableWithdrawalBlocker_HappyPath() external {
@@ -59,6 +69,13 @@ contract TiebreakerTest is UnitTest {
 
         Tiebreaker.removeSealableWithdrawalBlocker(context, address(mockSealable1));
         assertFalse(context.sealableWithdrawalBlockers.contains(address(mockSealable1)));
+    }
+
+    function test_removeSealableWithdrawalBlocker_RevertOn_NotFound() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(Tiebreaker.SealableWithdrawalBlockerNotFound.selector, address(mockSealable1))
+        );
+        this.external__removeSealableWithdrawalBlocker(address(mockSealable1));
     }
 
     function test_setTiebreakerCommittee_HappyPath() external {
@@ -173,20 +190,25 @@ contract TiebreakerTest is UnitTest {
         context.tiebreakerActivationTimeout = timeout;
         context.tiebreakerCommittee = address(0x123);
 
-        (address committee, Duration activationTimeout, address[] memory blockers) =
-            Tiebreaker.getTiebreakerInfo(context);
+        ITiebreaker.TiebreakerDetails memory details =
+            Tiebreaker.getTiebreakerDetails(context, DualGovernanceState.Normal, Timestamps.from(block.timestamp));
 
-        assertEq(committee, context.tiebreakerCommittee);
-        assertEq(activationTimeout, context.tiebreakerActivationTimeout);
-        assertEq(blockers[0], address(mockSealable1));
-        assertEq(blockers.length, 1);
+        assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
+        assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
+        assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
+        assertEq(details.sealableWithdrawalBlockers.length, 1);
+        assertEq(details.isTie, false);
     }
 
     function external__checkCallerIsTiebreakerCommittee() external view {
         Tiebreaker.checkCallerIsTiebreakerCommittee(context);
     }
 
-    function external__addSealableWithdrawalBlocker(address sealable) external {
-        Tiebreaker.addSealableWithdrawalBlocker(context, sealable, 1);
+    function external__addSealableWithdrawalBlocker(address sealable, uint256 count) external {
+        Tiebreaker.addSealableWithdrawalBlocker(context, sealable, count);
+    }
+
+    function external__removeSealableWithdrawalBlocker(address sealable) external {
+        Tiebreaker.removeSealableWithdrawalBlocker(context, sealable);
     }
 }

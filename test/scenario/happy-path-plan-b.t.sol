@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 import {
@@ -54,7 +55,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // ACT 2. 😱 DAO IS UNDER ATTACK
         // ---
         uint256 maliciousProposalId;
-        EmergencyProtection.Context memory emergencyState;
+        IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState;
         {
             // Malicious vote was proposed by the attacker with huge LDO wad (but still not the majority)
             ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
@@ -79,7 +80,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             // emergency mode was successfully activated
             Timestamp expectedEmergencyModeEndTimestamp = _EMERGENCY_MODE_DURATION.addTo(Timestamps.now());
-            emergencyState = _timelock.getEmergencyProtectionContext();
+            emergencyState = _timelock.getEmergencyProtectionDetails();
 
             assertTrue(_timelock.isEmergencyModeActive());
             assertEq(emergencyState.emergencyModeEndsAfter, expectedEmergencyModeEndTimestamp);
@@ -248,9 +249,9 @@ contract PlanBSetup is ScenarioTestBlueprint {
 
             assertFalse(_timelock.isEmergencyModeActive());
 
-            emergencyState = _timelock.getEmergencyProtectionContext();
-            assertEq(emergencyState.emergencyActivationCommittee, address(_emergencyActivationCommittee));
-            assertEq(emergencyState.emergencyExecutionCommittee, address(_emergencyExecutionCommittee));
+            emergencyState = _timelock.getEmergencyProtectionDetails();
+            assertEq(_timelock.getEmergencyActivationCommittee(), address(_emergencyActivationCommittee));
+            assertEq(_timelock.getEmergencyExecutionCommittee(), address(_emergencyExecutionCommittee));
             assertEq(emergencyState.emergencyModeDuration, Durations.from(30 days));
             assertEq(emergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
 
@@ -334,7 +335,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
 
             // emergency mode still active
-            assertTrue(_timelock.getEmergencyProtectionContext().emergencyModeEndsAfter > Timestamps.now());
+            assertTrue(_timelock.getEmergencyProtectionDetails().emergencyModeEndsAfter > Timestamps.now());
 
             anotherMaliciousProposalId =
                 _submitProposalViaTimelockedGovernance("Another Rug Pool attempt", maliciousCalls);
@@ -394,7 +395,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // deploy dual governance full setup
         {
             _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
-            assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyProtectionContext().emergencyGovernance);
+            assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
         }
 
         // emergency committee activates emergency mode
@@ -410,17 +411,18 @@ contract PlanBSetup is ScenarioTestBlueprint {
         {
             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
 
-            EmergencyProtection.Context memory emergencyState = _timelock.getEmergencyProtectionContext();
+            IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState =
+                _timelock.getEmergencyProtectionDetails();
 
             assertTrue(emergencyState.emergencyModeEndsAfter > Timestamps.now());
 
             _executeEmergencyReset();
 
-            assertEq(_timelock.getGovernance(), _timelock.getEmergencyProtectionContext().emergencyGovernance);
+            assertEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
 
-            emergencyState = _timelock.getEmergencyProtectionContext();
-            assertEq(emergencyState.emergencyActivationCommittee, address(0));
-            assertEq(emergencyState.emergencyExecutionCommittee, address(0));
+            emergencyState = _timelock.getEmergencyProtectionDetails();
+            assertEq(_timelock.getEmergencyActivationCommittee(), address(0));
+            assertEq(_timelock.getEmergencyExecutionCommittee(), address(0));
             assertEq(emergencyState.emergencyModeDuration, Durations.ZERO);
             assertEq(emergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
             assertFalse(_timelock.isEmergencyModeActive());
@@ -431,7 +433,7 @@ contract PlanBSetup is ScenarioTestBlueprint {
         // deploy dual governance full setup
         {
             _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
-            assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyProtectionContext().emergencyGovernance);
+            assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
         }
 
         // wait till the protection duration passes
@@ -439,7 +441,8 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _wait(_EMERGENCY_PROTECTION_DURATION.plusSeconds(1));
         }
 
-        EmergencyProtection.Context memory emergencyState = _timelock.getEmergencyProtectionContext();
+        IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState =
+            _timelock.getEmergencyProtectionDetails();
 
         // attempt to activate emergency protection fails
         {
