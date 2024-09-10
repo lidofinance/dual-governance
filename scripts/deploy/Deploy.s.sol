@@ -7,12 +7,12 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {DeployConfig} from "./DeployConfig.sol";
-import {DGDeployConfigProvider} from "./Config.s.sol";
+import {DGDeployConfigProvider} from "./EnvConfig.s.sol";
 import {DeployDGContracts, DeployedContracts} from "./DeployContracts.sol";
-import {DeployValidation} from "./DeployValidation.sol";
+import {DeployVerification} from "./DeployVerification.sol";
 
 contract DeployDG is Script {
-    using DeployValidation for DeployValidation.DeployResult;
+    using DeployVerification for DeployVerification.DeployedAddresses;
 
     error ChainIdMismatch(uint256 actual, uint256 expected);
 
@@ -45,13 +45,13 @@ contract DeployDG is Script {
 
         vm.stopBroadcast();
 
-        DeployValidation.DeployResult memory res = getDeployedAddresses(contracts);
+        DeployVerification.DeployedAddresses memory res = getDeployedAddresses(contracts);
 
         printAddresses(res);
 
         console.log("Verifying deploy");
 
-        res.check();
+        res.verify();
 
         console.log(unicode"Verified ✅");
     }
@@ -59,9 +59,9 @@ contract DeployDG is Script {
     function getDeployedAddresses(DeployedContracts memory contracts)
         internal
         pure
-        returns (DeployValidation.DeployResult memory)
+        returns (DeployVerification.DeployedAddresses memory)
     {
-        return DeployValidation.DeployResult({
+        return DeployVerification.DeployedAddresses({
             adminExecutor: payable(address(contracts.adminExecutor)),
             timelock: address(contracts.timelock),
             emergencyGovernance: address(contracts.emergencyGovernance),
@@ -75,7 +75,7 @@ contract DeployDG is Script {
         });
     }
 
-    function printAddresses(DeployValidation.DeployResult memory res) internal pure {
+    function printAddresses(DeployVerification.DeployedAddresses memory res) internal pure {
         console.log("DG deployed successfully");
         console.log("DualGovernance address", res.dualGovernance);
         console.log("ResealManager address", res.resealManager);

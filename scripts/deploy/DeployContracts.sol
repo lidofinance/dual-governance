@@ -28,7 +28,7 @@ import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
 import {DeployConfig, LidoContracts, getSubCommitteeData} from "./DeployConfig.sol";
-import {getLidoAddresses} from "./Config.s.sol";
+import {getLidoAddresses} from "./EnvConfig.s.sol"; // TODO: make a param
 
 struct DeployedContracts {
     Executor adminExecutor;
