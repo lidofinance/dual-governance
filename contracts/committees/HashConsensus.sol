@@ -174,6 +174,9 @@ abstract contract HashConsensus is Ownable {
     /// @param newQuorum The new quorum value
     function setQuorum(uint256 newQuorum) public {
         _checkOwner();
+        if (newQuorum == quorum) {
+            revert InvalidQuorum();
+        }
         _setQuorum(newQuorum);
     }
 
@@ -201,7 +204,7 @@ abstract contract HashConsensus is Ownable {
     /// @dev The quorum value must be greater than zero and not exceed the current number of members.
     /// @param executionQuorum The new quorum value to be set.
     function _setQuorum(uint256 executionQuorum) internal {
-        if (executionQuorum == 0 || executionQuorum > _members.length() || executionQuorum == quorum) {
+        if (executionQuorum == 0 || executionQuorum > _members.length()) {
             revert InvalidQuorum();
         }
         quorum = executionQuorum;
