@@ -11,7 +11,6 @@ import {Duration} from "contracts/types/Duration.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
 
 struct DeployConfig {
-    string CHAIN;
     Duration AFTER_SUBMIT_DELAY;
     Duration MAX_AFTER_SUBMIT_DELAY;
     Duration AFTER_SCHEDULE_DELAY;

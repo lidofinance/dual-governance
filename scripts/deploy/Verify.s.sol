@@ -7,13 +7,11 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {DeployConfig, LidoContracts} from "./Config.sol";
-import {DGContractsDeployment, DeployedContracts} from "./ContractsDeployment.sol";
+import {DGDeployConfigProvider} from "./EnvConfig.s.sol";
 import {DeployVerification} from "./DeployVerification.sol";
 
-abstract contract DeployBase is Script {
+contract Verify is Script {
     using DeployVerification for DeployVerification.DeployedAddresses;
-
-    error ChainIdMismatch(uint256 actual, uint256 expected);
 
     DeployConfig internal config;
     LidoContracts internal lidoAddresses;
@@ -21,22 +19,12 @@ abstract contract DeployBase is Script {
     uint256 private pk;
 
     function run() external {
-        if (lidoAddresses.chainId != block.chainid) {
-            revert ChainIdMismatch({actual: block.chainid, expected: lidoAddresses.chainId});
-        }
+        string memory chainName = vm.envString("CHAIN");
+        DGDeployConfigProvider configProvider = new DGDeployConfigProvider();
+        config = configProvider.loadAndValidate();
+        lidoAddresses = configProvider.getLidoAddresses(chainName);
 
-        pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        deployer = vm.addr(pk);
-        vm.label(deployer, "DEPLOYER");
-
-        vm.startBroadcast(pk);
-
-        DeployedContracts memory contracts =
-            DGContractsDeployment.deployDualGovernanceSetup(config, lidoAddresses, deployer);
-
-        vm.stopBroadcast();
-
-        DeployVerification.DeployedAddresses memory res = getDeployedAddresses(contracts);
+        DeployVerification.DeployedAddresses memory res = loadDeployedAddresses();
 
         printAddresses(res);
 
@@ -47,27 +35,23 @@ abstract contract DeployBase is Script {
         console.log(unicode"Verified ✅");
     }
 
-    function getDeployedAddresses(DeployedContracts memory contracts)
-        internal
-        pure
-        returns (DeployVerification.DeployedAddresses memory)
-    {
+    function loadDeployedAddresses() internal view returns (DeployVerification.DeployedAddresses memory) {
         return DeployVerification.DeployedAddresses({
-            adminExecutor: payable(address(contracts.adminExecutor)),
-            timelock: address(contracts.timelock),
-            emergencyGovernance: address(contracts.emergencyGovernance),
-            emergencyActivationCommittee: address(contracts.emergencyActivationCommittee),
-            emergencyExecutionCommittee: address(contracts.emergencyExecutionCommittee),
-            resealManager: address(contracts.resealManager),
-            dualGovernance: address(contracts.dualGovernance),
-            resealCommittee: address(contracts.resealCommittee),
-            tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: contracts.tiebreakerSubCommittees
+            adminExecutor: payable(vm.envAddress("ADMIN_EXECUTOR")),
+            timelock: vm.envAddress("TIMELOCK"),
+            emergencyGovernance: vm.envAddress("EMERGENCY_GOVERNANCE"),
+            emergencyActivationCommittee: vm.envAddress("EMERGENCY_ACTIVATION_COMMITTEE"),
+            emergencyExecutionCommittee: vm.envAddress("EMERGENCY_EXECUTION_COMMITTEE"),
+            resealManager: vm.envAddress("RESEAL_MANAGER"),
+            dualGovernance: vm.envAddress("DUAL_GOVERNANCE"),
+            resealCommittee: vm.envAddress("RESEAL_COMMITTEE"),
+            tiebreakerCoreCommittee: vm.envAddress("TIEBREAKER_CORE_COMMITTEE"),
+            tiebreakerSubCommittees: vm.envAddress("TIEBREAKER_SUB_COMMITTEES", ",")
         });
     }
 
     function printAddresses(DeployVerification.DeployedAddresses memory res) internal view {
-        console.log("DG deployed successfully");
+        console.log("Using the following DG contracts addresses");
         console.log("DualGovernance address", res.dualGovernance);
         console.log("ResealManager address", res.resealManager);
         console.log("TiebreakerCoreCommittee address", res.tiebreakerCoreCommittee);

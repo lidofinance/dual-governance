@@ -27,8 +27,7 @@ import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
-import {DeployConfig, LidoContracts, getSubCommitteeData} from "./DeployConfig.sol";
-import {getLidoAddresses} from "./EnvConfig.s.sol"; // TODO: make a param
+import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
 
 struct DeployedContracts {
     Executor adminExecutor;
@@ -43,12 +42,12 @@ struct DeployedContracts {
     address[] tiebreakerSubCommittees;
 }
 
-library DeployDGContracts {
+library DGContractsDeployment {
     function deployDualGovernanceSetup(
         DeployConfig memory dgDeployConfig,
+        LidoContracts memory lidoAddresses,
         address deployer
     ) internal returns (DeployedContracts memory contracts) {
-        LidoContracts memory lidoAddresses = getLidoAddresses(dgDeployConfig);
         contracts = deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, contracts, deployer);
         contracts.resealManager = deployResealManager(contracts.timelock);
         ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider =

@@ -17,8 +17,7 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
-import {DeployConfig, LidoContracts, getSubCommitteeData} from "./DeployConfig.sol";
-import {DGDeployConfigProvider, getLidoAddresses} from "./EnvConfig.s.sol"; // TODO: make a param
+import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
 
 // TODO: long error texts in require()
 
@@ -36,11 +35,11 @@ library DeployVerification {
         address[] tiebreakerSubCommittees;
     }
 
-    function verify(DeployedAddresses memory res) internal {
-        DGDeployConfigProvider configProvider = new DGDeployConfigProvider();
-        DeployConfig memory dgDeployConfig = configProvider.loadAndValidate();
-        LidoContracts memory lidoAddresses = getLidoAddresses(dgDeployConfig);
-
+    function verify(
+        DeployedAddresses memory res,
+        DeployConfig memory dgDeployConfig,
+        LidoContracts memory lidoAddresses
+    ) internal view {
         checkAdminExecutor(res.adminExecutor, res.timelock);
         checkTimelock(res, dgDeployConfig);
         checkEmergencyActivationCommittee(res, dgDeployConfig);
