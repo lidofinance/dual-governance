@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
+import {EmergencyExecutionCommittee, ProposalType} from "contracts/committees/EmergencyExecutionCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
@@ -81,7 +81,12 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         emergencyExecutionCommittee.voteEmergencyExecute(proposalId, true);
 
         vm.prank(committeeMembers[2]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                HashConsensus.HashIsNotScheduled.selector,
+                keccak256(abi.encode(ProposalType.EmergencyExecute, proposalId))
+            )
+        );
         emergencyExecutionCommittee.executeEmergencyExecute(proposalId);
     }
 
@@ -156,7 +161,12 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         emergencyExecutionCommittee.approveEmergencyReset();
 
         vm.prank(committeeMembers[2]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                HashConsensus.HashIsNotScheduled.selector,
+                keccak256(abi.encode(ProposalType.EmergencyReset, bytes32(0)))
+            )
+        );
         emergencyExecutionCommittee.executeEmergencyReset();
     }
 
