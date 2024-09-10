@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
+
 import {IEmergencyProtectedTimelock} from "../interfaces/IEmergencyProtectedTimelock.sol";
 
 /// @title EmergencyProtection

@@ -2,8 +2,8 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "../types/Duration.sol";
-import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 import {ETHValue, ETHValues} from "../types/ETHValue.sol";
+import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 import {SharesValue, SharesValues} from "../types/SharesValue.sol";
 import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
