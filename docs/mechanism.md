@@ -220,7 +220,7 @@ The sub-state's purpose is to allow all stakers to observe the Veto Signalling b
 **Transition to the parent state**. If, while the sub-state is active, the following condition becomes true:
 
 ```math
-\big( t - t^S_{act} \leq \, T_{lock}(R) \big)
+t - t^S_{act} \leq \, T_{lock}(R)
 ```
 
 then the Deactivation sub-state is exited so only the parent Veto Signalling state remains active.
