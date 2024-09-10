@@ -39,12 +39,12 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     /// @notice Votes on an emergency execution proposal
     /// @dev Only callable by committee members
     /// @param proposalId The ID of the proposal to vote on
-    /// @param _supports Indicates whether the member supports the proposal execution
-    function voteEmergencyExecute(uint256 proposalId, bool _supports) public {
+    /// @param _support Indicates whether the member supports the proposal execution
+    function voteEmergencyExecute(uint256 proposalId, bool _support) public {
         _checkCallerIsMember();
         _checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeEmergencyExecute(proposalId);
-        _vote(key, _supports);
+        _vote(key, _support);
         _pushProposal(key, uint256(ProposalType.EmergencyExecute), proposalData);
     }
 
