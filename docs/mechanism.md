@@ -220,10 +220,16 @@ The sub-state's purpose is to allow all stakers to observe the Veto Signalling b
 **Transition to the parent state**. If, while the sub-state is active, the following condition becomes true:
 
 ```math
-\big( t - t^S_{act} \leq \, T_{lock}(R) \big) \,\lor\, \big( R > R_2 \big)
+\big( t - t^S_{act} \leq \, T_{lock}(R) \big)
 ```
 
 then the Deactivation sub-state is exited so only the parent Veto Signalling state remains active.
+
+**Transition to Rage Quit**. If, while the sub-state is active, the following condition becomes true:
+```math
+\big( t - t^S_{act} > L_{max} \big) \, \land \, \big( R > R_2 \big)
+```
+then the Deactivation sub-state is exited along with its parent Veto Signalling state and the Rage Quit state is entered.
 
 **Transition to Veto Cooldown**. If, while the sub-state is active, the following condition becomes true:
 
