@@ -15,7 +15,7 @@ interface IDualGovernance is IGovernance, ITiebreaker {
         Timestamp vetoSignallingReactivationTime;
         Timestamp normalOrVetoCooldownExitedAt;
         uint256 rageQuitRound;
-        Duration dynamicDelay;
+        Duration vetoSignallingDuration;
     }
 
     function activateNextState() external;

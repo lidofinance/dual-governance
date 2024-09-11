@@ -120,7 +120,7 @@ library DualGovernanceStateMachine {
             self.rageQuitRound = uint8(newRageQuitRound);
 
             signallingEscrow.startRageQuit(
-                config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(newRageQuitRound)
+                config.rageQuitExtensionPeriodDuration, config.calcRageQuitWithdrawalsDelay(newRageQuitRound)
             );
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
@@ -139,7 +139,8 @@ library DualGovernanceStateMachine {
         stateDetails.vetoSignallingReactivationTime = self.vetoSignallingReactivationTime;
         stateDetails.normalOrVetoCooldownExitedAt = self.normalOrVetoCooldownExitedAt;
         stateDetails.rageQuitRound = self.rageQuitRound;
-        stateDetails.dynamicDelay = config.calcDynamicDelayDuration(self.signallingEscrow.getRageQuitSupport());
+        stateDetails.vetoSignallingDuration =
+            config.calcVetoSignallingDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
     function getState(Context storage self) internal view returns (State) {
@@ -157,7 +158,9 @@ library DualGovernanceStateMachine {
 
     function canScheduleProposal(Context storage self, Timestamp proposalSubmissionTime) internal view returns (bool) {
         State state = self.state;
-        if (state == State.Normal) return true;
+        if (state == State.Normal) {
+            return true;
+        }
         if (state == State.VetoCooldown) {
             return proposalSubmissionTime <= self.vetoSignallingActivatedAt;
         }
@@ -214,7 +217,7 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
+        if (!config.isVetoSignallingDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
         }
 
@@ -233,7 +236,7 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
+        if (!config.isVetoSignallingDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
         }
 

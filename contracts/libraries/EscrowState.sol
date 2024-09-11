@@ -27,25 +27,25 @@ library EscrowState {
 
     error ClaimingIsFinished();
     error UnexpectedState(State value);
-    error RageQuitExtraTimelockNotStarted();
-    error WithdrawalsTimelockNotPassed();
+    error EthWithdrawalsDelayNotPassed();
+    error RageQuitExtensionPeriodNotStarted();
     error InvalidMinAssetsLockDuration(Duration newMinAssetsLockDuration);
 
     // ---
     // Events
     // ---
 
-    event RageQuitTimelockStarted(Timestamp startedAt);
     event EscrowStateChanged(State from, State to);
-    event RageQuitStarted(Duration rageQuitExtensionDelay, Duration rageQuitWithdrawalsTimelock);
+    event RageQuitExtensionPeriodStarted(Timestamp startedAt);
     event MinAssetsLockDurationSet(Duration newAssetsLockDuration);
+    event RageQuitStarted(Duration rageQuitExtensionDuration, Duration rageQuitEthWithdrawalsDelay);
 
     /// @notice Stores the context of the state of the Escrow instance
     /// @param state The current state of the Escrow instance
     /// @param minAssetsLockDuration The minimum time required to pass before tokens can be unlocked from the Escrow
     ///        contract instance
-    /// @param rageQuitExtensionDelay The period of time that starts after all withdrawal batches are formed, which delays
-    ///        the exit from the RageQuit state of the DualGovernance. The main purpose of the rage quit extension delay is to provide
+    /// @param rageQuitExtensionPeriodDuration The period of time that starts after all withdrawal batches are formed, which delays
+    ///        the exit from the RageQuit state of the DualGovernance. The main purpose of the rage quit extension period is to provide
     ///        enough time for users who locked their unstETH to claim it.
     struct Context {
         /// @dev slot0: [0..7]
@@ -53,11 +53,11 @@ library EscrowState {
         /// @dev slot0: [8..39]
         Duration minAssetsLockDuration;
         /// @dev slot0: [40..71]
-        Duration rageQuitExtensionDelay;
+        Duration rageQuitExtensionPeriodDuration;
         /// @dev slot0: [72..111]
-        Timestamp rageQuitExtensionDelayStartedAt;
+        Timestamp rageQuitExtensionPeriodStartedAt;
         /// @dev slot0: [112..143]
-        Duration rageQuitWithdrawalsTimelock;
+        Duration rageQuitEthWithdrawalsDelay;
     }
 
     /// @notice Initializes the Escrow state to SignallingEscrow
@@ -71,25 +71,25 @@ library EscrowState {
 
     /// @notice Starts the rage quit process
     /// @param self The context of the Escrow instance
-    /// @param rageQuitExtensionDelay The delay period for the rage quit extension
-    /// @param rageQuitWithdrawalsTimelock The timelock period for rage quit withdrawals
+    /// @param rageQuitExtensionPeriodDuration The duration of the period for the rage quit extension
+    /// @param rageQuitEthWithdrawalsDelay The delay for rage quit withdrawals
     function startRageQuit(
         Context storage self,
-        Duration rageQuitExtensionDelay,
-        Duration rageQuitWithdrawalsTimelock
+        Duration rageQuitExtensionPeriodDuration,
+        Duration rageQuitEthWithdrawalsDelay
     ) internal {
         _checkState(self, State.SignallingEscrow);
         _setState(self, State.RageQuitEscrow);
-        self.rageQuitExtensionDelay = rageQuitExtensionDelay;
-        self.rageQuitWithdrawalsTimelock = rageQuitWithdrawalsTimelock;
-        emit RageQuitStarted(rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
+        self.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
+        self.rageQuitEthWithdrawalsDelay = rageQuitEthWithdrawalsDelay;
+        emit RageQuitStarted(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
     }
 
-    /// @notice Starts the rage quit extension delay
+    /// @notice Starts the rage quit extension period
     /// @param self The context of the Escrow instance
-    function startRageQuitExtensionDelay(Context storage self) internal {
-        self.rageQuitExtensionDelayStartedAt = Timestamps.now();
-        emit RageQuitTimelockStarted(self.rageQuitExtensionDelayStartedAt);
+    function startRageQuitExtensionPeriod(Context storage self) internal {
+        self.rageQuitExtensionPeriodStartedAt = Timestamps.now();
+        emit RageQuitExtensionPeriodStarted(self.rageQuitExtensionPeriodStartedAt);
     }
 
     /// @notice Sets the minimum assets lock duration
@@ -121,20 +121,20 @@ library EscrowState {
     /// @notice Checks if batch claiming is in progress
     /// @param self The context of the Escrow instance
     function checkBatchesClaimingInProgress(Context storage self) internal view {
-        if (!self.rageQuitExtensionDelayStartedAt.isZero()) {
+        if (!self.rageQuitExtensionPeriodStartedAt.isZero()) {
             revert ClaimingIsFinished();
         }
     }
 
-    /// @notice Checks if the withdrawals timelock has passed
+    /// @notice Checks if the withdrawals delay has passed
     /// @param self The context of the Escrow instance
-    function checkWithdrawalsTimelockPassed(Context storage self) internal view {
-        if (self.rageQuitExtensionDelayStartedAt.isZero()) {
-            revert RageQuitExtraTimelockNotStarted();
+    function checkEthWithdrawalsDelayPassed(Context storage self) internal view {
+        if (self.rageQuitExtensionPeriodStartedAt.isZero()) {
+            revert RageQuitExtensionPeriodNotStarted();
         }
-        Duration withdrawalsTimelock = self.rageQuitExtensionDelay + self.rageQuitWithdrawalsTimelock;
-        if (Timestamps.now() <= withdrawalsTimelock.addTo(self.rageQuitExtensionDelayStartedAt)) {
-            revert WithdrawalsTimelockNotPassed();
+        Duration ethWithdrawalsDelay = self.rageQuitExtensionPeriodDuration + self.rageQuitEthWithdrawalsDelay;
+        if (Timestamps.now() <= ethWithdrawalsDelay.addTo(self.rageQuitExtensionPeriodStartedAt)) {
+            revert EthWithdrawalsDelayNotPassed();
         }
     }
 
@@ -142,20 +142,20 @@ library EscrowState {
     // Getters
     // ---
 
-    /// @notice Checks if the rage quit extension delay has started
+    /// @notice Checks if the rage quit extension period has started
     /// @param self The context of the Escrow instance
-    /// @return True if the rage quit extension delay has started, false otherwise
-    function isRageQuitExtensionDelayStarted(Context storage self) internal view returns (bool) {
-        return self.rageQuitExtensionDelayStartedAt.isNotZero();
+    /// @return True if the rage quit extension period has started, false otherwise
+    function isRageQuitExtensionPeriodStarted(Context storage self) internal view returns (bool) {
+        return self.rageQuitExtensionPeriodStartedAt.isNotZero();
     }
 
-    /// @notice Checks if the rage quit extension delay has passed
+    /// @notice Checks if the rage quit extension period has passed
     /// @param self The context of the Escrow instance
-    /// @return True if the rage quit extension delay has passed, false otherwise
-    function isRageQuitExtensionDelayPassed(Context storage self) internal view returns (bool) {
-        Timestamp rageQuitExtensionDelayStartedAt = self.rageQuitExtensionDelayStartedAt;
-        return rageQuitExtensionDelayStartedAt.isNotZero()
-            && Timestamps.now() > self.rageQuitExtensionDelay.addTo(rageQuitExtensionDelayStartedAt);
+    /// @return True if the rage quit extension period has passed, false otherwise
+    function isRageQuitExtensionPeriodPassed(Context storage self) internal view returns (bool) {
+        Timestamp rageQuitExtensionPeriodStartedAt = self.rageQuitExtensionPeriodStartedAt;
+        return rageQuitExtensionPeriodStartedAt.isNotZero()
+            && Timestamps.now() > self.rageQuitExtensionPeriodDuration.addTo(rageQuitExtensionPeriodStartedAt);
     }
 
     /// @notice Checks if the Escrow is in the RageQuitEscrow state

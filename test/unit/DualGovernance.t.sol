@@ -52,17 +52,18 @@ contract DualGovernanceUnitTests is UnitTest {
             secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00), // 15%
             //
             minAssetsLockDuration: Durations.from(5 hours),
-            dynamicTimelockMinDuration: Durations.from(3 days),
-            dynamicTimelockMaxDuration: Durations.from(30 days),
             //
+            vetoSignallingMinDuration: Durations.from(3 days),
+            vetoSignallingMaxDuration: Durations.from(30 days),
             vetoSignallingMinActiveDuration: Durations.from(5 hours),
             vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
+            //
             vetoCooldownDuration: Durations.from(4 days),
             //
-            rageQuitExtensionDelay: Durations.from(7 days),
-            rageQuitEthWithdrawalsMinTimelock: Durations.from(60 days),
-            rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: 2,
-            rageQuitEthWithdrawalsTimelockGrowthCoeffs: [uint256(0), 0, 0]
+            rageQuitExtensionPeriodDuration: Durations.from(7 days),
+            rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+            rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+            rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
         })
     );
 
@@ -124,7 +125,7 @@ contract DualGovernanceUnitTests is UnitTest {
         State currentStateBefore = _dualGovernance.getState();
 
         assertEq(currentStateBefore, State.VetoSignalling);
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         assertEq(currentStateBefore, _dualGovernance.getState());
 
         _dualGovernance.submitProposal(_generateExternalCalls(), "");
@@ -156,7 +157,7 @@ contract DualGovernanceUnitTests is UnitTest {
         uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
         Timestamp submittedAt = Timestamps.now();
 
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MIN_DURATION());
+        _wait(_configProvider.VETO_SIGNALLING_MIN_DURATION());
         _timelock.setSchedule(proposalId);
 
         vm.mockCall(
@@ -186,7 +187,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MIN_DURATION());
+        _wait(_configProvider.VETO_SIGNALLING_MIN_DURATION());
         _escrow.unlockStETH();
         vm.stopPrank();
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
@@ -303,7 +304,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         assertEq(_dualGovernance.getState(), State.VetoSignalling);
 
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
         _dualGovernance.activateNextState();
         assertEq(_dualGovernance.getState(), State.RageQuit);
@@ -422,7 +423,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_dualGovernance.getState(), State.Normal);
 
         _escrow.lockStETH(5 ether);
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
 
         assertTrue(_dualGovernance.canSubmitProposal());
@@ -455,7 +456,7 @@ contract DualGovernanceUnitTests is UnitTest {
             address(_timelock), abi.encodeWithSelector(TimelockMock.canSchedule.selector, proposalId), abi.encode(true)
         );
 
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MIN_DURATION());
+        _wait(_configProvider.VETO_SIGNALLING_MIN_DURATION());
 
         assertTrue(_dualGovernance.canScheduleProposal(proposalId));
     }
@@ -482,7 +483,7 @@ contract DualGovernanceUnitTests is UnitTest {
             address(_timelock), abi.encodeWithSelector(TimelockMock.canSchedule.selector, proposalId), abi.encode(false)
         );
 
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MIN_DURATION());
+        _wait(_configProvider.VETO_SIGNALLING_MIN_DURATION());
 
         bool canSchedule = _dualGovernance.canScheduleProposal(proposalId);
         assertFalse(canSchedule);
@@ -549,7 +550,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.activateNextState();
         assertEq(_dualGovernance.getState(), State.VetoSignalling);
 
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
         assertEq(_dualGovernance.getState(), State.RageQuit);
     }
@@ -563,16 +564,19 @@ contract DualGovernanceUnitTests is UnitTest {
             DualGovernanceConfig.Context({
                 firstSealRageQuitSupport: PercentsD16.fromBasisPoints(5_00), // 5%
                 secondSealRageQuitSupport: PercentsD16.fromBasisPoints(20_00), // 20%
+                //
                 minAssetsLockDuration: Durations.from(6 hours),
-                dynamicTimelockMinDuration: Durations.from(4 days),
-                dynamicTimelockMaxDuration: Durations.from(35 days),
+                //
+                vetoSignallingMinDuration: Durations.from(4 days),
+                vetoSignallingMaxDuration: Durations.from(35 days),
                 vetoSignallingMinActiveDuration: Durations.from(6 hours),
                 vetoSignallingDeactivationMaxDuration: Durations.from(6 days),
                 vetoCooldownDuration: Durations.from(5 days),
-                rageQuitExtensionDelay: Durations.from(8 days),
-                rageQuitEthWithdrawalsMinTimelock: Durations.from(65 days),
-                rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: 3,
-                rageQuitEthWithdrawalsTimelockGrowthCoeffs: [uint256(0), 0, 0]
+                //
+                rageQuitExtensionPeriodDuration: Durations.from(8 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             })
         );
 
@@ -602,16 +606,19 @@ contract DualGovernanceUnitTests is UnitTest {
             DualGovernanceConfig.Context({
                 firstSealRageQuitSupport: PercentsD16.fromBasisPoints(5_00), // 5%
                 secondSealRageQuitSupport: PercentsD16.fromBasisPoints(20_00), // 20%
+                //
                 minAssetsLockDuration: Durations.from(6 hours),
-                dynamicTimelockMinDuration: Durations.from(4 days),
-                dynamicTimelockMaxDuration: Durations.from(35 days),
+                //
+                vetoSignallingMinDuration: Durations.from(4 days),
+                vetoSignallingMaxDuration: Durations.from(35 days),
                 vetoSignallingMinActiveDuration: Durations.from(6 hours),
                 vetoSignallingDeactivationMaxDuration: Durations.from(6 days),
                 vetoCooldownDuration: Durations.from(5 days),
-                rageQuitExtensionDelay: Durations.from(8 days),
-                rageQuitEthWithdrawalsMinTimelock: Durations.from(65 days),
-                rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: 3,
-                rageQuitEthWithdrawalsTimelockGrowthCoeffs: [uint256(0), 0, 0]
+                //
+                rageQuitExtensionPeriodDuration: Durations.from(8 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             })
         );
 
@@ -649,16 +656,19 @@ contract DualGovernanceUnitTests is UnitTest {
             DualGovernanceConfig.Context({
                 firstSealRageQuitSupport: PercentsD16.fromBasisPoints(5_00), // 5%
                 secondSealRageQuitSupport: PercentsD16.fromBasisPoints(20_00), // 20%
+                //
                 minAssetsLockDuration: Durations.from(6 hours),
-                dynamicTimelockMinDuration: Durations.from(4 days),
-                dynamicTimelockMaxDuration: Durations.from(35 days),
+                //
+                vetoSignallingMinDuration: Durations.from(4 days),
+                vetoSignallingMaxDuration: Durations.from(35 days),
                 vetoSignallingMinActiveDuration: Durations.from(6 hours),
                 vetoSignallingDeactivationMaxDuration: Durations.from(6 days),
                 vetoCooldownDuration: Durations.from(5 days),
-                rageQuitExtensionDelay: Durations.from(8 days),
-                rageQuitEthWithdrawalsMinTimelock: Durations.from(65 days),
-                rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: 3,
-                rageQuitEthWithdrawalsTimelockGrowthCoeffs: [uint256(0), 0, 0]
+                //
+                rageQuitExtensionPeriodDuration: Durations.from(8 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             })
         );
 
@@ -682,7 +692,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
 
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
         assertEq(_dualGovernance.getState(), State.RageQuit);
 
@@ -699,7 +709,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
 
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
         assertEq(_dualGovernance.getState(), State.RageQuit);
 
@@ -720,7 +730,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, Timestamps.from(0));
         assertEq(details.rageQuitRound, 0);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
@@ -735,7 +745,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
         assertEq(details.rageQuitRound, 0);
-        assertTrue(details.dynamicDelay > _configProvider.DYNAMIC_TIMELOCK_MIN_DURATION());
+        assertTrue(details.vetoSignallingDuration > _configProvider.VETO_SIGNALLING_MIN_DURATION());
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
         vm.prank(vetoer);
@@ -750,7 +760,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
         assertEq(details.rageQuitRound, 0);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
 
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         Timestamp vetoCooldownTime = Timestamps.now();
@@ -763,7 +773,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
         assertEq(details.rageQuitRound, 0);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
 
         _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
         Timestamp backToNormalTime = Timestamps.now();
@@ -776,13 +786,13 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, backToNormalTime);
         assertEq(details.rageQuitRound, 0);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
         Timestamp secondVetoSignallingTime = Timestamps.now();
         _dualGovernance.activateNextState();
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         Timestamp rageQuitTime = Timestamps.now();
         _dualGovernance.activateNextState();
         vm.stopPrank();
@@ -794,7 +804,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, backToNormalTime);
         assertEq(details.rageQuitRound, 1);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
     }
 
     // ---
@@ -1131,7 +1141,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
         _dualGovernance.activateNextState();
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
         vm.mockCall(
             address(_RESEAL_MANAGER_STUB),
@@ -1157,7 +1167,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
         _dualGovernance.activateNextState();
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(Tiebreaker.CallerIsNotTiebreakerCommittee.selector, stranger));
@@ -1178,7 +1188,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _escrow.lockStETH(1 ether);
         vm.stopPrank();
         _dualGovernance.activateNextState();
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
         assertEq(_dualGovernance.getState(), State.VetoSignalling);
 
@@ -1216,7 +1226,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
         _dualGovernance.activateNextState();
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
         vm.mockCall(address(_timelock), abi.encodeWithSelector(ITimelock.schedule.selector, proposalId), abi.encode());
         vm.expectCall(address(_timelock), abi.encodeWithSelector(ITimelock.schedule.selector, proposalId));
@@ -1257,7 +1267,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.activateNextState();
         assertEq(uint256(_dualGovernance.getState()), uint256(State.VetoSignalling));
 
-        _wait(_configProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
         vm.expectCall(address(_timelock), abi.encodeWithSelector(ITimelock.schedule.selector, proposalId));
         vm.mockCall(address(_timelock), abi.encodeWithSelector(ITimelock.schedule.selector, proposalId), abi.encode());

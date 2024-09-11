@@ -123,7 +123,7 @@ library AssetsAccounting {
     error InvalidSharesValue(SharesValue value);
     error InvalidUnstETHStatus(uint256 unstETHId, UnstETHRecordStatus status);
     error InvalidUnstETHHolder(uint256 unstETHId, address actual, address expected);
-    error MinAssetsLockDurationNotPassed(Timestamp unlockTimelockExpiresAt);
+    error MinAssetsLockDurationNotPassed(Timestamp lockDurationExpiresAt);
     error InvalidClaimableAmount(uint256 unstETHId, ETHValue expected, ETHValue actual);
 
     // ---

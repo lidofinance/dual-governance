@@ -10,18 +10,20 @@ import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
+import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigProvider.sol";
 
 import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
+import {DualGovernanceConfig} from "./libraries/DualGovernanceConfig.sol";
 import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
-import {IDualGovernanceConfigProvider} from "./DualGovernanceConfigProvider.sol";
 
 import {Escrow} from "./Escrow.sol";
 
 contract DualGovernance is IDualGovernance {
     using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
+    using DualGovernanceConfig for DualGovernanceConfig.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
     // ---
@@ -324,7 +326,8 @@ contract DualGovernance is IDualGovernance {
             revert InvalidConfigProvider(newConfigProvider);
         }
 
-        _configProvider = IDualGovernanceConfigProvider(newConfigProvider);
+        newConfigProvider.getDualGovernanceConfig().validate();
+        _configProvider = newConfigProvider;
         emit ConfigProviderSet(newConfigProvider);
     }
 

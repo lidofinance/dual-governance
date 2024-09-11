@@ -337,7 +337,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
             escrow.claimNextWithdrawalsBatch(32);
         }
 
-        escrow.startRageQuitExtensionDelay();
+        escrow.startRageQuitExtensionPeriod();
         assertEq(escrow.isRageQuitFinalized(), false);
 
         // ---
@@ -392,7 +392,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         vm.expectRevert();
         escrow.claimNextWithdrawalsBatch(0, new uint256[](0));
 
-        escrow.startRageQuitExtensionDelay();
+        escrow.startRageQuitExtensionPeriod();
 
         assertEq(escrow.isRageQuitFinalized(), false);
 
@@ -430,7 +430,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         vm.expectRevert(Escrow.BatchesQueueIsNotClosed.selector);
-        escrow.startRageQuitExtensionDelay();
+        escrow.startRageQuitExtensionPeriod();
 
         escrow.requestNextWithdrawalsBatch(96);
 
@@ -438,11 +438,11 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         escrow.claimNextWithdrawalsBatch(0);
 
         vm.expectRevert(Escrow.UnfinalizedUnstETHIds.selector);
-        escrow.startRageQuitExtensionDelay();
+        escrow.startRageQuitExtensionPeriod();
 
         _finalizeWithdrawalQueue();
 
-        escrow.startRageQuitExtensionDelay();
+        escrow.startRageQuitExtensionPeriod();
 
         uint256[] memory hints =
             _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
@@ -578,7 +578,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         _assertVetoSignalingState();
 
         // wait till the last second of the dynamic timelock duration
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION());
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION());
         _activateNextState();
         _assertVetoSignalingState();
 

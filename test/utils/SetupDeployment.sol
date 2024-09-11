@@ -360,17 +360,17 @@ abstract contract SetupDeployment is Test {
                 secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00), // 15%
                 //
                 minAssetsLockDuration: Durations.from(5 hours),
-                dynamicTimelockMinDuration: Durations.from(3 days),
-                dynamicTimelockMaxDuration: Durations.from(30 days),
                 //
+                vetoSignallingMinDuration: Durations.from(3 days),
+                vetoSignallingMaxDuration: Durations.from(30 days),
                 vetoSignallingMinActiveDuration: Durations.from(5 hours),
                 vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
                 vetoCooldownDuration: Durations.from(4 days),
                 //
-                rageQuitExtensionDelay: Durations.from(7 days),
-                rageQuitEthWithdrawalsMinTimelock: Durations.from(60 days),
-                rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: 2,
-                rageQuitEthWithdrawalsTimelockGrowthCoeffs: [uint256(0), 0, 0]
+                rageQuitExtensionPeriodDuration: Durations.from(7 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             })
         );
     }
