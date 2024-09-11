@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
@@ -16,6 +17,7 @@ abstract contract HashConsensus is Ownable {
     event MemberRemoved(address indexed member);
     event QuorumSet(uint256 quorum);
     event HashUsed(bytes32 hash);
+    event HashScheduled(bytes32 hash);
     event Voted(address indexed signer, bytes32 hash, bool support);
     event TimelockDurationSet(Duration timelockDuration);
 
@@ -23,11 +25,12 @@ abstract contract HashConsensus is Ownable {
     error AccountIsNotMember(address account);
     error CallerIsNotMember(address caller);
     error HashAlreadyUsed(bytes32 hash);
+    error HashIsNotScheduled(bytes32 hash);
+    error HashAlreadyScheduled(bytes32 hash);
     error QuorumIsNotReached();
     error InvalidQuorum();
     error InvalidTimelockDuration(Duration timelock);
     error TimelockNotPassed();
-    error ProposalAlreadyScheduled(bytes32 hash);
 
     struct HashState {
         Timestamp scheduledAt;
@@ -51,42 +54,36 @@ abstract contract HashConsensus is Ownable {
     /// @param hash The hash to vote on
     /// @param support Indicates whether the member supports the hash
     function _vote(bytes32 hash, bool support) internal {
-        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
-            revert HashAlreadyUsed(hash);
-        }
-
-        if (approves[msg.sender][hash] == support) {
-            return;
-        }
-
-        uint256 heads = _getSupport(hash);
-        // heads compares to quorum - 1 because the current vote is not counted yet
-        if (heads >= quorum - 1 && support == true && _hashStates[hash].scheduledAt == Timestamps.from(0)) {
-            _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
+        if (_hashStates[hash].scheduledAt.isNotZero()) {
+            revert HashAlreadyScheduled(hash);
         }
 
         approves[msg.sender][hash] = support;
         emit Voted(msg.sender, hash, support);
+
+        if (_getSupport(hash) == quorum) {
+            _hashStates[hash].scheduledAt = Timestamps.now();
+            emit HashScheduled(hash);
+        }
     }
 
     /// @notice Marks a hash as used if quorum is reached and timelock has passed
     /// @dev Internal function that handles marking a hash as used
     /// @param hash The hash to mark as used
     function _markUsed(bytes32 hash) internal {
-        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
+        if (_hashStates[hash].scheduledAt.isZero()) {
+            revert HashIsNotScheduled(hash);
+        }
+
+        if (_hashStates[hash].usedAt.isNotZero()) {
             revert HashAlreadyUsed(hash);
         }
 
-        uint256 support = _getSupport(hash);
-
-        if (support == 0 || support < quorum) {
-            revert QuorumIsNotReached();
-        }
-        if (timelockDuration.addTo(_hashStates[hash].scheduledAt) > Timestamps.from(block.timestamp)) {
+        if (timelockDuration.addTo(_hashStates[hash].scheduledAt) > Timestamps.now()) {
             revert TimelockNotPassed();
         }
 
-        _hashStates[hash].usedAt = Timestamps.from(block.timestamp);
+        _hashStates[hash].usedAt = Timestamps.now();
 
         emit HashUsed(hash);
     }
@@ -106,7 +103,7 @@ abstract contract HashConsensus is Ownable {
         support = _getSupport(hash);
         executionQuorum = quorum;
         scheduledAt = _hashStates[hash].scheduledAt;
-        isUsed = _hashStates[hash].usedAt > Timestamps.from(0);
+        isUsed = _hashStates[hash].usedAt.isNotZero();
     }
 
     /// @notice Adds new members to the contract and sets the execution quorum.
@@ -127,19 +124,11 @@ abstract contract HashConsensus is Ownable {
     ///      function will revert. The quorum is also updated and must not be zero or greater than
     ///      the new total number of members.
     /// @param membersToRemove The array of addresses to be removed from the members list.
-    /// @param newQuorum The updated minimum number of members required for executing certain operations.
-    function removeMembers(address[] memory membersToRemove, uint256 newQuorum) public {
+    /// @param executionQuorum The updated minimum number of members required for executing certain operations.
+    function removeMembers(address[] memory membersToRemove, uint256 executionQuorum) public {
         _checkOwner();
 
-        for (uint256 i = 0; i < membersToRemove.length; ++i) {
-            if (!_members.contains(membersToRemove[i])) {
-                revert AccountIsNotMember(membersToRemove[i]);
-            }
-            _members.remove(membersToRemove[i]);
-            emit MemberRemoved(membersToRemove[i]);
-        }
-
-        _setQuorum(newQuorum);
+        _removeMembers(membersToRemove, executionQuorum);
     }
 
     /// @notice Gets the list of committee members
@@ -174,6 +163,9 @@ abstract contract HashConsensus is Ownable {
     /// @param newQuorum The new quorum value
     function setQuorum(uint256 newQuorum) public {
         _checkOwner();
+        if (newQuorum == quorum) {
+            revert InvalidQuorum();
+        }
         _setQuorum(newQuorum);
     }
 
@@ -183,25 +175,23 @@ abstract contract HashConsensus is Ownable {
     ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
     function schedule(bytes32 hash) public {
-        if (_hashStates[hash].usedAt > Timestamps.from(0)) {
-            revert HashAlreadyUsed(hash);
+        if (_hashStates[hash].scheduledAt.isNotZero()) {
+            revert HashAlreadyScheduled(hash);
         }
 
         if (_getSupport(hash) < quorum) {
             revert QuorumIsNotReached();
         }
-        if (_hashStates[hash].scheduledAt > Timestamps.from(0)) {
-            revert ProposalAlreadyScheduled(hash);
-        }
 
         _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
+        emit HashScheduled(hash);
     }
 
     /// @notice Sets the execution quorum required for certain operations.
     /// @dev The quorum value must be greater than zero and not exceed the current number of members.
     /// @param executionQuorum The new quorum value to be set.
     function _setQuorum(uint256 executionQuorum) internal {
-        if (executionQuorum == 0 || executionQuorum > _members.length() || executionQuorum == quorum) {
+        if (executionQuorum == 0 || executionQuorum > _members.length()) {
             revert InvalidQuorum();
         }
         quorum = executionQuorum;
@@ -215,11 +205,27 @@ abstract contract HashConsensus is Ownable {
     /// @param executionQuorum The minimum number of members required for executing certain operations.
     function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
         for (uint256 i = 0; i < newMembers.length; ++i) {
-            if (_members.contains(newMembers[i])) {
+            if (!_members.add(newMembers[i])) {
                 revert DuplicatedMember(newMembers[i]);
             }
-            _members.add(newMembers[i]);
             emit MemberAdded(newMembers[i]);
+        }
+
+        _setQuorum(executionQuorum);
+    }
+
+    /// @notice Removes specified members from the contract and updates the execution quorum.
+    /// @dev This internal function removes multiple members from the contract. If any of the specified members are not
+    ///      found in the members list, the function will revert. The quorum is also updated and must not be zero or
+    ///      greater than the new total number of members.
+    /// @param membersToRemove The array of addresses to be removed from the members list.
+    /// @param executionQuorum The updated minimum number of members required for executing certain operations.
+    function _removeMembers(address[] memory membersToRemove, uint256 executionQuorum) internal {
+        for (uint256 i = 0; i < membersToRemove.length; ++i) {
+            if (!_members.remove(membersToRemove[i])) {
+                revert AccountIsNotMember(membersToRemove[i]);
+            }
+            emit MemberRemoved(membersToRemove[i]);
         }
 
         _setQuorum(executionQuorum);

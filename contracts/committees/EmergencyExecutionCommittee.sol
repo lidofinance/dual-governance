@@ -2,11 +2,14 @@
 pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
+import {Durations} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
+import {ITimelock} from "../interfaces/ITimelock.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {ITimelock} from "../interfaces/ITimelock.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Durations} from "../types/Duration.sol";
 
 enum ProposalType {
     EmergencyExecute,
@@ -17,6 +20,8 @@ enum ProposalType {
 /// @notice This contract allows a committee to vote on and execute emergency proposals
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
+    error ProposalDoesNotExist(uint256 proposalId);
+
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
     constructor(
@@ -37,11 +42,12 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     /// @notice Votes on an emergency execution proposal
     /// @dev Only callable by committee members
     /// @param proposalId The ID of the proposal to vote on
-    /// @param _supports Indicates whether the member supports the proposal execution
-    function voteEmergencyExecute(uint256 proposalId, bool _supports) public {
+    /// @param _support Indicates whether the member supports the proposal execution
+    function voteEmergencyExecute(uint256 proposalId, bool _support) public {
         _checkCallerIsMember();
+        _checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeEmergencyExecute(proposalId);
-        _vote(key, _supports);
+        _vote(key, _support);
         _pushProposal(key, uint256(ProposalType.EmergencyExecute), proposalData);
     }
 
@@ -68,6 +74,14 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         Address.functionCall(
             EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.emergencyExecute.selector, proposalId)
         );
+    }
+
+    /// @notice Checks if a proposal exists
+    /// @param proposalId The ID of the proposal to check
+    function _checkProposalExists(uint256 proposalId) internal view {
+        if (proposalId == 0 || proposalId > ITimelock(EMERGENCY_PROTECTED_TIMELOCK).getProposalsCount()) {
+            revert ProposalDoesNotExist(proposalId);
+        }
     }
 
     /// @dev Encodes the proposal data and generates the proposal key for an emergency execution

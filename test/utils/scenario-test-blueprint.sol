@@ -28,7 +28,8 @@ import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousC
 // ---
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {ProposalStatus, EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
+import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
+import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 import {IGovernance} from "contracts/TimelockedGovernance.sol";
 import {State as DGState, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
 

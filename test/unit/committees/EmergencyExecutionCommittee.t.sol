@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
+import {EmergencyExecutionCommittee, ProposalType} from "contracts/committees/EmergencyExecutionCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
@@ -9,6 +9,18 @@ import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
+
+contract EmergencyProtectedTimelockMock is TargetMock {
+    uint256 public proposalsCount;
+
+    function getProposalsCount() external view returns (uint256 count) {
+        return proposalsCount;
+    }
+
+    function setProposalsCount(uint256 _proposalsCount) external {
+        proposalsCount = _proposalsCount;
+    }
+}
 
 contract EmergencyExecutionCommitteeUnitTest is UnitTest {
     EmergencyExecutionCommittee internal emergencyExecutionCommittee;
@@ -19,7 +31,8 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
     uint256 internal proposalId = 1;
 
     function setUp() external {
-        emergencyProtectedTimelock = address(new TargetMock());
+        emergencyProtectedTimelock = address(new EmergencyProtectedTimelockMock());
+        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(1);
         emergencyExecutionCommittee =
             new EmergencyExecutionCommittee(owner, committeeMembers, quorum, emergencyProtectedTimelock);
     }
@@ -53,6 +66,26 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         assertFalse(isExecuted);
     }
 
+    function test_voteEmergencyExecute_RevertOn_ProposalIdExceedsProposalsCount() external {
+        uint256 nonExistentProposalId = proposalId + 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EmergencyExecutionCommittee.ProposalDoesNotExist.selector, nonExistentProposalId)
+        );
+        vm.prank(committeeMembers[0]);
+        emergencyExecutionCommittee.voteEmergencyExecute(nonExistentProposalId, true);
+    }
+
+    function test_voteEmergencyExecute_RevertOn_ProposalIdIsZero() external {
+        uint256 nonExistentProposalId = 0;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EmergencyExecutionCommittee.ProposalDoesNotExist.selector, nonExistentProposalId)
+        );
+        vm.prank(committeeMembers[0]);
+        emergencyExecutionCommittee.voteEmergencyExecute(nonExistentProposalId, true);
+    }
+
     function testFuzz_voteEmergencyExecute_RevertOn_NotMember(address caller) external {
         vm.assume(caller != committeeMembers[0] && caller != committeeMembers[1] && caller != committeeMembers[2]);
         vm.prank(caller);
@@ -81,7 +114,12 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         emergencyExecutionCommittee.voteEmergencyExecute(proposalId, true);
 
         vm.prank(committeeMembers[2]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                HashConsensus.HashIsNotScheduled.selector,
+                keccak256(abi.encode(ProposalType.EmergencyExecute, proposalId))
+            )
+        );
         emergencyExecutionCommittee.executeEmergencyExecute(proposalId);
     }
 
@@ -156,7 +194,12 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         emergencyExecutionCommittee.approveEmergencyReset();
 
         vm.prank(committeeMembers[2]);
-        vm.expectRevert(abi.encodeWithSelector(HashConsensus.QuorumIsNotReached.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                HashConsensus.HashIsNotScheduled.selector,
+                keccak256(abi.encode(ProposalType.EmergencyReset, bytes32(0)))
+            )
+        );
         emergencyExecutionCommittee.executeEmergencyReset();
     }
 

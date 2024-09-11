@@ -2,17 +2,15 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "./types/Duration.sol";
-import {Timestamp} from "./types/Timestamp.sol";
-import {ITimelock} from "./interfaces/ITimelock.sol";
-import {IResealManager} from "./interfaces/IResealManager.sol";
-import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigProvider.sol";
 
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
+import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
-import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
+import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigProvider.sol";
 
 import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
@@ -49,6 +47,7 @@ contract DualGovernance is IDualGovernance {
     event CancelAllPendingProposalsExecuted();
     event EscrowMasterCopyDeployed(address escrowMasterCopy);
     event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
+    event ResealCommitteeSet(address resealCommittee);
 
     // ---
     // Tiebreaker Sanity Check Param Immutables
@@ -314,6 +313,8 @@ contract DualGovernance is IDualGovernance {
     function setResealCommittee(address resealCommittee) external {
         _checkCallerIsAdminExecutor();
         _resealCommittee = resealCommittee;
+
+        emit ResealCommitteeSet(resealCommittee);
     }
 
     // ---
@@ -321,17 +322,12 @@ contract DualGovernance is IDualGovernance {
     // ---
 
     function _setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) internal {
-        if (address(newConfigProvider) == address(0)) {
+        if (address(newConfigProvider) == address(0) || newConfigProvider == _configProvider) {
             revert InvalidConfigProvider(newConfigProvider);
         }
 
-        if (newConfigProvider == _configProvider) {
-            return;
-        }
-
-        IDualGovernanceConfigProvider(newConfigProvider).getDualGovernanceConfig().validate();
-
-        _configProvider = IDualGovernanceConfigProvider(newConfigProvider);
+        newConfigProvider.getDualGovernanceConfig().validate();
+        _configProvider = newConfigProvider;
         emit ConfigProviderSet(newConfigProvider);
     }
 

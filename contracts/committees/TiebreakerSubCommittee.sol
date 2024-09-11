@@ -3,11 +3,13 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
+import {Durations} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
 import {ITiebreakerCore} from "../interfaces/ITiebreakerCore.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Durations} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,
@@ -40,6 +42,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     function scheduleProposal(uint256 proposalId) public {
         _checkCallerIsMember();
+        ITiebreakerCore(TIEBREAKER_CORE).checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeApproveProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);

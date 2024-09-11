@@ -4,12 +4,12 @@ pragma solidity 0.8.26;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
-import {IEscrow} from "../interfaces/IEscrow.sol";
-import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
-
 import {Duration} from "../types/Duration.sol";
 import {PercentD16} from "../types/PercentD16.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
+
+import {IEscrow} from "../interfaces/IEscrow.sol";
+import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 
 import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
 
