@@ -132,7 +132,6 @@ contract Escrow is IEscrow {
     // ---
 
     function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares) {
-        _checkNoPendingRageQuitTransition();
         _escrowState.checkSignallingEscrow();
 
         lockedStETHShares = ST_ETH.getSharesByPooledEth(amount);
@@ -143,7 +142,6 @@ contract Escrow is IEscrow {
     }
 
     function unlockStETH() external returns (uint256 unlockedStETHShares) {
-        _checkNoPendingRageQuitTransition();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
 
@@ -158,7 +156,6 @@ contract Escrow is IEscrow {
     // ---
 
     function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares) {
-        _checkNoPendingRageQuitTransition();
         _escrowState.checkSignallingEscrow();
 
         WST_ETH.transferFrom(msg.sender, address(this), amount);
@@ -169,7 +166,6 @@ contract Escrow is IEscrow {
     }
 
     function unlockWstETH() external returns (uint256 unlockedStETHShares) {
-        _checkNoPendingRageQuitTransition();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
 
@@ -187,7 +183,6 @@ contract Escrow is IEscrow {
         if (unstETHIds.length == 0) {
             revert EmptyUnstETHIds();
         }
-        _checkNoPendingRageQuitTransition();
         _escrowState.checkSignallingEscrow();
 
         WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
@@ -201,7 +196,6 @@ contract Escrow is IEscrow {
     }
 
     function unlockUnstETH(uint256[] memory unstETHIds) external {
-        _checkNoPendingRageQuitTransition();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
 
@@ -480,12 +474,6 @@ contract Escrow is IEscrow {
     function _checkCallerIsDualGovernance() internal view {
         if (msg.sender != address(DUAL_GOVERNANCE)) {
             revert CallerIsNotDualGovernance(msg.sender);
-        }
-    }
-
-    function _checkNoPendingRageQuitTransition() internal view {
-        if (DUAL_GOVERNANCE.hasPendingRageQuitTransition()) {
-            revert PendingRageQuitTransition();
         }
     }
 }
