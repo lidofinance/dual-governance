@@ -175,4 +175,82 @@ contract ProposersLibraryUnitTests is UnitTest {
         assertEq(allProposers[1].account, _DEFAULT_PROPOSER);
         assertEq(allProposers[1].executor, _DEFAULT_EXECUTOR);
     }
+
+    // ---
+    // Edge cases
+    // ---
+
+    function test_unregister_Spam() external {
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+
+        address dravee = makeAddr("Dravee");
+        address draveeExecutor = makeAddr("draveeExecutor");
+        address alice = makeAddr("Alice");
+        address aliceExecutor = makeAddr("aliceExecutor");
+        address celine = makeAddr("Celine");
+        address celineExecutor = makeAddr("celineExecutor");
+        address bob = makeAddr("Bob");
+        address bobExecutor = makeAddr("bobExecutor");
+
+        _proposers.register(alice, aliceExecutor);
+        _proposers.register(bob, bobExecutor);
+        _proposers.register(celine, celineExecutor);
+        _proposers.register(dravee, draveeExecutor);
+
+        _proposers.unregister(bob);
+        _proposers.unregister(dravee);
+        _proposers.unregister(celine);
+        _proposers.unregister(alice);
+    }
+
+    function test_unregister_CorrectPosition() external {
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+
+        address dravee = makeAddr("Dravee");
+        address draveeExecutor = makeAddr("draveeExecutor");
+        address alice = makeAddr("Alice");
+        address aliceExecutor = makeAddr("aliceExecutor");
+        address celine = makeAddr("Celine");
+        address celineExecutor = makeAddr("celineExecutor");
+        address bob = makeAddr("Bob");
+        address bobExecutor = makeAddr("bobExecutor");
+
+        _proposers.register(alice, aliceExecutor);
+        _proposers.register(bob, bobExecutor);
+        _proposers.register(celine, celineExecutor);
+        _proposers.register(dravee, draveeExecutor);
+
+        _proposers.unregister(bob);
+
+        Proposers.Proposer[] memory allProposers = _proposers.getAllProposers();
+
+        assertEq(allProposers.length, 4);
+        assertEq(allProposers[0].account, _ADMIN_PROPOSER);
+        assertEq(allProposers[1].account, alice);
+        assertEq(allProposers[1].executor, aliceExecutor);
+        assertEq(allProposers[2].account, dravee);
+        assertEq(allProposers[2].executor, draveeExecutor);
+        assertEq(allProposers[3].account, celine);
+        assertEq(allProposers[3].executor, celineExecutor);
+
+        _proposers.unregister(alice);
+
+        allProposers = _proposers.getAllProposers();
+
+        assertEq(allProposers.length, 3);
+        assertEq(allProposers[0].account, _ADMIN_PROPOSER);
+        assertEq(allProposers[1].account, celine);
+        assertEq(allProposers[1].executor, celineExecutor);
+        assertEq(allProposers[2].account, dravee);
+        assertEq(allProposers[2].account, dravee);
+
+        _proposers.unregister(dravee);
+
+        allProposers = _proposers.getAllProposers();
+
+        assertEq(allProposers.length, 2);
+        assertEq(allProposers[0].account, _ADMIN_PROPOSER);
+        assertEq(allProposers[1].account, celine);
+        assertEq(allProposers[1].executor, celineExecutor);
+    }
 }
