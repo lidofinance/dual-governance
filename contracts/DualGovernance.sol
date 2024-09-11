@@ -16,7 +16,11 @@ import {IResealManager} from "./interfaces/IResealManager.sol";
 import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
-import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
+import {
+    State,
+    DualGovernanceStateMachine,
+    DualGovernanceStateTransitions
+} from "./libraries/DualGovernanceStateMachine.sol";
 import {IDualGovernanceConfigProvider} from "./DualGovernanceConfigProvider.sol";
 
 import {Escrow} from "./Escrow.sol";
@@ -25,6 +29,7 @@ contract DualGovernance is IDualGovernance {
     using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
+    using DualGovernanceStateTransitions for DualGovernanceStateMachine.Context;
 
     // ---
     // Errors
@@ -212,6 +217,12 @@ contract DualGovernance is IDualGovernance {
 
     function getStateDetails() external view returns (IDualGovernance.StateDetails memory stateDetails) {
         return _stateMachine.getStateDetails(_configProvider.getDualGovernanceConfig());
+    }
+
+    function hasPendingRageQuitTransition() external view returns (bool) {
+        (State currentState, State newState) =
+            _stateMachine.getStateTransition(_configProvider.getDualGovernanceConfig());
+        return currentState != State.RageQuit && newState == State.RageQuit;
     }
 
     // ---

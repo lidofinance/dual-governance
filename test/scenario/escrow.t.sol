@@ -610,7 +610,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         vm.revertTo(snapshotId);
 
         // The attempt to unlock funds from Escrow will fail
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(Escrow.PendingRageQuitTransition.selector));
         this.externalUnlockStETH(_VETOER_1);
     }
 

@@ -176,7 +176,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _lockWstETH(address vetoer, PercentD16 tvlPercentage) internal {
-        _lockStETH(vetoer, _lido.calcSharesFromPercentageOfTVL(tvlPercentage));
+        _lockWstETH(vetoer, _lido.calcSharesFromPercentageOfTVL(tvlPercentage));
     }
 
     function _lockWstETH(address vetoer, uint256 amount) internal {
