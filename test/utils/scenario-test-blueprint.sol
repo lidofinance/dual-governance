@@ -24,11 +24,16 @@ import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
 
 // ---
+// Libraries
+// ---
+
+import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
+
+// ---
 // Main Contracts
 // ---
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 import {IGovernance} from "contracts/TimelockedGovernance.sol";
 import {State as DGState, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
