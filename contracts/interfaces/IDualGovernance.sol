@@ -11,6 +11,7 @@ interface IDualGovernance is IGovernance, ITiebreaker {
     struct StateDetails {
         State state;
         Timestamp enteredAt;
+        State nextState;
         Timestamp vetoSignallingActivatedAt;
         Timestamp vetoSignallingReactivationTime;
         Timestamp normalOrVetoCooldownExitedAt;
@@ -21,5 +22,4 @@ interface IDualGovernance is IGovernance, ITiebreaker {
     function activateNextState() external;
 
     function resealSealable(address sealables) external;
-    function hasPendingRageQuitTransition() external view returns (bool);
 }

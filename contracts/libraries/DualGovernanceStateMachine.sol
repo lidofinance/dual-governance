@@ -23,6 +23,7 @@ enum State {
 }
 
 library DualGovernanceStateMachine {
+    using DualGovernanceStateTransitions for Context;
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
     struct Context {
@@ -88,7 +89,7 @@ library DualGovernanceStateMachine {
         DualGovernanceConfig.Context memory config,
         address escrowMasterCopy
     ) internal {
-        (State currentState, State newState) = DualGovernanceStateTransitions.getStateTransition(self, config);
+        (State currentState, State newState) = self.getStateTransition(config);
 
         if (currentState == newState) {
             return;
@@ -133,8 +134,11 @@ library DualGovernanceStateMachine {
         Context storage self,
         DualGovernanceConfig.Context memory config
     ) internal view returns (IDualGovernance.StateDetails memory stateDetails) {
-        stateDetails.state = self.state;
+        (State currentState, State nextState) = self.getStateTransition(config);
+
+        stateDetails.state = currentState;
         stateDetails.enteredAt = self.enteredAt;
+        stateDetails.nextState = nextState;
         stateDetails.vetoSignallingActivatedAt = self.vetoSignallingActivatedAt;
         stateDetails.vetoSignallingReactivationTime = self.vetoSignallingReactivationTime;
         stateDetails.normalOrVetoCooldownExitedAt = self.normalOrVetoCooldownExitedAt;
