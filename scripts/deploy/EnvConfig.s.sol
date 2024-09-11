@@ -28,7 +28,7 @@ import {DeployConfig, LidoContracts} from "./Config.sol";
 string constant ARRAY_SEPARATOR = ",";
 bytes32 constant CHAIN_NAME_MAINNET_HASH = keccak256(bytes("mainnet"));
 bytes32 constant CHAIN_NAME_HOLESKY_HASH = keccak256(bytes("holesky"));
-// TODO: implement "holesky-mocks"
+bytes32 constant CHAIN_NAME_HOLESKY_MOCKS_HASH = keccak256(bytes("holesky-mocks"));
 
 contract DGDeployConfigProvider is Script {
     error InvalidRageQuitETHWithdrawalsTimelockGrowthCoeffs(uint256[] coeffs);
@@ -188,9 +188,12 @@ contract DGDeployConfigProvider is Script {
         printCommittees(config);
     }
 
-    function getLidoAddresses(string memory chainName) external pure returns (LidoContracts memory) {
+    function getLidoAddresses(string memory chainName) external view returns (LidoContracts memory) {
         bytes32 chainNameHash = keccak256(bytes(chainName));
-        if (chainNameHash != CHAIN_NAME_MAINNET_HASH && chainNameHash != CHAIN_NAME_HOLESKY_HASH) {
+        if (
+            chainNameHash != CHAIN_NAME_MAINNET_HASH && chainNameHash != CHAIN_NAME_HOLESKY_HASH
+                && chainNameHash != CHAIN_NAME_HOLESKY_MOCKS_HASH
+        ) {
             revert InvalidChain(chainName);
         }
 
@@ -201,6 +204,16 @@ contract DGDeployConfigProvider is Script {
                 wstETH: IWstETH(MAINNET_WST_ETH),
                 withdrawalQueue: IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE),
                 voting: IAragonVoting(MAINNET_DAO_VOTING)
+            });
+        }
+
+        if (keccak256(bytes(chainName)) == CHAIN_NAME_HOLESKY_MOCKS_HASH) {
+            return LidoContracts({
+                chainId: 17000,
+                stETH: IStETH(vm.envAddress("HOLESKY_MOCK_ST_ETH")),
+                wstETH: IWstETH(vm.envAddress("HOLESKY_MOCK_WST_ETH")),
+                withdrawalQueue: IWithdrawalQueue(vm.envAddress("HOLESKY_MOCK_WITHDRAWAL_QUEUE")),
+                voting: IAragonVoting(vm.envAddress("HOLESKY_MOCK_DAO_VOTING"))
             });
         }
 
