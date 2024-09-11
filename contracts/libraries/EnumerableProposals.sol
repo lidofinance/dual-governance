@@ -37,11 +37,10 @@ library EnumerableProposals {
         uint256 proposalType,
         bytes memory data
     ) internal returns (bool) {
-        if (!contains(map, key)) {
+        if (map._keys.add(key)) {
             Proposal memory proposal = Proposal(uint40(block.timestamp), proposalType, data);
             map._proposals[key] = proposal;
             map._orderedKeys.push(key);
-            map._keys.add(key);
             return true;
         }
         return false;

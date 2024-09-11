@@ -97,9 +97,10 @@ library Proposers {
         IndexOneBased lastProposerIndex = IndicesOneBased.fromOneBasedValue(self.proposers.length);
         IndexOneBased proposerIndex = executorData.proposerIndex;
 
-        if (executorData.proposerIndex != lastProposerIndex) {
-            self.proposers[proposerIndex.toZeroBasedValue()] = self.proposers[lastProposerIndex.toZeroBasedValue()];
-            self.executors[self.proposers[proposerIndex.toZeroBasedValue()]].proposerIndex = proposerIndex;
+        if (proposerIndex != lastProposerIndex) {
+            address lastProposer = self.proposers[lastProposerIndex.toZeroBasedValue()];
+            self.proposers[proposerIndex.toZeroBasedValue()] = lastProposer;
+            self.executors[lastProposer].proposerIndex = proposerIndex;
         }
 
         self.proposers.pop();

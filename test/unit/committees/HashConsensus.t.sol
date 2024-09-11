@@ -523,15 +523,20 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
 
         vm.prank(_committeeMembers[0]);
         vm.expectEmit(address(_hashConsensusWrapper));
+        emit HashConsensus.Voted(_committeeMembers[0], dataHash, false);
+        _hashConsensusWrapper.vote(dataHash, false);
+        assertEq(_hashConsensusWrapper.approves(_committeeMembers[0], dataHash), false);
+
+        vm.prank(_committeeMembers[0]);
+        vm.expectEmit(address(_hashConsensusWrapper));
         emit HashConsensus.Voted(_committeeMembers[0], dataHash, true);
         _hashConsensusWrapper.vote(dataHash, true);
         assertEq(_hashConsensusWrapper.approves(_committeeMembers[0], dataHash), true);
 
         vm.prank(_committeeMembers[0]);
-        vm.recordLogs();
+        vm.expectEmit(address(_hashConsensusWrapper));
+        emit HashConsensus.Voted(_committeeMembers[0], dataHash, true);
         _hashConsensusWrapper.vote(dataHash, true);
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertEq(logs.length, 0);
         assertEq(_hashConsensusWrapper.approves(_committeeMembers[0], dataHash), true);
 
         vm.prank(_committeeMembers[0]);
@@ -541,10 +546,9 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         assertEq(_hashConsensusWrapper.approves(_committeeMembers[0], dataHash), false);
 
         vm.prank(_committeeMembers[0]);
-        vm.recordLogs();
+        vm.expectEmit(address(_hashConsensusWrapper));
+        emit HashConsensus.Voted(_committeeMembers[0], dataHash, false);
         _hashConsensusWrapper.vote(dataHash, false);
-        logs = vm.getRecordedLogs();
-        assertEq(logs.length, 0);
         assertEq(_hashConsensusWrapper.approves(_committeeMembers[0], dataHash), false);
     }
 

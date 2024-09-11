@@ -58,10 +58,6 @@ abstract contract HashConsensus is Ownable {
             revert HashAlreadyScheduled(hash);
         }
 
-        if (approves[msg.sender][hash] == support) {
-            return;
-        }
-
         approves[msg.sender][hash] = support;
         emit Voted(msg.sender, hash, support);
 
@@ -128,19 +124,11 @@ abstract contract HashConsensus is Ownable {
     ///      function will revert. The quorum is also updated and must not be zero or greater than
     ///      the new total number of members.
     /// @param membersToRemove The array of addresses to be removed from the members list.
-    /// @param newQuorum The updated minimum number of members required for executing certain operations.
-    function removeMembers(address[] memory membersToRemove, uint256 newQuorum) public {
+    /// @param executionQuorum The updated minimum number of members required for executing certain operations.
+    function removeMembers(address[] memory membersToRemove, uint256 executionQuorum) public {
         _checkOwner();
 
-        for (uint256 i = 0; i < membersToRemove.length; ++i) {
-            if (!_members.contains(membersToRemove[i])) {
-                revert AccountIsNotMember(membersToRemove[i]);
-            }
-            _members.remove(membersToRemove[i]);
-            emit MemberRemoved(membersToRemove[i]);
-        }
-
-        _setQuorum(newQuorum);
+        _removeMembers(membersToRemove, executionQuorum);
     }
 
     /// @notice Gets the list of committee members
@@ -217,11 +205,27 @@ abstract contract HashConsensus is Ownable {
     /// @param executionQuorum The minimum number of members required for executing certain operations.
     function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
         for (uint256 i = 0; i < newMembers.length; ++i) {
-            if (_members.contains(newMembers[i])) {
+            if (!_members.add(newMembers[i])) {
                 revert DuplicatedMember(newMembers[i]);
             }
-            _members.add(newMembers[i]);
             emit MemberAdded(newMembers[i]);
+        }
+
+        _setQuorum(executionQuorum);
+    }
+
+    /// @notice Removes specified members from the contract and updates the execution quorum.
+    /// @dev This internal function removes multiple members from the contract. If any of the specified members are not
+    ///      found in the members list, the function will revert. The quorum is also updated and must not be zero or
+    ///      greater than the new total number of members.
+    /// @param membersToRemove The array of addresses to be removed from the members list.
+    /// @param executionQuorum The updated minimum number of members required for executing certain operations.
+    function _removeMembers(address[] memory membersToRemove, uint256 executionQuorum) internal {
+        for (uint256 i = 0; i < membersToRemove.length; ++i) {
+            if (!_members.remove(membersToRemove[i])) {
+                revert AccountIsNotMember(membersToRemove[i]);
+            }
+            emit MemberRemoved(membersToRemove[i]);
         }
 
         _setQuorum(executionQuorum);
