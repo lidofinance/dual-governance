@@ -15,6 +15,7 @@ import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecuti
 import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 import {ResealManager} from "contracts/ResealManager.sol";
+import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
@@ -121,6 +122,14 @@ library DeployVerification {
             timelockInstance.getGovernance() == res.dualGovernance,
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
+        require(
+            timelockInstance.isEmergencyProtectionEnabled() == true,
+            "EmergencyProtection is Disabled in EmergencyProtectedTimelock"
+        );
+        require(
+            timelockInstance.isEmergencyModeActive() == false, "EmergencyMode is Active in EmergencyProtectedTimelock"
+        );
+        require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 0 in EmergencyProtectedTimelock");
     }
 
     function checkEmergencyActivationCommittee(
@@ -294,6 +303,24 @@ library DeployVerification {
         require(dg.getState() == State.Normal, "Incorrect DualGovernance state");
         require(dg.getProposers().length == 1, "Incorrect amount of proposers");
         require(dg.isProposer(address(lidoAddresses.voting)) == true, "Lido voting is not set as a proposers[0]");
+
+        IDualGovernance.StateDetails memory stateDetails = dg.getStateDetails();
+        require(stateDetails.state == State.Normal, "Incorrect DualGovernance state");
+        require(stateDetails.enteredAt <= Timestamps.now(), "Incorrect DualGovernance state enteredAt");
+        require(
+            stateDetails.vetoSignallingActivatedAt == Timestamps.ZERO,
+            "Incorrect DualGovernance state vetoSignallingActivatedAt"
+        );
+        require(
+            stateDetails.vetoSignallingReactivationTime == Timestamps.ZERO,
+            "Incorrect DualGovernance state vetoSignallingReactivationTime"
+        );
+        require(
+            stateDetails.normalOrVetoCooldownExitedAt == Timestamps.ZERO,
+            "Incorrect DualGovernance state normalOrVetoCooldownExitedAt"
+        );
+        require(stateDetails.rageQuitRound == 0, "Incorrect DualGovernance state rageQuitRound");
+        require(stateDetails.dynamicDelay == Durations.ZERO, "Incorrect DualGovernance state dynamicDelay");
 
         ITiebreaker.TiebreakerDetails memory ts = dg.getTiebreakerDetails();
         require(

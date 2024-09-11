@@ -349,11 +349,29 @@ contract DGDeployConfigProvider is Script {
             );
         }
 
-        // TODO: AFTER_SUBMIT_DELAY <= MAX_AFTER_SUBMIT_DELAY
-        // TODO: AFTER_SCHEDULE_DELAY <= MAX_AFTER_SCHEDULE_DELAY
-        // TODO: EMERGENCY_MODE_DURATION <= MAX_EMERGENCY_MODE_DURATION
-        // TODO: MIN_TIEBREAKER_ACTIVATION_TIMEOUT <= TIEBREAKER_ACTIVATION_TIMEOUT <= MAX_TIEBREAKER_ACTIVATION_TIMEOUT
-        // TODO: DYNAMIC_TIMELOCK_MIN_DURATION <= DYNAMIC_TIMELOCK_MAX_DURATION
+        if (config.AFTER_SUBMIT_DELAY > config.MAX_AFTER_SUBMIT_DELAY) {
+            revert InvalidParameter("AFTER_SUBMIT_DELAY");
+        }
+
+        if (config.AFTER_SCHEDULE_DELAY > config.MAX_AFTER_SCHEDULE_DELAY) {
+            revert InvalidParameter("AFTER_SCHEDULE_DELAY");
+        }
+
+        if (config.EMERGENCY_MODE_DURATION > config.MAX_EMERGENCY_MODE_DURATION) {
+            revert InvalidParameter("EMERGENCY_MODE_DURATION");
+        }
+
+        if (config.MIN_TIEBREAKER_ACTIVATION_TIMEOUT > config.TIEBREAKER_ACTIVATION_TIMEOUT) {
+            revert InvalidParameter("MIN_TIEBREAKER_ACTIVATION_TIMEOUT");
+        }
+
+        if (config.TIEBREAKER_ACTIVATION_TIMEOUT > config.MAX_TIEBREAKER_ACTIVATION_TIMEOUT) {
+            revert InvalidParameter("TIEBREAKER_ACTIVATION_TIMEOUT");
+        }
+
+        if (config.DYNAMIC_TIMELOCK_MIN_DURATION > config.DYNAMIC_TIMELOCK_MAX_DURATION) {
+            revert InvalidParameter("DYNAMIC_TIMELOCK_MIN_DURATION");
+        }
     }
 
     function checkCommitteeQuorum(address[] memory committee, uint256 quorum, string memory message) internal pure {
