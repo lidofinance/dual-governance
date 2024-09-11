@@ -3,7 +3,7 @@ using DummyWstETH as wst_eth;
 using Escrow as escrow;
 using DualGovernance as dualGovernance;
 using ImmutableDualGovernanceConfigProvider as config;
-using DummyWithdrawalQueue as withdrawalQueue; 
+using DummyWithdrawalQueue as withdrawalQueue;
 
 methods {
     // calls to Escrow from dualGovernance 
@@ -16,6 +16,7 @@ methods {
     //envfree
     function isWithdrawalsBatchesFinalized() external returns (bool) envfree; 
     function getRageQuitSupport() external  returns (Escrow.PercentD16)  envfree;
+    function withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT() external returns (uint) envfree;
     function getRageQuitExtensionDelayStartedAt() external returns (Escrow.Timestamp) envfree;
 
     
@@ -200,6 +201,31 @@ rule W2_2_batchesQueueCloseNoChange(method f){
         beforeSecond ==  currentContract._batchesQueue.batches[any].lastUnstETHId;
 }
 
+/**
+@title W2-2 In a situation where requestNextWithdrawalsBatch should close the queue, 
+    there is no way to prevent it from being closed by first calling another function.
+@notice We are filtering out some functions that are not interesting since they cannot 
+    successfully be called in a situation where requestNextWithdrawalsBatch makes sense to call.
+*/
+rule W2_2_front_running(method f) {
+    storage initial_storage = lastStorage;
+
+    // set up one run in which requestNextWithdrawalsBatch closes the queue
+    require !isWithdrawalsBatchesFinalized();
+    env e;
+    uint batchsize;
+    requestNextWithdrawalsBatch(e, batchsize);
+    require isWithdrawalsBatchesFinalized();
+
+    // if we frontrun something else, at the end it should still be closed
+    calldataarg args;
+    f@withrevert(e, args) at initial_storage;
+    bool fReverted = lastReverted;
+    requestNextWithdrawalsBatch(e, batchsize);
+    uint stETHRemaining = stEth.balanceOf(currentContract);
+    uint minStETHWithdrawalRequestAmount = withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT();
+    assert fReverted || stETHRemaining < minStETHWithdrawalRequestAmount => isWithdrawalsBatchesFinalized();
+}
 
 /**
     @title Rage quit support value
@@ -229,8 +255,8 @@ rule W2_2_batchesQueueCloseNoChange(method f){
 
 
 
-// make rule of state changed to UnstETHRecordStatus
-/*
+
+/** @title state transition of an unsteth record 
 enum UnstETHRecordStatus {
     NotLocked = 0
     Locked = 1
@@ -247,7 +273,7 @@ Valid transitions are:
 2 -> 0
 3 -> 4 
 4 final state 
-*/ 
+**/ 
 
 rule stateTransition_unstethRecord(uint256 unstETHId, method f) {
     uint8 before = require_uint8(currentContract._accounting.unstETHRecords[unstETHId].status);
