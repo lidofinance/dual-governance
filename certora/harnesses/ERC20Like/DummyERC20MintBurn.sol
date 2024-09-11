@@ -28,7 +28,8 @@ contract DummyERC20MintBurn {
         b[to] += amount;
         t += amount;
     }
-    function _burn(address to, uint256 amount) internal  {
+    
+    function _burn(address to, uint256 amount) internal {
         b[to] -= amount;
         t -= amount;
     }
