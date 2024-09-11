@@ -3,11 +3,13 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
+import {Duration} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Duration} from "../types/Duration.sol";
 
 /// @title Reseal Committee Contract
 /// @notice This contract allows a committee to vote on and execute resealing proposals

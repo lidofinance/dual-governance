@@ -61,12 +61,6 @@ contract Escrow is IEscrow {
     error InvalidETHSender(address actual, address expected);
 
     // ---
-    // Events
-    // ---
-
-    event ConfigProviderSet(address newConfigProvider);
-
-    // ---
     // Constants
     // ---
 

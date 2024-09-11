@@ -3,8 +3,10 @@ pragma solidity 0.8.26;
 
 import {Duration} from "./types/Duration.sol";
 import {PercentD16} from "./types/PercentD16.sol";
-import {DualGovernanceConfig} from "./libraries/DualGovernanceConfig.sol";
+
 import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigProvider.sol";
+
+import {DualGovernanceConfig} from "./libraries/DualGovernanceConfig.sol";
 
 contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider {
     PercentD16 public immutable FIRST_SEAL_RAGE_QUIT_SUPPORT;

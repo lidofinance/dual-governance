@@ -3,11 +3,13 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
+import {Durations} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
 import {ITiebreakerCore} from "../interfaces/ITiebreakerCore.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Durations} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,

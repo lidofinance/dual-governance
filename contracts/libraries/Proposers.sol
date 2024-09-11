@@ -19,7 +19,6 @@ library Proposers {
     // Events
     // ---
 
-    event AdminExecutorSet(address indexed adminExecutor);
     event ProposerRegistered(address indexed proposer, address indexed executor);
     event ProposerUnregistered(address indexed proposer, address indexed executor);
 

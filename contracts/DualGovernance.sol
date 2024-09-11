@@ -2,15 +2,14 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "./types/Duration.sol";
-import {Timestamp} from "./types/Timestamp.sol";
-import {ITimelock} from "./interfaces/ITimelock.sol";
-import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
+import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
-import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
+import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
