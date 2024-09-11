@@ -54,6 +54,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
     }
 
     function testFuzz_constructor_HappyPath(address _owner, address _dualGovernance, Duration _timelock) external {
+        vm.assume(_owner != address(0));
         new TiebreakerCore(_owner, _dualGovernance, _timelock);
     }
 
