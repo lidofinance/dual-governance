@@ -5,8 +5,10 @@ import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
 import {Executor} from "contracts/Executor.sol";
+import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
+import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
@@ -84,27 +86,27 @@ library DeployVerification {
         );
 
         require(
-            timelockInstance.getEmergencyProtectionContext().emergencyActivationCommittee
-                == res.emergencyActivationCommittee,
+            timelockInstance.getEmergencyActivationCommittee() == res.emergencyActivationCommittee,
             "Incorrect emergencyActivationCommittee address in EmergencyProtectedTimelock"
         );
         require(
-            timelockInstance.getEmergencyProtectionContext().emergencyExecutionCommittee
-                == res.emergencyExecutionCommittee,
+            timelockInstance.getEmergencyExecutionCommittee() == res.emergencyExecutionCommittee,
             "Incorrect emergencyExecutionCommittee address in EmergencyProtectedTimelock"
         );
+
+        IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details =
+            timelockInstance.getEmergencyProtectionDetails();
         require(
-            timelockInstance.getEmergencyProtectionContext().emergencyProtectionEndsAfter
-                <= dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
+            details.emergencyProtectionEndsAfter <= dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
             "Incorrect value for emergencyProtectionEndsAfter"
         );
         require(
-            timelockInstance.getEmergencyProtectionContext().emergencyModeDuration
-                == dgDeployConfig.EMERGENCY_MODE_DURATION,
+            details.emergencyModeDuration == dgDeployConfig.EMERGENCY_MODE_DURATION,
             "Incorrect value for emergencyModeDuration"
         );
+
         require(
-            timelockInstance.getEmergencyProtectionContext().emergencyGovernance == res.emergencyGovernance,
+            timelockInstance.getEmergencyGovernance() == res.emergencyGovernance,
             "Incorrect emergencyGovernance address in EmergencyProtectedTimelock"
         );
         require(
@@ -289,11 +291,11 @@ library DeployVerification {
             "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[2]"
         );
 
-        require(dg.getCurrentState() == State.Normal, "Incorrect DualGovernance state");
+        require(dg.getState() == State.Normal, "Incorrect DualGovernance state");
         require(dg.getProposers().length == 1, "Incorrect amount of proposers");
         require(dg.isProposer(address(lidoAddresses.voting)) == true, "Lido voting is not set as a proposers[0]");
 
-        DualGovernance.TiebreakerState memory ts = dg.getTiebreakerState();
+        ITiebreaker.TiebreakerDetails memory ts = dg.getTiebreakerDetails();
         require(
             ts.tiebreakerActivationTimeout == dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT,
             "Incorrect parameter TIEBREAKER_ACTIVATION_TIMEOUT"
