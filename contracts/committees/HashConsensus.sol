@@ -57,10 +57,6 @@ abstract contract HashConsensus is Ownable {
             revert HashAlreadyScheduled(hash);
         }
 
-        if (approves[msg.sender][hash] == support) {
-            return;
-        }
-
         approves[msg.sender][hash] = support;
         emit Voted(msg.sender, hash, support);
 
