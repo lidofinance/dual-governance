@@ -730,7 +730,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, Timestamps.from(0));
         assertEq(details.rageQuitRound, 0);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
@@ -745,7 +745,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
         assertEq(details.rageQuitRound, 0);
-        assertTrue(details.dynamicDelay > _configProvider.VETO_SIGNALLING_MIN_DURATION());
+        assertTrue(details.vetoSignallingDuration > _configProvider.VETO_SIGNALLING_MIN_DURATION());
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
         vm.prank(vetoer);
@@ -760,7 +760,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
         assertEq(details.rageQuitRound, 0);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
 
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         Timestamp vetoCooldownTime = Timestamps.now();
@@ -773,7 +773,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
         assertEq(details.rageQuitRound, 0);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
 
         _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
         Timestamp backToNormalTime = Timestamps.now();
@@ -786,7 +786,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, backToNormalTime);
         assertEq(details.rageQuitRound, 0);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
@@ -804,7 +804,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, backToNormalTime);
         assertEq(details.rageQuitRound, 1);
-        assertEq(details.dynamicDelay, Durations.from(0));
+        assertEq(details.vetoSignallingDuration, Durations.from(0));
     }
 
     // ---

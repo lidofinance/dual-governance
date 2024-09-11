@@ -91,7 +91,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     {
         IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
         isActive = stateContext.state == DGState.VetoSignalling;
-        duration = _dualGovernance.getStateDetails().dynamicDelay.toSeconds();
+        duration = _dualGovernance.getStateDetails().vetoSignallingDuration.toSeconds();
         enteredAt = stateContext.enteredAt.toSeconds();
         activatedAt = stateContext.vetoSignallingActivatedAt.toSeconds();
     }

@@ -139,7 +139,8 @@ library DualGovernanceStateMachine {
         stateDetails.vetoSignallingReactivationTime = self.vetoSignallingReactivationTime;
         stateDetails.normalOrVetoCooldownExitedAt = self.normalOrVetoCooldownExitedAt;
         stateDetails.rageQuitRound = self.rageQuitRound;
-        stateDetails.dynamicDelay = config.calcVetoSignallingDuration(self.signallingEscrow.getRageQuitSupport());
+        stateDetails.vetoSignallingDuration =
+            config.calcVetoSignallingDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
     function getState(Context storage self) internal view returns (State) {
