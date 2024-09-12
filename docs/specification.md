@@ -31,7 +31,7 @@ This document provides the system description on the code architecture level. A 
   * [Contract: Escrow.sol](#contract-escrowsol)
   * [Contract: ImmutableDualGovernanceConfigProvider.sol](#contract-immutabledualgovernanceconfigprovidersol)
   * [Contract: ResealManager.sol](#contract-resealmanagersol)
-* Committees
+* Committees:
   * [Contract: ProposalsList.sol](#contract-proposalslistsol)
   * [Contract: HashConsensus.sol](#contract-hashconsensussol)
   * [Contract: ResealCommittee.sol](#contract-resealcommitteesol)
