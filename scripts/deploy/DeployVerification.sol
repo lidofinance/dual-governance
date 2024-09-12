@@ -9,7 +9,7 @@ import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtec
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
-import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
 import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
@@ -252,12 +252,12 @@ library DeployVerification {
             "Incorrect parameter MIN_ASSETS_LOCK_DURATION"
         );
         require(
-            dgConfig.dynamicTimelockMinDuration == dgDeployConfig.DYNAMIC_TIMELOCK_MIN_DURATION,
-            "Incorrect parameter DYNAMIC_TIMELOCK_MIN_DURATION"
+            dgConfig.vetoSignallingMinDuration == dgDeployConfig.VETO_SIGNALLING_MIN_DURATION,
+            "Incorrect parameter VETO_SIGNALLING_MIN_DURATION"
         );
         require(
-            dgConfig.dynamicTimelockMaxDuration == dgDeployConfig.DYNAMIC_TIMELOCK_MAX_DURATION,
-            "Incorrect parameter DYNAMIC_TIMELOCK_MAX_DURATION"
+            dgConfig.vetoSignallingMaxDuration == dgDeployConfig.VETO_SIGNALLING_MAX_DURATION,
+            "Incorrect parameter VETO_SIGNALLING_MAX_DURATION"
         );
         require(
             dgConfig.vetoSignallingMinActiveDuration == dgDeployConfig.VETO_SIGNALLING_MIN_ACTIVE_DURATION,
@@ -272,32 +272,20 @@ library DeployVerification {
             "Incorrect parameter VETO_COOLDOWN_DURATION"
         );
         require(
-            dgConfig.rageQuitExtensionDelay == dgDeployConfig.RAGE_QUIT_EXTENSION_DELAY,
-            "Incorrect parameter RAGE_QUIT_EXTENSION_DELAY"
+            dgConfig.rageQuitExtensionPeriodDuration == dgDeployConfig.RAGE_QUIT_EXTENSION_PERIOD_DURATION,
+            "Incorrect parameter RAGE_QUIT_EXTENSION_PERIOD_DURATION"
         );
         require(
-            dgConfig.rageQuitEthWithdrawalsMinTimelock == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK,
-            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK"
+            dgConfig.rageQuitEthWithdrawalsMinDelay == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY,
+            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY"
         );
         require(
-            dgConfig.rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber
-                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER,
-            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER"
+            dgConfig.rageQuitEthWithdrawalsMaxDelay == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY,
+            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY"
         );
         require(
-            dgConfig.rageQuitEthWithdrawalsTimelockGrowthCoeffs[0]
-                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[0],
-            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[0]"
-        );
-        require(
-            dgConfig.rageQuitEthWithdrawalsTimelockGrowthCoeffs[1]
-                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[1],
-            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[1]"
-        );
-        require(
-            dgConfig.rageQuitEthWithdrawalsTimelockGrowthCoeffs[2]
-                == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[2],
-            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[2]"
+            dgConfig.rageQuitEthWithdrawalsDelayGrowth == dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH,
+            "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH"
         );
 
         require(dg.getState() == State.Normal, "Incorrect DualGovernance state");
@@ -320,7 +308,10 @@ library DeployVerification {
             "Incorrect DualGovernance state normalOrVetoCooldownExitedAt"
         );
         require(stateDetails.rageQuitRound == 0, "Incorrect DualGovernance state rageQuitRound");
-        require(stateDetails.dynamicDelay == Durations.ZERO, "Incorrect DualGovernance state dynamicDelay");
+        require(
+            stateDetails.vetoSignallingDuration == Durations.ZERO,
+            "Incorrect DualGovernance state vetoSignallingDuration"
+        );
 
         ITiebreaker.TiebreakerDetails memory ts = dg.getTiebreakerDetails();
         require(
@@ -339,7 +330,7 @@ library DeployVerification {
         DeployedAddresses memory res,
         DeployConfig memory dgDeployConfig
     ) internal view {
-        TiebreakerCore tcc = TiebreakerCore(res.tiebreakerCoreCommittee);
+        TiebreakerCoreCommittee tcc = TiebreakerCoreCommittee(res.tiebreakerCoreCommittee);
         require(tcc.owner() == res.adminExecutor, "TiebreakerCoreCommittee owner != adminExecutor");
         require(
             tcc.timelockDuration() == dgDeployConfig.TIEBREAKER_EXECUTION_DELAY,
