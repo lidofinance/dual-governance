@@ -42,7 +42,7 @@ import {
 } from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
 import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
-import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 // ---
 // Util Libraries
@@ -120,7 +120,7 @@ abstract contract SetupDeployment is Test {
     ImmutableDualGovernanceConfigProvider internal _dualGovernanceConfigProvider;
 
     ResealCommittee internal _resealCommittee;
-    TiebreakerCore internal _tiebreakerCoreCommittee;
+    TiebreakerCoreCommittee internal _tiebreakerCoreCommittee;
     TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
 
     // ---
@@ -406,21 +406,21 @@ abstract contract SetupDeployment is Test {
         address owner,
         IDualGovernance dualGovernance,
         Duration timelock
-    ) internal returns (TiebreakerCore) {
-        return new TiebreakerCore({owner: owner, dualGovernance: address(dualGovernance), timelock: timelock});
+    ) internal returns (TiebreakerCoreCommittee) {
+        return new TiebreakerCoreCommittee({owner: owner, dualGovernance: address(dualGovernance), timelock: timelock});
     }
 
     function _deployTiebreakerSubCommittee(
         address owner,
         uint256 quorum,
         address[] memory members,
-        TiebreakerCore tiebreakerCore
+        TiebreakerCoreCommittee tiebreakerCore
     ) internal returns (TiebreakerSubCommittee) {
         return new TiebreakerSubCommittee({
             owner: owner,
             executionQuorum: quorum,
             committeeMembers: members,
-            tiebreakerCore: address(tiebreakerCore)
+            tiebreakerCoreCommittee: address(tiebreakerCore)
         });
     }
 
