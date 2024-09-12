@@ -480,7 +480,7 @@ contract Escrow is IEscrow {
         WITHDRAWAL_QUEUE.claimWithdrawals(unstETHIds, hints);
         ETHValue ethBalanceAfter = ETHValues.fromAddressBalance(address(this));
 
-        _accounting.accountClaimedStETH(ethBalanceAfter - ethBalanceBefore);
+        _accounting.accountClaimedETH(ethBalanceAfter - ethBalanceBefore);
     }
 
     function _checkCallerIsDualGovernance() internal view {

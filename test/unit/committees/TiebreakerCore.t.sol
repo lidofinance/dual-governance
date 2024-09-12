@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
@@ -33,7 +33,7 @@ contract EmergencyProtectedTimelockMock is TargetMock {
 }
 
 contract TiebreakerCoreUnitTest is UnitTest {
-    TiebreakerCore internal tiebreakerCore;
+    TiebreakerCoreCommittee internal tiebreakerCore;
     uint256 internal quorum = 2;
     address internal owner = makeAddr("owner");
     address[] internal committeeMembers = [address(0x1), address(0x2), address(0x3)];
@@ -47,7 +47,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
         emergencyProtectedTimelock = address(new EmergencyProtectedTimelockMock());
         EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(1);
         dualGovernance = address(new DualGovernanceMock(emergencyProtectedTimelock));
-        tiebreakerCore = new TiebreakerCore(owner, dualGovernance, timelock);
+        tiebreakerCore = new TiebreakerCoreCommittee(owner, dualGovernance, timelock);
 
         vm.prank(owner);
         tiebreakerCore.addMembers(committeeMembers, quorum);
@@ -55,7 +55,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
 
     function testFuzz_constructor_HappyPath(address _owner, address _dualGovernance, Duration _timelock) external {
         vm.assume(_owner != address(0));
-        new TiebreakerCore(_owner, _dualGovernance, _timelock);
+        new TiebreakerCoreCommittee(_owner, _dualGovernance, _timelock);
     }
 
     function test_scheduleProposal_HappyPath() external {
@@ -87,7 +87,9 @@ contract TiebreakerCoreUnitTest is UnitTest {
     function test_scheduleProposal_RevertOn_ProposalDoesNotExist() external {
         uint256 nonExistentProposalId = proposalId + 1;
 
-        vm.expectRevert(abi.encodeWithSelector(TiebreakerCore.ProposalDoesNotExist.selector, nonExistentProposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(TiebreakerCoreCommittee.ProposalDoesNotExist.selector, nonExistentProposalId)
+        );
         vm.prank(committeeMembers[0]);
         tiebreakerCore.scheduleProposal(nonExistentProposalId);
     }
@@ -95,7 +97,9 @@ contract TiebreakerCoreUnitTest is UnitTest {
     function test_scheduleProposal_RevertOn_ProposalIdIsZero() external {
         uint256 nonExistentProposalId = 0;
 
-        vm.expectRevert(abi.encodeWithSelector(TiebreakerCore.ProposalDoesNotExist.selector, nonExistentProposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(TiebreakerCoreCommittee.ProposalDoesNotExist.selector, nonExistentProposalId)
+        );
         vm.prank(committeeMembers[0]);
         tiebreakerCore.scheduleProposal(nonExistentProposalId);
     }
@@ -142,7 +146,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
         uint256 wrongNonce = 999;
 
         vm.prank(committeeMembers[0]);
-        vm.expectRevert(abi.encodeWithSelector(TiebreakerCore.ResumeSealableNonceMismatch.selector));
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.ResumeSealableNonceMismatch.selector));
         tiebreakerCore.sealableResume(sealable, wrongNonce);
     }
 

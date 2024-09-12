@@ -18,7 +18,7 @@ import {
     DualGovernanceConfig,
     IDualGovernanceConfigProvider,
     ImmutableDualGovernanceConfigProvider
-} from "contracts/DualGovernanceConfigProvider.sol";
+} from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";

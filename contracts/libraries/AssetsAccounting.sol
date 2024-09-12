@@ -173,7 +173,7 @@ library AssetsAccounting {
         emit ETHWithdrawn(holder, stETHSharesToWithdraw, ethWithdrawn);
     }
 
-    function accountClaimedStETH(Context storage self, ETHValue amount) internal {
+    function accountClaimedETH(Context storage self, ETHValue amount) internal {
         self.stETHTotals.claimedETH = self.stETHTotals.claimedETH + amount;
         emit ETHClaimed(amount);
     }

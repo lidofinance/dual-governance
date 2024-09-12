@@ -8,8 +8,8 @@ import {Timestamp} from "../types/Timestamp.sol";
 
 import {ITimelock} from "../interfaces/ITimelock.sol";
 import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
-import {ITiebreakerCore} from "../interfaces/ITiebreakerCore.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+import {ITiebreakerCoreCommittee} from "../interfaces/ITiebreakerCoreCommittee.sol";
 
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
@@ -19,10 +19,10 @@ enum ProposalType {
     ResumeSealable
 }
 
-/// @title Tiebreaker Core Contract
+/// @title Tiebreaker Core Committee Contract
 /// @notice This contract allows a committee to vote on and execute proposals for scheduling and resuming sealable addresses
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
-contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
+contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, ProposalsList {
     error ResumeSealableNonceMismatch();
     error ProposalDoesNotExist(uint256 proposalId);
 

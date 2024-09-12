@@ -35,7 +35,7 @@ This document provides the system description on the code architecture level. A 
   * [Contract: ProposalsList.sol](#contract-proposalslistsol)
   * [Contract: HashConsensus.sol](#contract-hashconsensussol)
   * [Contract: ResealCommittee.sol](#contract-resealcommitteesol)
-  * [Contract: TiebreakerCore.sol](#contract-tiebreakercoresol)
+  * [Contract: TiebreakerCoreCommittee.sol](#contract-tiebreakercorecommitteesol)
   * [Contract: TiebreakerSubCommittee.sol](#contract-tiebreakersubcommitteesol)
   * [Contract: EmergencyActivationCommittee.sol](#contract-emergencyactivationcommitteesol)
   * [Contract: EmergencyExecutionCommittee.sol](#contract-emergencyexecutioncommitteesol)
@@ -56,12 +56,12 @@ The system is composed of the following main contracts:
 * [`ImmutableDualGovernanceConfigProvider.sol`](#contract-immutabledualgovernanceconfigprovidersol) is a singleton contract that stores the configurable parameters of the DualGovernance system in an immutable manner.
 * [`ResealManager.sol`](#contract-resealmanagersol) is a singleton contract responsible for extending or resuming sealable contracts paused by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals). This contract is essential due to the dynamic timelock of Dual Governance, which may prevent the DAO from extending the pause in time. It holds the authority to manage the pausing and resuming of specific protocol components protected by GateSeal.
 
-Additionally, the system uses several committee contracts that allow members to  execute, acquiring quorum, a narrow set of actions while protecting management of the committees by the Dual Governance mechanism: 
-  
+Additionally, the system uses several committee contracts that allow members to  execute, acquiring quorum, a narrow set of actions while protecting management of the committees by the Dual Governance mechanism:
+
 * [`ResealCommittee.sol`](#contract-resealcommitteesol) is a committee contract that allows members to obtain a quorum and reseal contracts temporarily paused by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals).
-* [`TiebreakerCore.sol`](#contract-tiebreakercoresol) is a committee contract designed to approve proposals for execution in extreme situations where the Dual Governance system is deadlocked. This includes scenarios such as the inability to finalize user withdrawal requests during ongoing `RageQuit` or when the system is held in a locked state for an extended period. The `TiebreakerCore` consists of multiple `TiebreakerSubCommittee` contracts appointed by the DAO.
-* [`TiebreakerSubCommittee.sol`](#contract-tiebreakersubcommitteesol) is a committee contracts that provides ability to participate in `TiebreakerCore` for external actors.
-* [`EmergencyActivationCommittee`](#contract-emergencyactivationcommitteesol) is a committee contract responsible for activating Emergency Mode by acquiring quorum. Only the EmergencyExecutionCommittee can execute proposals. This committee is expected to be active for a limited period following the initial deployment or update of the DualGovernance system.  
+* [`TiebreakerCoreCommittee.sol`](#contract-tiebreakercorecommitteesol) is a committee contract designed to approve proposals for execution in extreme situations where the Dual Governance system is deadlocked. This includes scenarios such as the inability to finalize user withdrawal requests during ongoing `RageQuit` or when the system is held in a locked state for an extended period. The `TiebreakerCoreCommittee` consists of multiple `TiebreakerSubCommittee` contracts appointed by the DAO.
+* [`TiebreakerSubCommittee.sol`](#contract-tiebreakersubcommitteesol) is a committee contracts that provides ability to participate in `TiebreakerCoreCommittee` for external actors.
+* [`EmergencyActivationCommittee`](#contract-emergencyactivationcommitteesol) is a committee contract responsible for activating Emergency Mode by acquiring quorum. Only the EmergencyExecutionCommittee can execute proposals. This committee is expected to be active for a limited period following the initial deployment or update of the DualGovernance system.
 * [`EmergencyExecutionCommittee`](#contract-emergencyexecutioncommitteesol) is  a committee contract that enables quorum-based execution of proposals during Emergency Mode or disabling the DualGovernance mechanism by assigning the EmergencyProtectedTimelock to Aragon Voting. Like the EmergencyActivationCommittee, this committee is also intended for short-term use after the system’s deployment or update.
 
 
@@ -1167,11 +1167,11 @@ Executes a reseal of the sealable contract by calling the `resealSealable` metho
 * Proposal MUST be scheduled for execution and passed the timelock duration.
 
 
-## Contract: TiebreakerCore.sol
+## Contract: TiebreakerCoreCommittee.sol
 
-`TiebreakerCore` is a smart contract that extends the `HashConsensus` and `ProposalsList` contracts to manage the scheduling of proposals and the resuming of sealable contracts through a consensus-based mechanism. It interacts with a DualGovernance contract to execute decisions once consensus is reached.
+`TiebreakerCoreCommittee` is a smart contract that extends the `HashConsensus` and `ProposalsList` contracts to manage the scheduling of proposals and the resuming of sealable contracts through a consensus-based mechanism. It interacts with a DualGovernance contract to execute decisions once consensus is reached.
 
-### Function: TiebreakerCore.scheduleProposal
+### Function: TiebreakerCoreCommittee.scheduleProposal
 
 ```solidity
 function scheduleProposal(uint256 proposalId)
@@ -1184,7 +1184,7 @@ Schedules a proposal for execution by voting on it and adding it to the proposal
 * MUST be called by a member.
 * Proposal with the given id MUST be submitted into `EmergencyProtectedTimelock`
 
-### Function: TiebreakerCore.getScheduleProposalState
+### Function: TiebreakerCoreCommittee.getScheduleProposalState
 
 ```solidity
 function getScheduleProposalState(uint256 proposalId)
@@ -1194,7 +1194,7 @@ function getScheduleProposalState(uint256 proposalId)
 
 Returns the state of a scheduled proposal including support count, quorum, and execution status.
 
-### Function: TiebreakerCore.executeScheduleProposal
+### Function: TiebreakerCoreCommittee.executeScheduleProposal
 
 ```solidity
 function executeScheduleProposal(uint256 proposalId)
@@ -1206,7 +1206,7 @@ Executes a scheduled proposal by calling the `tiebreakerScheduleProposal` functi
 
 * Proposal MUST be scheduled for execution and passed the timelock duration.
 
-### Function: TiebreakerCore.getSealableResumeNonce
+### Function: TiebreakerCoreCommittee.getSealableResumeNonce
 
 ```solidity
 function getSealableResumeNonce(address sealable) view returns (uint256)
@@ -1214,7 +1214,7 @@ function getSealableResumeNonce(address sealable) view returns (uint256)
 
 Returns the current nonce for resuming operations of a sealable contract.
 
-### Function: TiebreakerCore.sealableResume
+### Function: TiebreakerCoreCommittee.sealableResume
 
 ```solidity
 function sealableResume(address sealable, uint256 nonce)
@@ -1227,7 +1227,7 @@ Submits a request to resume operations of a sealable contract by voting on it an
 * MUST be called by a member.
 * The provided nonce MUST match the current nonce of the sealable contract.
 
-### Function: TiebreakerCore.getSealableResumeState
+### Function: TiebreakerCoreCommittee.getSealableResumeState
 
 ```solidity
 function getSealableResumeState(address sealable, uint256 nonce)
@@ -1237,7 +1237,7 @@ function getSealableResumeState(address sealable, uint256 nonce)
 
 Returns the state of a sealable resume request including support count, quorum, and execution status.
 
-### Function: TiebreakerCore.executeSealableResume
+### Function: TiebreakerCoreCommittee.executeSealableResume
 
 ```solidity
 function executeSealableResume(address sealable)
@@ -1251,7 +1251,7 @@ Executes a sealable resume request by calling the `tiebreakerResumeSealable` fun
 
 ## Contract: TiebreakerSubCommittee.sol
 
-`TiebreakerSubCommittee` is a smart contract that extends the functionalities of `HashConsensus` and `ProposalsList` to manage the scheduling of proposals and the resumption of sealable contracts through a consensus mechanism. It interacts with the `TiebreakerCore` contract to execute decisions once consensus is reached.
+`TiebreakerSubCommittee` is a smart contract that extends the functionalities of `HashConsensus` and `ProposalsList` to manage the scheduling of proposals and the resumption of sealable contracts through a consensus mechanism. It interacts with the `TiebreakerCoreCommittee` contract to execute decisions once consensus is reached.
 
 ### Function: TiebreakerSubCommittee.scheduleProposal
 
@@ -1282,7 +1282,7 @@ Returns the state of a scheduled proposal including support count, quorum, and e
 function executeScheduleProposal(uint256 proposalId)
 ```
 
-Executes a scheduled proposal by calling the scheduleProposal function on the TiebreakerCore contract.
+Executes a scheduled proposal by calling the scheduleProposal function on the `TiebreakerCoreCommittee` contract.
 
 #### Preconditions
 
@@ -1314,7 +1314,7 @@ Returns the state of a sealable resume request including support count, quorum, 
 function executeSealableResume(address sealable) public
 ```
 
-Executes a sealable resume request by calling the sealableResume function on the TiebreakerCore contract and increments the nonce.
+Executes a sealable resume request by calling the sealableResume function on the `TiebreakerCoreCommittee` contract and increments the nonce.
 
 #### Preconditions
 
