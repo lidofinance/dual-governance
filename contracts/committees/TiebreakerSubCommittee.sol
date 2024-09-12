@@ -27,7 +27,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address tiebreakerCoreCommittee
-    ) HashConsensus(owner, Durations.from(0)) {
+    ) HashConsensus(owner, Durations.ZERO) {
         TIEBREAKER_CORE_COMMITTEE = tiebreakerCoreCommittee;
 
         _addMembers(committeeMembers, executionQuorum);
