@@ -21,10 +21,10 @@ import {
     DualGovernanceConfig,
     IDualGovernanceConfigProvider,
     ImmutableDualGovernanceConfigProvider
-} from "contracts/DualGovernanceConfigProvider.sol";
+} from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
 import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
-import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
 import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
@@ -38,7 +38,7 @@ struct DeployedContracts {
     ResealManager resealManager;
     DualGovernance dualGovernance;
     ResealCommittee resealCommittee;
-    TiebreakerCore tiebreakerCoreCommittee;
+    TiebreakerCoreCommittee tiebreakerCoreCommittee;
     address[] tiebreakerSubCommittees;
 }
 
@@ -251,18 +251,17 @@ library DGContractsDeployment {
                 secondSealRageQuitSupport: dgDeployConfig.SECOND_SEAL_RAGE_QUIT_SUPPORT,
                 //
                 minAssetsLockDuration: dgDeployConfig.MIN_ASSETS_LOCK_DURATION,
-                dynamicTimelockMinDuration: dgDeployConfig.DYNAMIC_TIMELOCK_MIN_DURATION,
-                dynamicTimelockMaxDuration: dgDeployConfig.DYNAMIC_TIMELOCK_MAX_DURATION,
+                vetoSignallingMinDuration: dgDeployConfig.VETO_SIGNALLING_MIN_DURATION,
+                vetoSignallingMaxDuration: dgDeployConfig.VETO_SIGNALLING_MAX_DURATION,
                 //
                 vetoSignallingMinActiveDuration: dgDeployConfig.VETO_SIGNALLING_MIN_ACTIVE_DURATION,
                 vetoSignallingDeactivationMaxDuration: dgDeployConfig.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION,
                 vetoCooldownDuration: dgDeployConfig.VETO_COOLDOWN_DURATION,
                 //
-                rageQuitExtensionDelay: dgDeployConfig.RAGE_QUIT_EXTENSION_DELAY,
-                rageQuitEthWithdrawalsMinTimelock: dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK,
-                rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: dgDeployConfig
-                    .RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER,
-                rageQuitEthWithdrawalsTimelockGrowthCoeffs: dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS
+                rageQuitExtensionPeriodDuration: dgDeployConfig.RAGE_QUIT_EXTENSION_PERIOD_DURATION,
+                rageQuitEthWithdrawalsMinDelay: dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY,
+                rageQuitEthWithdrawalsMaxDelay: dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY,
+                rageQuitEthWithdrawalsDelayGrowth: dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH
             })
         );
     }
@@ -296,13 +295,13 @@ library DGContractsDeployment {
         address owner,
         address dualGovernance,
         Duration executionDelay
-    ) internal returns (TiebreakerCore) {
-        return new TiebreakerCore({owner: owner, dualGovernance: dualGovernance, timelock: executionDelay});
+    ) internal returns (TiebreakerCoreCommittee) {
+        return new TiebreakerCoreCommittee({owner: owner, dualGovernance: dualGovernance, timelock: executionDelay});
     }
 
     function deployTiebreakerSubCommittees(
         address owner,
-        TiebreakerCore tiebreakerCoreCommittee,
+        TiebreakerCoreCommittee tiebreakerCoreCommittee,
         DeployConfig memory dgDeployConfig
     ) internal returns (address[] memory) {
         address[] memory coreCommitteeMembers = new address[](dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT);
@@ -335,7 +334,7 @@ library DGContractsDeployment {
             owner: owner,
             executionQuorum: quorum,
             committeeMembers: members,
-            tiebreakerCore: tiebreakerCoreCommittee
+            tiebreakerCoreCommittee: tiebreakerCoreCommittee
         });
     }
 

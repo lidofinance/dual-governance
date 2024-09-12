@@ -31,7 +31,6 @@ bytes32 constant CHAIN_NAME_HOLESKY_HASH = keccak256(bytes("holesky"));
 bytes32 constant CHAIN_NAME_HOLESKY_MOCKS_HASH = keccak256(bytes("holesky-mocks"));
 
 contract DGDeployConfigProvider is Script {
-    error InvalidRageQuitETHWithdrawalsTimelockGrowthCoeffs(uint256[] coeffs);
     error InvalidQuorum(string committee, uint256 quorum);
     error InvalidParameter(string parameter);
     error InvalidChain(string chainName);
@@ -59,22 +58,15 @@ contract DGDeployConfigProvider is Script {
     uint256 internal immutable DEFAULT_FIRST_SEAL_RAGE_QUIT_SUPPORT = 3_00; // 3%
     uint256 internal immutable DEFAULT_SECOND_SEAL_RAGE_QUIT_SUPPORT = 15_00; // 15%
     uint256 internal immutable DEFAULT_MIN_ASSETS_LOCK_DURATION = 5 hours;
-    uint256 internal immutable DEFAULT_DYNAMIC_TIMELOCK_MIN_DURATION = 3 days;
-    uint256 internal immutable DEFAULT_DYNAMIC_TIMELOCK_MAX_DURATION = 30 days;
+    uint256 internal immutable DEFAULT_VETO_SIGNALLING_MIN_DURATION = 3 days;
+    uint256 internal immutable DEFAULT_VETO_SIGNALLING_MAX_DURATION = 30 days;
     uint256 internal immutable DEFAULT_VETO_SIGNALLING_MIN_ACTIVE_DURATION = 5 hours;
     uint256 internal immutable DEFAULT_VETO_SIGNALLING_DEACTIVATION_MAX_DURATION = 5 days;
     uint256 internal immutable DEFAULT_VETO_COOLDOWN_DURATION = 4 days;
-    uint256 internal immutable DEFAULT_RAGE_QUIT_EXTENSION_DELAY = 7 days;
-    uint256 internal immutable DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK = 60 days;
-    uint256 internal immutable DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER = 2;
-    uint256[] internal DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS = new uint256[](3);
-
-    constructor() {
-        // TODO: are these values correct as a default?
-        DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[0] = 1;
-        DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[1] = 0;
-        DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS[2] = 0;
-    }
+    uint256 internal immutable DEFAULT_RAGE_QUIT_EXTENSION_PERIOD_DURATION = 7 days;
+    uint256 internal immutable DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY = 30 days;
+    uint256 internal immutable DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY = 180 days;
+    uint256 internal immutable DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH = 15 days;
 
     function loadAndValidate() external returns (DeployConfig memory config) {
         config = DeployConfig({
@@ -158,11 +150,11 @@ contract DGDeployConfigProvider is Script {
                 vm.envOr("SECOND_SEAL_RAGE_QUIT_SUPPORT", DEFAULT_SECOND_SEAL_RAGE_QUIT_SUPPORT)
             ),
             MIN_ASSETS_LOCK_DURATION: Durations.from(vm.envOr("MIN_ASSETS_LOCK_DURATION", DEFAULT_MIN_ASSETS_LOCK_DURATION)),
-            DYNAMIC_TIMELOCK_MIN_DURATION: Durations.from(
-                vm.envOr("DYNAMIC_TIMELOCK_MIN_DURATION", DEFAULT_DYNAMIC_TIMELOCK_MIN_DURATION)
+            VETO_SIGNALLING_MIN_DURATION: Durations.from(
+                vm.envOr("VETO_SIGNALLING_MIN_DURATION", DEFAULT_VETO_SIGNALLING_MIN_DURATION)
             ),
-            DYNAMIC_TIMELOCK_MAX_DURATION: Durations.from(
-                vm.envOr("DYNAMIC_TIMELOCK_MAX_DURATION", DEFAULT_DYNAMIC_TIMELOCK_MAX_DURATION)
+            VETO_SIGNALLING_MAX_DURATION: Durations.from(
+                vm.envOr("VETO_SIGNALLING_MAX_DURATION", DEFAULT_VETO_SIGNALLING_MAX_DURATION)
             ),
             VETO_SIGNALLING_MIN_ACTIVE_DURATION: Durations.from(
                 vm.envOr("VETO_SIGNALLING_MIN_ACTIVE_DURATION", DEFAULT_VETO_SIGNALLING_MIN_ACTIVE_DURATION)
@@ -171,17 +163,18 @@ contract DGDeployConfigProvider is Script {
                 vm.envOr("VETO_SIGNALLING_DEACTIVATION_MAX_DURATION", DEFAULT_VETO_SIGNALLING_DEACTIVATION_MAX_DURATION)
             ),
             VETO_COOLDOWN_DURATION: Durations.from(vm.envOr("VETO_COOLDOWN_DURATION", DEFAULT_VETO_COOLDOWN_DURATION)),
-            RAGE_QUIT_EXTENSION_DELAY: Durations.from(
-                vm.envOr("RAGE_QUIT_EXTENSION_DELAY", DEFAULT_RAGE_QUIT_EXTENSION_DELAY)
+            RAGE_QUIT_EXTENSION_PERIOD_DURATION: Durations.from(
+                vm.envOr("RAGE_QUIT_EXTENSION_PERIOD_DURATION", DEFAULT_RAGE_QUIT_EXTENSION_PERIOD_DURATION)
             ),
-            RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK: Durations.from(
-                vm.envOr("RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK", DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MIN_TIMELOCK)
+            RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY: Durations.from(
+                vm.envOr("RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY", DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY)
             ),
-            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER: vm.envOr(
-                "RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER",
-                DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_START_SEQ_NUMBER
+            RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY: Durations.from(
+                vm.envOr("RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY", DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY)
             ),
-            RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS: getValidCoeffs()
+            RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: Durations.from(
+                vm.envOr("RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH", DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH)
+            )
         });
 
         validateConfig(config);
@@ -224,23 +217,6 @@ contract DGDeployConfigProvider is Script {
             withdrawalQueue: IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE),
             voting: IAragonVoting(HOLESKY_DAO_VOTING)
         });
-    }
-
-    function getValidCoeffs() internal returns (uint256[3] memory coeffs) {
-        uint256[] memory coeffsRaw = vm.envOr(
-            "RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS",
-            ARRAY_SEPARATOR,
-            DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_TIMELOCK_GROWTH_COEFFS
-        );
-
-        if (coeffsRaw.length != 3) {
-            revert InvalidRageQuitETHWithdrawalsTimelockGrowthCoeffs(coeffsRaw);
-        }
-
-        // TODO: validate each coeff value?
-        coeffs[0] = coeffsRaw[0];
-        coeffs[1] = coeffsRaw[1];
-        coeffs[2] = coeffsRaw[2];
     }
 
     function validateConfig(DeployConfig memory config) internal pure {
@@ -369,8 +345,8 @@ contract DGDeployConfigProvider is Script {
             revert InvalidParameter("TIEBREAKER_ACTIVATION_TIMEOUT");
         }
 
-        if (config.DYNAMIC_TIMELOCK_MIN_DURATION > config.DYNAMIC_TIMELOCK_MAX_DURATION) {
-            revert InvalidParameter("DYNAMIC_TIMELOCK_MIN_DURATION");
+        if (config.VETO_SIGNALLING_MIN_DURATION > config.VETO_SIGNALLING_MAX_DURATION) {
+            revert InvalidParameter("VETO_SIGNALLING_MIN_DURATION");
         }
     }
 
