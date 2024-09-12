@@ -7,7 +7,10 @@ import {Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {DualGovernanceStateMachine, State} from "contracts/libraries/DualGovernanceStateMachine.sol";
-import {DualGovernanceConfig, ImmutableDualGovernanceConfigProvider} from "contracts/DualGovernanceConfigProvider.sol";
+import {
+    DualGovernanceConfig,
+    ImmutableDualGovernanceConfigProvider
+} from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {EscrowMock} from "test/mocks/EscrowMock.sol";

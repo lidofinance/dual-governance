@@ -39,7 +39,7 @@ import {
     DualGovernanceConfig,
     IDualGovernanceConfigProvider,
     ImmutableDualGovernanceConfigProvider
-} from "contracts/DualGovernanceConfigProvider.sol";
+} from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
 import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
