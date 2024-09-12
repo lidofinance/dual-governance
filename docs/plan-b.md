@@ -9,26 +9,29 @@ Timelocked Governance (TG) is a governance subsystem positioned between the Lido
 * [Proposal flow](#proposal-flow)
 * [Proposal execution](#proposal-execution)
 * [Common types](#common-types)
-* [Contract: `TimelockedGovernance`](#contract-timelockedgovernance)
-* [Contract: `EmergencyProtectedTimelock`](#contract-emergencyprotectedtimelock)
-* [Contract: `Executor`](#contract-executor)
-* [Contract: `Configuration`](#contract-configuration)
-* [Contract: `ProposalsList`](#contract-proposalslist)
-* [Contract: `HashConsensus`](#contract-hashconsensus)
-* [Contract: `EmergencyActivationCommittee`](#contract-emergencyactivationcommittee)
-* [Contract: `EmergencyExecutionCommittee`](#contract-emergencyexecutioncommittee)
+* Core Contracts:
+    * [Contract: `TimelockedGovernance`](#contract-timelockedgovernance)
+    * [Contract: `EmergencyProtectedTimelock`](#contract-emergencyprotectedtimelock)
+    * [Contract: `Executor`](#contract-executor)
+* Committees:
+    * [Contract: `ProposalsList`](#contract-proposalslist)
+    * [Contract: `HashConsensus`](#contract-hashconsensus)
+    * [Contract: `EmergencyActivationCommittee`](#contract-emergencyactivationcommittee)
+    * [Contract: `EmergencyExecutionCommittee`](#contract-emergencyexecutioncommittee)
 
 ## System Overview
 
 <img width="1289" alt="image" src="https://github.com/lidofinance/dual-governance/assets/14151334/905bac24-dfb2-4eca-a113-1b82ead93752"/>
 
 The system comprises the following primary contracts:
-- **`TimelockedGovernance.sol`**: A singleton contract that serves as the interface for submitting and scheduling the execution of governance proposals.
-- **[`EmergencyProtectedTimelock.sol`]**: A singleton contract responsible for storing submitted proposals and providing an interface for their execution. It offers protection against malicious proposals submitted by the DAO, implemented as a timelock on proposal execution. This protection is enforced through the cooperation of two emergency committees that can suspend proposal execution.
-- [`EmergencyProtectedTimelock.sol`]() A singleton contract that stores submitted proposals and provides an execution interface. In addition, it implements an optional protection from a malicious proposals submitted by the DAO. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and suspend the execution of the proposals.
-- **[`Executor.sol`]**: A contract instance responsible for executing calls resulting from governance proposals. All protocol permissions or roles protected by TG, as well as the authority to manage these roles/permissions, should be assigned exclusively to instance of this contract, rather than being assigned directly to the DAO voting system.
-- **[`EmergencyActivationCommittee`]**: A contract with the authority to activate Emergency Mode. Activation requires a quorum from committee members.
-- **[`EmergencyExecutionCommittee`]**: A contract that enables the execution of proposals during Emergency Mode by obtaining a quorum of committee members.
+- [**`TimelockedGovernance.sol`**](#contract-timelockedgovernance): A singleton contract that serves as the interface for submitting and scheduling the execution of governance proposals.
+- [**`EmergencyProtectedTimelock.sol`**](#contract-emergencyprotectedtimelock): A singleton contract that stores submitted proposals and provides an execution interface. In addition, it implements an optional protection from a malicious proposals submitted by the DAO. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and suspend the execution of the proposals.
+- [**`Executor.sol`**](#contract-executor): A contract instance responsible for executing calls resulting from governance proposals. All protocol permissions or roles protected by TG, as well as the authority to manage these roles/permissions, should be assigned exclusively to instance of this contract, rather than being assigned directly to the DAO voting system.
+
+Additionally, the system uses several committee contracts that allow members to execute, acquiring quorum, a narrow set of actions:
+  
+- [**`EmergencyActivationCommittee`**](#contract-emergencyactivationcommittee): A contract with the authority to activate Emergency Mode. Activation requires a quorum from committee members.
+- [**`EmergencyExecutionCommittee`**](#contract-emergencyexecutioncommittee): A contract that enables the execution of proposals during Emergency Mode by obtaining a quorum of committee members.
 
 ## Proposal flow
 <img width="567" alt="image" src="https://github.com/lidofinance/dual-governance/assets/14151334/f6f2efc1-7bd7-4e03-9c8b-6cd12cdfede8"/>
@@ -52,10 +55,10 @@ If emergency protection is enabled on the `EmergencyProtectedTimelock` instance,
 
 ## Common types
 
-### Struct: ExecutorCall
+### Struct: ExternalCall
 
 ```solidity
-struct ExecutorCall {
+struct ExternalCall {
     address target;
     uint96 value;
     bytes payload;
@@ -70,11 +73,11 @@ The main entry point to the timelocked governance system, which provides an inte
 
 ### Function: `TimelockedGovernance.submitProposal`
 ```solidity
-function submitProposal(ExecutorCall[] calls)
+function submitProposal(ExecutorCall[] calls, string metadata)
   returns (uint256 proposalId)
 ```
 
-Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance to register a new governance proposal composed of one or more external `calls` to be made by an admin executor contract. Initiates a timelock on scheduling the proposal for execution.
+Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance to register a new governance proposal composed of one or more external `calls`, along with the attached metadata text, to be made by an admin executor contract. Initiates a timelock on scheduling the proposal for execution.
 
 See: [`EmergencyProtectedTimelock.submit`](#)
 #### Returns
@@ -118,9 +121,9 @@ See: [`EmergencyProtectedTimelock.cancelAllNonExecutedProposals`](#)
 
 For a proposal to be executed, the following steps have to be performed in order:
 1. The proposal must be submitted using the `EmergencyProtectedTimelock.submit()` function.
-2. The configured post-submit timelock (`Configuration.AFTER_SUBMIT_DELAY()`) must elapse.
+2. The configured post-submit timelock (`EmergencyProtectedTimelock.getAfterSubmitDelay()`) must elapse.
 3. The proposal must be scheduled using the `EmergencyProtectedTimelock.schedule()` function.
-4. The configured emergency protection delay (`Configuration.AFTER_SCHEDULE_DELAY()`) must elapse (can be zero, see below).
+4. The configured emergency protection delay (`Configuration.getAfterScheduleDelay()`) must elapse (can be zero, see below).
 5. The proposal must be executed using the `EmergencyProtectedTimelock.execute()` function.
 
 The contract only allows proposal submission and scheduling by the `governance` address. Normally, this address points to the [`TimelockedGovernance`](#Contract-TimelockedGovernancesol) singleton instance. Proposal execution is permissionless, unless Emergency Mode is activated.
@@ -132,7 +135,7 @@ If the Emergency Committees are set up and active, the governance proposal under
 While active, the Emergency Activation Committee can enable Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. Once the **Emergency Duration** has ended, the Emergency Execution Committee or anyone else may disable the emergency mode, canceling all pending proposals. After the emergency mode is deactivated or the Emergency Period has elapsed, the Emergency Committees lose their power.
 ### Function: `EmergencyProtectedTimelock.submit`
 ```solidity
-function submit(address executor, ExecutorCall[] calls)
+function submit(address executor, ExecutorCall[] calls, string metadata)
   returns (uint256 proposalId)
 ```
 Registers a new governance proposal composed of one or more external `calls` to be made by the `executor` contract. Initiates the `AfterSubmitDelay`.
@@ -204,7 +207,7 @@ Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in t
 * MUST be called by the Emergency Execution Committee address.
 
 ### Admin functions
-The contract includes functions for managing emergency protection configuration (`setEmergencyProtection`) and general system wiring (`transferExecutorOwnership`, `setGovernance`). These functions MUST be called by the [Admin Executor](#) address.
+The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtectionActivationCommittee`, `setEmergencyProtectionExecutionCommittee`, `setEmergencyProtectionEndDate`, `setEmergencyModeDuration`, `setEmergencyGovernance`) and general system wiring (`transferExecutorOwnership`, `setGovernance`, `setupDelays`). These functions MUST be called by the [Admin Executor](#) address.
 
 ## Contract: `Executor`
 Executes calls resulting from governance proposals' execution. Every protocol permission or role protected by the TG, as well as the permission to manage these roles/permissions, should be assigned exclusively to instances of this contract.
@@ -430,5 +433,4 @@ Executes the governance reset by calling the `emergencyReset` function on the `E
 
 #### Preconditions
 - The governance reset proposal MUST have reached quorum and passed the timelock duration.
-
 
