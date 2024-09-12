@@ -12,7 +12,9 @@ Additionally, there is a Gate Seal emergency committee that allows pausing certa
 
 The Dual governance mechanism (DG) is an iteration on the protocol governance that gives stakers a say by allowing them to block DAO decisions and providing a negotiation device between stakers and the DAO.
 
-Another way of looking at dual governance is that it implements 1) a dynamic user-extensible timelock on DAO decisions and 2) a rage quit mechanism for stakers taking into account the specifics of how Ethereum withdrawals work.
+Another way of looking at dual governance is that it implements: 
+1) a dynamic user-extensible timelock on DAO decisions
+2) a rage quit mechanism for stakers taking into account the specifics of how Ethereum withdrawals work.
 
 
 ## Navigation
@@ -220,10 +222,16 @@ The sub-state's purpose is to allow all stakers to observe the Veto Signalling b
 **Transition to the parent state**. If, while the sub-state is active, the following condition becomes true:
 
 ```math
-\big( t - t^S_{act} \leq \, T_{lock}(R) \big) \,\lor\, \big( R > R_2 \big)
+t - t^S_{act} \leq \, T_{lock}(R)
 ```
 
 then the Deactivation sub-state is exited so only the parent Veto Signalling state remains active.
+
+**Transition to Rage Quit**. If, while the sub-state is active, the following condition becomes true:
+```math
+\big( t - t^S_{act} > L_{max} \big) \, \land \, \big( R > R_2 \big)
+```
+then the Deactivation sub-state is exited along with its parent Veto Signalling state and the Rage Quit state is entered.
 
 **Transition to Veto Cooldown**. If, while the sub-state is active, the following condition becomes true:
 
@@ -276,13 +284,13 @@ Upon entry into the Rage Quit state, three things happen:
 
 In this state, the DAO is allowed to submit proposals to the DG but cannot execute any pending proposals. Stakers are not allowed to lock (w)stETH or withdrawal NFTs into the rage quit escrow so joining the ongoing rage quit is not possible. However, they can lock their tokens that are not part of the ongoing rage quit process to the newly-deployed veto signalling escrow to potentially trigger a new rage quit later.
 
-The state lasts until the withdrawal started in 2) is complete, i.e. until all batch withdrawal NFTs generated from (w)stETH that was locked in the escrow are fulfilled and claimed, plus `RageQuitExtensionDelay` days.
+The state lasts until the withdrawal started in 2) is complete, i.e. until all batch withdrawal NFTs generated from (w)stETH that was locked in the escrow are fulfilled and claimed, plus `RageQuitExtensionPeriodDuration` days.
 
 If a staker locks a withdrawal NFT into the signalling escrow before the Rage Quit state is entered, this NFT remains locked in the rage quit escrow. When such an NFT becomes fulfilled, the staker is allowed to burn this NFT and convert it to plain ETH, although still locked in the escrow. This allows stakers to derisk their ETH as early as possible by removing any dependence on the DAO-controlled code (remember that the withdrawal NFT contract is potentially upgradeable by the DAO but the rage quit escrow is immutable).
 
-Since batch withdrawal NFTs are generated after the NFTs that were locked by stakers into the escrow directly, the withdrawal queue mechanism (external to the DG) guarantees that by the time batch NFTs are fulfilled, all individually locked NFTs are fulfilled as well and can be claimed. Together with the extension delay, this guarantees that any staker having a withdrawal NFT locked in the rage quit escrow has at least `RageQuitExtensionDelay` days to convert it to escrow-locked ETH before the DAO execution is unblocked.
+Since batch withdrawal NFTs are generated after the NFTs that were locked by stakers into the escrow directly, the withdrawal queue mechanism (external to the DG) guarantees that by the time batch NFTs are fulfilled, all individually locked NFTs are fulfilled as well and can be claimed. Together with the extension period, this guarantees that any staker having a withdrawal NFT locked in the rage quit escrow has at least `RageQuitExtensionPeriodDuration` days to convert it to escrow-locked ETH before the DAO execution is unblocked.
 
-When the withdrawal is complete and the extension delay elapses, two things happen simultaneously:
+When the withdrawal is complete and the extension period elapses, two things happen simultaneously:
 
 1. A timelock lasting $W(i)$ days is started, during which the withdrawn ETH remains locked in the rage quit escrow. After the timelock elapses, stakers who participated in the rage quit can obtain their ETH from the rage quit escrow.
 2. The Rage Quit state is exited.
@@ -291,26 +299,22 @@ When the withdrawal is complete and the extension delay elapses, two things happ
 
 **Transition to Veto Cooldown**. If, at the moment of the Rage Quit state exit, $R(t) \leq R_1$, the Veto Cooldown state is entered.
 
-The duration of the ETH withdraw timelock $W(i)$ is a non-linear function that depends on the rage quit sequence number $i$ (see below):
+The duration of the ETH withdraw timelock $W(i)$ is a linear function that depends on the rage quit sequence number $i$ (see below):
 
 ```math
-W(i) = W_{min} +
-\left\{ \begin{array}{lc}
-    0, & \text{if } i \lt i_{min} \\
-    g_W(i - i_{min}), & \text{otherwise}
-\end{array} \right.
+W(i) =  \min \left\{ W_{min} + i * W_{growth} \,,\, W_{max}  \right\}
 ```
 
-where $W_{min}$ is `RageQuitEthWithdrawalsMinTimelock`, $i_{min}$ is `RageQuitEthWithdrawalsTimelockGrowthStartSeqNumber`, and $g_W(x)$ is a quadratic polynomial function with coefficients `RageQuitEthWithdrawalsTimelockGrowthCoeffs` (a list of length 3).
+where $W_{min}$ is `RageQuitEthWithdrawalsMinDelay`, $W_{max}$ is `RageQuitEthWithdrawalsMaxDelay`, $W_{growth}$ is `rageQuitEthWithdrawalsDelayGrowth`.
 
 The rage quit sequence number is calculated as follows: each time the Normal state is entered, the sequence number is set to 0; each time the Rage Quit state is entered, the number is incremented by 1.
 
 ```env
 # Proposed values, to be modeled and refined
-RageQuitExtensionDelay = 7 days
-RageQuitEthWithdrawalsMinTimelock = 60 days
-RageQuitEthWithdrawalsTimelockGrowthStartSeqNumber = 2
-RageQuitEthWithdrawalsTimelockGrowthCoeffs = (0, TODO, TODO)
+RageQuitExtensionPeriodDuration = 7 days
+RageQuitEthWithdrawalsMinDelay = 60 days
+RageQuitEthWithdrawalsMaxDelay = 180 days
+rageQuitEthWithdrawalsDelayGrowth = 15 days
 ```
 
 
@@ -356,10 +360,10 @@ To resolve the potential deadlock, the mechanism contains a third-party arbiter 
 * Execute any pending proposal submitted by the DAO to DG (i.e. bypass the DG dynamic timelock).
 * Unpause any of the paused protocol contracts.
 
-The Tiebreaker committee can perform the above actions, subject to a timelock of `TiebreakerExecutionTimelock` days, iff any of the following two conditions is true:
+The Tiebreaker committee can perform the above actions, subject to a timelock of `TiebreakerExecutionTimelock` days, if any of the following two conditions is true:
 
 * **Tiebreaker Condition A**: (governance state is Rage Quit) $\land$ (protocol withdrawals are paused for a duration exceeding `TiebreakerActivationTimeout`).
-* **Tiebreaker Condition B**: (governance state is Rage Quit) $\land$ (last time governance exited Normal or Veto Cooldown state was more than `TiebreakerActivationTimeout` days ago).
+* **Tiebreaker Condition B**: the last time governance exited Normal or Veto Cooldown state was more than `TiebreakerActivationTimeout` days ago.
 
 The Tiebreaker committee should be composed of multiple sub-committees covering different interest groups within the Ethereum community (e.g. largest DAOs, EF, L2s, node operators, OGs) and should require approval from a supermajority of sub-committees to execute a pending proposal. The approval by each sub-committee should require the majority support within the sub-committee. No sub-committee should contain more than $1/4$ of the members that are also members of the Reseal committee.
 
@@ -394,6 +398,15 @@ Dual governance should not cover:
 
 
 ## Changelog
+
+### 2024-09-12
+- Explicitly described the `VetoSignallingDeactivation` -> `RageQuit` state transition.
+- Renamed `RageQuitExtensionDelay` to `RageQuitExtensionPeriodDuration`.
+- Replaced the quadratic function for the ETH withdrawal timelock $W(i)$ with a linear function.
+- Renamed `RageQuitEthWithdrawalsMinTimelock` to `RageQuitEthWithdrawalsMinDelay`.
+- Removed the `RageQuitEthWithdrawalsTimelockGrowthStartSeqNumber` and `RageQuitEthWithdrawalsTimelockGrowthCoeffs` parameters.
+- Introduced the `RageQuitEthWithdrawalsMaxDelay` and `RageQuitEthWithdrawalsDelayGrowth` parameters to calculate the $W(i)$ duration.
+- Removed the requirement **"governance state is Rage Quit"** from **Tiebreaker Condition B**.
 
 ### 2024-06-25
 - Instead of using the "wNFT" shortcut for the "Lido: stETH Withdrawal NFT" token, the official symbol "unstETH" is now used.
