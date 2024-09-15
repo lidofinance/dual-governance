@@ -609,18 +609,9 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         // Rollback the state of the node as it was before RageQuit activation
         vm.revertTo(snapshotId);
 
-        // Vetoer may unlock funds while the activateNextState wasn't called and the DG will
-        // transition into the VetoSignallingDeactivationState
-        _unlockStETH(_VETOER_1);
-        _assertVetoSignalingDeactivationState();
-
-        // Rollback the state of the node as it was before RageQuit activation
-        vm.revertTo(snapshotId);
-
-        // While the RageQuit not started, anyone can lock stETH/wstETH/unstETH after which
-        // DG system will transition into RageQuit state
-        _lockStETH(_VETOER_2, PercentsD16.fromBasisPoints(1_00));
-        _assertRageQuitState();
+        // The attempt to unlock funds from Escrow will fail
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        this.externalUnlockStETH(_VETOER_1);
     }
 
     // ---
