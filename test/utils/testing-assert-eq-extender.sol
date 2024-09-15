@@ -7,7 +7,7 @@ import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
 
-import {ProposalStatus} from "contracts/EmergencyProtectedTimelock.sol";
+import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {State as DualGovernanceState} from "contracts/DualGovernance.sol";
 
 contract TestingAssertEqExtender is Test {

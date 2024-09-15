@@ -24,12 +24,12 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().dividedBy(2));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().dividedBy(2));
 
         _activateNextState();
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().dividedBy(2).plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().dividedBy(2).plusSeconds(1));
 
         _activateNextState();
         _assertVetoSignalingDeactivationState();
@@ -42,12 +42,12 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
 
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().dividedBy(2));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
         _activateNextState();
 
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().dividedBy(2));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
         _activateNextState();
 
         _assertVetoSignalingState();
@@ -70,7 +70,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _activateNextState();
 
         _assertVetoSignalingDeactivationState();
@@ -99,7 +99,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MIN_DURATION().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _activateNextState();
 
         _assertVetoSignalingDeactivationState();
@@ -121,7 +121,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION());
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION());
         _activateNextState();
 
         _assertVetoSignalingState();

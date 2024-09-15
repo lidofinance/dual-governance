@@ -2,10 +2,13 @@
 pragma solidity 0.8.26;
 
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Duration.sol";
+
 import {ISealable} from "../interfaces/ISealable.sol";
 import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
+
 import {SealableCalls} from "./SealableCalls.sol";
 import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
 

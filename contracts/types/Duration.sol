@@ -11,21 +11,9 @@ error DurationUnderflow();
 // the max possible duration is ~ 106 years
 uint256 constant MAX_VALUE = type(uint32).max;
 
-using {lt as <} for Duration global;
-using {lte as <=} for Duration global;
-using {gt as >} for Duration global;
-using {eq as ==} for Duration global;
-using {notEq as !=} for Duration global;
-
-using {plus as +} for Duration global;
-using {minus as -} for Duration global;
-
-using {addTo} for Duration global;
-using {plusSeconds} for Duration global;
-using {minusSeconds} for Duration global;
-using {multipliedBy} for Duration global;
-using {dividedBy} for Duration global;
-using {toSeconds} for Duration global;
+using {lt as <, lte as <=, gt as >, gte as >=, eq as ==, notEq as !=} for Duration global;
+using {plus as +, minus as -} for Duration global;
+using {addTo, plusSeconds, minusSeconds, multipliedBy, dividedBy, toSeconds} for Duration global;
 
 // ---
 // Comparison Ops
@@ -41,6 +29,10 @@ function lte(Duration d1, Duration d2) pure returns (bool) {
 
 function gt(Duration d1, Duration d2) pure returns (bool) {
     return Duration.unwrap(d1) > Duration.unwrap(d2);
+}
+
+function gte(Duration d1, Duration d2) pure returns (bool) {
+    return Duration.unwrap(d1) >= Duration.unwrap(d2);
 }
 
 function eq(Duration d1, Duration d2) pure returns (bool) {
@@ -117,5 +109,9 @@ library Durations {
 
     function between(Timestamp t1, Timestamp t2) internal pure returns (Duration res) {
         res = toDuration(t1.toSeconds() - t2.toSeconds());
+    }
+
+    function min(Duration d1, Duration d2) internal pure returns (Duration res) {
+        res = d1 < d2 ? d1 : d2;
     }
 }

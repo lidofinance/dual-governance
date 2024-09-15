@@ -61,10 +61,13 @@ contract Escrow is IEscrow {
     error InvalidETHSender(address actual, address expected);
 
     // ---
-    // Events
+    // Constants
     // ---
 
-    event ConfigProviderSet(address newConfigProvider);
+    /// @dev The lower limit for stETH transfers when requesting a withdrawal batch
+    /// during the Rage Quit phase. For more details, see https://github.com/lidofinance/lido-dao/issues/442.
+    /// The current value is chosen to ensure functionality over an extended period, spanning several decades.
+    uint256 private constant _MIN_TRANSFERRABLE_ST_ETH_AMOUNT = 8 wei;
 
     // ---
     // Sanity check params immutables
@@ -237,9 +240,9 @@ contract Escrow is IEscrow {
     // Start rage quit
     // ---
 
-    function startRageQuit(Duration rageQuitExtensionDelay, Duration rageQuitWithdrawalsTimelock) external {
+    function startRageQuit(Duration rageQuitExtensionPeriodDuration, Duration rageQuitEthWithdrawalsDelay) external {
         _checkCallerIsDualGovernance();
-        _escrowState.startRageQuit(rageQuitExtensionDelay, rageQuitWithdrawalsTimelock);
+        _escrowState.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
         _batchesQueue.open(WITHDRAWAL_QUEUE.getLastRequestId());
     }
 
@@ -258,7 +261,9 @@ contract Escrow is IEscrow {
         uint256 minStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         uint256 maxStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
 
-        if (stETHRemaining < minStETHWithdrawalRequestAmount) {
+        /// @dev This check ensures that even if MIN_STETH_WITHDRAWAL_AMOUNT is set too low,
+        /// the withdrawal batch request process can still be completed successfully
+        if (stETHRemaining < Math.max(_MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount)) {
             return _batchesQueue.close();
         }
 
@@ -307,13 +312,13 @@ contract Escrow is IEscrow {
     // Start rage quit extension delay
     // ---
 
-    function startRageQuitExtensionDelay() external {
+    function startRageQuitExtensionPeriod() external {
         if (!_batchesQueue.isClosed()) {
             revert BatchesQueueIsNotClosed();
         }
 
         /// @dev This check is primarily required when only unstETH NFTs are locked in the Escrow
-        /// and there are no WithdrawalBatches. In this scenario, the RageQuitExtensionDelay can only begin
+        /// and there are no WithdrawalBatches. In this scenario, the RageQuitExtensionPeriod can only begin
         /// when the last locked unstETH id is finalized in the WithdrawalQueue.
         /// When the WithdrawalBatchesQueue is not empty, this invariant is maintained by the following:
         /// - Any locked unstETH during the VetoSignalling phase has an id less than any unstETH NFT created
@@ -328,7 +333,7 @@ contract Escrow is IEscrow {
             revert UnclaimedBatches();
         }
 
-        _escrowState.startRageQuitExtensionDelay();
+        _escrowState.startRageQuitExtensionPeriod();
     }
 
     // ---
@@ -362,7 +367,7 @@ contract Escrow is IEscrow {
 
     function withdrawETH() external {
         _escrowState.checkRageQuitEscrow();
-        _escrowState.checkWithdrawalsTimelockPassed();
+        _escrowState.checkEthWithdrawalsDelayPassed();
         ETHValue ethToWithdraw = _accounting.accountStETHSharesWithdraw(msg.sender);
         ethToWithdraw.sendTo(payable(msg.sender));
     }
@@ -372,7 +377,7 @@ contract Escrow is IEscrow {
             revert EmptyUnstETHIds();
         }
         _escrowState.checkRageQuitEscrow();
-        _escrowState.checkWithdrawalsTimelockPassed();
+        _escrowState.checkEthWithdrawalsDelayPassed();
         ETHValue ethToWithdraw = _accounting.accountUnstETHWithdraw(msg.sender, unstETHIds);
         ethToWithdraw.sendTo(payable(msg.sender));
     }
@@ -412,12 +417,12 @@ contract Escrow is IEscrow {
         return _batchesQueue.isClosed();
     }
 
-    function isRageQuitExtensionDelayStarted() external view returns (bool) {
-        return _escrowState.isRageQuitExtensionDelayStarted();
+    function isRageQuitExtensionPeriodStarted() external view returns (bool) {
+        return _escrowState.isRageQuitExtensionPeriodStarted();
     }
 
-    function getRageQuitExtensionDelayStartedAt() external view returns (Timestamp) {
-        return _escrowState.rageQuitExtensionDelayStartedAt;
+    function getRageQuitExtensionPeriodStartedAt() external view returns (Timestamp) {
+        return _escrowState.rageQuitExtensionPeriodStartedAt;
     }
 
     function getRageQuitSupport() external view returns (PercentD16) {
@@ -434,7 +439,7 @@ contract Escrow is IEscrow {
     }
 
     function isRageQuitFinalized() external view returns (bool) {
-        return _escrowState.isRageQuitEscrow() && _escrowState.isRageQuitExtensionDelayPassed();
+        return _escrowState.isRageQuitEscrow() && _escrowState.isRageQuitExtensionPeriodPassed();
     }
 
     // ---
@@ -468,7 +473,7 @@ contract Escrow is IEscrow {
         WITHDRAWAL_QUEUE.claimWithdrawals(unstETHIds, hints);
         ETHValue ethBalanceAfter = ETHValues.fromAddressBalance(address(this));
 
-        _accounting.accountClaimedStETH(ethBalanceAfter - ethBalanceBefore);
+        _accounting.accountClaimedETH(ethBalanceAfter - ethBalanceBefore);
     }
 
     function _checkCallerIsDualGovernance() internal view {

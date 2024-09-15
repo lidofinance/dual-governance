@@ -3,11 +3,13 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {ITiebreakerCore} from "../interfaces/ITiebreakerCore.sol";
+import {Durations} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
+import {ITiebreakerCoreCommittee} from "../interfaces/ITiebreakerCoreCommittee.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Durations} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,
@@ -18,15 +20,15 @@ enum ProposalType {
 /// @notice This contract allows a subcommittee to vote on and execute proposals for scheduling and resuming sealable addresses
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
-    address immutable TIEBREAKER_CORE;
+    address public immutable TIEBREAKER_CORE_COMMITTEE;
 
     constructor(
         address owner,
         address[] memory committeeMembers,
         uint256 executionQuorum,
-        address tiebreakerCore
-    ) HashConsensus(owner, Durations.from(0)) {
-        TIEBREAKER_CORE = tiebreakerCore;
+        address tiebreakerCoreCommittee
+    ) HashConsensus(owner, Durations.ZERO) {
+        TIEBREAKER_CORE_COMMITTEE = tiebreakerCoreCommittee;
 
         _addMembers(committeeMembers, executionQuorum);
     }
@@ -40,7 +42,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     function scheduleProposal(uint256 proposalId) public {
         _checkCallerIsMember();
-        ITiebreakerCore(TIEBREAKER_CORE).checkProposalExists(proposalId);
+        ITiebreakerCoreCommittee(TIEBREAKER_CORE_COMMITTEE).checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeApproveProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);
@@ -69,7 +71,8 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         (, bytes32 key) = _encodeApproveProposal(proposalId);
         _markUsed(key);
         Address.functionCall(
-            TIEBREAKER_CORE, abi.encodeWithSelector(ITiebreakerCore.scheduleProposal.selector, proposalId)
+            TIEBREAKER_CORE_COMMITTEE,
+            abi.encodeWithSelector(ITiebreakerCoreCommittee.scheduleProposal.selector, proposalId)
         );
     }
 
@@ -120,7 +123,8 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         (, bytes32 key, uint256 nonce) = _encodeSealableResume(sealable);
         _markUsed(key);
         Address.functionCall(
-            TIEBREAKER_CORE, abi.encodeWithSelector(ITiebreakerCore.sealableResume.selector, sealable, nonce)
+            TIEBREAKER_CORE_COMMITTEE,
+            abi.encodeWithSelector(ITiebreakerCoreCommittee.sealableResume.selector, sealable, nonce)
         );
     }
 
@@ -135,7 +139,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         view
         returns (bytes memory data, bytes32 key, uint256 nonce)
     {
-        nonce = ITiebreakerCore(TIEBREAKER_CORE).getSealableResumeNonce(sealable);
+        nonce = ITiebreakerCoreCommittee(TIEBREAKER_CORE_COMMITTEE).getSealableResumeNonce(sealable);
         data = abi.encode(sealable, nonce);
         key = keccak256(data);
     }

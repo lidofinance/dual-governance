@@ -5,11 +5,10 @@ import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
-import {ProposalStatus} from "./interfaces/ITimelock.sol";
 import {IEmergencyProtectedTimelock} from "./interfaces/IEmergencyProtectedTimelock.sol";
 
-import {TimelockState} from "./libraries/TimelockState.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
+import {TimelockState} from "./libraries/TimelockState.sol";
 import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 

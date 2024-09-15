@@ -2,27 +2,28 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "./types/Duration.sol";
-import {ITimelock} from "./interfaces/ITimelock.sol";
-import {IResealManager} from "./interfaces/IResealManager.sol";
 
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
+import {ITimelock} from "./interfaces/ITimelock.sol";
+import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
-import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
+import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigProvider.sol";
 
 import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
+import {DualGovernanceConfig} from "./libraries/DualGovernanceConfig.sol";
 import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
-import {IDualGovernanceConfigProvider} from "./DualGovernanceConfigProvider.sol";
 
 import {Escrow} from "./Escrow.sol";
 
 contract DualGovernance is IDualGovernance {
     using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
+    using DualGovernanceConfig for DualGovernanceConfig.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
     // ---
@@ -46,6 +47,7 @@ contract DualGovernance is IDualGovernance {
     event CancelAllPendingProposalsExecuted();
     event EscrowMasterCopyDeployed(address escrowMasterCopy);
     event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
+    event ResealCommitteeSet(address resealCommittee);
 
     // ---
     // Tiebreaker Sanity Check Param Immutables
@@ -311,6 +313,8 @@ contract DualGovernance is IDualGovernance {
     function setResealCommittee(address resealCommittee) external {
         _checkCallerIsAdminExecutor();
         _resealCommittee = resealCommittee;
+
+        emit ResealCommitteeSet(resealCommittee);
     }
 
     // ---
@@ -318,15 +322,12 @@ contract DualGovernance is IDualGovernance {
     // ---
 
     function _setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) internal {
-        if (address(newConfigProvider) == address(0)) {
+        if (address(newConfigProvider) == address(0) || newConfigProvider == _configProvider) {
             revert InvalidConfigProvider(newConfigProvider);
         }
 
-        if (newConfigProvider == _configProvider) {
-            return;
-        }
-
-        _configProvider = IDualGovernanceConfigProvider(newConfigProvider);
+        newConfigProvider.getDualGovernanceConfig().validate();
+        _configProvider = newConfigProvider;
         emit ConfigProviderSet(newConfigProvider);
     }
 

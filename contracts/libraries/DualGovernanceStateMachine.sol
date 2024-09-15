@@ -4,12 +4,12 @@ pragma solidity 0.8.26;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
-import {IEscrow} from "../interfaces/IEscrow.sol";
-import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
-
 import {Duration} from "../types/Duration.sol";
 import {PercentD16} from "../types/PercentD16.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
+
+import {IEscrow} from "../interfaces/IEscrow.sol";
+import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 
 import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
 
@@ -121,7 +121,7 @@ library DualGovernanceStateMachine {
             self.rageQuitRound = uint8(newRageQuitRound);
 
             signallingEscrow.startRageQuit(
-                config.rageQuitExtensionDelay, config.calcRageQuitWithdrawalsTimelock(newRageQuitRound)
+                config.rageQuitExtensionPeriodDuration, config.calcRageQuitWithdrawalsDelay(newRageQuitRound)
             );
             self.rageQuitEscrow = signallingEscrow;
             _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
@@ -143,7 +143,8 @@ library DualGovernanceStateMachine {
         stateDetails.vetoSignallingReactivationTime = self.vetoSignallingReactivationTime;
         stateDetails.normalOrVetoCooldownExitedAt = self.normalOrVetoCooldownExitedAt;
         stateDetails.rageQuitRound = self.rageQuitRound;
-        stateDetails.dynamicDelay = config.calcDynamicDelayDuration(self.signallingEscrow.getRageQuitSupport());
+        stateDetails.vetoSignallingDuration =
+            config.calcVetoSignallingDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
     function getState(Context storage self) internal view returns (State) {
@@ -161,7 +162,9 @@ library DualGovernanceStateMachine {
 
     function canScheduleProposal(Context storage self, Timestamp proposalSubmissionTime) internal view returns (bool) {
         State state = self.state;
-        if (state == State.Normal) return true;
+        if (state == State.Normal) {
+            return true;
+        }
         if (state == State.VetoCooldown) {
             return proposalSubmissionTime <= self.vetoSignallingActivatedAt;
         }
@@ -218,7 +221,7 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
+        if (!config.isVetoSignallingDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
         }
 
@@ -237,7 +240,7 @@ library DualGovernanceStateTransitions {
     ) private view returns (State) {
         PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
 
-        if (!config.isDynamicTimelockDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
+        if (!config.isVetoSignallingDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
             return State.VetoSignalling;
         }
 

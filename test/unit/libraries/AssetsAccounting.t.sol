@@ -306,10 +306,10 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     // ---
-    // accountClaimedStETH
+    // accountClaimedETH
     // ---
 
-    function testFuzz_accountClaimedStETH_happyPath(ETHValue amount, ETHValue totalClaimedETH) external {
+    function testFuzz_accountClaimedETH_happyPath(ETHValue amount, ETHValue totalClaimedETH) external {
         vm.assume(amount.toUint256() < type(uint128).max / 2);
         vm.assume(totalClaimedETH.toUint256() < type(uint128).max / 2);
 
@@ -318,7 +318,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         vm.expectEmit();
         emit AssetsAccounting.ETHClaimed(amount);
 
-        AssetsAccounting.accountClaimedStETH(_accountingContext, amount);
+        AssetsAccounting.accountClaimedETH(_accountingContext, amount);
 
         checkAccountingContextTotalCounters(
             SharesValues.ZERO, totalClaimedETH + amount, SharesValues.ZERO, ETHValues.ZERO

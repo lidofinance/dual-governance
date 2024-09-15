@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ITiebreakerCore} from "contracts/interfaces/ITiebreakerCore.sol";
+import {ITiebreakerCoreCommittee} from "contracts/interfaces/ITiebreakerCoreCommittee.sol";
 
-import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee, ProposalType} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
-import {ITiebreakerCore} from "contracts/interfaces/ITiebreakerCore.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 
@@ -81,7 +80,9 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         tiebreakerSubCommittee.scheduleProposal(proposalId);
 
         vm.prank(committeeMembers[2]);
-        vm.expectCall(tiebreakerCore, abi.encodeWithSelector(ITiebreakerCore.scheduleProposal.selector, proposalId));
+        vm.expectCall(
+            tiebreakerCore, abi.encodeWithSelector(ITiebreakerCoreCommittee.scheduleProposal.selector, proposalId)
+        );
         tiebreakerSubCommittee.executeScheduleProposal(proposalId);
 
         (,,, bool isExecuted) = tiebreakerSubCommittee.getScheduleProposalState(proposalId);
@@ -105,7 +106,9 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
     function test_scheduleProposal_RevertOn_ProposalDoesNotExist() external {
         uint256 nonExistentProposalId = proposalId + 1;
 
-        vm.expectRevert(abi.encodeWithSelector(TiebreakerCore.ProposalDoesNotExist.selector, nonExistentProposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(TiebreakerCoreCommittee.ProposalDoesNotExist.selector, nonExistentProposalId)
+        );
         vm.prank(committeeMembers[0]);
         tiebreakerSubCommittee.scheduleProposal(nonExistentProposalId);
     }
@@ -113,7 +116,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
     function test_sealableResume_HappyPath() external {
         vm.mockCall(
             tiebreakerCore,
-            abi.encodeWithSelector(ITiebreakerCore.getSealableResumeNonce.selector, sealable),
+            abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
 
@@ -145,7 +148,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
     function test_executeSealableResume_HappyPath() external {
         vm.mockCall(
             tiebreakerCore,
-            abi.encodeWithSelector(ITiebreakerCore.getSealableResumeNonce.selector, sealable),
+            abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
 
@@ -155,7 +158,9 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         tiebreakerSubCommittee.sealableResume(sealable);
 
         vm.prank(committeeMembers[2]);
-        vm.expectCall(tiebreakerCore, abi.encodeWithSelector(ITiebreakerCore.sealableResume.selector, sealable, 0));
+        vm.expectCall(
+            tiebreakerCore, abi.encodeWithSelector(ITiebreakerCoreCommittee.sealableResume.selector, sealable, 0)
+        );
         tiebreakerSubCommittee.executeSealableResume(sealable);
 
         (,,, bool isExecuted) = tiebreakerSubCommittee.getSealableResumeState(sealable);
@@ -165,7 +170,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
     function test_executeSealableResume_RevertOn_QuorumNotReached() external {
         vm.mockCall(
             tiebreakerCore,
-            abi.encodeWithSelector(ITiebreakerCore.getSealableResumeNonce.selector, sealable),
+            abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
 
@@ -220,7 +225,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
     function test_getSealableResumeState_HappyPath() external {
         vm.mockCall(
             tiebreakerCore,
-            abi.encodeWithSelector(ITiebreakerCore.getSealableResumeNonce.selector, sealable),
+            abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
 

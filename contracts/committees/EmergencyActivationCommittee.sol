@@ -3,10 +3,12 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {HashConsensus} from "./HashConsensus.sol";
-import {ITimelock} from "../interfaces/ITimelock.sol";
-import {Duration, Durations} from "../types/Duration.sol";
+import {Durations} from "../types/Duration.sol";
 import {Timestamp} from "../types/Timestamp.sol";
+
+import {ITimelock} from "../interfaces/ITimelock.sol";
+
+import {HashConsensus} from "./HashConsensus.sol";
 
 /// @title Emergency Activation Committee Contract
 /// @notice This contract allows a committee to approve and execute an emergency activation
@@ -21,7 +23,7 @@ contract EmergencyActivationCommittee is HashConsensus {
         address[] memory committeeMembers,
         uint256 executionQuorum,
         address emergencyProtectedTimelock
-    ) HashConsensus(owner, Durations.from(0)) {
+    ) HashConsensus(owner, Durations.ZERO) {
         EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
 
         _addMembers(committeeMembers, executionQuorum);
