@@ -17,7 +17,6 @@ import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigP
 import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
-import {DualGovernanceConfig} from "./libraries/DualGovernanceConfig.sol";
 import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
 
 import {Escrow} from "./Escrow.sol";
@@ -25,7 +24,6 @@ import {Escrow} from "./Escrow.sol";
 contract DualGovernance is IDualGovernance {
     using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
-    using DualGovernanceConfig for DualGovernanceConfig.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
     // ---

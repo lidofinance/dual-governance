@@ -209,11 +209,9 @@ library DualGovernanceStateMachine {
         returns (IDualGovernance.StateDetails memory stateDetails)
     {
         DualGovernanceConfig.Context memory config = getDualGovernanceConfig(self);
-        (State currentState, State nextState) = self.getStateTransition(config);
+        (stateDetails.persistedState, stateDetails.effectiveState) = self.getStateTransition(config);
 
-        stateDetails.state = currentState;
-        stateDetails.enteredAt = self.enteredAt;
-        stateDetails.nextState = nextState;
+        stateDetails.persistedStateEnteredAt = self.enteredAt;
         stateDetails.vetoSignallingActivatedAt = self.vetoSignallingActivatedAt;
         stateDetails.vetoSignallingReactivationTime = self.vetoSignallingReactivationTime;
         stateDetails.normalOrVetoCooldownExitedAt = self.normalOrVetoCooldownExitedAt;

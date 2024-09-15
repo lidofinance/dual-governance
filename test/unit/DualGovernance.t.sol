@@ -726,8 +726,8 @@ contract DualGovernanceUnitTests is UnitTest {
         Timestamp startTime = Timestamps.now();
 
         IDualGovernance.StateDetails memory details = _dualGovernance.getStateDetails();
-        assertEq(details.state, State.Normal);
-        assertEq(details.enteredAt, startTime);
+        assertEq(details.persistedState, State.Normal);
+        assertEq(details.persistedStateEnteredAt, startTime);
         assertEq(details.vetoSignallingActivatedAt, Timestamps.from(0));
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, Timestamps.from(0));
@@ -741,8 +741,8 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.activateNextState();
 
         details = _dualGovernance.getStateDetails();
-        assertEq(details.state, State.VetoSignalling);
-        assertEq(details.enteredAt, vetoSignallingTime);
+        assertEq(details.persistedState, State.VetoSignalling);
+        assertEq(details.persistedStateEnteredAt, vetoSignallingTime);
         assertEq(details.vetoSignallingActivatedAt, vetoSignallingTime);
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
@@ -756,8 +756,8 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.activateNextState();
 
         details = _dualGovernance.getStateDetails();
-        assertEq(details.state, State.VetoSignallingDeactivation);
-        assertEq(details.enteredAt, deactivationTime);
+        assertEq(details.persistedState, State.VetoSignallingDeactivation);
+        assertEq(details.persistedStateEnteredAt, deactivationTime);
         assertEq(details.vetoSignallingActivatedAt, vetoSignallingTime);
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
@@ -769,8 +769,8 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.activateNextState();
 
         details = _dualGovernance.getStateDetails();
-        assertEq(details.state, State.VetoCooldown);
-        assertEq(details.enteredAt, vetoCooldownTime);
+        assertEq(details.persistedState, State.VetoCooldown);
+        assertEq(details.persistedStateEnteredAt, vetoCooldownTime);
         assertEq(details.vetoSignallingActivatedAt, vetoSignallingTime);
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, vetoSignallingTime);
@@ -782,8 +782,8 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.activateNextState();
 
         details = _dualGovernance.getStateDetails();
-        assertEq(details.state, State.Normal);
-        assertEq(details.enteredAt, backToNormalTime);
+        assertEq(details.persistedState, State.Normal);
+        assertEq(details.persistedStateEnteredAt, backToNormalTime);
         assertEq(details.vetoSignallingActivatedAt, vetoSignallingTime);
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, backToNormalTime);
@@ -800,8 +800,8 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.stopPrank();
 
         details = _dualGovernance.getStateDetails();
-        assertEq(details.state, State.RageQuit);
-        assertEq(details.enteredAt, rageQuitTime);
+        assertEq(details.persistedState, State.RageQuit);
+        assertEq(details.persistedStateEnteredAt, rageQuitTime);
         assertEq(details.vetoSignallingActivatedAt, secondVetoSignallingTime);
         assertEq(details.vetoSignallingReactivationTime, Timestamps.from(0));
         assertEq(details.normalOrVetoCooldownExitedAt, backToNormalTime);
@@ -1205,7 +1205,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
         IDualGovernance.StateDetails memory stateDetails = _dualGovernance.getStateDetails();
-        assertEq(stateDetails.enteredAt, Timestamps.now());
+        assertEq(stateDetails.persistedStateEnteredAt, Timestamps.now());
     }
 
     // ---
@@ -1279,7 +1279,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(uint256(_dualGovernance.getPersistedState()), uint256(State.VetoSignallingDeactivation));
 
         IDualGovernance.StateDetails memory stateDetails = _dualGovernance.getStateDetails();
-        assertEq(stateDetails.enteredAt, Timestamps.now());
+        assertEq(stateDetails.persistedStateEnteredAt, Timestamps.now());
     }
 
     // ---

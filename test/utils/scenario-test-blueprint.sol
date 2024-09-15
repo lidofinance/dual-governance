@@ -95,9 +95,9 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
         IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
-        isActive = stateContext.state == DGState.VetoSignalling;
+        isActive = stateContext.persistedState == DGState.VetoSignalling;
         duration = _dualGovernance.getStateDetails().vetoSignallingDuration.toSeconds();
-        enteredAt = stateContext.enteredAt.toSeconds();
+        enteredAt = stateContext.persistedStateEnteredAt.toSeconds();
         activatedAt = stateContext.vetoSignallingActivatedAt.toSeconds();
     }
 
@@ -107,9 +107,9 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
         IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
-        isActive = stateContext.state == DGState.VetoSignallingDeactivation;
+        isActive = stateContext.persistedState == DGState.VetoSignallingDeactivation;
         duration = _dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
-        enteredAt = stateContext.enteredAt.toSeconds();
+        enteredAt = stateContext.persistedStateEnteredAt.toSeconds();
     }
 
     // ---
