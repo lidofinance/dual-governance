@@ -10,6 +10,7 @@ import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+import {IDualGovernanceConfigProvider} from "../interfaces/IDualGovernanceConfigProvider.sol";
 
 import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
 
@@ -59,19 +60,41 @@ library DualGovernanceStateMachine {
         /// @dev slot 1: [80..239]
         /// The address of the Escrow used during the last (may be ongoing) Rage Quit process
         IEscrow rageQuitEscrow;
+        ///
+        /// @dev slot 2: [0..159]
+        /// The address of the Dual Governance config provider
+        IDualGovernanceConfigProvider configProvider;
     }
 
+    // ---
+    // Errors
+    // ---
+
     error AlreadyInitialized();
+    error InvalidConfigProvider(IDualGovernanceConfigProvider configProvider);
+
+    // ---
+    // Events
+    // ---
 
     event NewSignallingEscrowDeployed(IEscrow indexed escrow);
     event DualGovernanceStateChanged(State from, State to, Context state);
+    event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
+
+    // ---
+    // Constants
+    // ---
 
     uint256 internal constant MAX_RAGE_QUIT_ROUND = type(uint8).max;
 
+    // ---
+    // Main functionality
+    // ---
+
     function initialize(
         Context storage self,
-        DualGovernanceConfig.Context memory config,
-        address escrowMasterCopy
+        IDualGovernanceConfigProvider configProvider,
+        IEscrow escrowMasterCopy
     ) internal {
         if (self.state != State.Unset) {
             revert AlreadyInitialized();
@@ -79,16 +102,17 @@ library DualGovernanceStateMachine {
 
         self.state = State.Normal;
         self.enteredAt = Timestamps.now();
+
+        _setConfigProvider(self, configProvider);
+
+        DualGovernanceConfig.Context memory config = configProvider.getDualGovernanceConfig();
         _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
 
         emit DualGovernanceStateChanged(State.Unset, State.Normal, self);
     }
 
-    function activateNextState(
-        Context storage self,
-        DualGovernanceConfig.Context memory config,
-        address escrowMasterCopy
-    ) internal {
+    function activateNextState(Context storage self, IEscrow escrowMasterCopy) internal {
+        DualGovernanceConfig.Context memory config = getDualGovernanceConfig(self);
         (State currentState, State newState) = self.getStateTransition(config);
 
         if (currentState == newState) {
@@ -130,10 +154,26 @@ library DualGovernanceStateMachine {
         emit DualGovernanceStateChanged(currentState, newState, self);
     }
 
-    function getStateDetails(
-        Context storage self,
-        DualGovernanceConfig.Context memory config
-    ) internal view returns (IDualGovernance.StateDetails memory stateDetails) {
+    function setConfigProvider(Context storage self, IDualGovernanceConfigProvider newConfigProvider) internal {
+        _setConfigProvider(self, newConfigProvider);
+
+        /// @dev minAssetsLockDuration is stored as a storage variable in the Signalling Escrow instance.
+        /// To synchronize the new value with the current Signalling Escrow, it must be manually updated.
+        self.signallingEscrow.setMinAssetsLockDuration(
+            newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
+        );
+    }
+
+    // ---
+    // Getters
+    // ---
+
+    function getStateDetails(Context storage self)
+        internal
+        view
+        returns (IDualGovernance.StateDetails memory stateDetails)
+    {
+        DualGovernanceConfig.Context memory config = getDualGovernanceConfig(self);
         (State currentState, State nextState) = self.getStateTransition(config);
 
         stateDetails.state = currentState;
@@ -147,36 +187,71 @@ library DualGovernanceStateMachine {
             config.calcVetoSignallingDuration(self.signallingEscrow.getRageQuitSupport());
     }
 
-    function getState(Context storage self) internal view returns (State) {
-        return self.state;
+    function getPersistedState(Context storage self) internal view returns (State persistedState) {
+        persistedState = self.state;
+    }
+
+    function getEffectiveState(Context storage self) internal view returns (State effectiveState) {
+        ( /* persistedState */ , effectiveState) = self.getStateTransition(getDualGovernanceConfig(self));
     }
 
     function getNormalOrVetoCooldownStateExitedAt(Context storage self) internal view returns (Timestamp) {
         return self.normalOrVetoCooldownExitedAt;
     }
 
-    function canSubmitProposal(Context storage self) internal view returns (bool) {
-        State state = self.state;
-        return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
+    function canSubmitProposal(Context storage self, bool useEffectiveState) internal view returns (bool) {
+        State effectiveState = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
+        return effectiveState != State.VetoSignallingDeactivation && effectiveState != State.VetoCooldown;
     }
 
-    function canScheduleProposal(Context storage self, Timestamp proposalSubmissionTime) internal view returns (bool) {
-        State state = self.state;
-        if (state == State.Normal) {
-            return true;
-        }
-        if (state == State.VetoCooldown) {
-            return proposalSubmissionTime <= self.vetoSignallingActivatedAt;
-        }
+    function canScheduleProposal(
+        Context storage self,
+        bool useEffectiveState,
+        Timestamp proposalSubmittedAt
+    ) internal view returns (bool) {
+        State effectiveState = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
+        if (effectiveState == State.Normal) return true;
+        if (effectiveState == State.VetoCooldown) return proposalSubmittedAt <= self.vetoSignallingActivatedAt;
         return false;
+    }
+
+    function getDualGovernanceConfigProvider(Context storage self)
+        internal
+        view
+        returns (IDualGovernanceConfigProvider)
+    {
+        return self.configProvider;
+    }
+
+    function getDualGovernanceConfig(Context storage self)
+        internal
+        view
+        returns (DualGovernanceConfig.Context memory)
+    {
+        return self.configProvider.getDualGovernanceConfig();
+    }
+
+    // ---
+    // Private Methods
+    // ---
+
+    function _setConfigProvider(Context storage self, IDualGovernanceConfigProvider newConfigProvider) private {
+        if (address(newConfigProvider) == address(0) || newConfigProvider == self.configProvider) {
+            revert InvalidConfigProvider(newConfigProvider);
+        }
+
+        newConfigProvider.getDualGovernanceConfig().validate();
+
+        self.configProvider = newConfigProvider;
+        emit ConfigProviderSet(newConfigProvider);
     }
 
     function _deployNewSignallingEscrow(
         Context storage self,
-        address escrowMasterCopy,
+        IEscrow escrowMasterCopy,
         Duration minAssetsLockDuration
     ) private {
-        IEscrow newSignallingEscrow = IEscrow(Clones.clone(escrowMasterCopy));
+        IEscrow newSignallingEscrow = IEscrow(Clones.clone(address(escrowMasterCopy)));
         newSignallingEscrow.initialize(minAssetsLockDuration);
         self.signallingEscrow = newSignallingEscrow;
         emit NewSignallingEscrowDeployed(newSignallingEscrow);

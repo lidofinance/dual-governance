@@ -449,23 +449,23 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _assertNormalState() internal {
-        assertEq(_dualGovernance.getState(), DGState.Normal);
+        assertEq(_dualGovernance.getPersistedState(), DGState.Normal);
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(_dualGovernance.getState(), DGState.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), DGState.VetoSignalling);
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(_dualGovernance.getState(), DGState.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), DGState.VetoSignallingDeactivation);
     }
 
     function _assertRageQuitState() internal {
-        assertEq(_dualGovernance.getState(), DGState.RageQuit);
+        assertEq(_dualGovernance.getPersistedState(), DGState.RageQuit);
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(_dualGovernance.getState(), DGState.VetoCooldown);
+        assertEq(_dualGovernance.getPersistedState(), DGState.VetoCooldown);
     }
 
     function _assertNoTargetMockCalls() internal {

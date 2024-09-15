@@ -13,12 +13,12 @@ import {
 } from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
-import {EscrowMock} from "test/mocks/EscrowMock.sol";
+import {IEscrow, EscrowMock} from "test/mocks/EscrowMock.sol";
 
 contract DualGovernanceStateMachineUnitTests is UnitTest {
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
 
-    address private immutable _ESCROW_MASTER_COPY = address(new EscrowMock());
+    IEscrow private immutable _ESCROW_MASTER_COPY = new EscrowMock();
     ImmutableDualGovernanceConfigProvider internal immutable _CONFIG_PROVIDER = new ImmutableDualGovernanceConfigProvider(
         DualGovernanceConfig.Context({
             firstSealRageQuitSupport: PercentsD16.fromBasisPoints(3_00), // 3%
@@ -43,7 +43,7 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
     DualGovernanceStateMachine.Context private _stateMachine;
 
     function setUp() external {
-        _stateMachine.initialize(_CONFIG_PROVIDER.getDualGovernanceConfig(), _ESCROW_MASTER_COPY);
+        _stateMachine.initialize(_CONFIG_PROVIDER, _ESCROW_MASTER_COPY);
     }
 
     function test_activateNextState_HappyPath_MaxRageQuitsRound() external {
@@ -62,23 +62,23 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
             // wait here the full duration of the veto cooldown to make sure it's over from the previous iteration
             _wait(_CONFIG_PROVIDER.VETO_COOLDOWN_DURATION().plusSeconds(1));
 
-            _stateMachine.activateNextState(_CONFIG_PROVIDER.getDualGovernanceConfig(), _ESCROW_MASTER_COPY);
+            _stateMachine.activateNextState(_ESCROW_MASTER_COPY);
             assertEq(_stateMachine.state, State.VetoSignalling);
 
             _wait(_CONFIG_PROVIDER.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
-            _stateMachine.activateNextState(_CONFIG_PROVIDER.getDualGovernanceConfig(), _ESCROW_MASTER_COPY);
+            _stateMachine.activateNextState(_ESCROW_MASTER_COPY);
 
             assertEq(_stateMachine.state, State.RageQuit);
             assertEq(_stateMachine.rageQuitRound, Math.min(i + 1, DualGovernanceStateMachine.MAX_RAGE_QUIT_ROUND));
 
             EscrowMock(signallingEscrow).__setIsRageQuitFinalized(true);
-            _stateMachine.activateNextState(_CONFIG_PROVIDER.getDualGovernanceConfig(), _ESCROW_MASTER_COPY);
+            _stateMachine.activateNextState(_ESCROW_MASTER_COPY);
             assertEq(_stateMachine.state, State.VetoCooldown);
         }
 
         // after the sequential rage quits chain is broken, the rage quit resets to 0
         _wait(_CONFIG_PROVIDER.VETO_COOLDOWN_DURATION().plusSeconds(1));
-        _stateMachine.activateNextState(_CONFIG_PROVIDER.getDualGovernanceConfig(), _ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState(_ESCROW_MASTER_COPY);
 
         assertEq(_stateMachine.rageQuitRound, 0);
         assertEq(_stateMachine.state, State.Normal);

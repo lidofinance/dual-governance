@@ -9,7 +9,7 @@ import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
 import {Escrow} from "contracts/Escrow.sol";
 import {Executor} from "contracts/Executor.sol";
-import {DualGovernance, State} from "contracts/DualGovernance.sol";
+import {DualGovernance, State, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
 import {Tiebreaker} from "contracts/libraries/Tiebreaker.sol";
 import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
@@ -122,15 +122,15 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.prank(vetoer);
         _escrow.lockStETH(5 ether);
 
-        State currentStateBefore = _dualGovernance.getState();
+        State currentStateBefore = _dualGovernance.getPersistedState();
 
         assertEq(currentStateBefore, State.VetoSignalling);
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
-        assertEq(currentStateBefore, _dualGovernance.getState());
+        assertEq(currentStateBefore, _dualGovernance.getPersistedState());
 
         _dualGovernance.submitProposal(_generateExternalCalls(), "");
 
-        State currentStateAfter = _dualGovernance.getState();
+        State currentStateAfter = _dualGovernance.getPersistedState();
         assertEq(currentStateAfter, State.RageQuit);
         assert(currentStateBefore != currentStateAfter);
     }
@@ -139,11 +139,11 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
 
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
         _escrow.unlockStETH();
 
-        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
 
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSubmissionBlocked.selector));
         _dualGovernance.submitProposal(_generateExternalCalls(), "");
@@ -208,9 +208,9 @@ contract DualGovernanceUnitTests is UnitTest {
             )
         );
 
-        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
         _dualGovernance.scheduleProposal(proposalId);
-        assertEq(_dualGovernance.getState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
     }
 
     function test_scheduleProposal_RevertOn_CannotSchedule() external {
@@ -246,7 +246,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
@@ -261,7 +261,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         Escrow signallingEscrow = Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
 
@@ -269,19 +269,19 @@ contract DualGovernanceUnitTests is UnitTest {
         signallingEscrow.lockStETH(5 ether);
         vm.stopPrank();
 
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         vm.prank(vetoer);
         signallingEscrow.unlockStETH();
 
-        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
 
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
 
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
@@ -296,18 +296,18 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
 
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.RageQuit);
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
@@ -322,13 +322,13 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
 
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
@@ -343,20 +343,20 @@ contract DualGovernanceUnitTests is UnitTest {
         _submitMockProposal();
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
 
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
         vm.prank(vetoer);
         _escrow.unlockStETH();
 
-        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
 
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
@@ -392,14 +392,14 @@ contract DualGovernanceUnitTests is UnitTest {
 
     function test_canSubmitProposal_HappyPath() external {
         assertTrue(_dualGovernance.canSubmitProposal());
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
 
         _dualGovernance.activateNextState();
         assertTrue(_dualGovernance.canSubmitProposal());
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
 
@@ -407,27 +407,27 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.activateNextState();
 
         assertFalse(_dualGovernance.canSubmitProposal());
-        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
 
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
 
         assertFalse(_dualGovernance.canSubmitProposal());
-        assertEq(_dualGovernance.getState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
 
         _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
 
         _dualGovernance.activateNextState();
 
         assertTrue(_dualGovernance.canSubmitProposal());
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         _escrow.lockStETH(5 ether);
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
 
         assertTrue(_dualGovernance.canSubmitProposal());
-        assertEq(_dualGovernance.getState(), State.RageQuit);
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
     }
 
     // ---
@@ -499,7 +499,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
 
-        assertEq(_dualGovernance.getState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
 
         vm.mockCall(
             address(_timelock),
@@ -526,33 +526,33 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function test_activateNextState_getState_HappyPath() external {
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
         _escrow.unlockStETH();
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
 
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
 
         _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         _escrow.lockStETH(5 ether);
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.RageQuit);
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
     }
 
     // ---
@@ -583,7 +583,7 @@ contract DualGovernanceUnitTests is UnitTest {
         IDualGovernanceConfigProvider oldConfigProvider = _dualGovernance.getConfigProvider();
 
         vm.expectEmit();
-        emit DualGovernance.ConfigProviderSet(IDualGovernanceConfigProvider(address(newConfigProvider)));
+        emit DualGovernanceStateMachine.ConfigProviderSet(IDualGovernanceConfigProvider(address(newConfigProvider)));
 
         vm.expectCall(
             address(_escrow),
@@ -630,14 +630,16 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function test_setConfigProvider_RevertOn_ConfigZeroAddress() external {
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidConfigProvider.selector, address(0)));
+        vm.expectRevert(abi.encodeWithSelector(DualGovernanceStateMachine.InvalidConfigProvider.selector, address(0)));
         _executor.execute(
             address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(0))
         );
     }
 
     function test_setConfigProvider_RevertOn_SameAddress() external {
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidConfigProvider.selector, address(_configProvider)));
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernanceStateMachine.InvalidConfigProvider.selector, address(_configProvider))
+        );
         _executor.execute(
             address(_dualGovernance),
             0,
@@ -694,7 +696,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.RageQuit);
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
 
         assertTrue(_dualGovernance.getVetoSignallingEscrow() != address(_escrow));
     }
@@ -711,7 +713,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.RageQuit);
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
 
         assertEq(_dualGovernance.getRageQuitEscrow(), address(_escrow));
     }
@@ -1190,7 +1192,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.activateNextState();
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         vm.mockCall(
             address(_RESEAL_MANAGER_STUB),
@@ -1201,7 +1203,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.prank(tiebreakerCommittee);
         _dualGovernance.tiebreakerResumeSealable(sealable);
 
-        assertEq(_dualGovernance.getState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
         IDualGovernance.StateDetails memory stateDetails = _dualGovernance.getStateDetails();
         assertEq(stateDetails.enteredAt, Timestamps.now());
     }
@@ -1265,7 +1267,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _escrow.lockStETH(1 ether);
         vm.stopPrank();
         _dualGovernance.activateNextState();
-        assertEq(uint256(_dualGovernance.getState()), uint256(State.VetoSignalling));
+        assertEq(uint256(_dualGovernance.getPersistedState()), uint256(State.VetoSignalling));
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
@@ -1274,7 +1276,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.prank(tiebreakerCommittee);
         _dualGovernance.tiebreakerScheduleProposal(proposalId);
 
-        assertEq(uint256(_dualGovernance.getState()), uint256(State.VetoSignallingDeactivation));
+        assertEq(uint256(_dualGovernance.getPersistedState()), uint256(State.VetoSignallingDeactivation));
 
         IDualGovernance.StateDetails memory stateDetails = _dualGovernance.getStateDetails();
         assertEq(stateDetails.enteredAt, Timestamps.now());
@@ -1357,7 +1359,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
         _dualGovernance.activateNextState();
-        assertEq(uint256(_dualGovernance.getState()), uint256(State.VetoSignalling));
+        assertEq(uint256(_dualGovernance.getPersistedState()), uint256(State.VetoSignalling));
 
         _wait(newTimeout.plusSeconds(1));
 
@@ -1388,7 +1390,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         vm.mockCall(
             address(_RESEAL_MANAGER_STUB),
@@ -1414,7 +1416,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _escrow.lockStETH(5 ether);
         vm.stopPrank();
         _dualGovernance.activateNextState();
-        assertEq(_dualGovernance.getState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         vm.prank(notResealCommittee);
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotResealCommittee.selector, notResealCommittee));
@@ -1431,7 +1433,7 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
         );
 
-        assertEq(_dualGovernance.getState(), State.Normal);
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
         vm.prank(resealCommittee);
         vm.expectRevert(DualGovernance.ResealIsNotAllowedInNormalState.selector);
