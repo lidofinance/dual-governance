@@ -145,8 +145,7 @@ contract DualGovernance is IDualGovernance {
             revert NotAdminProposer();
         }
 
-        State persistedState = _stateMachine.getPersistedState();
-        if (persistedState != State.VetoSignalling && persistedState != State.VetoSignallingDeactivation) {
+        if (!_stateMachine.canCancelAllProposals({useEffectiveState: false})) {
             /// @dev Some proposer contracts, like Aragon Voting, may not support canceling decisions that have already
             /// reached consensus. This could lead to a situation where a proposer’s cancelAllPendingProposals() call
             /// becomes unexecutable if the Dual Governance state changes. However, it might become executable again if
@@ -161,7 +160,7 @@ contract DualGovernance is IDualGovernance {
         emit CancelAllPendingProposalsExecuted();
     }
 
-    function canSubmitProposal() public view returns (bool) {
+    function canSubmitProposal() external view returns (bool) {
         return _stateMachine.canSubmitProposal({useEffectiveState: true});
     }
 
@@ -169,6 +168,10 @@ contract DualGovernance is IDualGovernance {
         Timestamp proposalSubmittedAt = TIMELOCK.getProposalDetails(proposalId).submittedAt;
         return _stateMachine.canScheduleProposal({useEffectiveState: true, proposalSubmittedAt: proposalSubmittedAt})
             && TIMELOCK.canSchedule(proposalId);
+    }
+
+    function canCancelAllProposals() external view returns (bool) {
+        return _stateMachine.canCancelAllProposals({useEffectiveState: true});
     }
 
     // ---
