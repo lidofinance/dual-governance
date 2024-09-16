@@ -18,6 +18,7 @@ import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
 
 import {StETHMock} from "test/mocks/StETHMock.sol";
 import {WstETHMock} from "test/mocks/WstETHMock.sol";
@@ -34,14 +35,14 @@ contract EscrowUnitTests is UnitTest {
     StETHMock private _stETH;
     WstETHMock private _wstETH;
 
-    WithdrawalQueueMock private _withdrawalQueue;
+    address private _withdrawalQueue;
 
     Duration _minLockAssetDuration = Durations.from(1 days);
 
     function setUp() external {
         _stETH = new StETHMock();
         _wstETH = new WstETHMock();
-        _withdrawalQueue = new WithdrawalQueueMock();
+        _withdrawalQueue = address(new WithdrawalQueueMock());
         _escrow = createInitializedEscrowProxy(100, _minLockAssetDuration);
 
         vm.startPrank(_vetoer);
@@ -93,8 +94,7 @@ contract EscrowUnitTests is UnitTest {
             address(_stETH), abi.encodeWithSelector(IERC20.approve.selector, address(_wstETH), type(uint256).max)
         );
         vm.expectCall(
-            address(_stETH),
-            abi.encodeWithSelector(IERC20.approve.selector, address(_withdrawalQueue), type(uint256).max)
+            address(_stETH), abi.encodeWithSelector(IERC20.approve.selector, _withdrawalQueue, type(uint256).max)
         );
 
         createInitializedEscrowProxy(100, Durations.ZERO);
@@ -243,8 +243,7 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function test_lockWstETH_RevertOn_UnexpectedEscrowState() external {
-        vm.prank(_dualGovernance);
-        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
+        transitToRageQuit();
 
         vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
         vm.prank(_vetoer);
@@ -289,8 +288,7 @@ contract EscrowUnitTests is UnitTest {
         vm.prank(_vetoer);
         _escrow.lockWstETH(amount);
 
-        vm.prank(_dualGovernance);
-        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
+        transitToRageQuit();
 
         vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
         vm.prank(_vetoer);
@@ -318,11 +316,270 @@ contract EscrowUnitTests is UnitTest {
     }
 
     // ---
+    // lockUnstETH()
+    // ---
+
+    function test_lockUnstETH_HappyPath() external {
+        uint256[] memory unstethIds = new uint256[](2);
+        unstethIds[0] = 1;
+        unstethIds[1] = 2;
+
+        WithdrawalRequestStatus[] memory statuses = new WithdrawalRequestStatus[](2);
+        statuses[0] = WithdrawalRequestStatus(1 ether, 1 ether, _vetoer, block.timestamp, false, false);
+        statuses[1] = WithdrawalRequestStatus(2 ether, 2 ether, _vetoer, block.timestamp, false, false);
+
+        vm.mockCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.getWithdrawalStatus.selector, unstethIds),
+            abi.encode(statuses)
+        );
+        vm.mockCall(_withdrawalQueue, abi.encodeWithSelector(IWithdrawalQueue.transferFrom.selector), abi.encode(true));
+
+        vm.expectCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.transferFrom.selector, _vetoer, address(_escrow), unstethIds[0])
+        );
+        vm.expectCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.transferFrom.selector, _vetoer, address(_escrow), unstethIds[1])
+        );
+        vm.expectCall(address(_dualGovernance), abi.encodeWithSelector(IDualGovernance.activateNextState.selector));
+        vm.expectCall(address(_dualGovernance), abi.encodeWithSelector(IDualGovernance.activateNextState.selector));
+
+        vm.prank(_vetoer);
+        _escrow.lockUnstETH(unstethIds);
+    }
+
+    function test_lockUnstETH_RevertOn_EmplyUnstETHIds() external {
+        uint256[] memory unstethIds = new uint256[](0);
+
+        vm.expectRevert(abi.encodeWithSelector(Escrow.EmptyUnstETHIds.selector));
+        _escrow.lockUnstETH(unstethIds);
+    }
+
+    function test_lockUnstETH_RevertOn_UnexpectedEscrowState() external {
+        uint256[] memory unstethIds = new uint256[](1);
+        unstethIds[0] = 1;
+
+        transitToRageQuit();
+
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        _escrow.lockUnstETH(unstethIds);
+    }
+
+    // ---
+    // unlockUnstETH()
+    // ---
+
+    function test_unlockUnstETH_HappyPath() external {
+        uint256[] memory unstethIds = new uint256[](2);
+        unstethIds[0] = 1;
+        unstethIds[1] = 2;
+
+        WithdrawalRequestStatus[] memory statuses = new WithdrawalRequestStatus[](2);
+        statuses[0] = WithdrawalRequestStatus(1 ether, 1 ether, _vetoer, block.timestamp, false, false);
+        statuses[1] = WithdrawalRequestStatus(2 ether, 2 ether, _vetoer, block.timestamp, false, false);
+
+        vm.mockCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.getWithdrawalStatus.selector, unstethIds),
+            abi.encode(statuses)
+        );
+        vm.mockCall(_withdrawalQueue, abi.encodeWithSelector(IWithdrawalQueue.transferFrom.selector), abi.encode(true));
+
+        vm.prank(_vetoer);
+        _escrow.lockUnstETH(unstethIds);
+
+        _wait(_minLockAssetDuration.plusSeconds(1));
+
+        vm.expectCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.transferFrom.selector, address(_escrow), _vetoer, unstethIds[0])
+        );
+        vm.expectCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.transferFrom.selector, address(_escrow), _vetoer, unstethIds[1])
+        );
+        vm.expectCall(address(_dualGovernance), abi.encodeWithSelector(IDualGovernance.activateNextState.selector));
+        vm.expectCall(address(_dualGovernance), abi.encodeWithSelector(IDualGovernance.activateNextState.selector));
+
+        vm.prank(_vetoer);
+        _escrow.unlockUnstETH(unstethIds);
+    }
+
+    function test_unlockUnstETH_EmplyUnstETHIds() external {
+        uint256[] memory unstethIds = new uint256[](0);
+
+        _wait(_minLockAssetDuration.plusSeconds(1));
+
+        vm.expectCall(address(_dualGovernance), abi.encodeWithSelector(IDualGovernance.activateNextState.selector));
+        vm.expectCall(address(_dualGovernance), abi.encodeWithSelector(IDualGovernance.activateNextState.selector));
+
+        vm.prank(_vetoer);
+        _escrow.unlockUnstETH(unstethIds);
+    }
+
+    function test_unlockUnstETH_RevertOn_MinAssetsLockDurationNotPassed() external {
+        uint256[] memory unstethIds = new uint256[](0);
+
+        _wait(_minLockAssetDuration.minusSeconds(1));
+
+        // Exception. Due to no assets of holder registered in Escrow.
+        vm.expectRevert(
+            abi.encodeWithSelector(AssetsAccounting.MinAssetsLockDurationNotPassed.selector, _minLockAssetDuration)
+        );
+        vm.prank(_vetoer);
+        _escrow.unlockUnstETH(unstethIds);
+    }
+
+    function test_unlockUnstETH_RevertOn_UnexpectedEscrowState() external {
+        transitToRageQuit();
+
+        uint256[] memory unstethIds = new uint256[](0);
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        vm.prank(_vetoer);
+        _escrow.unlockUnstETH(unstethIds);
+    }
+
+    // ---
+    // markUnstETHFinalized()
+    // ---
+
+    function test_markUnstETHFinalized_HappyPath() external {
+        uint256[] memory unstethIds = new uint256[](2);
+        uint256[] memory hints = new uint256[](2);
+        uint256[] memory responses = new uint256[](2);
+
+        unstethIds[0] = 1;
+        unstethIds[1] = 1;
+
+        hints[0] = 1;
+        hints[1] = 1;
+
+        responses[0] = 1 ether;
+        responses[1] = 1 ether;
+
+        vm.mockCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.getClaimableEther.selector, unstethIds, hints),
+            abi.encode(responses)
+        );
+        vm.expectCall(
+            _withdrawalQueue, abi.encodeWithSelector(IWithdrawalQueue.getClaimableEther.selector, unstethIds, hints)
+        );
+
+        _escrow.markUnstETHFinalized(unstethIds, hints);
+    }
+
+    function test_markUnstETHFinalized_RevertOn_UnexpectedEscrowState() external {
+        transitToRageQuit();
+
+        uint256[] memory unstethIds = new uint256[](0);
+        uint256[] memory hints = new uint256[](0);
+
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        _escrow.markUnstETHFinalized(unstethIds, hints);
+    }
+
+    // ---
+    // requestWithdrawals()
+    // ---
+
+    function test_requestWithdrawals_HappyPath() external {
+        uint256 amount = 3 ether;
+        vm.prank(_vetoer);
+        _escrow.lockStETH(amount);
+
+        uint256[] memory stethAmounts = new uint256[](2);
+
+        stethAmounts[0] = 1 ether;
+        stethAmounts[1] = 2 ether;
+
+        uint256[] memory responses = new uint256[](1);
+        responses[0] = 1;
+
+        WithdrawalRequestStatus[] memory statuses = new WithdrawalRequestStatus[](1);
+        statuses[0] =
+            WithdrawalRequestStatus(amount, _stETH.getSharesByPooledEth(amount), _vetoer, block.timestamp, false, false);
+
+        vm.mockCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.requestWithdrawals.selector, stethAmounts, address(_escrow)),
+            abi.encode(responses)
+        );
+        vm.mockCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.getWithdrawalStatus.selector, responses),
+            abi.encode(statuses)
+        );
+        vm.expectCall(
+            _withdrawalQueue,
+            abi.encodeWithSelector(IWithdrawalQueue.requestWithdrawals.selector, stethAmounts, address(_escrow))
+        );
+        vm.expectCall(
+            _withdrawalQueue, abi.encodeWithSelector(IWithdrawalQueue.getWithdrawalStatus.selector, responses)
+        );
+
+        vm.prank(_vetoer);
+        _escrow.requestWithdrawals(stethAmounts);
+    }
+
+    function test_requestWithdrawals_RevertOn_UnexpectedEscrowState() external {
+        transitToRageQuit();
+
+        uint256[] memory stethAmounts = new uint256[](0);
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        _escrow.requestWithdrawals(stethAmounts);
+    }
+
+    // ---
+    // startRageQuit()
+    // ---
+
+    // TODO: check is it enough?
+    function test_startRageQuit_HappyPath() external {
+        vm.expectEmit();
+        emit EscrowStateLib.RageQuitStarted(Durations.ZERO, Durations.ZERO);
+
+        vm.prank(_dualGovernance);
+        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
+    }
+
+    function testFuzz_startRageQuit_RevertOn_CalledNotByDualGovernance(address stranger) external {
+        vm.assume(stranger != _dualGovernance);
+
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Escrow.CallerIsNotDualGovernance.selector, stranger));
+        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
+    }
+
+    // ---
+    // requestNextWithdrawalsBatch()
+    // ---
+
+    function test_requestNextWithdrawalsBatch_HapyPath() external {}
+
+    function test_requestNextWithdrawalsBatch_RevertOn_UnexpectedEscrowState() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        _escrow.requestNextWithdrawalsBatch(1);
+    }
+
+    function test_requestNextWithdrawalsBatch_RevertOn_InvalidBatchSize() external {
+        transitToRageQuit();
+
+        uint256 batchSize = 1;
+
+        vm.expectRevert(abi.encodeWithSelector(Escrow.InvalidBatchSize.selector, batchSize));
+        _escrow.requestNextWithdrawalsBatch(batchSize);
+    }
+
+    // ---
     // helper methods
     // ---
 
     function createEscrow(uint256 size) internal returns (Escrow) {
-        return new Escrow(_stETH, _wstETH, _withdrawalQueue, IDualGovernance(_dualGovernance), size);
+        return
+            new Escrow(_stETH, _wstETH, WithdrawalQueueMock(_withdrawalQueue), IDualGovernance(_dualGovernance), size);
     }
 
     function createEscrowProxy(uint256 minWithdrawalsBatchSize) internal returns (Escrow) {
@@ -339,5 +596,10 @@ contract EscrowUnitTests is UnitTest {
         vm.prank(_dualGovernance);
         instance.initialize(minAssetsLockDuration);
         return instance;
+    }
+
+    function transitToRageQuit() internal {
+        vm.prank(_dualGovernance);
+        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
     }
 }
