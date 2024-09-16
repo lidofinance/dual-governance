@@ -51,8 +51,8 @@ library DualGovernanceStateMachine {
     /// @notice Represents the context of the Dual Governance State Machine.
     /// @param state The last recorded state of the Dual Governance State Machine.
     /// @param enteredAt The timestamp when the current `state` was entered.
-    /// @param vetoSignallingActivatedAt The timestamp when the Veto Signalling state was last activated.
-    /// @param signallingEscrow The address of the Escrow contract used for Veto Signalling.
+    /// @param vetoSignallingActivatedAt The timestamp when the VetoSignalling state was last activated.
+    /// @param signallingEscrow The address of the Escrow contract used for VetoSignalling.
     /// @param rageQuitRound The number of continuous Rage Quit rounds, starting at 0 and capped at MAX_RAGE_QUIT_ROUND.
     /// @param vetoSignallingReactivationTime The timestamp of the last transition from VetoSignallingDeactivation to VetoSignalling.
     /// @param normalOrVetoCooldownExitedAt The timestamp of the last exit from either the Normal or VetoCooldown state.

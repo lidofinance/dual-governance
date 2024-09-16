@@ -196,15 +196,15 @@ contract DualGovernance is IDualGovernance {
         return address(_stateMachine.rageQuitEscrow);
     }
 
-    function getPersistedState() external view returns (State state) {
-        state = _stateMachine.getPersistedState();
+    function getPersistedState() external view returns (State persistedState) {
+        persistedState = _stateMachine.getPersistedState();
     }
 
-    function getEffectiveState() external view returns (State state) {
-        state = _stateMachine.getEffectiveState();
+    function getEffectiveState() external view returns (State effectiveState) {
+        effectiveState = _stateMachine.getEffectiveState();
     }
 
-    function getStateDetails() external view returns (IDualGovernance.StateDetails memory stateDetails) {
+    function getStateDetails() external view returns (StateDetails memory stateDetails) {
         return _stateMachine.getStateDetails();
     }
 
