@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Duration, Durations, MAX_VALUE as DURATION_MAX_VALUE} from "contracts/types/Duration.sol";
+import {Duration, Durations, MAX_DURATION_VALUE} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps, MAX_TIMESTAMP_VALUE, TimestampOverflow} from "contracts/types/Timestamp.sol";
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 
@@ -239,8 +239,8 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkWithdrawalsDelayPassed_RevertWhen_EthWithdrawalsDelayOverflow() external {
-        Duration rageQuitExtensionPeriodDuration = Durations.from(DURATION_MAX_VALUE / 2);
-        Duration rageQuitEthWithdrawalsDelay = Durations.from(DURATION_MAX_VALUE / 2 + 1);
+        Duration rageQuitExtensionPeriodDuration = Durations.from(MAX_DURATION_VALUE / 2);
+        Duration rageQuitEthWithdrawalsDelay = Durations.from(MAX_DURATION_VALUE / 2 + 1);
 
         _context.rageQuitExtensionPeriodStartedAt = Timestamps.from(MAX_TIMESTAMP_VALUE - 1);
         _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;

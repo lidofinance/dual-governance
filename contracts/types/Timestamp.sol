@@ -1,26 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// ---
+// Type definition
+// ---
+
 type Timestamp is uint40;
 
+// ---
+// Errors
+// ---
+
 error TimestampOverflow();
-error TimestampUnderflow();
+
+// ---
+// Assign global operations
+// ---
+
+using {lt as <, lte as <=, eq as ==, neq as !=, gt as >, gte as >=} for Timestamp global;
+using {isZero, isNotZero, toSeconds} for Timestamp global;
+
+// ---
+// Constants
+// ---
 
 uint256 constant MAX_TIMESTAMP_VALUE = type(uint40).max;
 
-using {lt as <} for Timestamp global;
-using {gt as >} for Timestamp global;
-using {gte as >=} for Timestamp global;
-using {lte as <=} for Timestamp global;
-using {eq as ==} for Timestamp global;
-using {notEq as !=} for Timestamp global;
-
-using {isZero} for Timestamp global;
-using {isNotZero} for Timestamp global;
-using {toSeconds} for Timestamp global;
-
 // ---
-// Comparison Ops
+// Comparison operations
 // ---
 
 function lt(Timestamp t1, Timestamp t2) pure returns (bool) {
@@ -43,9 +50,13 @@ function eq(Timestamp t1, Timestamp t2) pure returns (bool) {
     return Timestamp.unwrap(t1) == Timestamp.unwrap(t2);
 }
 
-function notEq(Timestamp t1, Timestamp t2) pure returns (bool) {
+function neq(Timestamp t1, Timestamp t2) pure returns (bool) {
     return !(t1 == t2);
 }
+
+// ---
+// Custom operations
+// ---
 
 function isZero(Timestamp t) pure returns (bool) {
     return Timestamp.unwrap(t) == 0;
@@ -56,14 +67,16 @@ function isNotZero(Timestamp t) pure returns (bool) {
 }
 
 // ---
-// Conversion Ops
+// Conversion operations
 // ---
 
 function toSeconds(Timestamp t) pure returns (uint256) {
     return Timestamp.unwrap(t);
 }
 
-uint256 constant MAX_VALUE = type(uint40).max;
+// ---
+// Namespaced helper methods
+// ---
 
 library Timestamps {
     Timestamp internal constant ZERO = Timestamp.wrap(0);

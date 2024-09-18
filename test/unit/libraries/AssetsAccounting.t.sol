@@ -1111,7 +1111,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(123);
         claimableAmountsPrepared[0] = uint256(type(uint128).max - 2);
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
     }
@@ -1410,7 +1410,7 @@ contract AssetsAccountingUnitTests is UnitTest {
                 ETHValues.from(uint256(type(uint128).max) / 2 + 1);
         }
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
     }
@@ -1496,10 +1496,6 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     function assertEq(SharesValue a, SharesValue b) internal {
-        assertEq(a.toUint256(), b.toUint256());
-    }
-
-    function assertEq(ETHValue a, ETHValue b) internal {
         assertEq(a.toUint256(), b.toUint256());
     }
 
