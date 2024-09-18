@@ -430,6 +430,87 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
     }
 
+    function test_canSubmitProposal_PersistedStateIsNotEqualToEffectiveState() external {
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
+        assertTrue(_dualGovernance.canSubmitProposal());
+
+        vm.startPrank(vetoer);
+        _escrow.lockStETH(0.5 ether);
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
+        assertTrue(_dualGovernance.canSubmitProposal());
+
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
+
+        // The RageQuit second seal threshold wasn't crossed, the system should enter Deactivation state
+        // where the proposals submission is not allowed
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
+        assertFalse(_dualGovernance.canSubmitProposal());
+
+        // activate VetoSignallingState again
+        vm.startPrank(vetoer);
+        _escrow.lockStETH(5 ether);
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
+        assertTrue(_dualGovernance.canSubmitProposal());
+
+        // make the EVM snapshot to return back after the RageQuit scenario is tested
+        uint256 snapshotId = vm.snapshot();
+
+        // RageQuit scenario
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2).plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
+        assertTrue(_dualGovernance.canSubmitProposal());
+
+        _dualGovernance.activateNextState();
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
+        assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
+        assertTrue(_dualGovernance.canSubmitProposal());
+
+        vm.revertTo(snapshotId);
+
+        // VetoCooldown scenario
+
+        vm.startPrank(vetoer);
+
+        _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
+
+        _escrow.unlockStETH();
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
+        assertFalse(_dualGovernance.canSubmitProposal());
+
+        _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+        assertFalse(_dualGovernance.canSubmitProposal());
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+        assertFalse(_dualGovernance.canSubmitProposal());
+
+        _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+        assertTrue(_dualGovernance.canSubmitProposal());
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+        assertTrue(_dualGovernance.canSubmitProposal());
+    }
+
     // ---
     // canScheduleProposal()
     // ---
@@ -521,38 +602,232 @@ contract DualGovernanceUnitTests is UnitTest {
         assertFalse(_dualGovernance.canScheduleProposal(proposalId));
     }
 
+    function test_canScheduleProposal_PersistedStateIsNotEqualToEffectiveState() external {
+        uint256 proposalIdSubmittedBeforeVetoSignalling = 1;
+        uint256 proposalIdSubmittedAfterVetoSignalling = 2;
+
+        // The proposal is submitted before the VetoSignalling is active
+        vm.mockCall(
+            address(_timelock),
+            abi.encodeWithSelector(TimelockMock.getProposalDetails.selector, proposalIdSubmittedBeforeVetoSignalling),
+            abi.encode(
+                ITimelock.ProposalDetails({
+                    id: proposalIdSubmittedBeforeVetoSignalling,
+                    status: ProposalStatus.Submitted,
+                    executor: address(_executor),
+                    submittedAt: Timestamps.now(),
+                    scheduledAt: Timestamps.from(0)
+                })
+            )
+        );
+
+        vm.mockCall(
+            address(_timelock),
+            abi.encodeWithSelector(TimelockMock.canSchedule.selector, proposalIdSubmittedBeforeVetoSignalling),
+            abi.encode(true)
+        );
+
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+
+        vm.startPrank(vetoer);
+        _escrow.lockStETH(0.5 ether);
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
+
+        // The proposal is submitted after the VetoSignalling is active
+        vm.mockCall(
+            address(_timelock),
+            abi.encodeWithSelector(TimelockMock.getProposalDetails.selector, proposalIdSubmittedAfterVetoSignalling),
+            abi.encode(
+                ITimelock.ProposalDetails({
+                    id: proposalIdSubmittedAfterVetoSignalling,
+                    status: ProposalStatus.Submitted,
+                    executor: address(_executor),
+                    submittedAt: Timestamps.now(),
+                    scheduledAt: Timestamps.from(0)
+                })
+            )
+        );
+
+        vm.mockCall(
+            address(_timelock),
+            abi.encodeWithSelector(TimelockMock.canSchedule.selector, proposalIdSubmittedAfterVetoSignalling),
+            abi.encode(true)
+        );
+
+        // The RageQuit second seal threshold wasn't crossed, the system should enter Deactivation state
+        // where the proposals submission is not allowed
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        // activate VetoSignallingState again
+        vm.startPrank(vetoer);
+        _escrow.lockStETH(5 ether);
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        // make the EVM snapshot to return back after the RageQuit scenario is tested
+        uint256 snapshotId = vm.snapshot();
+
+        // RageQuit scenario
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2).plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
+        assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        // mock the calls to the escrow to simulate the RageQuit was over
+        vm.mockCall(address(_escrow), abi.encodeWithSelector(Escrow.isRageQuitFinalized.selector), abi.encode(true));
+        vm.mockCall(address(_escrow), abi.encodeWithSelector(Escrow.getRageQuitSupport.selector), abi.encode(0));
+
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+
+        // As the veto signalling started after the proposal was submitted, proposal becomes schedulable
+        // when the RageQuit is finished
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        // But the proposal submitted after the VetoSignalling is started is not schedulable
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        // In the Normal state the proposal submitted after the veto signalling state was activated
+        // becomes executable
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        vm.revertTo(snapshotId);
+
+        // VetoCooldown scenario
+
+        vm.startPrank(vetoer);
+
+        _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
+
+        _escrow.unlockStETH();
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertFalse(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedBeforeVetoSignalling));
+        assertTrue(_dualGovernance.canScheduleProposal(proposalIdSubmittedAfterVetoSignalling));
+    }
+
     // ---
-    // activateNextState() & getState()
+    // activateNextState() & getPersistedState() & getEffectiveState()
     // ---
 
-    function test_activateNextState_getState_HappyPath() external {
+    function test_activateNextState_getPersistedAndEffectiveState_HappyPath() external {
         assertEq(_dualGovernance.getPersistedState(), State.Normal);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
-        _dualGovernance.activateNextState();
+
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
 
         _wait(_configProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
         _escrow.unlockStETH();
-        _dualGovernance.activateNextState();
+
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
 
         _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+
         _dualGovernance.activateNextState();
+
         assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
 
         _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+
         _dualGovernance.activateNextState();
+
         assertEq(_dualGovernance.getPersistedState(), State.Normal);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
 
         _escrow.lockStETH(5 ether);
-        _dualGovernance.activateNextState();
+
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
+
         _dualGovernance.activateNextState();
+
         assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
+        assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
     }
 
     // ---
