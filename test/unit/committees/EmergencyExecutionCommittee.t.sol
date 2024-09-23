@@ -42,6 +42,7 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         uint256 _quorum,
         address _emergencyProtectedTimelock
     ) external {
+        vm.assume(_owner != address(0));
         vm.assume(_quorum > 0 && _quorum <= committeeMembers.length);
         EmergencyExecutionCommittee localCommittee =
             new EmergencyExecutionCommittee(_owner, committeeMembers, _quorum, _emergencyProtectedTimelock);
