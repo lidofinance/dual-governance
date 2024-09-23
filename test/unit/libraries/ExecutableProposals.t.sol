@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Vm} from "forge-std/Test.sol";
 
-import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Duration, Durations, MAX_DURATION_VALUE} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
@@ -71,7 +71,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
     }
 
     function testFuzz_schedule_proposal(Duration delay) external {
-        vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
+        vm.assume(delay > Durations.ZERO && delay.toSeconds() <= MAX_DURATION_VALUE);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
 
@@ -114,7 +114,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
     }
 
     function testFuzz_cannot_schedule_proposal_before_delay_passed(Duration delay) external {
-        vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
+        vm.assume(delay > Durations.ZERO && delay.toSeconds() <= MAX_DURATION_VALUE);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
 
@@ -137,7 +137,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
     }
 
     function testFuzz_execute_proposal(Duration delay) external {
-        vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
+        vm.assume(delay > Durations.ZERO && delay.toSeconds() <= MAX_DURATION_VALUE);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
         uint256 proposalId = _proposals.getProposalsCount();
@@ -203,7 +203,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
     }
 
     function testFuzz_cannot_execute_before_delay_passed(Duration delay) external {
-        vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
+        vm.assume(delay > Durations.ZERO && delay.toSeconds() <= MAX_DURATION_VALUE);
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
         uint256 proposalId = _proposals.getProposalsCount();
         _proposals.schedule(proposalId, Durations.ZERO);

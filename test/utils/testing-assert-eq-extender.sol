@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 
 import {ETHValue} from "contracts/types/ETHValue.sol";
+import {SharesValue} from "contracts/types/SharesValue.sol";
 import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
@@ -54,6 +55,10 @@ contract TestingAssertEqExtender is Test {
 
     function assertEq(ETHValue a, ETHValue b) internal {
         assertEq(ETHValue.unwrap(a), ETHValue.unwrap(b));
+    }
+
+    function assertEq(SharesValue a, SharesValue b) internal {
+        assertEq(SharesValue.unwrap(a), SharesValue.unwrap(b));
     }
 
     function assertEq(IndexOneBased a, IndexOneBased b) internal {

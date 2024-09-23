@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {ETHValue, ETHValues, ETHValueOverflow, ETHValueUnderflow} from "contracts/types/ETHValue.sol";
+import {ETHValue, ETHValues, ETHValueOverflow, ETHValueUnderflow, MAX_ETH_VALUE} from "contracts/types/ETHValue.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 
@@ -17,7 +17,6 @@ contract ETHTransfersForbiddenStub {
 
 contract ETHValueTests is UnitTest {
     uint256 internal constant _MAX_ETH_SEND = 1_000_000 ether;
-    uint256 internal constant _MAX_ETH_VALUE = type(uint128).max;
     address internal immutable _RECIPIENT = makeAddr("RECIPIENT");
 
     // ---
@@ -46,15 +45,15 @@ contract ETHValueTests is UnitTest {
 
     function testFuzz_plus_HappyPath(ETHValue v1, ETHValue v2) external {
         uint256 expectedResult = v1.toUint256() + v2.toUint256();
-        vm.assume(expectedResult <= _MAX_ETH_VALUE);
+        vm.assume(expectedResult <= MAX_ETH_VALUE);
         assertEq(v1 + v2, ETHValue.wrap(uint128(expectedResult)));
     }
 
     function testFuzz_plus_Overflow(ETHValue v1, ETHValue v2) external {
         uint256 expectedResult = v1.toUint256() + v2.toUint256();
-        vm.assume(expectedResult > _MAX_ETH_VALUE);
+        vm.assume(expectedResult > MAX_ETH_VALUE);
         vm.expectRevert(ETHValueOverflow.selector);
-        v1 + v2;
+        this.external__plus(v1, v2);
     }
 
     function testFuzz_minus_HappyPath(ETHValue v1, ETHValue v2) external {
@@ -66,7 +65,7 @@ contract ETHValueTests is UnitTest {
     function testFuzz_minus_Overflow(ETHValue v1, ETHValue v2) external {
         vm.assume(v1 < v2);
         vm.expectRevert(ETHValueUnderflow.selector);
-        v1 - v2;
+        this.external__minus(v1, v2);
     }
 
     // ---
@@ -92,7 +91,7 @@ contract ETHValueTests is UnitTest {
         vm.deal(address(this), balance);
 
         vm.expectRevert(abi.encodeWithSelector(Address.AddressInsufficientBalance.selector, address(this)));
-        this.sendTo__external(amount, payable(_RECIPIENT));
+        this.external__sendTo(amount, payable(_RECIPIENT));
     }
 
     function testFuzz_sendTo_RevertOn_ETHTransfersForbidden(ETHValue amount, uint256 balance) external {
@@ -105,7 +104,7 @@ contract ETHValueTests is UnitTest {
 
         ETHTransfersForbiddenStub ethTransfersForbiddenStub = new ETHTransfersForbiddenStub();
         vm.expectRevert(Address.FailedInnerCall.selector);
-        this.sendTo__external(amount, payable(address(ethTransfersForbiddenStub)));
+        this.external__sendTo(amount, payable(address(ethTransfersForbiddenStub)));
     }
 
     function testFuzz_toUint256_HappyPath(ETHValue amount) external {
@@ -113,14 +112,14 @@ contract ETHValueTests is UnitTest {
     }
 
     function testFuzz_from_HappyPath(uint256 amount) external {
-        vm.assume(amount <= _MAX_ETH_VALUE);
+        vm.assume(amount <= MAX_ETH_VALUE);
         assertEq(ETHValues.from(amount), ETHValue.wrap(uint128(amount)));
     }
 
     function testFuzz_from_RevertOn_Overflow(uint256 amount) external {
-        vm.assume(amount > _MAX_ETH_VALUE);
+        vm.assume(amount > MAX_ETH_VALUE);
         vm.expectRevert(ETHValueOverflow.selector);
-        ETHValues.from(amount);
+        this.external__from(amount);
     }
 
     function testFuzz_fromAddressBalance_HappyPath(ETHValue balance) external {
@@ -129,7 +128,19 @@ contract ETHValueTests is UnitTest {
         assertEq(balance, ETHValue.wrap(uint128(address(this).balance)));
     }
 
-    function sendTo__external(ETHValue amount, address payable recipient) external {
+    function external__sendTo(ETHValue amount, address payable recipient) external {
         amount.sendTo(recipient);
+    }
+
+    function external__plus(ETHValue v1, ETHValue v2) external returns (ETHValue) {
+        return v1 + v2;
+    }
+
+    function external__minus(ETHValue v1, ETHValue v2) external returns (ETHValue) {
+        return v1 - v2;
+    }
+
+    function external__from(uint256 amount) external returns (ETHValue) {
+        return ETHValues.from(amount);
     }
 }

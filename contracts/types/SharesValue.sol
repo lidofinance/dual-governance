@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ETHValue, ETHValues} from "./ETHValue.sol";
-
 // ---
 // Type definition
 // ---
@@ -10,18 +8,25 @@ import {ETHValue, ETHValues} from "./ETHValue.sol";
 type SharesValue is uint128;
 
 // ---
+// Assign global operations
+// ---
+
+using {lt as <, eq as ==} for SharesValue global;
+using {toUint256} for SharesValue global;
+using {plus as +, minus as -} for SharesValue global;
+
+// ---
 // Errors
 // ---
 
 error SharesValueOverflow();
+error SharesValueUnderflow();
 
 // ---
-// Assign global operations
+// Constants
 // ---
 
-using {eq as ==, lt as <} for SharesValue global;
-using {plus as +, minus as -} for SharesValue global;
-using {toUint256} for SharesValue global;
+uint128 constant MAX_SHARES_VALUE = type(uint128).max;
 
 // ---
 // Comparison operations
@@ -36,23 +41,38 @@ function eq(SharesValue v1, SharesValue v2) pure returns (bool) {
 }
 
 // ---
-// Arithmetic operations
-// ---
-
-function plus(SharesValue v1, SharesValue v2) pure returns (SharesValue) {
-    return SharesValue.wrap(SharesValue.unwrap(v1) + SharesValue.unwrap(v2));
-}
-
-function minus(SharesValue v1, SharesValue v2) pure returns (SharesValue) {
-    return SharesValue.wrap(SharesValue.unwrap(v1) - SharesValue.unwrap(v2));
-}
-
-// ---
-// Custom operations
+// Conversion operations
 // ---
 
 function toUint256(SharesValue v) pure returns (uint256) {
     return SharesValue.unwrap(v);
+}
+
+// ---
+// Arithmetic operations
+// ---
+
+function plus(SharesValue v1, SharesValue v2) pure returns (SharesValue) {
+    unchecked {
+        /// @dev Both `v1.toUint256()` and `v2.toUint256()` are <= type(uint128).max. Therefore, their
+        ///      sum is <= type(uint256).max.
+        return SharesValues.from(v1.toUint256() + v2.toUint256());
+    }
+}
+
+function minus(SharesValue v1, SharesValue v2) pure returns (SharesValue) {
+    uint256 v1Value = v1.toUint256();
+    uint256 v2Value = v2.toUint256();
+
+    if (v1Value < v2Value) {
+        revert SharesValueUnderflow();
+    }
+
+    unchecked {
+        /// @dev Subtraction is safe because `v1Value` >= `v2Value`.
+        ///      Both `v1Value` and `v2Value` <= `type(uint128).max`, so the difference fits within `uint128`.
+        return SharesValue.wrap(uint128(v1Value - v2Value));
+    }
 }
 
 // ---
@@ -63,17 +83,9 @@ library SharesValues {
     SharesValue internal constant ZERO = SharesValue.wrap(0);
 
     function from(uint256 value) internal pure returns (SharesValue) {
-        if (value > type(uint128).max) {
+        if (value > MAX_SHARES_VALUE) {
             revert SharesValueOverflow();
         }
         return SharesValue.wrap(uint128(value));
-    }
-
-    function calcETHValue(
-        ETHValue totalPooled,
-        SharesValue share,
-        SharesValue total
-    ) internal pure returns (ETHValue) {
-        return ETHValues.from(totalPooled.toUint256() * share.toUint256() / total.toUint256());
     }
 }

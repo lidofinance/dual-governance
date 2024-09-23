@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
-import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Duration, Durations, MAX_DURATION_VALUE} from "contracts/types/Duration.sol";
 import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {DualGovernanceConfig, PercentD16} from "contracts/libraries/DualGovernanceConfig.sol";
@@ -315,7 +315,7 @@ contract DualGovernanceConfigTest is UnitTest {
 
         vm.assume(
             config.rageQuitEthWithdrawalsMinDelay.toSeconds()
-                + config.rageQuitEthWithdrawalsDelayGrowth.toSeconds() * (rageQuitRound + 1) <= Durations.MAX.toSeconds()
+                + config.rageQuitEthWithdrawalsDelayGrowth.toSeconds() * (rageQuitRound + 1) <= MAX_DURATION_VALUE
         );
         vm.assume(config.rageQuitEthWithdrawalsMinDelay <= config.rageQuitEthWithdrawalsMaxDelay);
 

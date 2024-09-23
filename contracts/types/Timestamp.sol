@@ -8,23 +8,24 @@ pragma solidity 0.8.26;
 type Timestamp is uint40;
 
 // ---
+// Assign global operations
+// ---
+
+using {lt as <, lte as <=, eq as ==, neq as !=, gte as >=, gt as >} for Timestamp global;
+using {isZero, isNotZero, toSeconds} for Timestamp global;
+
+// ---
 // Errors
 // ---
 
 error TimestampOverflow();
 
 // ---
-// Assign global operations
-// ---
-
-using {lt as <, lte as <=, eq as ==, neq as !=, gt as >, gte as >=} for Timestamp global;
-using {isZero, isNotZero, toSeconds} for Timestamp global;
-
-// ---
 // Constants
 // ---
 
-uint256 constant MAX_TIMESTAMP_VALUE = type(uint40).max;
+/// @dev The maximum value for a `Timestamp`, corresponding to approximately the year 36812.
+uint40 constant MAX_TIMESTAMP_VALUE = type(uint40).max;
 
 // ---
 // Comparison operations
@@ -32,14 +33,6 @@ uint256 constant MAX_TIMESTAMP_VALUE = type(uint40).max;
 
 function lt(Timestamp t1, Timestamp t2) pure returns (bool) {
     return Timestamp.unwrap(t1) < Timestamp.unwrap(t2);
-}
-
-function gt(Timestamp t1, Timestamp t2) pure returns (bool) {
-    return Timestamp.unwrap(t1) > Timestamp.unwrap(t2);
-}
-
-function gte(Timestamp t1, Timestamp t2) pure returns (bool) {
-    return Timestamp.unwrap(t1) >= Timestamp.unwrap(t2);
 }
 
 function lte(Timestamp t1, Timestamp t2) pure returns (bool) {
@@ -51,19 +44,15 @@ function eq(Timestamp t1, Timestamp t2) pure returns (bool) {
 }
 
 function neq(Timestamp t1, Timestamp t2) pure returns (bool) {
-    return !(t1 == t2);
+    return Timestamp.unwrap(t1) != Timestamp.unwrap(t2);
 }
 
-// ---
-// Custom operations
-// ---
-
-function isZero(Timestamp t) pure returns (bool) {
-    return Timestamp.unwrap(t) == 0;
+function gte(Timestamp t1, Timestamp t2) pure returns (bool) {
+    return Timestamp.unwrap(t1) >= Timestamp.unwrap(t2);
 }
 
-function isNotZero(Timestamp t) pure returns (bool) {
-    return Timestamp.unwrap(t) != 0;
+function gt(Timestamp t1, Timestamp t2) pure returns (bool) {
+    return Timestamp.unwrap(t1) > Timestamp.unwrap(t2);
 }
 
 // ---
@@ -75,20 +64,31 @@ function toSeconds(Timestamp t) pure returns (uint256) {
 }
 
 // ---
+// Custom operations
+// ---
+
+function isZero(Timestamp t) pure returns (bool) {
+    return Timestamp.unwrap(t) == 0;
+}
+
+function isNotZero(Timestamp t) pure returns (bool) {
+    return Timestamp.unwrap(t) > 0;
+}
+
+// ---
 // Namespaced helper methods
 // ---
 
 library Timestamps {
     Timestamp internal constant ZERO = Timestamp.wrap(0);
 
-    Timestamp internal constant MIN = ZERO;
-    Timestamp internal constant MAX = Timestamp.wrap(uint40(MAX_TIMESTAMP_VALUE));
-
     function max(Timestamp t1, Timestamp t2) internal pure returns (Timestamp) {
         return t1 > t2 ? t1 : t2;
     }
 
     function now() internal view returns (Timestamp res) {
+        /// @dev Skipping the check that `block.timestamp` <= `MAX_TIMESTAMP_VALUE` for gas efficiency.
+        ///      Overflow is possible only after approximately 34,000 years from the Unix epoch.
         res = Timestamp.wrap(uint40(block.timestamp));
     }
 

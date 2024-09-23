@@ -10,6 +10,14 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 type ETHValue is uint128;
 
 // ---
+// Assign global operations
+// ---
+
+using {lt as <, eq as ==, neq as !=, gt as >} for ETHValue global;
+using {toUint256, sendTo} for ETHValue global;
+using {plus as +, minus as -} for ETHValue global;
+
+// ---
 // Errors
 // ---
 
@@ -17,12 +25,10 @@ error ETHValueOverflow();
 error ETHValueUnderflow();
 
 // ---
-// Assign global operations
+// Constants
 // ---
 
-using {lt as <, gt as >, eq as ==, neq as !=} for ETHValue global;
-using {plus as +, minus as -} for ETHValue global;
-using {toUint256, sendTo} for ETHValue global;
+uint128 constant MAX_ETH_VALUE = type(uint128).max;
 
 // ---
 // Comparison operations
@@ -45,21 +51,37 @@ function gt(ETHValue v1, ETHValue v2) pure returns (bool) {
 }
 
 // ---
+// Conversion operations
+// ---
+
+function toUint256(ETHValue value) pure returns (uint256) {
+    return ETHValue.unwrap(value);
+}
+
+// ---
 // Arithmetic operations
 // ---
 
 function plus(ETHValue v1, ETHValue v2) pure returns (ETHValue) {
     unchecked {
+        /// @dev Both `v1.toUint256()` and `v2.toUint256()` are <= type(uint128).max. Therefore, their
+        ///      sum is <= type(uint256).max.
         return ETHValues.from(v1.toUint256() + v2.toUint256());
     }
 }
 
 function minus(ETHValue v1, ETHValue v2) pure returns (ETHValue) {
-    if (v1 < v2) {
+    uint256 v1Value = v1.toUint256();
+    uint256 v2Value = v2.toUint256();
+
+    if (v1Value < v2Value) {
         revert ETHValueUnderflow();
     }
+
     unchecked {
-        return ETHValues.from(ETHValue.unwrap(v1) - ETHValue.unwrap(v2));
+        /// @dev Subtraction is safe because `v1Value` >= `v2Value`.
+        ///      Both `v1Value` and `v2Value` <= `type(uint128).max`, so the difference fits within `uint128`.
+        return ETHValue.wrap(uint128(v1Value - v2Value));
     }
 }
 
@@ -72,14 +94,6 @@ function sendTo(ETHValue value, address payable recipient) {
 }
 
 // ---
-// Conversion operations
-// ---
-
-function toUint256(ETHValue value) pure returns (uint256) {
-    return ETHValue.unwrap(value);
-}
-
-// ---
 // Namespaced helper methods
 // ---
 
@@ -87,7 +101,7 @@ library ETHValues {
     ETHValue internal constant ZERO = ETHValue.wrap(0);
 
     function from(uint256 value) internal pure returns (ETHValue) {
-        if (value > type(uint128).max) {
+        if (value > MAX_ETH_VALUE) {
             revert ETHValueOverflow();
         }
         return ETHValue.wrap(uint128(value));
