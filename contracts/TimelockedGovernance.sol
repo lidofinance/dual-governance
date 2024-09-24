@@ -53,9 +53,10 @@ contract TimelockedGovernance is IGovernance {
     }
 
     /// @dev Cancels all pending proposals that have not been executed.
-    function cancelAllPendingProposals() external {
+    function cancelAllPendingProposals() external returns (bool) {
         _checkCallerIsGovernance();
         TIMELOCK.cancelAllNonExecutedProposals();
+        return true;
     }
 
     /// @dev Checks if the msg.sender is the governance address.
