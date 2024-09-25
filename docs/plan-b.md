@@ -2,7 +2,7 @@
 
 Timelocked Governance (TG) is a governance subsystem positioned between the Lido DAO, represented by the admin voting system (defaulting to Aragon's Voting), and the protocol contracts it manages. The TG subsystem helps protect users from malicious DAO proposals by allowing the **Emergency Activation Committee** to activate a long-lasting timelock on these proposals.
 
-> Motivation: the upcoming Ethereum upgrade *Pectra* will introduce a new [withdrawal mechanism](https://eips.ethereum.org/EIPS/eip-7002) (EIP-7002), significantly affecting the operation of the Lido protocol. This enhancement will allow withdrawal queue contract to trigger withdrawals, introducing a new attack vector for the whole protocol. This poses a threat to stETH users, as governance capture (or malicious actions) could enable an upgrade to the withdrawal queue contract, resulting in the theft of user funds. Timelocked Governance in its turn provides security assurances through the implementation of guardians (emergency committees) that can halt malicious proposals and the implementation of the timelock to ensure users and committees have sufficient time to react to potential threats. 
+> Motivation: the upcoming Ethereum upgrade *Pectra* will introduce a new [withdrawal mechanism](https://eips.ethereum.org/EIPS/eip-7002) (EIP-7002), significantly affecting the operation of the Lido protocol. This enhancement will allow withdrawal queue contract to trigger withdrawals, introducing a new attack vector for the whole protocol. This poses a threat to stETH users, as governance capture (or malicious actions) could enable an upgrade to the withdrawal queue contract, resulting in the theft of user funds. Timelocked Governance in its turn provides security assurances through the implementation of guardians (emergency committees) that can halt malicious proposals and the implementation of the timelock to ensure users and committees have sufficient time to react to potential threats.
 
 ## Navigation
 * [System overview](#system-overview)
@@ -29,7 +29,7 @@ The system comprises the following primary contracts:
 - [**`Executor.sol`**](#contract-executor): A contract instance responsible for executing calls resulting from governance proposals. All protocol permissions or roles protected by TG, as well as the authority to manage these roles/permissions, should be assigned exclusively to instance of this contract, rather than being assigned directly to the DAO voting system.
 
 Additionally, the system uses several committee contracts that allow members to execute, acquiring quorum, a narrow set of actions:
-  
+
 - [**`EmergencyActivationCommittee`**](#contract-emergencyactivationcommittee): A contract with the authority to activate Emergency Mode. Activation requires a quorum from committee members.
 - [**`EmergencyExecutionCommittee`**](#contract-emergencyexecutioncommittee): A contract that enables the execution of proposals during Emergency Mode by obtaining a quorum of committee members.
 
@@ -104,13 +104,16 @@ Instructs the [`EmergencyProtectedTimelock`](#) singleton instance to execute 
 See: [`EmergencyProtectedTimelock.execute`](#)
 #### Preconditions
 - The proposal with the given id MUST be in the `Scheduled` state.
+
 ### Function: `TimelockedGovernance.cancelAllPendingProposals`
 
 ```solidity
-function cancelAllPendingProposals()
+function cancelAllPendingProposals() returns (bool)
 ```
 
 Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
+
+The function will return `true` if all proposals are successfully canceled. If the subsequent call to the `EmergencyProtectedTimelock.cancelAllNonExecutedProposals()` method fails, the function will revert with an error.
 
 See: [`EmergencyProtectedTimelock.cancelAllNonExecutedProposals`](#)
 #### Preconditions
