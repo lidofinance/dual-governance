@@ -9,7 +9,6 @@ import {Timestamp, Timestamps} from "../types/Duration.sol";
 import {ISealable} from "../interfaces/ISealable.sol";
 import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
 
-import {SealableCalls} from "./SealableCalls.sol";
 import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
 
 /// @title Tiebreaker Library
@@ -19,7 +18,6 @@ import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
 /// the power to execute pending proposals, bypassing the DG dynamic timelock, and unpause any
 /// protocol contract under the specific conditions of the deadlock.
 library Tiebreaker {
-    using SealableCalls for ISealable;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     error TiebreakNotAllowed();
@@ -67,7 +65,7 @@ library Tiebreaker {
         if (sealableWithdrawalBlockersCount == maxSealableWithdrawalBlockersCount) {
             revert SealableWithdrawalBlockersLimitReached();
         }
-        (bool isCallSucceed, /* lowLevelError */, /* isPaused */ ) = ISealable(sealableWithdrawalBlocker).callIsPaused();
+        (bool isCallSucceed, /* isPaused */ ) = _callIsPaused(sealableWithdrawalBlocker);
         if (!isCallSucceed) {
             revert InvalidSealable(sealableWithdrawalBlocker);
         }
@@ -180,9 +178,7 @@ library Tiebreaker {
     function isSomeSealableWithdrawalBlockerPaused(Context storage self) internal view returns (bool) {
         uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
         for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
-            (bool isCallSucceed, /* lowLevelError */, bool isPaused) =
-                ISealable(self.sealableWithdrawalBlockers.at(i)).callIsPaused();
-
+            (bool isCallSucceed, bool isPaused) = _callIsPaused(self.sealableWithdrawalBlockers.at(i));
             if (isPaused || !isCallSucceed) return true;
         }
         return false;
@@ -205,6 +201,19 @@ library Tiebreaker {
 
         for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
             context.sealableWithdrawalBlockers[i] = self.sealableWithdrawalBlockers.at(i);
+        }
+    }
+
+    // ---
+    // Private helper methods
+    // ---
+
+    function _callIsPaused(address sealable) private view returns (bool success, bool isPaused) {
+        try ISealable(sealable).isPaused() returns (bool isPausedResult) {
+            success = true;
+            isPaused = isPausedResult;
+        } catch {
+            success = false;
         }
     }
 }
