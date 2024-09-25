@@ -251,8 +251,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertFalse(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
     }
@@ -286,8 +287,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertFalse(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
     }
@@ -312,8 +314,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertFalse(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
     }
@@ -333,8 +336,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertTrue(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 1);
     }
@@ -361,8 +365,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertTrue(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 1);
     }

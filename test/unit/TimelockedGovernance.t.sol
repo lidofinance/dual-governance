@@ -85,8 +85,9 @@ contract TimelockedGovernanceUnitTests is UnitTest {
         _timelock.setSchedule(1);
         _timelockedGovernance.scheduleProposal(1);
 
-        _timelockedGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _timelockedGovernance.cancelAllPendingProposals();
 
+        assertTrue(isProposalsCancelled);
         assertEq(_timelock.getLastCancelledProposalId(), 2);
     }
 
