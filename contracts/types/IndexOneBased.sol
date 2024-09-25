@@ -2,13 +2,13 @@
 pragma solidity 0.8.26;
 
 // ---
-// Type definition
+// Type Definition
 // ---
 
 type IndexOneBased is uint32;
 
 // ---
-// Assign global operations
+// Assign Global Operations
 // ---
 
 using {neq as !=} for IndexOneBased global;
@@ -28,7 +28,7 @@ error IndexOneBasedUnderflow();
 uint32 constant MAX_INDEX_ONE_BASED_VALUE = type(uint32).max;
 
 // ---
-// Comparison operations
+// Comparison Operations
 // ---
 
 function neq(IndexOneBased i1, IndexOneBased i2) pure returns (bool) {
@@ -36,7 +36,7 @@ function neq(IndexOneBased i1, IndexOneBased i2) pure returns (bool) {
 }
 
 // ---
-// Custom operations
+// Custom Operations
 // ---
 
 function isEmpty(IndexOneBased index) pure returns (bool) {
@@ -59,7 +59,7 @@ function toZeroBasedValue(IndexOneBased index) pure returns (uint256) {
 }
 
 // ---
-// Namespaced helper methods
+// Namespaced Helper Methods
 // ---
 
 library IndicesOneBased {

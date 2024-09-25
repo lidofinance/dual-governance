@@ -2,13 +2,13 @@
 pragma solidity 0.8.26;
 
 // ---
-// Type definition
+// Type Definition
 // ---
 
 type SharesValue is uint128;
 
 // ---
-// Assign global operations
+// Assign Global Operations
 // ---
 
 using {lt as <, eq as ==} for SharesValue global;
@@ -29,7 +29,7 @@ error SharesValueUnderflow();
 uint128 constant MAX_SHARES_VALUE = type(uint128).max;
 
 // ---
-// Comparison operations
+// Comparison Operations
 // ---
 
 function lt(SharesValue v1, SharesValue v2) pure returns (bool) {
@@ -41,7 +41,7 @@ function eq(SharesValue v1, SharesValue v2) pure returns (bool) {
 }
 
 // ---
-// Conversion operations
+// Conversion Operations
 // ---
 
 function toUint256(SharesValue v) pure returns (uint256) {
@@ -49,7 +49,7 @@ function toUint256(SharesValue v) pure returns (uint256) {
 }
 
 // ---
-// Arithmetic operations
+// Arithmetic Operations
 // ---
 
 function plus(SharesValue v1, SharesValue v2) pure returns (SharesValue) {
@@ -76,7 +76,7 @@ function minus(SharesValue v1, SharesValue v2) pure returns (SharesValue) {
 }
 
 // ---
-// Namespaced helper methods
+// Namespaced Helper Methods
 // ---
 
 library SharesValues {

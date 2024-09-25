@@ -4,13 +4,13 @@ pragma solidity 0.8.26;
 import {Timestamp, Timestamps} from "./Timestamp.sol";
 
 // ---
-// Type definition
+// Type Definition
 // ---
 
 type Duration is uint32;
 
 // ---
-// Assign global operations
+// Assign Global Operations
 // ---
 
 using {lt as <, lte as <=, eq as ==, neq as !=, gte as >=, gt as >} for Duration global;
@@ -33,7 +33,7 @@ error DurationUnderflow();
 uint32 constant MAX_DURATION_VALUE = type(uint32).max;
 
 // ---
-// Comparison operations
+// Comparison Operations
 // ---
 
 function lt(Duration d1, Duration d2) pure returns (bool) {
@@ -61,7 +61,7 @@ function gt(Duration d1, Duration d2) pure returns (bool) {
 }
 
 // ---
-// Conversion operations
+// Conversion Operations
 // ---
 
 function toSeconds(Duration d) pure returns (uint256) {
@@ -69,7 +69,7 @@ function toSeconds(Duration d) pure returns (uint256) {
 }
 
 // ---
-// Arithmetic operations
+// Arithmetic Operations
 // ---
 
 function plus(Duration d1, Duration d2) pure returns (Duration) {
@@ -96,7 +96,7 @@ function minus(Duration d1, Duration d2) pure returns (Duration) {
 }
 
 // ---
-// Custom operations
+// Custom Operations
 // ---
 
 function plusSeconds(Duration d, uint256 secondsToAdd) pure returns (Duration) {
@@ -138,7 +138,7 @@ function addTo(Duration d, Timestamp t) pure returns (Timestamp) {
 }
 
 // ---
-// Namespaced helper methods
+// Namespaced Helper Methods
 // ---
 
 library Durations {

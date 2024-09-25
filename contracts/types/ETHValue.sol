@@ -4,13 +4,13 @@ pragma solidity 0.8.26;
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 // ---
-// Type definition
+// Type Definition
 // ---
 
 type ETHValue is uint128;
 
 // ---
-// Assign global operations
+// Assign Global Operations
 // ---
 
 using {lt as <, eq as ==, neq as !=, gt as >} for ETHValue global;
@@ -31,7 +31,7 @@ error ETHValueUnderflow();
 uint128 constant MAX_ETH_VALUE = type(uint128).max;
 
 // ---
-// Comparison operations
+// Comparison Operations
 // ---
 
 function lt(ETHValue v1, ETHValue v2) pure returns (bool) {
@@ -51,7 +51,7 @@ function gt(ETHValue v1, ETHValue v2) pure returns (bool) {
 }
 
 // ---
-// Conversion operations
+// Conversion Operations
 // ---
 
 function toUint256(ETHValue value) pure returns (uint256) {
@@ -59,7 +59,7 @@ function toUint256(ETHValue value) pure returns (uint256) {
 }
 
 // ---
-// Arithmetic operations
+// Arithmetic Operations
 // ---
 
 function plus(ETHValue v1, ETHValue v2) pure returns (ETHValue) {
@@ -86,7 +86,7 @@ function minus(ETHValue v1, ETHValue v2) pure returns (ETHValue) {
 }
 
 // ---
-// Custom operations
+// Custom Operations
 // ---
 
 function sendTo(ETHValue value, address payable recipient) {
@@ -94,7 +94,7 @@ function sendTo(ETHValue value, address payable recipient) {
 }
 
 // ---
-// Namespaced helper methods
+// Namespaced Helper Methods
 // ---
 
 library ETHValues {

@@ -2,13 +2,13 @@
 pragma solidity 0.8.26;
 
 // ---
-// Type definition
+// Type Definition
 // ---
 
 type PercentD16 is uint128;
 
 // ---
-// Assign global operations
+// Assign Global Operations
 // ---
 
 using {lt as <, lte as <=, eq as ==, gte as >=, gt as >} for PercentD16 global;
@@ -32,7 +32,7 @@ uint128 constant MAX_PERCENT_D16 = type(uint128).max;
 uint128 constant HUNDRED_PERCENT_D16 = 100 * 10 ** 16;
 
 // ---
-// Comparison operations
+// Comparison Operations
 // ---
 
 function lt(PercentD16 a, PercentD16 b) pure returns (bool) {
@@ -56,7 +56,7 @@ function gt(PercentD16 a, PercentD16 b) pure returns (bool) {
 }
 
 // ---
-// Conversion operations
+// Conversion Operations
 // ---
 
 function toUint256(PercentD16 value) pure returns (uint256) {
@@ -64,7 +64,7 @@ function toUint256(PercentD16 value) pure returns (uint256) {
 }
 
 // ---
-// Arithmetic operations
+// Arithmetic Operations
 // ---
 
 function plus(PercentD16 a, PercentD16 b) pure returns (PercentD16) {
@@ -91,7 +91,7 @@ function minus(PercentD16 a, PercentD16 b) pure returns (PercentD16) {
 }
 
 // ---
-// Namespaced helper methods
+// Namespaced Helper Methods
 // ---
 
 library PercentsD16 {

@@ -2,13 +2,13 @@
 pragma solidity 0.8.26;
 
 // ---
-// Type definition
+// Type Definition
 // ---
 
 type Timestamp is uint40;
 
 // ---
-// Assign global operations
+// Assign Global Operations
 // ---
 
 using {lt as <, lte as <=, eq as ==, neq as !=, gte as >=, gt as >} for Timestamp global;
@@ -28,7 +28,7 @@ error TimestampOverflow();
 uint40 constant MAX_TIMESTAMP_VALUE = type(uint40).max;
 
 // ---
-// Comparison operations
+// Comparison Operations
 // ---
 
 function lt(Timestamp t1, Timestamp t2) pure returns (bool) {
@@ -56,7 +56,7 @@ function gt(Timestamp t1, Timestamp t2) pure returns (bool) {
 }
 
 // ---
-// Conversion operations
+// Conversion Operations
 // ---
 
 function toSeconds(Timestamp t) pure returns (uint256) {
@@ -64,7 +64,7 @@ function toSeconds(Timestamp t) pure returns (uint256) {
 }
 
 // ---
-// Custom operations
+// Custom Operations
 // ---
 
 function isZero(Timestamp t) pure returns (bool) {
@@ -76,7 +76,7 @@ function isNotZero(Timestamp t) pure returns (bool) {
 }
 
 // ---
-// Namespaced helper methods
+// Namespaced Helper Methods
 // ---
 
 library Timestamps {
