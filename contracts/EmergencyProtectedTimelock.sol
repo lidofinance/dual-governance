@@ -355,7 +355,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     }
 
     // ---
-    // Private Methods
+    // Internal Methods
     // ---
 
     function _checkCallerIsAdminExecutor() internal view {

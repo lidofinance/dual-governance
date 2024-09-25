@@ -54,7 +54,7 @@ contract DualGovernance is IDualGovernance {
     event ResealCommitteeSet(address resealCommittee);
 
     // ---
-    // Sanity Check Parameters
+    // Sanity Check Parameters & Immutables
     // ---
 
     /// @notice The parameters for the sanity checks.
@@ -137,6 +137,10 @@ contract DualGovernance is IDualGovernance {
     /// @dev The address of the Reseal Committee which is allowed to "reseal" sealables paused for a limited
     ///     period of time when the Dual Governance proposal adoption is blocked.
     address internal _resealCommittee;
+
+    // ---
+    // Constructor
+    // ---
 
     constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
         TIMELOCK = dependencies.timelock;
@@ -471,11 +475,11 @@ contract DualGovernance is IDualGovernance {
     }
 
     // ---
-    // Reseal executor
+    // Sealables Resealing
     // ---
 
     /// @notice Allows the reseal committee to "reseal" (pause indefinitely) an instance of a sealable contract through
-    ///         the ResealManager contract.
+    ///     the ResealManager contract.
     /// @param sealable The address of the sealable contract to be resealed.
     function resealSealable(address sealable) external {
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
@@ -498,7 +502,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     // ---
-    // Private methods
+    // Internal methods
     // ---
 
     function _checkCallerIsAdminExecutor() internal view {
