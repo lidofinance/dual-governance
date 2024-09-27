@@ -5,7 +5,7 @@ import {EmergencyExecutionCommittee, ProposalType} from "contracts/committees/Em
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
-import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
@@ -101,7 +101,8 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
 
         vm.prank(committeeMembers[2]);
         vm.expectCall(
-            emergencyProtectedTimelock, abi.encodeWithSelector(ITimelock.emergencyExecute.selector, proposalId)
+            emergencyProtectedTimelock,
+            abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyExecute.selector, proposalId)
         );
         emergencyExecutionCommittee.executeEmergencyExecute(proposalId);
 
@@ -182,7 +183,9 @@ contract EmergencyExecutionCommitteeUnitTest is UnitTest {
         emergencyExecutionCommittee.approveEmergencyReset();
 
         vm.prank(committeeMembers[2]);
-        vm.expectCall(emergencyProtectedTimelock, abi.encodeWithSelector(ITimelock.emergencyReset.selector));
+        vm.expectCall(
+            emergencyProtectedTimelock, abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyReset.selector)
+        );
         emergencyExecutionCommittee.executeEmergencyReset();
 
         (,,, bool isExecuted) = emergencyExecutionCommittee.getEmergencyResetState();

@@ -310,18 +310,18 @@ Calls the `ResealManager.resumeSealable(address sealable)` if all preconditions 
 ### Function: DualGovernance.cancelAllPendingProposals
 
 ```solidity
-function cancelAllPendingProposals()
+function cancelAllPendingProposals() returns (bool)
 ```
 
 Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
+
+If the current governance state is neither `VetoSignalling` nor `VetoSignallingDeactivation`, the function will exit early without canceling any proposals, emitting the `CancelAllPendingProposalsSkipped` event and returning `false`. If proposals are successfully canceled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
 
 Triggers a transition of the current governance state, if one is possible.
 
 #### Preconditions
 
-* MUST be called by an [admin proposer](#Administrative-actions).
-* The current governance state MUST NOT equal `Normal`, `VetoCooldown`, or `RageQuit`.
-
+- MUST be called by an [admin proposer](#Administrative-actions).
 
 ### Function: DualGovernance.registerProposer
 
@@ -376,6 +376,38 @@ function activateNextState()
 
 Triggers a transition of the [global governance state](#Governance-state), if one is possible; does nothing otherwise.
 
+### Function: DualGovernance.getPersistedState
+
+```solidity
+function getPersistedState() view returns (State persistedState)
+```
+
+Returns the most recently persisted state of the DualGovernance.
+
+### Function: DualGovernance.getEffectiveState
+
+```solidity
+function getEffectiveState() view returns (State persistedState)
+```
+
+Returns the effective state of the DualGovernance. The effective state refers to the state the DualGovernance would transition to upon calling `DualGovernance.activateNextState()`.
+
+### Function DualGovernance.getStateDetails
+
+```solidity
+function getStateDetails() view returns (StateDetails)
+```
+
+This function returns detailed information about the current state of the `DualGovernance`, comprising the following data:
+
+- **`State effectiveState`**: The state that the `DualGovernance` would transition to upon calling `DualGovernance.activateNextState()`.
+- **`State persistedState`**: The current stored state of the `DualGovernance`.
+- **`Timestamp persistedStateEnteredAt`**: The timestamp when the `persistedState` was entered.
+- **`Timestamp vetoSignallingActivatedAt`**: The timestamp when the `VetoSignalling` state was last activated.
+- **`Timestamp vetoSignallingReactivationTime`**: The timestamp when the `VetoSignalling` state was last re-activated.
+- **`Timestamp normalOrVetoCooldownExitedAt`**: The timestamp when the `Normal` or `VetoCooldown` state was last exited.
+- **`uint256 rageQuitRound`**: The number of continuous RageQuit rounds.
+- **`Duration vetoSignallingDuration`**: The duration of the `VetoSignalling` state, calculated based on the RageQuit support in the Veto Signalling `Escrow`.
 
 ## Contract: Executor.sol
 
@@ -491,6 +523,9 @@ The rage quit support will be dynamically updated to reflect changes in the stET
 
 The method calls the `DualGovernance.activateNextState()` function at the beginning and end of the execution, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
 
+> [!IMPORTANT]
+> To mitigate possible failures when calling the `Escrow.lockStETH()` method, it SHOULD be used alongside the `DualGovernance.getPersistedState()`/`DualGovernance.getEffectiveState()` methods or the `DualGovernance.getStateDetails()` method. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, locking funds in the `SignallingEscrow` is no longer possible and will revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
+
 #### Returns
 
 The amount of stETH shares locked by the caller during the current method call.
@@ -518,6 +553,9 @@ assets[msg.sender].stETHLockedShares = 0;
 ```
 
 Additionally, the function triggers the `DualGovernance.activateNextState()` function at the beginning and end of the execution.
+
+> [!IMPORTANT]
+> To mitigate possible failures when calling the `Escrow.unlockStETH()` method, it SHOULD be used alongside the `DualGovernance.getPersistedState()`/`DualGovernance.getEffectiveState()` methods or the `DualGovernance.getStateDetails()` method. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, unlocking funds in the `SignallingEscrow` is no longer possible and will revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
 
 #### Returns
 
@@ -551,6 +589,9 @@ stETHTotals.lockedShares += stETHShares;
 
 The method calls the `DualGovernance.activateNextState()` function at the beginning and end of the execution, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
 
+> [!IMPORTANT]
+> To mitigate possible failures when calling the `Escrow.lockWstETH()` method, it SHOULD be used alongside the `DualGovernance.getPersistedState()`/`DualGovernance.getEffectiveState()` methods or the `DualGovernance.getStateDetails()` method. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, locking funds in the `SignallingEscrow` is no longer possible and will revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
+
 #### Returns
 
 The amount of stETH shares locked by the caller during the current method call.
@@ -578,6 +619,10 @@ assets[msg.sender].stETHLockedShares = 0;
 ```
 
 Additionally, the function triggers the `DualGovernance.activateNextState()` function at the beginning and end of the execution.
+
+> [!IMPORTANT]
+> To mitigate possible failures when calling the `Escrow.unlockWstETH()` method, it SHOULD be used alongside the `DualGovernance.getPersistedState()`/`DualGovernance.getEffectiveState()` methods or the `DualGovernance.getStateDetails()` method. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, unlocking funds in the `SignallingEscrow` is no longer possible and will revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
+
 
 #### Returns
 
@@ -610,6 +655,9 @@ unstETHTotals.unfinalizedShares += amountOfShares;
 ```
 
 The method calls the `DualGovernance.activateNextState()` function at the beginning and end of the execution, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
+
+> [!IMPORTANT]
+> To mitigate possible failures when calling the `Escrow.lockUnstETH()` method, it SHOULD be used alongside the `DualGovernance.getPersistedState()`/`DualGovernance.getEffectiveState()` methods or the `DualGovernance.getStateDetails()` method. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, locking funds in the `SignallingEscrow` is no longer possible and will revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
 
 #### Preconditions
 
@@ -652,6 +700,9 @@ unstETHTotals.unfinalizedShares -= amountOfShares;
 
 Additionally, the function triggers the `DualGovernance.activateNextState()` function at the beginning and end of the execution.
 
+> [!IMPORTANT]
+> To mitigate possible failures when calling the `Escrow.unlockUnstETH()` method, it SHOULD be used alongside the `DualGovernance.getPersistedState()`/`DualGovernance.getEffectiveState()` methods or the `DualGovernance.getStateDetails()` method. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, unlocking funds in the `SignallingEscrow` is no longer possible and will revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
+
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
@@ -689,6 +740,11 @@ Withdrawal NFTs belonging to any of the following categories are excluded from t
 - Withdrawal NFTs already marked as finalized
 - Withdrawal NFTs not locked in the `Escrow` instance
 
+The method calls the `DualGovernance.activateNextState()` function at the beginning and end of the execution, which may transition the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state.
+
+> [!IMPORTANT]
+> To mitigate possible failures when calling the `Escrow.markUnstETHFinalized()` method, it SHOULD be used alongside the `DualGovernance.getPersistedState()`/`DualGovernance.getEffectiveState()` methods or the `DualGovernance.getStateDetails()` method. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, calling methods that change Rage Quit support in the `SignallingEscrow` will no longer be possible and will result in a revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
+
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
@@ -702,6 +758,11 @@ function requestWithdrawals(uint256[] calldata stETHAmounts) returns (uint256[] 
 Allows users who have locked their stETH and wstETH to convert it into unstETH NFTs by requesting withdrawals on the Lido's `WithdrawalQueue` contract.
 
 Internally, this function marks the total amount specified in `stETHAmounts` as unlocked from the `Escrow` and accounts for it in the form of a list of unstETH NFTs, with amounts corresponding to `stETHAmounts`.
+
+The method calls the `DualGovernance.activateNextState()` function at the beginning of the execution.
+
+> [!IMPORTANT]
+> To mitigate possible failures when calling the `Escrow.requestWithdrawals()` method, it SHOULD be used in conjunction with the `DualGovernance.getPersistedState()`, `DualGovernance.getEffectiveState()`, or `DualGovernance.getStateDetails()` methods. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, further token manipulation within the `SignallingEscrow` is no longer possible and will result in a revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
 
 #### Preconditions
 - The total amount specified in `stETHAmounts` MUST NOT exceed the user's currently locked stETH and wstETH.

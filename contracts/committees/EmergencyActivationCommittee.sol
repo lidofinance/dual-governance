@@ -6,7 +6,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Durations} from "../types/Duration.sol";
 import {Timestamp} from "../types/Timestamp.sol";
 
-import {ITimelock} from "../interfaces/ITimelock.sol";
+import {IEmergencyProtectedTimelock} from "../interfaces/IEmergencyProtectedTimelock.sol";
 
 import {HashConsensus} from "./HashConsensus.sol";
 
@@ -54,7 +54,8 @@ contract EmergencyActivationCommittee is HashConsensus {
     function executeActivateEmergencyMode() external {
         _markUsed(EMERGENCY_ACTIVATION_HASH);
         Address.functionCall(
-            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.activateEmergencyMode.selector)
+            EMERGENCY_PROTECTED_TIMELOCK,
+            abi.encodeWithSelector(IEmergencyProtectedTimelock.activateEmergencyMode.selector)
         );
     }
 }

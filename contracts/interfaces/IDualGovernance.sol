@@ -9,8 +9,9 @@ import {State} from "../libraries/DualGovernanceStateMachine.sol";
 
 interface IDualGovernance is IGovernance, ITiebreaker {
     struct StateDetails {
-        State state;
-        Timestamp enteredAt;
+        State effectiveState;
+        State persistedState;
+        Timestamp persistedStateEnteredAt;
         Timestamp vetoSignallingActivatedAt;
         Timestamp vetoSignallingReactivationTime;
         Timestamp normalOrVetoCooldownExitedAt;

@@ -6,7 +6,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Durations} from "../types/Duration.sol";
 import {Timestamp} from "../types/Timestamp.sol";
 
-import {ITimelock} from "../interfaces/ITimelock.sol";
+import {IEmergencyProtectedTimelock} from "../interfaces/IEmergencyProtectedTimelock.sol";
 
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
@@ -72,14 +72,18 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         (, bytes32 key) = _encodeEmergencyExecute(proposalId);
         _markUsed(key);
         Address.functionCall(
-            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.emergencyExecute.selector, proposalId)
+            EMERGENCY_PROTECTED_TIMELOCK,
+            abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyExecute.selector, proposalId)
         );
     }
 
     /// @notice Checks if a proposal exists
     /// @param proposalId The ID of the proposal to check
     function _checkProposalExists(uint256 proposalId) internal view {
-        if (proposalId == 0 || proposalId > ITimelock(EMERGENCY_PROTECTED_TIMELOCK).getProposalsCount()) {
+        if (
+            proposalId == 0
+                || proposalId > IEmergencyProtectedTimelock(EMERGENCY_PROTECTED_TIMELOCK).getProposalsCount()
+        ) {
             revert ProposalDoesNotExist(proposalId);
         }
     }
@@ -128,7 +132,9 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     function executeEmergencyReset() external {
         bytes32 proposalKey = _encodeEmergencyResetProposalKey();
         _markUsed(proposalKey);
-        Address.functionCall(EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.emergencyReset.selector));
+        Address.functionCall(
+            EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(IEmergencyProtectedTimelock.emergencyReset.selector)
+        );
     }
 
     /// @notice Encodes the proposal key for an emergency reset

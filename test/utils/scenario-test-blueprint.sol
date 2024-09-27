@@ -95,9 +95,9 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
         IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
-        isActive = stateContext.state == DGState.VetoSignalling;
+        isActive = stateContext.persistedState == DGState.VetoSignalling;
         duration = _dualGovernance.getStateDetails().vetoSignallingDuration.toSeconds();
-        enteredAt = stateContext.enteredAt.toSeconds();
+        enteredAt = stateContext.persistedStateEnteredAt.toSeconds();
         activatedAt = stateContext.vetoSignallingActivatedAt.toSeconds();
     }
 
@@ -107,9 +107,9 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
         IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
-        isActive = stateContext.state == DGState.VetoSignallingDeactivation;
+        isActive = stateContext.persistedState == DGState.VetoSignallingDeactivation;
         duration = _dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
-        enteredAt = stateContext.enteredAt.toSeconds();
+        enteredAt = stateContext.persistedStateEnteredAt.toSeconds();
     }
 
     // ---
@@ -182,7 +182,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _lockWstETH(address vetoer, PercentD16 tvlPercentage) internal {
-        _lockStETH(vetoer, _lido.calcSharesFromPercentageOfTVL(tvlPercentage));
+        _lockWstETH(vetoer, _lido.calcSharesFromPercentageOfTVL(tvlPercentage));
     }
 
     function _lockWstETH(address vetoer, uint256 amount) internal {
@@ -449,23 +449,23 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _assertNormalState() internal {
-        assertEq(_dualGovernance.getState(), DGState.Normal);
+        assertEq(_dualGovernance.getPersistedState(), DGState.Normal);
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(_dualGovernance.getState(), DGState.VetoSignalling);
+        assertEq(_dualGovernance.getPersistedState(), DGState.VetoSignalling);
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(_dualGovernance.getState(), DGState.VetoSignallingDeactivation);
+        assertEq(_dualGovernance.getPersistedState(), DGState.VetoSignallingDeactivation);
     }
 
     function _assertRageQuitState() internal {
-        assertEq(_dualGovernance.getState(), DGState.RageQuit);
+        assertEq(_dualGovernance.getPersistedState(), DGState.RageQuit);
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(_dualGovernance.getState(), DGState.VetoCooldown);
+        assertEq(_dualGovernance.getPersistedState(), DGState.VetoCooldown);
     }
 
     function _assertNoTargetMockCalls() internal {

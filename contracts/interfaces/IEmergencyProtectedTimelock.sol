@@ -12,6 +12,9 @@ interface IEmergencyProtectedTimelock is ITimelock {
         Timestamp emergencyProtectionEndsAfter;
     }
 
+    function activateEmergencyMode() external;
+    function emergencyExecute(uint256 proposalId) external;
+    function emergencyReset() external;
     function getEmergencyGovernance() external view returns (address emergencyGovernance);
     function getEmergencyActivationCommittee() external view returns (address committee);
     function getEmergencyExecutionCommittee() external view returns (address committee);
