@@ -466,12 +466,7 @@ contract DualGovernance is IDualGovernance {
     ///             (not in `Normal` or `VetoCooldown` state) before the tiebreaker committee is permitted to take actions.
     ///     - `sealableWithdrawalBlockers`: An array of sealable contracts registered in the system as withdrawal blockers.
     function getTiebreakerDetails() external view returns (ITiebreaker.TiebreakerDetails memory tiebreakerState) {
-        return _tiebreaker.getTiebreakerDetails(
-            /// @dev Calling getEffectiveState() doesn't update the normalOrVetoCooldownStateExitedAt value,
-            ///     but this does not distort the result of getTiebreakerDetails()
-            _stateMachine.getEffectiveState(),
-            _stateMachine.normalOrVetoCooldownExitedAt
-        );
+        return _tiebreaker.getTiebreakerDetails(_stateMachine.getStateDetails());
     }
 
     // ---
