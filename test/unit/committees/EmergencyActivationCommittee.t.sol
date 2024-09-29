@@ -5,7 +5,7 @@ import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActiva
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
-import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
@@ -69,7 +69,10 @@ contract EmergencyActivationCommitteeUnitTest is UnitTest {
         emergencyActivationCommittee.approveActivateEmergencyMode();
 
         vm.prank(committeeMembers[2]);
-        vm.expectCall(emergencyProtectedTimelock, abi.encodeWithSelector(ITimelock.activateEmergencyMode.selector));
+        vm.expectCall(
+            emergencyProtectedTimelock,
+            abi.encodeWithSelector(IEmergencyProtectedTimelock.activateEmergencyMode.selector)
+        );
         emergencyActivationCommittee.executeActivateEmergencyMode();
 
         (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) =
@@ -116,7 +119,10 @@ contract EmergencyActivationCommitteeUnitTest is UnitTest {
         assertEq(isExecuted, false);
 
         vm.prank(committeeMembers[2]);
-        vm.expectCall(emergencyProtectedTimelock, abi.encodeWithSelector(ITimelock.activateEmergencyMode.selector));
+        vm.expectCall(
+            emergencyProtectedTimelock,
+            abi.encodeWithSelector(IEmergencyProtectedTimelock.activateEmergencyMode.selector)
+        );
         emergencyActivationCommittee.executeActivateEmergencyMode();
 
         (support, executionQuorum, quorumAt, isExecuted) = emergencyActivationCommittee.getActivateEmergencyModeState();

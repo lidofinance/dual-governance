@@ -16,19 +16,19 @@ import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
 
 /// @notice Enum describing the state of the Dual Governance State Machine
 /// @param Unset The initial (uninitialized) state of the Dual Governance State Machine. The state machine cannot
-///        operate in this state and must be initialized before use.
+///     operate in this state and must be initialized before use.
 /// @param Normal The default state where the system is expected to remain most of the time. In this state, proposals
-///        can be both submitted and scheduled for execution.
+///     can be both submitted and scheduled for execution.
 /// @param VetoSignalling Represents active opposition to DAO decisions. In this state, the scheduling of proposals
-///        is blocked, but the submission of new proposals is still allowed.
+///     is blocked, but the submission of new proposals is still allowed.
 /// @param VetoSignallingDeactivation A sub-state of VetoSignalling, allowing users to observe the deactivation process
-///        and react before non-cancelled proposals are scheduled for execution. Both proposal submission and scheduling
-///        are prohibited in this state.
+///     and react before non-cancelled proposals are scheduled for execution. Both proposal submission and scheduling
+///     are prohibited in this state.
 /// @param VetoCooldown A state where the DAO can execute non-cancelled proposals but is prohibited from submitting
-///        new proposals.
+///     new proposals.
 /// @param RageQuit Represents the process where users opting to leave the protocol can withdraw their funds. This state
-///        is triggered when the Second Seal Threshold is crossed. During this state, the scheduling of proposals for
-///        execution is forbidden, but new proposals can still be submitted.
+///     is triggered when the Second Seal Threshold is crossed. During this state, the scheduling of proposals for
+///     execution is forbidden, but new proposals can still be submitted.
 enum State {
     Unset,
     Normal,
@@ -38,7 +38,7 @@ enum State {
     RageQuit
 }
 
-/// @title Dual Governance State Machine
+/// @title Dual Governance State Machine Library
 /// @notice Library containing the core logic for managing the states of the Dual Governance system
 library DualGovernanceStateMachine {
     using DualGovernanceStateTransitions for Context;
@@ -50,7 +50,7 @@ library DualGovernanceStateMachine {
 
     /// @notice Represents the context of the Dual Governance State Machine.
     /// @param state The last recorded state of the Dual Governance State Machine.
-    /// @param enteredAt The timestamp when the current `state` was entered.
+    /// @param enteredAt The timestamp when the current `persisted` `state` was entered.
     /// @param vetoSignallingActivatedAt The timestamp when the VetoSignalling state was last activated.
     /// @param signallingEscrow The address of the Escrow contract used for VetoSignalling.
     /// @param rageQuitRound The number of continuous Rage Quit rounds, starting at 0 and capped at MAX_RAGE_QUIT_ROUND.
@@ -110,7 +110,7 @@ library DualGovernanceStateMachine {
     /// @param self The context of the Dual Governance State Machine to be initialized.
     /// @param configProvider The address of the Dual Governance State Machine configuration provider.
     /// @param escrowMasterCopy The address of the master copy used as the implementation for the minimal proxy deployment
-    ///        of a Signalling Escrow instance.
+    ///     of a Signalling Escrow instance.
     function initialize(
         Context storage self,
         IDualGovernanceConfigProvider configProvider,
@@ -132,13 +132,13 @@ library DualGovernanceStateMachine {
     }
 
     /// @notice Executes a state transition for the Dual Governance State Machine, if applicable.
-    ///         If no transition is possible from the current state, no changes are applied to the context.
+    ///     If no transition is possible from the current `persisted` state, no changes are applied to the context.
     /// @dev If the state transitions to RageQuit, a new instance of the Signalling Escrow is deployed using
-    ///      `escrowMasterCopy` as the implementation for the minimal proxy, while the previous Signalling Escrow
-    ///      instance is converted into the RageQuit escrow.
+    ///     `escrowMasterCopy` as the implementation for the minimal proxy, while the previous Signalling Escrow
+    ///     instance is converted into the RageQuit escrow.
     /// @param self The context of the Dual Governance State Machine.
     /// @param escrowMasterCopy The address of the master copy used as the implementation for the minimal proxy
-    ///        to deploy a new instance of the Signalling Escrow.
+    ///     to deploy a new instance of the Signalling Escrow.
     function activateNextState(Context storage self, IEscrow escrowMasterCopy) internal {
         DualGovernanceConfig.Context memory config = getDualGovernanceConfig(self);
         (State currentState, State newState) = self.getStateTransition(config);
@@ -168,7 +168,7 @@ library DualGovernanceStateMachine {
             uint256 currentRageQuitRound = self.rageQuitRound;
 
             /// @dev Limits the maximum value of the rage quit round to prevent failures due to arithmetic overflow
-            ///      if the number of continuous rage quits reaches MAX_RAGE_QUIT_ROUND.
+            ///     if the number of continuous rage quits reaches MAX_RAGE_QUIT_ROUND.
             uint256 newRageQuitRound = Math.min(currentRageQuitRound + 1, MAX_RAGE_QUIT_ROUND);
             self.rageQuitRound = uint8(newRageQuitRound);
 
@@ -199,10 +199,10 @@ library DualGovernanceStateMachine {
     // Getters
     // ---
 
-    /// @notice Returns detailed information about the current state of the Dual Governance State Machine.
+    /// @notice Returns detailed information about the state of the Dual Governance State Machine.
     /// @param self The context of the Dual Governance State Machine.
-    /// @return stateDetails A struct containing detailed information about the current state of
-    ///         the Dual Governance State Machine.
+    /// @return stateDetails A struct containing detailed information about the state of
+    ///     the Dual Governance State Machine.
     function getStateDetails(Context storage self)
         internal
         view
@@ -229,28 +229,21 @@ library DualGovernanceStateMachine {
 
     /// @notice Returns the effective state of the Dual Governance State Machine.
     /// @dev The effective state refers to the state the Dual Governance State Machine would transition to
-    ///      upon calling `activateNextState()`.
+    ///     upon calling `activateNextState()`.
     /// @param self The context of the Dual Governance State Machine.
     /// @return effectiveState The state that will become active after the next state transition.
-    ///         If the `activateNextState` call does not trigger a state transition, `effectiveState`
-    ///         will be the same as `persistedState`.
+    ///     If the `activateNextState` call does not trigger a state transition, `effectiveState`
+    ///     will be the same as `persistedState`.
     function getEffectiveState(Context storage self) internal view returns (State effectiveState) {
         ( /* persistedState */ , effectiveState) = self.getStateTransition(getDualGovernanceConfig(self));
     }
 
-    /// @notice Returns the timestamp when the system last exited the Normal or VetoCooldown state.
-    /// @param self The context of the Dual Governance State Machine.
-    /// @return The timestamp indicating when the Normal or VetoCooldown state was last exited.
-    function getNormalOrVetoCooldownStateExitedAt(Context storage self) internal view returns (Timestamp) {
-        return self.normalOrVetoCooldownExitedAt;
-    }
-
     /// @notice Returns whether the submission of proposals is allowed based on the `persisted` or `effective` state,
-    ///         depending on the `useEffectiveState` value.
+    ///     depending on the `useEffectiveState` value.
     /// @param self The context of the Dual Governance State Machine.
-    /// @param useEffectiveState If `true`, the check is performed against the effective state (the state
-    ///        the Dual Governance State Machine will enter after the next `activateNextState` call). If `false`,
-    ///        the check is performed using the persisted state (the current state of the Dual Governance State Machine).
+    /// @param useEffectiveState If `true`, the check is performed against the `effective` state, which represents the state
+    ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
+    ///     performed against the `persisted` state, which is the currently stored state of the system.
     /// @return A boolean indicating whether the submission of proposals is allowed in the selected state.
     function canSubmitProposal(Context storage self, bool useEffectiveState) internal view returns (bool) {
         State state = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
@@ -258,12 +251,11 @@ library DualGovernanceStateMachine {
     }
 
     /// @notice Determines whether scheduling a proposal for execution is allowed, based on either the `persisted`
-    ///         or `effective` state, depending on the `useEffectiveState` flag.
+    ///     or `effective` state, depending on the `useEffectiveState` flag.
     /// @param self The context of the Dual Governance State Machine.
-    /// @param useEffectiveState If `true`, the check is performed against the effective state (the state
-    ///        the Dual Governance State Machine will transition to after the next `activateNextState` call).
-    ///        If `false`, the check is performed using the persisted state (the current state of the Dual Governance
-    ///        State Machine).
+    /// @param useEffectiveState If `true`, the check is performed against the `effective` state, which represents the state
+    ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
+    ///     performed against the `persisted` state, which is the currently stored state of the system.
     /// @param proposalSubmittedAt The timestamp indicating when the proposal to be scheduled was originally submitted.
     /// @return A boolean indicating whether scheduling the proposal is allowed in the chosen state.
     function canScheduleProposal(
@@ -278,30 +270,19 @@ library DualGovernanceStateMachine {
     }
 
     /// @notice Returns whether the cancelling of the proposals is allowed based on the `persisted` or `effective`
-    ///         state, depending on the `useEffectiveState` value.
+    ///     state, depending on the `useEffectiveState` value.
     /// @param self The context of the Dual Governance State Machine.
-    /// @param useEffectiveState If `true`, the check is performed against the effective state (the state
-    ///        the Dual Governance State Machine will enter after the next `activateNextState` call). If `false`,
-    ///        the check is performed using the persisted state (the current state of the Dual Governance State Machine).
+    /// @param useEffectiveState If `true`, the check is performed against the `effective` state, which represents the state
+    ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
+    ///     performed against the `persisted` state, which is the currently stored state of the system.
     /// @return A boolean indicating whether the cancelling of proposals is allowed in the selected state.
-    function canCancelAllProposals(Context storage self, bool useEffectiveState) internal view returns (bool) {
+    function canCancelAllPendingProposals(Context storage self, bool useEffectiveState) internal view returns (bool) {
         State state = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
         return state == State.VetoSignalling || state == State.VetoSignallingDeactivation;
     }
 
-    /// @notice Returns the address of the Dual Governance Config Provider.
-    /// @param self The context of the Dual Governance State Machine.
-    /// @return The address of the current Dual Governance Config Provider.
-    function getDualGovernanceConfigProvider(Context storage self)
-        internal
-        view
-        returns (IDualGovernanceConfigProvider)
-    {
-        return self.configProvider;
-    }
-
     /// @notice Returns the configuration of the Dual Governance State Machine as provided by
-    ///         the Dual Governance Config Provider.
+    ///     the Dual Governance Config Provider.
     /// @param self The context of the Dual Governance State Machine.
     /// @return The current configuration of the Dual Governance State
     function getDualGovernanceConfig(Context storage self)
@@ -339,19 +320,19 @@ library DualGovernanceStateMachine {
     }
 }
 
-/// @title Dual Governance State Transitions
+/// @title Dual Governance State Transitions Library
 /// @notice Library containing the transitions logic for the Dual Governance system
 library DualGovernanceStateTransitions {
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
     /// @notice Returns the allowed state transition for the Dual Governance State Machine.
-    ///         If no state transition is possible, `currentState` will be equal to `nextState`.
+    ///     If no state transition is possible, `currentState` will be equal to `nextState`.
     /// @param self The context of the Dual Governance State Machine.
     /// @param config The configuration of the Dual Governance State Machine to use for determining
-    ///        state transitions.
+    ///     state transitions.
     /// @return currentState The current state of the Dual Governance State Machine.
     /// @return nextState The next state of the Dual Governance State Machine if a transition
-    ///         is possible, otherwise it will be the same as `currentState`.
+    ///     is possible, otherwise it will be the same as `currentState`.
     function getStateTransition(
         DualGovernanceStateMachine.Context storage self,
         DualGovernanceConfig.Context memory config

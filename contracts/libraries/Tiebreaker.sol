@@ -8,6 +8,7 @@ import {Timestamp, Timestamps} from "../types/Duration.sol";
 
 import {ISealable} from "../interfaces/ISealable.sol";
 import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
+import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 
 import {SealableCalls} from "./SealableCalls.sol";
 import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
@@ -190,15 +191,29 @@ library Tiebreaker {
 
     /// @dev Retrieves the tiebreaker context from the storage.
     /// @param self The storage context.
+    /// @param stateDetails A struct containing detailed information about the current state of the Dual Governance system
     /// @return context The tiebreaker context containing the tiebreaker committee, tiebreaker activation timeout, and sealable withdrawal blockers.
     function getTiebreakerDetails(
         Context storage self,
-        DualGovernanceState state,
-        Timestamp normalOrVetoCooldownExitedAt
+        IDualGovernance.StateDetails memory stateDetails
     ) internal view returns (ITiebreaker.TiebreakerDetails memory context) {
         context.tiebreakerCommittee = self.tiebreakerCommittee;
         context.tiebreakerActivationTimeout = self.tiebreakerActivationTimeout;
-        context.isTie = isTie(self, state, normalOrVetoCooldownExitedAt);
+
+        DualGovernanceState persistedState = stateDetails.persistedState;
+        DualGovernanceState effectiveState = stateDetails.effectiveState;
+        Timestamp normalOrVetoCooldownExitedAt = stateDetails.normalOrVetoCooldownExitedAt;
+
+        if (effectiveState != persistedState) {
+            if (persistedState == DualGovernanceState.Normal || persistedState == DualGovernanceState.VetoCooldown) {
+                /// @dev When a pending state change is expected from the `Normal` or `VetoCooldown` state,
+                ///     the `normalOrVetoCooldownExitedAt` timestamp should be set to the current timestamp to reflect
+                ///     the behavior of the `DualGovernanceStateMachine.activateNextState()` method.
+                normalOrVetoCooldownExitedAt = Timestamps.now();
+            }
+        }
+
+        context.isTie = isTie(self, effectiveState, normalOrVetoCooldownExitedAt);
 
         uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
         context.sealableWithdrawalBlockers = new address[](sealableWithdrawalBlockersCount);

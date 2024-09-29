@@ -8,6 +8,7 @@ import {Tiebreaker} from "contracts/libraries/Tiebreaker.sol";
 import {Duration, Durations, Timestamp, Timestamps} from "contracts/types/Duration.sol";
 import {ISealable} from "contracts/interfaces/ISealable.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
+import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {SealableMock} from "../../mocks/SealableMock.sol";
@@ -190,14 +191,117 @@ contract TiebreakerTest is UnitTest {
         context.tiebreakerActivationTimeout = timeout;
         context.tiebreakerCommittee = address(0x123);
 
-        ITiebreaker.TiebreakerDetails memory details =
-            Tiebreaker.getTiebreakerDetails(context, DualGovernanceState.Normal, Timestamps.from(block.timestamp));
+        IDualGovernance.StateDetails memory stateDetails;
+        stateDetails.persistedState = DualGovernanceState.Normal;
+        stateDetails.effectiveState = DualGovernanceState.VetoSignalling;
+        stateDetails.normalOrVetoCooldownExitedAt = Timestamps.now();
+
+        ITiebreaker.TiebreakerDetails memory details = Tiebreaker.getTiebreakerDetails(context, stateDetails);
 
         assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
         assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
         assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
         assertEq(details.sealableWithdrawalBlockers.length, 1);
         assertEq(details.isTie, false);
+    }
+
+    function test_getTiebreakerDetails_HappyPath_PendingTransitionFromVetoCooldown_ExpectIsTieFalse() external {
+        Tiebreaker.addSealableWithdrawalBlocker(context, address(mockSealable1), 1);
+
+        Duration timeout = Duration.wrap(5 days);
+
+        context.tiebreakerActivationTimeout = timeout;
+        context.tiebreakerCommittee = address(0x123);
+
+        IDualGovernance.StateDetails memory stateDetails;
+
+        stateDetails.persistedState = DualGovernanceState.VetoCooldown;
+        stateDetails.effectiveState = DualGovernanceState.VetoSignalling;
+        stateDetails.normalOrVetoCooldownExitedAt = Timestamps.now();
+
+        ITiebreaker.TiebreakerDetails memory details = Tiebreaker.getTiebreakerDetails(context, stateDetails);
+
+        assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
+        assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
+        assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
+        assertEq(details.sealableWithdrawalBlockers.length, 1);
+        assertEq(details.isTie, false);
+
+        _wait(timeout);
+
+        details = Tiebreaker.getTiebreakerDetails(context, stateDetails);
+
+        assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
+        assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
+        assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
+        assertEq(details.sealableWithdrawalBlockers.length, 1);
+        assertEq(details.isTie, false);
+    }
+
+    function test_getTiebreakerDetails_HappyPath_PendingTransitionFromNormal_ExpectIsTieFalse() external {
+        Tiebreaker.addSealableWithdrawalBlocker(context, address(mockSealable1), 1);
+
+        Duration timeout = Duration.wrap(5 days);
+
+        context.tiebreakerActivationTimeout = timeout;
+        context.tiebreakerCommittee = address(0x123);
+
+        IDualGovernance.StateDetails memory stateDetails;
+
+        stateDetails.persistedState = DualGovernanceState.Normal;
+        stateDetails.effectiveState = DualGovernanceState.VetoSignalling;
+        stateDetails.normalOrVetoCooldownExitedAt = Timestamps.now();
+
+        ITiebreaker.TiebreakerDetails memory details = Tiebreaker.getTiebreakerDetails(context, stateDetails);
+
+        assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
+        assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
+        assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
+        assertEq(details.sealableWithdrawalBlockers.length, 1);
+        assertEq(details.isTie, false);
+
+        _wait(timeout);
+
+        details = Tiebreaker.getTiebreakerDetails(context, stateDetails);
+
+        assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
+        assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
+        assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
+        assertEq(details.sealableWithdrawalBlockers.length, 1);
+        assertEq(details.isTie, false);
+    }
+
+    function test_getTiebreakerDetails_HappyPath_PendingTransitionFromVetoSignalling_ExpectIsTieTrue() external {
+        Tiebreaker.addSealableWithdrawalBlocker(context, address(mockSealable1), 1);
+
+        Duration timeout = Duration.wrap(5 days);
+
+        context.tiebreakerActivationTimeout = timeout;
+        context.tiebreakerCommittee = address(0x123);
+
+        IDualGovernance.StateDetails memory stateDetails;
+
+        stateDetails.persistedState = DualGovernanceState.VetoSignalling;
+        stateDetails.effectiveState = DualGovernanceState.RageQuit;
+        stateDetails.normalOrVetoCooldownExitedAt = Timestamps.now();
+
+        ITiebreaker.TiebreakerDetails memory details = Tiebreaker.getTiebreakerDetails(context, stateDetails);
+
+        assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
+        assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
+        assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
+        assertEq(details.sealableWithdrawalBlockers.length, 1);
+        assertEq(details.isTie, false);
+
+        _wait(timeout);
+
+        details = Tiebreaker.getTiebreakerDetails(context, stateDetails);
+
+        assertEq(details.tiebreakerCommittee, context.tiebreakerCommittee);
+        assertEq(details.tiebreakerActivationTimeout, context.tiebreakerActivationTimeout);
+        assertEq(details.sealableWithdrawalBlockers[0], address(mockSealable1));
+        assertEq(details.sealableWithdrawalBlockers.length, 1);
+        assertEq(details.isTie, true);
     }
 
     function external__checkCallerIsTiebreakerCommittee() external view {
