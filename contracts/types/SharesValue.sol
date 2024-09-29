@@ -86,6 +86,8 @@ library SharesValues {
         if (value > MAX_SHARES_VALUE) {
             revert SharesValueOverflow();
         }
+        /// @dev Casting `value` to `uint128` is safe as the check ensures it is less than or equal
+        ///     to `MAX_SHARES_VALUE`, which fits within the `uint128`.
         return SharesValue.wrap(uint128(value));
     }
 }

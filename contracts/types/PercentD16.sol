@@ -99,6 +99,8 @@ library PercentsD16 {
         if (value > MAX_PERCENT_D16) {
             revert PercentD16Overflow();
         }
+        /// @dev Casting `value` to `uint128` is safe as the check ensures it is less than or equal
+        ///     to `MAX_PERCENT_D16`, which fits within the `uint128`.
         return PercentD16.wrap(uint128(value));
     }
 

@@ -104,6 +104,8 @@ library ETHValues {
         if (value > MAX_ETH_VALUE) {
             revert ETHValueOverflow();
         }
+        /// @dev Casting `value` to `uint128` is safe as the check ensures it is less than or equal
+        ///     to `MAX_ETH_VALUE`, which fits within the `uint128`.
         return ETHValue.wrap(uint128(value));
     }
 

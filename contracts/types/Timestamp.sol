@@ -82,8 +82,14 @@ function isNotZero(Timestamp t) pure returns (bool) {
 library Timestamps {
     Timestamp internal constant ZERO = Timestamp.wrap(0);
 
-    function max(Timestamp t1, Timestamp t2) internal pure returns (Timestamp) {
-        return t1 > t2 ? t1 : t2;
+    function from(uint256 timestampInSeconds) internal pure returns (Timestamp res) {
+        if (timestampInSeconds > MAX_TIMESTAMP_VALUE) {
+            revert TimestampOverflow();
+        }
+
+        /// @dev Casting `timestampInSeconds` to `uint40` is safe as the check ensures it is less than or equal
+        ///     to `MAX_TIMESTAMP_VALUE`, which fits within the `uint40`.
+        return Timestamp.wrap(uint40(timestampInSeconds));
     }
 
     function now() internal view returns (Timestamp res) {
@@ -92,10 +98,7 @@ library Timestamps {
         res = Timestamp.wrap(uint40(block.timestamp));
     }
 
-    function from(uint256 value) internal pure returns (Timestamp res) {
-        if (value > MAX_TIMESTAMP_VALUE) {
-            revert TimestampOverflow();
-        }
-        return Timestamp.wrap(uint40(value));
+    function max(Timestamp t1, Timestamp t2) internal pure returns (Timestamp) {
+        return t1 > t2 ? t1 : t2;
     }
 }

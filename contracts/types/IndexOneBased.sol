@@ -70,6 +70,8 @@ library IndicesOneBased {
         if (oneBasedIndexValue > MAX_INDEX_ONE_BASED_VALUE) {
             revert IndexOneBasedOverflow();
         }
+        /// @dev Casting `oneBasedIndexValue` to `uint32` is safe as the check ensures it is less than or equal
+        ///     to `MAX_INDEX_ONE_BASED_VALUE`, which fits within the `uint32`.
         return IndexOneBased.wrap(uint32(oneBasedIndexValue));
     }
 }

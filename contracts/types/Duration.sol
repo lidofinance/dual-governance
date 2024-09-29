@@ -148,6 +148,8 @@ library Durations {
         if (durationInSeconds > MAX_DURATION_VALUE) {
             revert DurationOverflow();
         }
+        /// @dev Casting `durationInSeconds` to `uint32` is safe as the check ensures it is less than or equal
+        ///     to `MAX_DURATION_VALUE`, which fits within the `uint32`.
         res = Duration.wrap(uint32(durationInSeconds));
     }
 
