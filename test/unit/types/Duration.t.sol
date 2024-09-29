@@ -294,27 +294,6 @@ contract DurationTests is UnitTest {
         this.external__from(durationInSeconds);
     }
 
-    function testFuzz_between_HappyPath(Timestamp t1, Timestamp t2) external {
-        uint256 t1Seconds = t1.toSeconds();
-        uint256 t2Seconds = t2.toSeconds();
-        uint256 expectedValue = t1Seconds > t2Seconds ? t1Seconds - t2Seconds : t2Seconds - t1Seconds;
-
-        vm.assume(expectedValue <= MAX_DURATION_VALUE);
-
-        assertEq(Durations.between(t1, t2), Duration.wrap(uint32(expectedValue)));
-    }
-
-    function testFuzz_between_RevertOn_Overflow(Timestamp t1, Timestamp t2) external {
-        uint256 t1Seconds = t1.toSeconds();
-        uint256 t2Seconds = t2.toSeconds();
-        uint256 expectedValue = t1Seconds > t2Seconds ? t1Seconds - t2Seconds : t2Seconds - t1Seconds;
-
-        vm.assume(expectedValue > MAX_DURATION_VALUE);
-
-        vm.expectRevert(DurationOverflow.selector);
-        this.external__between(t1, t2);
-    }
-
     function testFuzz_min_HappyPath(Duration d1, Duration d2) external {
         assertEq(Durations.min(d1, d2), Durations.from(Math.min(d1.toSeconds(), d2.toSeconds())));
     }
@@ -353,9 +332,5 @@ contract DurationTests is UnitTest {
 
     function external__from(uint256 valueInSeconds) external returns (Duration) {
         return Durations.from(valueInSeconds);
-    }
-
-    function external__between(Timestamp t1, Timestamp t2) external returns (Duration) {
-        return Durations.between(t1, t2);
     }
 }

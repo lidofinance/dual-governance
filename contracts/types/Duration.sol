@@ -151,17 +151,6 @@ library Durations {
         res = Duration.wrap(uint32(durationInSeconds));
     }
 
-    function between(Timestamp t1, Timestamp t2) internal pure returns (Duration res) {
-        uint256 t1Seconds = t1.toSeconds();
-        uint256 t2Seconds = t2.toSeconds();
-
-        unchecked {
-            /// @dev Calculating the absolute difference between `t1Seconds` and `t2Seconds`.
-            ///      Both are <= `type(uint40).max`, so their difference fits within `uint256`.
-            res = from(t1Seconds > t2Seconds ? t1Seconds - t2Seconds : t2Seconds - t1Seconds);
-        }
-    }
-
     function min(Duration d1, Duration d2) internal pure returns (Duration res) {
         res = d1 < d2 ? d1 : d2;
     }
