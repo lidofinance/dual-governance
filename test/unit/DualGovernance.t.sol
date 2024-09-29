@@ -251,8 +251,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertFalse(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
     }
@@ -286,8 +287,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertFalse(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
     }
@@ -312,8 +314,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertFalse(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 0);
     }
@@ -333,8 +336,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertTrue(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 1);
     }
@@ -361,8 +365,9 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
 
-        _dualGovernance.cancelAllPendingProposals();
+        bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
+        assertTrue(isProposalsCancelled);
         assertEq(_timelock.getProposalsCount(), 1);
         assertEq(_timelock.lastCancelledProposalId(), 1);
     }
@@ -1871,6 +1876,98 @@ contract DualGovernanceUnitTests is UnitTest {
 
         assertEq(_dualGovernance.getPersistedState(), State.Normal);
         assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+        assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
+    }
+
+    function test_getTiebreakerDetails_NormalOrVetoCooldownExitedAtValueShouldBeUpdatedToCorrectlyCalculateIsTieValue()
+        external
+    {
+        address tiebreakerCommittee = makeAddr("TIEBREAKER_COMMITTEE");
+        address sealable = address(new SealableMock());
+        Duration tiebreakerActivationTimeout = Durations.from(180 days);
+
+        // for the correctness of the test, the following assumption must be true
+        assertTrue(tiebreakerActivationTimeout >= _configProvider.VETO_SIGNALLING_MAX_DURATION());
+
+        // setup tiebreaker
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setTiebreakerCommittee.selector, tiebreakerCommittee)
+        );
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setTiebreakerActivationTimeout.selector, tiebreakerActivationTimeout)
+        );
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.addTiebreakerSealableWithdrawalBlocker.selector, sealable)
+        );
+
+        assertEq(_dualGovernance.getPersistedState(), State.Normal);
+        assertEq(_dualGovernance.getEffectiveState(), State.Normal);
+        assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
+
+        vm.prank(vetoer);
+        _escrow.lockStETH(5 ether);
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
+        assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
+
+        _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
+        assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
+        assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
+        assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
+
+        _wait(tiebreakerActivationTimeout);
+
+        vm.mockCall(
+            _dualGovernance.getRageQuitEscrow(),
+            abi.encodeWithSelector(Escrow.isRageQuitFinalized.selector),
+            abi.encode(true)
+        );
+
+        assertEq(_dualGovernance.getPersistedState(), State.RageQuit);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+        assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
+
+        _dualGovernance.activateNextState();
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoCooldown);
+        assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
+
+        // signalling accumulated rage quit support
+        vm.mockCall(
+            _dualGovernance.getVetoSignallingEscrow(),
+            abi.encodeWithSelector(Escrow.getRageQuitSupport.selector),
+            abi.encode(PercentsD16.fromBasisPoints(5_00))
+        );
+
+        _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
+
+        // The extra case, when the transition from the VetoCooldown should happened.
+        // In such case, `normalOrVetoCooldownExitedAt` will be updated and isTie value
+        // still will be equal to `false`
+        assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
+
+        _dualGovernance.activateNextState();
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
+        assertEq(_dualGovernance.getEffectiveState(), State.VetoSignalling);
         assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
     }
 

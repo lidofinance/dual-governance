@@ -310,18 +310,18 @@ Calls the `ResealManager.resumeSealable(address sealable)` if all preconditions 
 ### Function: DualGovernance.cancelAllPendingProposals
 
 ```solidity
-function cancelAllPendingProposals()
+function cancelAllPendingProposals() returns (bool)
 ```
 
 Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
+
+If the current governance state is neither `VetoSignalling` nor `VetoSignallingDeactivation`, the function will exit early without canceling any proposals, emitting the `CancelAllPendingProposalsSkipped` event and returning `false`. If proposals are successfully canceled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
 
 Triggers a transition of the current governance state, if one is possible.
 
 #### Preconditions
 
-* MUST be called by an [admin proposer](#Administrative-actions).
-* The current governance state MUST NOT equal `Normal`, `VetoCooldown`, or `RageQuit`.
-
+- MUST be called by an [admin proposer](#Administrative-actions).
 
 ### Function: DualGovernance.registerProposer
 
