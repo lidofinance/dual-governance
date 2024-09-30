@@ -174,9 +174,9 @@ library Tiebreaker {
         return state == DualGovernanceState.RageQuit && isSomeSealableWithdrawalBlockerPausedOrFaulty(self);
     }
 
-    /// @notice Checks if any sealable withdrawal blocker is paused.
-    /// @param self The context storage.
-    /// @return True if any sealable withdrawal blocker is paused, false otherwise.
+    /// @notice Checks if any sealable withdrawal blocker is paused or functioning improperly.
+    /// @param self The context containing the sealable withdrawal blockers.
+    /// @return True if any sealable withdrawal blocker is paused or functioning incorrectly, false otherwise.
     function isSomeSealableWithdrawalBlockerPausedOrFaulty(Context storage self) internal view returns (bool) {
         uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
         for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
