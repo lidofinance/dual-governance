@@ -24,7 +24,7 @@ contract TimelockMock is ITimelock {
 
     address internal governance;
 
-    function submit(address, ExternalCall[] calldata) external returns (uint256 newProposalId) {
+    function submit(address, ExternalCall[] calldata, string calldata) external returns (uint256 newProposalId) {
         newProposalId = submittedProposals.length + OFFSET;
         submittedProposals.push(newProposalId);
         canScheduleProposal[newProposalId] = false;
@@ -75,7 +75,7 @@ contract TimelockMock is ITimelock {
         return lastCancelledProposalId;
     }
 
-    function getProposal(uint256 proposalId) external view returns (Proposal memory) {
+    function getProposal(uint256 proposalId) external view returns (ProposalDetails memory, ExternalCall[] memory) {
         revert("Not Implemented");
     }
 
@@ -99,12 +99,12 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
-    function getProposalInfo(uint256 proposalId)
-        external
-        view
-        returns (uint256 id, ProposalStatus status, address executor, Timestamp submittedAt, Timestamp scheduledAt)
-    {
+    function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory) {
         revert("Not Implemented");
+    }
+
+    function getProposalsCount() external view returns (uint256 count) {
+        return submittedProposals.length;
     }
 
     function getAdminExecutor() external view returns (address) {

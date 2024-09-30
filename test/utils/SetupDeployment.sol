@@ -39,10 +39,10 @@ import {
     DualGovernanceConfig,
     IDualGovernanceConfigProvider,
     ImmutableDualGovernanceConfigProvider
-} from "contracts/DualGovernanceConfigProvider.sol";
+} from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
 import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
-import {TiebreakerCore} from "contracts/committees/TiebreakerCore.sol";
+import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 // ---
 // Util Libraries
@@ -120,7 +120,7 @@ abstract contract SetupDeployment is Test {
     ImmutableDualGovernanceConfigProvider internal _dualGovernanceConfigProvider;
 
     ResealCommittee internal _resealCommittee;
-    TiebreakerCore internal _tiebreakerCoreCommittee;
+    TiebreakerCoreCommittee internal _tiebreakerCoreCommittee;
     TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
 
     // ---
@@ -360,17 +360,17 @@ abstract contract SetupDeployment is Test {
                 secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00), // 15%
                 //
                 minAssetsLockDuration: Durations.from(5 hours),
-                dynamicTimelockMinDuration: Durations.from(3 days),
-                dynamicTimelockMaxDuration: Durations.from(30 days),
                 //
+                vetoSignallingMinDuration: Durations.from(3 days),
+                vetoSignallingMaxDuration: Durations.from(30 days),
                 vetoSignallingMinActiveDuration: Durations.from(5 hours),
                 vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
                 vetoCooldownDuration: Durations.from(4 days),
                 //
-                rageQuitExtensionDelay: Durations.from(7 days),
-                rageQuitEthWithdrawalsMinTimelock: Durations.from(60 days),
-                rageQuitEthWithdrawalsTimelockGrowthStartSeqNumber: 2,
-                rageQuitEthWithdrawalsTimelockGrowthCoeffs: [uint256(0), 0, 0]
+                rageQuitExtensionPeriodDuration: Durations.from(7 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             })
         );
     }
@@ -406,21 +406,21 @@ abstract contract SetupDeployment is Test {
         address owner,
         IDualGovernance dualGovernance,
         Duration timelock
-    ) internal returns (TiebreakerCore) {
-        return new TiebreakerCore({owner: owner, dualGovernance: address(dualGovernance), timelock: timelock});
+    ) internal returns (TiebreakerCoreCommittee) {
+        return new TiebreakerCoreCommittee({owner: owner, dualGovernance: address(dualGovernance), timelock: timelock});
     }
 
     function _deployTiebreakerSubCommittee(
         address owner,
         uint256 quorum,
         address[] memory members,
-        TiebreakerCore tiebreakerCore
+        TiebreakerCoreCommittee tiebreakerCore
     ) internal returns (TiebreakerSubCommittee) {
         return new TiebreakerSubCommittee({
             owner: owner,
             executionQuorum: quorum,
             committeeMembers: members,
-            tiebreakerCore: address(tiebreakerCore)
+            tiebreakerCoreCommittee: address(tiebreakerCore)
         });
     }
 

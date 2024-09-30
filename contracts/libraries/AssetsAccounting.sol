@@ -2,8 +2,8 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "../types/Duration.sol";
-import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 import {ETHValue, ETHValues} from "../types/ETHValue.sol";
+import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 import {SharesValue, SharesValues} from "../types/SharesValue.sol";
 import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
@@ -123,7 +123,7 @@ library AssetsAccounting {
     error InvalidSharesValue(SharesValue value);
     error InvalidUnstETHStatus(uint256 unstETHId, UnstETHRecordStatus status);
     error InvalidUnstETHHolder(uint256 unstETHId, address actual, address expected);
-    error MinAssetsLockDurationNotPassed(Timestamp unlockTimelockExpiresAt);
+    error MinAssetsLockDurationNotPassed(Timestamp lockDurationExpiresAt);
     error InvalidClaimableAmount(uint256 unstETHId, ETHValue expected, ETHValue actual);
 
     // ---
@@ -173,7 +173,7 @@ library AssetsAccounting {
         emit ETHWithdrawn(holder, stETHSharesToWithdraw, ethWithdrawn);
     }
 
-    function accountClaimedStETH(Context storage self, ETHValue amount) internal {
+    function accountClaimedETH(Context storage self, ETHValue amount) internal {
         self.stETHTotals.claimedETH = self.stETHTotals.claimedETH + amount;
         emit ETHClaimed(amount);
     }
@@ -378,8 +378,6 @@ library AssetsAccounting {
 
         unstETHRecord.status = UnstETHRecordStatus.Finalized;
         unstETHRecord.claimableAmount = amountFinalized;
-
-        self.unstETHRecords[unstETHId] = unstETHRecord;
     }
 
     function _claimUnstETHRecord(Context storage self, uint256 unstETHId, ETHValue claimableAmount) private {
@@ -397,7 +395,6 @@ library AssetsAccounting {
             unstETHRecord.claimableAmount = claimableAmount;
         }
         unstETHRecord.status = UnstETHRecordStatus.Claimed;
-        self.unstETHRecords[unstETHId] = unstETHRecord;
     }
 
     function _withdrawUnstETHRecord(

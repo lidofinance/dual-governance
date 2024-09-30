@@ -4,6 +4,8 @@ pragma solidity 0.8.26;
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
+import {ITimelock} from "../interfaces/ITimelock.sol";
+
 import {ExternalCall, ExternalCalls, IExternalExecutor} from "./ExternalCalls.sol";
 
 /// @dev Describes the lifecycle state of a proposal
@@ -65,7 +67,7 @@ library ExecutableProposals {
     error AfterSubmitDelayNotPassed(uint256 proposalId);
     error AfterScheduleDelayNotPassed(uint256 proposalId);
 
-    event ProposalSubmitted(uint256 indexed id, address indexed executor, ExternalCall[] calls);
+    event ProposalSubmitted(uint256 indexed id, address indexed executor, ExternalCall[] calls, string metadata);
     event ProposalScheduled(uint256 indexed id);
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
     event ProposalsCancelledTill(uint256 proposalId);
@@ -83,7 +85,8 @@ library ExecutableProposals {
     function submit(
         Context storage self,
         address executor,
-        ExternalCall[] memory calls
+        ExternalCall[] memory calls,
+        string memory metadata
     ) internal returns (uint256 newProposalId) {
         if (calls.length == 0) {
             revert EmptyCalls();
@@ -102,7 +105,7 @@ library ExecutableProposals {
             newProposal.calls.push(calls[i]);
         }
 
-        emit ProposalSubmitted(newProposalId, executor, calls);
+        emit ProposalSubmitted(newProposalId, executor, calls, metadata);
     }
 
     function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
@@ -180,17 +183,19 @@ library ExecutableProposals {
         return self.proposalsCount;
     }
 
-    function getProposalInfo(
+    function getProposalDetails(
         Context storage self,
         uint256 proposalId
-    ) internal view returns (Status status, address executor, Timestamp submittedAt, Timestamp scheduledAt) {
+    ) internal view returns (ITimelock.ProposalDetails memory proposalDetails) {
         ProposalData memory proposalData = self.proposals[proposalId].data;
         _checkProposalExists(proposalId, proposalData);
 
-        status = _isProposalMarkedCancelled(self, proposalId, proposalData) ? Status.Cancelled : proposalData.status;
-        executor = address(proposalData.executor);
-        submittedAt = proposalData.submittedAt;
-        scheduledAt = proposalData.scheduledAt;
+        proposalDetails.id = proposalId;
+        proposalDetails.status =
+            _isProposalMarkedCancelled(self, proposalId, proposalData) ? Status.Cancelled : proposalData.status;
+        proposalDetails.executor = address(proposalData.executor);
+        proposalDetails.submittedAt = proposalData.submittedAt;
+        proposalDetails.scheduledAt = proposalData.scheduledAt;
     }
 
     function getProposalCalls(
@@ -217,6 +222,6 @@ library ExecutableProposals {
         uint256 proposalId,
         ProposalData memory proposalData
     ) private view returns (bool) {
-        return proposalId <= self.lastCancelledProposalId || proposalData.status == Status.Cancelled;
+        return proposalId <= self.lastCancelledProposalId && proposalData.status != Status.Executed;
     }
 }

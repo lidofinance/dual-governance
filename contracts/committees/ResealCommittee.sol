@@ -3,11 +3,13 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
+import {Duration} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Duration} from "../types/Duration.sol";
 
 /// @title Reseal Committee Contract
 /// @notice This contract allows a committee to vote on and execute resealing proposals
@@ -46,14 +48,13 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @return support The number of votes in support of the proposal
     /// @return executionQuorum The required number of votes for execution
     /// @return quorumAt The timestamp when the quorum was reached
-    /// @return isExecuted Whether the proposal has been executed
     function getResealState(address sealable)
         public
         view
-        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt)
     {
         (, bytes32 key) = _encodeResealProposal(sealable);
-        return _getHashState(key);
+        (support, executionQuorum, quorumAt,) = _getHashState(key);
     }
 
     /// @notice Executes an approved reseal proposal

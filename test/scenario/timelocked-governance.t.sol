@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Duration, Durations} from "contracts/types/Duration.sol";
 
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
+import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
@@ -27,7 +28,8 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         // ---
         // Act 2. Timeskip. Emergency protection is about to be expired.
         // ---
-        EmergencyProtection.Context memory emergencyState = _timelock.getEmergencyProtectionContext();
+        IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState =
+            _timelock.getEmergencyProtectionDetails();
         {
             assertEq(_timelock.isEmergencyProtectionEnabled(), true);
             Duration emergencyProtectionDuration =
@@ -40,7 +42,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         // Act 3. Emergency committee has no more power to stop proposal flow.
         //
         {
-            vm.prank(address(emergencyState.emergencyActivationCommittee));
+            vm.prank(address(_timelock.getEmergencyActivationCommittee()));
 
             vm.expectRevert(
                 abi.encodeWithSelector(
@@ -180,7 +182,8 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
         // Act 4. DAO decides to not deactivate emergency mode and allow stakers to quit.
         // ---
         {
-            EmergencyProtection.Context memory emergencyState = _timelock.getEmergencyProtectionContext();
+            IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState =
+                _timelock.getEmergencyProtectionDetails();
             assertTrue(_timelock.isEmergencyModeActive());
 
             _wait(

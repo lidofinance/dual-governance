@@ -38,16 +38,14 @@ contract ResealCommitteeTest is ScenarioTestBlueprint {
         for (uint256 i = 0; i < _resealCommittee.quorum() - 1; i++) {
             vm.prank(members[i]);
             _resealCommittee.voteReseal(sealable, true);
-            (support, quorum,, isExecuted) = _resealCommittee.getResealState(sealable);
+            (support, quorum,) = _resealCommittee.getResealState(sealable);
             assert(support < quorum);
-            assert(isExecuted == false);
         }
 
         vm.prank(members[members.length - 1]);
         _resealCommittee.voteReseal(sealable, true);
-        (support, quorum,, isExecuted) = _resealCommittee.getResealState(sealable);
+        (support, quorum,) = _resealCommittee.getResealState(sealable);
         assert(support == quorum);
-        assert(isExecuted == false);
 
         _assertNormalState();
 

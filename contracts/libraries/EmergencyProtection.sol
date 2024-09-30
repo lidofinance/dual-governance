@@ -4,6 +4,8 @@ pragma solidity 0.8.26;
 import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
+import {IEmergencyProtectedTimelock} from "../interfaces/IEmergencyProtectedTimelock.sol";
+
 /// @title EmergencyProtection
 /// @dev This library manages emergency protection functionality, allowing for
 /// the activation and deactivation of emergency mode by designated committees.
@@ -177,6 +179,19 @@ library EmergencyProtection {
     // ---
     // Getters
     // ---
+
+    /// @dev Retrieves the details of the emergency protection.
+    /// @param self  The storage reference to the Context struct.
+    /// @return details The struct containing the emergency protection details.
+    function getEmergencyProtectionDetails(Context storage self)
+        internal
+        view
+        returns (IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details)
+    {
+        details.emergencyModeDuration = self.emergencyModeDuration;
+        details.emergencyModeEndsAfter = self.emergencyModeEndsAfter;
+        details.emergencyProtectionEndsAfter = self.emergencyProtectionEndsAfter;
+    }
 
     /// @dev Checks if the emergency mode is activated
     /// @param self The storage reference to the Context struct.

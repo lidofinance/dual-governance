@@ -23,8 +23,6 @@ library WithdrawalsBatchesQueue {
 
     error EmptyBatch();
     error InvalidUnstETHIdsSequence();
-    error NotAllBatchesClaimed(uint256 total, uint256 claimed);
-    error InvalidWithdrawalsBatchesQueueState(State actual);
     error WithdrawalBatchesQueueIsInAbsentState();
     error WithdrawalBatchesQueueIsNotInOpenedState();
     error WithdrawalBatchesQueueIsNotInAbsentState();
