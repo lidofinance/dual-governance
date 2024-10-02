@@ -1,6 +1,8 @@
+requires "evm.md"
 requires "foundry.md"
 
-module LIDO-LEMMAS
+module LIDO-LEMMAS [symbolic]
+    imports EVM
     imports FOUNDRY
     imports INT-SYMBOLIC
     imports MAP-SYMBOLIC
@@ -9,6 +11,7 @@ module LIDO-LEMMAS
     syntax StepSort ::= Int
                       | Bool
                       | Bytes
+                      | Map
                       | Set
  // -------------------------
 
@@ -17,200 +20,75 @@ module LIDO-LEMMAS
  // --------------------------------------
     rule <k> runLemma(T) => doneLemma(T) ... </k>
 
-    syntax Int ::= "ethMaxWidth" [macro]
-    syntax Int ::= "ethUpperBound" [macro]
- // --------------------------------------
-    rule ethMaxWidth => 96
-    rule ethUpperBound => 2 ^Int ethMaxWidth
- // ----------------------------------------
+    rule C <=Int A *Int B => C /Int A <=Int B
+      requires 0 <=Int C andBool 0 <Int A
+       andBool C modInt A ==Int 0
+       [simplification(40), concrete(C, A), preserves-definedness]
 
-    // /Int to byte representation
-    rule X /Int pow160 => #asWord ( #range ( #buf ( 32 , X ) , 0 , 12 ) )
-      requires #rangeUInt(256, X)
+    rule A ==Int B => false
+      requires 0 <=Int A andBool B <Int 0
+      [simplification, concrete(B)]
+
+    rule 0 <=Int A -Int B => B <=Int A
+      [simplification, symbolic(A, B)]
+
+    rule ( ( A *Int B ) +Int C ) /Int D => ( ( ( A /Int 10 ) *Int B ) +Int ( ( D /Int 10 ) -Int 1 ) ) /Int ( D /Int 10 )
+      requires 0 <=Int A andBool 0 <Int D
+       andBool A modInt 10 ==Int 0 andBool D modInt 10 ==Int 0 andBool C ==Int D -Int 1
+       [simplification, concrete(A, C, D), preserves-definedness]
+
+    rule [asWord-lt-concat-left]:
+      #asWord ( BA1 +Bytes BA2 ) <Int X => #asWord ( BA1 ) <Int X /Int ( 2 ^Int ( 8 *Int lengthBytes ( BA2 ) ) )
+      requires X modInt ( 2 ^Int ( 8 *Int lengthBytes ( BA2 ) ) ) ==Int 0
       [simplification, preserves-definedness]
 
-    // Deconstruction of mask
-    rule 115792089237316195423570984636004990333889740523700931696805413995650331181055 &Int X =>
-            #asWord ( #range(#buf(32, X), 0, 11) +Bytes #buf(1, 0) +Bytes #range(#buf(32, X), 12, 20) )
-      requires #rangeUInt(256, X)
-      [simplification]
+    //
+    // Rules
+    //
 
-    // |Int distributivity over #asWord and +Bytes, v1
-    rule A |Int #asWord ( BA1 +Bytes BA2 ) =>
-      #asWord ( BA1 +Bytes #buf ( lengthBytes(BA2), A |Int #asWord ( BA2 ) ) )
-      requires 0 <=Int A andBool A <Int 2 ^Int (8 *Int lengthBytes(BA2))
-      [concrete(A), simplification]
-
-    // |Int distributivity over #asWord and +Bytes, v2
-    rule A |Int #asWord ( BA1 +Bytes BA2 ) =>
-      #asWord (
-        #buf ( lengthBytes(BA1), (A >>Int (8 *Int lengthBytes(BA2))) |Int #asWord ( BA1 ) )
-        +Bytes
-        #buf ( lengthBytes(BA2), (A modInt (2 ^Int (8 *Int lengthBytes(BA2)))) |Int #asWord ( BA2 ) )
-      )
-      requires #rangeUInt(256, A)
-      [simplification, concrete(A, BA1)]
-
-    // |Int and #asWord
-    rule #range ( #buf ( A, X |Int Y) , 0, B ) =>
-      #buf ( B, X >>Int (8 *Int (A -Int B)) )
-      requires B <=Int A
-       andBool 0 <=Int X andBool X <Int 2 ^Int (8 *Int A)
-       andBool 0 <=Int Y andBool Y <Int 2 ^Int (8 *Int (A -Int B))
-      [simplification, concrete(A, B)]
-
-    // chop and -Int
-    rule chop (A +Int B) ==Int 0 => A ==Int (-1) *Int B
-      requires #rangeUInt(256, A) andBool #rangeUInt(256, (-1) *Int B)
-      [concrete(B), simplification, comm]
-
-    // *Int
-    rule A *Int B ==Int 0 => A ==Int 0 orBool B ==Int 0 [simplification]
-
-    // /Int
-    rule 0 /Int B         => 0         requires B =/=Int 0 [simplification, preserves-definedness]
-    rule A /Int B ==Int 0 => A ==Int 0 requires B =/=Int 0 [simplification, preserves-definedness]
-
-    // /Word
-    rule  _ /Word W1 => 0          requires W1  ==Int 0 [simplification]
-    rule W0 /Word W1 => W0 /Int W1 requires W1 =/=Int 0 [simplification, preserves-definedness]
-
-    // Further arithmetic
-    rule ( X *Int Y ) /Int Y => X requires Y =/=Int 0              [simplification, preserves-definedness]
-    rule ( X ==Int ( X *Int Y ) /Word Y ) orBool Y ==Int 0 => true [simplification, preserves-definedness]
-
-    rule A <=Int B /Int C =>         A  *Int C <=Int B requires 0 <Int C [simplification, preserves-definedness]
-    rule A  <Int B /Int C => (A +Int 1) *Int C <=Int B requires 0 <Int C [simplification, preserves-definedness]
-    rule A  >Int B /Int C =>         A  *Int C  >Int B requires 0 <Int C [simplification, preserves-definedness]
-    rule A >=Int B /Int C => (A +Int 1) *Int C  >Int B requires 0 <Int C [simplification, preserves-definedness]
-
-    rule B /Int C >=Int A =>         A  *Int C <=Int B requires 0 <Int C [simplification, preserves-definedness]
-    rule B /Int C  >Int A => (A +Int 1) *Int C <=Int B requires 0 <Int C [simplification, preserves-definedness]
-    rule B /Int C  <Int A =>         A  *Int C  >Int B requires 0 <Int C [simplification, preserves-definedness]
-    rule B /Int C <=Int A => (A +Int 1) *Int C  >Int B requires 0 <Int C [simplification, preserves-definedness]
-
-    // Further generalization of: maxUIntXXX &Int #asWord ( BA )
-    rule X &Int #asWord ( BA ) => #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) )
-    requires #rangeUInt(256, X)
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool log2Int (X +Int 1) modInt 8 ==Int 0
-     andBool (log2Int (X +Int 1)) /Int 8 <=Int lengthBytes(BA) andBool lengthBytes(BA) <=Int 32
-     [simplification, concrete(X), preserves-definedness]
-
-    // &Int distributivity
-    rule X &Int ( Y |Int Z ) => ( X &Int Y ) |Int ( X &Int Z ) [simplification, concrete(X)]
-    rule X &Int ( Y &Int Z ) => ( X &Int Y ) &Int ( X &Int Z ) [simplification, concrete(X)]
-
-    // KEVM simplification
-    rule #asWord(WS) >>Int M => #asWord(#range(WS, 0, lengthBytes(WS) -Int (M /Int 8) ))
-    requires 0 <=Int M andBool M modInt 8 ==Int 0
-    [simplification, preserves-definedness]
+    // rule [create-valid-enhanced]:
+    //     <k> CREATE VALUE MEMSTART MEMWIDTH
+    //     => #accessAccounts #newAddr(ACCT, NONCE)
+    //     ~> #checkCreate ACCT VALUE
+    //     ~> #create ACCT #newAddr(ACCT, NONCE) VALUE #range(LM, MEMSTART, MEMWIDTH)
+    //     ~> #codeDeposit #newAddr(ACCT, NONCE)
+    //     ...
+    //     </k>
+    //     <id> ACCT </id>
+    //     <localMem> LM </localMem>
+    //     <accounts>
+    //       <account>
+    //         <acctID> ACCT </acctID>
+    //         <nonce> NONCE </nonce>
+    //         ...
+    //       </account>
+    //       ACCOUNTS_REST
+    //     </accounts>
+    //     <schedule> SCHED </schedule>
+    // requires #hasValidInitCode(MEMWIDTH, SCHED)
+    //   ensures notBool ( #newAddr(ACCT, NONCE) ==Int ACCT )
+    //   andBool notBool ( <acctID> #newAddr(ACCT, NONCE) </acctID> in_keys ( ACCOUNTS_REST:AccountCellMap ) )
+    // [priority(30), preserves-definedness]
 
     //
-    // .Bytes
+    //  Syntactics
     //
-    rule .Bytes ==K b"" => true [simplification, comm]
 
-    rule    b"" ==K #buf(X, _) +Bytes _ => false requires 0 <Int X [simplification, concrete(X), comm]
-    rule    b"" ==K _ +Bytes #buf(X, _) => false requires 0 <Int X [simplification, concrete(X), comm]
-    rule .Bytes ==K #buf(X, _) +Bytes _ => false requires 0 <Int X [simplification, concrete(X), comm]
-    rule .Bytes ==K _ +Bytes #buf(X, _) => false requires 0 <Int X [simplification, concrete(X), comm]
+    // rule A <=Int B => true requires C <=Int B andBool A <=Int C [simplification, concrete(A, C), syntactic(1)]
+    // rule A <=Int B => true requires C  <Int B andBool A <=Int C [simplification, concrete(A, C), syntactic(1)]
 
-    rule [concat-neutral-left]:  b"" +Bytes B:Bytes => B:Bytes [simplification]
-    rule [concat-neutral-right]: B:Bytes +Bytes b"" => B:Bytes [simplification]
+    // rule A <=Int B => true requires A <=Int C andBool C <=Int B [simplification, concrete(B, C), syntactic(1)]
+    // rule A <=Int B => true requires A  <Int C andBool C <=Int B [simplification, concrete(B, C), syntactic(1)]
 
-    //
-    // Alternative memory update
-    //
-    rule [memUpdate-concat-in-right]: (B1 +Bytes B2) [ S := B ] => B1 +Bytes (B2 [ S -Int lengthBytes(B1) := B ])
-      requires lengthBytes(B1) <=Int S
-      [simplification(40)]
+    // rule A <Int B => true requires A  <Int C andBool C <Int B [simplification, concrete(B, C), syntactic(1)]
+    // rule A <Int B => true requires A <=Int C andBool C <Int B [simplification, concrete(B, C), syntactic(1)]
 
-    rule [memUpdate-concat-in-left]: (B1 +Bytes B2) [ S := B ] => (B1 [S := B]) +Bytes B2
-      requires 0 <=Int S andBool S +Int lengthBytes(B) <=Int lengthBytes(B1)
-      [simplification(45)]
+    // rule A <Int B => true requires C  <Int B andBool A <Int C [simplification, concrete(A, C), syntactic(1)]
+    // rule A <Int B => true requires C <=Int B andBool A <Int C [simplification, concrete(A, C), syntactic(1)]
 
-    //
-    // Specific simplifications
-    //
-    rule X &Int #asWord ( BA ) ==Int Y:Int => true
-    requires 0 <=Int X andBool X <Int 2 ^Int (8 *Int lengthBytes(BA))
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool log2Int (X +Int 1) modInt 8 ==Int 0
-     andBool #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) ) ==Int Y:Int
-     [simplification, concrete(X), comm, preserves-definedness]
+    // rule A <=Int B => A <Int B requires notBool (B ==Int A) [simplification, concrete(A), syntactic(1)]
 
-    rule X &Int #asWord ( BA ) ==Int Y:Int => false
-    requires 0 <=Int X andBool X <Int 2 ^Int (8 *Int lengthBytes(BA))
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool log2Int (X +Int 1) modInt 8 ==Int 0
-     andBool notBool #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) ) ==Int Y:Int
-     [simplification, concrete(X), comm, preserves-definedness]
-
-    rule X &Int #asWord ( BA ) <Int Y:Int => true
-    requires 0 <=Int X andBool X <Int 2 ^Int (8 *Int lengthBytes(BA))
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool log2Int (X +Int 1) modInt 8 ==Int 0
-     andBool #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) ) <Int Y:Int
-     [simplification, concrete(X), preserves-definedness]
-
-    rule X &Int #asWord ( BA ) <Int Y:Int => false
-    requires 0 <=Int X andBool X <Int 2 ^Int (8 *Int lengthBytes(BA))
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool log2Int (X +Int 1) modInt 8 ==Int 0
-     andBool notBool #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) ) <Int Y:Int
-     [simplification, concrete(X), preserves-definedness]
-
-    rule X &Int #asWord ( BA ) <=Int Y:Int => true
-    requires 0 <=Int X andBool X <Int 2 ^Int (8 *Int lengthBytes(BA))
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool log2Int (X +Int 1) modInt 8 ==Int 0
-     andBool #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) ) <=Int Y:Int
-     [simplification, concrete(X), preserves-definedness]
-
-    rule X &Int #asWord ( BA ) <=Int Y:Int => false
-    requires 0 <=Int X andBool X <Int 2 ^Int (8 *Int lengthBytes(BA))
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool log2Int (X +Int 1) modInt 8 ==Int 0
-     andBool notBool #asWord ( #range(BA, lengthBytes(BA) -Int (log2Int(X +Int 1) /Int 8), log2Int(X +Int 1) /Int 8) ) <=Int Y:Int
-     [simplification, concrete(X), preserves-definedness]
-
-    rule X &Int ( Y *Int Z ) => 0
-    requires 0 <=Int X andBool 0 <=Int Y andBool 0 <=Int Z
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool Y ==Int 2 ^Int log2Int(Y)
-     andBool log2Int(X +Int 1) <=Int log2Int(Y)
-     [simplification, concrete(X, Y), preserves-definedness]
-
-    rule X &Int ( Y *Int Z ) => 0
-    requires 0 <=Int X andBool 0 <=Int Y andBool 0 <=Int Z
-     andBool X +Int 1 ==Int 2 ^Int log2Int(X +Int 1)
-     andBool Z ==Int 2 ^Int log2Int(Z)
-     andBool log2Int(X +Int 1) <=Int log2Int(Z)
-     [simplification, concrete(X, Z), preserves-definedness]
-
-    rule chop ( X *Int Y ) => X *Int Y
-      requires 0 <=Int X andBool X <Int ethUpperBound
-       andBool 0 <=Int Y andBool Y <Int 2 ^Int ( 256 -Int ethMaxWidth )
-       [simplification]
-
-    rule [mul-overflow-check]:
-      X ==Int chop ( X *Int Y ) /Int Y => X *Int Y <Int pow256
-      requires #rangeUInt(256, X) andBool 0 <Int Y
-      [simplification, comm, preserves-definedness]
-
-    rule [mul-overflow-check-ML]:
-      { X #Equals chop ( X *Int Y ) /Int Y } => { true #Equals X *Int Y <Int pow256 }
-      requires #rangeUInt(256, X) andBool 0 <Int Y
-      [simplification, preserves-definedness]
-
-    rule 0 <=Int keccak(X) => true [simplification, smt-lemma]
-
-    rule X >>Int N => X /Int (2 ^Int N) [simplification, concrete(N)]
-
-    rule #asWord ( BUF1 +Bytes BUF2 ) => #asWord ( BUF2 )
-        requires #asWord ( BUF1 ) ==Int 0
-        [simplification, concrete(BUF1)]
+    // rule notBool (A ==Int B) => true requires B <Int A [simplification, concrete(B), syntactic(1)]
 
 endmodule
 
@@ -236,4 +114,95 @@ module LIDO-LEMMAS-SPEC
        andBool WORD7:Int <Int pow96
        andBool WORD11:Int <Int pow96
        andBool WORD12:Int <Int pow96
+
+    claim [storage-simplification]:
+      <k> runLemma (
+            STORAGE0:Map
+            [ 5 <- #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , WORD3:Int ) +Bytes b"\x00" ) ]
+            [ 6 <- #asWord ( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ]
+            [ 5 <- #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD4:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01" ) ]
+            [ 6 <- ( ( TIMESTAMP_CELL:Int *Int pow40 ) |Int ( 115792089237316195423570985008687907853269984665640562830531764394383466561535 &Int #asWord ( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ) ) ]
+            [ 5 <- #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01" ) ]
+          ) => doneLemma (
+            STORAGE0:Map
+            [ 6 <- #asWord ( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ]
+            [ 5 <- #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes b"\x01" ) ]
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int pow40
+
+    claim [slot-update-01]:
+      <k> runLemma(
+        ( maxUInt8 &Int ( ( TIMESTAMP_CELL:Int *Int pow48 ) |Int ( 115792089237316195423570985008687907853269984665640254554447762944319381569535 &Int ( ( TIMESTAMP_CELL:Int *Int 256 ) |Int ( 115792089237316195423570985008687907853269984665640564039457583726438152929535 &Int ( 1 |Int #asWord ( b"\x00E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , _WORD4:Int ) +Bytes #buf ( 5 , _WORD3:Int ) +Bytes b"\x00" ) ) ) ) ) ) )
+      ) => doneLemma(
+        1
+      ) ... </k>
+      requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 40
+
+    claim [slot-update-02]:
+      <k> runLemma (
+            ( ( maxUInt40 &Int ( ( 115341543235797707419527244145998463631733976271937281205136574426583511597055 &Int #asWord ( #buf ( 2 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , TIMESTAMP_CELL:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ) /Int pow40 ) ) )
+          ) => doneLemma (
+            TIMESTAMP_CELL
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 35
+
+    claim [slot-update-03]:
+      <k> runLemma (
+            ( maxUInt40 &Int ( ( TIMESTAMP_CELL:Int |Int ( 115792089237316195423570985008687907853269984665640564039457584006813618012160 &Int #asWord ( #buf ( 1 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ) ) /Int pow40 ) ) <=Int TIMESTAMP_CELL:Int
+          ) => doneLemma (
+            true
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 35
+
+    claim [slot-update-04]:
+      <k> runLemma (
+            #asWord ( #range ( #buf ( 10 , ( ( ( TIMESTAMP_CELL:Int *Int pow48 ) /Int 256 ) |Int TIMESTAMP_CELL:Int ) ) , 5 , 5 ) ) <=Int TIMESTAMP_CELL:Int
+          ) => doneLemma (
+            true
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 35
+
+    claim [slot-update-05]:
+      <k> runLemma (
+            #asWord ( #range ( #buf ( 6 , TIMESTAMP_CELL:Int *Int 256 ) , 5 , 1 ) )
+          ) => doneLemma (
+            false
+          ) ... </k>
+          requires 0 <=Int TIMESTAMP_CELL andBool TIMESTAMP_CELL <Int 2 ^Int 35
+
+    claim [slot-update-06]:
+      <k> runLemma (
+            #asWord ( #range ( #buf ( 26 , 960911443338137442927181681227604902095826437272264907948032 |Int WORD4:Int ) , 21 , 5 ) ) <=Int TIMESTAMP_CELL:Int
+          ) => doneLemma (
+            WORD4 <=Int TIMESTAMP_CELL
+          ) ... </k>
+          requires 0 <=Int WORD4 andBool WORD4 <Int 2 ^Int 40
+
+    claim [slot-update-07]:
+      <k> runLemma (
+            #asWord ( #range ( #buf ( 25 , ( ( ( WORD7:Int +Int 1 ) *Int pow200 ) |Int #asWord ( #buf ( 25 , ( 438052756531465687819472504520361015472122898704787692322816 |Int WORD6:Int ) ) ) ) ) , 20 , 5 ) ) <=Int TIMESTAMP_CELL:Int
+          ) => doneLemma (
+            WORD6 <=Int TIMESTAMP_CELL
+          ) ... </k>
+          requires 0 <=Int WORD6 andBool WORD6 <Int 2 ^Int 40
+           andBool 0 <=Int WORD7 andBool WORD7 <Int 256
+
+    claim [slot-update-08]:
+      <k> runLemma (
+            #asWord ( #buf ( 20 , 770621190285571058874329108704665103402425909248 |Int ( ( WORD7:Int +Int 1 ) *Int pow160 ) ) )
+          ) => doneLemma (
+            770621190285571058874329108704665103402425909248
+          ) ... </k>
+          requires 0 <=Int WORD7 andBool WORD7 <Int 256
+
+    claim [slot-update-09]:
+      <k> runLemma (
+            ( 481644099385675654177479669474857658256926169505224677670350078624137216 |Int ( 115790322390251417039241401711187164934754157181743689629425282016341011726335 &Int #asWord ( #buf ( 2 , WORD7:Int ) +Bytes b"\xa4\xadOh\xd0\xb9\x1c\xfd\x19h|\x88\x1eP\xf3\xa0\x02B\x82\x8c" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) ) ) )
+          ) => doneLemma (
+            #asWord ( #buf ( 2 , WORD7:Int ) +Bytes b"E\xc9,,\xd0\xdf{-p^\xf1,\xffw\xcb\x0b\xc5W\xed\"" +Bytes #buf ( 5 , WORD6:Int ) +Bytes #buf ( 5 , WORD5:Int ) )
+          ) ... </k>
+          requires 0 <=Int WORD5 andBool WORD5 <Int 2 ^Int 35
+           andBool 0 <=Int WORD6 andBool WORD6 <Int 2 ^Int 35
+           andBool 0 <=Int WORD7 andBool WORD7 <Int 256
+
 endmodule
