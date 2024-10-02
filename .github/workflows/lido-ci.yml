@@ -26,7 +26,6 @@
                 "ref": "master",
                 "inputs": {
                 "branch_name": "'"${{ github.event.pull_request.head.sha || github.sha }}"'",
-                "extra_args": "script",
                 "statuses_sha": "'$sha'",
                 "org": "${{ github.repository_owner }}",
                 "repository": "${{ github.event.repository.name }}",
