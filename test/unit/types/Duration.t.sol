@@ -74,6 +74,7 @@ contract DurationTests is UnitTest {
 
     function test_eq_HappyPath_ReturnsFalse() external {
         assertFalse(Duration.wrap(0) == Duration.wrap(1));
+        assertFalse(Duration.wrap(1) == Duration.wrap(0));
         assertFalse(Duration.wrap(MAX_DURATION_VALUE / 2) == Duration.wrap(MAX_DURATION_VALUE));
         assertFalse(Duration.wrap(0) == Duration.wrap(MAX_DURATION_VALUE));
     }
@@ -88,6 +89,7 @@ contract DurationTests is UnitTest {
 
     function test_neq_HappyPath_ReturnsTrue() external {
         assertTrue(Duration.wrap(0) != Duration.wrap(1));
+        assertTrue(Duration.wrap(1) != Duration.wrap(0));
         assertTrue(Duration.wrap(MAX_DURATION_VALUE / 2) != Duration.wrap(MAX_DURATION_VALUE));
         assertTrue(Duration.wrap(0) != Duration.wrap(MAX_DURATION_VALUE));
     }

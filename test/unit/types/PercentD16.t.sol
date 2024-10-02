@@ -73,7 +73,7 @@ contract PercentD16UnitTests is UnitTest {
     function test_plus_HappyPath() external {
         assertEq(PercentsD16.from(0) + PercentsD16.from(0), PercentsD16.from(0));
         assertEq(PercentsD16.from(0) + PercentsD16.from(1), PercentsD16.from(1));
-        assertEq(PercentsD16.from(0) + PercentsD16.from(1), PercentsD16.from(1));
+        assertEq(PercentsD16.from(1) + PercentsD16.from(0), PercentsD16.from(1));
         assertEq(PercentsD16.from(500) + PercentsD16.from(20), PercentsD16.from(520));
         assertEq(PercentsD16.from(0) + PercentsD16.from(MAX_PERCENT_D16), PercentsD16.from(MAX_PERCENT_D16));
         assertEq(PercentsD16.from(MAX_PERCENT_D16) + PercentsD16.from(0), PercentsD16.from(MAX_PERCENT_D16));
