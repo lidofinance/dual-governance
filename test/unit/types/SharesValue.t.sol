@@ -52,7 +52,6 @@ contract SharesValueTests is UnitTest {
         assertEq(SharesValues.from(0) + SharesValues.from(0), SharesValue.wrap(0));
         assertEq(SharesValues.from(1) + SharesValues.from(0), SharesValue.wrap(1));
         assertEq(SharesValues.from(0) + SharesValues.from(1), SharesValue.wrap(1));
-        assertEq(SharesValues.from(0) + SharesValues.from(1), SharesValue.wrap(1));
         assertEq(
             SharesValues.from(MAX_SHARES_VALUE / 2) + SharesValues.from(MAX_SHARES_VALUE / 2),
             SharesValue.wrap(type(uint128).max - 1)
