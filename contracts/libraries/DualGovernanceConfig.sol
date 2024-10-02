@@ -119,9 +119,9 @@ library DualGovernanceConfig {
 
         return vetoSignallingMinDuration
             + Durations.from(
-                PercentD16.unwrap(rageQuitSupport - firstSealRageQuitSupport)
+                (rageQuitSupport - firstSealRageQuitSupport).toUint256()
                     * (vetoSignallingMaxDuration - vetoSignallingMinDuration).toSeconds()
-                    / PercentD16.unwrap(secondSealRageQuitSupport - firstSealRageQuitSupport)
+                    / (secondSealRageQuitSupport - firstSealRageQuitSupport).toUint256()
             );
     }
 

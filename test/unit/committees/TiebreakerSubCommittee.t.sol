@@ -43,6 +43,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
     }
 
     function test_constructor_HappyPath(address _owner, uint256 _quorum, address _tiebreakerCore) external {
+        vm.assume(_owner != address(0));
         vm.assume(_quorum > 0 && _quorum <= committeeMembers.length);
         new TiebreakerSubCommittee(_owner, committeeMembers, _quorum, _tiebreakerCore);
     }

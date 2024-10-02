@@ -6,7 +6,7 @@ import {stdError} from "forge-std/StdError.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {ETHValue, ETHValues, ETHValueOverflow, ETHValueUnderflow} from "contracts/types/ETHValue.sol";
-import {SharesValue, SharesValues, SharesValueOverflow} from "contracts/types/SharesValue.sol";
+import {SharesValue, SharesValues, SharesValueOverflow, SharesValueUnderflow} from "contracts/types/SharesValue.sol";
 import {IndicesOneBased} from "contracts/types/IndexOneBased.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamps} from "contracts/types/Timestamp.sol";
@@ -149,7 +149,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
         _accountingContext.assets[holder].stETHLockedShares = shares;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueUnderflow.selector);
 
         AssetsAccounting.accountStETHSharesUnlock(_accountingContext, holder, shares);
     }
@@ -620,7 +620,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         withdrawalRequestStatuses[0].isClaimed = false;
         _accountingContext.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.NotLocked;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
     }
@@ -644,7 +644,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         withdrawalRequestStatuses[0].isClaimed = false;
         _accountingContext.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.NotLocked;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
     }
@@ -880,7 +880,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
         _accountingContext.assets[holder].unstETHIds.push(unstETHIds[0]);
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueUnderflow.selector);
 
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
     }
@@ -919,7 +919,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
         _accountingContext.assets[holder].unstETHIds.push(unstETHIds[0]);
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueUnderflow.selector);
 
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
     }
@@ -1111,7 +1111,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(123);
         claimableAmountsPrepared[0] = uint256(type(uint128).max - 2);
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
     }
@@ -1135,7 +1135,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(type(uint64).max);
         claimableAmountsPrepared[0] = 1;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueUnderflow.selector);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
     }
@@ -1410,7 +1410,7 @@ contract AssetsAccountingUnitTests is UnitTest {
                 ETHValues.from(uint256(type(uint128).max) / 2 + 1);
         }
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
     }
@@ -1447,7 +1447,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHTotals.unfinalizedShares = totalUnfinalizedShares;
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueOverflow.selector);
         AssetsAccounting.getLockedAssetsTotals(_accountingContext);
     }
 
@@ -1493,14 +1493,6 @@ contract AssetsAccountingUnitTests is UnitTest {
         assertEq(_accountingContext.stETHTotals.claimedETH, claimedETH);
         assertEq(_accountingContext.unstETHTotals.unfinalizedShares, unfinalizedShares);
         assertEq(_accountingContext.unstETHTotals.finalizedETH, finalizedETH);
-    }
-
-    function assertEq(SharesValue a, SharesValue b) internal {
-        assertEq(a.toUint256(), b.toUint256());
-    }
-
-    function assertEq(ETHValue a, ETHValue b) internal {
-        assertEq(a.toUint256(), b.toUint256());
     }
 
     function assertEq(UnstETHRecordStatus a, UnstETHRecordStatus b) internal {
