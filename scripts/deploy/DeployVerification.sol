@@ -223,7 +223,7 @@ library DeployVerification {
             "Incorrect parameter MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"
         );
 
-        Escrow escrowTemplate = Escrow(payable(dg.ESCROW_MASTER_COPY()));
+        Escrow escrowTemplate = Escrow(payable(address(dg.ESCROW_MASTER_COPY())));
         require(escrowTemplate.DUAL_GOVERNANCE() == dg, "Escrow has incorrect DualGovernance address");
         require(escrowTemplate.ST_ETH() == lidoAddresses.stETH, "Escrow has incorrect StETH address");
         require(escrowTemplate.WST_ETH() == lidoAddresses.wstETH, "Escrow has incorrect WstETH address");
@@ -288,13 +288,17 @@ library DeployVerification {
             "Incorrect parameter RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH"
         );
 
-        require(dg.getState() == State.Normal, "Incorrect DualGovernance state");
+        require(dg.getPersistedState() == State.Normal, "Incorrect DualGovernance persisted state");
+        require(dg.getEffectiveState() == State.Normal, "Incorrect DualGovernance effective state");
         require(dg.getProposers().length == 1, "Incorrect amount of proposers");
         require(dg.isProposer(address(lidoAddresses.voting)) == true, "Lido voting is not set as a proposers[0]");
 
         IDualGovernance.StateDetails memory stateDetails = dg.getStateDetails();
-        require(stateDetails.state == State.Normal, "Incorrect DualGovernance state");
-        require(stateDetails.enteredAt <= Timestamps.now(), "Incorrect DualGovernance state enteredAt");
+        require(stateDetails.effectiveState == State.Normal, "Incorrect DualGovernance effectiveState");
+        require(stateDetails.persistedState == State.Normal, "Incorrect DualGovernance persistedState");
+        require(
+            stateDetails.persistedStateEnteredAt <= Timestamps.now(), "Incorrect DualGovernance persistedStateEnteredAt"
+        );
         require(
             stateDetails.vetoSignallingActivatedAt == Timestamps.ZERO,
             "Incorrect DualGovernance state vetoSignallingActivatedAt"
