@@ -25,11 +25,10 @@ abstract contract DeployBase is Script {
             revert ChainIdMismatch({actual: block.chainid, expected: lidoAddresses.chainId});
         }
 
-        pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        deployer = vm.addr(pk);
+        deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
 
-        vm.startBroadcast(pk);
+        vm.startBroadcast();
 
         DeployedContracts memory contracts =
             DGContractsDeployment.deployDualGovernanceSetup(config, lidoAddresses, deployer);

@@ -9,14 +9,20 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
 ### Running the deploy script
 
-1. Set up the required env variables in the .env file
+1. Import your private key to Cast wallet ([see the docs](https://book.getfoundry.sh/reference/cast/cast-wallet-import)), for example (we will use the account name `Deployer1` here and further for the simplicity):
+
+    ```
+    cast wallet import Deployer1 --interactive
+    ```
+
+2. Set up the required env variables in the .env file
 
     ```
     CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
-    DEPLOYER_PRIVATE_KEY=...
     DEPLOY_CONFIG_FILE_PATH=... (for example: "deploy-config/deploy-config.json")
     ```
-2. Create a deploy config JSON file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_PATH):
+
+3. Create a deploy config JSON file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_PATH):
     ```
     {
         "EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS": [addr1,addr2,addr3],
@@ -42,10 +48,10 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     }
     ```
 
-3. Run the script (with the local Anvil as an example)
+4. Run the script (with the local Anvil as an example)
 
     ```
-    forge script scripts/deploy/DeployConfigurable.s.sol:DeployConfigurable --fork-url http://localhost:8545 --broadcast
+    forge script scripts/deploy/DeployConfigurable.s.sol:DeployConfigurable --fork-url http://localhost:8545 --broadcast --account Deployer1 --sender <DEPLOYER1_ADDRESS>
     ```
 
 ### Running the verification script

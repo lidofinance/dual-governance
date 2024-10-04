@@ -16,8 +16,6 @@ contract Verify is Script {
 
     DeployConfig internal config;
     LidoContracts internal lidoAddresses;
-    address private deployer;
-    uint256 private pk;
 
     function run() external {
         string memory chainName = vm.envString("CHAIN");
