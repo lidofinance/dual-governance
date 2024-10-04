@@ -26,6 +26,8 @@ import {
 import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
+import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+import {IResealManager} from "contracts/interfaces/IResealManager.sol";
 
 import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
 
@@ -39,7 +41,7 @@ struct DeployedContracts {
     DualGovernance dualGovernance;
     ResealCommittee resealCommittee;
     TiebreakerCoreCommittee tiebreakerCoreCommittee;
-    address[] tiebreakerSubCommittees;
+    TiebreakerSubCommittee[] tiebreakerSubCommittees;
 }
 
 library DGContractsDeployment {
@@ -79,35 +81,7 @@ library DGContractsDeployment {
         // ---
         // Finalize Setup
         // ---
-        contracts.adminExecutor.execute(
-            address(dualGovernance),
-            0,
-            abi.encodeCall(
-                dualGovernance.registerProposer, (address(lidoAddresses.voting), address(contracts.adminExecutor))
-            )
-        );
-        contracts.adminExecutor.execute(
-            address(dualGovernance),
-            0,
-            abi.encodeCall(dualGovernance.setTiebreakerActivationTimeout, dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT)
-        );
-        contracts.adminExecutor.execute(
-            address(dualGovernance),
-            0,
-            abi.encodeCall(dualGovernance.setTiebreakerCommittee, address(contracts.tiebreakerCoreCommittee))
-        );
-        contracts.adminExecutor.execute(
-            address(dualGovernance),
-            0,
-            abi.encodeCall(
-                dualGovernance.addTiebreakerSealableWithdrawalBlocker, address(lidoAddresses.withdrawalQueue)
-            )
-        );
-        contracts.adminExecutor.execute(
-            address(dualGovernance),
-            0,
-            abi.encodeCall(dualGovernance.setResealCommittee, address(contracts.resealCommittee))
-        );
+        configureDualGovernance(dgDeployConfig, lidoAddresses, contracts);
 
         finalizeEmergencyProtectedTimelockDeploy(
             contracts.adminExecutor, contracts.timelock, address(dualGovernance), dgDeployConfig
@@ -232,12 +206,12 @@ library DGContractsDeployment {
 
     function deployTimelockedGovernance(
         address governance,
-        EmergencyProtectedTimelock timelock
+        ITimelock timelock
     ) internal returns (TimelockedGovernance) {
         return new TimelockedGovernance(governance, timelock);
     }
 
-    function deployResealManager(EmergencyProtectedTimelock timelock) internal returns (ResealManager) {
+    function deployResealManager(ITimelock timelock) internal returns (ResealManager) {
         return new ResealManager(timelock);
     }
 
@@ -268,8 +242,8 @@ library DGContractsDeployment {
 
     function deployDualGovernance(
         IDualGovernanceConfigProvider configProvider,
-        EmergencyProtectedTimelock timelock,
-        ResealManager resealManager,
+        ITimelock timelock,
+        IResealManager resealManager,
         DeployConfig memory dgDeployConfig,
         LidoContracts memory lidoAddresses
     ) internal returns (DualGovernance) {
@@ -303,25 +277,25 @@ library DGContractsDeployment {
         address owner,
         TiebreakerCoreCommittee tiebreakerCoreCommittee,
         DeployConfig memory dgDeployConfig
-    ) internal returns (address[] memory) {
+    ) internal returns (TiebreakerSubCommittee[] memory tiebreakerSubCommittees) {
+        tiebreakerSubCommittees = new TiebreakerSubCommittee[](dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT);
         address[] memory coreCommitteeMembers = new address[](dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT);
 
         for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
             (uint256 quorum, address[] memory members) = getSubCommitteeData(i, dgDeployConfig);
 
-            coreCommitteeMembers[i] = address(
-                deployTiebreakerSubCommittee({
-                    owner: owner,
-                    quorum: quorum,
-                    members: members,
-                    tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
-                })
-            );
+            tiebreakerSubCommittees[i] = deployTiebreakerSubCommittee({
+                owner: owner,
+                quorum: quorum,
+                members: members,
+                tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
+            });
+            coreCommitteeMembers[i] = address(tiebreakerSubCommittees[i]);
         }
 
         tiebreakerCoreCommittee.addMembers(coreCommitteeMembers, dgDeployConfig.TIEBREAKER_CORE_QUORUM);
 
-        return coreCommitteeMembers;
+        return tiebreakerSubCommittees;
     }
 
     function deployTiebreakerSubCommittee(
@@ -348,6 +322,45 @@ library DGContractsDeployment {
 
         // TODO: Don't we need to use non-zero timelock here?
         return new ResealCommittee(adminExecutor, committeeMembers, quorum, dualGovernance, Durations.from(0));
+    }
+
+    function configureDualGovernance(
+        DeployConfig memory dgDeployConfig,
+        LidoContracts memory lidoAddresses,
+        DeployedContracts memory contracts
+    ) internal {
+        contracts.adminExecutor.execute(
+            address(contracts.dualGovernance),
+            0,
+            abi.encodeCall(
+                contracts.dualGovernance.registerProposer,
+                (address(lidoAddresses.voting), address(contracts.adminExecutor))
+            )
+        );
+        contracts.adminExecutor.execute(
+            address(contracts.dualGovernance),
+            0,
+            abi.encodeCall(
+                contracts.dualGovernance.setTiebreakerActivationTimeout, dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT
+            )
+        );
+        contracts.adminExecutor.execute(
+            address(contracts.dualGovernance),
+            0,
+            abi.encodeCall(contracts.dualGovernance.setTiebreakerCommittee, address(contracts.tiebreakerCoreCommittee))
+        );
+        contracts.adminExecutor.execute(
+            address(contracts.dualGovernance),
+            0,
+            abi.encodeCall(
+                contracts.dualGovernance.addTiebreakerSealableWithdrawalBlocker, address(lidoAddresses.withdrawalQueue)
+            )
+        );
+        contracts.adminExecutor.execute(
+            address(contracts.dualGovernance),
+            0,
+            abi.encodeCall(contracts.dualGovernance.setResealCommittee, address(contracts.resealCommittee))
+        );
     }
 
     function finalizeEmergencyProtectedTimelockDeploy(
