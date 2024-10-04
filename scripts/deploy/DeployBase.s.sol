@@ -52,6 +52,11 @@ abstract contract DeployBase is Script {
         pure
         returns (DeployVerification.DeployedAddresses memory)
     {
+        address[] memory tiebreakerSubCommittees = new address[](contracts.tiebreakerSubCommittees.length);
+        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
+            tiebreakerSubCommittees[i] = address(contracts.tiebreakerSubCommittees[i]);
+        }
+
         return DeployVerification.DeployedAddresses({
             adminExecutor: payable(address(contracts.adminExecutor)),
             timelock: address(contracts.timelock),
@@ -62,11 +67,11 @@ abstract contract DeployBase is Script {
             dualGovernance: address(contracts.dualGovernance),
             resealCommittee: address(contracts.resealCommittee),
             tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: contracts.tiebreakerSubCommittees
+            tiebreakerSubCommittees: tiebreakerSubCommittees
         });
     }
 
-    function printAddresses(DeployVerification.DeployedAddresses memory res) internal view {
+    function printAddresses(DeployVerification.DeployedAddresses memory res) internal pure {
         console.log("DG deployed successfully");
         console.log("DualGovernance address", res.dualGovernance);
         console.log("ResealManager address", res.resealManager);
