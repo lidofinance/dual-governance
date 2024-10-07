@@ -7,12 +7,9 @@ import {PercentD16} from "contracts/types/PercentD16.sol";
 import {Executor} from "contracts/Executor.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
-import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
-import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
-import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 import {ResealManager} from "contracts/ResealManager.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
@@ -29,11 +26,8 @@ library DeployVerification {
         address payable adminExecutor;
         address timelock;
         address emergencyGovernance;
-        address emergencyActivationCommittee;
-        address emergencyExecutionCommittee;
         address resealManager;
         address dualGovernance;
-        address resealCommittee;
         address tiebreakerCoreCommittee;
         address[] tiebreakerSubCommittees;
     }
@@ -45,8 +39,8 @@ library DeployVerification {
     ) internal view {
         checkAdminExecutor(res.adminExecutor, res.timelock);
         checkTimelock(res, dgDeployConfig);
-        checkEmergencyActivationCommittee(res, dgDeployConfig);
-        checkEmergencyExecutionCommittee(res, dgDeployConfig);
+        checkEmergencyActivationCommittee(dgDeployConfig);
+        checkEmergencyExecutionCommittee(dgDeployConfig);
         checkTimelockedGovernance(res, lidoAddresses);
         checkResealManager(res);
         checkDualGovernance(res, dgDeployConfig, lidoAddresses);
@@ -56,7 +50,7 @@ library DeployVerification {
             checkTiebreakerSubCommittee(res, dgDeployConfig, i);
         }
 
-        checkResealCommittee(res, dgDeployConfig);
+        checkResealCommittee(dgDeployConfig);
     }
 
     function checkAdminExecutor(address payable executor, address timelock) internal view {
@@ -87,11 +81,11 @@ library DeployVerification {
         );
 
         require(
-            timelockInstance.getEmergencyActivationCommittee() == res.emergencyActivationCommittee,
+            timelockInstance.getEmergencyActivationCommittee() == dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE,
             "Incorrect emergencyActivationCommittee address in EmergencyProtectedTimelock"
         );
         require(
-            timelockInstance.getEmergencyExecutionCommittee() == res.emergencyExecutionCommittee,
+            timelockInstance.getEmergencyExecutionCommittee() == dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE,
             "Incorrect emergencyExecutionCommittee address in EmergencyProtectedTimelock"
         );
 
@@ -132,50 +126,14 @@ library DeployVerification {
         require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 0 in EmergencyProtectedTimelock");
     }
 
-    function checkEmergencyActivationCommittee(
-        DeployedAddresses memory res,
-        DeployConfig memory dgDeployConfig
-    ) internal view {
-        EmergencyActivationCommittee committee = EmergencyActivationCommittee(res.emergencyActivationCommittee);
-        require(committee.owner() == res.adminExecutor, "EmergencyActivationCommittee owner != adminExecutor");
-        require(
-            committee.EMERGENCY_PROTECTED_TIMELOCK() == res.timelock,
-            "EmergencyActivationCommittee EMERGENCY_PROTECTED_TIMELOCK != timelock"
-        );
-
-        for (uint256 i = 0; i < dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS.length; ++i) {
-            require(
-                committee.isMember(dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS[i]) == true,
-                "Incorrect member of EmergencyActivationCommittee"
-            );
-        }
-        require(
-            committee.quorum() == dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
-            "EmergencyActivationCommittee has incorrect quorum set"
-        );
+    function checkEmergencyActivationCommittee(DeployConfig memory dgDeployConfig) internal pure {
+        // TODO: implement!
+        require(dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE != address(0), "Incorrect emergencyActivationCommittee");
     }
 
-    function checkEmergencyExecutionCommittee(
-        DeployedAddresses memory res,
-        DeployConfig memory dgDeployConfig
-    ) internal view {
-        EmergencyExecutionCommittee committee = EmergencyExecutionCommittee(res.emergencyExecutionCommittee);
-        require(committee.owner() == res.adminExecutor, "EmergencyExecutionCommittee owner != adminExecutor");
-        require(
-            committee.EMERGENCY_PROTECTED_TIMELOCK() == res.timelock,
-            "EmergencyExecutionCommittee EMERGENCY_PROTECTED_TIMELOCK != timelock"
-        );
-
-        for (uint256 i = 0; i < dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS.length; ++i) {
-            require(
-                committee.isMember(dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS[i]) == true,
-                "Incorrect member of EmergencyExecutionCommittee"
-            );
-        }
-        require(
-            committee.quorum() == dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
-            "EmergencyExecutionCommittee has incorrect quorum set"
-        );
+    function checkEmergencyExecutionCommittee(DeployConfig memory dgDeployConfig) internal pure {
+        // TODO: implement!
+        require(dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE != address(0), "Incorrect emergencyExecutionCommittee");
     }
 
     function checkTimelockedGovernance(
@@ -364,17 +322,8 @@ library DeployVerification {
         require(tsc.quorum() == quorum, "Incorrect quorum in TiebreakerSubCommittee");
     }
 
-    function checkResealCommittee(DeployedAddresses memory res, DeployConfig memory dgDeployConfig) internal view {
-        ResealCommittee rc = ResealCommittee(res.resealCommittee);
-        require(rc.owner() == res.adminExecutor, "ResealCommittee owner != adminExecutor");
-        require(rc.timelockDuration() == Durations.from(0), "ResealCommittee timelock should be 0");
-        require(rc.DUAL_GOVERNANCE() == res.dualGovernance, "Incorrect dualGovernance in ResealCommittee");
-
-        for (uint256 i = 0; i < dgDeployConfig.RESEAL_COMMITTEE_MEMBERS.length; ++i) {
-            require(
-                rc.isMember(dgDeployConfig.RESEAL_COMMITTEE_MEMBERS[i]) == true, "Incorrect member of ResealCommittee"
-            );
-        }
-        require(rc.quorum() == dgDeployConfig.RESEAL_COMMITTEE_QUORUM, "Incorrect quorum in ResealCommittee");
+    function checkResealCommittee(DeployConfig memory dgDeployConfig) internal pure {
+        // TODO: implement!
+        require(dgDeployConfig.RESEAL_COMMITTEE != address(0), "Incorrect resealCommittee");
     }
 }

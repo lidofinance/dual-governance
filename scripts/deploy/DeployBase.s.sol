@@ -60,11 +60,8 @@ abstract contract DeployBase is Script {
             adminExecutor: payable(address(contracts.adminExecutor)),
             timelock: address(contracts.timelock),
             emergencyGovernance: address(contracts.emergencyGovernance),
-            emergencyActivationCommittee: address(contracts.emergencyActivationCommittee),
-            emergencyExecutionCommittee: address(contracts.emergencyExecutionCommittee),
             resealManager: address(contracts.resealManager),
             dualGovernance: address(contracts.dualGovernance),
-            resealCommittee: address(contracts.resealCommittee),
             tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
             tiebreakerSubCommittees: tiebreakerSubCommittees
         });
@@ -83,8 +80,5 @@ abstract contract DeployBase is Script {
         console.log("AdminExecutor address", res.adminExecutor);
         console.log("EmergencyProtectedTimelock address", res.timelock);
         console.log("EmergencyGovernance address", res.emergencyGovernance);
-        console.log("EmergencyActivationCommittee address", res.emergencyActivationCommittee);
-        console.log("EmergencyExecutionCommittee address", res.emergencyExecutionCommittee);
-        console.log("ResealCommittee address", res.resealCommittee);
     }
 }

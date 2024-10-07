@@ -5,13 +5,10 @@ pragma solidity 0.8.26;
 // Contracts
 // ---
 import {Timestamps} from "contracts/types/Timestamp.sol";
-import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Duration} from "contracts/types/Duration.sol";
 
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
-
-import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
-import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
 
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 
@@ -23,7 +20,6 @@ import {
     ImmutableDualGovernanceConfigProvider
 } from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
-import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
@@ -35,11 +31,8 @@ struct DeployedContracts {
     Executor adminExecutor;
     EmergencyProtectedTimelock timelock;
     TimelockedGovernance emergencyGovernance;
-    EmergencyActivationCommittee emergencyActivationCommittee;
-    EmergencyExecutionCommittee emergencyExecutionCommittee;
     ResealManager resealManager;
     DualGovernance dualGovernance;
-    ResealCommittee resealCommittee;
     TiebreakerCoreCommittee tiebreakerCoreCommittee;
     TiebreakerSubCommittee[] tiebreakerSubCommittees;
 }
@@ -50,7 +43,8 @@ library DGContractsDeployment {
         LidoContracts memory lidoAddresses,
         address deployer
     ) internal returns (DeployedContracts memory contracts) {
-        contracts = deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, contracts, deployer);
+        contracts = deployAdminExecutorAndTimelock(dgDeployConfig, deployer);
+        deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, contracts);
         contracts.resealManager = deployResealManager(contracts.timelock);
         ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider =
             deployDualGovernanceConfigProvider(dgDeployConfig);
@@ -75,9 +69,6 @@ library DGContractsDeployment {
 
         contracts.tiebreakerCoreCommittee.transferOwnership(address(contracts.adminExecutor));
 
-        contracts.resealCommittee =
-            deployResealCommittee(address(contracts.adminExecutor), address(dualGovernance), dgDeployConfig);
-
         // ---
         // Finalize Setup
         // ---
@@ -101,30 +92,25 @@ library DGContractsDeployment {
         vm.stopPrank(); */
     }
 
-    function deployEmergencyProtectedTimelockContracts(
-        LidoContracts memory lidoAddresses,
+    function deployAdminExecutorAndTimelock(
         DeployConfig memory dgDeployConfig,
-        DeployedContracts memory contracts,
         address deployer
-    ) internal returns (DeployedContracts memory) {
+    ) internal returns (DeployedContracts memory contracts) {
         Executor adminExecutor = deployExecutor(deployer);
         EmergencyProtectedTimelock timelock = deployEmergencyProtectedTimelock(address(adminExecutor), dgDeployConfig);
 
         contracts.adminExecutor = adminExecutor;
         contracts.timelock = timelock;
-        contracts.emergencyActivationCommittee = deployEmergencyActivationCommittee({
-            quorum: dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
-            members: dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS,
-            owner: address(adminExecutor),
-            timelock: address(timelock)
-        });
+    }
 
-        contracts.emergencyExecutionCommittee = deployEmergencyExecutionCommittee({
-            quorum: dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
-            members: dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS,
-            owner: address(adminExecutor),
-            timelock: address(timelock)
-        });
+    function deployEmergencyProtectedTimelockContracts(
+        LidoContracts memory lidoAddresses,
+        DeployConfig memory dgDeployConfig,
+        DeployedContracts memory contracts
+    ) internal {
+        Executor adminExecutor = contracts.adminExecutor;
+        EmergencyProtectedTimelock timelock = contracts.timelock;
+
         contracts.emergencyGovernance =
             deployTimelockedGovernance({governance: address(lidoAddresses.voting), timelock: timelock});
 
@@ -132,14 +118,14 @@ library DGContractsDeployment {
             address(timelock),
             0,
             abi.encodeCall(
-                timelock.setEmergencyProtectionActivationCommittee, (address(contracts.emergencyActivationCommittee))
+                timelock.setEmergencyProtectionActivationCommittee, (dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE)
             )
         );
         adminExecutor.execute(
             address(timelock),
             0,
             abi.encodeCall(
-                timelock.setEmergencyProtectionExecutionCommittee, (address(contracts.emergencyExecutionCommittee))
+                timelock.setEmergencyProtectionExecutionCommittee, (dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE)
             )
         );
 
@@ -163,8 +149,6 @@ library DGContractsDeployment {
             0,
             abi.encodeCall(timelock.setEmergencyGovernance, (address(contracts.emergencyGovernance)))
         );
-
-        return contracts;
     }
 
     function deployExecutor(address owner) internal returns (Executor) {
@@ -184,24 +168,6 @@ library DGContractsDeployment {
                 maxEmergencyProtectionDuration: dgDeployConfig.MAX_EMERGENCY_PROTECTION_DURATION
             })
         });
-    }
-
-    function deployEmergencyActivationCommittee(
-        address owner,
-        uint256 quorum,
-        address[] memory members,
-        address timelock
-    ) internal returns (EmergencyActivationCommittee) {
-        return new EmergencyActivationCommittee(owner, members, quorum, address(timelock));
-    }
-
-    function deployEmergencyExecutionCommittee(
-        address owner,
-        uint256 quorum,
-        address[] memory members,
-        address timelock
-    ) internal returns (EmergencyExecutionCommittee) {
-        return new EmergencyExecutionCommittee(owner, members, quorum, address(timelock));
     }
 
     function deployTimelockedGovernance(
@@ -312,18 +278,6 @@ library DGContractsDeployment {
         });
     }
 
-    function deployResealCommittee(
-        address adminExecutor,
-        address dualGovernance,
-        DeployConfig memory dgDeployConfig
-    ) internal returns (ResealCommittee) {
-        uint256 quorum = dgDeployConfig.RESEAL_COMMITTEE_QUORUM;
-        address[] memory committeeMembers = dgDeployConfig.RESEAL_COMMITTEE_MEMBERS;
-
-        // TODO: Don't we need to use non-zero timelock here?
-        return new ResealCommittee(adminExecutor, committeeMembers, quorum, dualGovernance, Durations.from(0));
-    }
-
     function configureDualGovernance(
         DeployConfig memory dgDeployConfig,
         LidoContracts memory lidoAddresses,
@@ -359,7 +313,7 @@ library DGContractsDeployment {
         contracts.adminExecutor.execute(
             address(contracts.dualGovernance),
             0,
-            abi.encodeCall(contracts.dualGovernance.setResealCommittee, address(contracts.resealCommittee))
+            abi.encodeCall(contracts.dualGovernance.setResealCommittee, dgDeployConfig.RESEAL_COMMITTEE)
         );
     }
 
