@@ -7,7 +7,7 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 
 import {ScenarioTestBlueprint, ExternalCall} from "../utils/scenario-test-blueprint.sol";
-import {DAO_AGENT} from "../utils/mainnet-addresses.sol";
+import {DAO_AGENT} from "addresses/mainnet-addresses.sol";
 
 contract ResealCommitteeTest is ScenarioTestBlueprint {
     address internal immutable _VETOER = makeAddr("VETOER");
