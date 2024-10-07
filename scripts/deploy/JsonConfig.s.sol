@@ -35,12 +35,9 @@ import {
     DEFAULT_MAX_EMERGENCY_MODE_DURATION,
     DEFAULT_EMERGENCY_PROTECTION_DURATION,
     DEFAULT_MAX_EMERGENCY_PROTECTION_DURATION,
-    DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
-    DEFAULT_EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
     DEFAULT_TIEBREAKER_CORE_QUORUM,
     DEFAULT_TIEBREAKER_EXECUTION_DELAY,
     DEFAULT_TIEBREAKER_SUB_COMMITTEES_COUNT,
-    DEFAULT_RESEAL_COMMITTEE_QUORUM,
     DEFAULT_MIN_WITHDRAWALS_BATCH_SIZE,
     DEFAULT_MIN_TIEBREAKER_ACTIVATION_TIMEOUT,
     DEFAULT_TIEBREAKER_ACTIVATION_TIMEOUT,
@@ -104,18 +101,8 @@ contract DGDeployJSONConfigProvider is Script {
                     jsonConfig, ".MAX_EMERGENCY_PROTECTION_DURATION", DEFAULT_MAX_EMERGENCY_PROTECTION_DURATION
                 )
             ),
-            EMERGENCY_ACTIVATION_COMMITTEE_QUORUM: stdJson.readUintOr(
-                jsonConfig, ".EMERGENCY_ACTIVATION_COMMITTEE_QUORUM", DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE_QUORUM
-            ),
-            EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS: stdJson.readAddressArray(
-                jsonConfig, ".EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS"
-            ),
-            EMERGENCY_EXECUTION_COMMITTEE_QUORUM: stdJson.readUintOr(
-                jsonConfig, ".EMERGENCY_EXECUTION_COMMITTEE_QUORUM", DEFAULT_EMERGENCY_EXECUTION_COMMITTEE_QUORUM
-            ),
-            EMERGENCY_EXECUTION_COMMITTEE_MEMBERS: stdJson.readAddressArray(
-                jsonConfig, ".EMERGENCY_EXECUTION_COMMITTEE_MEMBERS"
-            ),
+            EMERGENCY_ACTIVATION_COMMITTEE: stdJson.readAddress(jsonConfig, ".EMERGENCY_ACTIVATION_COMMITTEE"),
+            EMERGENCY_EXECUTION_COMMITTEE: stdJson.readAddress(jsonConfig, ".EMERGENCY_EXECUTION_COMMITTEE"),
             TIEBREAKER_CORE_QUORUM: stdJson.readUintOr(
                 jsonConfig, ".TIEBREAKER_CORE_QUORUM", DEFAULT_TIEBREAKER_CORE_QUORUM
             ),
@@ -154,10 +141,7 @@ contract DGDeployJSONConfigProvider is Script {
                 jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_10_MEMBERS", new address[](0)
             ),
             TIEBREAKER_SUB_COMMITTEES_QUORUMS: stdJson.readUintArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEES_QUORUMS"),
-            RESEAL_COMMITTEE_MEMBERS: stdJson.readAddressArray(jsonConfig, ".RESEAL_COMMITTEE_MEMBERS"),
-            RESEAL_COMMITTEE_QUORUM: stdJson.readUintOr(
-                jsonConfig, ".RESEAL_COMMITTEE_QUORUM", DEFAULT_RESEAL_COMMITTEE_QUORUM
-            ),
+            RESEAL_COMMITTEE: stdJson.readAddress(jsonConfig, ".RESEAL_COMMITTEE"),
             MIN_WITHDRAWALS_BATCH_SIZE: stdJson.readUintOr(
                 jsonConfig, ".MIN_WITHDRAWALS_BATCH_SIZE", DEFAULT_MIN_WITHDRAWALS_BATCH_SIZE
             ),
@@ -275,19 +259,6 @@ contract DGDeployJSONConfigProvider is Script {
     }
 
     function validateConfig(DeployConfig memory config) internal pure {
-        checkCommitteeQuorum(
-            config.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS,
-            config.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
-            "EMERGENCY_ACTIVATION_COMMITTEE"
-        );
-        checkCommitteeQuorum(
-            config.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS,
-            config.EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
-            "EMERGENCY_EXECUTION_COMMITTEE"
-        );
-
-        checkCommitteeQuorum(config.RESEAL_COMMITTEE_MEMBERS, config.RESEAL_COMMITTEE_QUORUM, "RESEAL_COMMITTEE");
-
         if (
             config.TIEBREAKER_CORE_QUORUM == 0 || config.TIEBREAKER_CORE_QUORUM > config.TIEBREAKER_SUB_COMMITTEES_COUNT
         ) {
@@ -420,18 +391,6 @@ contract DGDeployJSONConfigProvider is Script {
         console.log("Loaded valid config with the following committees:");
 
         printCommittee(
-            config.EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS,
-            config.EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
-            "EmergencyActivationCommittee members, quorum"
-        );
-
-        printCommittee(
-            config.EMERGENCY_EXECUTION_COMMITTEE_MEMBERS,
-            config.EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
-            "EmergencyExecutionCommittee members, quorum"
-        );
-
-        printCommittee(
             config.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS,
             config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[0],
             "TiebreakerSubCommittee #1 members, quorum"
@@ -508,10 +467,6 @@ contract DGDeployJSONConfigProvider is Script {
                 "TiebreakerSubCommittee #10 members, quorum"
             );
         }
-
-        printCommittee(
-            config.RESEAL_COMMITTEE_MEMBERS, config.RESEAL_COMMITTEE_QUORUM, "ResealCommittee members, quorum"
-        );
 
         console.log("=================================================");
     }

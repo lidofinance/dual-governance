@@ -25,13 +25,13 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 3. Create a deploy config JSON file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_PATH):
     ```
     {
-        "EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS": [addr1,addr2,addr3],
-        "EMERGENCY_EXECUTION_COMMITTEE_MEMBERS": [addr1,addr2,addr3],
+        "EMERGENCY_ACTIVATION_COMMITTEE": <address>,
+        "EMERGENCY_EXECUTION_COMMITTEE": <address>,
         "TIEBREAKER_SUB_COMMITTEE_1_MEMBERS": [addr1,addr2,addr3],
         "TIEBREAKER_SUB_COMMITTEE_2_MEMBERS": [addr1,addr2,addr3],
         "TIEBREAKER_SUB_COMMITTEES_QUORUMS": [3,2],
         "TIEBREAKER_SUB_COMMITTEES_COUNT": 2,
-        "RESEAL_COMMITTEE_MEMBERS": [addr1,addr2,addr3]
+        "RESEAL_COMMITTEE": <address>
     }
     ```
 
@@ -70,11 +70,8 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
         "ADMIN_EXECUTOR": "...",
         "TIMELOCK": "...",
         "EMERGENCY_GOVERNANCE": "...",
-        "EMERGENCY_ACTIVATION_COMMITTEE": "...",
-        "EMERGENCY_EXECUTION_COMMITTEE": "...",
         "RESEAL_MANAGER": "...",
         "DUAL_GOVERNANCE": "...",
-        "RESEAL_COMMITTEE": "...",
         "TIEBREAKER_CORE_COMMITTEE": "...",
         "TIEBREAKER_SUB_COMMITTEES": ["...", "..."]
     }

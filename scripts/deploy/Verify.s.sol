@@ -48,11 +48,8 @@ contract Verify is Script {
             adminExecutor: payable(stdJson.readAddress(deployedAddressesJson, ".ADMIN_EXECUTOR")),
             timelock: stdJson.readAddress(deployedAddressesJson, ".TIMELOCK"),
             emergencyGovernance: stdJson.readAddress(deployedAddressesJson, ".EMERGENCY_GOVERNANCE"),
-            emergencyActivationCommittee: stdJson.readAddress(deployedAddressesJson, ".EMERGENCY_ACTIVATION_COMMITTEE"),
-            emergencyExecutionCommittee: stdJson.readAddress(deployedAddressesJson, ".EMERGENCY_EXECUTION_COMMITTEE"),
             resealManager: stdJson.readAddress(deployedAddressesJson, ".RESEAL_MANAGER"),
             dualGovernance: stdJson.readAddress(deployedAddressesJson, ".DUAL_GOVERNANCE"),
-            resealCommittee: stdJson.readAddress(deployedAddressesJson, ".RESEAL_COMMITTEE"),
             tiebreakerCoreCommittee: stdJson.readAddress(deployedAddressesJson, ".TIEBREAKER_CORE_COMMITTEE"),
             tiebreakerSubCommittees: stdJson.readAddressArray(deployedAddressesJson, ".TIEBREAKER_SUB_COMMITTEES")
         });
@@ -71,9 +68,6 @@ contract Verify is Script {
         console.log("AdminExecutor address", res.adminExecutor);
         console.log("EmergencyProtectedTimelock address", res.timelock);
         console.log("EmergencyGovernance address", res.emergencyGovernance);
-        console.log("EmergencyActivationCommittee address", res.emergencyActivationCommittee);
-        console.log("EmergencyExecutionCommittee address", res.emergencyExecutionCommittee);
-        console.log("ResealCommittee address", res.resealCommittee);
     }
 
     function loadDeployedAddressesFile(string memory deployedAddressesFilePath)
