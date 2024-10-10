@@ -20,6 +20,6 @@ Ensure you have installed the Certora Prover. These specifications were tested w
 `certoraRun certora/confs/Escrow_solvency.conf`
 `certoraRun certora/confs/Escrow_validState.conf`
 
-Note that sum of the specifictations in `Escrow.spec` are difficult for the tool and will hit timeouts
-unless they are run separately. As a result some of the rules launched by `Escrow.conf` will timeout,
-but these will pass when they are run separately with `Escrow_solvency.conf` and `Escrow_validState.conf`.
+One of the rules in Escrow_solvency.conf `solvency_ETH` can have performance issues resulting in 
+a timeout. As a workaround, it can be run separately by running 
+`certoraRun certora/confs/Escrow_solvency.conf --rule solvency_ETH` in which case it should pass.
