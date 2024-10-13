@@ -2,7 +2,7 @@
 
 ### Running locally with Anvil
 
-Start Anvil, provide RPC url (Infura as an example)
+Start Anvil, provide RPC URL (Infura as an example)
 ```
 anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --block-time 300
 ```
@@ -19,6 +19,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
     ```
     CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
+    ETHERSCAN_MAINNET_KEY=...
     DEPLOY_CONFIG_FILE_PATH=... (for example: "deploy-config/deploy-config.json")
     ```
 
@@ -48,10 +49,16 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     }
     ```
 
-4. Run the script (with the local Anvil as an example)
+4. Run the deployment script
 
+    With the local fork (Anvil):
     ```
     forge script scripts/deploy/DeployConfigurable.s.sol:DeployConfigurable --fork-url http://localhost:8545 --broadcast --account Deployer1 --sender <DEPLOYER1_ADDRESS>
+    ```
+
+    On a testnet (with Etherscan verification):
+    ```
+    forge script scripts/deploy/DeployConfigurable.s.sol:DeployConfigurable --fork-url https://holesky.infura.io/v3/<YOUR_API_KEY> --broadcast --account Deployer1 --sender <DEPLOYER1_ADDRESS> --verify
     ```
 
 ### Running the verification script
