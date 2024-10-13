@@ -17,3 +17,7 @@ test = 'test/kontrol'
 [fmt]
 line_length = 120
 multiline_func_header = 'params_first_multi'
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_MAINNET_KEY}" }
+holesky = { key = "${ETHERSCAN_MAINNET_KEY}", chain = "17000" }
