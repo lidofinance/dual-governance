@@ -43,6 +43,7 @@ contract DualGovernance is IDualGovernance {
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
+    error InvalidResealManager(address resealManager);
 
     // ---
     // Events
@@ -52,6 +53,7 @@ contract DualGovernance is IDualGovernance {
     event CancelAllPendingProposalsExecuted();
     event EscrowMasterCopyDeployed(IEscrow escrowMasterCopy);
     event ResealCommitteeSet(address resealCommittee);
+    event ResealManagerSet(address resealManager);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -110,9 +112,6 @@ contract DualGovernance is IDualGovernance {
     /// @notice The address of the Timelock contract.
     ITimelock public immutable TIMELOCK;
 
-    /// @notice The address of the Reseal Manager.
-    IResealManager public immutable RESEAL_MANAGER;
-
     /// @notice The address of the Escrow contract used as the implementation for the Signalling and Rage Quit
     ///     instances of the Escrows managed by the DualGovernance contract.
     IEscrow public immutable ESCROW_MASTER_COPY;
@@ -138,13 +137,15 @@ contract DualGovernance is IDualGovernance {
     ///     period of time when the Dual Governance proposal adoption is blocked.
     address internal _resealCommittee;
 
+    /// @dev The address of the Reseal Manager.
+    IResealManager internal _resealManager;
+
     // ---
     // Constructor
     // ---
 
     constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
         TIMELOCK = dependencies.timelock;
-        RESEAL_MANAGER = dependencies.resealManager;
 
         MIN_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.minTiebreakerActivationTimeout;
         MAX_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.maxTiebreakerActivationTimeout;
@@ -157,10 +158,12 @@ contract DualGovernance is IDualGovernance {
             withdrawalQueue: dependencies.withdrawalQueue,
             minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize
         });
-
         emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
         _stateMachine.initialize(dependencies.configProvider, ESCROW_MASTER_COPY);
+
+        _resealManager = dependencies.resealManager;
+        emit ResealManagerSet(address(_resealManager));
     }
 
     // ---
@@ -444,7 +447,7 @@ contract DualGovernance is IDualGovernance {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
         _tiebreaker.checkTie(_stateMachine.getPersistedState(), _stateMachine.normalOrVetoCooldownExitedAt);
-        RESEAL_MANAGER.resume(sealable);
+        _resealManager.resume(sealable);
     }
 
     /// @notice Allows the tiebreaker committee to schedule for execution a submitted proposal when
@@ -484,7 +487,7 @@ contract DualGovernance is IDualGovernance {
         if (_stateMachine.getPersistedState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
-        RESEAL_MANAGER.reseal(sealable);
+        _resealManager.reseal(sealable);
     }
 
     /// @notice Sets the address of the reseal committee.
@@ -494,6 +497,17 @@ contract DualGovernance is IDualGovernance {
         _resealCommittee = resealCommittee;
 
         emit ResealCommitteeSet(resealCommittee);
+    }
+
+    /// @notice Sets the address of the Reseal Manager.
+    /// @param resealManager The address of the new Reseal Manager.
+    function setResealManager(address resealManager) external {
+        _checkCallerIsAdminExecutor();
+        if (resealManager == address(0) || resealManager == address(_resealManager)) {
+            revert InvalidResealManager(resealManager);
+        }
+        _resealManager = IResealManager(resealManager);
+        emit ResealManagerSet(resealManager);
     }
 
     // ---
