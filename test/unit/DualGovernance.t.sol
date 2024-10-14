@@ -26,6 +26,7 @@ import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {ISealable} from "contracts/interfaces/ISealable.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
+import {IEscrow} from "contracts/interfaces/IEscrow.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {StETHMock} from "test/mocks/StETHMock.sol";
@@ -122,6 +123,50 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidTiebreakerActivationTimeoutBounds.selector));
 
         new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+    }
+
+    // ---
+    // constructor()
+    // ---
+
+    function test_constructor_HappyPath() external {
+        address testDeployerAddress = address(this);
+        uint256 testDeployerNonce = vm.getNonce(testDeployerAddress);
+        address predictedDualGovernanceAddress = computeAddress(testDeployerAddress, testDeployerNonce);
+
+        address predictedEscrowCopyAddress = computeAddress(predictedDualGovernanceAddress, 1);
+
+        vm.expectEmit();
+        emit DualGovernance.EscrowMasterCopyDeployed(IEscrow(predictedEscrowCopyAddress));
+        vm.expectEmit();
+        emit DualGovernance.ResealManagerSet(address(_RESEAL_MANAGER_STUB));
+
+        Duration minTiebreakerActivationTimeout = Durations.from(30 days);
+        Duration maxTiebreakerActivationTimeout = Durations.from(180 days);
+        uint256 maxSealableWithdrawalBlockersCount = 128;
+
+        DualGovernance dualGovernanceLocal = new DualGovernance({
+            dependencies: DualGovernance.ExternalDependencies({
+                stETH: _STETH_MOCK,
+                wstETH: _WSTETH_STUB,
+                withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
+                timelock: _timelock,
+                resealManager: _RESEAL_MANAGER_STUB,
+                configProvider: _configProvider
+            }),
+            sanityCheckParams: DualGovernance.SanityCheckParams({
+                minWithdrawalsBatchSize: 4,
+                minTiebreakerActivationTimeout: minTiebreakerActivationTimeout,
+                maxTiebreakerActivationTimeout: maxTiebreakerActivationTimeout,
+                maxSealableWithdrawalBlockersCount: maxSealableWithdrawalBlockersCount
+            })
+        });
+
+        assertEq(address(dualGovernanceLocal.TIMELOCK()), address(_timelock));
+        assertEq(dualGovernanceLocal.MIN_TIEBREAKER_ACTIVATION_TIMEOUT(), minTiebreakerActivationTimeout);
+        assertEq(dualGovernanceLocal.MAX_TIEBREAKER_ACTIVATION_TIMEOUT(), maxTiebreakerActivationTimeout);
+        assertEq(dualGovernanceLocal.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT(), maxSealableWithdrawalBlockersCount);
+        assertEq(address(dualGovernanceLocal.ESCROW_MASTER_COPY()), predictedEscrowCopyAddress);
     }
 
     // ---
@@ -2112,6 +2157,39 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     // ---
+    // setResealManager()
+    // ---
+
+    function testFuzz_setResealManager_HappyPath(address newResealManager) external {
+        vm.assume(newResealManager != address(0) && newResealManager != address(_RESEAL_MANAGER_STUB));
+
+        vm.expectEmit();
+        emit DualGovernance.ResealManagerSet(newResealManager);
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealManager.selector, newResealManager)
+        );
+    }
+
+    function test_setResealManager_RevertOn_InvalidAddress() external {
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(0)));
+        _executor.execute(
+            address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(0))
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(_RESEAL_MANAGER_STUB))
+        );
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(_RESEAL_MANAGER_STUB))
+        );
+    }
+
+    // ---
     // Helper methods
     // ---
 
@@ -2123,5 +2201,25 @@ contract DualGovernanceUnitTests is UnitTest {
     function _generateExternalCalls() internal pure returns (ExternalCall[] memory calls) {
         calls = new ExternalCall[](1);
         calls[0] = ExternalCall({target: address(0x123), value: 0, payload: abi.encodeWithSignature("someFunction()")});
+    }
+
+    function computeAddress(address deployer, uint256 nonce) public pure returns (address) {
+        bytes memory data;
+
+        if (nonce == 0x00) {
+            data = abi.encodePacked(hex"94", deployer, hex"80");
+        } else if (nonce <= 0x7f) {
+            data = abi.encodePacked(hex"d6", hex"94", deployer, uint8(nonce));
+        } else if (nonce <= 0xff) {
+            data = abi.encodePacked(hex"d7", hex"94", deployer, hex"81", uint8(nonce));
+        } else if (nonce <= 0xffff) {
+            data = abi.encodePacked(hex"d8", hex"94", deployer, hex"82", uint16(nonce));
+        } else if (nonce <= 0xffffff) {
+            data = abi.encodePacked(hex"d9", hex"94", deployer, hex"83", uint24(nonce));
+        } else {
+            data = abi.encodePacked(hex"da", hex"94", deployer, hex"84", uint32(nonce));
+        }
+
+        return address(uint160(uint256(keccak256(data))));
     }
 }

@@ -162,9 +162,10 @@ library DeployVerification {
     ) internal view {
         DualGovernance dg = DualGovernance(res.dualGovernance);
         require(address(dg.TIMELOCK()) == res.timelock, "Incorrect address for timelock in DualGovernance");
-        require(
-            address(dg.RESEAL_MANAGER()) == res.resealManager, "Incorrect address for resealManager in DualGovernance"
-        );
+        // TODO: uncomment this check when getter is added
+        // require(
+        //     address(dg.getResealManager()) == res.resealManager, "Incorrect address for resealManager in DualGovernance"
+        // );
         require(
             dg.MIN_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.MIN_TIEBREAKER_ACTIVATION_TIMEOUT,
             "Incorrect parameter MIN_TIEBREAKER_ACTIVATION_TIMEOUT"
