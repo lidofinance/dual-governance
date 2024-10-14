@@ -63,6 +63,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams,
         address adminExecutor
     ) external {
+        vm.expectEmit();
+        emit EmergencyProtectedTimelock.AdminExecutorSet(adminExecutor);
         EmergencyProtectedTimelock timelock = new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor);
 
         assertEq(timelock.getAdminExecutor(), adminExecutor);
@@ -1000,6 +1002,29 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         );
 
         assertEq(timelock.getAdminExecutor(), executor);
+    }
+
+    function testFuzz_setAdminExecutor_HappyPath(address adminExecutor) external {
+        vm.assume(adminExecutor != _adminExecutor && adminExecutor != address(0));
+
+        vm.expectEmit();
+        emit EmergencyProtectedTimelock.AdminExecutorSet(adminExecutor);
+        vm.prank(_adminExecutor);
+        _timelock.setAdminExecutor(adminExecutor);
+
+        assertEq(_timelock.getAdminExecutor(), adminExecutor);
+    }
+
+    function test_setAdminExecutor_RevertOn_InvalidAddress() external {
+        vm.startPrank(_adminExecutor);
+
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.InvalidAdminExecutor.selector, address(0)));
+        _timelock.setAdminExecutor(address(0));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EmergencyProtectedTimelock.InvalidAdminExecutor.selector, _adminExecutor)
+        );
+        _timelock.setAdminExecutor(_adminExecutor);
     }
 
     // Utils

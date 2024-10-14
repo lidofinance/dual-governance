@@ -22,10 +22,17 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     using EmergencyProtection for EmergencyProtection.Context;
 
     // ---
+    // Events
+    // ---
+
+    event AdminExecutorSet(address newAdminExecutor);
+
+    // ---
     // Errors
     // ---
 
     error CallerIsNotAdminExecutor(address value);
+    error InvalidAdminExecutor(address adminExecutor);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -56,13 +63,6 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
 
     // ---
-    // Admin Executor Immutables
-    // ---
-
-    /// @dev The address of the admin executor, authorized to manage the EmergencyProtectedTimelock instance.
-    address private immutable _ADMIN_EXECUTOR;
-
-    // ---
     // Aspects
     // ---
 
@@ -76,16 +76,24 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     EmergencyProtection.Context internal _emergencyProtection;
 
     // ---
+    // Admin Executor
+    // ---
+
+    /// @dev The address of the admin executor, authorized to manage the EmergencyProtectedTimelock instance.
+    address private _adminExecutor;
+
+    // ---
     // Constructor
     // ---
 
     constructor(SanityCheckParams memory sanityCheckParams, address adminExecutor) {
-        _ADMIN_EXECUTOR = adminExecutor;
-
         MAX_AFTER_SUBMIT_DELAY = sanityCheckParams.maxAfterSubmitDelay;
         MAX_AFTER_SCHEDULE_DELAY = sanityCheckParams.maxAfterScheduleDelay;
         MAX_EMERGENCY_MODE_DURATION = sanityCheckParams.maxEmergencyModeDuration;
         MAX_EMERGENCY_PROTECTION_DURATION = sanityCheckParams.maxEmergencyProtectionDuration;
+
+        _adminExecutor = adminExecutor;
+        emit AdminExecutorSet(adminExecutor);
     }
 
     // ---
@@ -281,7 +289,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @notice Returns the address of the admin executor.
     /// @return adminExecutor The address of the admin executor.
     function getAdminExecutor() external view returns (address) {
-        return _ADMIN_EXECUTOR;
+        return _adminExecutor;
     }
 
     /// @notice Returns the configured delay duration required before a submitted proposal can be scheduled.
@@ -357,11 +365,26 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     }
 
     // ---
+    // Admin Executor Methods
+    // ---
+
+    /// @notice Sets the address of the admin executor.
+    /// @param newAdminExecutor The address of the new admin executor.
+    function setAdminExecutor(address newAdminExecutor) external {
+        _checkCallerIsAdminExecutor();
+        if (newAdminExecutor == address(0) || newAdminExecutor == _adminExecutor) {
+            revert InvalidAdminExecutor(newAdminExecutor);
+        }
+        _adminExecutor = newAdminExecutor;
+        emit AdminExecutorSet(newAdminExecutor);
+    }
+
+    // ---
     // Internal Methods
     // ---
 
     function _checkCallerIsAdminExecutor() internal view {
-        if (msg.sender != _ADMIN_EXECUTOR) {
+        if (msg.sender != _adminExecutor) {
             revert CallerIsNotAdminExecutor(msg.sender);
         }
     }
