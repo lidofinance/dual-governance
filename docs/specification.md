@@ -749,29 +749,6 @@ The method calls the `DualGovernance.activateNextState()` function at the beginn
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
 
-### Function Escrow.requestWithdrawals
-
-```solidity
-function requestWithdrawals(uint256[] calldata stETHAmounts) returns (uint256[] memory unstETHIds)
-```
-
-Allows users who have locked their stETH and wstETH to convert it into unstETH NFTs by requesting withdrawals on the Lido's `WithdrawalQueue` contract.
-
-Internally, this function marks the total amount specified in `stETHAmounts` as unlocked from the `Escrow` and accounts for it in the form of a list of unstETH NFTs, with amounts corresponding to `stETHAmounts`.
-
-The method calls the `DualGovernance.activateNextState()` function at the beginning of the execution.
-
-> [!IMPORTANT]
-> To mitigate possible failures when calling the `Escrow.requestWithdrawals()` method, it SHOULD be used in conjunction with the `DualGovernance.getPersistedState()`, `DualGovernance.getEffectiveState()`, or `DualGovernance.getStateDetails()` methods. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, further token manipulation within the `SignallingEscrow` is no longer possible and will result in a revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
-
-#### Preconditions
-- The total amount specified in `stETHAmounts` MUST NOT exceed the user's currently locked stETH and wstETH.
-- The `stETHAmounts` values MUST be in range [`WithdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()`, `WithdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT()`].
-
-#### Returns
-
-An array of ids for the generated unstETH NFTs.
-
 ### Function Escrow.getRageQuitSupport()
 
 ```solidity
