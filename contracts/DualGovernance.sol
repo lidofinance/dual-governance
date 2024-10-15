@@ -161,9 +161,7 @@ contract DualGovernance is IDualGovernance {
         emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
         _stateMachine.initialize(dependencies.configProvider, ESCROW_MASTER_COPY);
-
-        _resealManager = dependencies.resealManager;
-        emit ResealManagerSet(address(_resealManager));
+        _setResealManager(address(dependencies.resealManager));
     }
 
     // ---
@@ -503,16 +501,26 @@ contract DualGovernance is IDualGovernance {
     /// @param resealManager The address of the new Reseal Manager.
     function setResealManager(address resealManager) external {
         _checkCallerIsAdminExecutor();
-        if (resealManager == address(0) || resealManager == address(_resealManager)) {
-            revert InvalidResealManager(resealManager);
-        }
-        _resealManager = IResealManager(resealManager);
-        emit ResealManagerSet(resealManager);
+        _setResealManager(resealManager);
+    }
+
+    /// @notice Gets the address of the Reseal Manager.
+    /// @return resealManager The address of the Reseal Manager.
+    function getResealManager() external view returns (IResealManager) {
+        return _resealManager;
     }
 
     // ---
     // Internal methods
     // ---
+
+    function _setResealManager(address resealManager) internal {
+        if (resealManager == address(_resealManager)) {
+            revert InvalidResealManager(resealManager);
+        }
+        _resealManager = IResealManager(resealManager);
+        emit ResealManagerSet(resealManager);
+    }
 
     function _checkCallerIsAdminExecutor() internal view {
         if (TIMELOCK.getAdminExecutor() != msg.sender) {
