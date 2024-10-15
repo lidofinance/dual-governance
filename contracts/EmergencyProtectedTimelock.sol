@@ -22,17 +22,10 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     using EmergencyProtection for EmergencyProtection.Context;
 
     // ---
-    // Events
-    // ---
-
-    event AdminExecutorSet(address newAdminExecutor);
-
-    // ---
     // Errors
     // ---
 
     error CallerIsNotAdminExecutor(address value);
-    error InvalidAdminExecutor(address adminExecutor);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -76,13 +69,6 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     EmergencyProtection.Context internal _emergencyProtection;
 
     // ---
-    // Admin Executor
-    // ---
-
-    /// @dev The address of the admin executor, authorized to manage the EmergencyProtectedTimelock instance.
-    address private _adminExecutor;
-
-    // ---
     // Constructor
     // ---
 
@@ -92,8 +78,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         MAX_EMERGENCY_MODE_DURATION = sanityCheckParams.maxEmergencyModeDuration;
         MAX_EMERGENCY_PROTECTION_DURATION = sanityCheckParams.maxEmergencyProtectionDuration;
 
-        _adminExecutor = adminExecutor;
-        emit AdminExecutorSet(adminExecutor);
+        _timelockState.setAdminExecutor(adminExecutor);
     }
 
     // ---
@@ -287,7 +272,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @notice Returns the address of the admin executor.
     /// @return adminExecutor The address of the admin executor.
     function getAdminExecutor() external view returns (address) {
-        return _adminExecutor;
+        return _timelockState.adminExecutor;
     }
 
     /// @notice Returns the configured delay duration required before a submitted proposal can be scheduled.
@@ -370,11 +355,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @param newAdminExecutor The address of the new admin executor.
     function setAdminExecutor(address newAdminExecutor) external {
         _checkCallerIsAdminExecutor();
-        if (newAdminExecutor == address(0) || newAdminExecutor == _adminExecutor) {
-            revert InvalidAdminExecutor(newAdminExecutor);
-        }
-        _adminExecutor = newAdminExecutor;
-        emit AdminExecutorSet(newAdminExecutor);
+        _timelockState.setAdminExecutor(newAdminExecutor);
     }
 
     // ---
@@ -382,7 +363,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // ---
 
     function _checkCallerIsAdminExecutor() internal view {
-        if (msg.sender != _adminExecutor) {
+        if (msg.sender != _timelockState.adminExecutor) {
             revert CallerIsNotAdminExecutor(msg.sender);
         }
     }

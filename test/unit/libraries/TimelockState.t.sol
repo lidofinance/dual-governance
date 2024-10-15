@@ -12,6 +12,7 @@ contract TimelockStateUnitTests is UnitTest {
     TimelockState.Context internal _timelockState;
 
     address internal governance = makeAddr("governance");
+    address internal adminExecutor = makeAddr("adminExecutor");
     Duration internal afterSubmitDelay = Durations.from(1 days);
     Duration internal afterScheduleDelay = Durations.from(2 days);
 
@@ -20,6 +21,7 @@ contract TimelockStateUnitTests is UnitTest {
 
     function setUp() external {
         TimelockState.setGovernance(_timelockState, governance);
+        TimelockState.setAdminExecutor(_timelockState, adminExecutor);
         TimelockState.setAfterSubmitDelay(_timelockState, afterSubmitDelay, maxAfterSubmitDelay);
         TimelockState.setAfterScheduleDelay(_timelockState, afterScheduleDelay, maxAfterScheduleDelay);
     }
@@ -85,6 +87,25 @@ contract TimelockStateUnitTests is UnitTest {
     function test_setAfterScheduleDelay_RevertOn_SameValue() external {
         vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterScheduleDelay.selector, afterScheduleDelay));
         TimelockState.setAfterScheduleDelay(_timelockState, afterScheduleDelay, maxAfterScheduleDelay);
+    }
+
+    function testFuzz_setAdminExecutor_HappyPath(address newAdminExecutor) external {
+        vm.assume(newAdminExecutor != address(0) && newAdminExecutor != adminExecutor);
+
+        vm.expectEmit();
+        emit TimelockState.AdminExecutorSet(newAdminExecutor);
+
+        TimelockState.setAdminExecutor(_timelockState, newAdminExecutor);
+    }
+
+    function test_setAdminExecutor_RevertOn_ZeroAddress() external {
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAdminExecutor.selector, address(0)));
+        TimelockState.setAdminExecutor(_timelockState, address(0));
+    }
+
+    function test_setAdminExecutor_RevertOn_SameAddress() external {
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAdminExecutor.selector, adminExecutor));
+        TimelockState.setAdminExecutor(_timelockState, adminExecutor);
     }
 
     function testFuzz_getAfterSubmitDelay_HappyPath(Duration newAfterSubmitDelay) external {
