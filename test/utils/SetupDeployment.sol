@@ -27,12 +27,8 @@ import {TargetMock} from "./target-mock.sol";
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
-import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
-import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
-
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 
-import {Escrow} from "contracts/Escrow.sol";
 import {ResealManager} from "contracts/ResealManager.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 import {
@@ -41,7 +37,6 @@ import {
     ImmutableDualGovernanceConfigProvider
 } from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
-import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 // ---
@@ -109,8 +104,8 @@ abstract contract SetupDeployment is Test {
     Executor internal _adminExecutor;
     EmergencyProtectedTimelock internal _timelock;
     TimelockedGovernance internal _emergencyGovernance;
-    EmergencyActivationCommittee internal _emergencyActivationCommittee;
-    EmergencyExecutionCommittee internal _emergencyExecutionCommittee;
+    address internal _emergencyActivationCommittee = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
+    address internal _emergencyExecutionCommittee = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
 
     // ---
     // Dual Governance Contracts
@@ -119,7 +114,7 @@ abstract contract SetupDeployment is Test {
     DualGovernance internal _dualGovernance;
     ImmutableDualGovernanceConfigProvider internal _dualGovernanceConfigProvider;
 
-    ResealCommittee internal _resealCommittee;
+    address internal _resealCommittee = makeAddr("RESEAL_COMMITTEE");
     TiebreakerCoreCommittee internal _tiebreakerCoreCommittee;
     TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
 
@@ -188,8 +183,6 @@ abstract contract SetupDeployment is Test {
 
         _tiebreakerCoreCommittee.transferOwnership(address(_adminExecutor));
 
-        _resealCommittee = _deployResealCommittee();
-
         // ---
         // Finalize Setup
         // ---
@@ -241,19 +234,6 @@ abstract contract SetupDeployment is Test {
         _timelock = _deployEmergencyProtectedTimelock(_adminExecutor);
 
         if (isEmergencyProtectionEnabled) {
-            _emergencyActivationCommittee = _deployEmergencyActivationCommittee({
-                quorum: _EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
-                members: _generateRandomAddresses(_EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS_COUNT),
-                owner: address(_adminExecutor),
-                timelock: _timelock
-            });
-
-            _emergencyExecutionCommittee = _deployEmergencyExecutionCommittee({
-                quorum: _EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
-                members: _generateRandomAddresses(_EMERGENCY_EXECUTION_COMMITTEE_MEMBERS_COUNT),
-                owner: address(_adminExecutor),
-                timelock: _timelock
-            });
             _emergencyGovernance = _deployTimelockedGovernance({governance: address(_lido.voting), timelock: _timelock});
 
             _adminExecutor.execute(
@@ -309,37 +289,6 @@ abstract contract SetupDeployment is Test {
                 maxEmergencyProtectionDuration: _MAX_EMERGENCY_PROTECTION_DURATION
             })
         });
-    }
-
-    function _deployEmergencyActivationCommittee(
-        EmergencyProtectedTimelock timelock,
-        address owner,
-        uint256 quorum,
-        address[] memory members
-    ) internal returns (EmergencyActivationCommittee) {
-        return new EmergencyActivationCommittee(owner, members, quorum, address(timelock));
-    }
-
-    function _deployEmergencyExecutionCommittee(
-        EmergencyProtectedTimelock timelock,
-        address owner,
-        uint256 quorum,
-        address[] memory members
-    ) internal returns (EmergencyExecutionCommittee) {
-        return new EmergencyExecutionCommittee(owner, members, quorum, address(timelock));
-    }
-
-    function _deployResealCommittee() internal returns (ResealCommittee) {
-        uint256 quorum = 3;
-        uint256 membersCount = 5;
-        address[] memory committeeMembers = new address[](membersCount);
-        for (uint256 i = 0; i < membersCount; ++i) {
-            committeeMembers[i] = makeAddr(string(abi.encode(0xFA + i * membersCount + 65)));
-        }
-
-        return new ResealCommittee(
-            address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), Durations.from(0)
-        );
     }
 
     function _deployTimelockedGovernance(
