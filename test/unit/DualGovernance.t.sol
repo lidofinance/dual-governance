@@ -33,6 +33,7 @@ import {StETHMock} from "test/mocks/StETHMock.sol";
 import {TimelockMock} from "test/mocks/TimelockMock.sol";
 import {WithdrawalQueueMock} from "test/mocks/WithdrawalQueueMock.sol";
 import {SealableMock} from "test/mocks/SealableMock.sol";
+import {computeAddress} from "test/utils/addresses.sol";
 
 contract DualGovernanceUnitTests is UnitTest {
     Executor private _executor = new Executor(address(this));
@@ -2156,6 +2157,21 @@ contract DualGovernanceUnitTests is UnitTest {
         );
     }
 
+    function testFuzz_setResealCommittee_RevertOn_InvalidResealCommittee(address newResealCommittee) external {
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealCommittee.selector, newResealCommittee));
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
+        );
+    }
+
     // ---
     // setResealManager()
     // ---
@@ -2174,11 +2190,6 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function test_setResealManager_RevertOn_InvalidAddress() external {
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(0)));
-        _executor.execute(
-            address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(0))
-        );
-
         vm.expectRevert(
             abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(_RESEAL_MANAGER_STUB))
         );
@@ -2187,6 +2198,35 @@ contract DualGovernanceUnitTests is UnitTest {
             0,
             abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(_RESEAL_MANAGER_STUB))
         );
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(0)));
+        _executor.execute(
+            address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(0))
+        );
+    }
+
+    function test_setResealManger_RevertOn_CallerIsNotAdminExecutor(address stranger) external {
+        vm.assume(stranger != address(_executor));
+
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, stranger));
+        _dualGovernance.setResealManager(address(0x123));
+    }
+
+    // ---
+    // getResealManager()
+    // ---
+
+    function testFuzz_getResealManager_HappyPath(address newResealManager) external {
+        vm.assume(newResealManager != address(_RESEAL_MANAGER_STUB));
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealManager.selector, newResealManager)
+        );
+
+        assertEq(newResealManager, address(_dualGovernance.getResealManager()));
     }
 
     // ---
@@ -2201,25 +2241,5 @@ contract DualGovernanceUnitTests is UnitTest {
     function _generateExternalCalls() internal pure returns (ExternalCall[] memory calls) {
         calls = new ExternalCall[](1);
         calls[0] = ExternalCall({target: address(0x123), value: 0, payload: abi.encodeWithSignature("someFunction()")});
-    }
-
-    function computeAddress(address deployer, uint256 nonce) public pure returns (address) {
-        bytes memory data;
-
-        if (nonce == 0x00) {
-            data = abi.encodePacked(hex"94", deployer, hex"80");
-        } else if (nonce <= 0x7f) {
-            data = abi.encodePacked(hex"d6", hex"94", deployer, uint8(nonce));
-        } else if (nonce <= 0xff) {
-            data = abi.encodePacked(hex"d7", hex"94", deployer, hex"81", uint8(nonce));
-        } else if (nonce <= 0xffff) {
-            data = abi.encodePacked(hex"d8", hex"94", deployer, hex"82", uint16(nonce));
-        } else if (nonce <= 0xffffff) {
-            data = abi.encodePacked(hex"d9", hex"94", deployer, hex"83", uint24(nonce));
-        } else {
-            data = abi.encodePacked(hex"da", hex"94", deployer, hex"84", uint32(nonce));
-        }
-
-        return address(uint160(uint256(keccak256(data))));
     }
 }
