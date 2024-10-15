@@ -24,9 +24,6 @@ import {TargetMock} from "./target-mock.sol";
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
-import {EmergencyExecutionCommittee} from "contracts/committees/EmergencyExecutionCommittee.sol";
-import {EmergencyActivationCommittee} from "contracts/committees/EmergencyActivationCommittee.sol";
-
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 
 import {ResealManager} from "contracts/ResealManager.sol";
@@ -36,7 +33,6 @@ import {
     ImmutableDualGovernanceConfigProvider
 } from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
-import {ResealCommittee} from "contracts/committees/ResealCommittee.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 // ---
@@ -110,8 +106,8 @@ abstract contract SetupDeployment is Test {
     Executor internal _adminExecutor;
     EmergencyProtectedTimelock internal _timelock;
     TimelockedGovernance internal _emergencyGovernance;
-    EmergencyActivationCommittee internal _emergencyActivationCommittee;
-    EmergencyExecutionCommittee internal _emergencyExecutionCommittee;
+    address internal _emergencyActivationCommittee;
+    address internal _emergencyExecutionCommittee;
 
     // ---
     // Dual Governance Contracts
@@ -120,7 +116,7 @@ abstract contract SetupDeployment is Test {
     DualGovernance internal _dualGovernance;
     ImmutableDualGovernanceConfigProvider internal _dualGovernanceConfigProvider;
 
-    ResealCommittee internal _resealCommittee;
+    address internal _resealCommittee;
     TiebreakerCoreCommittee internal _tiebreakerCoreCommittee;
     TiebreakerSubCommittee[] internal _tiebreakerSubCommittees;
 
@@ -144,6 +140,10 @@ abstract contract SetupDeployment is Test {
         _random = random;
         _targetMock = new TargetMock();
 
+        _emergencyActivationCommittee = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
+        _emergencyExecutionCommittee = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
+        _resealCommittee = makeAddr("RESEAL_COMMITTEE");
+
         dgDeployConfig.AFTER_SUBMIT_DELAY = _AFTER_SUBMIT_DELAY;
         dgDeployConfig.MAX_AFTER_SUBMIT_DELAY = _MAX_AFTER_SUBMIT_DELAY;
         dgDeployConfig.AFTER_SCHEDULE_DELAY = _AFTER_SCHEDULE_DELAY;
@@ -153,8 +153,8 @@ abstract contract SetupDeployment is Test {
         dgDeployConfig.EMERGENCY_PROTECTION_DURATION = _EMERGENCY_PROTECTION_DURATION;
         dgDeployConfig.MAX_EMERGENCY_PROTECTION_DURATION = _MAX_EMERGENCY_PROTECTION_DURATION;
 
-        dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE = address(0);
-        dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE = address(0);
+        dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE = _emergencyActivationCommittee;
+        dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE = _emergencyExecutionCommittee;
 
         dgDeployConfig.TIEBREAKER_CORE_QUORUM = TIEBREAKER_SUB_COMMITTEES_COUNT;
         dgDeployConfig.TIEBREAKER_EXECUTION_DELAY = TIEBREAKER_EXECUTION_DELAY;
@@ -166,7 +166,7 @@ abstract contract SetupDeployment is Test {
         dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS =
             [TIEBREAKER_SUB_COMMITTEE_QUORUM, TIEBREAKER_SUB_COMMITTEE_QUORUM];
 
-        dgDeployConfig.RESEAL_COMMITTEE = address(0);
+        dgDeployConfig.RESEAL_COMMITTEE = _resealCommittee;
 
         dgDeployConfig.MIN_WITHDRAWALS_BATCH_SIZE = 4;
         dgDeployConfig.MIN_TIEBREAKER_ACTIVATION_TIMEOUT = MIN_TIEBREAKER_ACTIVATION_TIMEOUT;
@@ -229,9 +229,6 @@ abstract contract SetupDeployment is Test {
 
         _tiebreakerCoreCommittee.transferOwnership(address(_adminExecutor));
 
-        _resealCommittee = _deployResealCommittee();
-        dgDeployConfig.RESEAL_COMMITTEE = address(_resealCommittee);
-
         // ---
         // Finalize Setup
         // ---
@@ -264,21 +261,7 @@ abstract contract SetupDeployment is Test {
         _timelock = contracts.timelock;
 
         if (isEmergencyProtectionEnabled) {
-            _emergencyActivationCommittee = _deployEmergencyActivationCommittee({
-                quorum: _EMERGENCY_ACTIVATION_COMMITTEE_QUORUM,
-                members: _generateRandomAddresses(_EMERGENCY_ACTIVATION_COMMITTEE_MEMBERS_COUNT),
-                owner: address(_adminExecutor),
-                timelock: _timelock
-            });
-
-            _emergencyExecutionCommittee = _deployEmergencyExecutionCommittee({
-                quorum: _EMERGENCY_EXECUTION_COMMITTEE_QUORUM,
-                members: _generateRandomAddresses(_EMERGENCY_EXECUTION_COMMITTEE_MEMBERS_COUNT),
-                owner: address(_adminExecutor),
-                timelock: _timelock
-            });
-            dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE = address(_emergencyActivationCommittee);
-            dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE = address(_emergencyExecutionCommittee);
+            _emergencyGovernance = _deployTimelockedGovernance({governance: address(_lido.voting), timelock: _timelock});
 
             DGContractsDeployment.deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, contracts);
 
@@ -298,36 +281,16 @@ abstract contract SetupDeployment is Test {
         return DGContractsDeployment.deployDualGovernanceConfigProvider(dgDeployConfig);
     }
 
-    function _deployEmergencyActivationCommittee(
-        EmergencyProtectedTimelock timelock,
-        address owner,
-        uint256 quorum,
-        address[] memory members
-    ) internal returns (EmergencyActivationCommittee) {
-        return new EmergencyActivationCommittee(owner, members, quorum, address(timelock));
+    function _deployTimelockedGovernance(
+        address governance,
+        ITimelock timelock
+    ) internal returns (TimelockedGovernance) {
+        return new TimelockedGovernance(governance, timelock);
     }
 
-    function _deployEmergencyExecutionCommittee(
-        EmergencyProtectedTimelock timelock,
-        address owner,
-        uint256 quorum,
-        address[] memory members
-    ) internal returns (EmergencyExecutionCommittee) {
-        return new EmergencyExecutionCommittee(owner, members, quorum, address(timelock));
-    }
-
-    function _deployResealCommittee() internal returns (ResealCommittee) {
-        uint256 quorum = 3;
-        uint256 membersCount = 5;
-        address[] memory committeeMembers = new address[](membersCount);
-        for (uint256 i = 0; i < membersCount; ++i) {
-            committeeMembers[i] = makeAddr(string(abi.encode(0xFA + i * membersCount + 65)));
-        }
-
-        return new ResealCommittee(
-            address(_adminExecutor), committeeMembers, quorum, address(_dualGovernance), Durations.from(0)
-        );
-    }
+    // ---
+    // Dual Governance Deployment
+    // ---
 
     function _deployResealManager(ITimelock timelock) internal returns (ResealManager) {
         return DGContractsDeployment.deployResealManager(timelock);

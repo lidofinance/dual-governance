@@ -291,14 +291,14 @@ library DeployVerification {
         TiebreakerCoreCommittee tcc = TiebreakerCoreCommittee(res.tiebreakerCoreCommittee);
         require(tcc.owner() == res.adminExecutor, "TiebreakerCoreCommittee owner != adminExecutor");
         require(
-            tcc.timelockDuration() == dgDeployConfig.TIEBREAKER_EXECUTION_DELAY,
+            tcc.getTimelockDuration() == dgDeployConfig.TIEBREAKER_EXECUTION_DELAY,
             "Incorrect parameter TIEBREAKER_EXECUTION_DELAY"
         );
 
         for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
             require(tcc.isMember(res.tiebreakerSubCommittees[i]) == true, "Incorrect member of TiebreakerCoreCommittee");
         }
-        require(tcc.quorum() == dgDeployConfig.TIEBREAKER_CORE_QUORUM, "Incorrect quorum in TiebreakerCoreCommittee");
+        require(tcc.getQuorum() == dgDeployConfig.TIEBREAKER_CORE_QUORUM, "Incorrect quorum in TiebreakerCoreCommittee");
     }
 
     function checkTiebreakerSubCommittee(
@@ -308,14 +308,14 @@ library DeployVerification {
     ) internal view {
         TiebreakerSubCommittee tsc = TiebreakerSubCommittee(res.tiebreakerSubCommittees[index]);
         require(tsc.owner() == res.adminExecutor, "TiebreakerSubCommittee owner != adminExecutor");
-        require(tsc.timelockDuration() == Durations.from(0), "TiebreakerSubCommittee timelock should be 0");
+        require(tsc.getTimelockDuration() == Durations.from(0), "TiebreakerSubCommittee timelock should be 0");
 
         (uint256 quorum, address[] memory members) = getSubCommitteeData(index, dgDeployConfig);
 
         for (uint256 i = 0; i < members.length; ++i) {
             require(tsc.isMember(members[i]) == true, "Incorrect member of TiebreakerSubCommittee");
         }
-        require(tsc.quorum() == quorum, "Incorrect quorum in TiebreakerSubCommittee");
+        require(tsc.getQuorum() == quorum, "Incorrect quorum in TiebreakerSubCommittee");
     }
 
     function checkResealCommittee(DeployConfig memory dgDeployConfig) internal pure {
