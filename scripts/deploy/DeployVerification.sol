@@ -18,8 +18,6 @@ import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol
 import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
 import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
 
-// TODO: long error texts in require()
-
 library DeployVerification {
     struct DeployedAddresses {
         address payable adminExecutor;

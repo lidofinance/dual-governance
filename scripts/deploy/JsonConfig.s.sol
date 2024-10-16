@@ -237,7 +237,6 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (keccak256(bytes(chainName)) == CHAIN_NAME_HOLESKY_MOCKS_HASH) {
-            // TODO: is it ok to use the same file?
             string memory jsonConfig = loadConfigFile();
 
             return LidoContracts({

@@ -129,7 +129,6 @@ library DGContractsDeployment {
             )
         );
 
-        // TODO: Do we really need to set it?
         adminExecutor.execute(
             address(timelock),
             0,
