@@ -549,30 +549,18 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _executeActivateEmergencyMode() internal {
-        address[] memory members = _emergencyActivationCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyActivationCommittee.quorum(); ++i) {
-            vm.prank(members[i]);
-            _emergencyActivationCommittee.approveActivateEmergencyMode();
-        }
-        _emergencyActivationCommittee.executeActivateEmergencyMode();
+        vm.prank(_emergencyActivationCommittee);
+        _timelock.activateEmergencyMode();
     }
 
     function _executeEmergencyExecute(uint256 proposalId) internal {
-        address[] memory members = _emergencyExecutionCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
-            vm.prank(members[i]);
-            _emergencyExecutionCommittee.voteEmergencyExecute(proposalId, true);
-        }
-        _emergencyExecutionCommittee.executeEmergencyExecute(proposalId);
+        vm.prank(_emergencyExecutionCommittee);
+        _timelock.emergencyExecute(proposalId);
     }
 
     function _executeEmergencyReset() internal {
-        address[] memory members = _emergencyExecutionCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
-            vm.prank(members[i]);
-            _emergencyExecutionCommittee.approveEmergencyReset();
-        }
-        _emergencyExecutionCommittee.executeEmergencyReset();
+        vm.prank(_emergencyExecutionCommittee);
+        _timelock.emergencyReset();
     }
 
     struct DurationStruct {
