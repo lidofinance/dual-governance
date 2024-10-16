@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Durations} from "contracts/types/Duration.sol";
-import {PercentD16} from "contracts/types/PercentD16.sol";
 import {Executor} from "contracts/Executor.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
@@ -196,13 +195,11 @@ library DeployVerification {
 
         DualGovernanceConfig.Context memory dgConfig = dg.getConfigProvider().getDualGovernanceConfig();
         require(
-            PercentD16.unwrap(dgConfig.firstSealRageQuitSupport)
-                == PercentD16.unwrap(dgDeployConfig.FIRST_SEAL_RAGE_QUIT_SUPPORT),
+            dgConfig.firstSealRageQuitSupport == dgDeployConfig.FIRST_SEAL_RAGE_QUIT_SUPPORT,
             "Incorrect parameter FIRST_SEAL_RAGE_QUIT_SUPPORT"
         );
         require(
-            PercentD16.unwrap(dgConfig.secondSealRageQuitSupport)
-                == PercentD16.unwrap(dgDeployConfig.SECOND_SEAL_RAGE_QUIT_SUPPORT),
+            dgConfig.secondSealRageQuitSupport == dgDeployConfig.SECOND_SEAL_RAGE_QUIT_SUPPORT,
             "Incorrect parameter SECOND_SEAL_RAGE_QUIT_SUPPORT"
         );
         require(
@@ -250,6 +247,7 @@ library DeployVerification {
         require(dg.getEffectiveState() == State.Normal, "Incorrect DualGovernance effective state");
         require(dg.getProposers().length == 1, "Incorrect amount of proposers");
         require(dg.isProposer(address(lidoAddresses.voting)) == true, "Lido voting is not set as a proposers[0]");
+        require(dg.isExecutor(res.adminExecutor) == true, "adminExecutor is not set as a proposers[0].executor");
 
         IDualGovernance.StateDetails memory stateDetails = dg.getStateDetails();
         require(stateDetails.effectiveState == State.Normal, "Incorrect DualGovernance effectiveState");

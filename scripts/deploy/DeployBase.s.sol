@@ -18,7 +18,6 @@ abstract contract DeployBase is Script {
     DeployConfig internal config;
     LidoContracts internal lidoAddresses;
     address private deployer;
-    uint256 private pk;
 
     function run() external {
         if (lidoAddresses.chainId != block.chainid) {
