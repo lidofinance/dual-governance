@@ -6,11 +6,11 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Duration.sol";
 
-import {ISealable} from "../interfaces/ISealable.sol";
 import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 
-import {SealableCalls} from "./SealableCalls.sol";
+import {SealableCalls} from "../libraries/SealableCalls.sol";
+
 import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
 
 /// @title Tiebreaker Library
@@ -20,7 +20,6 @@ import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
 /// the power to execute pending proposals, bypassing the DG dynamic timelock, and unpause any
 /// protocol contract under the specific conditions of the deadlock.
 library Tiebreaker {
-    using SealableCalls for ISealable;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     error TiebreakNotAllowed();
@@ -68,7 +67,8 @@ library Tiebreaker {
         if (sealableWithdrawalBlockersCount == maxSealableWithdrawalBlockersCount) {
             revert SealableWithdrawalBlockersLimitReached();
         }
-        (bool isCallSucceed, /* lowLevelError */, /* isPaused */ ) = ISealable(sealableWithdrawalBlocker).callIsPaused();
+        (bool isCallSucceed, /* resumeSinceTimestamp */ ) =
+            SealableCalls.callGetResumeSinceTimestamp(sealableWithdrawalBlocker);
         if (!isCallSucceed) {
             revert InvalidSealable(sealableWithdrawalBlocker);
         }
@@ -172,19 +172,31 @@ library Tiebreaker {
             return true;
         }
 
-        return state == DualGovernanceState.RageQuit && isSomeSealableWithdrawalBlockerPaused(self);
+        return state == DualGovernanceState.RageQuit && isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty(self);
     }
 
-    /// @notice Checks if any sealable withdrawal blocker is paused.
-    /// @param self The context storage.
-    /// @return True if any sealable withdrawal blocker is paused, false otherwise.
-    function isSomeSealableWithdrawalBlockerPaused(Context storage self) internal view returns (bool) {
+    /// @notice Checks if any sealable withdrawal blocker has been paused for a duration that exceeds
+    ///     `tiebreakerActivationTimeout`, or if it is functioning improperly.
+    /// @param self The context containing the sealable withdrawal blockers.
+    /// @return True if any sealable withdrawal blocker is paused for a duration exceeding `tiebreakerActivationTimeout`
+    ///     or is functioning incorrectly, false otherwise.
+    function isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty(Context storage self)
+        internal
+        view
+        returns (bool)
+    {
         uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
-        for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
-            (bool isCallSucceed, /* lowLevelError */, bool isPaused) =
-                ISealable(self.sealableWithdrawalBlockers.at(i)).callIsPaused();
+        uint256 tiebreakAllowedTillTimestampInSeconds =
+            self.tiebreakerActivationTimeout.addTo(Timestamps.now()).toSeconds();
 
-            if (isPaused || !isCallSucceed) return true;
+        for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
+            (bool isCallSucceed, uint256 resumeSinceTimestampInSeconds) =
+                SealableCalls.callGetResumeSinceTimestamp(self.sealableWithdrawalBlockers.at(i));
+            /// @dev If the call failed, mark the sealable as faulty.
+            ///     Otherwise, consider it paused if its pause duration exceeds `tiebreakerActivationTimeout`.
+            if (!isCallSucceed || tiebreakAllowedTillTimestampInSeconds <= resumeSinceTimestampInSeconds) {
+                return true;
+            }
         }
         return false;
     }
