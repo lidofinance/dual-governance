@@ -6,7 +6,7 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
-import {DAO_AGENT} from "../utils/mainnet-addresses.sol";
+import {DAO_AGENT} from "addresses/mainnet-addresses.sol";
 
 contract EmergencyCommitteeTest is ScenarioTestBlueprint {
     address internal immutable _VETOER = makeAddr("VETOER");

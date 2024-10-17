@@ -1,11 +1,13 @@
 [profile.default]
 src = 'contracts'
 out = 'out'
+script = 'scripts'
 libs = ['node_modules', 'lib']
 test = 'test'
 cache_path = 'cache_forge'
 # solc-version = "0.8.26"
 no-match-path = 'test/kontrol/*'
+fs_permissions = [{ access = "read", path = "./"}]
 
 [profile.kprove]
 src = 'test/kontrol'
@@ -15,3 +17,7 @@ test = 'test/kontrol'
 [fmt]
 line_length = 120
 multiline_func_header = 'params_first_multi'
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_MAINNET_KEY}" }
+holesky = { key = "${ETHERSCAN_MAINNET_KEY}", chain = "17000" }
