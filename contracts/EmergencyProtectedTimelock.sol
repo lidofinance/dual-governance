@@ -56,13 +56,6 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
 
     // ---
-    // Admin Executor Immutables
-    // ---
-
-    /// @dev The address of the admin executor, authorized to manage the EmergencyProtectedTimelock instance.
-    address private immutable _ADMIN_EXECUTOR;
-
-    // ---
     // Aspects
     // ---
 
@@ -80,12 +73,12 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // ---
 
     constructor(SanityCheckParams memory sanityCheckParams, address adminExecutor) {
-        _ADMIN_EXECUTOR = adminExecutor;
-
         MAX_AFTER_SUBMIT_DELAY = sanityCheckParams.maxAfterSubmitDelay;
         MAX_AFTER_SCHEDULE_DELAY = sanityCheckParams.maxAfterScheduleDelay;
         MAX_EMERGENCY_MODE_DURATION = sanityCheckParams.maxEmergencyModeDuration;
         MAX_EMERGENCY_PROTECTION_DURATION = sanityCheckParams.maxEmergencyProtectionDuration;
+
+        _timelockState.setAdminExecutor(adminExecutor);
     }
 
     // ---
@@ -279,7 +272,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @notice Returns the address of the admin executor.
     /// @return adminExecutor The address of the admin executor.
     function getAdminExecutor() external view returns (address) {
-        return _ADMIN_EXECUTOR;
+        return _timelockState.adminExecutor;
     }
 
     /// @notice Returns the configured delay duration required before a submitted proposal can be scheduled.
@@ -355,11 +348,22 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     }
 
     // ---
+    // Admin Executor Methods
+    // ---
+
+    /// @notice Sets the address of the admin executor.
+    /// @param newAdminExecutor The address of the new admin executor.
+    function setAdminExecutor(address newAdminExecutor) external {
+        _checkCallerIsAdminExecutor();
+        _timelockState.setAdminExecutor(newAdminExecutor);
+    }
+
+    // ---
     // Internal Methods
     // ---
 
     function _checkCallerIsAdminExecutor() internal view {
-        if (msg.sender != _ADMIN_EXECUTOR) {
+        if (msg.sender != _timelockState.adminExecutor) {
             revert CallerIsNotAdminExecutor(msg.sender);
         }
     }
