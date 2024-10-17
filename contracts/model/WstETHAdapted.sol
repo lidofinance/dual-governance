@@ -6,6 +6,7 @@ pragma solidity 0.8.26;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "contracts/interfaces/IStETH.sol";
+import "contracts/interfaces/IWstETH.sol";
 
 /**
  * @title StETH token wrapper with static balances.
@@ -24,7 +25,7 @@ import "contracts/interfaces/IStETH.sol";
  * method, staking it and wrapping the received stETH.
  *
  */
-contract WstETHAdapted is ERC20Permit {
+contract WstETHAdapted is ERC20Permit, IWstETH {
     IStETH public stETH;
 
     /**
