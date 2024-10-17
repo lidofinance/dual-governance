@@ -1,11 +1,13 @@
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import "contracts/DualGovernance.sol";
+//import {State as DualGovernanceState} from "contracts/libraries/DualGovernanceStateMachine.sol";
 import "contracts/EmergencyProtectedTimelock.sol";
 import "contracts/Escrow.sol";
 
 import {Timestamp} from "contracts/types/Timestamp.sol";
-import "contracts/libraries/WithdrawalBatchesQueue.sol";
+import {State as WithdrawalBatchesQueueState} from "contracts/libraries/WithdrawalBatchesQueue.sol";
+import {State as EscrowSt} from "contracts/libraries/EscrowState.sol";
 
 import "contracts/model/StETHModel.sol";
 import "contracts/model/WstETHAdapted.sol";
@@ -83,10 +85,11 @@ contract StorageSetup is KontrolTest {
     function dualGovernanceStorageSetup(
         DualGovernance _dualGovernance,
         IEscrow _signallingEscrow,
-        IEscrow _rageQuitEscrow
+        IEscrow _rageQuitEscrow,
+        IDualGovernanceConfigProvider _config
     ) external {
         kevm.symbolicStorage(address(_dualGovernance));
-        // Slot 5 + 0 = 5
+        // Slot 6 + 0 = 6
         uint8 currentState = uint8(kevm.freshUInt(1));
         vm.assume(currentState <= 4);
         uint40 enteredAt = uint40(kevm.freshUInt(5));
@@ -95,39 +98,38 @@ contract StorageSetup is KontrolTest {
         uint40 vetoSignallingActivationTime = uint40(kevm.freshUInt(5));
         vm.assume(vetoSignallingActivationTime <= block.timestamp);
         vm.assume(vetoSignallingActivationTime < timeUpperBound);
-        bytes memory slot5Abi = abi.encodePacked(
-            uint8(0),
+        uint8 rageQuitRound = uint8(kevm.freshUInt(1));
+        vm.assume(rageQuitRound < type(uint8).max);
+        bytes memory slot6Abi = abi.encodePacked(
+            uint8(rageQuitRound),
             uint160(address(_signallingEscrow)),
             uint40(vetoSignallingActivationTime),
             uint40(enteredAt),
             uint8(currentState)
-        );
-        bytes32 slot5;
-        assembly {
-            slot5 := mload(add(slot5Abi, 0x20))
-        }
-        _storeBytes32(address(_dualGovernance), 5, slot5);
-        // Slot 5 + 1 = 6
-        uint40 vetoSignallingReactivationTime = uint40(kevm.freshUInt(5));
-        vm.assume(vetoSignallingReactivationTime <= block.timestamp);
-        vm.assume(vetoSignallingReactivationTime < timeUpperBound);
-        uint40 lastAdoptableStateExitedAt = uint40(kevm.freshUInt(5));
-        vm.assume(lastAdoptableStateExitedAt <= block.timestamp);
-        vm.assume(lastAdoptableStateExitedAt < timeUpperBound);
-        uint8 rageQuitRound = uint8(kevm.freshUInt(1));
-        vm.assume(rageQuitRound < type(uint8).max);
-        bytes memory slot6Abi = abi.encodePacked(
-            uint8(0),
-            uint8(rageQuitRound),
-            uint160(address(_rageQuitEscrow)),
-            uint40(lastAdoptableStateExitedAt),
-            uint40(vetoSignallingReactivationTime)
         );
         bytes32 slot6;
         assembly {
             slot6 := mload(add(slot6Abi, 0x20))
         }
         _storeBytes32(address(_dualGovernance), 6, slot6);
+        // Slot 6 + 1 = 7
+        uint40 vetoSignallingReactivationTime = uint40(kevm.freshUInt(5));
+        vm.assume(vetoSignallingReactivationTime <= block.timestamp);
+        vm.assume(vetoSignallingReactivationTime < timeUpperBound);
+        uint40 lastAdoptableStateExitedAt = uint40(kevm.freshUInt(5));
+        vm.assume(lastAdoptableStateExitedAt <= block.timestamp);
+        vm.assume(lastAdoptableStateExitedAt < timeUpperBound);
+        bytes memory slot7Abi = abi.encodePacked(
+            uint16(0),
+            uint160(address(_rageQuitEscrow)),
+            uint40(lastAdoptableStateExitedAt),
+            uint40(vetoSignallingReactivationTime)
+        );
+        bytes32 slot7;
+        assembly {
+            slot7 := mload(add(slot7Abi, 0x20))
+        }
+        _storeBytes32(address(_dualGovernance), 7, slot7);
     }
 
     function dualGovernanceStorageInvariants(Mode mode, DualGovernance _dualGovernance) external {
@@ -162,9 +164,10 @@ contract StorageSetup is KontrolTest {
     function dualGovernanceInitializeStorage(
         DualGovernance _dualGovernance,
         IEscrow _signallingEscrow,
-        IEscrow _rageQuitEscrow
+        IEscrow _rageQuitEscrow,
+        IDualGovernanceConfigProvider _config
     ) external {
-        this.dualGovernanceStorageSetup(_dualGovernance, _signallingEscrow, _rageQuitEscrow);
+        this.dualGovernanceStorageSetup(_dualGovernance, _signallingEscrow, _rageQuitEscrow, _config);
         this.dualGovernanceStorageInvariants(Mode.Assume, _dualGovernance);
         this.dualGovernanceAssumeBounds(_dualGovernance);
     }
@@ -214,7 +217,7 @@ contract StorageSetup is KontrolTest {
     }
 
     struct AccountingRecord {
-        EscrowState escrowState;
+        EscrowSt escrowState;
         uint256 allowance;
         uint256 userBalance;
         uint256 escrowBalance;
@@ -229,13 +232,13 @@ contract StorageSetup is KontrolTest {
     }
 
     struct EscrowRecord {
-        EscrowState escrowState;
+        EscrowSt escrowState;
         AccountingRecord accounting;
     }
 
     function saveEscrowRecord(address user, Escrow escrow) external view returns (EscrowRecord memory er) {
         AccountingRecord memory accountingRecord = this.saveAccountingRecord(user, escrow);
-        er.escrowState = EscrowState(_getCurrentState(escrow));
+        er.escrowState = EscrowSt(_getCurrentState(escrow));
         er.accounting = accountingRecord;
     }
 
@@ -244,8 +247,8 @@ contract StorageSetup is KontrolTest {
         ar.allowance = stEth.allowance(user, address(escrow));
         ar.userBalance = stEth.balanceOf(user);
         ar.escrowBalance = stEth.balanceOf(address(escrow));
-        ar.userShares = stEth.sharesOf(user);
-        ar.escrowShares = stEth.sharesOf(address(escrow));
+        //ar.userShares = stEth.sharesOf(user);
+        //ar.escrowShares = stEth.sharesOf(address(escrow));
         ar.userSharesLocked = escrow.getVetoerState(user).stETHLockedShares;
         ar.totalSharesLocked = escrow.getLockedAssetsTotals().stETHLockedShares;
         ar.totalEth = stEth.getPooledEthByShares(ar.totalSharesLocked);
@@ -274,7 +277,7 @@ contract StorageSetup is KontrolTest {
         _establish(mode, ar1.userLastLockedTime == ar2.userLastLockedTime);
     }
 
-    function escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowState _currentState) external {
+    function escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowSt _currentState) external {
         kevm.symbolicStorage(address(_escrow));
         // Slot 0
         {
@@ -313,7 +316,7 @@ contract StorageSetup is KontrolTest {
         }
         // Slot 5
         // FIXME: This branching is done to avoid the fresh existential generation bug
-        if (_currentState == EscrowState.RageQuitEscrow) {
+        if (_currentState == EscrowSt.RageQuitEscrow) {
             uint8 batchesQueueStatus = uint8(kevm.freshUInt(1));
             vm.assume(batchesQueueStatus < 3);
             _storeUInt256(address(_escrow), 5, batchesQueueStatus);
@@ -321,7 +324,7 @@ contract StorageSetup is KontrolTest {
             _storeUInt256(address(_escrow), 5, 0);
         }
         // Slot 8
-        if (_currentState == EscrowState.RageQuitEscrow) {
+        if (_currentState == EscrowSt.RageQuitEscrow) {
             uint256 batchesQueueLength = uint256(kevm.freshUInt(32));
             vm.assume(batchesQueueLength < 2 ** 64);
             _storeUInt256(address(_escrow), 8, batchesQueueLength);
@@ -330,7 +333,7 @@ contract StorageSetup is KontrolTest {
         }
         // Slot 9
         // FIXME: This branching is done to avoid the fresh existential generation bug
-        if (_currentState == EscrowState.RageQuitEscrow) {
+        if (_currentState == EscrowSt.RageQuitEscrow) {
             uint32 rageQuitExtensionDelay = uint32(kevm.freshUInt(4));
             vm.assume(rageQuitExtensionDelay <= block.timestamp);
             vm.assume(rageQuitExtensionDelay < timeUpperBound);
@@ -389,7 +392,7 @@ contract StorageSetup is KontrolTest {
     function escrowInitializeStorage(
         IEscrow _escrow,
         DualGovernance _dualGovernance,
-        EscrowState _currentState
+        EscrowSt _currentState
     ) external {
         this.escrowStorageSetup(_escrow, _dualGovernance, _currentState);
         this.escrowStorageInvariants(Mode.Assume, _escrow);
@@ -405,22 +408,22 @@ contract StorageSetup is KontrolTest {
         _establish(mode, rageQuitExtensionDelay == 0);
         _establish(mode, rageQuitWithdrawalsTimelock == 0);
         _establish(mode, rageQuitTimelockStartedAt == 0);
-        _establish(mode, batchesQueueStatus == uint8(WithdrawalsBatchesQueue.Status.Empty));
+        _establish(mode, batchesQueueStatus == uint8(WithdrawalBatchesQueueState.Absent));
     }
 
     function signallingEscrowInitializeStorage(IEscrow _signallingEscrow, DualGovernance _dualGovernance) external {
-        this.escrowInitializeStorage(_signallingEscrow, _dualGovernance, EscrowState.SignallingEscrow);
+        this.escrowInitializeStorage(_signallingEscrow, _dualGovernance, EscrowSt.SignallingEscrow);
         this.signallingEscrowStorageInvariants(Mode.Assume, _signallingEscrow);
     }
 
     function rageQuitEscrowStorageInvariants(Mode mode, IEscrow _rageQuitEscrow) external {
         uint8 batchesQueueStatus = _getBatchesQueueStatus(_rageQuitEscrow);
 
-        _establish(mode, batchesQueueStatus != uint8(WithdrawalsBatchesQueue.Status.Empty));
+        _establish(mode, batchesQueueStatus != uint8(WithdrawalBatchesQueueState.Absent));
     }
 
     function rageQuitEscrowInitializeStorage(IEscrow _rageQuitEscrow, DualGovernance _dualGovernance) external {
-        this.escrowInitializeStorage(_rageQuitEscrow, _dualGovernance, EscrowState.RageQuitEscrow);
+        this.escrowInitializeStorage(_rageQuitEscrow, _dualGovernance, EscrowSt.RageQuitEscrow);
         this.rageQuitEscrowStorageInvariants(Mode.Assume, _rageQuitEscrow);
     }
 }

@@ -1,21 +1,24 @@
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
-import "contracts/Configuration.sol";
+import "contracts/ImmutableDualGovernanceConfigProvider.sol";
 import "contracts/DualGovernance.sol";
 import "contracts/EmergencyProtectedTimelock.sol";
 import "contracts/Escrow.sol";
 import "contracts/model/StETHModel.sol";
 import "contracts/model/WstETHAdapted.sol";
 import "contracts/model/WithdrawalQueueModel.sol";
+import "contracts/ResealManager.sol";
+
+import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
+import {PercentD16} from "contracts/types/PercentD16.sol";
+import {Duration} from "contracts/types/Duration.sol";
 
 import "test/kontrol/StorageSetup.sol";
 
 contract DualGovernanceSetUp is StorageSetup {
-    using DualGovernanceState for DualGovernanceState.Store;
-
-    Configuration config;
+    ImmutableDualGovernanceConfigProvider config;
     DualGovernance dualGovernance;
     EmergencyProtectedTimelock timelock;
     StETHModel stEth;
@@ -24,6 +27,12 @@ contract DualGovernanceSetUp is StorageSetup {
     Escrow escrowMasterCopy;
     Escrow signallingEscrow;
     Escrow rageQuitEscrow;
+    ResealManager resealManager;
+
+    DualGovernanceConfig.Context governanceConfig;
+    EmergencyProtectedTimelock.SanityCheckParams timelockSanityCheckParams;
+    DualGovernance.ExternalDependencies dependencies;
+    DualGovernance.SanityCheckParams dgSanityCheckParams;
 
     function setUp() public {
         vm.chainId(1); // Set block.chainid so it's not symbolic
@@ -31,18 +40,28 @@ contract DualGovernanceSetUp is StorageSetup {
 
         stEth = new StETHModel();
         wstEth = new WstETHAdapted(IStETH(stEth));
-        withdrawalQueue = new WithdrawalQueueModel();
+        withdrawalQueue = new WithdrawalQueueModel(IStETH(stEth));
 
         // Placeholder addresses
         address adminExecutor = address(uint160(uint256(keccak256("adminExecutor"))));
         address emergencyGovernance = address(uint160(uint256(keccak256("emergencyGovernance"))));
         address adminProposer = address(uint160(uint256(keccak256("adminProposer"))));
 
-        config = new Configuration(adminExecutor, emergencyGovernance, new address[](0));
-        timelock = new EmergencyProtectedTimelock(address(config));
-        escrowMasterCopy = new Escrow(address(stEth), address(wstEth), address(withdrawalQueue), address(config));
-        dualGovernance =
-            new DualGovernance(address(config), address(timelock), address(escrowMasterCopy), adminProposer);
+        config = new ImmutableDualGovernanceConfigProvider(governanceConfig);
+        timelock = new EmergencyProtectedTimelock(timelockSanityCheckParams, adminExecutor);
+        resealManager = new ResealManager(timelock);
+
+        //DualGovernance.ExternalDependencies memory dependencies;
+        dependencies.stETH = stEth;
+        dependencies.wstETH = wstEth;
+        dependencies.withdrawalQueue = withdrawalQueue;
+        dependencies.timelock = timelock;
+        dependencies.resealManager = resealManager;
+        dependencies.configProvider = config;
+
+        dualGovernance = new DualGovernance(dependencies, dgSanityCheckParams);
+        escrowMasterCopy = new Escrow(stEth, wstEth, withdrawalQueue, dualGovernance, 1);
+
         signallingEscrow = Escrow(payable(dualGovernance.getVetoSignallingEscrow()));
         rageQuitEscrow = Escrow(payable(Clones.clone(address(escrowMasterCopy))));
 
@@ -59,7 +78,7 @@ contract DualGovernanceSetUp is StorageSetup {
         // ?WORD5: vetoSignallingReactivationTime
         // ?WORD6: lastAdoptableStaateExitedAt
         // ?WORD7: rageQuitRound
-        this.dualGovernanceInitializeStorage(dualGovernance, signallingEscrow, rageQuitEscrow);
+        this.dualGovernanceInitializeStorage(dualGovernance, signallingEscrow, rageQuitEscrow, config);
 
         // ?STORAGE1
         // ?WORD8: lockedShares
