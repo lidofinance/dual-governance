@@ -284,33 +284,6 @@ contract Escrow is IEscrow {
     }
 
     // ---
-    // Convert To NFT
-    // ---
-
-    /// @notice Allows vetoers to convert their locked stETH or wstETH tokens into unstETH NFTs on behalf of the
-    ///     Veto Signalling Escrow contract.
-    /// @param stETHAmounts An array representing the amounts of stETH to be converted into unstETH NFTs.
-    /// @return unstETHIds An array of ids representing the newly created unstETH NFTs corresponding to
-    ///     the converted stETH amounts.
-    function requestWithdrawals(uint256[] calldata stETHAmounts) external returns (uint256[] memory unstETHIds) {
-        DUAL_GOVERNANCE.activateNextState();
-        _escrowState.checkSignallingEscrow();
-
-        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stETHAmounts, address(this));
-        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
-
-        uint256 sharesTotal = 0;
-        for (uint256 i = 0; i < statuses.length; ++i) {
-            sharesTotal += statuses[i].amountOfShares;
-        }
-        _accounting.accountStETHSharesUnlock(msg.sender, SharesValues.from(sharesTotal));
-        _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
-
-        /// @dev Skip calling activateNextState here to save gas, as converting stETH to unstETH NFTs
-        ///     does not affect the RageQuit support.
-    }
-
-    // ---
     // Start Rage Quit
     // ---
 
