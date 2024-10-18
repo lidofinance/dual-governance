@@ -13,7 +13,7 @@ import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 
 import {IAragonACL} from "./interfaces/IAragonACL.sol";
 import {IAragonAgent} from "./interfaces/IAragonAgent.sol";
-import {IAragonVoting} from "./interfaces/IAragonVoting.sol";
+import {IAragonVoting} from "contracts/interfaces/IAragonVoting.sol";
 import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
 
 import {EvmScriptUtils} from "./evm-script-utils.sol";
@@ -27,7 +27,7 @@ import {
     DAO_AGENT,
     DAO_VOTING,
     DAO_TOKEN_MANAGER
-} from "./mainnet-addresses.sol";
+} from "addresses/mainnet-addresses.sol";
 
 uint256 constant ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
 
