@@ -17,6 +17,7 @@ import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigP
 import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
+import {Resealer} from "./libraries/Resealer.sol";
 import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
 
 import {Escrow} from "./Escrow.sol";
@@ -31,6 +32,7 @@ contract DualGovernance is IDualGovernance {
     using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
+    using Resealer for Resealer.Context;
 
     // ---
     // Errors
@@ -131,16 +133,7 @@ contract DualGovernance is IDualGovernance {
     /// @dev The state machine implementation controlling the state of the Dual Governance.
     DualGovernanceStateMachine.Context internal _stateMachine;
 
-    // ---
-    // Standalone State Variables
-    // ---
-
-    /// @dev The address of the Reseal Committee which is allowed to "reseal" sealables paused for a limited
-    ///     period of time when the Dual Governance proposal adoption is blocked.
-    address internal _resealCommittee;
-
-    /// @dev The address of the Reseal Manager.
-    IResealManager internal _resealManager;
+    Resealer.Context internal _resealer;
 
     // ---
     // Constructor
@@ -167,7 +160,7 @@ contract DualGovernance is IDualGovernance {
         emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
         _stateMachine.initialize(dependencies.configProvider, ESCROW_MASTER_COPY);
-        _setResealManager(address(dependencies.resealManager));
+        _resealer.setResealManager(address(dependencies.resealManager));
     }
 
     // ---
@@ -451,7 +444,7 @@ contract DualGovernance is IDualGovernance {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
         _tiebreaker.checkTie(_stateMachine.getPersistedState(), _stateMachine.normalOrVetoCooldownExitedAt);
-        _resealManager.resume(sealable);
+        _resealer.resume(sealable);
     }
 
     /// @notice Allows the tiebreaker committee to schedule for execution a submitted proposal when
@@ -485,50 +478,35 @@ contract DualGovernance is IDualGovernance {
     /// @param sealable The address of the sealable contract to be resealed.
     function resealSealable(address sealable) external {
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
-        if (msg.sender != _resealCommittee) {
-            revert CallerIsNotResealCommittee(msg.sender);
-        }
         if (_stateMachine.getPersistedState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
-        _resealManager.reseal(sealable);
+        _resealer.reseal(sealable);
     }
 
     /// @notice Sets the address of the reseal committee.
     /// @param resealCommittee The address of the new reseal committee.
     function setResealCommittee(address resealCommittee) external {
         _checkCallerIsAdminExecutor();
-        if (resealCommittee == _resealCommittee) {
-            revert InvalidResealCommittee(resealCommittee);
-        }
-        _resealCommittee = resealCommittee;
-        emit ResealCommitteeSet(resealCommittee);
+        _resealer.setResealCommittee(resealCommittee);
     }
 
     /// @notice Sets the address of the Reseal Manager.
     /// @param resealManager The address of the new Reseal Manager.
     function setResealManager(address resealManager) external {
         _checkCallerIsAdminExecutor();
-        _setResealManager(resealManager);
+        _resealer.setResealManager(resealManager);
     }
 
     /// @notice Gets the address of the Reseal Manager.
     /// @return resealManager The address of the Reseal Manager.
     function getResealManager() external view returns (IResealManager) {
-        return _resealManager;
+        return _resealer.resealManager;
     }
 
     // ---
     // Internal methods
     // ---
-
-    function _setResealManager(address resealManager) internal {
-        if (resealManager == address(_resealManager) || resealManager == address(0)) {
-            revert InvalidResealManager(resealManager);
-        }
-        _resealManager = IResealManager(resealManager);
-        emit ResealManagerSet(resealManager);
-    }
 
     function _checkCallerIsAdminExecutor() internal view {
         if (TIMELOCK.getAdminExecutor() != msg.sender) {
