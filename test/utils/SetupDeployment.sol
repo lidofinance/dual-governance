@@ -229,8 +229,6 @@ abstract contract SetupDeployment is Test {
 
         _tiebreakerCoreCommittee.transferOwnership(address(_adminExecutor));
 
-        dgDeployConfig.RESEAL_COMMITTEE = _resealCommittee;
-
         // ---
         // Finalize Setup
         // ---
@@ -268,9 +266,6 @@ abstract contract SetupDeployment is Test {
             DGContractsDeployment.deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, contracts);
 
             _emergencyGovernance = contracts.emergencyGovernance;
-
-            dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE = _emergencyActivationCommittee;
-            dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE = _emergencyExecutionCommittee;
         }
     }
 
