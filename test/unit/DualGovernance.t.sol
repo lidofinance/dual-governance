@@ -26,12 +26,14 @@ import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {ISealable} from "contracts/interfaces/ISealable.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
+import {IEscrow} from "contracts/interfaces/IEscrow.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {StETHMock} from "test/mocks/StETHMock.sol";
 import {TimelockMock} from "test/mocks/TimelockMock.sol";
 import {WithdrawalQueueMock} from "test/mocks/WithdrawalQueueMock.sol";
 import {SealableMock} from "test/mocks/SealableMock.sol";
+import {computeAddress} from "test/utils/addresses.sol";
 
 contract DualGovernanceUnitTests is UnitTest {
     Executor private _executor = new Executor(address(this));
@@ -97,6 +99,50 @@ contract DualGovernanceUnitTests is UnitTest {
         _STETH_MOCK.mint(vetoer, 10 ether);
         vm.prank(vetoer);
         _STETH_MOCK.approve(address(_escrow), 10 ether);
+    }
+
+    // ---
+    // constructor()
+    // ---
+
+    function test_constructor_HappyPath() external {
+        address testDeployerAddress = address(this);
+        uint256 testDeployerNonce = vm.getNonce(testDeployerAddress);
+        address predictedDualGovernanceAddress = computeAddress(testDeployerAddress, testDeployerNonce);
+
+        address predictedEscrowCopyAddress = computeAddress(predictedDualGovernanceAddress, 1);
+
+        vm.expectEmit();
+        emit DualGovernance.EscrowMasterCopyDeployed(IEscrow(predictedEscrowCopyAddress));
+        vm.expectEmit();
+        emit DualGovernance.ResealManagerSet(address(_RESEAL_MANAGER_STUB));
+
+        Duration minTiebreakerActivationTimeout = Durations.from(30 days);
+        Duration maxTiebreakerActivationTimeout = Durations.from(180 days);
+        uint256 maxSealableWithdrawalBlockersCount = 128;
+
+        DualGovernance dualGovernanceLocal = new DualGovernance({
+            dependencies: DualGovernance.ExternalDependencies({
+                stETH: _STETH_MOCK,
+                wstETH: _WSTETH_STUB,
+                withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
+                timelock: _timelock,
+                resealManager: _RESEAL_MANAGER_STUB,
+                configProvider: _configProvider
+            }),
+            sanityCheckParams: DualGovernance.SanityCheckParams({
+                minWithdrawalsBatchSize: 4,
+                minTiebreakerActivationTimeout: minTiebreakerActivationTimeout,
+                maxTiebreakerActivationTimeout: maxTiebreakerActivationTimeout,
+                maxSealableWithdrawalBlockersCount: maxSealableWithdrawalBlockersCount
+            })
+        });
+
+        assertEq(address(dualGovernanceLocal.TIMELOCK()), address(_timelock));
+        assertEq(dualGovernanceLocal.MIN_TIEBREAKER_ACTIVATION_TIMEOUT(), minTiebreakerActivationTimeout);
+        assertEq(dualGovernanceLocal.MAX_TIEBREAKER_ACTIVATION_TIMEOUT(), maxTiebreakerActivationTimeout);
+        assertEq(dualGovernanceLocal.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT(), maxSealableWithdrawalBlockersCount);
+        assertEq(address(dualGovernanceLocal.ESCROW_MASTER_COPY()), predictedEscrowCopyAddress);
     }
 
     // ---
@@ -2060,6 +2106,78 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, stranger));
         _dualGovernance.setResealCommittee(makeAddr("NEW_RESEAL_COMMITTEE"));
+    }
+
+    function testFuzz_setResealCommittee_RevertOn_InvalidResealCommittee(address newResealCommittee) external {
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealCommittee.selector, newResealCommittee));
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
+        );
+    }
+
+    // ---
+    // setResealManager()
+    // ---
+
+    function testFuzz_setResealManager_HappyPath(address newResealManager) external {
+        vm.assume(newResealManager != address(0) && newResealManager != address(_RESEAL_MANAGER_STUB));
+
+        vm.expectEmit();
+        emit DualGovernance.ResealManagerSet(newResealManager);
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealManager.selector, newResealManager)
+        );
+    }
+
+    function test_setResealManager_RevertOn_InvalidAddress() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(_RESEAL_MANAGER_STUB))
+        );
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(_RESEAL_MANAGER_STUB))
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(0)));
+        _executor.execute(
+            address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(0))
+        );
+    }
+
+    function test_setResealManger_RevertOn_CallerIsNotAdminExecutor(address stranger) external {
+        vm.assume(stranger != address(_executor));
+
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, stranger));
+        _dualGovernance.setResealManager(address(0x123));
+    }
+
+    // ---
+    // getResealManager()
+    // ---
+
+    function testFuzz_getResealManager_HappyPath(address newResealManager) external {
+        vm.assume(newResealManager != address(_RESEAL_MANAGER_STUB));
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealManager.selector, newResealManager)
+        );
+
+        assertEq(newResealManager, address(_dualGovernance.getResealManager()));
     }
 
     // ---
