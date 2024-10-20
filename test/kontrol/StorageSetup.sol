@@ -286,49 +286,59 @@ contract StorageSetup is KontrolTest {
     //
     function escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowSt _currentState) external {
         kevm.symbolicStorage(address(_escrow));
+
+        // FIXME: WHAT TO DO WITH DUAL GOVERNANCE AND OTHER IMMUTABLES?!
+
         // Slot 0
         {
-            bytes memory slot0Abi = abi.encodePacked(uint88(0), uint160(address(_dualGovernance)), uint8(_currentState));
-            bytes32 slot0;
-            assembly {
-                slot0 := mload(add(slot0Abi, 0x20))
+            _storeData(address(_escrow), 0, 0, 1, uint256(_currentState));
+
+            if (_currentState == EscrowSt.RageQuitEscrow) {
+                uint256 rageQuitExtensionPeriodDuration = kevm.freshUInt(4);
+                vm.assume(rageQuitExtensionPeriodDuration <= block.timestamp);
+                vm.assume(rageQuitExtensionPeriodDuration < timeUpperBound);
+                uint256 rageQuitExtensionPeriodStartedAt = kevm.freshUInt(5);
+                vm.assume(rageQuitExtensionPeriodStartedAt <= block.timestamp);
+                vm.assume(rageQuitExtensionPeriodStartedAt < timeUpperBound);
+                uint256 rageQuitEthWithdrawalsDelay = kevm.freshUInt(4);
+                vm.assume(rageQuitEthWithdrawalsDelay <= block.timestamp);
+                vm.assume(rageQuitEthWithdrawalsDelay < timeUpperBound);
+
+                _storeData(address(_escrow), 0, 5, 4, rageQuitExtensionPeriodDuration);
+                _storeData(address(_escrow), 0, 9, 5, rageQuitExtensionPeriodStartedAt);
+                _storeData(address(_escrow), 0, 14, 4, rageQuitEthWithdrawalsDelay);
+            } else {
+                _storeData(address(_escrow), 0, 5, 13, uint256(0));
             }
-            _storeBytes32(address(_escrow), 0, slot0);
         }
-        // Slot 1 + 0 + 0 = 1
+        // Slot 1
         {
-            uint128 lockedShares = uint128(kevm.freshUInt(16));
+            uint256 lockedShares = kevm.freshUInt(16);
             vm.assume(lockedShares < ethUpperBound);
-            uint128 claimedEth = uint128(kevm.freshUInt(16));
+            uint256 claimedEth = kevm.freshUInt(16);
             vm.assume(claimedEth < ethUpperBound);
-            bytes memory slot1Abi = abi.encodePacked(uint128(claimedEth), uint128(lockedShares));
-            bytes32 slot1;
-            assembly {
-                slot1 := mload(add(slot1Abi, 0x20))
-            }
-            _storeBytes32(address(_escrow), 1, slot1);
+
+            _storeData(address(_escrow), 1, 0, 16, lockedShares);
+            _storeData(address(_escrow), 1, 16, 16, claimedEth);
         }
-        // Slot 1 + 1 + 0 = 2
+        // Slot 2
         {
-            uint128 unfinalizedShares = uint128(kevm.freshUInt(16));
+            uint256 unfinalizedShares = kevm.freshUInt(16);
             vm.assume(unfinalizedShares < ethUpperBound);
-            uint128 finalizedEth = uint128(kevm.freshUInt(16));
+            uint256 finalizedEth = kevm.freshUInt(16);
             vm.assume(finalizedEth < ethUpperBound);
-            bytes memory slot2Abi = abi.encodePacked(uint128(finalizedEth), uint128(unfinalizedShares));
-            bytes32 slot2;
-            assembly {
-                slot2 := mload(add(slot2Abi, 0x20))
-            }
-            _storeBytes32(address(_escrow), 2, slot2);
+
+            _storeData(address(_escrow), 2, 0, 16, unfinalizedShares);
+            _storeData(address(_escrow), 2, 16, 16, finalizedEth);
         }
         // Slot 5
         // FIXME: This branching is done to avoid the fresh existential generation bug
         if (_currentState == EscrowSt.RageQuitEscrow) {
-            uint8 batchesQueueStatus = uint8(kevm.freshUInt(1));
-            vm.assume(batchesQueueStatus < 3);
-            _storeUInt256(address(_escrow), 5, batchesQueueStatus);
+            uint256 batchesQueueStatus = kevm.freshUInt(1);
+            vm.assume(batchesQueueStatus <= 2);
+            _storeData(address(_escrow), 5, 0, 1, batchesQueueStatus);
         } else {
-            _storeUInt256(address(_escrow), 5, 0);
+            _storeData(address(_escrow), 5, 0, 1, 0);
         }
         // Slot 8
         if (_currentState == EscrowSt.RageQuitEscrow) {
@@ -337,32 +347,6 @@ contract StorageSetup is KontrolTest {
             _storeUInt256(address(_escrow), 8, batchesQueueLength);
         } else {
             _storeUInt256(address(_escrow), 8, 0);
-        }
-        // Slot 9
-        // FIXME: This branching is done to avoid the fresh existential generation bug
-        if (_currentState == EscrowSt.RageQuitEscrow) {
-            uint32 rageQuitEthWithdrawalsDelay = uint32(kevm.freshUInt(4));
-            vm.assume(rageQuitEthWithdrawalsDelay <= block.timestamp);
-            vm.assume(rageQuitEthWithdrawalsDelay < timeUpperBound);
-            uint32 rageQuitExtensionPeriodDuration = uint32(kevm.freshUInt(4));
-            vm.assume(rageQuitExtensionPeriodDuration <= block.timestamp);
-            vm.assume(rageQuitExtensionPeriodDuration < timeUpperBound);
-            uint40 rageQuitExtensionPeriodStartedAt = uint40(kevm.freshUInt(5));
-            vm.assume(rageQuitExtensionPeriodStartedAt <= block.timestamp);
-            vm.assume(rageQuitExtensionPeriodStartedAt < timeUpperBound);
-            bytes memory slot9Abi = abi.encodePacked(
-                uint152(0),
-                uint40(rageQuitExtensionPeriodStartedAt),
-                uint32(rageQuitExtensionPeriodDuration),
-                uint32(rageQuitEthWithdrawalsDelay)
-            );
-            bytes32 slot9;
-            assembly {
-                slot9 := mload(add(slot9Abi, 0x20))
-            }
-            _storeBytes32(address(_escrow), 9, slot9);
-        } else {
-            _storeUInt256(address(_escrow), 9, 0);
         }
     }
 
