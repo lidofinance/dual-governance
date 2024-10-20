@@ -192,6 +192,9 @@ contract StorageSetup is KontrolTest {
         return uint32(_loadData(address(_escrow), 0, 14, 4));
     }
 
+    //
+    //  STUCK HERE
+    //
     function _getStEthLockedShares(IEscrow _escrow) internal view returns (uint128) {
         return uint128(_loadUInt256(address(_escrow), 1));
     }
@@ -338,20 +341,20 @@ contract StorageSetup is KontrolTest {
         // Slot 9
         // FIXME: This branching is done to avoid the fresh existential generation bug
         if (_currentState == EscrowSt.RageQuitEscrow) {
-            uint32 rageQuitExtensionDelay = uint32(kevm.freshUInt(4));
-            vm.assume(rageQuitExtensionDelay <= block.timestamp);
-            vm.assume(rageQuitExtensionDelay < timeUpperBound);
-            uint32 rageQuitWithdrawalsTimelock = uint32(kevm.freshUInt(4));
-            vm.assume(rageQuitWithdrawalsTimelock <= block.timestamp);
-            vm.assume(rageQuitWithdrawalsTimelock < timeUpperBound);
-            uint40 rageQuitTimelockStartedAt = uint40(kevm.freshUInt(5));
-            vm.assume(rageQuitTimelockStartedAt <= block.timestamp);
-            vm.assume(rageQuitTimelockStartedAt < timeUpperBound);
+            uint32 rageQuitEthWithdrawalsDelay = uint32(kevm.freshUInt(4));
+            vm.assume(rageQuitEthWithdrawalsDelay <= block.timestamp);
+            vm.assume(rageQuitEthWithdrawalsDelay < timeUpperBound);
+            uint32 rageQuitExtensionPeriodDuration = uint32(kevm.freshUInt(4));
+            vm.assume(rageQuitExtensionPeriodDuration <= block.timestamp);
+            vm.assume(rageQuitExtensionPeriodDuration < timeUpperBound);
+            uint40 rageQuitExtensionPeriodStartedAt = uint40(kevm.freshUInt(5));
+            vm.assume(rageQuitExtensionPeriodStartedAt <= block.timestamp);
+            vm.assume(rageQuitExtensionPeriodStartedAt < timeUpperBound);
             bytes memory slot9Abi = abi.encodePacked(
                 uint152(0),
-                uint40(rageQuitTimelockStartedAt),
-                uint32(rageQuitWithdrawalsTimelock),
-                uint32(rageQuitExtensionDelay)
+                uint40(rageQuitExtensionPeriodStartedAt),
+                uint32(rageQuitExtensionPeriodDuration),
+                uint32(rageQuitEthWithdrawalsDelay)
             );
             bytes32 slot9;
             assembly {
@@ -365,14 +368,14 @@ contract StorageSetup is KontrolTest {
 
     function escrowStorageInvariants(Mode mode, IEscrow _escrow) external {
         uint8 batchesQueueStatus = _getBatchesQueueStatus(_escrow);
-        uint32 rageQuitExtensionDelay = _getRageQuitEthWithdrawalsDelay(_escrow);
-        uint32 rageQuitWithdrawalsTimelock = _getRageQuitWithdrawalsTimelock(_escrow);
-        uint40 rageQuitTimelockStartedAt = _getRageQuitExtensionPeriodStartedAt(_escrow);
+        uint32 rageQuitEthWithdrawalsDelay = _getRageQuitEthWithdrawalsDelay(_escrow);
+        uint32 rageQuitExtensionPeriodDuration = _getRageQuitExtensionPeriodDuration(_escrow);
+        uint40 rageQuitExtensionPeriodStartedAt = _getRageQuitExtensionPeriodStartedAt(_escrow);
 
         _establish(mode, batchesQueueStatus < 3);
-        _establish(mode, rageQuitExtensionDelay <= block.timestamp);
-        _establish(mode, rageQuitWithdrawalsTimelock <= block.timestamp);
-        _establish(mode, rageQuitTimelockStartedAt <= block.timestamp);
+        _establish(mode, rageQuitEthWithdrawalsDelay <= block.timestamp);
+        _establish(mode, rageQuitExtensionPeriodDuration <= block.timestamp);
+        _establish(mode, rageQuitExtensionPeriodStartedAt <= block.timestamp);
     }
 
     function escrowAssumeBounds(IEscrow _escrow) external {
@@ -380,17 +383,17 @@ contract StorageSetup is KontrolTest {
         uint128 claimedEth = _getClaimedEth(_escrow);
         uint128 unfinalizedShares = _getUnfinalizedShares(_escrow);
         uint128 finalizedEth = _getFinalizedEth(_escrow);
-        uint32 rageQuitExtensionDelay = _getRageQuitEthWithdrawalsDelay(_escrow);
-        uint32 rageQuitWithdrawalsTimelock = _getRageQuitWithdrawalsTimelock(_escrow);
-        uint40 rageQuitTimelockStartedAt = _getRageQuitExtensionPeriodStartedAt(_escrow);
+        uint32 rageQuitEthWithdrawalsDelay = _getRageQuitEthWithdrawalsDelay(_escrow);
+        uint32 rageQuitExtensionPeriodDuration = _getRageQuitExtensionPeriodDuration(_escrow);
+        uint40 rageQuitExtensionPeriodStartedAt = _getRageQuitExtensionPeriodStartedAt(_escrow);
 
         vm.assume(lockedShares < ethUpperBound);
         vm.assume(claimedEth < ethUpperBound);
         vm.assume(unfinalizedShares < ethUpperBound);
         vm.assume(finalizedEth < ethUpperBound);
-        vm.assume(rageQuitExtensionDelay < timeUpperBound);
-        vm.assume(rageQuitWithdrawalsTimelock < timeUpperBound);
-        vm.assume(rageQuitTimelockStartedAt < timeUpperBound);
+        vm.assume(rageQuitEthWithdrawalsDelay < timeUpperBound);
+        vm.assume(rageQuitExtensionPeriodDuration < timeUpperBound);
+        vm.assume(rageQuitExtensionPeriodStartedAt < timeUpperBound);
     }
 
     function escrowInitializeStorage(
@@ -404,14 +407,14 @@ contract StorageSetup is KontrolTest {
     }
 
     function signallingEscrowStorageInvariants(Mode mode, IEscrow _signallingEscrow) external {
-        uint32 rageQuitExtensionDelay = _getRageQuitEthWithdrawalsDelay(_signallingEscrow);
-        uint32 rageQuitWithdrawalsTimelock = _getRageQuitWithdrawalsTimelock(_signallingEscrow);
-        uint40 rageQuitTimelockStartedAt = _getRageQuitExtensionPeriodStartedAt(_signallingEscrow);
+        uint32 rageQuitEthWithdrawalsDelay = _getRageQuitEthWithdrawalsDelay(_signallingEscrow);
+        uint32 rageQuitExtensionPeriodDuration = _getRageQuitExtensionPeriodDuration(_signallingEscrow);
+        uint40 rageQuitExtensionPeriodStartedAt = _getRageQuitExtensionPeriodStartedAt(_signallingEscrow);
         uint8 batchesQueueStatus = _getBatchesQueueStatus(_signallingEscrow);
 
-        _establish(mode, rageQuitExtensionDelay == 0);
-        _establish(mode, rageQuitWithdrawalsTimelock == 0);
-        _establish(mode, rageQuitTimelockStartedAt == 0);
+        _establish(mode, rageQuitEthWithdrawalsDelay == 0);
+        _establish(mode, rageQuitExtensionPeriodDuration == 0);
+        _establish(mode, rageQuitExtensionPeriodStartedAt == 0);
         _establish(mode, batchesQueueStatus == uint8(WithdrawalBatchesQueueState.Absent));
     }
 
