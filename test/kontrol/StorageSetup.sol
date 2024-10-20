@@ -177,7 +177,19 @@ contract StorageSetup is KontrolTest {
     //  ESCROW
     //
     function _getCurrentState(IEscrow _escrow) internal view returns (uint8) {
-        return uint8(_loadUInt256(address(_escrow), 0));
+        return uint8(_loadData(address(_escrow), 0, 0, 1));
+    }
+
+    function _getRageQuitExtensionPeriodDuration(IEscrow _escrow) internal view returns (uint32) {
+        return uint32(_loadData(address(_escrow), 0, 5, 4));
+    }
+
+    function _getRageQuitExtensionPeriodStartedAt(IEscrow _escrow) internal view returns (uint40) {
+        return uint40(_loadData(address(_escrow), 0, 9, 5));
+    }
+
+    function _getRageQuitEthWithdrawalsDelay(IEscrow _escrow) internal view returns (uint32) {
+        return uint32(_loadData(address(_escrow), 0, 14, 4));
     }
 
     function _getStEthLockedShares(IEscrow _escrow) internal view returns (uint128) {
@@ -206,18 +218,6 @@ contract StorageSetup is KontrolTest {
 
     function _getBatchesQueueStatus(IEscrow _escrow) internal view returns (uint8) {
         return uint8(_loadUInt256(address(_escrow), 5));
-    }
-
-    function _getRageQuitExtensionDelay(IEscrow _escrow) internal view returns (uint32) {
-        return uint32(_loadUInt256(address(_escrow), 9));
-    }
-
-    function _getRageQuitWithdrawalsTimelock(IEscrow _escrow) internal view returns (uint32) {
-        return uint32(_loadUInt256(address(_escrow), 9) >> 32);
-    }
-
-    function _getRageQuitTimelockStartedAt(IEscrow _escrow) internal view returns (uint40) {
-        return uint40(_loadUInt256(address(_escrow), 9) >> 64);
     }
 
     struct AccountingRecord {
@@ -365,9 +365,9 @@ contract StorageSetup is KontrolTest {
 
     function escrowStorageInvariants(Mode mode, IEscrow _escrow) external {
         uint8 batchesQueueStatus = _getBatchesQueueStatus(_escrow);
-        uint32 rageQuitExtensionDelay = _getRageQuitExtensionDelay(_escrow);
+        uint32 rageQuitExtensionDelay = _getRageQuitEthWithdrawalsDelay(_escrow);
         uint32 rageQuitWithdrawalsTimelock = _getRageQuitWithdrawalsTimelock(_escrow);
-        uint40 rageQuitTimelockStartedAt = _getRageQuitTimelockStartedAt(_escrow);
+        uint40 rageQuitTimelockStartedAt = _getRageQuitExtensionPeriodStartedAt(_escrow);
 
         _establish(mode, batchesQueueStatus < 3);
         _establish(mode, rageQuitExtensionDelay <= block.timestamp);
@@ -380,9 +380,9 @@ contract StorageSetup is KontrolTest {
         uint128 claimedEth = _getClaimedEth(_escrow);
         uint128 unfinalizedShares = _getUnfinalizedShares(_escrow);
         uint128 finalizedEth = _getFinalizedEth(_escrow);
-        uint32 rageQuitExtensionDelay = _getRageQuitExtensionDelay(_escrow);
+        uint32 rageQuitExtensionDelay = _getRageQuitEthWithdrawalsDelay(_escrow);
         uint32 rageQuitWithdrawalsTimelock = _getRageQuitWithdrawalsTimelock(_escrow);
-        uint40 rageQuitTimelockStartedAt = _getRageQuitTimelockStartedAt(_escrow);
+        uint40 rageQuitTimelockStartedAt = _getRageQuitExtensionPeriodStartedAt(_escrow);
 
         vm.assume(lockedShares < ethUpperBound);
         vm.assume(claimedEth < ethUpperBound);
@@ -404,9 +404,9 @@ contract StorageSetup is KontrolTest {
     }
 
     function signallingEscrowStorageInvariants(Mode mode, IEscrow _signallingEscrow) external {
-        uint32 rageQuitExtensionDelay = _getRageQuitExtensionDelay(_signallingEscrow);
+        uint32 rageQuitExtensionDelay = _getRageQuitEthWithdrawalsDelay(_signallingEscrow);
         uint32 rageQuitWithdrawalsTimelock = _getRageQuitWithdrawalsTimelock(_signallingEscrow);
-        uint40 rageQuitTimelockStartedAt = _getRageQuitTimelockStartedAt(_signallingEscrow);
+        uint40 rageQuitTimelockStartedAt = _getRageQuitExtensionPeriodStartedAt(_signallingEscrow);
         uint8 batchesQueueStatus = _getBatchesQueueStatus(_signallingEscrow);
 
         _establish(mode, rageQuitExtensionDelay == 0);
