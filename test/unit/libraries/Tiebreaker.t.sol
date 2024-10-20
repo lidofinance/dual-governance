@@ -321,16 +321,16 @@ contract TiebreakerTest is UnitTest {
         // check edge case when resumeSinceTimestamp == block.timestamp + tiebreakerActivationTimeout
         _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp + tiebreakerActivationTimeout.toSeconds());
 
-        // tiebreaker activation should be allowed
-        this.external__checkTie(DualGovernanceState.RageQuit, normalOrVetoCooldownExitedAt);
-
-        // but when resumeSinceTimestamp  == block.timestamp + tiebreakerActivationTimeout - 1
-        _mockSealableResumeSinceTimestampResult(
-            _SEALABLE, block.timestamp + tiebreakerActivationTimeout.toSeconds() - 1
-        );
-
         // tiebreaker activation is not allowed
         vm.expectRevert(Tiebreaker.TiebreakNotAllowed.selector);
+        this.external__checkTie(DualGovernanceState.RageQuit, normalOrVetoCooldownExitedAt);
+
+        // but when resumeSinceTimestamp  == block.timestamp + tiebreakerActivationTimeout + 1
+        _mockSealableResumeSinceTimestampResult(
+            _SEALABLE, block.timestamp + tiebreakerActivationTimeout.toSeconds() + 1
+        );
+
+        // tiebreaker activation is allowed
         this.external__checkTie(DualGovernanceState.RageQuit, normalOrVetoCooldownExitedAt);
 
         // if the DG locked for a long period of time, tiebreak becomes allowed in any state
