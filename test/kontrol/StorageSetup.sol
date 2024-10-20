@@ -101,7 +101,8 @@ contract StorageSetup is KontrolTest {
 
         // Slot 6:
         uint256 currentState = kevm.freshUInt(1);
-        vm.assume(currentState <= 4);
+        vm.assume(currentState != 0); // Cannot be Unset as dual governance was initialised
+        vm.assume(currentState <= 5);
         uint256 enteredAt = kevm.freshUInt(5);
         vm.assume(enteredAt <= block.timestamp);
         vm.assume(enteredAt < timeUpperBound);
@@ -141,7 +142,7 @@ contract StorageSetup is KontrolTest {
         uint40 normalOrVetoCooldownExitedAt = _getNormalOrVetoCooldownExitedAt(_dualGovernance);
         uint8 rageQuitRound = _getRageQuitRound(_dualGovernance);
 
-        _establish(mode, currentState <= 4);
+        _establish(mode, currentState <= 5);
         _establish(mode, enteredAt <= block.timestamp);
         _establish(mode, vetoSignallingActivationTime <= block.timestamp);
         _establish(mode, vetoSignallingReactivationTime <= block.timestamp);

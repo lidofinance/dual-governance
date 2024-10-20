@@ -19,7 +19,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
      */
     function testTransitionNormalToVetoSignalling() external {
         PercentD16 rageQuitSupport = signallingEscrow.getRageQuitSupport();
-        vm.assume(rageQuitSupport >= config.FIRST_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(rageQuitSupport > config.FIRST_SEAL_RAGE_QUIT_SUPPORT());
         vm.assume(dualGovernance.getPersistedState() == State.Normal);
         dualGovernance.activateNextState();
         assert(dualGovernance.getPersistedState() == State.VetoSignalling);
@@ -79,9 +79,9 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         ImmutableDualGovernanceConfigProvider _config,
         PercentD16 rageQuitSupport
     ) public view returns (Duration) {
-        if (rageQuitSupport < _config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) {
+        if (rageQuitSupport <= _config.FIRST_SEAL_RAGE_QUIT_SUPPORT()) {
             return Durations.ZERO;
-        } else if (rageQuitSupport < _config.SECOND_SEAL_RAGE_QUIT_SUPPORT()) {
+        } else if (rageQuitSupport <= _config.SECOND_SEAL_RAGE_QUIT_SUPPORT()) {
             return _linearInterpolation(_config, rageQuitSupport);
         } else {
             return _config.VETO_SIGNALLING_MAX_DURATION();
@@ -306,7 +306,7 @@ contract VetoSignallingTest is DualGovernanceSetUp {
         vm.assume(block.timestamp < timeUpperBound);
         vm.assume(lastInteractionTimestamp < timeUpperBound);
         vm.assume(signallingEscrow.getRageQuitSupport() <= maxRageQuitSupport);
-        vm.assume(maxRageQuitSupport < config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+        vm.assume(maxRageQuitSupport <= config.SECOND_SEAL_RAGE_QUIT_SUPPORT());
 
         StateRecord memory previous = _recordPreviousState(
             Timestamp.wrap(uint40(lastInteractionTimestamp)), previousRageQuitSupport, maxRageQuitSupport
