@@ -175,7 +175,7 @@ library Tiebreaker {
         return state == DualGovernanceState.RageQuit && isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty(self);
     }
 
-    /// @notice Checks if any sealable withdrawal blocker has been paused for a duration that exceeds
+    /// @notice Determines whether any sealable withdrawal blocker has been paused for a duration exceeding
     ///     `tiebreakerActivationTimeout`, or if it is functioning improperly.
     /// @param self The context containing the sealable withdrawal blockers.
     /// @return True if any sealable withdrawal blocker is paused for a duration exceeding `tiebreakerActivationTimeout`
@@ -186,15 +186,18 @@ library Tiebreaker {
         returns (bool)
     {
         uint256 sealableWithdrawalBlockersCount = self.sealableWithdrawalBlockers.length();
-        uint256 tiebreakAllowedTillTimestampInSeconds =
+
+        /// @dev If a sealable has been paused for less than or equal to the `tiebreakerActivationTimeout` duration,
+        ///     counting from the current `block.timestamp`, it is not considered paused for the "long term", and the
+        ///     tiebreaker committee is not permitted to unpause it.
+        uint256 tiebreakAllowedAfterTimestampInSeconds =
             self.tiebreakerActivationTimeout.addTo(Timestamps.now()).toSeconds();
 
         for (uint256 i = 0; i < sealableWithdrawalBlockersCount; ++i) {
-            (bool isCallSucceed, uint256 resumeSinceTimestampInSeconds) =
+            (bool isCallSucceed, uint256 sealableResumeSinceTimestampInSeconds) =
                 SealableCalls.callGetResumeSinceTimestamp(self.sealableWithdrawalBlockers.at(i));
-            /// @dev If the call failed, mark the sealable as faulty.
-            ///     Otherwise, consider it paused if its pause duration exceeds `tiebreakerActivationTimeout`.
-            if (!isCallSucceed || tiebreakAllowedTillTimestampInSeconds <= resumeSinceTimestampInSeconds) {
+
+            if (!isCallSucceed || sealableResumeSinceTimestampInSeconds > tiebreakAllowedAfterTimestampInSeconds) {
                 return true;
             }
         }
