@@ -192,27 +192,24 @@ contract StorageSetup is KontrolTest {
         return uint32(_loadData(address(_escrow), 0, 14, 4));
     }
 
-    //
-    //  STUCK HERE
-    //
     function _getStEthLockedShares(IEscrow _escrow) internal view returns (uint128) {
-        return uint128(_loadUInt256(address(_escrow), 1));
+        return uint128(_loadData(address(_escrow), 1, 0, 16));
     }
 
     function _getClaimedEth(IEscrow _escrow) internal view returns (uint128) {
-        return uint128(_loadUInt256(address(_escrow), 1) >> 128);
+        return uint128(_loadData(address(_escrow), 1, 16, 16));
     }
 
     function _getUnfinalizedShares(IEscrow _escrow) internal view returns (uint128) {
-        return uint128(_loadUInt256(address(_escrow), 2));
+        return uint128(_loadData(address(_escrow), 2, 0, 16));
     }
 
     function _getFinalizedEth(IEscrow _escrow) internal view returns (uint128) {
-        return uint128(_loadUInt256(address(_escrow), 2) >> 128);
+        return uint128(_loadData(address(_escrow), 2, 16, 16));
     }
 
     function _getLastAssetsLockTimestamp(IEscrow _escrow, address _vetoer) internal view returns (uint256) {
-        uint256 assetsSlot = 3;
+        uint256 assetsSlot = 2;
         uint256 vetoerAddressPadded = uint256(uint160(_vetoer));
         bytes32 vetoerAssetsSlot = keccak256(abi.encodePacked(vetoerAddressPadded, assetsSlot));
         uint256 lastAssetsLockTimestampSlot = uint256(vetoerAssetsSlot) + 1;
@@ -220,7 +217,7 @@ contract StorageSetup is KontrolTest {
     }
 
     function _getBatchesQueueStatus(IEscrow _escrow) internal view returns (uint8) {
-        return uint8(_loadUInt256(address(_escrow), 5));
+        return uint8(_loadData(address(_escrow), 5, 0, 1));
     }
 
     struct AccountingRecord {
@@ -284,6 +281,9 @@ contract StorageSetup is KontrolTest {
         _establish(mode, ar1.userLastLockedTime == ar2.userLastLockedTime);
     }
 
+    //
+    //  STUCK HERE
+    //
     function escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowSt _currentState) external {
         kevm.symbolicStorage(address(_escrow));
         // Slot 0
