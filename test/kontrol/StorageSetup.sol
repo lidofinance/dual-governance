@@ -284,10 +284,8 @@ contract StorageSetup is KontrolTest {
     //
     //  STUCK HERE
     //
-    function escrowStorageSetup(IEscrow _escrow, DualGovernance _dualGovernance, EscrowSt _currentState) external {
+    function escrowStorageSetup(IEscrow _escrow, EscrowSt _currentState) external {
         kevm.symbolicStorage(address(_escrow));
-
-        // FIXME: WHAT TO DO WITH DUAL GOVERNANCE AND OTHER IMMUTABLES?!
 
         // Slot 0
         {
@@ -332,7 +330,6 @@ contract StorageSetup is KontrolTest {
             _storeData(address(_escrow), 2, 16, 16, finalizedEth);
         }
         // Slot 5
-        // FIXME: This branching is done to avoid the fresh existential generation bug
         if (_currentState == EscrowSt.RageQuitEscrow) {
             uint256 batchesQueueStatus = kevm.freshUInt(1);
             vm.assume(batchesQueueStatus <= 2);
@@ -340,13 +337,13 @@ contract StorageSetup is KontrolTest {
         } else {
             _storeData(address(_escrow), 5, 0, 1, 0);
         }
-        // Slot 8
+        // Slot 6
         if (_currentState == EscrowSt.RageQuitEscrow) {
             uint256 batchesQueueLength = uint256(kevm.freshUInt(32));
             vm.assume(batchesQueueLength < 2 ** 64);
-            _storeUInt256(address(_escrow), 8, batchesQueueLength);
+            _storeData(address(_escrow), 6, 0, 32, batchesQueueLength);
         } else {
-            _storeUInt256(address(_escrow), 8, 0);
+            _storeData(address(_escrow), 6, 0, 32, 0);
         }
     }
 
@@ -356,7 +353,7 @@ contract StorageSetup is KontrolTest {
         uint32 rageQuitExtensionPeriodDuration = _getRageQuitExtensionPeriodDuration(_escrow);
         uint40 rageQuitExtensionPeriodStartedAt = _getRageQuitExtensionPeriodStartedAt(_escrow);
 
-        _establish(mode, batchesQueueStatus < 3);
+        _establish(mode, batchesQueueStatus <= 2);
         _establish(mode, rageQuitEthWithdrawalsDelay <= block.timestamp);
         _establish(mode, rageQuitExtensionPeriodDuration <= block.timestamp);
         _establish(mode, rageQuitExtensionPeriodStartedAt <= block.timestamp);
@@ -380,12 +377,8 @@ contract StorageSetup is KontrolTest {
         vm.assume(rageQuitExtensionPeriodStartedAt < timeUpperBound);
     }
 
-    function escrowInitializeStorage(
-        IEscrow _escrow,
-        DualGovernance _dualGovernance,
-        EscrowSt _currentState
-    ) external {
-        this.escrowStorageSetup(_escrow, _dualGovernance, _currentState);
+    function escrowInitializeStorage(IEscrow _escrow, EscrowSt _currentState) external {
+        this.escrowStorageSetup(_escrow, _currentState);
         this.escrowStorageInvariants(Mode.Assume, _escrow);
         this.escrowAssumeBounds(_escrow);
     }
@@ -402,8 +395,8 @@ contract StorageSetup is KontrolTest {
         _establish(mode, batchesQueueStatus == uint8(WithdrawalBatchesQueueState.Absent));
     }
 
-    function signallingEscrowInitializeStorage(IEscrow _signallingEscrow, DualGovernance _dualGovernance) external {
-        this.escrowInitializeStorage(_signallingEscrow, _dualGovernance, EscrowSt.SignallingEscrow);
+    function signallingEscrowInitializeStorage(IEscrow _signallingEscrow) external {
+        this.escrowInitializeStorage(_signallingEscrow, EscrowSt.SignallingEscrow);
         this.signallingEscrowStorageInvariants(Mode.Assume, _signallingEscrow);
     }
 
@@ -413,8 +406,8 @@ contract StorageSetup is KontrolTest {
         _establish(mode, batchesQueueStatus != uint8(WithdrawalBatchesQueueState.Absent));
     }
 
-    function rageQuitEscrowInitializeStorage(IEscrow _rageQuitEscrow, DualGovernance _dualGovernance) external {
-        this.escrowInitializeStorage(_rageQuitEscrow, _dualGovernance, EscrowSt.RageQuitEscrow);
+    function rageQuitEscrowInitializeStorage(IEscrow _rageQuitEscrow) external {
+        this.escrowInitializeStorage(_rageQuitEscrow, EscrowSt.RageQuitEscrow);
         this.rageQuitEscrowStorageInvariants(Mode.Assume, _rageQuitEscrow);
     }
 }

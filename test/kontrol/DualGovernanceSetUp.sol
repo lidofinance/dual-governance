@@ -108,7 +108,7 @@ contract DualGovernanceSetUp is StorageSetup {
         // ?WORD13: rageQuitExtensionDelay
         // ?WORD14: rageQuitWithdrawalsTimelock
         // ?WORD15: rageQuitTimelockStartedAt
-        this.signallingEscrowInitializeStorage(signallingEscrow, dualGovernance);
+        this.signallingEscrowInitializeStorage(signallingEscrow);
 
         // ?STORAGE2
         // ?WORD16: lockedShares
@@ -119,7 +119,7 @@ contract DualGovernanceSetUp is StorageSetup {
         // ?WORD21: rageQuitExtensionDelay
         // ?WORD22: rageQuitWithdrawalsTimelock
         // ?WORD23: rageQuitTimelockStartedAt
-        this.rageQuitEscrowInitializeStorage(rageQuitEscrow, dualGovernance);
+        this.rageQuitEscrowInitializeStorage(rageQuitEscrow);
 
         // ?STORAGE3
         kevm.symbolicStorage(address(timelock));
