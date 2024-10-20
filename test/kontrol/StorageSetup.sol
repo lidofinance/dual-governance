@@ -15,6 +15,9 @@ import "contracts/model/WstETHAdapted.sol";
 import "test/kontrol/KontrolTest.sol";
 
 contract StorageSetup is KontrolTest {
+    //
+    //  STETH
+    //
     function stEthStorageSetup(StETHModel _stEth, IEscrow _escrow) external {
         kevm.symbolicStorage(address(_stEth));
         // Slot 0
@@ -54,32 +57,38 @@ contract StorageSetup is KontrolTest {
         vm.assume(escrowShares < ethUpperBound);
     }
 
+    //
+    //  WSTETH
+    //
     function _wstEthStorageSetup(WstETHAdapted _wstEth, IStETH _stEth) internal {
         kevm.symbolicStorage(address(_wstEth));
     }
 
+    //
+    //  DUAL GOVERNANCE
+    //
     function _getCurrentState(DualGovernance _dualGovernance) internal view returns (uint8) {
-        return uint8(_loadUInt256(address(_dualGovernance), 5));
+        return uint8(_loadData(address(_dualGovernance), 6, 0, 1));
     }
 
     function _getEnteredAt(DualGovernance _dualGovernance) internal view returns (uint40) {
-        return uint40(_loadUInt256(address(_dualGovernance), 5) >> 8);
+        return uint40(_loadData(address(_dualGovernance), 6, 1, 5));
     }
 
     function _getVetoSignallingActivationTime(DualGovernance _dualGovernance) internal view returns (uint40) {
-        return uint40(_loadUInt256(address(_dualGovernance), 5) >> 48);
-    }
-
-    function _getVetoSignallingReactivationTime(DualGovernance _dualGovernance) internal view returns (uint40) {
-        return uint40(_loadUInt256(address(_dualGovernance), 6));
-    }
-
-    function _getLastAdoptableStateExitedAt(DualGovernance _dualGovernance) internal view returns (uint40) {
-        return uint40(_loadUInt256(address(_dualGovernance), 6) >> 40);
+        return uint40(_loadData(address(_dualGovernance), 6, 6, 5));
     }
 
     function _getRageQuitRound(DualGovernance _dualGovernance) internal view returns (uint8) {
-        return uint8(_loadUInt256(address(_dualGovernance), 6) >> 240);
+        return uint8(_loadData(address(_dualGovernance), 6, 31, 1));
+    }
+
+    function _getVetoSignallingReactivationTime(DualGovernance _dualGovernance) internal view returns (uint40) {
+        return uint40(_loadData(address(_dualGovernance), 7, 0, 5));
+    }
+
+    function _getNormalOrVetoCooldownExitedAt(DualGovernance _dualGovernance) internal view returns (uint40) {
+        return uint40(_loadData(address(_dualGovernance), 7, 5, 5));
     }
 
     function dualGovernanceStorageSetup(
@@ -89,47 +98,39 @@ contract StorageSetup is KontrolTest {
         IDualGovernanceConfigProvider _config
     ) external {
         kevm.symbolicStorage(address(_dualGovernance));
-        // Slot 6 + 0 = 6
-        uint8 currentState = uint8(kevm.freshUInt(1));
+
+        // Slot 6:
+        uint256 currentState = kevm.freshUInt(1);
         vm.assume(currentState <= 4);
-        uint40 enteredAt = uint40(kevm.freshUInt(5));
+        uint256 enteredAt = kevm.freshUInt(5);
         vm.assume(enteredAt <= block.timestamp);
         vm.assume(enteredAt < timeUpperBound);
-        uint40 vetoSignallingActivationTime = uint40(kevm.freshUInt(5));
+        uint256 vetoSignallingActivationTime = kevm.freshUInt(5);
         vm.assume(vetoSignallingActivationTime <= block.timestamp);
         vm.assume(vetoSignallingActivationTime < timeUpperBound);
-        uint8 rageQuitRound = uint8(kevm.freshUInt(1));
+        uint256 rageQuitRound = kevm.freshUInt(1);
         vm.assume(rageQuitRound < type(uint8).max);
-        bytes memory slot6Abi = abi.encodePacked(
-            uint8(rageQuitRound),
-            uint160(address(_signallingEscrow)),
-            uint40(vetoSignallingActivationTime),
-            uint40(enteredAt),
-            uint8(currentState)
-        );
-        bytes32 slot6;
-        assembly {
-            slot6 := mload(add(slot6Abi, 0x20))
-        }
-        _storeBytes32(address(_dualGovernance), 6, slot6);
-        // Slot 6 + 1 = 7
-        uint40 vetoSignallingReactivationTime = uint40(kevm.freshUInt(5));
+
+        _storeData(address(_dualGovernance), 6, 0, 1, currentState);
+        _storeData(address(_dualGovernance), 6, 1, 5, enteredAt);
+        _storeData(address(_dualGovernance), 6, 6, 5, vetoSignallingActivationTime);
+        _storeData(address(_dualGovernance), 6, 11, 20, uint256(uint160(address(_signallingEscrow))));
+        _storeData(address(_dualGovernance), 6, 31, 1, rageQuitRound);
+
+        // Slot 7
+        uint256 vetoSignallingReactivationTime = kevm.freshUInt(5);
         vm.assume(vetoSignallingReactivationTime <= block.timestamp);
         vm.assume(vetoSignallingReactivationTime < timeUpperBound);
-        uint40 lastAdoptableStateExitedAt = uint40(kevm.freshUInt(5));
-        vm.assume(lastAdoptableStateExitedAt <= block.timestamp);
-        vm.assume(lastAdoptableStateExitedAt < timeUpperBound);
-        bytes memory slot7Abi = abi.encodePacked(
-            uint16(0),
-            uint160(address(_rageQuitEscrow)),
-            uint40(lastAdoptableStateExitedAt),
-            uint40(vetoSignallingReactivationTime)
-        );
-        bytes32 slot7;
-        assembly {
-            slot7 := mload(add(slot7Abi, 0x20))
-        }
-        _storeBytes32(address(_dualGovernance), 7, slot7);
+        uint256 normalOrVetoCooldownExitedAt = kevm.freshUInt(5);
+        vm.assume(normalOrVetoCooldownExitedAt <= block.timestamp);
+        vm.assume(normalOrVetoCooldownExitedAt < timeUpperBound);
+
+        _storeData(address(_dualGovernance), 7, 0, 5, vetoSignallingReactivationTime);
+        _storeData(address(_dualGovernance), 7, 5, 5, normalOrVetoCooldownExitedAt);
+        _storeData(address(_dualGovernance), 7, 10, 20, uint256(uint160(address(_rageQuitEscrow))));
+
+        // Slot 8
+        _storeData(address(_dualGovernance), 8, 0, 20, uint256(uint160(address(_config))));
     }
 
     function dualGovernanceStorageInvariants(Mode mode, DualGovernance _dualGovernance) external {
@@ -137,27 +138,27 @@ contract StorageSetup is KontrolTest {
         uint40 enteredAt = _getEnteredAt(_dualGovernance);
         uint40 vetoSignallingActivationTime = _getVetoSignallingActivationTime(_dualGovernance);
         uint40 vetoSignallingReactivationTime = _getVetoSignallingReactivationTime(_dualGovernance);
-        uint40 lastAdoptableStateExitedAt = _getLastAdoptableStateExitedAt(_dualGovernance);
+        uint40 normalOrVetoCooldownExitedAt = _getNormalOrVetoCooldownExitedAt(_dualGovernance);
         uint8 rageQuitRound = _getRageQuitRound(_dualGovernance);
 
         _establish(mode, currentState <= 4);
         _establish(mode, enteredAt <= block.timestamp);
         _establish(mode, vetoSignallingActivationTime <= block.timestamp);
         _establish(mode, vetoSignallingReactivationTime <= block.timestamp);
-        _establish(mode, lastAdoptableStateExitedAt <= block.timestamp);
+        _establish(mode, normalOrVetoCooldownExitedAt <= block.timestamp);
     }
 
     function dualGovernanceAssumeBounds(DualGovernance _dualGovernance) external {
         uint40 enteredAt = _getEnteredAt(_dualGovernance);
         uint40 vetoSignallingActivationTime = _getVetoSignallingActivationTime(_dualGovernance);
         uint40 vetoSignallingReactivationTime = _getVetoSignallingReactivationTime(_dualGovernance);
-        uint40 lastAdoptableStateExitedAt = _getLastAdoptableStateExitedAt(_dualGovernance);
+        uint40 normalOrVetoCooldownExitedAt = _getNormalOrVetoCooldownExitedAt(_dualGovernance);
         uint8 rageQuitRound = _getRageQuitRound(_dualGovernance);
 
         vm.assume(enteredAt < timeUpperBound);
         vm.assume(vetoSignallingActivationTime < timeUpperBound);
         vm.assume(vetoSignallingReactivationTime < timeUpperBound);
-        vm.assume(lastAdoptableStateExitedAt < timeUpperBound);
+        vm.assume(normalOrVetoCooldownExitedAt < timeUpperBound);
         vm.assume(rageQuitRound < type(uint8).max);
     }
 
@@ -172,6 +173,9 @@ contract StorageSetup is KontrolTest {
         this.dualGovernanceAssumeBounds(_dualGovernance);
     }
 
+    //
+    //  ESCROW
+    //
     function _getCurrentState(IEscrow _escrow) internal view returns (uint8) {
         return uint8(_loadUInt256(address(_escrow), 0));
     }

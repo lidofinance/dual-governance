@@ -13,7 +13,7 @@ import "contracts/ResealManager.sol";
 
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
-import {Duration} from "contracts/types/Duration.sol";
+import {Duration, Durations} from "contracts/types/Duration.sol";
 
 import "test/kontrol/StorageSetup.sol";
 
@@ -47,6 +47,25 @@ contract DualGovernanceSetUp is StorageSetup {
         address emergencyGovernance = address(uint160(uint256(keccak256("emergencyGovernance"))));
         address adminProposer = address(uint160(uint256(keccak256("adminProposer"))));
 
+        governanceConfig = DualGovernanceConfig.Context({
+            firstSealRageQuitSupport: PercentsD16.fromBasisPoints(3_00), // 3%
+            secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00), // 15%
+            //
+            minAssetsLockDuration: Durations.from(5 hours),
+            //
+            vetoSignallingMinDuration: Durations.from(3 days),
+            vetoSignallingMaxDuration: Durations.from(30 days),
+            vetoSignallingMinActiveDuration: Durations.from(5 hours),
+            vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
+            //
+            vetoCooldownDuration: Durations.from(4 days),
+            //
+            rageQuitExtensionPeriodDuration: Durations.from(7 days),
+            rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+            rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+            rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
+        });
+
         config = new ImmutableDualGovernanceConfigProvider(governanceConfig);
         timelock = new EmergencyProtectedTimelock(timelockSanityCheckParams, adminExecutor);
         resealManager = new ResealManager(timelock);
@@ -76,7 +95,7 @@ contract DualGovernanceSetUp is StorageSetup {
         // ?WORD3: enteredAt
         // ?WORD4: vetoSignallingActivationTime
         // ?WORD5: vetoSignallingReactivationTime
-        // ?WORD6: lastAdoptableStaateExitedAt
+        // ?WORD6: normalOrVetoCooldownExitedAt
         // ?WORD7: rageQuitRound
         this.dualGovernanceInitializeStorage(dualGovernance, signallingEscrow, rageQuitEscrow, config);
 
