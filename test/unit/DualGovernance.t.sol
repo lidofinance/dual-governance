@@ -11,6 +11,7 @@ import {Escrow} from "contracts/Escrow.sol";
 import {Executor} from "contracts/Executor.sol";
 import {DualGovernance, State, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
 import {Tiebreaker} from "contracts/libraries/Tiebreaker.sol";
+import {Resealer} from "contracts/libraries/Resealer.sol";
 import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
 import {IResealManager} from "contracts/interfaces/IResealManager.sol";
@@ -39,6 +40,7 @@ contract DualGovernanceUnitTests is UnitTest {
     Executor private _executor = new Executor(address(this));
 
     address private vetoer = makeAddr("vetoer");
+    address private resealCommittee = makeAddr("resealCommittee");
 
     StETHMock private immutable _STETH_MOCK = new StETHMock();
     IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock();
@@ -95,6 +97,12 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encodeWithSelector(DualGovernance.registerProposer.selector, address(this), address(_executor))
         );
 
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
+        );
+
         _escrow = Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
         _STETH_MOCK.mint(vetoer, 10 ether);
         vm.prank(vetoer);
@@ -115,7 +123,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.EscrowMasterCopyDeployed(IEscrow(predictedEscrowCopyAddress));
         vm.expectEmit();
-        emit DualGovernance.ResealManagerSet(address(_RESEAL_MANAGER_STUB));
+        emit Resealer.ResealManagerSet(address(_RESEAL_MANAGER_STUB));
 
         Duration minTiebreakerActivationTimeout = Durations.from(30 days);
         Duration maxTiebreakerActivationTimeout = Durations.from(180 days);
@@ -2022,14 +2030,7 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function test_resealSealable_HappyPath() external {
-        address resealCommittee = makeAddr("RESEAL_COMMITTEE");
         address sealable = address(new SealableMock());
-
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
-        );
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
@@ -2069,14 +2070,7 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function test_resealSealable_RevertOn_NormalState() external {
-        address resealCommittee = makeAddr("RESEAL_COMMITTEE");
         address sealable = address(new SealableMock());
-
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
-        );
 
         assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
@@ -2090,14 +2084,13 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function testFuzz_setResealCommittee_HappyPath(address newResealCommittee) external {
-        vm.expectEmit();
-        emit DualGovernance.ResealCommitteeSet(newResealCommittee);
-
+        vm.assume(newResealCommittee != resealCommittee);
         _executor.execute(
             address(_dualGovernance),
             0,
             abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
         );
+        assertEq(newResealCommittee, address(_dualGovernance.getResealCommittee()));
     }
 
     function testFuzz_setResealCommittee_RevertOn_NotAdminExecutor(address stranger) external {
@@ -2108,21 +2101,6 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.setResealCommittee(makeAddr("NEW_RESEAL_COMMITTEE"));
     }
 
-    function testFuzz_setResealCommittee_RevertOn_InvalidResealCommittee(address newResealCommittee) external {
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
-        );
-
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealCommittee.selector, newResealCommittee));
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
-        );
-    }
-
     // ---
     // setResealManager()
     // ---
@@ -2130,29 +2108,10 @@ contract DualGovernanceUnitTests is UnitTest {
     function testFuzz_setResealManager_HappyPath(address newResealManager) external {
         vm.assume(newResealManager != address(0) && newResealManager != address(_RESEAL_MANAGER_STUB));
 
-        vm.expectEmit();
-        emit DualGovernance.ResealManagerSet(newResealManager);
-
         _executor.execute(
             address(_dualGovernance),
             0,
             abi.encodeWithSelector(DualGovernance.setResealManager.selector, newResealManager)
-        );
-    }
-
-    function test_setResealManager_RevertOn_InvalidAddress() external {
-        vm.expectRevert(
-            abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(_RESEAL_MANAGER_STUB))
-        );
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(_RESEAL_MANAGER_STUB))
-        );
-
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealManager.selector, address(0)));
-        _executor.execute(
-            address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setResealManager.selector, address(0))
         );
     }
 
@@ -2170,6 +2129,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
     function testFuzz_getResealManager_HappyPath(address newResealManager) external {
         vm.assume(newResealManager != address(_RESEAL_MANAGER_STUB));
+        vm.assume(newResealManager != address(0));
 
         _executor.execute(
             address(_dualGovernance),
@@ -2178,6 +2138,20 @@ contract DualGovernanceUnitTests is UnitTest {
         );
 
         assertEq(newResealManager, address(_dualGovernance.getResealManager()));
+    }
+
+    // ---
+    // getResealCommittee()
+    // ---
+
+    function testFuzz_getResealCommittee_HappyPath(address newResealCommittee) external {
+        vm.assume(newResealCommittee != resealCommittee);
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
+        );
+        assertEq(newResealCommittee, address(_dualGovernance.getResealCommittee()));
     }
 
     // ---

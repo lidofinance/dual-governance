@@ -977,6 +977,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     }
 
     function testFuzz_getAdminExecutor(address executor) external {
+        vm.assume(executor != address(0));
         EmergencyProtectedTimelock timelock = new EmergencyProtectedTimelock(
             EmergencyProtectedTimelock.SanityCheckParams({
                 maxAfterSubmitDelay: Durations.from(45 days),

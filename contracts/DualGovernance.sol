@@ -45,8 +45,6 @@ contract DualGovernance is IDualGovernance {
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
-    error InvalidResealManager(address resealManager);
-    error InvalidResealCommittee(address resealCommittee);
 
     // ---
     // Events
@@ -55,8 +53,6 @@ contract DualGovernance is IDualGovernance {
     event CancelAllPendingProposalsSkipped();
     event CancelAllPendingProposalsExecuted();
     event EscrowMasterCopyDeployed(IEscrow escrowMasterCopy);
-    event ResealCommitteeSet(address resealCommittee);
-    event ResealManagerSet(address resealManager);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -132,6 +128,7 @@ contract DualGovernance is IDualGovernance {
     /// @dev The state machine implementation controlling the state of the Dual Governance.
     DualGovernanceStateMachine.Context internal _stateMachine;
 
+    /// @dev The functionality for sealing/resuming critical components of Lido protocol.
     Resealer.Context internal _resealer;
 
     // ---
@@ -439,7 +436,7 @@ contract DualGovernance is IDualGovernance {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
         _tiebreaker.checkTie(_stateMachine.getPersistedState(), _stateMachine.normalOrVetoCooldownExitedAt);
-        _resealer.resume(sealable);
+        _resealer.resealManager.resume(sealable);
     }
 
     /// @notice Allows the tiebreaker committee to schedule for execution a submitted proposal when
@@ -476,7 +473,8 @@ contract DualGovernance is IDualGovernance {
         if (_stateMachine.getPersistedState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
-        _resealer.reseal(sealable);
+        _resealer.checkCallerIsResealCommittee();
+        _resealer.resealManager.reseal(sealable);
     }
 
     /// @notice Sets the address of the reseal committee.
@@ -497,6 +495,12 @@ contract DualGovernance is IDualGovernance {
     /// @return resealManager The address of the Reseal Manager.
     function getResealManager() external view returns (IResealManager) {
         return _resealer.resealManager;
+    }
+
+    /// @notice Gets the address of the reseal committee.
+    /// @return resealCommittee The address of the reseal committee.
+    function getResealCommittee() external view returns (address) {
+        return _resealer.resealCommittee;
     }
 
     // ---
