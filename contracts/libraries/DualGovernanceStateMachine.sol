@@ -265,6 +265,11 @@ library DualGovernanceStateMachine {
     ) internal view returns (bool) {
         State state = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
         if (state == State.Normal) return true;
+
+        /// @dev The `vetoSignallingActivatedAt` timestamp is only updated when the state transitions into `VetoSignalling`.
+        ///     This ensures that, when checking the effective state, the expression below uses the most up-to-date
+        ///     `vetoSignallingActivatedAt`. If checking against the persisted state, it is assumed that `activateNextState()`
+        ///     has been invoked beforehand to ensure the persisted state is current.
         if (state == State.VetoCooldown) return proposalSubmittedAt <= self.vetoSignallingActivatedAt;
         return false;
     }
