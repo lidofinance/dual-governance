@@ -10,10 +10,12 @@ library TimelockState {
     error InvalidGovernance(address value);
     error InvalidAfterSubmitDelay(Duration value);
     error InvalidAfterScheduleDelay(Duration value);
+    error InvalidAdminExecutor(address adminExecutor);
 
     event GovernanceSet(address newGovernance);
     event AfterSubmitDelaySet(Duration newAfterSubmitDelay);
     event AfterScheduleDelaySet(Duration newAfterScheduleDelay);
+    event AdminExecutorSet(address newAdminExecutor);
 
     struct Context {
         /// @dev slot0 [0..159]
@@ -22,6 +24,8 @@ library TimelockState {
         Duration afterSubmitDelay;
         /// @dev slot0 [192..224]
         Duration afterScheduleDelay;
+        /// @dev slot1 [0..159]
+        address adminExecutor;
     }
 
     /// @notice Sets the governance address.
@@ -68,6 +72,18 @@ library TimelockState {
         }
         self.afterScheduleDelay = newAfterScheduleDelay;
         emit AfterScheduleDelaySet(newAfterScheduleDelay);
+    }
+
+    /// @notice Sets the admin executor address.
+    /// @dev Reverts if the new admin executor address is zero or the same as the current one.
+    /// @param self The context of the timelock state.
+    /// @param newAdminExecutor The new admin executor address.
+    function setAdminExecutor(Context storage self, address newAdminExecutor) internal {
+        if (newAdminExecutor == address(0) || newAdminExecutor == self.adminExecutor) {
+            revert InvalidAdminExecutor(newAdminExecutor);
+        }
+        self.adminExecutor = newAdminExecutor;
+        emit AdminExecutorSet(newAdminExecutor);
     }
 
     /// @notice Gets the after submit delay.
