@@ -113,7 +113,8 @@ library DeployVerification {
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
         require(
-            timelockInstance.isEmergencyProtectionEnabled() == true,
+            timelockInstance.isEmergencyProtectionEnabled()
+                == (details.emergencyProtectionEndsAfter >= Timestamps.now()),
             "EmergencyProtection is Disabled in EmergencyProtectedTimelock"
         );
         require(
