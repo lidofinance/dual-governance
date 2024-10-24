@@ -1844,8 +1844,12 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
         assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
 
-        // Simulate the sealable withdrawal blocker was paused
-        vm.mockCall(address(sealable), abi.encodeWithSelector(SealableMock.isPaused.selector), abi.encode(true));
+        // Simulate the sealable withdrawal blocker was paused indefinitely
+        vm.mockCall(
+            address(sealable),
+            abi.encodeWithSelector(SealableMock.getResumeSinceTimestamp.selector),
+            abi.encode(type(uint256).max)
+        );
 
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
@@ -1859,7 +1863,9 @@ contract DualGovernanceUnitTests is UnitTest {
         assertTrue(_dualGovernance.getTiebreakerDetails().isTie);
 
         // Return sealable to unpaused state for further testing
-        vm.mockCall(address(sealable), abi.encodeWithSelector(SealableMock.isPaused.selector), abi.encode(false));
+        vm.mockCall(
+            address(sealable), abi.encodeWithSelector(SealableMock.getResumeSinceTimestamp.selector), abi.encode(0)
+        );
         assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
 
         _wait(tiebreakerActivationTimeout);
