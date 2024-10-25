@@ -25,7 +25,7 @@ jobs:
       env:
         MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
       run: |
-        forge test --rpc-url $MAINNET_RPC_URL --report report.json
+        forge test --report report.json
 
     - name: Upload test report
       uses: actions/upload-artifact@v3
