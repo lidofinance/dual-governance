@@ -11,6 +11,7 @@ import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 
 import {Escrow, VetoerState, LockedAssetsTotals, WithdrawalsBatchesQueue} from "contracts/Escrow.sol";
+import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
 import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
 
@@ -542,6 +543,57 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         // The attempt to unlock funds from Escrow will fail
         vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
         this.externalUnlockStETH(_VETOER_1);
+    }
+
+    function testFork_EdgeCase_frontRunningClaimUnStethFromBatchIsForbidden() external {
+        // Prepare vetoer1 unstETH nft to lock in Escrow
+        uint256 requestAmount = 10 * 1e18;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[i] = requestAmount;
+        vm.prank(_VETOER_1);
+        uint256[] memory unstETHIdsVetoer1 = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
+
+        // Should be the same as vetoer1 unstETH nft
+        uint256 lastRequestIdBeforeBatch = _lido.withdrawalQueue.getLastRequestId();
+
+        // Lock ustETH nfts
+        _lockUnstETH(_VETOER_1, unstETHIdsVetoer1);
+        // Lock stETH to generate batch
+        _lockStETH(_VETOER_1, 20 * requestAmount);
+
+        vm.prank(address(_dualGovernance));
+        escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
+
+        // Generate batch with stETH locked in Escrow
+        escrow.requestNextWithdrawalsBatch(1);
+
+        // Should be the id of ustETH nft in the batch
+        uint256 requestIdFromBatch = _lido.withdrawalQueue.getLastRequestId();
+
+        // validate that the new ustEth nft is created
+        require(requestIdFromBatch == lastRequestIdBeforeBatch + 1);
+
+        _finalizeWithdrawalQueue();
+
+        // Check that ustETH nft of vetoer1 could be claimed
+        uint256[] memory unstETHIdsToClaim = new uint256[](1);
+        unstETHIdsToClaim[0] = lastRequestIdBeforeBatch;
+        uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
+            unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
+        );
+        escrow.claimUnstETH(unstETHIdsToClaim, hints);
+
+        // The attempt to claim funds of unSteth from Escrow generated batch will fail
+        unstETHIdsToClaim[0] = requestIdFromBatch;
+        hints = _lido.withdrawalQueue.findCheckpointHints(
+            unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetsAccounting.InvalidUnstETHStatus.selector, requestIdFromBatch, UnstETHRecordStatus.NotLocked
+            )
+        );
+        escrow.claimUnstETH(unstETHIdsToClaim, hints);
     }
 
     // ---
