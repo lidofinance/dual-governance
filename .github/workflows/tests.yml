@@ -1,5 +1,4 @@
 name: Run Forge Tests
-
 on: [push, pull_request]
 
 jobs:
@@ -18,8 +17,11 @@ jobs:
     - name: Install dependencies
       run: yarn install --immutable
 
-    - name: Install Forge
-      run: curl -L https://foundry.paradigm.xyz | bash
+    - name: Install Foundry and Forge
+      run: |
+        curl -L https://foundry.paradigm.xyz | bash
+        source ~/.bashrc
+        foundryup
 
     - name: Run Forge tests
       env:
