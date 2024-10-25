@@ -54,7 +54,8 @@ library Tiebreaker {
     // ---
 
     /// @notice Adds a sealable withdrawal blocker.
-    /// @dev Reverts if the maximum number of sealable withdrawal blockers is reached or if the sealable is invalid.
+    /// @dev Reverts if the maximum number of sealable withdrawal blockers is reached or
+    ///     if the sealable does not implement the `ISealable` interface of is paused at the time of the call.
     /// @param self The context storage.
     /// @param sealableWithdrawalBlocker The address of the sealable withdrawal blocker to add.
     /// @param maxSealableWithdrawalBlockersCount The maximum number of sealable withdrawal blockers allowed.
@@ -67,8 +68,8 @@ library Tiebreaker {
         if (sealableWithdrawalBlockersCount == maxSealableWithdrawalBlockersCount) {
             revert SealableWithdrawalBlockersLimitReached();
         }
-        (bool isCallSucceed, /* isPaused */ ) = SealableCalls.callIsPaused(sealableWithdrawalBlocker);
-        if (!isCallSucceed) {
+        (bool isCallSucceed, bool isPaused) = SealableCalls.callIsPaused(sealableWithdrawalBlocker);
+        if (!isCallSucceed || isPaused) {
             revert InvalidSealable(sealableWithdrawalBlocker);
         }
 

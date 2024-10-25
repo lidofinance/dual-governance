@@ -77,6 +77,12 @@ contract TiebreakerTest is UnitTest {
         vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, _SEALABLE));
 
         this.external__addSealableWithdrawalBlocker(_SEALABLE);
+
+        // revert when sealable is already paused
+        _mockSealableIsPausedReturns(_SEALABLE, true);
+        vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, _SEALABLE));
+
+        this.external__addSealableWithdrawalBlocker(_SEALABLE);
     }
 
     // ---
