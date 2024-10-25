@@ -18,6 +18,9 @@ jobs:
     - name: Install dependencies
       run: yarn install --immutable
 
+    - name: Install Forge
+      run: curl -L https://foundry.paradigm.xyz | bash
+
     - name: Run Forge tests
       env:
         MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
