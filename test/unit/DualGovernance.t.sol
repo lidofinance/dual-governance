@@ -2090,6 +2090,7 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function testFuzz_setResealCommittee_HappyPath(address newResealCommittee) external {
+        vm.assume(newResealCommittee != address(0));
         vm.expectEmit();
         emit DualGovernance.ResealCommitteeSet(newResealCommittee);
 
@@ -2109,6 +2110,7 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function testFuzz_setResealCommittee_RevertOn_InvalidResealCommittee(address newResealCommittee) external {
+        vm.assume(newResealCommittee != address(0));
         _executor.execute(
             address(_dualGovernance),
             0,
@@ -2169,6 +2171,7 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function testFuzz_getResealManager_HappyPath(address newResealManager) external {
+        vm.assume(newResealManager != address(0));
         vm.assume(newResealManager != address(_RESEAL_MANAGER_STUB));
 
         _executor.execute(
