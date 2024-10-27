@@ -342,19 +342,6 @@ library AssetsAccounting {
     }
 
     // ---
-    // Getters
-    // ---
-
-    function getLockedAssetsTotals(Context storage self)
-        internal
-        view
-        returns (SharesValue unfinalizedShares, ETHValue finalizedETH)
-    {
-        finalizedETH = self.unstETHTotals.finalizedETH;
-        unfinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
-    }
-
-    // ---
     // Checks
     // ---
 
