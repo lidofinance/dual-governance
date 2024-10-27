@@ -67,9 +67,12 @@ library Tiebreaker {
         if (sealableWithdrawalBlockersCount == maxSealableWithdrawalBlockersCount) {
             revert SealableWithdrawalBlockersLimitReached();
         }
-        (bool isCallSucceed, /* resumeSinceTimestamp */ ) =
+
+        (bool isCallSucceed, uint256 resumeSinceTimestamp) =
             SealableCalls.callGetResumeSinceTimestamp(sealableWithdrawalBlocker);
-        if (!isCallSucceed) {
+
+        // Prevents addition of paused or misbehaving sealables
+        if (!isCallSucceed || resumeSinceTimestamp >= block.timestamp) {
             revert InvalidSealable(sealableWithdrawalBlocker);
         }
 
