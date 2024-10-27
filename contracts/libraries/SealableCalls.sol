@@ -3,18 +3,16 @@ pragma solidity 0.8.26;
 
 import {ISealable} from "../interfaces/ISealable.sol";
 
-/// @dev All calls to sealable addresses less than MIN_VALID_SEALABLE_ADDRESS are treated as unsuccessful
-///     to prevent potential false positives for current or future precompiled addresses.
-address constant MIN_VALID_SEALABLE_ADDRESS = address(1024);
-
 library SealableCalls {
     /// @notice Attempts to call `ISealable.getResumeSinceTimestamp()` method, returning whether the call succeeded
     ///     and the result of the `ISealable.getResumeSinceTimestamp()` call if it succeeded.
     /// @dev Performs a static call to the `getResumeSinceTimestamp()` method on the `ISealable` interface.
     ///     Ensures that the function does not revert even if the `sealable` contract does not implement
     ///     the interface, has no code at the address, or returns unexpected data.
-    ///     Calls to addresses less than `MIN_VALID_SEALABLE_ADDRESS` are treated as unsuccessful to prevent
-    ///     potential false positives from current or future precompiled addresses.
+    ///
+    ///     IMPORTANT: `callGetResumeSinceTimestamp()` may yield false-positive results when called on certain
+    ///     precompiled contract addresses like SHA-256 (address(0x02)) or RIPEMD-160 (address(0x03)). Such cases must
+    ///     be managed outside this function.
     /// @param sealable The address of the sealable contract to check.
     /// @return success Indicates whether the call to `getResumeSinceTimestamp()` was successful.
     /// @return resumeSinceTimestamp The timestamp when the contract is expected to become unpaused.
@@ -25,10 +23,6 @@ library SealableCalls {
         view
         returns (bool success, uint256 resumeSinceTimestamp)
     {
-        if (sealable < MIN_VALID_SEALABLE_ADDRESS) {
-            return (false, 0);
-        }
-
         // Low-level call to the `getResumeSinceTimestamp` function on the `sealable` contract
         (bool isCallSucceed, bytes memory returndata) =
             sealable.staticcall(abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector));

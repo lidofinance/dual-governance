@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {stdError} from "forge-std/StdError.sol";
-import {ISealable, SealableCalls, MIN_VALID_SEALABLE_ADDRESS} from "contracts/libraries/SealableCalls.sol";
+import {ISealable, SealableCalls} from "contracts/libraries/SealableCalls.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {SealableMock} from "test/mocks/SealableMock.sol";
@@ -84,37 +84,50 @@ contract SealableCallsTest is UnitTest {
         _assertGetResumeSinceTimestampCallResult({sealable: _SEALABLE, isCallSucceed: false, resumeSinceTimestamp: 0});
     }
 
-    function test_callGetResumeSinceTimestamp_IsCallSucceedFalse_OnSealableLessThanMinValidSealableAddress() external {
-        // check addresses (0x00, 0x400) reserved for precompiles.
-        // Currently Ethereum has only precompiles for 0x01 - 0x09 but new precompiles may be added in the future
-        for (uint256 i = 0; i < uint160(MIN_VALID_SEALABLE_ADDRESS); ++i) {
-            address precompile = address(uint160(i));
+    // ---
+    // Test False Positive Results On Precompiles
+    // ---
+
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_FalsePositiveResult_On_SHA256_Precompile() external {
+        _assertGetResumeSinceTimestampCallResult({
+            sealable: address(0x2),
+            isCallSucceed: true,
+            resumeSinceTimestamp: 0xc61a1ce4443e07760aea88e1ac096cb3006c1c4284ade7873025b96c2010e1c8
+        });
+    }
+
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_FalsePositiveResult_On_RIPEMD160_Precompile() external {
+        _assertGetResumeSinceTimestampCallResult({
+            sealable: address(0x3),
+            isCallSucceed: true,
+            resumeSinceTimestamp: 0x00000000000000000000000075b4744a1c0e92713946840b9adc0cb967652b9c
+        });
+    }
+
+    // ---
+    // Other Precompiles (Split in 2 parts because of out of gas)
+    // ---
+
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part1() external {
+        for (uint160 i = 1; i < 8; ++i) {
+            // Skip SHA-256 and RIPEMD-160 precompiles which lead to false positive results
+            if (i == 0x2 || i == 0x3) continue;
             _assertGetResumeSinceTimestampCallResult({
-                sealable: precompile,
+                sealable: address(i),
                 isCallSucceed: false,
                 resumeSinceTimestamp: 0
             });
         }
+    }
 
-        address LAST_INVALID_SEALABLE_ADDRESS = address(uint160(MIN_VALID_SEALABLE_ADDRESS) - 1);
-        // assuming address MIN_VALID_SEALABLE_ADDRESS and LAST_INVALID_SEALABLE_ADDRESS has
-        // deployed bytecode which returns some value
-        _mockSealableResumeSinceTimestampResult(MIN_VALID_SEALABLE_ADDRESS, block.timestamp);
-        _mockSealableResumeSinceTimestampResult(LAST_INVALID_SEALABLE_ADDRESS, block.timestamp);
-
-        // call to the LAST_INVALID_SEALABLE_ADDRESS considered not succeed as made to precompile
-        _assertGetResumeSinceTimestampCallResult({
-            sealable: LAST_INVALID_SEALABLE_ADDRESS,
-            isCallSucceed: false,
-            resumeSinceTimestamp: 0
-        });
-
-        // but call to the MIN_VALID_SEALABLE_ADDRESS considered succeed
-        _assertGetResumeSinceTimestampCallResult({
-            sealable: MIN_VALID_SEALABLE_ADDRESS,
-            isCallSucceed: true,
-            resumeSinceTimestamp: block.timestamp
-        });
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part2() external {
+        for (uint160 i = 8; i < 12; ++i) {
+            _assertGetResumeSinceTimestampCallResult({
+                sealable: address(i),
+                isCallSucceed: false,
+                resumeSinceTimestamp: 0
+            });
+        }
     }
 
     // ---
