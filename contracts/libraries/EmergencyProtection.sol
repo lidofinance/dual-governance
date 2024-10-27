@@ -6,10 +6,14 @@ import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 import {IEmergencyProtectedTimelock} from "../interfaces/IEmergencyProtectedTimelock.sol";
 
-/// @title EmergencyProtection
-/// @dev This library manages emergency protection functionality, allowing for
-/// the activation and deactivation of emergency mode by designated committees.
+/// @title Emergency Protection Library
+/// @notice Manages emergency protection functionality, allowing for the activation and deactivation
+///     of emergency mode by designated committees.
 library EmergencyProtection {
+    // ---
+    // Errors
+    // ---
+
     error CallerIsNotEmergencyActivationCommittee(address caller);
     error CallerIsNotEmergencyExecutionCommittee(address caller);
     error EmergencyProtectionExpired(Timestamp protectedTill);
@@ -20,6 +24,10 @@ library EmergencyProtection {
     error InvalidEmergencyProtectionEndDate(Timestamp value);
     error UnexpectedEmergencyModeState(bool value);
 
+    // ---
+    // Events
+    // ---
+
     event EmergencyModeActivated();
     event EmergencyModeDeactivated();
     event EmergencyGovernanceSet(address newEmergencyGovernance);
@@ -28,6 +36,19 @@ library EmergencyProtection {
     event EmergencyModeDurationSet(Duration newEmergencyModeDuration);
     event EmergencyProtectionEndDateSet(Timestamp newEmergencyProtectionEndDate);
 
+    // ---
+    // Data Types
+    // ---
+
+    /// @notice The context of the Emergency Protection library.
+    /// @param emergencyModeEndsAfter The timestamp indicating when the emergency mode will end.
+    /// @param emergencyActivationCommittee The address of the committee authorized to activate emergency mode.
+    /// @param emergencyProtectionEndsAfter The timestamp indicating when emergency protection will expire.
+    /// @param emergencyExecutionCommittee The address of the committee authorized to execute scheduled proposals
+    ///     or reset governance to the emergency governance while in emergency mode.
+    /// @param emergencyModeDuration The duration for which the emergency mode remains active after activation.
+    /// @param emergencyGovernance The governance address to which control will be transferred if the
+    ///     emergency execution committee initiates a governance reset during emergency mode.
     struct Context {
         /// @dev slot0 [0..39]
         Timestamp emergencyModeEndsAfter;
@@ -44,11 +65,11 @@ library EmergencyProtection {
     }
 
     // ---
-    // Main functionality
+    // Main Functionality
     // ---
 
-    /// @dev Activates the emergency mode.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Activates the emergency mode, if it wasn't activated earlier
+    /// @param self The context of the Emergency Protection library
     function activateEmergencyMode(Context storage self) internal {
         Timestamp now_ = Timestamps.now();
 
@@ -60,8 +81,9 @@ library EmergencyProtection {
         emit EmergencyModeActivated();
     }
 
-    /// @dev Deactivates the emergency mode.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Deactivates the emergency mode, resetting context fields to default (except
+    ///     the emergencyGovernance value).
+    /// @param self The context of the Emergency Protection library
     function deactivateEmergencyMode(Context storage self) internal {
         self.emergencyActivationCommittee = address(0);
         self.emergencyExecutionCommittee = address(0);
@@ -72,11 +94,11 @@ library EmergencyProtection {
     }
 
     // ---
-    // Setup functionality
+    // Setup Functionality
     // ---
 
-    /// @dev Sets the emergency governance address.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Sets the emergency governance address.
+    /// @param self The context of the Emergency Protection library
     /// @param newEmergencyGovernance The new emergency governance address.
     function setEmergencyGovernance(Context storage self, address newEmergencyGovernance) internal {
         if (newEmergencyGovernance == self.emergencyGovernance) {
@@ -86,8 +108,9 @@ library EmergencyProtection {
         emit EmergencyGovernanceSet(newEmergencyGovernance);
     }
 
-    /// @dev Sets the emergency protection end date.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Sets the emergency protection end date, ensuring it does not exceed the maximum
+    ///     allowed duration.
+    /// @param self The context of the Emergency Protection library
     /// @param newEmergencyProtectionEndDate The new emergency protection end date.
     /// @param maxEmergencyProtectionDuration The maximum duration for the emergency protection.
     function setEmergencyProtectionEndDate(
@@ -105,8 +128,9 @@ library EmergencyProtection {
         emit EmergencyProtectionEndDateSet(newEmergencyProtectionEndDate);
     }
 
-    /// @dev Sets the emergency mode duration.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Sets the emergency mode duration, ensuring it does not exceed the maximum
+    ///     allowed duration.
+    /// @param self The context of the Emergency Protection library
     /// @param newEmergencyModeDuration The new emergency mode duration.
     /// @param maxEmergencyModeDuration The maximum duration for the emergency mode.
     function setEmergencyModeDuration(
@@ -125,8 +149,8 @@ library EmergencyProtection {
         emit EmergencyModeDurationSet(newEmergencyModeDuration);
     }
 
-    /// @dev Sets the emergency activation committee address.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Sets the emergency activation committee address.
+    /// @param self The context of the Emergency Protection library
     /// @param newActivationCommittee The new emergency activation committee address.
     function setEmergencyActivationCommittee(Context storage self, address newActivationCommittee) internal {
         if (newActivationCommittee == self.emergencyActivationCommittee) {
@@ -136,8 +160,8 @@ library EmergencyProtection {
         emit EmergencyActivationCommitteeSet(newActivationCommittee);
     }
 
-    /// @dev Sets the emergency execution committee address.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Sets the emergency execution committee address.
+    /// @param self The context of the Emergency Protection library
     /// @param newExecutionCommittee The new emergency execution committee address.
     function setEmergencyExecutionCommittee(Context storage self, address newExecutionCommittee) internal {
         if (newExecutionCommittee == self.emergencyExecutionCommittee) {
@@ -151,24 +175,25 @@ library EmergencyProtection {
     // Checks
     // ---
 
-    /// @dev Checks if the caller is the emergency activator and reverts if not.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Checks if the caller is the emergency activation committee and reverts if not.
+    /// @param self The context of the Emergency Protection library
     function checkCallerIsEmergencyActivationCommittee(Context storage self) internal view {
         if (self.emergencyActivationCommittee != msg.sender) {
             revert CallerIsNotEmergencyActivationCommittee(msg.sender);
         }
     }
 
-    /// @dev Checks if the caller is the emergency enactor and reverts if not.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Checks if the caller is the emergency execution committee and reverts if not.
+    /// @param self The context of the Emergency Protection library
     function checkCallerIsEmergencyExecutionCommittee(Context storage self) internal view {
         if (self.emergencyExecutionCommittee != msg.sender) {
             revert CallerIsNotEmergencyExecutionCommittee(msg.sender);
         }
     }
 
-    /// @dev Checks if the emergency mode matches with expected passed value and reverts if not.
-    /// @param self The storage reference to the Context struct.
+    /// @notice Checks whether the current state of emergency mode matches the expected state (`isActive`),
+    ///     and reverts if there is a mismatch.
+    /// @param self The context of the Emergency Protection library
     /// @param isActive The expected value of the emergency mode.
     function checkEmergencyMode(Context storage self, bool isActive) internal view {
         if (isEmergencyModeActive(self) != isActive) {
@@ -180,7 +205,7 @@ library EmergencyProtection {
     // Getters
     // ---
 
-    /// @dev Retrieves the details of the emergency protection.
+    /// @notice Retrieves the details of the emergency protection.
     /// @param self  The storage reference to the Context struct.
     /// @return details The struct containing the emergency protection details.
     function getEmergencyProtectionDetails(Context storage self)
@@ -193,24 +218,24 @@ library EmergencyProtection {
         details.emergencyProtectionEndsAfter = self.emergencyProtectionEndsAfter;
     }
 
-    /// @dev Checks if the emergency mode is activated
-    /// @param self The storage reference to the Context struct.
-    /// @return Whether the emergency mode is activated or not.
+    /// @notice Checks if the emergency mode is activated
+    /// @param self The context of the Emergency Protection library
+    /// @return bool Whether the emergency mode is activated or not.
     function isEmergencyModeActive(Context storage self) internal view returns (bool) {
         return self.emergencyModeEndsAfter.isNotZero();
     }
 
-    /// @dev Checks if the emergency mode has passed.
-    /// @param self The storage reference to the Context struct.
-    /// @return Whether the emergency mode has passed or not.
+    /// @notice Checks if the emergency mode has passed.
+    /// @param self The context of the Emergency Protection library
+    /// @return bool Whether the emergency mode has passed or not.
     function isEmergencyModeDurationPassed(Context storage self) internal view returns (bool) {
         Timestamp endsAfter = self.emergencyModeEndsAfter;
         return endsAfter.isNotZero() && Timestamps.now() > endsAfter;
     }
 
-    /// @dev Checks if the emergency protection is enabled.
-    /// @param self The storage reference to the Context struct.
-    /// @return Whether the emergency protection is enabled or not.
+    /// @notice Checks if the emergency protection is enabled.
+    /// @param self The context of the Emergency Protection library
+    /// @return bool Whether the emergency protection is enabled or not.
     function isEmergencyProtectionEnabled(Context storage self) internal view returns (bool) {
         return Timestamps.now() <= self.emergencyProtectionEndsAfter || self.emergencyModeEndsAfter.isNotZero();
     }
