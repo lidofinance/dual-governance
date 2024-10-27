@@ -1416,42 +1416,6 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     // ---
-    // getLockedAssetsTotals
-    // ---
-
-    function testFuzz_getLockedAssetsTotals_happyPath(
-        ETHValue totalFinalizedETH,
-        SharesValue totalLockedShares,
-        SharesValue totalUnfinalizedShares
-    ) external {
-        vm.assume(totalFinalizedETH.toUint256() < type(uint96).max);
-        vm.assume(totalLockedShares.toUint256() < type(uint96).max);
-        vm.assume(totalUnfinalizedShares.toUint256() < type(uint96).max);
-        _accountingContext.unstETHTotals.finalizedETH = totalFinalizedETH;
-        _accountingContext.unstETHTotals.unfinalizedShares = totalUnfinalizedShares;
-        _accountingContext.stETHTotals.lockedShares = totalLockedShares;
-
-        (SharesValue unfinalizedShares, ETHValue finalizedETH) =
-            AssetsAccounting.getLockedAssetsTotals(_accountingContext);
-
-        assertEq(unfinalizedShares, totalLockedShares + totalUnfinalizedShares);
-        assertEq(finalizedETH, totalFinalizedETH);
-    }
-
-    function test_getLockedAssetsTotals_RevertOn_UnfinalizedSharesOverflow() external {
-        ETHValue totalFinalizedETH = ETHValues.from(1);
-        SharesValue totalUnfinalizedShares = SharesValues.from(type(uint128).max - 1);
-        SharesValue totalLockedShares = SharesValues.from(type(uint128).max - 1);
-
-        _accountingContext.unstETHTotals.finalizedETH = totalFinalizedETH;
-        _accountingContext.unstETHTotals.unfinalizedShares = totalUnfinalizedShares;
-        _accountingContext.stETHTotals.lockedShares = totalLockedShares;
-
-        vm.expectRevert(SharesValueOverflow.selector);
-        AssetsAccounting.getLockedAssetsTotals(_accountingContext);
-    }
-
-    // ---
     // checkMinAssetsLockDurationPassed
     // ---
 
