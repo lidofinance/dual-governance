@@ -20,7 +20,7 @@ contract ProposersLibraryUnitTests is UnitTest {
     // ---
     function test_register_HappyPath() external {
         // adding admin proposer
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
         Proposers.Proposer[] memory allProposers = _proposers.getAllProposers();
 
         assertEq(allProposers.length, 1);
@@ -28,7 +28,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         assertEq(allProposers[0].executor, _ADMIN_EXECUTOR);
 
         // adding non admin proposer
-        _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR);
+        _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR, true);
         allProposers = _proposers.getAllProposers();
 
         assertEq(allProposers.length, 2);
@@ -38,26 +38,26 @@ contract ProposersLibraryUnitTests is UnitTest {
 
     function test_register_RevertOn_InvalidProposerAccount() external {
         vm.expectRevert(abi.encodeWithSelector(Proposers.InvalidProposerAccount.selector, address(0)));
-        _proposers.register(address(0), _ADMIN_EXECUTOR);
+        _proposers.register(address(0), _ADMIN_EXECUTOR, true);
     }
 
     function test_register_RevertOn_InvalidExecutor() external {
         vm.expectRevert(abi.encodeWithSelector(Proposers.InvalidExecutor.selector, address(0)));
-        _proposers.register(_ADMIN_PROPOSER, address(0));
+        _proposers.register(_ADMIN_PROPOSER, address(0), true);
     }
 
     function test_register_RevertOn_ProposerAlreadyRegistered() external {
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerAlreadyRegistered.selector, _ADMIN_PROPOSER));
-        _proposers.register(_ADMIN_PROPOSER, _DEFAULT_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _DEFAULT_EXECUTOR, true);
     }
 
     function test_register_Emit_ProposerRegistered() external {
         vm.expectEmit(true, true, true, false);
         emit Proposers.ProposerRegistered(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
 
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
     }
 
     // ---
@@ -65,13 +65,13 @@ contract ProposersLibraryUnitTests is UnitTest {
     // ---
 
     function test_unregister_HappyPath() external {
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
 
         assertEq(_proposers.proposers.length, 1);
         assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
         assertTrue(_proposers.isExecutor(_ADMIN_EXECUTOR));
 
-        _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR);
+        _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR, true);
         assertEq(_proposers.proposers.length, 2);
         assertTrue(_proposers.isProposer(_DEFAULT_PROPOSER));
         assertTrue(_proposers.isExecutor(_DEFAULT_EXECUTOR));
@@ -93,7 +93,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
         _proposers.unregister(_DEFAULT_PROPOSER);
 
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
 
         assertFalse(_proposers.isProposer(_DEFAULT_PROPOSER));
         assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
@@ -103,7 +103,7 @@ contract ProposersLibraryUnitTests is UnitTest {
     }
 
     function test_uregister_Emit_ProposerUnregistered() external {
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
         assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
 
         vm.expectEmit(true, true, true, false);
@@ -117,14 +117,14 @@ contract ProposersLibraryUnitTests is UnitTest {
     // ---
 
     function test_getProposer_HappyPath() external {
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
         assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
 
         Proposers.Proposer memory adminProposer = _proposers.getProposer(_ADMIN_PROPOSER);
         assertEq(adminProposer.account, _ADMIN_PROPOSER);
         assertEq(adminProposer.executor, _ADMIN_EXECUTOR);
 
-        _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR);
+        _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR, true);
         assertTrue(_proposers.isProposer(_DEFAULT_PROPOSER));
 
         Proposers.Proposer memory defaultProposer = _proposers.getProposer(_DEFAULT_PROPOSER);
@@ -138,7 +138,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
         _proposers.getProposer(_DEFAULT_PROPOSER);
 
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
         assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
         assertFalse(_proposers.isProposer(_DEFAULT_PROPOSER));
 
@@ -154,7 +154,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         Proposers.Proposer[] memory emptyProposers = _proposers.getAllProposers();
         assertEq(emptyProposers.length, 0);
 
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
         assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
 
         Proposers.Proposer[] memory allProposers = _proposers.getAllProposers();
@@ -163,7 +163,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         assertEq(allProposers[0].account, _ADMIN_PROPOSER);
         assertEq(allProposers[0].executor, _ADMIN_EXECUTOR);
 
-        _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR);
+        _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR, true);
         assertTrue(_proposers.isProposer(_DEFAULT_PROPOSER));
 
         allProposers = _proposers.getAllProposers();
@@ -181,7 +181,7 @@ contract ProposersLibraryUnitTests is UnitTest {
     // ---
 
     function test_unregister_Spam() external {
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
 
         address dravee = makeAddr("Dravee");
         address draveeExecutor = makeAddr("draveeExecutor");
@@ -192,10 +192,10 @@ contract ProposersLibraryUnitTests is UnitTest {
         address bob = makeAddr("Bob");
         address bobExecutor = makeAddr("bobExecutor");
 
-        _proposers.register(alice, aliceExecutor);
-        _proposers.register(bob, bobExecutor);
-        _proposers.register(celine, celineExecutor);
-        _proposers.register(dravee, draveeExecutor);
+        _proposers.register(alice, aliceExecutor, false);
+        _proposers.register(bob, bobExecutor, true);
+        _proposers.register(celine, celineExecutor, false);
+        _proposers.register(dravee, draveeExecutor, true);
 
         _proposers.unregister(bob);
         _proposers.unregister(dravee);
@@ -204,7 +204,7 @@ contract ProposersLibraryUnitTests is UnitTest {
     }
 
     function test_unregister_CorrectPosition() external {
-        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
+        _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR, true);
 
         address dravee = makeAddr("Dravee");
         address draveeExecutor = makeAddr("draveeExecutor");
@@ -215,10 +215,10 @@ contract ProposersLibraryUnitTests is UnitTest {
         address bob = makeAddr("Bob");
         address bobExecutor = makeAddr("bobExecutor");
 
-        _proposers.register(alice, aliceExecutor);
-        _proposers.register(bob, bobExecutor);
-        _proposers.register(celine, celineExecutor);
-        _proposers.register(dravee, draveeExecutor);
+        _proposers.register(alice, aliceExecutor, false);
+        _proposers.register(bob, bobExecutor, true);
+        _proposers.register(celine, celineExecutor, false);
+        _proposers.register(dravee, draveeExecutor, true);
 
         _proposers.unregister(bob);
 

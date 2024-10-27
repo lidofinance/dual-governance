@@ -95,7 +95,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, address(this), address(_executor))
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, address(this), address(_executor), true)
         );
 
         _executor.execute(
@@ -452,19 +452,21 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_timelock.lastCancelledProposalId(), 1);
     }
 
-    function test_cancelAllPendingProposals_RevertOn_NotAdminProposer() external {
+    function test_cancelAllPendingProposals_RevertOn_ProposerCanNotCancelProposers() external {
         address nonAdminProposer = makeAddr("NON_ADMIN_PROPOSER");
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, nonAdminProposer, address(0x123))
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, nonAdminProposer, address(0x123), false)
         );
         _submitMockProposal();
 
         assertEq(_timelock.getProposalsCount(), 1);
 
         vm.prank(nonAdminProposer);
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.NotAdminProposer.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernance.ProposerNotPermittedToCancelProposals.selector, nonAdminProposer)
+        );
         _dualGovernance.cancelAllPendingProposals();
 
         assertEq(_timelock.getProposalsCount(), 1);
@@ -1304,7 +1306,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, newProposer, newExecutor)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, newProposer, newExecutor, true)
         );
 
         assertTrue(_dualGovernance.isProposer(newProposer));
@@ -1322,7 +1324,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, stranger));
-        _dualGovernance.registerProposer(newProposer, newExecutor);
+        _dualGovernance.registerProposer(newProposer, newExecutor, true);
     }
 
     // ---
@@ -1336,7 +1338,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor, true)
         );
 
         assertTrue(_dualGovernance.isProposer(proposer));
@@ -1370,10 +1372,10 @@ contract DualGovernanceUnitTests is UnitTest {
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor, true)
         );
 
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.UnownedAdminExecutor.selector));
+        vm.expectRevert(abi.encodeWithSelector(Proposers.ExecutorNotRegistered.selector, adminExecutor));
         _executor.execute(
             address(_dualGovernance),
             0,
@@ -1398,7 +1400,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor, true)
         );
 
         assertTrue(_dualGovernance.isProposer(proposer));
@@ -1422,7 +1424,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor, true)
         );
 
         Proposers.Proposer memory proposerData = _dualGovernance.getProposer(proposer);
@@ -1452,17 +1454,17 @@ contract DualGovernanceUnitTests is UnitTest {
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer1, proposerExecutor1)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer1, proposerExecutor1, true)
         );
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer2, proposerExecutor2)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer2, proposerExecutor2, true)
         );
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer3, proposerExecutor3)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer3, proposerExecutor3, true)
         );
 
         Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
@@ -1489,7 +1491,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _executor.execute(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, address(0x123), executor)
+            abi.encodeWithSelector(DualGovernance.registerProposer.selector, address(0x123), executor, true)
         );
 
         assertTrue(_dualGovernance.isExecutor(executor));

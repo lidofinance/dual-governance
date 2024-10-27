@@ -132,7 +132,9 @@ contract PlanBSetup is ScenarioTestBlueprint {
                     address(_timelock)
                 ],
                 [
-                    abi.encodeCall(_dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())),
+                    abi.encodeCall(
+                        _dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor(), true)
+                    ),
                     // Only Dual Governance contract can call the Timelock contract
                     abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance))),
                     // Now the emergency mode may be deactivated (all scheduled calls will be canceled)
@@ -216,7 +218,9 @@ contract PlanBSetup is ScenarioTestBlueprint {
             ExternalCall[] memory dualGovernanceUpdateCalls = ExternalCallHelpers.create(
                 [address(dualGovernanceV2), address(_timelock), address(_timelock), address(_timelock)],
                 [
-                    abi.encodeCall(_dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())),
+                    abi.encodeCall(
+                        _dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor(), true)
+                    ),
                     // Update the controller for timelock
                     abi.encodeCall(_timelock.setGovernance, address(dualGovernanceV2)),
                     // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
