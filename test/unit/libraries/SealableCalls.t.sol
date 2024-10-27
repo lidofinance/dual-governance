@@ -11,70 +11,121 @@ error CustomSealableError(string reason);
 contract SealableCallsTest is UnitTest {
     address private immutable _SEALABLE = makeAddr("SEALABLE");
 
-    function test_callIsPaused_True_OnSucceedCallSealableReturnsTrue() external {
-        _mockSealableIsPausedReturns(_SEALABLE, true);
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: true, isPaused: true});
+    function test_callGetResumeSinceTimestamp_IsCallSucceedTrue() external {
+        // edge case when timestamp is 0
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, 0);
+        _assertGetResumeSinceTimestampCallResult({sealable: _SEALABLE, isCallSucceed: true, resumeSinceTimestamp: 0});
+
+        // edge case when sealable paused indefinitely
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, type(uint256).max);
+        _assertGetResumeSinceTimestampCallResult({
+            sealable: _SEALABLE,
+            isCallSucceed: true,
+            resumeSinceTimestamp: type(uint256).max
+        });
+
+        // paused for finite time
+        uint256 sealablePauseDuration = 14 days;
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp + sealablePauseDuration);
+        _assertGetResumeSinceTimestampCallResult({
+            sealable: _SEALABLE,
+            isCallSucceed: true,
+            resumeSinceTimestamp: block.timestamp + sealablePauseDuration
+        });
     }
 
-    function test_callIsPaused_False_OnCallSealableReturnsFalse() external {
-        _mockSealableIsPausedReturns(_SEALABLE, false);
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: true, isPaused: false});
+    function testFuzz_callGetResumeSinceTimestamp_IsCallSucceedTrue(uint256 resumeSinceTimestamp) external {
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, resumeSinceTimestamp);
+        _assertGetResumeSinceTimestampCallResult({
+            sealable: _SEALABLE,
+            isCallSucceed: true,
+            resumeSinceTimestamp: resumeSinceTimestamp
+        });
     }
 
-    function test_callIsPaused_False_OnSealableIsNotContract() external {
+    function test_callGetResumeSinceTimestamp_IsCallSucceedFalse_OnSealableIsNotContract() external {
         assertEq(_SEALABLE.code.length, 0);
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: false, isPaused: false});
+        _assertGetResumeSinceTimestampCallResult({sealable: _SEALABLE, isCallSucceed: false, resumeSinceTimestamp: 0});
     }
 
-    function test_callIsPaused_False_OnSealableRevertWithoutErrorReason() external {
-        _mockSealableIsPausedReverts(_SEALABLE, "");
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: false, isPaused: false});
+    function test_callGetResumeSinceTimestamp_IsCallSucceedFalse_OnSealableRevertWithoutErrorReason() external {
+        _mockSealableResumeSinceTimestampReverts(_SEALABLE, "");
+        _assertGetResumeSinceTimestampCallResult({sealable: _SEALABLE, isCallSucceed: false, resumeSinceTimestamp: 0});
     }
 
-    function test_callIsPaused_False_OnSealableRevertWithStandardError() external {
-        _mockSealableIsPausedReverts(_SEALABLE, stdError.divisionError);
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: false, isPaused: false});
+    function test_callGetResumeSinceTimestamp_IsCallSucceedFalse_OnSealableRevertWithStandardError() external {
+        _mockSealableResumeSinceTimestampReverts(_SEALABLE, stdError.divisionError);
+        _assertGetResumeSinceTimestampCallResult({sealable: _SEALABLE, isCallSucceed: false, resumeSinceTimestamp: 0});
     }
 
-    function test_callIsPaused_False_OnSealableRevertWithStringError() external {
-        _mockSealableIsPausedReverts(_SEALABLE, "ERROR_MESSAGE");
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: false, isPaused: false});
+    function test_callGetResumeSinceTimestamp_IsCallSucceedFalse_OnSealableRevertWithStringError() external {
+        _mockSealableResumeSinceTimestampReverts(_SEALABLE, "ERROR_MESSAGE");
+        _assertGetResumeSinceTimestampCallResult({sealable: _SEALABLE, isCallSucceed: false, resumeSinceTimestamp: 0});
     }
 
-    function test_callIsPaused_False_OnSealableRevertWithCustomError() external {
-        _mockSealableIsPausedReverts(_SEALABLE, abi.encodeWithSelector(CustomSealableError.selector, "error reason"));
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: false, isPaused: false});
+    function test_callGetResumeSinceTimestamp_IsCallSucceedFalse_OnSealableRevertWithCustomError() external {
+        _mockSealableResumeSinceTimestampReverts(
+            _SEALABLE, abi.encodeWithSelector(CustomSealableError.selector, "error reason")
+        );
+        _assertGetResumeSinceTimestampCallResult({sealable: _SEALABLE, isCallSucceed: false, resumeSinceTimestamp: 0});
     }
 
-    function test_callIsPaused_False_OnSealableReturnsInvalidResultFitOneEVMWord() external {
-        vm.mockCall(_SEALABLE, abi.encodeWithSelector(ISealable.isPaused.selector), abi.encode(42));
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: false, isPaused: false});
-    }
-
-    function test_callIsPaused_False_OnSealableReturnsInvalidResultDynamicLength() external {
+    function test_callGetResumeSinceTimestamp_IsCallSucceedFalse_OnSealableReturnsInvalidResultDynamicLength()
+        external
+    {
         string[] memory customResult = new string[](2);
         customResult[0] = "Hello";
         customResult[1] = "World";
 
-        vm.mockCall(_SEALABLE, abi.encodeWithSelector(ISealable.isPaused.selector), abi.encode(customResult));
-        _assertIsPausedSealableCallResult({sealable: _SEALABLE, isCallSucceed: false, isPaused: false});
+        vm.mockCall(
+            _SEALABLE, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(customResult)
+        );
+        _assertGetResumeSinceTimestampCallResult({sealable: _SEALABLE, isCallSucceed: false, resumeSinceTimestamp: 0});
     }
 
-    // precompiles test is split into two methods because of the forge's out of gas error
-    function test_callIsPaused_False_OnSealableIsPrecompileAddressPart1() external {
-        // check precompile addresses in range (0x01, 0x07) ans address(0)
-        for (uint256 i = 0; i < 8; ++i) {
-            address precompile = address(uint160(i));
-            _assertIsPausedSealableCallResult({sealable: precompile, isCallSucceed: false, isPaused: false});
+    // ---
+    // Test False Positive Results On Precompiles
+    // ---
+
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_FalsePositiveResult_On_SHA256_Precompile() external {
+        _assertGetResumeSinceTimestampCallResult({
+            sealable: address(0x2),
+            isCallSucceed: true,
+            resumeSinceTimestamp: 0xc61a1ce4443e07760aea88e1ac096cb3006c1c4284ade7873025b96c2010e1c8
+        });
+    }
+
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_FalsePositiveResult_On_RIPEMD160_Precompile() external {
+        _assertGetResumeSinceTimestampCallResult({
+            sealable: address(0x3),
+            isCallSucceed: true,
+            resumeSinceTimestamp: 0x00000000000000000000000075b4744a1c0e92713946840b9adc0cb967652b9c
+        });
+    }
+
+    // ---
+    // Other Precompiles (Split in 2 parts because of out of gas)
+    // ---
+
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part1() external {
+        for (uint160 i = 1; i < 8; ++i) {
+            // Skip SHA-256 and RIPEMD-160 precompiles which lead to false positive results
+            if (i == 0x2 || i == 0x3) continue;
+            _assertGetResumeSinceTimestampCallResult({
+                sealable: address(i),
+                isCallSucceed: false,
+                resumeSinceTimestamp: 0
+            });
         }
     }
 
-    // precompiles test is split into two methods because of the forge's out of gas error
-    function test_callIsPaused_False_OnSealableIsPrecompileAddressPart2() external {
-        // check all precompile addresses including the addresses may become precompiles in the future
-        for (uint256 i = 8; i < 16; ++i) {
-            address precompile = address(uint160(i));
-            _assertIsPausedSealableCallResult({sealable: precompile, isCallSucceed: false, isPaused: false});
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part2() external {
+        for (uint160 i = 8; i < 12; ++i) {
+            _assertGetResumeSinceTimestampCallResult({
+                sealable: address(i),
+                isCallSucceed: false,
+                resumeSinceTimestamp: 0
+            });
         }
     }
 
@@ -82,18 +133,27 @@ contract SealableCallsTest is UnitTest {
     // Helper Test Methods
     // ---
 
-    function _mockSealableIsPausedReturns(address sealable, bool isPaused) internal {
-        vm.mockCall(sealable, abi.encodeWithSelector(ISealable.isPaused.selector), abi.encode(isPaused));
+    function _mockSealableResumeSinceTimestampResult(address sealable, uint256 resumeSinceTimestamp) internal {
+        vm.mockCall(
+            sealable,
+            abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
+            abi.encode(resumeSinceTimestamp)
+        );
     }
 
-    function _mockSealableIsPausedReverts(address sealable, bytes memory revertReason) internal {
-        vm.mockCallRevert(sealable, abi.encodeWithSelector(ISealable.isPaused.selector), revertReason);
-    }
-
-    function _assertIsPausedSealableCallResult(address sealable, bool isCallSucceed, bool isPaused) internal {
-        (bool isCallSucceedActual, bool isPausedActual) = SealableCalls.callIsPaused(sealable);
+    function _assertGetResumeSinceTimestampCallResult(
+        address sealable,
+        bool isCallSucceed,
+        uint256 resumeSinceTimestamp
+    ) internal {
+        (bool isCallSucceedActual, uint256 resumeSinceTimestampActual) =
+            SealableCalls.callGetResumeSinceTimestamp(sealable);
 
         assertEq(isCallSucceedActual, isCallSucceed, "Unexpected isCallSucceed value");
-        assertEq(isPausedActual, isPaused, "Unexpected isPaused value");
+        assertEq(resumeSinceTimestampActual, resumeSinceTimestamp, "Unexpected resumeSinceTimestamp value");
+    }
+
+    function _mockSealableResumeSinceTimestampReverts(address sealable, bytes memory revertReason) internal {
+        vm.mockCallRevert(sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), revertReason);
     }
 }

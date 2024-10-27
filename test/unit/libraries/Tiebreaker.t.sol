@@ -23,7 +23,7 @@ contract TiebreakerTest is UnitTest {
 
     function setUp() external {
         // The expected state of the sealable most of the time - unpaused
-        _mockSealableIsPausedReturns(_SEALABLE, false);
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp - 1);
     }
 
     // ---
@@ -44,7 +44,7 @@ contract TiebreakerTest is UnitTest {
         this.external__addSealableWithdrawalBlocker(_SEALABLE, maxSealableWithdrawalBlockersCount);
 
         address newSealable = makeAddr("NEW_SEALABLE");
-        _mockSealableIsPausedReturns(newSealable, false);
+        _mockSealableResumeSinceTimestampResult(newSealable, 0);
 
         vm.expectRevert(Tiebreaker.SealableWithdrawalBlockersLimitReached.selector);
         this.external__addSealableWithdrawalBlocker(newSealable, maxSealableWithdrawalBlockersCount);
@@ -67,13 +67,25 @@ contract TiebreakerTest is UnitTest {
         this.external__addSealableWithdrawalBlocker(emptyAccount);
 
         // reverts when sealable's isPaused call reverts without reason
-        _mockSealableIsPausedReverts(_SEALABLE, "");
+        _mockSealableResumeSinceTimestampReverts(_SEALABLE, "");
         vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, _SEALABLE));
 
         this.external__addSealableWithdrawalBlocker(_SEALABLE);
 
         // revert when sealable's isPaused call returns invalid value
-        _mockSealableIsPausedReverts(_SEALABLE, abi.encode("Invalid Result"));
+        _mockSealableResumeSinceTimestampReverts(_SEALABLE, abi.encode("Invalid Result"));
+        vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, _SEALABLE));
+
+        this.external__addSealableWithdrawalBlocker(_SEALABLE);
+
+        // revert when sealable is paused for short period
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp);
+        vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, _SEALABLE));
+
+        this.external__addSealableWithdrawalBlocker(_SEALABLE);
+
+        // revert when sealable is paused for long period
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, type(uint256).max);
         vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, _SEALABLE));
 
         this.external__addSealableWithdrawalBlocker(_SEALABLE);
@@ -238,17 +250,17 @@ contract TiebreakerTest is UnitTest {
     }
 
     // ---
-    // isSomeSealableWithdrawalBlockerPausedOrFaulty()
+    // isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty()
     // ---
 
     function test_isSomeSealableWithdrawalBlockerPausedOrFaulty_ReturnsTrue_OnValidSealable() external {
         this.external__addSealableWithdrawalBlocker(_SEALABLE);
 
-        assertFalse(context.isSomeSealableWithdrawalBlockerPausedOrFaulty());
+        assertFalse(context.isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty());
 
         // sealable is paused now
-        _mockSealableIsPausedReturns(_SEALABLE, true);
-        assertTrue(context.isSomeSealableWithdrawalBlockerPausedOrFaulty());
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, type(uint256).max);
+        assertTrue(context.isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty());
     }
 
     /// @dev consider only some possible reasons of sealable fails here, the full list of possible
@@ -259,19 +271,23 @@ contract TiebreakerTest is UnitTest {
         assertEq(emptyAccount.code.length, 0);
 
         assertTrue(context.sealableWithdrawalBlockers.add(emptyAccount));
-        assertTrue(context.isSomeSealableWithdrawalBlockerPausedOrFaulty());
+        assertTrue(context.isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty());
         assertTrue(context.sealableWithdrawalBlockers.remove(emptyAccount));
 
-        assertFalse(context.isSomeSealableWithdrawalBlockerPausedOrFaulty());
+        assertFalse(context.isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty());
         this.external__addSealableWithdrawalBlocker(_SEALABLE);
 
         // reverts when sealable's isPaused call reverts without reason
-        _mockSealableIsPausedReverts(_SEALABLE, "");
-        assertTrue(context.isSomeSealableWithdrawalBlockerPausedOrFaulty());
+        _mockSealableResumeSinceTimestampReverts(_SEALABLE, "");
+        assertTrue(context.isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty());
 
         // revert when sealable's isPaused call returns invalid value
-        vm.mockCall(_SEALABLE, abi.encodeWithSelector(ISealable.isPaused.selector), abi.encode("Invalid Result"));
-        assertTrue(context.isSomeSealableWithdrawalBlockerPausedOrFaulty());
+        vm.mockCall(
+            _SEALABLE,
+            abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
+            abi.encode(["Invalid", "Result"])
+        );
+        assertTrue(context.isSomeSealableWithdrawalBlockerPausedForLongTermOrFaulty());
     }
 
     // ---
@@ -290,7 +306,7 @@ contract TiebreakerTest is UnitTest {
         vm.expectRevert(Tiebreaker.TiebreakNotAllowed.selector);
         this.external__checkTie(DualGovernanceState.Normal, normalOrVetoCooldownExitedAt);
 
-        _mockSealableIsPausedReturns(_SEALABLE, true);
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, type(uint256).max);
 
         // tiebreak is not allowed in the state different from RageQuit even when some sealable is blocked
         vm.expectRevert(Tiebreaker.TiebreakNotAllowed.selector);
@@ -303,12 +319,35 @@ contract TiebreakerTest is UnitTest {
         this.external__checkTie(DualGovernanceState.VetoSignallingDeactivation, normalOrVetoCooldownExitedAt);
 
         // no revert, tiebreak is allowed
-        // tiebreak is allowed when some sealable is paused and the DG in the RageQuit state
+        // tiebreak is allowed when some sealable is paused for a duration exceeded tiebreakerActivationTimeout
+        // and the DG in the RageQuit state
+        this.external__checkTie(DualGovernanceState.RageQuit, normalOrVetoCooldownExitedAt);
+
+        // simulate tiebreaker was locked for time < tiebreakerActivationTimeout
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp + 14 days);
+
+        // then tiebreaker activation is not allowed
+        vm.expectRevert(Tiebreaker.TiebreakNotAllowed.selector);
+        this.external__checkTie(DualGovernanceState.VetoSignallingDeactivation, normalOrVetoCooldownExitedAt);
+
+        // check edge case when resumeSinceTimestamp == block.timestamp + tiebreakerActivationTimeout
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp + tiebreakerActivationTimeout.toSeconds());
+
+        // tiebreaker activation is not allowed
+        vm.expectRevert(Tiebreaker.TiebreakNotAllowed.selector);
+        this.external__checkTie(DualGovernanceState.RageQuit, normalOrVetoCooldownExitedAt);
+
+        // but when resumeSinceTimestamp  == block.timestamp + tiebreakerActivationTimeout + 1
+        _mockSealableResumeSinceTimestampResult(
+            _SEALABLE, block.timestamp + tiebreakerActivationTimeout.toSeconds() + 1
+        );
+
+        // tiebreaker activation is allowed
         this.external__checkTie(DualGovernanceState.RageQuit, normalOrVetoCooldownExitedAt);
 
         // if the DG locked for a long period of time, tiebreak becomes allowed in any state
         _wait(tiebreakerActivationTimeout);
-        _mockSealableIsPausedReturns(_SEALABLE, false);
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp);
         assertTrue(Timestamps.now() >= tiebreakerAllowedAt);
 
         // call does not revert
@@ -510,11 +549,15 @@ contract TiebreakerTest is UnitTest {
     // Internal Testing Helper Methods
     // ---
 
-    function _mockSealableIsPausedReturns(address sealable, bool isPaused) internal {
-        vm.mockCall(sealable, abi.encodeWithSelector(ISealable.isPaused.selector), abi.encode(isPaused));
+    function _mockSealableResumeSinceTimestampResult(address sealable, uint256 resumeSinceTimestamp) internal {
+        vm.mockCall(
+            sealable,
+            abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
+            abi.encode(resumeSinceTimestamp)
+        );
     }
 
-    function _mockSealableIsPausedReverts(address sealable, bytes memory revertReason) internal {
-        vm.mockCallRevert(sealable, abi.encodeWithSelector(ISealable.isPaused.selector), revertReason);
+    function _mockSealableResumeSinceTimestampReverts(address sealable, bytes memory revertReason) internal {
+        vm.mockCallRevert(sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), revertReason);
     }
 }

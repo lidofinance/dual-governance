@@ -6,29 +6,33 @@ import {ISealable} from "../interfaces/ISealable.sol";
 /// @title Sealable Calls Library
 /// @notice Provides a safe interface for interacting with contracts expected to implement the `ISealable` interface, handling fails gracefully.
 library SealableCalls {
-    /// @notice Attempts to call `ISealable.isPaused()` method, returning whether the call succeeded and the result
-    ///     of the `ISealable.isPaused()` call if it succeeded.
-    /// @dev This function performs a static call to the `isPaused` method of the `ISealable` interface.
-    ///     It ensures that the function does not revert even if the sealable contract does not implement
+    /// @notice Attempts to call `ISealable.getResumeSinceTimestamp()` method, returning whether the call succeeded
+    ///     and the result of the `ISealable.getResumeSinceTimestamp()` call if it succeeded.
+    /// @dev Performs a static call to the `getResumeSinceTimestamp()` method on the `ISealable` interface.
+    ///     Ensures that the function does not revert even if the `sealable` contract does not implement
     ///     the interface, has no code at the address, or returns unexpected data.
+    ///
+    ///     IMPORTANT: `callGetResumeSinceTimestamp()` may yield false-positive results when called on certain
+    ///     precompiled contract addresses like SHA-256 (address(0x02)) or RIPEMD-160 (address(0x03)). Such cases must
+    ///     be managed outside this function.
     /// @param sealable The address of the sealable contract to check.
-    /// @return success Indicates whether the call to `isPaused` was successful.
-    /// @return isPaused Indicates whether the sealable contract is paused. Returns `false` if the call failed
-    ///     or returned an invalid value.
-    function callIsPaused(address sealable) internal view returns (bool success, bool isPaused) {
-        // Low-level call to the `isPaused` function on the `sealable` contract
+    /// @return success Indicates whether the call to `getResumeSinceTimestamp()` was successful.
+    /// @return resumeSinceTimestamp The timestamp when the contract is expected to become unpaused.
+    ///     If the value is less than `block.timestamp`, it indicates the contract resumed in the past;
+    ///     if `type(uint256).max`, the contract is paused indefinitely.
+    function callGetResumeSinceTimestamp(address sealable)
+        external
+        view
+        returns (bool success, uint256 resumeSinceTimestamp)
+    {
+        // Low-level call to the `getResumeSinceTimestamp` function on the `sealable` contract
         (bool isCallSucceed, bytes memory returndata) =
-            sealable.staticcall(abi.encodeWithSelector(ISealable.isPaused.selector));
+            sealable.staticcall(abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector));
 
-        // Check if the call succeeded and returned the expected data length (32 bytes, single EVM word)
+        // Check if the call succeeded and returned the expected data length (32 bytes, single uint256)
         if (isCallSucceed && returndata.length == 32) {
-            uint256 resultAsUint256 = abi.decode(returndata, (uint256));
-
-            // If the resulting value is greater than 1, the call is considered invalid as it returns an out-of-bound boolean value
-            success = resultAsUint256 <= 1;
-
-            // Cast uint256 into boolean (0 = false, 1 = true)
-            isPaused = resultAsUint256 == 1;
+            success = true;
+            resumeSinceTimestamp = abi.decode(returndata, (uint256));
         }
     }
 }
