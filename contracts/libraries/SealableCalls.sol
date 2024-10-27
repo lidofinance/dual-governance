@@ -3,6 +3,8 @@ pragma solidity 0.8.26;
 
 import {ISealable} from "../interfaces/ISealable.sol";
 
+/// @title Sealable Calls Library
+/// @notice Provides a safe interface for interacting with contracts expected to implement the `ISealable` interface, handling fails gracefully.
 library SealableCalls {
     /// @notice Attempts to call `ISealable.isPaused()` method, returning whether the call succeeded and the result
     ///     of the `ISealable.isPaused()` call if it succeeded.

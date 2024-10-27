@@ -103,7 +103,7 @@ library DualGovernanceStateMachine {
     uint256 internal constant MAX_RAGE_QUIT_ROUND = type(uint8).max;
 
     // ---
-    // Main functionality
+    // Main Functionality
     // ---
 
     /// @notice Initializes the Dual Governance State Machine context.
@@ -244,7 +244,7 @@ library DualGovernanceStateMachine {
     /// @param useEffectiveState If `true`, the check is performed against the `effective` state, which represents the state
     ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
     ///     performed against the `persisted` state, which is the currently stored state of the system.
-    /// @return A boolean indicating whether the submission of proposals is allowed in the selected state.
+    /// @return bool A boolean indicating whether the submission of proposals is allowed in the selected state.
     function canSubmitProposal(Context storage self, bool useEffectiveState) internal view returns (bool) {
         State state = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
         return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
@@ -257,7 +257,7 @@ library DualGovernanceStateMachine {
     ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
     ///     performed against the `persisted` state, which is the currently stored state of the system.
     /// @param proposalSubmittedAt The timestamp indicating when the proposal to be scheduled was originally submitted.
-    /// @return A boolean indicating whether scheduling the proposal is allowed in the chosen state.
+    /// @return bool A boolean indicating whether scheduling the proposal is allowed in the chosen state.
     function canScheduleProposal(
         Context storage self,
         bool useEffectiveState,
@@ -280,7 +280,7 @@ library DualGovernanceStateMachine {
     /// @param useEffectiveState If `true`, the check is performed against the `effective` state, which represents the state
     ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
     ///     performed against the `persisted` state, which is the currently stored state of the system.
-    /// @return A boolean indicating whether the cancelling of proposals is allowed in the selected state.
+    /// @return bool A boolean indicating whether the cancelling of proposals is allowed in the selected state.
     function canCancelAllPendingProposals(Context storage self, bool useEffectiveState) internal view returns (bool) {
         State state = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
         return state == State.VetoSignalling || state == State.VetoSignallingDeactivation;
@@ -289,13 +289,13 @@ library DualGovernanceStateMachine {
     /// @notice Returns the configuration of the Dual Governance State Machine as provided by
     ///     the Dual Governance Config Provider.
     /// @param self The context of the Dual Governance State Machine.
-    /// @return The current configuration of the Dual Governance State
+    /// @return config The current configuration of the Dual Governance State
     function getDualGovernanceConfig(Context storage self)
         internal
         view
-        returns (DualGovernanceConfig.Context memory)
+        returns (DualGovernanceConfig.Context memory config)
     {
-        return self.configProvider.getDualGovernanceConfig();
+        config = self.configProvider.getDualGovernanceConfig();
     }
 
     // ---

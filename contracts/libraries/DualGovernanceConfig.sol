@@ -5,6 +5,8 @@ import {PercentD16} from "../types/PercentD16.sol";
 import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
+/// @title Dual Governance Config Library
+/// @notice Provides functionality to work with the configuration of the Dual Governance mechanism
 library DualGovernanceConfig {
     // ---
     // Errors
@@ -21,6 +23,28 @@ library DualGovernanceConfig {
     // Data Types
     // ---
 
+    /// @notice Configuration values for Dual Governance.
+    /// @param firstSealRageQuitSupport The percentage of the total stETH supply that must be exceeded in the Signalling
+    ///     Escrow to transition Dual Governance from the Normal state to the VetoSignalling state.
+    /// @param secondSealRageQuitSupport The percentage of the total stETH supply that must be exceeded in the
+    ///     Signalling Escrow to transition Dual Governance into the RageQuit state.
+    ///
+    /// @param minAssetsLockDuration The minimum duration that assets must remain locked in the Signalling Escrow contract
+    ///     before unlocking is permitted.
+    ///
+    /// @param vetoSignallingMinDuration The minimum duration of the VetoSignalling state.
+    /// @param vetoSignallingMaxDuration The maximum duration of the VetoSignalling state.
+    /// @param vetoSignallingMinActiveDuration The minimum duration of the VetoSignalling state before it can be exited.
+    ///     Once in the VetoSignalling state, it cannot be exited sooner than `vetoSignallingMinActiveDuration`.
+    /// @param vetoSignallingDeactivationMaxDuration The maximum duration of the VetoSignallingDeactivation state.
+    /// @param vetoCooldownDuration The duration of the VetoCooldown state.
+    ///
+    /// @param rageQuitExtensionPeriodDuration The duration of the Rage Quit Extension Period.
+    /// @param rageQuitEthWithdrawalsMinDelay The minimum delay for ETH withdrawals after the Rage Quit process completes.
+    /// @param rageQuitEthWithdrawalsMaxDelay The maximum delay for ETH withdrawals after the Rage Quit process completes.
+    /// @param rageQuitEthWithdrawalsDelayGrowth The incremental growth of the ETH withdrawal delay with each "continuous"
+    ///     Rage Quit (a Rage Quit is considered continuous if, between two Rage Quits, Dual Governance has not re-entered
+    ///     the Normal state).
     struct Context {
         PercentD16 firstSealRageQuitSupport;
         PercentD16 secondSealRageQuitSupport;
@@ -31,7 +55,6 @@ library DualGovernanceConfig {
         Duration vetoSignallingMaxDuration;
         Duration vetoSignallingMinActiveDuration;
         Duration vetoSignallingDeactivationMaxDuration;
-        //
         Duration vetoCooldownDuration;
         //
         Duration rageQuitExtensionPeriodDuration;
@@ -40,6 +63,13 @@ library DualGovernanceConfig {
         Duration rageQuitEthWithdrawalsDelayGrowth;
     }
 
+    // ---
+    // Main Functionality
+    // ---
+
+    /// @notice Validates that key configuration values are within logical ranges to prevent malfunction
+    ///     of the Dual Governance system.
+    /// @param self The configuration context.
     function validate(Context memory self) internal pure {
         if (self.firstSealRageQuitSupport >= self.secondSealRageQuitSupport) {
             revert InvalidRageQuitSupportRange(self.firstSealRageQuitSupport, self.secondSealRageQuitSupport);
@@ -56,6 +86,10 @@ library DualGovernanceConfig {
         }
     }
 
+    /// @notice Determines whether the first seal Rage Quit support threshold has been exceeded.
+    /// @param self The configuration context.
+    /// @param rageQuitSupport The current Rage Quit support level.
+    /// @return bool A boolean indicating whether the Rage Quit support level exceeds the first seal threshold.
     function isFirstSealRageQuitSupportCrossed(
         Context memory self,
         PercentD16 rageQuitSupport
@@ -63,6 +97,10 @@ library DualGovernanceConfig {
         return rageQuitSupport > self.firstSealRageQuitSupport;
     }
 
+    /// @notice Determines whether the second seal Rage Quit support threshold has been exceeded.
+    /// @param self The configuration context.
+    /// @param rageQuitSupport The current Rage Quit support level.
+    /// @return bool A boolean indicating whether the Rage Quit support level exceeds the second seal threshold.
     function isSecondSealRageQuitSupportCrossed(
         Context memory self,
         PercentD16 rageQuitSupport
@@ -70,6 +108,13 @@ library DualGovernanceConfig {
         return rageQuitSupport > self.secondSealRageQuitSupport;
     }
 
+    /// @notice Determines whether the VetoSignalling duration has passed based on the current time.
+    /// @dev This check calculates the time elapsed since VetoSignalling was activated and compares it
+    ///      against the calculated VetoSignalling duration based on the current Rage Quit support level.
+    /// @param self The configuration context.
+    /// @param vetoSignallingActivatedAt The timestamp when VetoSignalling was activated.
+    /// @param rageQuitSupport The current Rage Quit support level, which influences the signalling duration.
+    /// @return bool A boolean indicating whether the current time has passed the calculated VetoSignalling duration.
     function isVetoSignallingDurationPassed(
         Context memory self,
         Timestamp vetoSignallingActivatedAt,
@@ -78,6 +123,10 @@ library DualGovernanceConfig {
         return Timestamps.now() > calcVetoSignallingDuration(self, rageQuitSupport).addTo(vetoSignallingActivatedAt);
     }
 
+    /// @notice Determines whether the VetoSignalling reactivation duration has passed.
+    /// @param self The configuration context.
+    /// @param vetoSignallingReactivatedAt The timestamp when VetoSignalling was reactivated.
+    /// @return bool A boolean indicating whether the minimum active duration for VetoSignalling has passed.
     function isVetoSignallingReactivationDurationPassed(
         Context memory self,
         Timestamp vetoSignallingReactivatedAt
@@ -85,6 +134,10 @@ library DualGovernanceConfig {
         return Timestamps.now() > self.vetoSignallingMinActiveDuration.addTo(vetoSignallingReactivatedAt);
     }
 
+    /// @notice Determines whether the maximum VetoSignallingDeactivation duration has passed.
+    /// @param self The configuration context.
+    /// @param vetoSignallingDeactivationEnteredAt The timestamp when the VetoSignallingDeactivation state began.
+    /// @return bool A boolean indicating whether the maximum deactivation duration has passed.
     function isVetoSignallingDeactivationMaxDurationPassed(
         Context memory self,
         Timestamp vetoSignallingDeactivationEnteredAt
@@ -92,6 +145,10 @@ library DualGovernanceConfig {
         return Timestamps.now() > self.vetoSignallingDeactivationMaxDuration.addTo(vetoSignallingDeactivationEnteredAt);
     }
 
+    /// @notice Determines whether the VetoCooldown duration has passed.
+    /// @param self The configuration context.
+    /// @param vetoCooldownEnteredAt The timestamp when the VetoCooldown state was entered.
+    /// @return bool A boolean indicating whether the VetoCooldown duration has passed.
     function isVetoCooldownDurationPassed(
         Context memory self,
         Timestamp vetoCooldownEnteredAt
@@ -99,6 +156,12 @@ library DualGovernanceConfig {
         return Timestamps.now() > self.vetoCooldownDuration.addTo(vetoCooldownEnteredAt);
     }
 
+    /// @notice Calculates the appropriate VetoSignalling duration based on the current Rage Quit support level.
+    /// @dev The duration is determined by interpolating between the minimum and maximum VetoSignalling durations,
+    ///      based on where the current Rage Quit support falls between the first and second seal thresholds.
+    /// @param self The configuration context.
+    /// @param rageQuitSupport The current Rage Quit support level.
+    /// @return Duration The calculated VetoSignalling duration based on the Rage Quit support level.
     function calcVetoSignallingDuration(
         Context memory self,
         PercentD16 rageQuitSupport
@@ -125,6 +188,12 @@ library DualGovernanceConfig {
             );
     }
 
+    /// @notice Calculates the delay for ETH withdrawals after a Rage Quit, adjusted based on the number of continuous
+    ///     Rage Quit rounds.
+    /// @dev The delay grows with each Rage Quit round until reaching a maximum limit.
+    /// @param self The configuration context.
+    /// @param rageQuitRound The current round of Rage Quit events, used to calculate the cumulative delay.
+    /// @return Duration The calculated delay for ETH withdrawals, capped at the maximum delay.
     function calcRageQuitWithdrawalsDelay(
         Context memory self,
         uint256 rageQuitRound
