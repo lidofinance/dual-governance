@@ -287,7 +287,7 @@ library DGContractsDeployment {
             0,
             abi.encodeCall(
                 contracts.dualGovernance.registerProposer,
-                (address(lidoAddresses.voting), address(contracts.adminExecutor))
+                (address(lidoAddresses.voting), address(contracts.adminExecutor), true)
             )
         );
         contracts.adminExecutor.execute(

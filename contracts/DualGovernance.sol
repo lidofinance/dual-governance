@@ -36,13 +36,12 @@ contract DualGovernance is IDualGovernance {
     // Errors
     // ---
 
-    error NotAdminProposer();
-    error UnownedAdminExecutor();
     error CallerIsNotResealCommittee(address caller);
     error CallerIsNotAdminExecutor(address caller);
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
+    error ProposerNotPermittedToCancelProposals(address proposer);
 
     // ---
     // Events
@@ -205,7 +204,7 @@ contract DualGovernance is IDualGovernance {
         TIMELOCK.schedule(proposalId);
     }
 
-    /// @notice Allows a proposer associated with the admin executor to cancel all previously submitted or scheduled
+    /// @notice Allows authorized proposer to cancel all previously submitted or scheduled
     ///     but not yet executed proposals when the Dual Governance system is in the `VetoSignalling`
     ///     or `VetoSignallingDeactivation` state.
     /// @dev If the Dual Governance state is not `VetoSignalling` or `VetoSignallingDeactivation`, the function will
@@ -216,8 +215,8 @@ contract DualGovernance is IDualGovernance {
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
 
         Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
-        if (proposer.executor != TIMELOCK.getAdminExecutor()) {
-            revert NotAdminProposer();
+        if (!proposer.canCancelProposals) {
+            revert ProposerNotPermittedToCancelProposals(msg.sender);
         }
 
         if (!_stateMachine.canCancelAllPendingProposals({useEffectiveState: false})) {
@@ -346,25 +345,59 @@ contract DualGovernance is IDualGovernance {
 
     /// @notice Registers a new proposer with the associated executor in the system.
     /// @dev Multiple proposers can share the same executor contract, but each proposer must be unique.
-    /// @param proposer The address of the proposer to register.
+    /// @param proposerAccount The address of the proposer to register.
     /// @param executor The address of the executor contract associated with the proposer.
-    function registerProposer(address proposer, address executor) external {
+    /// @param canCancelProposals Indicates if the proposer has authority to cancel all proposals that are
+    ///     submitted or scheduled but not yet executed.
+    function registerProposer(address proposerAccount, address executor, bool canCancelProposals) external {
         _checkCallerIsAdminExecutor();
-        _proposers.register(proposer, executor);
+        _proposers.register(proposerAccount, executor, canCancelProposals);
+    }
+
+    /// @notice Grants the specified proposer the permission to cancel all proposals that have been submitted
+    ///     or scheduled but are not yet executed.
+    /// @param proposerAccount The address of the proposer to grant proposal-canceling permission.
+    function grantProposalsCancellingPermission(address proposerAccount) external {
+        _checkCallerIsAdminExecutor();
+        _proposers.setCanCancelProposals(proposerAccount, true);
+    }
+
+    /// @notice Revokes the permission to cancel proposals from the specified proposer.
+    /// @param proposerAccount The address of the proposer from whom to revoke proposal-canceling permission.
+    function revokeProposalsCancellingPermission(address proposerAccount) external {
+        _checkCallerIsAdminExecutor();
+        _proposers.setCanCancelProposals(proposerAccount, false);
+    }
+
+    /// @notice Allows the caller to renounce their proposal-canceling permission.
+    function renounceProposalsCancellingPermission() external {
+        _proposers.setCanCancelProposals(msg.sender, false);
+    }
+
+    /// @notice Updates the executor associated with a specified proposer.
+    /// @dev Ensures that at least one proposer remains assigned to the `adminExecutor` following the update.
+    ///     Reverts if updating the proposer’s executor would leave the `adminExecutor` without any associated proposer.
+    /// @param proposerAccount The address of the proposer whose executor is being updated.
+    /// @param executor The new executor address to assign to the proposer.
+    function setProposerExecutor(address proposerAccount, address executor) external {
+        _checkCallerIsAdminExecutor();
+        _proposers.setProposerExecutor(proposerAccount, executor);
+
+        /// @dev after update of the proposer, check that admin executor still belongs to some proposer
+        _proposers.checkRegisteredExecutor(TIMELOCK.getAdminExecutor());
     }
 
     /// @notice Unregisters a proposer from the system.
-    /// @dev There must always be at least one proposer associated with the admin executor. If an attempt is made to
-    ///     remove the last proposer assigned to the admin executor, the function will revert.
+    /// @dev Ensures that at least one proposer remains associated with the `adminExecutor`. If an attempt is made to
+    ///     remove the last proposer assigned to the `adminExecutor`, the function will revert.
     /// @param proposer The address of the proposer to unregister.
     function unregisterProposer(address proposer) external {
         _checkCallerIsAdminExecutor();
+
         _proposers.unregister(proposer);
 
         /// @dev after the removal of the proposer, check that admin executor still belongs to some proposer
-        if (!_proposers.isExecutor(TIMELOCK.getAdminExecutor())) {
-            revert UnownedAdminExecutor();
-        }
+        _proposers.checkRegisteredExecutor(TIMELOCK.getAdminExecutor());
     }
 
     /// @notice Checks whether the given `account` is a registered proposer.
