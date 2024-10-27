@@ -17,6 +17,7 @@ import {IDualGovernanceConfigProvider} from "./interfaces/IDualGovernanceConfigP
 import {Proposers} from "./libraries/Proposers.sol";
 import {Tiebreaker} from "./libraries/Tiebreaker.sol";
 import {ExternalCall} from "./libraries/ExternalCalls.sol";
+import {Resealer} from "./libraries/Resealer.sol";
 import {State, DualGovernanceStateMachine} from "./libraries/DualGovernanceStateMachine.sol";
 
 import {Escrow} from "./Escrow.sol";
@@ -31,6 +32,7 @@ contract DualGovernance is IDualGovernance {
     using Proposers for Proposers.Context;
     using Tiebreaker for Tiebreaker.Context;
     using DualGovernanceStateMachine for DualGovernanceStateMachine.Context;
+    using Resealer for Resealer.Context;
 
     // ---
     // Errors
@@ -51,7 +53,6 @@ contract DualGovernance is IDualGovernance {
     event CancelAllPendingProposalsSkipped();
     event CancelAllPendingProposalsExecuted();
     event EscrowMasterCopyDeployed(IEscrow escrowMasterCopy);
-    event ResealCommitteeSet(address resealCommittee);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -110,9 +111,6 @@ contract DualGovernance is IDualGovernance {
     /// @notice The address of the Timelock contract.
     ITimelock public immutable TIMELOCK;
 
-    /// @notice The address of the Reseal Manager.
-    IResealManager public immutable RESEAL_MANAGER;
-
     /// @notice The address of the Escrow contract used as the implementation for the Signalling and Rage Quit
     ///     instances of the Escrows managed by the DualGovernance contract.
     IEscrow public immutable ESCROW_MASTER_COPY;
@@ -130,13 +128,8 @@ contract DualGovernance is IDualGovernance {
     /// @dev The state machine implementation controlling the state of the Dual Governance.
     DualGovernanceStateMachine.Context internal _stateMachine;
 
-    // ---
-    // Standalone State Variables
-    // ---
-
-    /// @dev The address of the Reseal Committee which is allowed to "reseal" sealables paused for a limited
-    ///     period of time when the Dual Governance proposal adoption is blocked.
-    address internal _resealCommittee;
+    /// @dev The functionality for sealing/resuming critical components of Lido protocol.
+    Resealer.Context internal _resealer;
 
     // ---
     // Constructor
@@ -144,7 +137,6 @@ contract DualGovernance is IDualGovernance {
 
     constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
         TIMELOCK = dependencies.timelock;
-        RESEAL_MANAGER = dependencies.resealManager;
 
         MIN_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.minTiebreakerActivationTimeout;
         MAX_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.maxTiebreakerActivationTimeout;
@@ -157,10 +149,10 @@ contract DualGovernance is IDualGovernance {
             withdrawalQueue: dependencies.withdrawalQueue,
             minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize
         });
-
         emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
         _stateMachine.initialize(dependencies.configProvider, ESCROW_MASTER_COPY);
+        _resealer.setResealManager(address(dependencies.resealManager));
     }
 
     // ---
@@ -444,7 +436,7 @@ contract DualGovernance is IDualGovernance {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
         _tiebreaker.checkTie(_stateMachine.getPersistedState(), _stateMachine.normalOrVetoCooldownExitedAt);
-        RESEAL_MANAGER.resume(sealable);
+        _resealer.resealManager.resume(sealable);
     }
 
     /// @notice Allows the tiebreaker committee to schedule for execution a submitted proposal when
@@ -478,22 +470,37 @@ contract DualGovernance is IDualGovernance {
     /// @param sealable The address of the sealable contract to be resealed.
     function resealSealable(address sealable) external {
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
-        if (msg.sender != _resealCommittee) {
-            revert CallerIsNotResealCommittee(msg.sender);
-        }
         if (_stateMachine.getPersistedState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
-        RESEAL_MANAGER.reseal(sealable);
+        _resealer.checkCallerIsResealCommittee();
+        _resealer.resealManager.reseal(sealable);
     }
 
     /// @notice Sets the address of the reseal committee.
     /// @param resealCommittee The address of the new reseal committee.
     function setResealCommittee(address resealCommittee) external {
         _checkCallerIsAdminExecutor();
-        _resealCommittee = resealCommittee;
+        _resealer.setResealCommittee(resealCommittee);
+    }
 
-        emit ResealCommitteeSet(resealCommittee);
+    /// @notice Sets the address of the Reseal Manager.
+    /// @param resealManager The address of the new Reseal Manager.
+    function setResealManager(address resealManager) external {
+        _checkCallerIsAdminExecutor();
+        _resealer.setResealManager(resealManager);
+    }
+
+    /// @notice Gets the address of the Reseal Manager.
+    /// @return resealManager The address of the Reseal Manager.
+    function getResealManager() external view returns (IResealManager) {
+        return _resealer.resealManager;
+    }
+
+    /// @notice Gets the address of the reseal committee.
+    /// @return resealCommittee The address of the reseal committee.
+    function getResealCommittee() external view returns (address) {
+        return _resealer.resealCommittee;
     }
 
     // ---

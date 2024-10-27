@@ -14,6 +14,7 @@ library TimelockState {
     error InvalidGovernance(address value);
     error InvalidAfterSubmitDelay(Duration value);
     error InvalidAfterScheduleDelay(Duration value);
+    error InvalidAdminExecutor(address adminExecutor);
 
     // ---
     // Events
@@ -22,6 +23,7 @@ library TimelockState {
     event GovernanceSet(address newGovernance);
     event AfterSubmitDelaySet(Duration newAfterSubmitDelay);
     event AfterScheduleDelaySet(Duration newAfterScheduleDelay);
+    event AdminExecutorSet(address newAdminExecutor);
 
     // ---
     // Data Types
@@ -34,6 +36,8 @@ library TimelockState {
         Duration afterSubmitDelay;
         /// @dev slot0 [192..224]
         Duration afterScheduleDelay;
+        /// @dev slot1 [0..159]
+        address adminExecutor;
     }
 
     // ---
@@ -83,6 +87,17 @@ library TimelockState {
         }
         self.afterScheduleDelay = newAfterScheduleDelay;
         emit AfterScheduleDelaySet(newAfterScheduleDelay);
+    }
+
+    /// @notice Sets the admin executor address.
+    /// @param self The context of the timelock state.
+    /// @param newAdminExecutor The new admin executor address.
+    function setAdminExecutor(Context storage self, address newAdminExecutor) internal {
+        if (newAdminExecutor == address(0) || newAdminExecutor == self.adminExecutor) {
+            revert InvalidAdminExecutor(newAdminExecutor);
+        }
+        self.adminExecutor = newAdminExecutor;
+        emit AdminExecutorSet(newAdminExecutor);
     }
 
     /// @notice Retrieves the delay period required after a proposal is submitted before it can be scheduled.
