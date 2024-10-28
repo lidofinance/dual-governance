@@ -10,8 +10,8 @@ library Proposers {
     // Errors
     // ---
     error InvalidExecutor(address executor);
-    error InvalidProposerAccount(address account);
     error ExecutorNotRegistered(address account);
+    error InvalidProposerAccount(address account);
     error ProposerNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
 
@@ -21,7 +21,6 @@ library Proposers {
 
     event ProposerRegistered(address indexed proposer, address indexed executor);
     event ProposerExecutorSet(address indexed proposer, address indexed executor);
-    event ProposerCanCancelProposalsSet(address indexed proposer, bool canCancelProposals);
     event ProposerUnregistered(address indexed proposer, address indexed executor);
 
     // ---
@@ -31,36 +30,30 @@ library Proposers {
     /// @notice The info about the registered proposer and associated executor.
     /// @param account Address of the proposer.
     /// @param executor The address of the executor assigned to execute proposals submitted by the proposer.
-    /// @param canCancelProposals Indicates whether the proposer has the authority to cancel all proposals that are
-    ///     submitted or scheduled but not yet executed.
     struct Proposer {
         address account;
         address executor;
-        bool canCancelProposals;
     }
 
-    /// @notice Internal information about a proposer’s executor and proposal cancellation permissions.
+    /// @notice Internal information about a proposer’s executor.
     /// @param proposerIndex The one-based index of the proposer associated with the `executor` from
     ///     the `Context.proposers` array.
     /// @param executor The address of the executor associated with the proposer.
-    /// @param canCancelProposals Indicates if the proposer has authority to cancel all proposals that are
-    ///     submitted or scheduled but not yet executed.
-    struct ProposerData {
+    struct ExecutorData {
         /// @dev slot0: [0..31]
         IndexOneBased proposerIndex;
         /// @dev slot0: [32..191]
         address executor;
-        /// @dev slot0: [192..192]
-        bool canCancelProposals;
     }
 
     /// @notice The context of the Proposers library.
     /// @param proposers List of all registered proposers.
-    /// @param proposersData A mapping that associates each proposer’s address with their respective proposer data.
-    /// @param executorRefsCounts Mapping of executors to the count of proposers associated with each executor.
+    /// @param executors Mapping of proposers to their executor data.
+    /// @param executorRefsCounts Mapping of executors to the count of proposers associated
+    ///     with each executor.
     struct Context {
         address[] proposers;
-        mapping(address proposer => ProposerData) proposersData;
+        mapping(address proposer => ExecutorData) executors;
         mapping(address executor => uint256 usagesCount) executorRefsCounts;
     }
 
@@ -72,14 +65,7 @@ library Proposers {
     /// @param self The context of the Proposers library.
     /// @param proposerAccount The address of the proposer to register.
     /// @param executor The address of the executor to assign to the proposer.
-    /// @param canCancelProposals Indicates if the proposer has authority to cancel all proposals that are
-    ///     submitted or scheduled but not yet executed.
-    function register(
-        Context storage self,
-        address proposerAccount,
-        address executor,
-        bool canCancelProposals
-    ) internal {
+    function register(Context storage self, address proposerAccount, address executor) internal {
         if (proposerAccount == address(0)) {
             revert InvalidProposerAccount(proposerAccount);
         }
@@ -88,33 +74,16 @@ library Proposers {
             revert InvalidExecutor(executor);
         }
 
-        if (_isRegisteredProposer(self.proposersData[proposerAccount])) {
+        if (_isRegisteredProposer(self.executors[proposerAccount])) {
             revert ProposerAlreadyRegistered(proposerAccount);
         }
 
         self.proposers.push(proposerAccount);
-        self.proposersData[proposerAccount] = ProposerData({
-            executor: executor,
-            canCancelProposals: canCancelProposals,
-            proposerIndex: IndicesOneBased.fromOneBasedValue(self.proposers.length)
-        });
+        self.executors[proposerAccount] =
+            ExecutorData({proposerIndex: IndicesOneBased.fromOneBasedValue(self.proposers.length), executor: executor});
         self.executorRefsCounts[executor] += 1;
 
         emit ProposerRegistered(proposerAccount, executor);
-    }
-
-    /// @notice Updates the cancellation permissions for a registered proposer.
-    /// @param self The context storage of the Proposers library.
-    /// @param proposerAccount The address of the proposer to update permission to cancel proposals.
-    /// @param canCancelProposals A boolean indicating whether the proposer has permission to cancel proposals.
-    function setCanCancelProposals(Context storage self, address proposerAccount, bool canCancelProposals) internal {
-        ProposerData memory proposerData = self.proposersData[proposerAccount];
-        _checkRegisteredProposer(proposerAccount, proposerData);
-
-        if (proposerData.canCancelProposals != canCancelProposals) {
-            self.proposersData[proposerAccount].canCancelProposals = canCancelProposals;
-            emit ProposerCanCancelProposalsSet(proposerAccount, canCancelProposals);
-        }
     }
 
     /// @notice Updates the executor for a registered proposer.
@@ -122,17 +91,17 @@ library Proposers {
     /// @param proposerAccount The address of the proposer to update.
     /// @param executor The new executor address to assign to the proposer.
     function setProposerExecutor(Context storage self, address proposerAccount, address executor) internal {
-        ProposerData memory proposerData = self.proposersData[proposerAccount];
-        _checkRegisteredProposer(proposerAccount, proposerData);
+        ExecutorData memory executorData = self.executors[proposerAccount];
+        _checkRegisteredProposer(proposerAccount, executorData);
 
-        if (executor == address(0) || proposerData.executor == executor) {
+        if (executor == address(0) || executorData.executor == executor) {
             revert InvalidExecutor(executor);
         }
 
-        self.proposersData[proposerAccount].executor = executor;
+        self.executors[proposerAccount].executor = executor;
 
         self.executorRefsCounts[executor] += 1;
-        self.executorRefsCounts[proposerData.executor] -= 1;
+        self.executorRefsCounts[executorData.executor] -= 1;
 
         emit ProposerExecutorSet(proposerAccount, executor);
     }
@@ -141,25 +110,25 @@ library Proposers {
     /// @param self The context of the Proposers library.
     /// @param proposerAccount The address of the proposer to unregister.
     function unregister(Context storage self, address proposerAccount) internal {
-        ProposerData memory proposerData = self.proposersData[proposerAccount];
+        ExecutorData memory executorData = self.executors[proposerAccount];
 
-        _checkRegisteredProposer(proposerAccount, proposerData);
+        _checkRegisteredProposer(proposerAccount, executorData);
 
         IndexOneBased lastProposerIndex = IndicesOneBased.fromOneBasedValue(self.proposers.length);
-        IndexOneBased proposerIndex = proposerData.proposerIndex;
+        IndexOneBased proposerIndex = executorData.proposerIndex;
 
         if (proposerIndex != lastProposerIndex) {
             address lastProposer = self.proposers[lastProposerIndex.toZeroBasedValue()];
             self.proposers[proposerIndex.toZeroBasedValue()] = lastProposer;
-            self.proposersData[lastProposer].proposerIndex = proposerIndex;
+            self.executors[lastProposer].proposerIndex = proposerIndex;
         }
 
         self.proposers.pop();
-        delete self.proposersData[proposerAccount];
+        delete self.executors[proposerAccount];
 
-        self.executorRefsCounts[proposerData.executor] -= 1;
+        self.executorRefsCounts[executorData.executor] -= 1;
 
-        emit ProposerUnregistered(proposerAccount, proposerData.executor);
+        emit ProposerUnregistered(proposerAccount, executorData.executor);
     }
 
     // ---
@@ -174,12 +143,11 @@ library Proposers {
         Context storage self,
         address proposerAccount
     ) internal view returns (Proposer memory proposer) {
-        ProposerData memory proposerData = self.proposersData[proposerAccount];
-        _checkRegisteredProposer(proposerAccount, proposerData);
+        ExecutorData memory executorData = self.executors[proposerAccount];
+        _checkRegisteredProposer(proposerAccount, executorData);
 
         proposer.account = proposerAccount;
-        proposer.executor = proposerData.executor;
-        proposer.canCancelProposals = proposerData.canCancelProposals;
+        proposer.executor = executorData.executor;
     }
 
     /// @notice Retrieves all registered proposers.
@@ -197,7 +165,7 @@ library Proposers {
     /// @param account The address to check.
     /// @return bool `true` if the account is a registered proposer, otherwise `false`.
     function isProposer(Context storage self, address account) internal view returns (bool) {
-        return _isRegisteredProposer(self.proposersData[account]);
+        return _isRegisteredProposer(self.executors[account]);
     }
 
     /// @notice Checks if an account is an executor associated with any proposer.
@@ -225,13 +193,15 @@ library Proposers {
     // Private Methods
     // ---
 
-    function _checkRegisteredProposer(address proposerAccount, ProposerData memory proposerData) internal pure {
-        if (!_isRegisteredProposer(proposerData)) {
+    /// @notice Checks that the given proposer is registered.
+    function _checkRegisteredProposer(address proposerAccount, ExecutorData memory executorData) internal pure {
+        if (!_isRegisteredProposer(executorData)) {
             revert ProposerNotRegistered(proposerAccount);
         }
     }
 
-    function _isRegisteredProposer(ProposerData memory proposerData) internal pure returns (bool) {
-        return proposerData.proposerIndex.isNotEmpty();
+    /// @notice Checks if the given executor data belongs to a registered proposer.
+    function _isRegisteredProposer(ExecutorData memory executorData) internal pure returns (bool) {
+        return executorData.proposerIndex.isNotEmpty();
     }
 }

@@ -226,9 +226,7 @@ contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
             ExternalCall[] memory dualGovernanceLaunchCalls = ExternalCallHelpers.create(
                 [address(_dualGovernance), address(_timelock)],
                 [
-                    abi.encodeCall(
-                        _dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor(), true)
-                    ),
+                    abi.encodeCall(_dualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())),
                     abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance)))
                 ]
             );
