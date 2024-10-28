@@ -35,8 +35,6 @@ enum Status {
 /// @notice Manages a collection of proposals with associated external calls stored as Proposal struct.
 ///     Proposals are uniquely identified by sequential ids, starting from one.
 library ExecutableProposals {
-    using ExternalCalls for ExternalCall[];
-
     // ---
     // Data Types
     // ---
@@ -95,7 +93,7 @@ library ExecutableProposals {
         uint256 indexed id, address indexed proposer, address indexed executor, ExternalCall[] calls, string metadata
     );
     event ProposalScheduled(uint256 indexed id);
-    event ProposalExecuted(uint256 indexed id, bytes[] callResults);
+    event ProposalExecuted(uint256 indexed id);
     event ProposalsCancelledTill(uint256 proposalId);
 
     // ---
@@ -178,12 +176,8 @@ library ExecutableProposals {
 
         self.proposals[proposalId].data.status = Status.Executed;
 
-        address executor = proposal.data.executor;
-        ExternalCall[] memory calls = proposal.calls;
-
-        bytes[] memory results = calls.execute(IExternalExecutor(executor));
-
-        emit ProposalExecuted(proposalId, results);
+        ExternalCalls.execute(IExternalExecutor(proposal.data.executor), proposal.calls);
+        emit ProposalExecuted(proposalId);
     }
 
     /// @notice Marks all non-executed proposals up to the most recently submitted as canceled, preventing their execution.

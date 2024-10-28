@@ -15,7 +15,7 @@ contract Executor is IExternalExecutor, Ownable {
     // ---
 
     event OperatorSet(address indexed newOperator);
-    event Executed(address indexed target, uint256 value, bytes data);
+    event Execute(address indexed sender, address indexed target, uint256 ethValue, bytes data);
 
     // ---
     // Errors
@@ -46,17 +46,12 @@ contract Executor is IExternalExecutor, Ownable {
     /// @param target The address of the target contract on which to execute the function call.
     /// @param value The amount of ether (in wei) to send with the function call.
     /// @param payload The calldata for the function call.
-    /// @return result The data returned from the function call.
-    function execute(
-        address target,
-        uint256 value,
-        bytes calldata payload
-    ) external payable returns (bytes memory result) {
+    function execute(address target, uint256 value, bytes calldata payload) external payable {
         if (msg.sender != _operator) {
             revert CallerIsNotOperator(msg.sender);
         }
-        result = Address.functionCallWithValue(target, payload, value);
-        emit Executed(target, value, payload);
+        Address.functionCallWithValue(target, payload, value);
+        emit Execute(msg.sender, target, value, payload);
     }
 
     // ---
