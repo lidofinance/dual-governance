@@ -10,7 +10,6 @@ jobs:
       cache-key: ${{ steps.cache.outputs.key }}
     env:
       FORGE_REV: 03ea54c
-      JUST_TAG: 1.24.0
     steps:
       - name: Build cache params
         id: cache
@@ -22,17 +21,12 @@ jobs:
             ~/.cargo/bin/
           KEY_INPUT: |
             forge:${{env.FORGE_REV}}
-            just:${{env.JUST_TAG}}
 
       - uses: actions/cache@v4
         id: get-cache
         with:
           path: ${{ steps.cache.outputs.path }}
           key: ${{ steps.cache.outputs.key }}
-
-      - name: Install just
-        run: cargo install "just@$JUST_TAG"
-        if: steps.get-cache.outputs.cache-hit != 'true'
 
       - name: Install forge & anvil
         run: cargo install --git https://github.com/foundry-rs/foundry --rev "$FORGE_REV" --profile release --locked forge anvil
