@@ -48,7 +48,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     Duration private _defaultAfterScheduleDelay = Durations.from(2 days);
 
     function setUp() external {
-        _executor = new Executor(address(this));
+        _executor = new Executor(address(this), address(this));
         _adminExecutor = address(_executor);
 
         _timelock = _deployEmergencyProtectedTimelock();
@@ -56,7 +56,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _targetMock = new TargetMock();
         _anotherTargetMock = new TargetMock();
 
-        _executor.transferOwnership(address(_timelock));
+        _executor.setOperator(address(_timelock));
+        _executor.transferOwnership(address(_executor));
 
         vm.startPrank(_adminExecutor);
         _timelock.setGovernance(_dualGovernance);
@@ -461,34 +462,6 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
 
         assertEq(_timelock.getAfterScheduleDelay(), newAfterScheduleDelay);
-    }
-
-    // EmergencyProtectedTimelock.transferExecutorOwnership()
-
-    function testFuzz_transferExecutorOwnership_HappyPath(address newOwner) external {
-        vm.assume(newOwner != _adminExecutor);
-        vm.assume(newOwner != address(0));
-
-        Executor executor = new Executor(address(_timelock));
-
-        assertEq(executor.owner(), address(_timelock));
-
-        vm.prank(_adminExecutor);
-
-        vm.expectEmit(address(executor));
-        emit Ownable.OwnershipTransferred(address(_timelock), newOwner);
-
-        _timelock.transferExecutorOwnership(address(executor), newOwner);
-
-        assertEq(executor.owner(), newOwner);
-    }
-
-    function test_transferExecutorOwnership_RevertOn_ByStranger(address stranger) external {
-        vm.assume(stranger != _adminExecutor);
-
-        vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
-        _timelock.transferExecutorOwnership(_adminExecutor, makeAddr("newOwner"));
     }
 
     // EmergencyProtectedTimelock.setGovernance()

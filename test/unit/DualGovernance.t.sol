@@ -36,7 +36,7 @@ import {SealableMock} from "test/mocks/SealableMock.sol";
 import {computeAddress} from "test/utils/addresses.sol";
 
 contract DualGovernanceUnitTests is UnitTest {
-    Executor private _executor = new Executor(address(this));
+    Executor private _executor = new Executor(address(this), address(this));
 
     address private vetoer = makeAddr("vetoer");
     address private resealCommittee = makeAddr("resealCommittee");
@@ -1072,6 +1072,13 @@ contract DualGovernanceUnitTests is UnitTest {
 
         vm.expectEmit();
         emit DualGovernanceStateMachine.ConfigProviderSet(IDualGovernanceConfigProvider(address(newConfigProvider)));
+        vm.expectEmit();
+        emit Executor.Executed(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(newConfigProvider))
+        );
+
         vm.expectCall(
             address(_escrow),
             0,
@@ -1084,7 +1091,7 @@ contract DualGovernanceUnitTests is UnitTest {
             0,
             abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(newConfigProvider))
         );
-        assertEq(vm.getRecordedLogs().length, 1);
+        assertEq(vm.getRecordedLogs().length, 2);
 
         assertEq(address(_dualGovernance.getConfigProvider()), address(newConfigProvider));
         assertTrue(address(_dualGovernance.getConfigProvider()) != address(oldConfigProvider));
