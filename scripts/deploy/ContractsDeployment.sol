@@ -290,8 +290,13 @@ library DGContractsDeployment {
             0,
             abi.encodeCall(
                 contracts.dualGovernance.registerProposer,
-                (address(lidoAddresses.voting), address(contracts.adminExecutor), true)
+                (address(lidoAddresses.voting), address(contracts.adminExecutor))
             )
+        );
+        contracts.adminExecutor.execute(
+            address(contracts.dualGovernance),
+            0,
+            abi.encodeCall(contracts.dualGovernance.setProposalsCanceller, address(lidoAddresses.voting))
         );
         contracts.adminExecutor.execute(
             address(contracts.dualGovernance),

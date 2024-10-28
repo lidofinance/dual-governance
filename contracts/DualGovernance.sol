@@ -38,13 +38,13 @@ contract DualGovernance is IDualGovernance {
     // Errors
     // ---
 
-    error UnownedAdminExecutor();
     error CallerIsNotAdminExecutor(address caller);
+    error CallerIsNotProposalsCanceller(address caller);
+    error InvalidProposalsCanceller(address canceller);
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
     error InvalidTiebreakerActivationTimeoutBounds();
-    error ProposerNotPermittedToCancelProposals(address proposer);
 
     // ---
     // Events
@@ -53,6 +53,7 @@ contract DualGovernance is IDualGovernance {
     event CancelAllPendingProposalsSkipped();
     event CancelAllPendingProposalsExecuted();
     event EscrowMasterCopyDeployed(IEscrow escrowMasterCopy);
+    event ProposalsCancellerSet(address proposalsCanceller);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -130,6 +131,10 @@ contract DualGovernance is IDualGovernance {
 
     /// @dev The functionality for sealing/resuming critical components of Lido protocol.
     Resealer.Context internal _resealer;
+
+    /// @dev The address authorized to call `cancelAllPendingProposals()`, allowing it to cancel all proposals that are
+    ///     submitted or scheduled but not yet executed.
+    address internal _proposalsCanceller;
 
     // ---
     // Constructor
@@ -211,9 +216,8 @@ contract DualGovernance is IDualGovernance {
     function cancelAllPendingProposals() external returns (bool) {
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
 
-        Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
-        if (!proposer.canCancelProposals) {
-            revert ProposerNotPermittedToCancelProposals(msg.sender);
+        if (msg.sender != _proposalsCanceller) {
+            revert CallerIsNotProposalsCanceller(msg.sender);
         }
 
         if (!_stateMachine.canCancelAllPendingProposals({useEffectiveState: false})) {
@@ -288,6 +292,21 @@ contract DualGovernance is IDualGovernance {
         _stateMachine.setConfigProvider(newConfigProvider);
     }
 
+    function setProposalsCanceller(address newProposalsCanceller) external {
+        _checkCallerIsAdminExecutor();
+
+        if (newProposalsCanceller == address(0) || newProposalsCanceller == _proposalsCanceller) {
+            revert InvalidProposalsCanceller(newProposalsCanceller);
+        }
+
+        _proposalsCanceller = newProposalsCanceller;
+        emit ProposalsCancellerSet(newProposalsCanceller);
+    }
+
+    function getProposalsCanceller() external view returns (address) {
+        return _proposalsCanceller;
+    }
+
     /// @notice Returns the current configuration provider address for the Dual Governance system.
     /// @return configProvider The address of the current configuration provider contract.
     function getConfigProvider() external view returns (IDualGovernanceConfigProvider) {
@@ -344,31 +363,9 @@ contract DualGovernance is IDualGovernance {
     /// @dev Multiple proposers can share the same executor contract, but each proposer must be unique.
     /// @param proposerAccount The address of the proposer to register.
     /// @param executor The address of the executor contract associated with the proposer.
-    /// @param canCancelProposals Indicates if the proposer has authority to cancel all proposals that are
-    ///     submitted or scheduled but not yet executed.
-    function registerProposer(address proposerAccount, address executor, bool canCancelProposals) external {
+    function registerProposer(address proposerAccount, address executor) external {
         _checkCallerIsAdminExecutor();
-        _proposers.register(proposerAccount, executor, canCancelProposals);
-    }
-
-    /// @notice Grants the specified proposer the permission to cancel all proposals that have been submitted
-    ///     or scheduled but are not yet executed.
-    /// @param proposerAccount The address of the proposer to grant proposal-canceling permission.
-    function grantProposalsCancellingPermission(address proposerAccount) external {
-        _checkCallerIsAdminExecutor();
-        _proposers.setCanCancelProposals(proposerAccount, true);
-    }
-
-    /// @notice Revokes the permission to cancel proposals from the specified proposer.
-    /// @param proposerAccount The address of the proposer from whom to revoke proposal-canceling permission.
-    function revokeProposalsCancellingPermission(address proposerAccount) external {
-        _checkCallerIsAdminExecutor();
-        _proposers.setCanCancelProposals(proposerAccount, false);
-    }
-
-    /// @notice Allows the caller to renounce their proposal-canceling permission.
-    function renounceProposalsCancellingPermission() external {
-        _proposers.setCanCancelProposals(msg.sender, false);
+        _proposers.register(proposerAccount, executor);
     }
 
     /// @notice Updates the executor associated with a specified proposer.

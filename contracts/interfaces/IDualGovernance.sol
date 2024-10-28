@@ -39,7 +39,7 @@ interface IDualGovernance is IGovernance, ITiebreaker {
     function getEffectiveState() external view returns (State effectiveState);
     function getStateDetails() external view returns (StateDetails memory stateDetails);
 
-    function registerProposer(address proposer, address executor, bool canCancelProposals) external;
+    function registerProposer(address proposer, address executor) external;
     function unregisterProposer(address proposer) external;
     function isProposer(address account) external view returns (bool);
     function getProposer(address account) external view returns (Proposers.Proposer memory proposer);

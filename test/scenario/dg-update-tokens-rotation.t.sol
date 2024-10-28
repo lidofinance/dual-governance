@@ -219,7 +219,7 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
                     value: 0,
                     target: address(newDualGovernanceInstance),
                     payload: abi.encodeCall(
-                        DualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor(), true)
+                        DualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())
                     )
                 }),
                 ExternalCall({
