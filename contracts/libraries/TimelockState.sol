@@ -11,6 +11,7 @@ library TimelockState {
     // ---
 
     error CallerIsNotGovernance(address caller);
+    error CallerIsNotAdminExecutor(address value);
     error InvalidGovernance(address value);
     error InvalidAfterSubmitDelay(Duration value);
     error InvalidAfterScheduleDelay(Duration value);
@@ -41,7 +42,7 @@ library TimelockState {
     }
 
     // ---
-    // Main Functionality
+    // State Management
     // ---
 
     /// @notice Sets the governance address.
@@ -100,6 +101,10 @@ library TimelockState {
         emit AdminExecutorSet(newAdminExecutor);
     }
 
+    // ---
+    // Getters
+    // ---
+
     /// @notice Retrieves the delay period required after a proposal is submitted before it can be scheduled.
     /// @param self The context of the Timelock State library.
     /// @return Duration The current after submit delay.
@@ -114,11 +119,23 @@ library TimelockState {
         return self.afterScheduleDelay;
     }
 
+    // ---
+    // Checks
+    // ---
+
     /// @notice Checks if the caller is the governance address, reverting if not.
     /// @param self The context of the Timelock State library.
     function checkCallerIsGovernance(Context storage self) internal view {
         if (self.governance != msg.sender) {
             revert CallerIsNotGovernance(msg.sender);
+        }
+    }
+
+    /// @notice Ensures that the caller is the designated admin executor.
+    /// @param self The context of the calling contract.
+    function checkCallerIsAdminExecutor(Context storage self) internal view {
+        if (self.adminExecutor != msg.sender) {
+            revert CallerIsNotAdminExecutor(msg.sender);
         }
     }
 }
