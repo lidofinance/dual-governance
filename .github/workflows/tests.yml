@@ -61,13 +61,10 @@ jobs:
           cache: yarn
           cache-dependency-path: "**/yarn.lock"
 
-      - name: Install dependencies
-        run: just deps
-
       - name: Build
-        run: just build --sizes
+        run: forge build --sizes
 
       - name: Run local integration tests
-        run: just test
+        run: forge test
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
