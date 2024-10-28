@@ -1,13 +1,16 @@
 name: Run Forge Tests
 on: [push, pull_request]
 
-jobs:
+jobs:  
   bootstrap:
     name: Bootstrap environment
     runs-on: ubuntu-latest
     outputs:
       cache-path: ${{ steps.cache.outputs.path }}
       cache-key: ${{ steps.cache.outputs.key }}
+    env:
+      FORGE_REV: 03ea54c
+      JUST_TAG: 1.24.0
     steps:
       - name: Build cache params
         id: cache
@@ -19,12 +22,21 @@ jobs:
             ~/.cargo/bin/
           KEY_INPUT: |
             forge:${{env.FORGE_REV}}
+            just:${{env.JUST_TAG}}
 
       - uses: actions/cache@v4
         id: get-cache
         with:
           path: ${{ steps.cache.outputs.path }}
           key: ${{ steps.cache.outputs.key }}
+
+      - name: Install just
+        run: cargo install "just@$JUST_TAG"
+        if: steps.get-cache.outputs.cache-hit != 'true'
+
+      - name: Install forge & anvil
+        run: cargo install --git https://github.com/foundry-rs/foundry --rev "$FORGE_REV" --profile release --locked forge anvil
+        if: steps.get-cache.outputs.cache-hit != 'true'
 
   foundry:
     name: Foundry tests
@@ -36,9 +48,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install forge & anvil
-        run: cargo install --git https://github.com/foundry-rs/foundry --rev "$FORGE_REV" --profile release --locked forge anvil
-        if: steps.get-cache.outputs.cache-hit != 'true'
+      - uses: actions/cache@v4
+        with:
+          path: ${{ needs.bootstrap.outputs.cache-path }}
+          key: ${{ needs.bootstrap.outputs.cache-key }}
 
       - name: Install node
         uses: actions/setup-node@v4
@@ -48,12 +61,12 @@ jobs:
           cache-dependency-path: "**/yarn.lock"
 
       - name: Install dependencies
-        run: forge install
+        run: just deps
 
       - name: Build
-        run: forge build --sizes
+        run: just build --sizes
 
-      - name: Run unit-tests
-        run: forge test
+      - name: Run local integration tests
+        run: just test
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
