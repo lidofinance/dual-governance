@@ -3,12 +3,16 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {ITiebreakerCore} from "../interfaces/ITiebreakerCore.sol";
+import {Duration} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
+import {ITimelock} from "../interfaces/ITimelock.sol";
 import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
+import {ITiebreakerCore} from "../interfaces/ITiebreakerCore.sol";
+import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Duration} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,
@@ -20,8 +24,9 @@ enum ProposalType {
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     error ResumeSealableNonceMismatch();
+    error ProposalDoesNotExist(uint256 proposalId);
 
-    address immutable DUAL_GOVERNANCE;
+    address public immutable DUAL_GOVERNANCE;
 
     mapping(address => uint256) private _sealableResumeNonces;
 
@@ -38,6 +43,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     /// @param proposalId The ID of the proposal to schedule
     function scheduleProposal(uint256 proposalId) public {
         _checkCallerIsMember();
+        checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeScheduleProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);
@@ -68,6 +74,16 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
         Address.functionCall(
             DUAL_GOVERNANCE, abi.encodeWithSelector(ITiebreaker.tiebreakerScheduleProposal.selector, proposalId)
         );
+    }
+
+    /// @notice Checks if a proposal exists
+    /// @param proposalId The ID of the proposal to check
+    function checkProposalExists(uint256 proposalId) public view {
+        ITimelock timelock = IDualGovernance(DUAL_GOVERNANCE).TIMELOCK();
+
+        if (proposalId == 0 || proposalId > timelock.getProposalsCount()) {
+            revert ProposalDoesNotExist(proposalId);
+        }
     }
 
     /// @notice Encodes a schedule proposal

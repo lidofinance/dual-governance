@@ -17,6 +17,8 @@ enum ProposalType {
 /// @notice This contract allows a committee to vote on and execute emergency proposals
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
+    error ProposalDoesNotExist(uint256 proposalId);
+
     address public immutable EMERGENCY_PROTECTED_TIMELOCK;
 
     constructor(
@@ -40,6 +42,7 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
     /// @param _supports Indicates whether the member supports the proposal execution
     function voteEmergencyExecute(uint256 proposalId, bool _supports) public {
         _checkCallerIsMember();
+        _checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeEmergencyExecute(proposalId);
         _vote(key, _supports);
         _pushProposal(key, uint256(ProposalType.EmergencyExecute), proposalData);
@@ -68,6 +71,14 @@ contract EmergencyExecutionCommittee is HashConsensus, ProposalsList {
         Address.functionCall(
             EMERGENCY_PROTECTED_TIMELOCK, abi.encodeWithSelector(ITimelock.emergencyExecute.selector, proposalId)
         );
+    }
+
+    /// @notice Checks if a proposal exists
+    /// @param proposalId The ID of the proposal to check
+    function _checkProposalExists(uint256 proposalId) internal view {
+        if (proposalId == 0 || proposalId > ITimelock(EMERGENCY_PROTECTED_TIMELOCK).getProposalsCount()) {
+            revert ProposalDoesNotExist(proposalId);
+        }
     }
 
     /// @dev Encodes the proposal data and generates the proposal key for an emergency execution
