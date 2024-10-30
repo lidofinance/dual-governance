@@ -215,11 +215,23 @@ contract Escrow is IEscrow {
         DUAL_GOVERNANCE.activateNextState();
     }
 
+    /// @notice Marks the specified locked unstETH NFTs as finalized to update the rage quit support value
+    ///     in the Veto Signalling Escrow.
+    /// @dev Finalizing a withdrawal NFT results in the following state changes:
+    ///        - The value of the finalized unstETH NFT is no longer influenced by stETH token rebases.
+    ///        - The total supply of stETH is adjusted according to the value of the finalized unstETH NFT.
+    ///     These changes impact the rage quit support value. This function updates the status of the specified
+    ///     unstETH NFTs to ensure accurate rage quit support accounting in the Veto Signalling Escrow.
+    /// @param unstETHIds An array of ids representing the unstETH NFTs to be marked as finalized.
+    /// @param hints An array of hints required by the WithdrawalQueue to efficiently retrieve
+    ///        the claimable amounts for the unstETH NFTs.
     function markUnstETHFinalized(uint256[] memory unstETHIds, uint256[] calldata hints) external {
+        DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 
         uint256[] memory claimableAmounts = WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints);
         _accounting.accountUnstETHFinalized(unstETHIds, claimableAmounts);
+        DUAL_GOVERNANCE.activateNextState();
     }
 
     // ---
