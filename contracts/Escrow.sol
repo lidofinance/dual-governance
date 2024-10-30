@@ -223,24 +223,6 @@ contract Escrow is IEscrow {
     }
 
     // ---
-    // Convert to NFT
-    // ---
-
-    function requestWithdrawals(uint256[] calldata stETHAmounts) external returns (uint256[] memory unstETHIds) {
-        _escrowState.checkSignallingEscrow();
-
-        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stETHAmounts, address(this));
-        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
-
-        uint256 sharesTotal = 0;
-        for (uint256 i = 0; i < statuses.length; ++i) {
-            sharesTotal += statuses[i].amountOfShares;
-        }
-        _accounting.accountStETHSharesUnlock(msg.sender, SharesValues.from(sharesTotal));
-        _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
-    }
-
-    // ---
     // Start rage quit
     // ---
 
