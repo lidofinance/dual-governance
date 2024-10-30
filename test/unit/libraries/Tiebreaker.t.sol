@@ -23,7 +23,10 @@ contract TiebreakerTest is UnitTest {
 
     function setUp() external {
         // The expected state of the sealable most of the time - unpaused
-        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp - 1);
+        // According to the implementation of PausableUntil
+        // https://github.com/lidofinance/core/blob/60bc9b77b036eec22b2ab8a3a1d49c6b6614c600/contracts/0.8.9/utils/PausableUntil.sol#L52
+        // the sealable is considered resumed when block.timestamp >= resumeSinceTimestamp
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp);
     }
 
     // ---
@@ -33,9 +36,21 @@ contract TiebreakerTest is UnitTest {
     function test_addSealableWithdrawalBlocker_HappyPath() external {
         vm.expectEmit();
         emit Tiebreaker.SealableWithdrawalBlockerAdded(_SEALABLE);
-
         this.external__addSealableWithdrawalBlocker(_SEALABLE);
+        assertTrue(context.sealableWithdrawalBlockers.contains(_SEALABLE));
 
+        context.removeSealableWithdrawalBlocker(_SEALABLE);
+
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, 0);
+        this.external__addSealableWithdrawalBlocker(_SEALABLE);
+        assertTrue(context.sealableWithdrawalBlockers.contains(_SEALABLE));
+
+        context.removeSealableWithdrawalBlocker(_SEALABLE);
+
+        _wait(Durations.from(42 seconds));
+
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp / 2);
+        this.external__addSealableWithdrawalBlocker(_SEALABLE);
         assertTrue(context.sealableWithdrawalBlockers.contains(_SEALABLE));
     }
 
@@ -78,8 +93,19 @@ contract TiebreakerTest is UnitTest {
 
         this.external__addSealableWithdrawalBlocker(_SEALABLE);
 
+        // set the block timestamp to make sure it's > 0
+        _wait(Durations.from(42 seconds));
+
         // revert when sealable is paused for short period
-        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp);
+
+        // edge case, the last second of the pause period
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp + 1);
+        vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, _SEALABLE));
+
+        this.external__addSealableWithdrawalBlocker(_SEALABLE);
+
+        // the finite period of time
+        _mockSealableResumeSinceTimestampResult(_SEALABLE, block.timestamp + 30 days);
         vm.expectRevert(abi.encodeWithSelector(Tiebreaker.InvalidSealable.selector, _SEALABLE));
 
         this.external__addSealableWithdrawalBlocker(_SEALABLE);
