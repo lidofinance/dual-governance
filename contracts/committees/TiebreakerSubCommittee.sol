@@ -140,7 +140,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
         returns (bytes memory data, bytes32 key, uint256 nonce)
     {
         nonce = ITiebreakerCoreCommittee(TIEBREAKER_CORE_COMMITTEE).getSealableResumeNonce(sealable);
-        data = abi.encode(sealable, nonce);
+        data = abi.encode(ProposalType.ResumeSealable, sealable, nonce);
         key = keccak256(data);
     }
 }
