@@ -145,6 +145,12 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         tiebreakerSubCommittee.sealableResume(sealable);
     }
 
+    function test_sealableResume_RevertOn_SealableZeroAddress() external {
+        vm.prank(committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerSubCommittee.InvalidSealable.selector, address(0)));
+        tiebreakerSubCommittee.sealableResume(address(0));
+    }
+
     function test_executeSealableResume_HappyPath() external {
         vm.mockCall(
             tiebreakerCore,
