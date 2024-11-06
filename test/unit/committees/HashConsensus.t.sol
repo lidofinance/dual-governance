@@ -107,6 +107,15 @@ abstract contract HashConsensusUnitTest is UnitTest {
         _hashConsensus.addMembers(membersToAdd, _quorum);
     }
 
+    function test_addMembers_RevertOn_ZeroMemberAddress() public {
+        address[] memory membersToAdd = new address[](1);
+        membersToAdd[0] = address(0);
+
+        vm.prank(_owner);
+        vm.expectRevert(abi.encodeWithSignature("InvalidMemberAccount(address)", address(0)));
+        _hashConsensus.addMembers(membersToAdd, _quorum);
+    }
+
     function test_addMembers_RevertOn_DuplicateInArray() public {
         address[] memory membersToAdd = new address[](2);
         membersToAdd[0] = makeAddr("NEW_MEMBER");
