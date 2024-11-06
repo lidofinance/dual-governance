@@ -91,7 +91,7 @@ library DualGovernanceStateMachine {
     // ---
 
     event NewSignallingEscrowDeployed(IEscrow indexed escrow);
-    event DualGovernanceStateChanged(State from, State to, Context state);
+    event DualGovernanceStateChanged(State indexed from, State indexed to, Context state);
     event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
 
     // ---

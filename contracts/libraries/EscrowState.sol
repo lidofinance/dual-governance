@@ -35,7 +35,7 @@ library EscrowState {
     // Events
     // ---
 
-    event EscrowStateChanged(State from, State to);
+    event EscrowStateChanged(State indexed from, State indexed to);
     event RageQuitExtensionPeriodStarted(Timestamp startedAt);
     event MinAssetsLockDurationSet(Duration newAssetsLockDuration);
     event RageQuitStarted(Duration rageQuitExtensionDuration, Duration rageQuitEthWithdrawalsDelay);
