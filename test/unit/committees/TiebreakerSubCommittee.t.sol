@@ -180,7 +180,8 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         vm.prank(committeeMembers[2]);
         vm.expectRevert(
             abi.encodeWithSelector(
-                HashConsensus.HashIsNotScheduled.selector, keccak256(abi.encode(sealable, /*nonce */ 0))
+                HashConsensus.HashIsNotScheduled.selector,
+                keccak256(abi.encode(ProposalType.ResumeSealable, sealable, /*nonce */ 0))
             )
         );
         tiebreakerSubCommittee.executeSealableResume(sealable);
