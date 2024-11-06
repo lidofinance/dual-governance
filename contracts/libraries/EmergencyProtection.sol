@@ -24,7 +24,7 @@ library EmergencyProtection {
     event EmergencyModeDeactivated();
     event EmergencyGovernanceSet(address newEmergencyGovernance);
     event EmergencyActivationCommitteeSet(address newActivationCommittee);
-    event EmergencyExecutionCommitteeSet(address newActivationCommittee);
+    event EmergencyExecutionCommitteeSet(address newExecutionCommittee);
     event EmergencyModeDurationSet(Duration newEmergencyModeDuration);
     event EmergencyProtectionEndDateSet(Timestamp newEmergencyProtectionEndDate);
 
