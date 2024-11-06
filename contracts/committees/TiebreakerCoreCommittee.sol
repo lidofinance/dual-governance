@@ -41,7 +41,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     /// @notice Votes on a proposal to schedule
     /// @dev Allows committee members to vote on scheduling a proposal
     /// @param proposalId The ID of the proposal to schedule
-    function scheduleProposal(uint256 proposalId) public {
+    function scheduleProposal(uint256 proposalId) external {
         _checkCallerIsMember();
         checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeScheduleProposal(proposalId);
@@ -57,7 +57,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     /// @return quorumAt The timestamp when the quorum was reached
     /// @return isExecuted Whether the proposal has been executed
     function getScheduleProposalState(uint256 proposalId)
-        public
+        external
         view
         returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
@@ -68,7 +68,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     /// @notice Executes an approved schedule proposal
     /// @dev Executes the schedule proposal by calling the tiebreakerScheduleProposal function on the Dual Governance contract
     /// @param proposalId The ID of the proposal to schedule
-    function executeScheduleProposal(uint256 proposalId) public {
+    function executeScheduleProposal(uint256 proposalId) external {
         (, bytes32 key) = _encodeScheduleProposal(proposalId);
         _markUsed(key);
         Address.functionCall(
@@ -104,11 +104,11 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     /// @dev Retrieves the resume nonce for the given sealable address
     /// @param sealable The address of the sealable to get the nonce for
     /// @return The current resume nonce for the sealable address
-    function getSealableResumeNonce(address sealable) public view returns (uint256) {
+    function getSealableResumeNonce(address sealable) external view returns (uint256) {
         return _sealableResumeNonces[sealable];
     }
 
-    function sealableResume(address sealable, uint256 nonce) public {
+    function sealableResume(address sealable, uint256 nonce) external {
         _checkCallerIsMember();
         if (nonce != _sealableResumeNonces[sealable]) {
             revert ResumeSealableNonceMismatch();
@@ -129,7 +129,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     function getSealableResumeState(
         address sealable,
         uint256 nonce
-    ) public view returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) {
+    ) external view returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) {
         (, bytes32 key) = _encodeSealableResume(sealable, nonce);
         return _getHashState(key);
     }
