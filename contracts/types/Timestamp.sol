@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 type Timestamp is uint40;
 
 error TimestampOverflow();
-error TimestampUnderflow();
 
 uint256 constant MAX_TIMESTAMP_VALUE = type(uint40).max;
 
