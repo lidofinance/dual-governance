@@ -38,7 +38,7 @@ library EscrowState {
     event EscrowStateChanged(State from, State to);
     event RageQuitExtensionPeriodStarted(Timestamp startedAt);
     event MinAssetsLockDurationSet(Duration newAssetsLockDuration);
-    event RageQuitStarted(Duration rageQuitExtensionDuration, Duration rageQuitEthWithdrawalsDelay);
+    event RageQuitStarted(Duration rageQuitExtensionPeriodDuration, Duration rageQuitEthWithdrawalsDelay);
 
     /// @notice Stores the context of the state of the Escrow instance
     /// @param state The current state of the Escrow instance
