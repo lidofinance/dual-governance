@@ -16,7 +16,7 @@ import {IWithdrawalQueue, WithdrawalRequestStatus} from "./interfaces/IWithdrawa
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 
 import {EscrowState} from "./libraries/EscrowState.sol";
-import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalBatchesQueue.sol";
+import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalsBatchesQueue.sol";
 import {HolderAssets, StETHAccounting, UnstETHAccounting, AssetsAccounting} from "./libraries/AssetsAccounting.sol";
 
 /// @notice Summary of the total locked assets in the Escrow.
@@ -419,9 +419,9 @@ contract Escrow is IEscrow {
         }
 
         /// @dev This check is primarily required when only unstETH NFTs are locked in the Escrow
-        ///     and there are no WithdrawalBatches. In this scenario, the RageQuitExtensionPeriod can only begin
+        ///     and there are no WithdrawalsBatches. In this scenario, the RageQuitExtensionPeriod can only begin
         ///     when the last locked unstETH id is finalized in the WithdrawalQueue.
-        ///     When the WithdrawalBatchesQueue is not empty, this invariant is maintained by the following:
+        ///     When the WithdrawalsBatchesQueue is not empty, this invariant is maintained by the following:
         ///         - Any locked unstETH during the VetoSignalling phase has an id less than any unstETH NFT created
         ///           during the request for withdrawal batches.
         ///         - Claiming the withdrawal batches requires the finalization of the unstETH with the given id.

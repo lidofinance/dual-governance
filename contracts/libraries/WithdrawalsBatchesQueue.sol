@@ -4,9 +4,9 @@ pragma solidity 0.8.26;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-/// @notice The state of the WithdrawalBatchesQueue
-/// @param Empty The initial (uninitialized) state of the WithdrawalBatchesQueue
-/// @param Opened In this state, the WithdrawalBatchesQueue allows the addition of new batches of unstETH ids
+/// @notice The state of the WithdrawalsBatchesQueue
+/// @param Empty The initial (uninitialized) state of the WithdrawalsBatchesQueue
+/// @param Opened In this state, the WithdrawalsBatchesQueue allows the addition of new batches of unstETH ids
 /// @param Closed The terminal state of the queue. In this state, the addition of new batches is forbidden
 enum State {
     Absent,
@@ -23,18 +23,18 @@ library WithdrawalsBatchesQueue {
 
     error EmptyBatch();
     error InvalidUnstETHIdsSequence();
-    error WithdrawalBatchesQueueIsInAbsentState();
-    error WithdrawalBatchesQueueIsNotInOpenedState();
-    error WithdrawalBatchesQueueIsNotInAbsentState();
+    error WithdrawalsBatchesQueueIsInAbsentState();
+    error WithdrawalsBatchesQueueIsNotInOpenedState();
+    error WithdrawalsBatchesQueueIsNotInAbsentState();
 
     // ---
     // Events
     // ---
 
-    event WithdrawalBatchesQueueClosed();
+    event WithdrawalsBatchesQueueClosed();
     event UnstETHIdsAdded(uint256[] unstETHIds);
     event UnstETHIdsClaimed(uint256[] unstETHIds);
-    event WithdrawalBatchesQueueOpened(uint256 boundaryUnstETHId);
+    event WithdrawalsBatchesQueueOpened(uint256 boundaryUnstETHId);
 
     // ---
     // Data types
@@ -90,7 +90,7 @@ library WithdrawalsBatchesQueue {
     /// `boundaryUnstETHId` value is used as a lower bound for the adding unstETH ids
     function open(Context storage self, uint256 boundaryUnstETHId) internal {
         if (self.info.state != State.Absent) {
-            revert WithdrawalBatchesQueueIsNotInAbsentState();
+            revert WithdrawalsBatchesQueueIsNotInAbsentState();
         }
 
         self.info.state = State.Opened;
@@ -99,7 +99,7 @@ library WithdrawalsBatchesQueue {
         /// when the queue is empty. This element doesn't used during the claiming of the batches created
         /// via addUnstETHIds() method and always allocates single batch
         self.batches.push(SequentialBatch({firstUnstETHId: boundaryUnstETHId, lastUnstETHId: boundaryUnstETHId}));
-        emit WithdrawalBatchesQueueOpened(boundaryUnstETHId);
+        emit WithdrawalsBatchesQueueOpened(boundaryUnstETHId);
     }
 
     /// @dev Adds new unstETHIds to the WithdrawalsBatchesQueue.
@@ -162,7 +162,7 @@ library WithdrawalsBatchesQueue {
     function close(Context storage self) internal {
         _checkInOpenedState(self);
         self.info.state = State.Closed;
-        emit WithdrawalBatchesQueueClosed();
+        emit WithdrawalsBatchesQueueClosed();
     }
 
     // ---
@@ -290,7 +290,7 @@ library WithdrawalsBatchesQueue {
     /// @param self The WithdrawalsBatchesQueue context.
     function _checkNotInAbsentState(Context storage self) private view {
         if (self.info.state == State.Absent) {
-            revert WithdrawalBatchesQueueIsInAbsentState();
+            revert WithdrawalsBatchesQueueIsInAbsentState();
         }
     }
 
@@ -298,7 +298,7 @@ library WithdrawalsBatchesQueue {
     /// @param self The WithdrawalsBatchesQueue context.
     function _checkInOpenedState(Context storage self) private view {
         if (self.info.state != State.Opened) {
-            revert WithdrawalBatchesQueueIsNotInOpenedState();
+            revert WithdrawalsBatchesQueueIsNotInOpenedState();
         }
     }
 }
