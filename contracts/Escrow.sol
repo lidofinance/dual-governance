@@ -209,15 +209,15 @@ contract Escrow is IEscrow {
 
     /// @notice Unlocks all previously locked stETH and wstETH tokens, returning them in the form of wstETH tokens.
     ///     This action decreases the rage quit support proportionally to the number of unlocked wstETH shares.
-    /// @return unlockedStETHShares The total number of wstETH shares unlocked from the Escrow.
-    function unlockWstETH() external returns (uint256 unlockedStETHShares) {
+    /// @return wstETHUnlocked The total number of wstETH shares unlocked from the Escrow.
+    function unlockWstETH() external returns (uint256 wstETHUnlocked) {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
 
-        SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
-        unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
-        WST_ETH.transfer(msg.sender, unlockedStETHShares);
+        SharesValue unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender);
+        wstETHUnlocked = WST_ETH.wrap(ST_ETH.getPooledEthByShares(unlockedStETHShares.toUint256()));
+        WST_ETH.transfer(msg.sender, wstETHUnlocked);
 
         DUAL_GOVERNANCE.activateNextState();
     }
