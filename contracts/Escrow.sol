@@ -347,9 +347,10 @@ contract Escrow is IEscrow {
         uint256 minStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         uint256 maxStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
 
-        /// @dev This check ensures that even if MIN_STETH_WITHDRAWAL_AMOUNT is set too low,
-        ///     the withdrawal batch request process can still be completed successfully
-        if (stETHRemaining < Math.max(_MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount)) {
+        /// @dev The remaining stETH amount must be greater than the minimum threshold to create a withdrawal request.
+        uint256 remainingStETHThreshold = Math.max(_MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount);
+
+        if (stETHRemaining < remainingStETHThreshold) {
             return _batchesQueue.close();
         }
 
@@ -363,7 +364,7 @@ contract Escrow is IEscrow {
 
         stETHRemaining = ST_ETH.balanceOf(address(this));
 
-        if (stETHRemaining < minStETHWithdrawalRequestAmount) {
+        if (stETHRemaining < remainingStETHThreshold) {
             _batchesQueue.close();
         }
     }
