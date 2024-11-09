@@ -527,6 +527,28 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     // ---
+    // getTotalUnclaimedUnstETHIdsCount()
+    // ---
+
+    function testFuzz_getTotalUnclaimedUnstETHIdsCount_HappyPath(uint64 totalCount, uint64 totalClaimed) external {
+        vm.assume(totalClaimed < totalCount);
+
+        _batchesQueue.info.totalUnstETHIdsCount = totalCount;
+        _batchesQueue.info.totalUnstETHIdsClaimed = totalClaimed;
+
+        uint256 res = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+
+        assertEq(res, totalCount - totalClaimed);
+    }
+
+    function testFuzz_getTotalUnclaimedUnstETHIdsCount_RevertOn_AccountingError_IncorrectTotals() external {
+        _batchesQueue.info.totalUnstETHIdsClaimed = 1;
+
+        vm.expectRevert(stdError.arithmeticError);
+        _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+    }
+
+    // ---
     // getLastClaimedOrBoundaryUnstETHId()
     // ---
 
@@ -556,6 +578,38 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     function test_getLastClaimedOrBoundaryUnstETHId_RevertOn_AbsentQueueState() external {
         vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsInAbsentState.selector);
         _batchesQueue.getLastClaimedOrBoundaryUnstETHId();
+    }
+
+    function test_getLastClaimedOrBoundaryUnstETHId_RevertOn_LastClaimedBatchIndexOutOfArrayBounds() external {
+        _openBatchesQueue();
+        _batchesQueue.info.lastClaimedBatchIndex = 2;
+
+        vm.expectRevert(stdError.indexOOBError);
+        _batchesQueue.getLastClaimedOrBoundaryUnstETHId();
+    }
+
+    // ---
+    // isAllBatchesClaimed()
+    // ---
+
+    function testFuzz_isAllBatchesClaimed_HappyPath_ReturnsTrue(uint64 count) external {
+        _batchesQueue.info.totalUnstETHIdsClaimed = count;
+        _batchesQueue.info.totalUnstETHIdsCount = count;
+
+        bool res = _batchesQueue.isAllBatchesClaimed();
+        assertTrue(res);
+    }
+
+    function testFuzz_isAllBatchesClaimed_HappyPath_ReturnsFalse(
+        uint64 totalUnstETHClaimed,
+        uint64 totalUnstETHCount
+    ) external {
+        vm.assume(totalUnstETHClaimed != totalUnstETHCount);
+        _batchesQueue.info.totalUnstETHIdsClaimed = totalUnstETHClaimed;
+        _batchesQueue.info.totalUnstETHIdsCount = totalUnstETHCount;
+
+        bool res = _batchesQueue.isAllBatchesClaimed();
+        assertFalse(res);
     }
 
     // ---
