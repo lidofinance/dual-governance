@@ -12,7 +12,6 @@ library DualGovernanceConfig {
     // Errors
     // ---
 
-    error InvalidSecondSealRageSupport(PercentD16 secondSealRageQuitSupport);
     error InvalidRageQuitSupportRange(PercentD16 firstSealRageQuitSupport, PercentD16 secondSealRageQuitSupport);
     error InvalidRageQuitEthWithdrawalsDelayRange(
         Duration rageQuitEthWithdrawalsMinDelay, Duration rageQuitEthWithdrawalsMaxDelay
