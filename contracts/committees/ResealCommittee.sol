@@ -17,7 +17,7 @@ import {ProposalsList} from "./ProposalsList.sol";
 contract ResealCommittee is HashConsensus, ProposalsList {
     address public immutable DUAL_GOVERNANCE;
 
-    mapping(bytes32 => uint256) private _resealNonces;
+    mapping(bytes32 hash => uint256 nonce) private _resealNonces;
 
     constructor(
         address owner,

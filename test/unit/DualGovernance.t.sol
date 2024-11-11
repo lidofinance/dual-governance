@@ -2044,6 +2044,15 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function testFuzz_setResealCommittee_HappyPath(address newResealCommittee) external {
+        address resealCommittee = makeAddr("RESEAL_COMMITTEE");
+        vm.assume(newResealCommittee != resealCommittee);
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
+        );
+
         vm.expectEmit();
         emit DualGovernance.ResealCommitteeSet(newResealCommittee);
 
@@ -2060,6 +2069,13 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, stranger));
         _dualGovernance.setResealCommittee(makeAddr("NEW_RESEAL_COMMITTEE"));
+    }
+
+    function test_setResealCommittee_RevertOn_SameAddress() external {
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealCommittee.selector, address(0)));
+        _executor.execute(
+            address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, address(0))
+        );
     }
 
     // ---

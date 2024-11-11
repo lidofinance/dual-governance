@@ -40,9 +40,9 @@ abstract contract HashConsensus is Ownable {
     uint256 public quorum;
     Duration public timelockDuration;
 
-    mapping(bytes32 => HashState) private _hashStates;
+    mapping(bytes32 hash => HashState state) private _hashStates;
     EnumerableSet.AddressSet private _members;
-    mapping(address signer => mapping(bytes32 => bool)) public approves;
+    mapping(address signer => mapping(bytes32 hash => bool approve)) public approves;
 
     constructor(address owner, Duration timelock) Ownable(owner) {
         timelockDuration = timelock;

@@ -54,6 +54,22 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.stopPrank();
     }
 
+    // EmergencyProtectedTimelock.constructor()
+
+    function testFuzz_constructor_HappyPath(
+        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams,
+        address adminExecutor
+    ) external {
+        EmergencyProtectedTimelock timelock = new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor);
+
+        assertEq(timelock.getAdminExecutor(), adminExecutor);
+
+        assertEq(timelock.MAX_AFTER_SUBMIT_DELAY(), sanityCheckParams.maxAfterSubmitDelay);
+        assertEq(timelock.MAX_AFTER_SCHEDULE_DELAY(), sanityCheckParams.maxAfterScheduleDelay);
+        assertEq(timelock.MAX_EMERGENCY_MODE_DURATION(), sanityCheckParams.maxEmergencyModeDuration);
+        assertEq(timelock.MAX_EMERGENCY_PROTECTION_DURATION(), sanityCheckParams.maxEmergencyProtectionDuration);
+    }
+
     // EmergencyProtectedTimelock.submit()
 
     function testFuzz_submit_RevertOn_ByStranger(address stranger) external {

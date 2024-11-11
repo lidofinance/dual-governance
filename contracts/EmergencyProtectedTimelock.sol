@@ -85,7 +85,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         MAX_AFTER_SUBMIT_DELAY = sanityCheckParams.maxAfterSubmitDelay;
         MAX_AFTER_SCHEDULE_DELAY = sanityCheckParams.maxAfterScheduleDelay;
         MAX_EMERGENCY_MODE_DURATION = sanityCheckParams.maxEmergencyModeDuration;
-        MAX_EMERGENCY_PROTECTION_DURATION = sanityCheckParams.maxEmergencyModeDuration;
+        MAX_EMERGENCY_PROTECTION_DURATION = sanityCheckParams.maxEmergencyProtectionDuration;
     }
 
     // ---

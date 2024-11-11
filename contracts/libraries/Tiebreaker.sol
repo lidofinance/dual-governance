@@ -14,14 +14,18 @@ import {SealableCalls} from "./SealableCalls.sol";
 import {State as DualGovernanceState} from "./DualGovernanceStateMachine.sol";
 
 /// @title Tiebreaker Library
-/// @dev The mechanism design allows for a deadlock where the system is stuck in the RageQuit
-/// state while protocol withdrawals are paused or dysfunctional and require a DAO vote to resume,
-/// and includes a third-party arbiter Tiebreaker committee for resolving it. Tiebreaker gains
-/// the power to execute pending proposals, bypassing the DG dynamic timelock, and unpause any
-/// protocol contract under the specific conditions of the deadlock.
+/// @notice Provides mechanisms for resolving deadlocks in Dual Governance, especially in cases where protocol
+///     components essential for finalizing withdrawal requests are paused or dysfunctional, while Dual Governance
+///     remains stuck in the Rage Quit state, preventing the DAO from taking necessary actions to resolve the issue.
+///     This library includes functions for managing a standalone tiebreaker committee, which can resolve such deadlocks
+///     by executing pending proposals or unpausing protocol contracts, but only under specific deadlock conditions.
 library Tiebreaker {
     using SealableCalls for ISealable;
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    // ---
+    // Errors
+    // ---
 
     error TiebreakNotAllowed();
     error InvalidSealable(address sealable);
@@ -32,31 +36,41 @@ library Tiebreaker {
     error SealableWithdrawalBlockerNotFound(address sealable);
     error SealableWithdrawalBlockerAlreadyAdded(address sealable);
 
+    // ---
+    // Events
+    // ---
+
     event SealableWithdrawalBlockerAdded(address sealable);
     event SealableWithdrawalBlockerRemoved(address sealable);
     event TiebreakerCommitteeSet(address newTiebreakerCommittee);
     event TiebreakerActivationTimeoutSet(Duration newTiebreakerActivationTimeout);
 
-    /// @dev Context struct to store tiebreaker-related data.
-    /// @param tiebreakerCommittee Address of the tiebreaker committee.
-    /// @param tiebreakerActivationTimeout Duration for tiebreaker activation timeout.
-    /// @param sealableWithdrawalBlockers Set of addresses that are sealable withdrawal blockers.
+    // ---
+    // Data Types
+    // ---
+
+    /// @notice The context of the Tiebreaker library.
+    /// @param tiebreakerCommittee The address of the tiebreaker committee, authorized to resolve deadlocks.
+    /// @param tiebreakerActivationTimeout The duration Dual Governance must remain outside the Normal or VetoCooldown
+    ///     states before the tiebreaker committee is allowed to act, provided that all registered sealable withdrawal
+    ///     blockers are unpaused.
+    /// @param sealableWithdrawalBlockers A set of addresses representing potential withdrawal blockers,
+    ///     each implementing the `ISealable` interface.
     struct Context {
         /// @dev slot0 [0..159]
         address tiebreakerCommittee;
         /// @dev slot0 [160..191]
         Duration tiebreakerActivationTimeout;
-        /// @dev slot1 [0..255]
+        /// @dev slot1..slotN - slots for the `AddressSet` library state.
         EnumerableSet.AddressSet sealableWithdrawalBlockers;
     }
 
     // ---
-    // Setup functionality
+    // Setup Functionality
     // ---
 
     /// @notice Adds a sealable withdrawal blocker.
-    /// @dev Reverts if the maximum number of sealable withdrawal blockers is reached or if the sealable is invalid.
-    /// @param self The context storage.
+    /// @param self The context of the Tiebreaker library.
     /// @param sealableWithdrawalBlocker The address of the sealable withdrawal blocker to add.
     /// @param maxSealableWithdrawalBlockersCount The maximum number of sealable withdrawal blockers allowed.
     function addSealableWithdrawalBlocker(
@@ -80,7 +94,7 @@ library Tiebreaker {
     }
 
     /// @notice Removes a sealable withdrawal blocker.
-    /// @param self The context storage.
+    /// @param self The context of the Tiebreaker library.
     /// @param sealableWithdrawalBlocker The address of the sealable withdrawal blocker to remove.
     function removeSealableWithdrawalBlocker(Context storage self, address sealableWithdrawalBlocker) internal {
         if (!self.sealableWithdrawalBlockers.remove(sealableWithdrawalBlocker)) {
@@ -90,8 +104,7 @@ library Tiebreaker {
     }
 
     /// @notice Sets the tiebreaker committee.
-    /// @dev Reverts if the new tiebreaker committee address is invalid.
-    /// @param self The context storage.
+    /// @param self The context of the Tiebreaker library.
     /// @param newTiebreakerCommittee The address of the new tiebreaker committee.
     function setTiebreakerCommittee(Context storage self, address newTiebreakerCommittee) internal {
         if (newTiebreakerCommittee == address(0) || newTiebreakerCommittee == self.tiebreakerCommittee) {
@@ -102,8 +115,7 @@ library Tiebreaker {
     }
 
     /// @notice Sets the tiebreaker activation timeout.
-    /// @dev Reverts if the new timeout is outside the allowed range.
-    /// @param self The context storage.
+    /// @param self The context of the Tiebreaker library.
     /// @param minTiebreakerActivationTimeout The minimum allowed tiebreaker activation timeout.
     /// @param newTiebreakerActivationTimeout The new tiebreaker activation timeout.
     /// @param maxTiebreakerActivationTimeout The maximum allowed tiebreaker activation timeout.
@@ -129,8 +141,7 @@ library Tiebreaker {
     // ---
 
     /// @notice Checks if the caller is the tiebreaker committee.
-    /// @dev Reverts if the caller is not the tiebreaker committee.
-    /// @param self The context storage.
+    /// @param self The context of the Tiebreaker library.
     function checkCallerIsTiebreakerCommittee(Context storage self) internal view {
         if (msg.sender != self.tiebreakerCommittee) {
             revert CallerIsNotTiebreakerCommittee(msg.sender);
@@ -138,8 +149,7 @@ library Tiebreaker {
     }
 
     /// @notice Checks if a tie exists.
-    /// @dev Reverts if no tie exists.
-    /// @param self The context storage.
+    /// @param self The context of the Tiebreaker library.
     /// @param state The current state of dual governance.
     /// @param normalOrVetoCooldownExitedAt The timestamp when normal or veto cooldown exited.
     function checkTie(
@@ -157,10 +167,10 @@ library Tiebreaker {
     // ---
 
     /// @notice Determines if a tie exists.
-    /// @param self The context storage.
+    /// @param self The context of the Tiebreaker library.
     /// @param state The current state of dual governance.
     /// @param normalOrVetoCooldownExitedAt The timestamp when normal or veto cooldown exited.
-    /// @return True if a tie exists, false otherwise.
+    /// @return bool `true` if a tie exists, false otherwise.
     function isTie(
         Context storage self,
         DualGovernanceState state,
@@ -190,7 +200,7 @@ library Tiebreaker {
     }
 
     /// @dev Retrieves the tiebreaker context from the storage.
-    /// @param self The storage context.
+    /// @param self The context of the Tiebreaker library.
     /// @param stateDetails A struct containing detailed information about the current state of the Dual Governance system
     /// @return context The tiebreaker context containing the tiebreaker committee, tiebreaker activation timeout, and sealable withdrawal blockers.
     function getTiebreakerDetails(

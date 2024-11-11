@@ -7,20 +7,36 @@ import {ISealable} from "./interfaces/ISealable.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 import {IResealManager} from "./interfaces/IResealManager.sol";
 
-/// @title ResealManager
-/// @dev Allows to extend pause of temporarily paused contracts to permanent pause or resume it.
+/// @title Reseal Manager
+/// @notice Allows to extend pause of temporarily paused contracts to permanent pause or resume it.
 contract ResealManager is IResealManager {
+    // ---
+    // Errors
+    // ---
+
     error SealableWrongPauseState();
     error CallerIsNotGovernance(address caller);
 
+    // ---
+    // Immutables & Constants
+    // ---
+
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
     ITimelock public immutable EMERGENCY_PROTECTED_TIMELOCK;
+
+    // ---
+    // Constructor
+    // ---
 
     /// @notice Initializes the ResealManager contract.
     /// @param emergencyProtectedTimelock The address of the EmergencyProtectedTimelock contract.
     constructor(ITimelock emergencyProtectedTimelock) {
         EMERGENCY_PROTECTED_TIMELOCK = ITimelock(emergencyProtectedTimelock);
     }
+
+    // ---
+    // Main Functionality
+    // ---
 
     /// @notice Extends the pause of the specified sealable contract.
     /// @dev Works only if conditions are met:
@@ -40,7 +56,7 @@ contract ResealManager is IResealManager {
         Address.functionCall(sealable, abi.encodeWithSelector(ISealable.pauseFor.selector, PAUSE_INFINITELY));
     }
 
-    /// @notice Resumes the specified sealable contract if it is scheduled to resume in the future.
+    /// @notice Resumes the specified sealable contract if it is paused.
     /// @dev Works only if conditions are met:
     /// - ResealManager has RESUME_ROLE for target contract;
     /// - Contract are paused until timestamp after current timestamp;
@@ -56,8 +72,11 @@ contract ResealManager is IResealManager {
         Address.functionCall(sealable, abi.encodeWithSelector(ISealable.resume.selector));
     }
 
+    // ---
+    // Internal methods
+    // ---
+
     /// @notice Ensures that the function can only be called by the governance address.
-    /// @dev Reverts if the sender is not the governance address.
     function _checkCallerIsGovernance() internal view {
         address governance = EMERGENCY_PROTECTED_TIMELOCK.getGovernance();
         if (msg.sender != governance) {

@@ -9,11 +9,11 @@ import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
 import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
 
-/// @notice Tracks the stETH and unstETH tokens associated with users
-/// @param stETHLockedShares Total number of stETH shares held by the user
-/// @param unstETHLockedShares Total number of shares contained in the unstETH NFTs held by the user
-/// @param lastAssetsLockTimestamp Timestamp of the most recent lock of stETH shares or unstETH NFTs
-/// @param unstETHIds List of unstETH ids locked by the user
+/// @notice Tracks the stETH and unstETH tokens associated with users.
+/// @param stETHLockedShares Total number of stETH shares held by the user.
+/// @param unstETHLockedShares Total number of shares contained in the unstETH NFTs held by the user.
+/// @param lastAssetsLockTimestamp Timestamp of the most recent lock of stETH shares or unstETH NFTs.
+/// @param unstETHIds List of unstETH ids locked by the user.
 struct HolderAssets {
     /// @dev slot0: [0..39]
     Timestamp lastAssetsLockTimestamp;
@@ -45,13 +45,13 @@ struct StETHAccounting {
     ETHValue claimedETH;
 }
 
-/// @notice Represents the state of an accounted WithdrawalRequest
+/// @notice Represents the state of an accounted unstETH NFT.
 /// @param NotLocked Indicates the default value of the unstETH record, meaning it was not accounted as locked or
-///        was unlocked by the account that previously locked it
-/// @param Locked Indicates the unstETH record was accounted as locked
-/// @param Finalized Indicates the unstETH record was marked as finalized
-/// @param Claimed Indicates the unstETH record was claimed
-/// @param Withdrawn Indicates the unstETH record was withdrawn after a successful claim
+///     was unlocked by the account that previously locked it.
+/// @param Locked Indicates the unstETH record was accounted as locked.
+/// @param Finalized Indicates the unstETH record was marked as finalized.
+/// @param Claimed Indicates the unstETH record was claimed.
+/// @param Withdrawn Indicates the unstETH record was withdrawn after a successful claim.
 enum UnstETHRecordStatus {
     NotLocked,
     Locked,
@@ -60,42 +60,47 @@ enum UnstETHRecordStatus {
     Withdrawn
 }
 
-/// @notice Stores information about an accounted unstETH NFT
-/// @param state The current state of the unstETH record. Refer to `UnstETHRecordStatus` for details.
-/// @param index The one-based index of the unstETH record in the `UnstETHAccounting.unstETHIds` array
-/// @param lockedBy The address of the account that locked the unstETH
-/// @param shares The amount of shares contained in the unstETH
+/// @notice Stores information about an accounted unstETH NFT.
+/// @param status The current status of the unstETH NFT. Refer to `UnstETHRecordStatus` for details.
+/// @param index The one-based index of the unstETH NFT in the `UnstETHAccounting.unstETHIds` array.
+/// @param lockedBy The address of the account that locked the unstETH.
+/// @param shares The number of shares contained in the unstETH.
 /// @param claimableAmount The amount of claimable ETH contained in the unstETH. This value is 0
-///        until the NFT is marked as finalized or claimed.
+///     until the NFT is marked as finalized or claimed.
 struct UnstETHRecord {
-    /// @dev slot 0: [0..7]
+    /// @dev slot0: [0..7]
     UnstETHRecordStatus status;
-    /// @dev slot 0: [8..39]
+    /// @dev slot0: [8..39]
     IndexOneBased index;
-    /// @dev slot 0: [40..199]
+    /// @dev slot0: [40..199]
     address lockedBy;
-    /// @dev slot 1: [0..127]
+    /// @dev slot1: [0..127]
     SharesValue shares;
-    /// @dev slot 1: [128..255]
+    /// @dev slot1: [128..255]
     ETHValue claimableAmount;
 }
 
-/// @notice Provides functionality for accounting user stETH and unstETH tokens
-///         locked in the Escrow contract
+/// @title Assets Accounting Library
+/// @notice Provides accounting functionality for tracking users' stETH and unstETH tokens locked
+///     in the Escrow contract.
 library AssetsAccounting {
-    /// @notice The context of the AssetsAccounting library
-    /// @param stETHTotals The total number of shares and the amount of stETH locked by users
-    /// @param unstETHTotals The total number of shares and the amount of unstETH locked by users
-    /// @param assets Mapping to store information about the assets locked by each user
-    /// @param unstETHRecords Mapping to track the state of the locked unstETH ids
+    // ---
+    // Data Types
+    // ---
+
+    /// @notice The context of the Assets Accounting library.
+    /// @param stETHTotals Tracks the total number of stETH shares and claimed ETH locked by users.
+    /// @param unstETHTotals Tracks the total number of unstETH shares and finalized ETH locked by users.
+    /// @param assets Mapping to store information about the assets locked by each user.
+    /// @param unstETHRecords Mapping to track the state of the locked unstETH ids.
     struct Context {
         /// @dev slot0: [0..255]
         StETHAccounting stETHTotals;
         /// @dev slot1: [0..255]
         UnstETHAccounting unstETHTotals;
-        /// @dev slot2: [0..255] empty slot for mapping track in the storage
+        /// @dev slot2: [0..255] empty slot for mapping tracking in the storage
         mapping(address account => HolderAssets) assets;
-        /// @dev slot3: [0..255] empty slot for mapping track in the storage
+        /// @dev slot3: [0..255] empty slot for mapping tracking in the storage
         mapping(uint256 unstETHId => UnstETHRecord) unstETHRecords;
     }
 
@@ -127,9 +132,14 @@ library AssetsAccounting {
     error InvalidClaimableAmount(uint256 unstETHId, ETHValue expected, ETHValue actual);
 
     // ---
-    // stETH shares operations accounting
+    // stETH Operations Accounting
     // ---
 
+    /// @notice Records the locking of stETH shares on behalf of the holder, increasing both the total number of
+    ///     locked stETH shares and the number of shares locked by the holder.
+    /// @param self The context of the Assets Accounting library.
+    /// @param holder The address of the account holding the locked shares.
+    /// @param shares The number of stETH shares to be locked.
     function accountStETHSharesLock(Context storage self, address holder, SharesValue shares) internal {
         _checkNonZeroShares(shares);
         self.stETHTotals.lockedShares = self.stETHTotals.lockedShares + shares;
@@ -139,11 +149,21 @@ library AssetsAccounting {
         emit StETHSharesLocked(holder, shares);
     }
 
+    /// @notice Tracks the unlocking of all stETH shares for a holder, updating both the total locked stETH shares
+    ///     and the holder's balance of locked shares.
+    /// @param self The context of the Assets Accounting library.
+    /// @param holder The address of the holder whose locked shares are being tracked as unlocked.
+    /// @return shares The number of stETH shares that have been tracked as unlocked.
     function accountStETHSharesUnlock(Context storage self, address holder) internal returns (SharesValue shares) {
         shares = self.assets[holder].stETHLockedShares;
         accountStETHSharesUnlock(self, holder, shares);
     }
 
+    /// @notice Records the unlocking of the specified number of stETH shares on behalf of the holder, reducing both the
+    ///     total number of locked stETH shares and the number of shares locked by the holder.
+    /// @param self The context of the Assets Accounting library.
+    /// @param holder The address of the account holding the shares to be unlocked.
+    /// @param shares The number of stETH shares to be unlocked.
     function accountStETHSharesUnlock(Context storage self, address holder, SharesValue shares) internal {
         _checkNonZeroShares(shares);
 
@@ -157,6 +177,11 @@ library AssetsAccounting {
         emit StETHSharesUnlocked(holder, shares);
     }
 
+    /// @notice Records the withdrawal of all stETH shares locked by the holder and calculates the corresponding
+    ///     ETH to be withdrawn.
+    /// @param self The context of the Assets Accounting library.
+    /// @param holder The address of the holder withdrawing stETH shares.
+    /// @return ethWithdrawn The amount of ETH corresponding to the withdrawn stETH shares.
     function accountStETHSharesWithdraw(
         Context storage self,
         address holder
@@ -175,15 +200,25 @@ library AssetsAccounting {
         emit ETHWithdrawn(holder, stETHSharesToWithdraw, ethWithdrawn);
     }
 
+    /// @notice Records the specified amount of ETH as claimed, increasing the total claimed ETH amount.
+    /// @param self The context of the Assets Accounting library.
+    /// @param amount The amount of ETH being claimed.
     function accountClaimedETH(Context storage self, ETHValue amount) internal {
         self.stETHTotals.claimedETH = self.stETHTotals.claimedETH + amount;
         emit ETHClaimed(amount);
     }
 
     // ---
-    // unstETH operations accounting
+    // unstETH Operations Accounting
     // ---
 
+    /// @notice Records the locking of unstETH NFTs for the given holder, updating both the total and the holder's
+    ///     number of locked unstETH shares.
+    /// @param self The context of the Assets Accounting library.
+    /// @param holder The address of the account holding the locked unstETH NFTs.
+    /// @param unstETHIds An array of unstETH NFT ids to be locked.
+    /// @param statuses An array of `WithdrawalRequestStatus` structs containing information about each unstETH NFT,
+    ///     returned by the WithdrawalQueue, corresponding to the `unstETHIds`.
     function accountUnstETHLock(
         Context storage self,
         address holder,
@@ -204,6 +239,11 @@ library AssetsAccounting {
         emit UnstETHLocked(holder, unstETHIds, totalUnstETHLocked);
     }
 
+    /// @notice Records the unlocking of unstETH NFTs for the given holder, updating both the total and the holder's
+    ///     number of locked unstETH shares.
+    /// @param self The context of the Assets Accounting library.
+    /// @param holder The address of the account that previously locked the unstETH NFTs with the given ids.
+    /// @param unstETHIds An array of unstETH NFT ids to be unlocked.
     function accountUnstETHUnlock(Context storage self, address holder, uint256[] memory unstETHIds) internal {
         SharesValue totalSharesUnlocked;
         SharesValue totalFinalizedSharesUnlocked;
@@ -227,6 +267,13 @@ library AssetsAccounting {
         emit UnstETHUnlocked(holder, unstETHIds, totalSharesUnlocked, totalFinalizedAmountUnlocked);
     }
 
+    /// @notice Marks the previously locked unstETH NFTs with the given ids as finalized, increasing the total finalized
+    ///     ETH amount for unstETHs and decreasing the total number of unfinalized shares.
+    /// @dev If the claimable amount for an NFT is zero, or if the NFT has already been marked as finalized or was not
+    ///     accounted for as locked, those NFTs will be skipped.
+    /// @param self The context of the Assets Accounting library.
+    /// @param unstETHIds An array of unstETH NFT ids to be marked as finalized.
+    /// @param claimableAmounts An array of claimable ETH amounts for each unstETH NFT.
     function accountUnstETHFinalized(
         Context storage self,
         uint256[] memory unstETHIds,
@@ -250,6 +297,12 @@ library AssetsAccounting {
         emit UnstETHFinalized(unstETHIds, totalSharesFinalized, totalAmountFinalized);
     }
 
+    /// @notice Marks the previously locked unstETH NFTs with the given ids as claimed and sets the corresponding amount
+    ///     of claimable ETH for each unstETH NFT.
+    /// @param self The context of the Assets Accounting library.
+    /// @param unstETHIds An array of unstETH NFT ids to be marked as claimed.
+    /// @param claimableAmounts An array of claimable ETH amounts for each unstETH NFT.
+    /// @return totalAmountClaimed The total amount of ETH claimed from the unstETH NFTs.
     function accountUnstETHClaimed(
         Context storage self,
         uint256[] memory unstETHIds,
@@ -264,6 +317,12 @@ library AssetsAccounting {
         emit UnstETHClaimed(unstETHIds, totalAmountClaimed);
     }
 
+    /// @notice Marks the previously locked and claimed unstETH NFTs with the given ids as withdrawn by the holder.
+    /// @dev If any of the unstETH NFTs have already been withdrawn or were locked by a different holder, the method will revert.
+    /// @param self The context of the Assets Accounting library.
+    /// @param holder The address of the account that previously locked the unstETH NFTs with the given ids.
+    /// @param unstETHIds An array of unstETH NFT ids for which the ETH is being withdrawn.
+    /// @return amountWithdrawn The total amount of ETH withdrawn from the unstETH NFTs.
     function accountUnstETHWithdraw(
         Context storage self,
         address holder,
@@ -289,6 +348,17 @@ library AssetsAccounting {
         unfinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
     }
 
+    // ---
+    // Checks
+    // ---
+
+    /// @notice Checks whether the minimum required lock duration has passed since the last call to
+    ///     `accountStETHSharesLock` or `accountUnstETHLock` for the specified holder.
+    /// @dev If the required lock duration has not yet passed, the function reverts with an error.
+    /// @param self The context of the Assets Accounting library.
+    /// @param holder The address of the account that holds the locked assets.
+    /// @param minAssetsLockDuration The minimum duration for which the assets must remain locked before
+    ///     unlocking is allowed.
     function checkMinAssetsLockDurationPassed(
         Context storage self,
         address holder,
@@ -301,7 +371,7 @@ library AssetsAccounting {
     }
 
     // ---
-    // Helper methods
+    // Helper Methods
     // ---
 
     function _addUnstETHRecord(
@@ -313,7 +383,7 @@ library AssetsAccounting {
         if (status.isFinalized) {
             revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.Finalized);
         }
-        // must never be true, for unfinalized requests
+        // This condition should never be true for unfinalized requests, as they cannot be claimed yet
         assert(!status.isClaimed);
 
         if (self.unstETHRecords[unstETHId].status != UnstETHRecordStatus.NotLocked) {
@@ -389,7 +459,7 @@ library AssetsAccounting {
             revert InvalidUnstETHStatus(unstETHId, unstETHRecord.status);
         }
         if (unstETHRecord.status == UnstETHRecordStatus.Finalized) {
-            // if the unstETH was marked finalized earlier, it's claimable amount must stay the same
+            // If the unstETH was marked as finalized earlier, its claimable amount must remain unchanged.
             if (unstETHRecord.claimableAmount != claimableAmount) {
                 revert InvalidClaimableAmount(unstETHId, claimableAmount, unstETHRecord.claimableAmount);
             }
