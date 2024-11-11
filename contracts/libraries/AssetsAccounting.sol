@@ -122,9 +122,9 @@ library AssetsAccounting {
 
     error InvalidSharesValue(SharesValue value);
     error InvalidUnstETHStatus(uint256 unstETHId, UnstETHRecordStatus status);
-    error InvalidUnstETHHolder(uint256 unstETHId, address actual, address expected);
+    error InvalidUnstETHHolder(uint256 unstETHId, address holder);
     error MinAssetsLockDurationNotPassed(Timestamp lockDurationExpiresAt);
-    error InvalidClaimableAmount(uint256 unstETHId, ETHValue expected, ETHValue actual);
+    error InvalidClaimableAmount(uint256 unstETHId, ETHValue claimableAmount);
 
     // ---
     // stETH shares operations accounting
@@ -339,7 +339,7 @@ library AssetsAccounting {
         UnstETHRecord storage unstETHRecord = self.unstETHRecords[unstETHId];
 
         if (unstETHRecord.lockedBy != holder) {
-            revert InvalidUnstETHHolder(unstETHId, holder, unstETHRecord.lockedBy);
+            revert InvalidUnstETHHolder(unstETHId, holder);
         }
 
         if (unstETHRecord.status == UnstETHRecordStatus.NotLocked) {
@@ -389,7 +389,7 @@ library AssetsAccounting {
         if (unstETHRecord.status == UnstETHRecordStatus.Finalized) {
             // if the unstETH was marked finalized earlier, it's claimable amount must stay the same
             if (unstETHRecord.claimableAmount != claimableAmount) {
-                revert InvalidClaimableAmount(unstETHId, claimableAmount, unstETHRecord.claimableAmount);
+                revert InvalidClaimableAmount(unstETHId, claimableAmount);
             }
         } else {
             unstETHRecord.claimableAmount = claimableAmount;
@@ -408,7 +408,7 @@ library AssetsAccounting {
             revert InvalidUnstETHStatus(unstETHId, unstETHRecord.status);
         }
         if (unstETHRecord.lockedBy != holder) {
-            revert InvalidUnstETHHolder(unstETHId, holder, unstETHRecord.lockedBy);
+            revert InvalidUnstETHHolder(unstETHId, holder);
         }
         unstETHRecord.status = UnstETHRecordStatus.Withdrawn;
         amountWithdrawn = unstETHRecord.claimableAmount;
