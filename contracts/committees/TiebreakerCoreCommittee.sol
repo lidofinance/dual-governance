@@ -28,7 +28,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
 
     address public immutable DUAL_GOVERNANCE;
 
-    mapping(address => uint256) private _sealableResumeNonces;
+    mapping(address sealable => uint256 nonce) private _sealableResumeNonces;
 
     constructor(address owner, address dualGovernance, Duration timelock) HashConsensus(owner, timelock) {
         DUAL_GOVERNANCE = dualGovernance;
