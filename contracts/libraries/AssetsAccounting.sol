@@ -192,8 +192,10 @@ library AssetsAccounting {
         _checkNonZeroShares(stETHSharesToWithdraw);
 
         assets.stETHLockedShares = SharesValues.ZERO;
-        ethWithdrawn =
-            SharesValues.calcETHValue(self.stETHTotals.claimedETH, stETHSharesToWithdraw, self.stETHTotals.lockedShares);
+        ethWithdrawn = ETHValues.from(
+            self.stETHTotals.claimedETH.toUint256() * stETHSharesToWithdraw.toUint256()
+                / self.stETHTotals.lockedShares.toUint256()
+        );
 
         emit ETHWithdrawn(holder, stETHSharesToWithdraw, ethWithdrawn);
     }
