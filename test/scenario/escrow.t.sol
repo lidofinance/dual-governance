@@ -303,7 +303,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         uint256 escrowStETHBalance = _lido.stETH.balanceOf(address(escrow));
-        uint256 expectedWithdrawalBatchesCount = escrowStETHBalance / requestAmount + 1;
+        uint256 expectedWithdrawalsBatchesCount = escrowStETHBalance / requestAmount + 1;
         assertEq(_lido.withdrawalQueue.balanceOf(address(escrow)), 10);
 
         escrow.requestNextWithdrawalsBatch(10);
@@ -314,13 +314,13 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
             escrow.requestNextWithdrawalsBatch(96);
         }
 
-        assertEq(_lido.withdrawalQueue.balanceOf(address(escrow)), 10 + expectedWithdrawalBatchesCount);
+        assertEq(_lido.withdrawalQueue.balanceOf(address(escrow)), 10 + expectedWithdrawalsBatchesCount);
         assertEq(escrow.isRageQuitFinalized(), false);
 
         _finalizeWithdrawalQueue();
 
-        uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatch(expectedWithdrawalBatchesCount);
-        // assertEq(total, expectedWithdrawalBatchesCount);
+        uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatch(expectedWithdrawalsBatchesCount);
+        // assertEq(total, expectedWithdrawalsBatchesCount);
 
         WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIdsToClaim);
 

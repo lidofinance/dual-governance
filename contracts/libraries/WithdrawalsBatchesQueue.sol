@@ -23,18 +23,18 @@ library WithdrawalsBatchesQueue {
 
     error EmptyBatch();
     error InvalidUnstETHIdsSequence();
-    error WithdrawalBatchesQueueIsInAbsentState();
-    error WithdrawalBatchesQueueIsNotInOpenedState();
-    error WithdrawalBatchesQueueIsNotInAbsentState();
+    error WithdrawalsBatchesQueueIsInAbsentState();
+    error WithdrawalsBatchesQueueIsNotInOpenedState();
+    error WithdrawalsBatchesQueueIsNotInAbsentState();
 
     // ---
     // Events
     // ---
 
-    event WithdrawalBatchesQueueClosed();
+    event WithdrawalsBatchesQueueClosed();
     event UnstETHIdsAdded(uint256[] unstETHIds);
     event UnstETHIdsClaimed(uint256[] unstETHIds);
-    event WithdrawalBatchesQueueOpened(uint256 boundaryUnstETHId);
+    event WithdrawalsBatchesQueueOpened(uint256 boundaryUnstETHId);
 
     // ---
     // Data types
@@ -92,7 +92,7 @@ library WithdrawalsBatchesQueue {
     ///     `boundaryUnstETHId` value is used as a lower bound for the adding unstETH ids.
     function open(Context storage self, uint256 boundaryUnstETHId) internal {
         if (self.info.state != State.Absent) {
-            revert WithdrawalBatchesQueueIsNotInAbsentState();
+            revert WithdrawalsBatchesQueueIsNotInAbsentState();
         }
 
         self.info.state = State.Opened;
@@ -101,7 +101,7 @@ library WithdrawalsBatchesQueue {
         ///     when the queue is empty. This element doesn't used during the claiming of the batches created
         ///     via `addUnstETHIds()` method and always allocates single batch.
         self.batches.push(SequentialBatch({firstUnstETHId: boundaryUnstETHId, lastUnstETHId: boundaryUnstETHId}));
-        emit WithdrawalBatchesQueueOpened(boundaryUnstETHId);
+        emit WithdrawalsBatchesQueueOpened(boundaryUnstETHId);
     }
 
     /// @notice Adds a new batch of unstETH ids to the withdrawal queue.
@@ -165,7 +165,7 @@ library WithdrawalsBatchesQueue {
     function close(Context storage self) internal {
         _checkInOpenedState(self);
         self.info.state = State.Closed;
-        emit WithdrawalBatchesQueueClosed();
+        emit WithdrawalsBatchesQueueClosed();
     }
 
     // ---
@@ -293,13 +293,13 @@ library WithdrawalsBatchesQueue {
 
     function _checkNotInAbsentState(Context storage self) private view {
         if (self.info.state == State.Absent) {
-            revert WithdrawalBatchesQueueIsInAbsentState();
+            revert WithdrawalsBatchesQueueIsInAbsentState();
         }
     }
 
     function _checkInOpenedState(Context storage self) private view {
         if (self.info.state != State.Opened) {
-            revert WithdrawalBatchesQueueIsNotInOpenedState();
+            revert WithdrawalsBatchesQueueIsNotInOpenedState();
         }
     }
 }
