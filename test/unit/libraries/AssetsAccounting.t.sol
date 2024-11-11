@@ -781,9 +781,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](1);
         unstETHIds[0] = genRandomUnstEthId(1234);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], holder, address(0x0))
-        );
+        vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], holder));
 
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
     }
@@ -798,9 +796,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         unstETHIds[0] = genRandomUnstEthId(1234);
         _accountingContext.unstETHRecords[unstETHIds[0]].lockedBy = holder;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current, holder)
-        );
+        vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current));
 
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, current, unstETHIds);
     }
@@ -1251,12 +1247,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         }
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                AssetsAccounting.InvalidClaimableAmount.selector,
-                unstETHIds[0],
-                claimableAmounts[0],
-                uint256(claimableAmounts[0]) + 1
-            )
+            abi.encodeWithSelector(AssetsAccounting.InvalidClaimableAmount.selector, unstETHIds[0], claimableAmounts[0])
         );
 
         AssetsAccounting.accountUnstETHClaimed(_accountingContext, unstETHIds, claimableAmountsPrepared);
@@ -1392,9 +1383,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingContext.unstETHRecords[unstETHIds[0]].claimableAmount = ETHValues.from(123);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current, holder)
-        );
+        vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current));
 
         AssetsAccounting.accountUnstETHWithdraw(_accountingContext, current, unstETHIds);
     }
