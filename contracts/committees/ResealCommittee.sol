@@ -15,9 +15,11 @@ import {ProposalsList} from "./ProposalsList.sol";
 /// @notice This contract allows a committee to vote on and execute resealing proposals
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract ResealCommittee is HashConsensus, ProposalsList {
+    error InvalidSealable(address sealable);
+
     address public immutable DUAL_GOVERNANCE;
 
-    mapping(bytes32 => uint256) private _resealNonces;
+    mapping(bytes32 hash => uint256 nonce) private _resealNonces;
 
     constructor(
         address owner,
@@ -37,6 +39,11 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @param support Indicates whether the member supports the proposal
     function voteReseal(address sealable, bool support) external {
         _checkCallerIsMember();
+
+        if (sealable == address(0)) {
+            revert InvalidSealable(sealable);
+        }
+
         (bytes memory proposalData, bytes32 key) = _encodeResealProposal(sealable);
         _vote(key, support);
         _pushProposal(key, 0, proposalData);

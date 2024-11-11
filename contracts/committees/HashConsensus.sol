@@ -22,6 +22,7 @@ abstract contract HashConsensus is Ownable {
     event TimelockDurationSet(Duration timelockDuration);
 
     error DuplicatedMember(address account);
+    error InvalidMemberAccount(address account);
     error AccountIsNotMember(address account);
     error CallerIsNotMember(address caller);
     error HashAlreadyUsed(bytes32 hash);
@@ -40,9 +41,9 @@ abstract contract HashConsensus is Ownable {
     uint256 public quorum;
     Duration public timelockDuration;
 
-    mapping(bytes32 => HashState) private _hashStates;
+    mapping(bytes32 hash => HashState state) private _hashStates;
     EnumerableSet.AddressSet private _members;
-    mapping(address signer => mapping(bytes32 => bool)) public approves;
+    mapping(address signer => mapping(bytes32 hash => bool approve)) public approves;
 
     constructor(address owner, Duration timelock) Ownable(owner) {
         timelockDuration = timelock;
@@ -205,6 +206,9 @@ abstract contract HashConsensus is Ownable {
     /// @param executionQuorum The minimum number of members required for executing certain operations.
     function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
         for (uint256 i = 0; i < newMembers.length; ++i) {
+            if (newMembers[i] == address(0)) {
+                revert InvalidMemberAccount(newMembers[i]);
+            }
             if (!_members.add(newMembers[i])) {
                 revert DuplicatedMember(newMembers[i]);
             }
