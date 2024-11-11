@@ -25,6 +25,7 @@ enum ProposalType {
 contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, ProposalsList {
     error ResumeSealableNonceMismatch();
     error ProposalDoesNotExist(uint256 proposalId);
+    error InvalidSealable(address sealable);
 
     address public immutable DUAL_GOVERNANCE;
 
@@ -108,8 +109,18 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
         return _sealableResumeNonces[sealable];
     }
 
+    /// @notice Votes on a proposal to resume a sealable address
+    /// @dev Allows committee members to vote on resuming a sealable address
+    ///      reverts if the sealable address is the zero address
+    /// @param sealable The address to resume
+    /// @param nonce The nonce for the resume proposal
     function sealableResume(address sealable, uint256 nonce) public {
         _checkCallerIsMember();
+
+        if (sealable == address(0)) {
+            revert InvalidSealable(sealable);
+        }
+
         if (nonce != _sealableResumeNonces[sealable]) {
             revert ResumeSealableNonceMismatch();
         }
