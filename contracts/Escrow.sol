@@ -209,15 +209,15 @@ contract Escrow is IEscrow {
 
     /// @notice Unlocks all previously locked stETH and wstETH tokens, returning them in the form of wstETH tokens.
     ///     This action decreases the rage quit support proportionally to the number of unlocked wstETH shares.
-    /// @return unlockedStETHShares The total number of wstETH shares unlocked from the Escrow.
-    function unlockWstETH() external returns (uint256 unlockedStETHShares) {
+    /// @return wstETHUnlocked The total number of wstETH shares unlocked from the Escrow.
+    function unlockWstETH() external returns (uint256 wstETHUnlocked) {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
 
-        SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
-        unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
-        WST_ETH.transfer(msg.sender, unlockedStETHShares);
+        SharesValue unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender);
+        wstETHUnlocked = WST_ETH.wrap(ST_ETH.getPooledEthByShares(unlockedStETHShares.toUint256()));
+        WST_ETH.transfer(msg.sender, wstETHUnlocked);
 
         DUAL_GOVERNANCE.activateNextState();
     }
@@ -347,9 +347,13 @@ contract Escrow is IEscrow {
         uint256 minStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         uint256 maxStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
 
-        /// @dev This check ensures that even if MIN_STETH_WITHDRAWAL_AMOUNT is set too low,
-        ///     the withdrawal batch request process can still be completed successfully
-        if (stETHRemaining < Math.max(_MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount)) {
+        /// @dev The remaining stETH amount must be greater than the minimum threshold to create a withdrawal request.
+        ///     Using only `minStETHWithdrawalRequestAmount` is insufficient because it is an external variable
+        ///     that could be decreased independently. Introducing `minWithdrawableStETHAmount` provides
+        ///     an internal safeguard, enforcing a minimum threshold within the contract.
+        uint256 minWithdrawableStETHAmount = Math.max(_MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount);
+
+        if (stETHRemaining < minWithdrawableStETHAmount) {
             return _batchesQueue.close();
         }
 
@@ -363,7 +367,7 @@ contract Escrow is IEscrow {
 
         stETHRemaining = ST_ETH.balanceOf(address(this));
 
-        if (stETHRemaining < minStETHWithdrawalRequestAmount) {
+        if (stETHRemaining < minWithdrawableStETHAmount) {
             _batchesQueue.close();
         }
     }

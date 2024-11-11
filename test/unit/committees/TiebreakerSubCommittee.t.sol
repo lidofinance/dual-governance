@@ -43,6 +43,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
     }
 
     function test_constructor_HappyPath(address _owner, uint256 _quorum, address _tiebreakerCore) external {
+        vm.assume(_owner != address(0));
         vm.assume(_quorum > 0 && _quorum <= committeeMembers.length);
         new TiebreakerSubCommittee(_owner, committeeMembers, _quorum, _tiebreakerCore);
     }
@@ -145,6 +146,12 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         tiebreakerSubCommittee.sealableResume(sealable);
     }
 
+    function test_sealableResume_RevertOn_SealableZeroAddress() external {
+        vm.prank(committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerSubCommittee.InvalidSealable.selector, address(0)));
+        tiebreakerSubCommittee.sealableResume(address(0));
+    }
+
     function test_executeSealableResume_HappyPath() external {
         vm.mockCall(
             tiebreakerCore,
@@ -180,7 +187,8 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         vm.prank(committeeMembers[2]);
         vm.expectRevert(
             abi.encodeWithSelector(
-                HashConsensus.HashIsNotScheduled.selector, keccak256(abi.encode(sealable, /*nonce */ 0))
+                HashConsensus.HashIsNotScheduled.selector,
+                keccak256(abi.encode(ProposalType.ResumeSealable, sealable, /*nonce */ 0))
             )
         );
         tiebreakerSubCommittee.executeSealableResume(sealable);

@@ -1798,8 +1798,12 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
         assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
 
-        // Simulate the sealable withdrawal blocker was paused
-        vm.mockCall(address(sealable), abi.encodeWithSelector(SealableMock.isPaused.selector), abi.encode(true));
+        // Simulate the sealable withdrawal blocker was paused indefinitely
+        vm.mockCall(
+            address(sealable),
+            abi.encodeWithSelector(SealableMock.getResumeSinceTimestamp.selector),
+            abi.encode(type(uint256).max)
+        );
 
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         assertEq(_dualGovernance.getEffectiveState(), State.RageQuit);
@@ -1813,7 +1817,9 @@ contract DualGovernanceUnitTests is UnitTest {
         assertTrue(_dualGovernance.getTiebreakerDetails().isTie);
 
         // Return sealable to unpaused state for further testing
-        vm.mockCall(address(sealable), abi.encodeWithSelector(SealableMock.isPaused.selector), abi.encode(false));
+        vm.mockCall(
+            address(sealable), abi.encodeWithSelector(SealableMock.getResumeSinceTimestamp.selector), abi.encode(0)
+        );
         assertFalse(_dualGovernance.getTiebreakerDetails().isTie);
 
         _wait(tiebreakerActivationTimeout);
@@ -2044,6 +2050,15 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function testFuzz_setResealCommittee_HappyPath(address newResealCommittee) external {
+        address resealCommittee = makeAddr("RESEAL_COMMITTEE");
+        vm.assume(newResealCommittee != resealCommittee);
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
+        );
+
         vm.expectEmit();
         emit DualGovernance.ResealCommitteeSet(newResealCommittee);
 
@@ -2060,6 +2075,13 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, stranger));
         _dualGovernance.setResealCommittee(makeAddr("NEW_RESEAL_COMMITTEE"));
+    }
+
+    function test_setResealCommittee_RevertOn_SameAddress() external {
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealCommittee.selector, address(0)));
+        _executor.execute(
+            address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, address(0))
+        );
     }
 
     // ---
