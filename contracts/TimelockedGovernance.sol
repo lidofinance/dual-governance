@@ -24,6 +24,7 @@ contract TimelockedGovernance is IGovernance {
 
     /// @dev Submits a proposal to the timelock.
     /// @param calls An array of ExternalCall structs representing the calls to be executed in the proposal.
+    /// @param metadata A string containing additional information about the proposal.
     /// @return proposalId The ID of the submitted proposal.
     function submitProposal(
         ExternalCall[] calldata calls,
