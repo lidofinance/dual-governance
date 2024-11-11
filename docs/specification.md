@@ -451,7 +451,7 @@ To function properly, the **ResealManager** must be granted the `PAUSE_ROLE` and
 ### Function ResealManager.reseal
 
 ```solidity
-function reseal(address sealable) public
+function reseal(address sealable) external
 ```
 
 Extends the pause of the specified `sealable` contract indefinitely.
@@ -1372,7 +1372,7 @@ Returns the state of a sealable resume request including support count, quorum, 
 ### Function: TiebreakerSubCommittee.executeSealableResume
 
 ```solidity
-function executeSealableResume(address sealable) public
+function executeSealableResume(address sealable) external
 ```
 
 Executes a sealable resume request by calling the sealableResume function on the `TiebreakerCoreCommittee` contract and increments the nonce.

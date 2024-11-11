@@ -37,7 +37,7 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @dev Allows committee members to vote on resealing a sealed address
     /// @param sealable The address to reseal
     /// @param support Indicates whether the member supports the proposal
-    function voteReseal(address sealable, bool support) public {
+    function voteReseal(address sealable, bool support) external {
         _checkCallerIsMember();
 
         if (sealable == address(0)) {
@@ -56,7 +56,7 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @return executionQuorum The required number of votes for execution
     /// @return quorumAt The timestamp when the quorum was reached
     function getResealState(address sealable)
-        public
+        external
         view
         returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt)
     {

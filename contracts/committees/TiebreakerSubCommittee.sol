@@ -42,7 +42,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @notice Votes on a proposal to schedule
     /// @dev Allows committee members to vote on scheduling a proposal
     /// @param proposalId The ID of the proposal to schedule
-    function scheduleProposal(uint256 proposalId) public {
+    function scheduleProposal(uint256 proposalId) external {
         _checkCallerIsMember();
         ITiebreakerCoreCommittee(TIEBREAKER_CORE_COMMITTEE).checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeApproveProposal(proposalId);
@@ -58,7 +58,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @return quorumAt The number of votes required to reach quorum
     /// @return isExecuted Whether the proposal has been executed
     function getScheduleProposalState(uint256 proposalId)
-        public
+        external
         view
         returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
@@ -69,7 +69,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @notice Executes an approved schedule proposal
     /// @dev Executes the schedule proposal by calling the scheduleProposal function on the Tiebreaker Core contract
     /// @param proposalId The ID of the proposal to schedule
-    function executeScheduleProposal(uint256 proposalId) public {
+    function executeScheduleProposal(uint256 proposalId) external {
         (, bytes32 key) = _encodeApproveProposal(proposalId);
         _markUsed(key);
         Address.functionCall(
@@ -96,7 +96,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @dev Allows committee members to vote on resuming a sealable address
     ///      reverts if the sealable address is the zero address
     /// @param sealable The address to resume
-    function sealableResume(address sealable) public {
+    function sealableResume(address sealable) external {
         _checkCallerIsMember();
 
         if (sealable == address(0)) {
@@ -115,7 +115,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @return quorumAt The timestamp when the quorum was reached
     /// @return isExecuted Whether the proposal has been executed
     function getSealableResumeState(address sealable)
-        public
+        external
         view
         returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
@@ -126,7 +126,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @notice Executes an approved resume sealable proposal
     /// @dev Executes the resume sealable proposal by calling the sealableResume function on the Tiebreaker Core contract
     /// @param sealable The address to resume
-    function executeSealableResume(address sealable) public {
+    function executeSealableResume(address sealable) external {
         (, bytes32 key, uint256 nonce) = _encodeSealableResume(sealable);
         _markUsed(key);
         Address.functionCall(

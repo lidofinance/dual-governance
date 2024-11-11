@@ -45,7 +45,7 @@ contract ResealManager is IResealManager {
     /// - The DAO governance is blocked by DualGovernance;
     /// - Function is called by the governance contract.
     /// @param sealable The address of the sealable contract.
-    function reseal(address sealable) public {
+    function reseal(address sealable) external {
         _checkCallerIsGovernance();
 
         uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
@@ -62,7 +62,7 @@ contract ResealManager is IResealManager {
     /// - Contract are paused until timestamp after current timestamp;
     /// - Function is called by the governance contract.
     /// @param sealable The address of the sealable contract.
-    function resume(address sealable) public {
+    function resume(address sealable) external {
         _checkCallerIsGovernance();
 
         uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
