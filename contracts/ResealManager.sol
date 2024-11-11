@@ -31,7 +31,7 @@ contract ResealManager is IResealManager {
     /// @notice Initializes the ResealManager contract.
     /// @param emergencyProtectedTimelock The address of the EmergencyProtectedTimelock contract.
     constructor(ITimelock emergencyProtectedTimelock) {
-        EMERGENCY_PROTECTED_TIMELOCK = ITimelock(emergencyProtectedTimelock);
+        EMERGENCY_PROTECTED_TIMELOCK = emergencyProtectedTimelock;
     }
 
     // ---
