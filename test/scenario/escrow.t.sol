@@ -10,7 +10,8 @@ import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol
 
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 
-import {Escrow, VetoerState, LockedAssetsTotals, WithdrawalsBatchesQueue} from "contracts/Escrow.sol";
+import {IEscrow, LockedAssetsTotals, VetoerState} from "contracts/interfaces/IEscrow.sol";
+import {Escrow, WithdrawalsBatchesQueue} from "contracts/Escrow.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
 import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
