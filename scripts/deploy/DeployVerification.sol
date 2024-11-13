@@ -5,7 +5,6 @@ import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Executor} from "contracts/Executor.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
-import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
@@ -55,7 +54,7 @@ library DeployVerification {
     }
 
     function checkTimelock(DeployedAddresses memory res, DeployConfig memory dgDeployConfig) internal view {
-        EmergencyProtectedTimelock timelockInstance = EmergencyProtectedTimelock(res.timelock);
+        IEmergencyProtectedTimelock timelockInstance = IEmergencyProtectedTimelock(res.timelock);
         require(
             timelockInstance.getAdminExecutor() == res.adminExecutor,
             "Incorrect adminExecutor address in EmergencyProtectedTimelock"

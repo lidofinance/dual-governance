@@ -12,7 +12,8 @@ import {PercentD16} from "contracts/types/PercentD16.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
-import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
+import {IEscrow, LockedAssetsTotals, VetoerState} from "contracts/interfaces/IEscrow.sol";
+import {Escrow} from "contracts/Escrow.sol";
 
 // ---
 // Interfaces

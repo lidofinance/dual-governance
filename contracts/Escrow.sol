@@ -9,7 +9,7 @@ import {ETHValue, ETHValues} from "./types/ETHValue.sol";
 import {SharesValue, SharesValues} from "./types/SharesValue.sol";
 import {PercentD16, PercentsD16} from "./types/PercentD16.sol";
 
-import {IEscrow} from "./interfaces/IEscrow.sol";
+import {IEscrow, LockedAssetsTotals, VetoerState} from "./interfaces/IEscrow.sol";
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue, WithdrawalRequestStatus} from "./interfaces/IWithdrawalQueue.sol";
@@ -18,30 +18,6 @@ import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 import {EscrowState} from "./libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalsBatchesQueue.sol";
 import {HolderAssets, StETHAccounting, UnstETHAccounting, AssetsAccounting} from "./libraries/AssetsAccounting.sol";
-
-/// @notice Summary of the total locked assets in the Escrow.
-/// @param stETHLockedShares The total number of stETH shares currently locked in the Escrow.
-/// @param stETHClaimedETH The total amount of ETH claimed from the stETH shares locked in the Escrow.
-/// @param unstETHUnfinalizedShares The total number of shares from unstETH NFTs that have not yet been marked as finalized.
-/// @param unstETHFinalizedETH The total amount of ETH claimable from unstETH NFTs that have been marked as finalized.
-struct LockedAssetsTotals {
-    uint256 stETHLockedShares;
-    uint256 stETHClaimedETH;
-    uint256 unstETHUnfinalizedShares;
-    uint256 unstETHFinalizedETH;
-}
-
-/// @notice Summary of the assets locked in the Escrow by a specific vetoer.
-/// @param stETHLockedShares The total number of stETH shares currently locked in the Escrow by the vetoer.
-/// @param unstETHLockedShares The total number of unstETH shares currently locked in the Escrow by the vetoer.
-/// @param unstETHIdsCount The total number of unstETH NFTs locked in the Escrow by the vetoer.
-/// @param lastAssetsLockTimestamp The timestamp of the last time the vetoer locked stETH, wstETH, or unstETH in the Escrow.
-struct VetoerState {
-    uint256 stETHLockedShares;
-    uint256 unstETHLockedShares;
-    uint256 unstETHIdsCount;
-    uint256 lastAssetsLockTimestamp;
-}
 
 /// @notice This contract is used to accumulate stETH, wstETH, unstETH, and withdrawn ETH from vetoers during the
 ///     veto signalling and rage quit processes.

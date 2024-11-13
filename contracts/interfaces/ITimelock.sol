@@ -37,5 +37,6 @@ interface ITimelock {
         view
         returns (ProposalDetails memory proposalDetails, ExternalCall[] memory calls);
     function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory proposalDetails);
+    function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls);
     function getProposalsCount() external view returns (uint256 count);
 }

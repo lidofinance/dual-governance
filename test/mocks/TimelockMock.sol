@@ -108,6 +108,10 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
+    function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls) {
+        revert("Not Implemented");
+    }
+
     function getProposalsCount() external view returns (uint256 count) {
         return submittedProposals.length;
     }
