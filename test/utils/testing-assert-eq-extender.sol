@@ -41,6 +41,10 @@ contract TestingAssertEqExtender is Test {
         assertEq(uint256(a), uint256(b));
     }
 
+    function assertEq(DualGovernanceState a, DualGovernanceState b, string memory message) internal {
+        assertEq(uint256(a), uint256(b), message);
+    }
+
     function assertEq(Balances memory b1, Balances memory b2, uint256 sharesEpsilon) internal {
         assertEq(b1.wstETHShares, b2.wstETHShares);
         assertEq(b1.wstETHAmount, b2.wstETHAmount);

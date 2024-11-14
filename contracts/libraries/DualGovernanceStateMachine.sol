@@ -154,7 +154,7 @@ library DualGovernanceStateMachine {
             self.normalOrVetoCooldownExitedAt = Timestamps.now();
         }
 
-        if (newState == State.Normal && self.rageQuitRound != 0) {
+        if (newState == State.VetoCooldown && self.rageQuitRound != 0) {
             self.rageQuitRound = 0;
         } else if (newState == State.VetoSignalling) {
             if (currentState == State.VetoSignallingDeactivation) {

@@ -12,7 +12,7 @@ Additionally, there is a Gate Seal emergency committee that allows pausing certa
 
 The Dual governance mechanism (DG) is an iteration on the protocol governance that gives stakers a say by allowing them to block DAO decisions and providing a negotiation device between stakers and the DAO.
 
-Another way of looking at dual governance is that it implements: 
+Another way of looking at dual governance is that it implements:
 1) a dynamic user-extensible timelock on DAO decisions
 2) a rage quit mechanism for stakers taking into account the specifics of how Ethereum withdrawals work.
 
@@ -307,7 +307,7 @@ W(i) =  \min \left\{ W_{min} + i * W_{growth} \,,\, W_{max}  \right\}
 
 where $W_{min}$ is `RageQuitEthWithdrawalsMinDelay`, $W_{max}$ is `RageQuitEthWithdrawalsMaxDelay`, $W_{growth}$ is `rageQuitEthWithdrawalsDelayGrowth`.
 
-The rage quit sequence number is calculated as follows: each time the Normal state is entered, the sequence number is set to 0; each time the Rage Quit state is entered, the number is incremented by 1.
+The rage quit sequence number is calculated as follows: each time the VetoCooldown state is entered, the sequence number is set to 0; each time the Rage Quit state is entered, the number is incremented by 1.
 
 ```env
 # Proposed values, to be modeled and refined
@@ -398,6 +398,9 @@ Dual governance should not cover:
 
 
 ## Changelog
+
+### 2024-11-15
+- The rage quit sequence number is now reset in the `VetoCooldown` state instead of the `Normal` state. This adjustment ensures that the ETH withdrawal timelock does not increase unnecessarily in cases where, after a Rage Quit, Dual Governance cycles through `VetoSignalling` → `VetoSignallingDeactivation` → `VetoCooldown` without entering the `Normal` state, as the DAO remains operational and can continue submitting and executing proposals in this scenario.
 
 ### 2024-09-12
 - Explicitly described the `VetoSignallingDeactivation` -> `RageQuit` state transition.
