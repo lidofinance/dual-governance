@@ -135,6 +135,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     function setGovernance(address newGovernance) external {
         _checkCallerIsAdminExecutor();
         _timelockState.setGovernance(newGovernance);
+        _proposals.cancelAll();
     }
 
     /// @notice Configures the delays for submitting and scheduling proposals, within defined upper bounds.

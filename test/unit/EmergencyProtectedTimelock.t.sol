@@ -11,6 +11,7 @@ import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtec
 import {ITimelock, ProposalStatus} from "contracts/interfaces/ITimelock.sol";
 
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock, TimelockState} from "contracts/EmergencyProtectedTimelock.sol";
@@ -263,6 +264,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.expectEmit(address(_timelock));
         emit TimelockState.GovernanceSet(newGovernance);
 
+        vm.expectEmit(address(_timelock));
+        emit ExecutableProposals.ProposalsCancelledTill(0);
+
         vm.recordLogs();
         vm.prank(_adminExecutor);
         _timelock.setGovernance(newGovernance);
@@ -271,7 +275,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
-        assertEq(entries.length, 1);
+        assertEq(entries.length, 2);
     }
 
     function test_setGovernance_RevertOn_ZeroAddress() external {
