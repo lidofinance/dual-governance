@@ -410,35 +410,23 @@ contract EscrowUnitTests is UnitTest {
         _escrow.unlockUnstETH(unstethIds);
     }
 
-    function test_unlockUnstETH_EmptyUnstETHIds() external {
+    function test_unlockUnstETH_RevertOn_EmptyUnstETHIds() external {
         uint256[] memory unstethIds = new uint256[](0);
 
         _wait(_minLockAssetDuration.plusSeconds(1));
 
-        vm.expectCall(address(_dualGovernance), abi.encodeWithSelector(IDualGovernance.activateNextState.selector));
-        vm.expectCall(address(_dualGovernance), abi.encodeWithSelector(IDualGovernance.activateNextState.selector));
-
-        vm.prank(_vetoer);
-        _escrow.unlockUnstETH(unstethIds);
-    }
-
-    function test_unlockUnstETH_RevertOn_MinAssetsLockDurationNotPassed() external {
-        uint256[] memory unstethIds = new uint256[](0);
-
-        _wait(_minLockAssetDuration.minusSeconds(1));
-
-        // Exception. Due to no assets of holder registered in Escrow.
-        vm.expectRevert(
-            abi.encodeWithSelector(AssetsAccounting.MinAssetsLockDurationNotPassed.selector, _minLockAssetDuration)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Escrow.EmptyUnstETHIds.selector));
         vm.prank(_vetoer);
         _escrow.unlockUnstETH(unstethIds);
     }
 
     function test_unlockUnstETH_RevertOn_UnexpectedEscrowState() external {
+        uint256[] memory unstETHAmounts = new uint256[](1);
+        unstETHAmounts[0] = 1 ether;
+        uint256[] memory unstethIds = vetoerLockedUnstEth(unstETHAmounts);
+
         transitToRageQuit();
 
-        uint256[] memory unstethIds = new uint256[](0);
         vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
         vm.prank(_vetoer);
         _escrow.unlockUnstETH(unstethIds);
@@ -1131,7 +1119,7 @@ contract EscrowUnitTests is UnitTest {
     // getLockedAssetsTotals()
     // ---
 
-    function test_getLockedAssetsTotals() external view {
+    function test_getLockedAssetsTotals() external {
         LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
 
         assertEq(escrowLockedAssets.stETHLockedShares, 0);
@@ -1159,7 +1147,7 @@ contract EscrowUnitTests is UnitTest {
     // getUnclaimedUnstETHIdsCount()
     // ---
 
-    function test_getUnclaimedUnstETHIdsCount() external view {
+    function test_getUnclaimedUnstETHIdsCount() external {
         assertEq(_escrow.getUnclaimedUnstETHIdsCount(), 0);
     }
 
@@ -1250,7 +1238,7 @@ contract EscrowUnitTests is UnitTest {
     // getRageQuitExtensionPeriodStartedAt()
     // ---
 
-    function test_getRageQuitExtensionPeriodStartedAt() external view {
+    function test_getRageQuitExtensionPeriodStartedAt() external {
         Timestamp res = _escrow.getRageQuitExtensionPeriodStartedAt();
         assertEq(res.toSeconds(), Timestamps.ZERO.toSeconds());
     }
