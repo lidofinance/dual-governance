@@ -81,6 +81,28 @@ contract DualGovernanceConfigTest is UnitTest {
         config.validate();
     }
 
+    function test_validate_RevertOn_InvalidMinAssetsLockDuration() external {
+        DualGovernanceConfig.Context memory config = DualGovernanceConfig.Context({
+            firstSealRageQuitSupport: PercentsD16.fromBasisPoints(10),
+            secondSealRageQuitSupport: PercentsD16.fromBasisPoints(20),
+            minAssetsLockDuration: Durations.ZERO,
+            vetoSignallingMinDuration: Durations.from(1 days),
+            vetoSignallingMaxDuration: Durations.from(30 days),
+            vetoSignallingMinActiveDuration: Durations.from(7 days),
+            vetoSignallingDeactivationMaxDuration: Durations.from(3 days),
+            vetoCooldownDuration: Durations.from(1 days),
+            rageQuitExtensionPeriodDuration: Durations.from(1 days),
+            rageQuitEthWithdrawalsMinDelay: Durations.from(15 days),
+            rageQuitEthWithdrawalsMaxDelay: Durations.from(90 days),
+            rageQuitEthWithdrawalsDelayGrowth: Durations.from(30 days)
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernanceConfig.InvalidMinAssetsLockDuration.selector, Durations.ZERO)
+        );
+        config.validate();
+    }
+
     // ---
     // isFirstSealRageQuitSupportCrossed()
     // ---
@@ -337,5 +359,6 @@ contract DualGovernanceConfigTest is UnitTest {
         vm.assume(config.vetoSignallingMinDuration < config.vetoSignallingMaxDuration);
         vm.assume(config.secondSealRageQuitSupport < _SECOND_SEAL_RAGE_QUIT_SUPPORT_LIMIT);
         vm.assume(config.rageQuitEthWithdrawalsMinDelay <= config.rageQuitEthWithdrawalsMaxDelay);
+        vm.assume(config.minAssetsLockDuration > Durations.ZERO);
     }
 }
