@@ -263,15 +263,16 @@ library WithdrawalsBatchesQueue {
         unstETHIds = new uint256[](unstETHIdsCount);
         SequentialBatch memory currentBatch = self.batches[info.lastClaimedBatchIndex];
 
+        uint256 unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             info.lastClaimedUnstETHIdIndex += 1;
-            uint256 unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
             if (unstETHIdsCountInTheBatch == info.lastClaimedUnstETHIdIndex) {
                 info.lastClaimedBatchIndex += 1;
                 info.lastClaimedUnstETHIdIndex = 0;
                 currentBatch = self.batches[info.lastClaimedBatchIndex];
             }
             unstETHIds[i] = currentBatch.firstUnstETHId + info.lastClaimedUnstETHIdIndex;
+            unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
         }
         info.totalUnstETHIdsClaimed += SafeCast.toUint64(unstETHIdsCount);
     }
