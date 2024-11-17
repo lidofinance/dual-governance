@@ -65,7 +65,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             // request withdrawals batches
             Escrow rageQuitEscrow = _getRageQuitEscrow();
 
-            while (!rageQuitEscrow.isWithdrawalsBatchesFinalized()) {
+            while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
             }
 
