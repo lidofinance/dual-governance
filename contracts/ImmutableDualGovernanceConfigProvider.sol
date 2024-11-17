@@ -29,8 +29,6 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
     Duration public immutable RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH;
 
     constructor(DualGovernanceConfig.Context memory dualGovernanceConfig) {
-        dualGovernanceConfig.validate();
-
         FIRST_SEAL_RAGE_QUIT_SUPPORT = dualGovernanceConfig.firstSealRageQuitSupport;
         SECOND_SEAL_RAGE_QUIT_SUPPORT = dualGovernanceConfig.secondSealRageQuitSupport;
 
