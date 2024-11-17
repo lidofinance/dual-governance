@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {stdError} from "forge-std/StdError.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 import {WithdrawalsBatchesQueue, State} from "contracts/libraries/WithdrawalBatchesQueue.sol";
 
