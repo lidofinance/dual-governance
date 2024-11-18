@@ -25,6 +25,10 @@ contract EscrowMock is IEscrow {
         __minAssetsLockDuration = minAssetsLockDuration;
     }
 
+    function rotate() external {
+        revert("Not Implemented");
+    }
+
     function startRageQuit(Duration rageQuitExtraTimelock, Duration rageQuitWithdrawalsTimelock) external {
         emit __RageQuitStarted(rageQuitExtraTimelock, rageQuitWithdrawalsTimelock);
     }

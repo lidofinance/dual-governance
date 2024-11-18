@@ -15,7 +15,8 @@ import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 enum State {
     NotInitialized,
     SignallingEscrow,
-    RageQuitEscrow
+    RageQuitEscrow,
+    Rotated
 }
 
 /// @title Escrow State Library
@@ -93,6 +94,11 @@ library EscrowState {
         emit RageQuitStarted(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
     }
 
+    function rotate(Context storage self) internal {
+        _checkState(self, State.SignallingEscrow);
+        _setState(self, State.Rotated);
+    }
+
     /// @notice Starts the rage quit extension period.
     /// @param self The context of the Escrow State library.
     function startRageQuitExtensionPeriod(Context storage self) internal {
@@ -124,6 +130,10 @@ library EscrowState {
     /// @param self The context of the Escrow State library.
     function checkRageQuitEscrow(Context storage self) internal view {
         _checkState(self, State.RageQuitEscrow);
+    }
+
+    function checkRotatedEscrow(Context storage self) internal view {
+        _checkState(self, State.Rotated);
     }
 
     /// @notice Checks if batch claiming is in progress.

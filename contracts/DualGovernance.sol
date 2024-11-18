@@ -276,6 +276,16 @@ contract DualGovernance is IDualGovernance {
     }
 
     // ---
+    // Escrow Rotation
+    // ---
+
+    function rotateSignalingEscrow() external {
+        _checkCallerIsAdminExecutor();
+        _stateMachine.rotateSignalingEscrow(ESCROW_MASTER_COPY);
+        TIMELOCK.cancelAllNonExecutedProposals();
+    }
+
+    // ---
     // Dual Governance State
     // ---
 

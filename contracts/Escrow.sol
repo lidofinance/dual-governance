@@ -264,6 +264,28 @@ contract Escrow is IEscrow {
         DUAL_GOVERNANCE.activateNextState();
     }
 
+    // ---
+    // Recover tokens
+    // ---
+
+    function recoverStETH() external returns (uint256 unlockedStETHShares) {
+        _escrowState.checkRotatedEscrow();
+        unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender).toUint256();
+        ST_ETH.transferShares(msg.sender, unlockedStETHShares);
+    }
+
+    function recoverWstETH() external returns (uint256 wstETHUnlocked) {
+        _escrowState.checkRotatedEscrow();
+        SharesValue unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender);
+        wstETHUnlocked = WST_ETH.wrap(ST_ETH.getPooledEthByShares(unlockedStETHShares.toUint256()));
+        WST_ETH.transfer(msg.sender, wstETHUnlocked);
+    }
+
+    function recoverUnstETH(uint256[] memory unstETHIds) external {
+        // TODO: implement
+        revert("Not implemented");
+    }
+
     /// @notice Marks the specified locked unstETH NFTs as finalized to update the rage quit support value
     ///     in the Veto Signalling Escrow.
     /// @dev Finalizing a withdrawal NFT results in the following state changes:
@@ -326,6 +348,15 @@ contract Escrow is IEscrow {
         _checkCallerIsDualGovernance();
         _escrowState.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
         _batchesQueue.open(WITHDRAWAL_QUEUE.getLastRequestId());
+    }
+
+    // ---
+    // Signalling Escrow Rotation
+    // ---
+
+    function rotate() external {
+        _checkCallerIsDualGovernance();
+        _escrowState.rotate();
     }
 
     // ---

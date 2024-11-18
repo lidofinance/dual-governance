@@ -91,6 +91,7 @@ library DualGovernanceStateMachine {
     // ---
 
     event NewSignallingEscrowDeployed(IEscrow indexed escrow);
+    event SignallingEscrowRotated(IEscrow indexed oldEscrow, IEscrow indexed newEscrow);
     event DualGovernanceStateChanged(State indexed from, State indexed to, Context state);
     event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
 
@@ -193,6 +194,14 @@ library DualGovernanceStateMachine {
         self.signallingEscrow.setMinAssetsLockDuration(
             newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
         );
+    }
+
+    function rotateSignalingEscrow(Context storage self, IEscrow escrowMasterCopy) internal {
+        IEscrow signallingEscrowToTerminate = self.signallingEscrow;
+        signallingEscrowToTerminate.rotate();
+        DualGovernanceConfig.Context memory config = getDualGovernanceConfig(self);
+        _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
+        emit SignallingEscrowRotated(signallingEscrowToTerminate, self.signallingEscrow);
     }
 
     // ---

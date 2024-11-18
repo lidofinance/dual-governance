@@ -7,6 +7,7 @@ import {PercentD16} from "../types/PercentD16.sol";
 interface IEscrow {
     function initialize(Duration minAssetsLockDuration) external;
 
+    function rotate() external;
     function startRageQuit(Duration rageQuitExtensionPeriodDuration, Duration rageQuitEthWithdrawalsDelay) external;
 
     function isRageQuitFinalized() external view returns (bool);
