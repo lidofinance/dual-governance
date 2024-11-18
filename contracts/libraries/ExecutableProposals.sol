@@ -111,7 +111,7 @@ library ExecutableProposals {
     function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
         ProposalData memory proposalState = self.proposals[proposalId].data;
 
-        if (proposalState.status != Status.Submitted || _isProposalMarkedCancelled(self, proposalId, proposalState)) {
+        if (proposalState.status != Status.Submitted || proposalId <= self.lastCancelledProposalId) {
             revert ProposalNotSubmitted(proposalId);
         }
 
@@ -129,7 +129,7 @@ library ExecutableProposals {
     function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
-        if (proposal.data.status != Status.Scheduled || _isProposalMarkedCancelled(self, proposalId, proposal.data)) {
+        if (proposal.data.status != Status.Scheduled || proposalId <= self.lastCancelledProposalId) {
             revert ProposalNotScheduled(proposalId);
         }
 
@@ -163,8 +163,7 @@ library ExecutableProposals {
         Duration afterScheduleDelay
     ) internal view returns (bool) {
         ProposalData memory proposalState = self.proposals[proposalId].data;
-        if (_isProposalMarkedCancelled(self, proposalId, proposalState)) return false;
-        return proposalState.status == Status.Scheduled
+        return proposalState.status == Status.Scheduled && proposalId > self.lastCancelledProposalId
             && Timestamps.now() >= afterScheduleDelay.addTo(proposalState.scheduledAt);
     }
 
@@ -174,8 +173,7 @@ library ExecutableProposals {
         Duration afterSubmitDelay
     ) internal view returns (bool) {
         ProposalData memory proposalState = self.proposals[proposalId].data;
-        if (_isProposalMarkedCancelled(self, proposalId, proposalState)) return false;
-        return proposalState.status == Status.Submitted
+        return proposalState.status == Status.Submitted && proposalId > self.lastCancelledProposalId
             && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
     }
 
