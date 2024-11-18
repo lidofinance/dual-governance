@@ -5,7 +5,7 @@ type PercentD16 is uint256;
 
 uint256 constant HUNDRED_PERCENTS_UINT256 = 100 * 10 ** 16;
 
-error Overflow();
+error PercentD16Underflow();
 
 using {lt as <, lte as <=, gte as >=, gt as >, minus as -, plus as +} for PercentD16 global;
 
@@ -27,7 +27,7 @@ function gte(PercentD16 a, PercentD16 b) pure returns (bool) {
 
 function minus(PercentD16 a, PercentD16 b) pure returns (PercentD16) {
     if (b > a) {
-        revert Overflow();
+        revert PercentD16Underflow();
     }
     return PercentD16.wrap(PercentD16.unwrap(a) - PercentD16.unwrap(b));
 }
