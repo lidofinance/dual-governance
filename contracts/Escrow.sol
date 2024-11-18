@@ -64,6 +64,7 @@ contract Escrow is IEscrow {
     error CallerIsNotDualGovernance(address caller);
     error InvalidHintsLength(uint256 actual, uint256 expected);
     error InvalidETHSender(address actual, address expected);
+    error ArraysLengthMismatch(uint256 unstETHLength, uint256 hintsLength);
 
     // ---
     // Constants
@@ -275,6 +276,10 @@ contract Escrow is IEscrow {
     /// @param hints An array of hints required by the WithdrawalQueue to efficiently retrieve
     ///        the claimable amounts for the unstETH NFTs.
     function markUnstETHFinalized(uint256[] memory unstETHIds, uint256[] calldata hints) external {
+        if (unstETHIds.length != hints.length) {
+            revert ArraysLengthMismatch(unstETHIds.length, hints.length);
+        }
+
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 
@@ -450,6 +455,10 @@ contract Escrow is IEscrow {
     /// @param hints An array of hints required by the `WithdrawalQueue` contract to efficiently process
     ///     the claiming of unstETH NFTs.
     function claimUnstETH(uint256[] calldata unstETHIds, uint256[] calldata hints) external {
+        if (unstETHIds.length != hints.length) {
+            revert ArraysLengthMismatch(unstETHIds.length, hints.length);
+        }
+
         _escrowState.checkRageQuitEscrow();
         uint256[] memory claimableAmounts = WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints);
 
