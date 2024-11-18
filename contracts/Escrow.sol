@@ -530,7 +530,7 @@ contract Escrow is IEscrow {
     function getVetoerState(address vetoer) external view returns (VetoerState memory state) {
         HolderAssets storage assets = _accounting.assets[vetoer];
 
-        state.unstETHIdsCount = assets.unstETHIds.length;
+        state.unstETHIdsCount = assets.unstETHCount;
         state.stETHLockedShares = assets.stETHLockedShares.toUint256();
         state.unstETHLockedShares = assets.unstETHLockedShares.toUint256();
         state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();

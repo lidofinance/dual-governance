@@ -13,7 +13,7 @@ import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
 /// @param stETHLockedShares Total number of stETH shares held by the user
 /// @param unstETHLockedShares Total number of shares contained in the unstETH NFTs held by the user
 /// @param lastAssetsLockTimestamp Timestamp of the most recent lock of stETH shares or unstETH NFTs
-/// @param unstETHIds List of unstETH ids locked by the user
+/// @param unstETHCount Count of the unstETH NFTs held by the user
 struct HolderAssets {
     /// @dev slot0: [0..39]
     Timestamp lastAssetsLockTimestamp;
@@ -21,8 +21,8 @@ struct HolderAssets {
     SharesValue stETHLockedShares;
     /// @dev slot1: [0..127]
     SharesValue unstETHLockedShares;
-    /// @dev slot2: [0..255] - the length of the array + each item occupies 1 slot
-    uint256[] unstETHIds;
+    /// @dev slot1: [128..255]
+    uint128 unstETHCount;
 }
 
 /// @notice Tracks the unfinalized shares and finalized ETH amount of unstETH NFTs
@@ -62,7 +62,6 @@ enum UnstETHRecordStatus {
 
 /// @notice Stores information about an accounted unstETH NFT
 /// @param state The current state of the unstETH record. Refer to `UnstETHRecordStatus` for details.
-/// @param index The one-based index of the unstETH record in the `UnstETHAccounting.unstETHIds` array
 /// @param lockedBy The address of the account that locked the unstETH
 /// @param shares The amount of shares contained in the unstETH
 /// @param claimableAmount The amount of claimable ETH contained in the unstETH. This value is 0
@@ -70,9 +69,7 @@ enum UnstETHRecordStatus {
 struct UnstETHRecord {
     /// @dev slot 0: [0..7]
     UnstETHRecordStatus status;
-    /// @dev slot 0: [8..39]
-    IndexOneBased index;
-    /// @dev slot 0: [40..199]
+    /// @dev slot 0: [8..167]
     address lockedBy;
     /// @dev slot 1: [0..127]
     SharesValue shares;
@@ -318,14 +315,12 @@ library AssetsAccounting {
             revert InvalidUnstETHStatus(unstETHId, self.unstETHRecords[unstETHId].status);
         }
 
-        HolderAssets storage assets = self.assets[holder];
-        assets.unstETHIds.push(unstETHId);
+        self.assets[holder].unstETHCount++;
 
         shares = SharesValues.from(status.amountOfShares);
         self.unstETHRecords[unstETHId] = UnstETHRecord({
             lockedBy: holder,
             status: UnstETHRecordStatus.Locked,
-            index: IndicesOneBased.fromOneBasedValue(assets.unstETHIds.length),
             shares: shares,
             claimableAmount: ETHValues.ZERO
         });
@@ -351,16 +346,7 @@ library AssetsAccounting {
             finalizedAmountUnlocked = unstETHRecord.claimableAmount;
         }
 
-        HolderAssets storage assets = self.assets[holder];
-        IndexOneBased unstETHIdIndex = unstETHRecord.index;
-        IndexOneBased lastUnstETHIdIndex = IndicesOneBased.fromOneBasedValue(assets.unstETHIds.length);
-
-        if (lastUnstETHIdIndex != unstETHIdIndex) {
-            uint256 lastUnstETHId = assets.unstETHIds[lastUnstETHIdIndex.toZeroBasedValue()];
-            assets.unstETHIds[unstETHIdIndex.toZeroBasedValue()] = lastUnstETHId;
-            self.unstETHRecords[lastUnstETHId].index = unstETHIdIndex;
-        }
-        assets.unstETHIds.pop();
+        self.assets[holder].unstETHCount--;
         delete self.unstETHRecords[unstETHId];
     }
 

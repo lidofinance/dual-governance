@@ -47,7 +47,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         assertEq(_accountingContext.assets[holder].stETHLockedShares, holderLockedShares + shares);
         assertEq(_accountingContext.assets[holder].unstETHLockedShares, SharesValues.ZERO);
         assertLe(_accountingContext.assets[holder].lastAssetsLockTimestamp.toSeconds(), Timestamps.now().toSeconds());
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
+        assertEq(_accountingContext.assets[holder].unstETHCount, 0);
     }
 
     function testFuzz_accountStETHSharesLock_RevertWhen_ZeroSharesProvided(address holder) external {
@@ -109,7 +109,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         assertEq(_accountingContext.assets[holder].stETHLockedShares, holderLockedShares - shares);
         assertEq(_accountingContext.assets[holder].unstETHLockedShares, SharesValues.ZERO);
         assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
+        assertEq(_accountingContext.assets[holder].unstETHCount, 0);
     }
 
     function testFuzz_accountStETHSharesUnlock_RevertOn_ZeroSharesProvided(address holder) external {
@@ -194,7 +194,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         assertEq(_accountingContext.assets[holder].stETHLockedShares, holderLockedShares - holderLockedShares);
         assertEq(_accountingContext.assets[holder].unstETHLockedShares, SharesValues.ZERO);
         assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
+        assertEq(_accountingContext.assets[holder].unstETHCount, 0);
     }
 
     function testFuzz_accountStETHSharesUnlock_simple_RevertWhen_NoSharesWereLockedBefore(address stranger) external {
@@ -235,7 +235,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
         assertEq(_accountingContext.assets[holder].unstETHLockedShares, SharesValues.ZERO);
         assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
+        assertEq(_accountingContext.assets[holder].unstETHCount, 0);
     }
 
     function testFuzz_accountStETHSharesWithdraw_RevertWhen_HolderHaveZeroShares(address stranger) external {
@@ -344,7 +344,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256 expectedTotalUnstETHLockedAmount = 0;
 
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
-        _accountingContext.assets[holder].unstETHIds.push(genRandomUnstEthId(1024));
+        _accountingContext.assets[holder].unstETHCount++;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
         WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
@@ -376,11 +376,10 @@ contract AssetsAccountingUnitTests is UnitTest {
             holderUnstETHLockedShares + SharesValues.from(expectedTotalUnstETHLockedAmount)
         );
         assertLe(_accountingContext.assets[holder].lastAssetsLockTimestamp.toSeconds(), Timestamps.now().toSeconds());
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, amountsOfShares.length + 1);
+        assertEq(_accountingContext.assets[holder].unstETHCount, amountsOfShares.length + 1);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].lockedBy, holder);
             assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].status, UnstETHRecordStatus.Locked);
-            assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].index.toZeroBasedValue(), i + 1);
             assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].shares, SharesValues.from(amountsOfShares[i]));
             assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount, ETHValues.ZERO);
         }
@@ -572,7 +571,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
         assertEq(_accountingContext.assets[holder].unstETHLockedShares, holderUnstETHLockedShares);
         assertLe(_accountingContext.assets[holder].lastAssetsLockTimestamp.toSeconds(), Timestamps.now().toSeconds());
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
+        assertEq(_accountingContext.assets[holder].unstETHCount, 0);
     }
 
     function testFuzz_accountUnstETHLock_AccountingError_WithdrawalRequestStatusAmountOfSharesOverflow(
@@ -682,8 +681,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             _accountingContext.unstETHRecords[unstETHIds[i]].lockedBy = holder;
             _accountingContext.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Locked;
             _accountingContext.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(amountsOfShares[i]);
-            _accountingContext.unstETHRecords[unstETHIds[i]].index = IndicesOneBased.fromOneBasedValue(i + 1);
-            _accountingContext.assets[holder].unstETHIds.push(unstETHIds[i]);
+            _accountingContext.assets[holder].unstETHCount++;
             expectedTotalSharesUnlockedAmount += amountsOfShares[i];
         }
 
@@ -706,7 +704,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             holderUnstETHLockedShares - SharesValues.from(expectedTotalSharesUnlockedAmount)
         );
         assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
+        assertEq(_accountingContext.assets[holder].unstETHCount, 0);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].shares, SharesValues.ZERO);
         }
@@ -742,8 +740,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             _accountingContext.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Finalized;
             _accountingContext.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(amountsOfShares[i]);
             _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(amountsOfShares[i]);
-            _accountingContext.unstETHRecords[unstETHIds[i]].index = IndicesOneBased.fromOneBasedValue(i + 1);
-            _accountingContext.assets[holder].unstETHIds.push(unstETHIds[i]);
+            _accountingContext.assets[holder].unstETHCount++;
             expectedTotalSharesUnlockedAmount += amountsOfShares[i];
         }
 
@@ -769,7 +766,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             holderUnstETHLockedShares - SharesValues.from(expectedTotalSharesUnlockedAmount)
         );
         assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
+        assertEq(_accountingContext.assets[holder].unstETHCount, 0);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             assertEq(_accountingContext.unstETHRecords[unstETHIds[i]].shares, SharesValues.ZERO);
         }
@@ -826,11 +823,9 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingContext.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(1234);
-        _accountingContext.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(10);
-        _accountingContext.assets[holder].unstETHIds.push(unstETHIds[0]);
+        _accountingContext.assets[holder].unstETHCount++;
 
-        vm.expectRevert(stdError.indexOOBError);
-
+        vm.expectRevert(stdError.arithmeticError);
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
     }
 
@@ -864,7 +859,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         assertEq(_accountingContext.assets[holder].stETHLockedShares, SharesValues.ZERO);
         assertEq(_accountingContext.assets[holder].unstETHLockedShares, holderUnstETHLockedShares);
         assertEq(_accountingContext.assets[holder].lastAssetsLockTimestamp, Timestamps.ZERO);
-        assertEq(_accountingContext.assets[holder].unstETHIds.length, 0);
+        assertEq(_accountingContext.assets[holder].unstETHCount, 0);
     }
 
     function testFuzz_accountUnstETHUnlock_RevertOn_AccountingError_HolderUnstETHLockedSharesUnderflow(address holder)
@@ -877,8 +872,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingContext.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(10);
-        _accountingContext.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
-        _accountingContext.assets[holder].unstETHIds.push(unstETHIds[0]);
+        _accountingContext.assets[holder].unstETHCount++;
 
         vm.expectRevert(stdError.arithmeticError);
 
@@ -896,9 +890,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingContext.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Finalized;
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(5);
-        _accountingContext.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
         _accountingContext.unstETHRecords[unstETHIds[0]].claimableAmount = ETHValues.from(10);
-        _accountingContext.assets[holder].unstETHIds.push(unstETHIds[0]);
+        _accountingContext.assets[holder].unstETHCount++;
 
         vm.expectRevert(ETHValueUnderflow.selector);
 
@@ -916,8 +909,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingContext.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.Locked;
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(10);
-        _accountingContext.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
-        _accountingContext.assets[holder].unstETHIds.push(unstETHIds[0]);
+        _accountingContext.assets[holder].unstETHCount++;
 
         vm.expectRevert(stdError.arithmeticError);
 
