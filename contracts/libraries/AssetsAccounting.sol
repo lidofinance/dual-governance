@@ -232,8 +232,11 @@ library AssetsAccounting {
         for (uint256 i = 0; i < unstETHcount; ++i) {
             totalUnstETHLocked = totalUnstETHLocked + _addUnstETHRecord(self, holder, unstETHIds[i], statuses[i]);
         }
-        self.assets[holder].lastAssetsLockTimestamp = Timestamps.now();
-        self.assets[holder].unstETHLockedShares = self.assets[holder].unstETHLockedShares + totalUnstETHLocked;
+
+        HolderAssets storage assets = self.assets[holder];
+
+        assets.lastAssetsLockTimestamp = Timestamps.now();
+        assets.unstETHLockedShares = assets.unstETHLockedShares + totalUnstETHLocked;
         self.unstETHTotals.unfinalizedShares = self.unstETHTotals.unfinalizedShares + totalUnstETHLocked;
 
         emit UnstETHLocked(holder, unstETHIds, totalUnstETHLocked);
