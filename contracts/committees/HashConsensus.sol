@@ -69,7 +69,7 @@ abstract contract HashConsensus is Ownable {
 
         uint256 currentSupport = _getSupport(hash);
 
-        if (currentSupport == quorum) {
+        if (currentSupport >= quorum) {
             _hashStates[hash].scheduledAt = Timestamps.now();
             _historicalHashSupportData[hash] = HashSupportData(currentSupport, quorum);
             emit HashScheduled(hash);
