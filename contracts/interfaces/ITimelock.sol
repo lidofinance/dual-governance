@@ -16,6 +16,7 @@ interface ITimelock {
     }
 
     function submit(
+        address proposer,
         address executor,
         ExternalCall[] calldata calls,
         string calldata metadata

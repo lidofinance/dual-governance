@@ -77,13 +77,13 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotGovernance.selector, [stranger]));
-        _timelock.submit(_adminExecutor, new ExternalCall[](0), "");
+        _timelock.submit(stranger, _adminExecutor, new ExternalCall[](0), "");
         assertEq(_timelock.getProposalsCount(), 0);
     }
 
     function test_submit_HappyPath() external {
         vm.prank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(_dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -357,7 +357,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_emergencyExecute_RevertOn_ModeNotActive() external {
         vm.startPrank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(_dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -808,8 +808,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.startPrank(_dualGovernance);
         ExternalCall[] memory executorCalls = _getMockTargetRegularStaffCalls(address(_targetMock));
-        _timelock.submit(_adminExecutor, executorCalls, "");
-        _timelock.submit(_adminExecutor, executorCalls, "");
+        _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
+        _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
 
         (ITimelock.ProposalDetails memory submittedProposal, ExternalCall[] memory calls) = _timelock.getProposal(1);
 
@@ -966,7 +966,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_getProposalCalls() external {
         ExternalCall[] memory executorCalls = _getMockTargetRegularStaffCalls(address(_targetMock));
         vm.prank(_dualGovernance);
-        _timelock.submit(_adminExecutor, executorCalls, "");
+        _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
 
         ExternalCall[] memory calls = _timelock.getProposalCalls(1);
 
@@ -994,7 +994,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function _submitProposal() internal {
         vm.prank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(_dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
     }
 
     function _scheduleProposal(uint256 proposalId) internal {

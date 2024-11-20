@@ -950,7 +950,7 @@ The governance reset entails the following steps:
 ### Function: EmergencyProtectedTimelock.submit
 
 ```solidity
-function submit(address executor, ExecutorCall[] calls, string calldata metadata)
+function submit(address proposer, address executor, ExecutorCall[] calls, string calldata metadata)
   returns (uint256 proposalId)
 ```
 
