@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {ITimelock, ProposalStatus} from "contracts/interfaces/ITimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
@@ -113,5 +114,25 @@ contract TimelockMock is ITimelock {
 
     function getAdminExecutor() external view returns (address) {
         return _ADMIN_EXECUTOR;
+    }
+
+    function setAdminExecutor(address newAdminExecutor) external {
+        revert("Not Implemented");
+    }
+
+    function getAfterSubmitDelay() external view returns (Duration) {
+        revert("Not Implemented");
+    }
+
+    function getAfterScheduleDelay() external view returns (Duration) {
+        revert("Not Implemented");
+    }
+
+    function setupDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
+        revert("Not Implemented");
+    }
+
+    function transferExecutorOwnership(address executor, address owner) external {
+        revert("Not Implemented");
     }
 }

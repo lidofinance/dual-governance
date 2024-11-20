@@ -17,8 +17,6 @@ interface IEmergencyProtectedTimelock is ITimelock {
     function MAX_EMERGENCY_MODE_DURATION() external view returns (Duration);
     function MAX_EMERGENCY_PROTECTION_DURATION() external view returns (Duration);
 
-    function setupDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external;
-    function transferExecutorOwnership(address executor, address owner) external;
     function setEmergencyProtectionActivationCommittee(address emergencyActivationCommittee) external;
     function setEmergencyProtectionExecutionCommittee(address emergencyExecutionCommittee) external;
     function setEmergencyProtectionEndDate(Timestamp emergencyProtectionEndDate) external;
@@ -35,8 +33,4 @@ interface IEmergencyProtectedTimelock is ITimelock {
     function getEmergencyGovernance() external view returns (address emergencyGovernance);
     function getEmergencyActivationCommittee() external view returns (address committee);
     function getEmergencyExecutionCommittee() external view returns (address committee);
-    function getAfterSubmitDelay() external view returns (Duration);
-    function getAfterScheduleDelay() external view returns (Duration);
-
-    function setAdminExecutor(address newAdminExecutor) external;
 }
