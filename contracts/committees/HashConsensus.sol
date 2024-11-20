@@ -37,10 +37,16 @@ abstract contract HashConsensus is Ownable {
         Timestamp usedAt;
     }
 
+    struct HashSupportData {
+        uint256 supportAtScheduled;
+        uint256 quorumAtScheduled;
+    }
+
     uint256 public quorum;
     Duration public timelockDuration;
 
     mapping(bytes32 => HashState) private _hashStates;
+    mapping(bytes32 => HashSupportData) private _historicalHashSupportData;
     EnumerableSet.AddressSet private _members;
     mapping(address signer => mapping(bytes32 => bool)) public approves;
 
@@ -61,8 +67,11 @@ abstract contract HashConsensus is Ownable {
         approves[msg.sender][hash] = support;
         emit Voted(msg.sender, hash, support);
 
-        if (_getSupport(hash) == quorum) {
+        uint256 currentSupport = _getSupport(hash);
+
+        if (currentSupport == quorum) {
             _hashStates[hash].scheduledAt = Timestamps.now();
+            _historicalHashSupportData[hash] = HashSupportData(currentSupport, quorum);
             emit HashScheduled(hash);
         }
     }
@@ -100,10 +109,16 @@ abstract contract HashConsensus is Ownable {
         view
         returns (uint256 support, uint256 executionQuorum, Timestamp scheduledAt, bool isUsed)
     {
-        support = _getSupport(hash);
-        executionQuorum = quorum;
         scheduledAt = _hashStates[hash].scheduledAt;
         isUsed = _hashStates[hash].usedAt.isNotZero();
+        if (scheduledAt.isZero()) {
+            support = _getSupport(hash);
+            executionQuorum = quorum;
+        } else {
+            HashSupportData memory data = _historicalHashSupportData[hash];
+            support = data.supportAtScheduled;
+            executionQuorum = data.quorumAtScheduled;
+        }
     }
 
     /// @notice Adds new members to the contract and sets the execution quorum.
@@ -179,11 +194,14 @@ abstract contract HashConsensus is Ownable {
             revert HashAlreadyScheduled(hash);
         }
 
-        if (_getSupport(hash) < quorum) {
+        uint256 currentSupport = _getSupport(hash);
+
+        if (currentSupport < quorum) {
             revert QuorumIsNotReached();
         }
 
         _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
+        _historicalHashSupportData[hash] = HashSupportData(currentSupport, quorum);
         emit HashScheduled(hash);
     }
 

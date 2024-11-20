@@ -516,6 +516,23 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
         assertEq(executionQuorum, _quorum);
         assertEq(scheduledAt, expectedQuorumAt);
         assertEq(isExecuted, true);
+
+        address[] memory membersToRemove = new address[](1);
+        membersToRemove[0] = _committeeMembers[0];
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), true);
+
+        vm.startPrank(_owner);
+        _hashConsensus.removeMembers(membersToRemove, _quorum - 1);
+
+        assertEq(_hashConsensus.quorum(), _quorum - 1);
+        assertEq(_hashConsensus.getMembers().length, _membersCount - 1);
+        assertEq(_hashConsensus.isMember(membersToRemove[0]), false);
+
+        (support, executionQuorum, scheduledAt, isExecuted) = _hashConsensusWrapper.getHashState(dataHash);
+        assertEq(support, _quorum);
+        assertEq(executionQuorum, _quorum);
+        assertEq(scheduledAt, expectedQuorumAt);
+        assertEq(isExecuted, true);
     }
 
     function test_vote() public {
