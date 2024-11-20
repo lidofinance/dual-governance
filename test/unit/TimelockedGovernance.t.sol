@@ -22,10 +22,22 @@ contract TimelockedGovernanceUnitTests is UnitTest {
     }
 
     function testFuzz_constructor(address governance, ITimelock timelock) external {
+        vm.assume(governance != address(0));
+        vm.assume(address(timelock) != address(0));
         TimelockedGovernance instance = new TimelockedGovernance(governance, timelock);
 
         assertEq(instance.GOVERNANCE(), governance);
         assertEq(address(instance.TIMELOCK()), address(timelock));
+    }
+
+    function test_constructor_RevertOn_invalid_governance() external {
+        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.InvalidGovernance.selector, [address(0)]));
+        new TimelockedGovernance(address(0), _timelock);
+    }
+
+    function test_constructor_RevertOn_invalid_timelock() external {
+        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.InvalidTimelock.selector, [address(0)]));
+        new TimelockedGovernance(_governance, ITimelock(address(0)));
     }
 
     function test_submit_proposal() external {

@@ -10,6 +10,8 @@ import {ExternalCall} from "./libraries/ExternalCalls.sol";
 /// @dev A contract that serves as the interface for submitting and scheduling the execution of governance proposals.
 contract TimelockedGovernance is IGovernance {
     error CallerIsNotGovernance(address caller);
+    error InvalidGovernance(address governance);
+    error InvalidTimelock(address timelock);
 
     address public immutable GOVERNANCE;
     ITimelock public immutable TIMELOCK;
@@ -18,6 +20,12 @@ contract TimelockedGovernance is IGovernance {
     /// @param governance The address of the governance contract.
     /// @param timelock The address of the timelock contract.
     constructor(address governance, ITimelock timelock) {
+        if (governance == address(0)) {
+            revert InvalidGovernance(governance);
+        }
+        if (address(timelock) == address(0)) {
+            revert InvalidTimelock(address(timelock));
+        }
         GOVERNANCE = governance;
         TIMELOCK = timelock;
     }
