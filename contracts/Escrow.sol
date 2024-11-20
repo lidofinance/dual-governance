@@ -9,10 +9,10 @@ import {ETHValue, ETHValues} from "./types/ETHValue.sol";
 import {SharesValue, SharesValues} from "./types/SharesValue.sol";
 import {PercentD16, PercentsD16} from "./types/PercentD16.sol";
 
-import {IEscrow, LockedAssetsTotals, VetoerState} from "./interfaces/IEscrow.sol";
+import {IEscrow} from "./interfaces/IEscrow.sol";
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
-import {IWithdrawalQueue, WithdrawalRequestStatus} from "./interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 
 import {EscrowState} from "./libraries/EscrowState.sol";
@@ -213,7 +213,7 @@ contract Escrow is IEscrow {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 
-        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
         _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {

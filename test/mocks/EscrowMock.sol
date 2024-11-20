@@ -5,7 +5,7 @@ import {Duration} from "contracts/types/Duration.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 
-import {IEscrow, LockedAssetsTotals, VetoerState} from "contracts/interfaces/IEscrow.sol";
+import {IEscrow} from "contracts/interfaces/IEscrow.sol";
 
 /* solhint-disable custom-errors */
 contract EscrowMock is IEscrow {

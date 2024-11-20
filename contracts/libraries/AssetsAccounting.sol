@@ -7,7 +7,7 @@ import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 import {SharesValue, SharesValues} from "../types/SharesValue.sol";
 import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
-import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "../interfaces/IWithdrawalQueue.sol";
 
 /// @notice Tracks the stETH and unstETH tokens associated with users
 /// @param stETHLockedShares Total number of stETH shares held by the user
@@ -188,7 +188,7 @@ library AssetsAccounting {
         Context storage self,
         address holder,
         uint256[] memory unstETHIds,
-        WithdrawalRequestStatus[] memory statuses
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses
     ) internal {
         assert(unstETHIds.length == statuses.length);
 
@@ -308,7 +308,7 @@ library AssetsAccounting {
         Context storage self,
         address holder,
         uint256 unstETHId,
-        WithdrawalRequestStatus memory status
+        IWithdrawalQueue.WithdrawalRequestStatus memory status
     ) private returns (SharesValue shares) {
         if (status.isFinalized) {
             revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.Finalized);
