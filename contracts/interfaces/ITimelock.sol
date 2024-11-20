@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {Duration} from "../types/Duration.sol";
 import {Timestamp} from "../types/Timestamp.sol";
 
 import {ExternalCall} from "../libraries/ExternalCalls.sol";
@@ -29,6 +30,7 @@ interface ITimelock {
     function canExecute(uint256 proposalId) external view returns (bool);
 
     function getAdminExecutor() external view returns (address);
+    function setAdminExecutor(address newAdminExecutor) external;
     function getGovernance() external view returns (address);
     function setGovernance(address newGovernance) external;
 
@@ -39,4 +41,9 @@ interface ITimelock {
     function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory proposalDetails);
     function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls);
     function getProposalsCount() external view returns (uint256 count);
+
+    function getAfterSubmitDelay() external view returns (Duration);
+    function getAfterScheduleDelay() external view returns (Duration);
+    function setupDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external;
+    function transferExecutorOwnership(address executor, address owner) external;
 }
