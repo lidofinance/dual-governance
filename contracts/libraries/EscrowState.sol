@@ -11,7 +11,7 @@ import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 /// @param SignallingEscrow In this state, the Escrow contract functions as an on-chain oracle for measuring stakers' disagreement
 ///        with DAO decisions. Users are allowed to lock and unlock funds in the Escrow contract in this state.
 /// @param RageQuitEscrow The final state of the Escrow contract. In this state, the Escrow instance acts as an accumulator
-///        for withdrawn funds locked during the VetoSignalling phase.
+///        for withdrawn funds locked in this contract before.
 enum State {
     NotInitialized,
     SignallingEscrow,

@@ -61,7 +61,7 @@ enum UnstETHRecordStatus {
 }
 
 /// @notice Stores information about an accounted unstETH NFT
-/// @param state The current state of the unstETH record. Refer to `UnstETHRecordStatus` for details.
+/// @param status The current status of the unstETH record. Refer to `UnstETHRecordStatus` for details.
 /// @param index The one-based index of the unstETH record in the `UnstETHAccounting.unstETHIds` array
 /// @param lockedBy The address of the account that locked the unstETH
 /// @param shares The amount of shares contained in the unstETH

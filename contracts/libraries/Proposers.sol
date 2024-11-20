@@ -28,7 +28,7 @@ library Proposers {
 
     /// @notice The info about the registered proposer and associated executor
     /// @param account Address of the proposer
-    /// @param executor Address of the executor associated with proposer. When proposer submits proposals, they execution
+    /// @param executor Address of the executor associated with proposer. When proposer submits proposals, the execution
     /// will be done with this address.
     struct Proposer {
         address account;
