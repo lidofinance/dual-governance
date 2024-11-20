@@ -38,7 +38,6 @@ contract DualGovernance is IDualGovernance {
     // Errors
     // ---
 
-    error UnownedAdminExecutor();
     error CallerIsNotAdminExecutor(address caller);
     error CallerIsNotProposalsCanceller(address caller);
     error InvalidProposalsCanceller(address canceller);
@@ -366,25 +365,36 @@ contract DualGovernance is IDualGovernance {
 
     /// @notice Registers a new proposer with the associated executor in the system.
     /// @dev Multiple proposers can share the same executor contract, but each proposer must be unique.
-    /// @param proposer The address of the proposer to register.
+    /// @param proposerAccount The address of the proposer to register.
     /// @param executor The address of the executor contract associated with the proposer.
-    function registerProposer(address proposer, address executor) external {
+    function registerProposer(address proposerAccount, address executor) external {
         _checkCallerIsAdminExecutor();
-        _proposers.register(proposer, executor);
+        _proposers.register(proposerAccount, executor);
+    }
+
+    /// @notice Updates the executor associated with a specified proposer.
+    /// @dev Ensures that at least one proposer remains assigned to the `adminExecutor` following the update.
+    ///     Reverts if updating the proposer’s executor would leave the `adminExecutor` without any associated proposer.
+    /// @param proposerAccount The address of the proposer whose executor is being updated.
+    /// @param executor The new executor address to assign to the proposer.
+    function setProposerExecutor(address proposerAccount, address executor) external {
+        _checkCallerIsAdminExecutor();
+        _proposers.setProposerExecutor(proposerAccount, executor);
+
+        /// @dev after update of the proposer, check that admin executor still belongs to some proposer
+        _proposers.checkRegisteredExecutor(TIMELOCK.getAdminExecutor());
     }
 
     /// @notice Unregisters a proposer from the system.
-    /// @dev There must always be at least one proposer associated with the admin executor. If an attempt is made to
-    ///     remove the last proposer assigned to the admin executor, the function will revert.
-    /// @param proposer The address of the proposer to unregister.
-    function unregisterProposer(address proposer) external {
+    /// @dev Ensures that at least one proposer remains associated with the `adminExecutor`. If an attempt is made to
+    ///     remove the last proposer assigned to the `adminExecutor`, the function will revert.
+    /// @param proposerAccount The address of the proposer to unregister.
+    function unregisterProposer(address proposerAccount) external {
         _checkCallerIsAdminExecutor();
-        _proposers.unregister(proposer);
+        _proposers.unregister(proposerAccount);
 
         /// @dev after the removal of the proposer, check that admin executor still belongs to some proposer
-        if (!_proposers.isExecutor(msg.sender)) {
-            revert UnownedAdminExecutor();
-        }
+        _proposers.checkRegisteredExecutor(msg.sender);
     }
 
     /// @notice Checks whether the given `account` is a registered proposer.

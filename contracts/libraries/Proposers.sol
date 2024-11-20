@@ -10,6 +10,7 @@ library Proposers {
     // Errors
     // ---
     error InvalidExecutor(address executor);
+    error ExecutorNotRegistered(address account);
     error InvalidProposerAccount(address account);
     error ProposerNotRegistered(address proposer);
     error ProposerAlreadyRegistered(address proposer);
@@ -19,6 +20,7 @@ library Proposers {
     // ---
 
     event ProposerRegistered(address indexed proposer, address indexed executor);
+    event ProposerExecutorSet(address indexed proposer, address indexed executor);
     event ProposerUnregistered(address indexed proposer, address indexed executor);
 
     // ---
@@ -82,6 +84,26 @@ library Proposers {
         self.executorRefsCounts[executor] += 1;
 
         emit ProposerRegistered(proposerAccount, executor);
+    }
+
+    /// @notice Updates the executor for a registered proposer.
+    /// @param self The context storage of the Proposers library.
+    /// @param proposerAccount The address of the proposer to update.
+    /// @param executor The new executor address to assign to the proposer.
+    function setProposerExecutor(Context storage self, address proposerAccount, address executor) internal {
+        ExecutorData memory executorData = self.executors[proposerAccount];
+        _checkRegisteredProposer(proposerAccount, executorData);
+
+        if (executor == address(0) || executorData.executor == executor) {
+            revert InvalidExecutor(executor);
+        }
+
+        self.executors[proposerAccount].executor = executor;
+
+        self.executorRefsCounts[executor] += 1;
+        self.executorRefsCounts[executorData.executor] -= 1;
+
+        emit ProposerExecutorSet(proposerAccount, executor);
     }
 
     /// @notice Unregisters a proposer, removing its association with an executor.
@@ -153,6 +175,23 @@ library Proposers {
     function isExecutor(Context storage self, address account) internal view returns (bool) {
         return self.executorRefsCounts[account] > 0;
     }
+
+    // ---
+    // Checks
+    // ---
+
+    /// @notice Checks that a given account is a registered executor.
+    /// @param self The storage context of the Proposers library.
+    /// @param account The address to verify as a registered executor.
+    function checkRegisteredExecutor(Context storage self, address account) internal view {
+        if (!isExecutor(self, account)) {
+            revert ExecutorNotRegistered(account);
+        }
+    }
+
+    // ---
+    // Private Methods
+    // ---
 
     /// @notice Checks that the given proposer is registered.
     function _checkRegisteredProposer(address proposerAccount, ExecutorData memory executorData) internal pure {
