@@ -138,7 +138,7 @@ library DeployVerification {
     ) internal view {
         TimelockedGovernance emergencyTimelockedGovernance = TimelockedGovernance(res.emergencyGovernance);
         require(
-            emergencyTimelockedGovernance.GOVERNANCE() == address(lidoAddresses.voting),
+            emergencyTimelockedGovernance.GOVERNANCE() == lidoAddresses.voting,
             "TimelockedGovernance governance != Lido voting"
         );
         require(
@@ -243,7 +243,7 @@ library DeployVerification {
         require(dg.getPersistedState() == State.Normal, "Incorrect DualGovernance persisted state");
         require(dg.getEffectiveState() == State.Normal, "Incorrect DualGovernance effective state");
         require(dg.getProposers().length == 1, "Incorrect amount of proposers");
-        require(dg.isProposer(address(lidoAddresses.voting)) == true, "Lido voting is not set as a proposers[0]");
+        require(dg.isProposer(lidoAddresses.voting) == true, "Lido voting is not set as a proposers[0]");
         require(dg.isExecutor(res.adminExecutor) == true, "adminExecutor is not set as a proposers[0].executor");
 
         IDualGovernance.StateDetails memory stateDetails = dg.getStateDetails();

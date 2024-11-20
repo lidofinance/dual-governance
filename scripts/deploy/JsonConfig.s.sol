@@ -9,7 +9,6 @@ import {console} from "forge-std/console.sol";
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
-import {IAragonVoting} from "contracts/interfaces/IAragonVoting.sol";
 import {
     ST_ETH as MAINNET_ST_ETH,
     WST_ETH as MAINNET_WST_ETH,
@@ -232,7 +231,7 @@ contract DGDeployJSONConfigProvider is Script {
                 stETH: IStETH(MAINNET_ST_ETH),
                 wstETH: IWstETH(MAINNET_WST_ETH),
                 withdrawalQueue: IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE),
-                voting: IAragonVoting(MAINNET_DAO_VOTING)
+                voting: MAINNET_DAO_VOTING
             });
         }
 
@@ -244,7 +243,7 @@ contract DGDeployJSONConfigProvider is Script {
                 stETH: IStETH(stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_ST_ETH")),
                 wstETH: IWstETH(stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_WST_ETH")),
                 withdrawalQueue: IWithdrawalQueue(stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_WITHDRAWAL_QUEUE")),
-                voting: IAragonVoting(stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_DAO_VOTING"))
+                voting: stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_DAO_VOTING")
             });
         }
 
@@ -253,7 +252,7 @@ contract DGDeployJSONConfigProvider is Script {
             stETH: IStETH(HOLESKY_ST_ETH),
             wstETH: IWstETH(HOLESKY_WST_ETH),
             withdrawalQueue: IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE),
-            voting: IAragonVoting(HOLESKY_DAO_VOTING)
+            voting: HOLESKY_DAO_VOTING
         });
     }
 
