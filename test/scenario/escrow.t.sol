@@ -6,11 +6,11 @@ import {console} from "forge-std/Test.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
-import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 
-import {IEscrow, LockedAssetsTotals, VetoerState} from "contracts/interfaces/IEscrow.sol";
+import {IEscrow} from "contracts/interfaces/IEscrow.sol";
 import {Escrow, WithdrawalsBatchesQueue} from "contracts/Escrow.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
@@ -212,17 +212,18 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         uint256[] memory unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
 
         uint256 totalSharesLocked;
-        WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             totalSharesLocked += statuses[i].amountOfShares;
         }
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        VetoerState memory vetoerState = escrow.getVetoerState(_VETOER_1);
+        IEscrow.VetoerState memory vetoerState = escrow.getVetoerState(_VETOER_1);
         assertEq(vetoerState.unstETHIdsCount, 2);
 
-        LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
+        IEscrow.LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
         assertEq(totals.unstETHFinalizedETH, 0);
         assertEq(totals.unstETHUnfinalizedShares, totalSharesLocked);
 
@@ -324,7 +325,8 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatch(expectedWithdrawalsBatchesCount);
         // assertEq(total, expectedWithdrawalsBatchesCount);
 
-        WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIdsToClaim);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIdsToClaim);
 
         for (uint256 i = 0; i < statuses.length; ++i) {
             assertTrue(statuses[i].isFinalized);
