@@ -191,7 +191,7 @@ abstract contract SetupDeployment is Test {
         lidoAddresses.stETH = _lido.stETH;
         lidoAddresses.wstETH = _lido.wstETH;
         lidoAddresses.withdrawalQueue = _lido.withdrawalQueue;
-        lidoAddresses.voting = _lido.voting;
+        lidoAddresses.voting = address(_lido.voting);
     }
 
     // ---

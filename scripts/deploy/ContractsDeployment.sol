@@ -112,7 +112,7 @@ library DGContractsDeployment {
         EmergencyProtectedTimelock timelock = contracts.timelock;
 
         contracts.emergencyGovernance =
-            deployTimelockedGovernance({governance: address(lidoAddresses.voting), timelock: timelock});
+            deployTimelockedGovernance({governance: lidoAddresses.voting, timelock: timelock});
 
         adminExecutor.execute(
             address(timelock),
@@ -289,8 +289,7 @@ library DGContractsDeployment {
             address(contracts.dualGovernance),
             0,
             abi.encodeCall(
-                contracts.dualGovernance.registerProposer,
-                (address(lidoAddresses.voting), address(contracts.adminExecutor))
+                contracts.dualGovernance.registerProposer, (lidoAddresses.voting, address(contracts.adminExecutor))
             )
         );
         contracts.adminExecutor.execute(
