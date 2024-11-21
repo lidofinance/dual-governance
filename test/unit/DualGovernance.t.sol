@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Duration, Durations, lte} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
-import {PercentsD16, PercentD16} from "contracts/types/PercentD16.sol";
+import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
@@ -25,7 +25,6 @@ import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
-import {ISealable} from "contracts/interfaces/ISealable.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IEscrow} from "contracts/interfaces/IEscrow.sol";
 
@@ -320,6 +319,61 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     // ---
+    // executeProposal()
+    // ---
+
+    function testFuzz_executeProposal_HappyPath(address stranger) external {
+        uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
+
+        _scheduleProposal(proposalId, Timestamps.now());
+
+        uint256[] memory scheduledProposals = _timelock.getScheduledProposals();
+        assertEq(scheduledProposals.length, 1);
+        assertEq(scheduledProposals[0], proposalId);
+
+        _timelock.setExecutable(proposalId);
+
+        vm.prank(stranger);
+        _dualGovernance.executeProposal(proposalId);
+
+        assertEq(_timelock.getExecutedProposals().length, 1);
+        assertEq(_timelock.getExecutedProposals()[0], proposalId);
+    }
+
+    function test_executeProposal_ActivatesNextState() external {
+        uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
+
+        _scheduleProposal(proposalId, Timestamps.now());
+        assertEq(_timelock.getScheduledProposals().length, 1);
+
+        vm.startPrank(vetoer);
+        _escrow.lockStETH(5 ether);
+        _wait(_configProvider.VETO_SIGNALLING_MIN_DURATION());
+        _escrow.unlockStETH();
+        vm.stopPrank();
+        _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+
+        _timelock.setExecutable(proposalId);
+        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
+
+        _dualGovernance.executeProposal(proposalId);
+
+        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
+    }
+
+    function test_executeProposal_RevertOn_CannotExecute() external {
+        uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
+        _scheduleProposal(proposalId, Timestamps.now());
+
+        uint256[] memory scheduledProposals = _timelock.getScheduledProposals();
+        assertEq(scheduledProposals.length, 1);
+        assertEq(scheduledProposals[0], proposalId);
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalExecutionBlocked.selector, proposalId));
+        _dualGovernance.executeProposal(proposalId);
+    }
+
+    // ---
     // cancelAllPendingProposals()
     // ---
 
@@ -595,6 +649,22 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_dualGovernance.getPersistedState(), State.Normal);
         assertEq(_dualGovernance.getEffectiveState(), State.Normal);
         assertTrue(_dualGovernance.canSubmitProposal());
+    }
+
+    // ---
+    // canExecuteProposal()
+    // ---
+
+    function test_canExecuteProposal() external {
+        uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
+
+        _scheduleProposal(proposalId, Timestamps.now());
+        assertEq(_timelock.getScheduledProposals().length, 1);
+
+        assertFalse(_dualGovernance.canExecuteProposal(proposalId));
+
+        _timelock.setExecutable(proposalId);
+        assertTrue(_dualGovernance.canExecuteProposal(proposalId));
     }
 
     // ---
@@ -2209,6 +2279,26 @@ contract DualGovernanceUnitTests is UnitTest {
     function _submitMockProposal() internal {
         // mock timelock doesn't uses proposal data
         _timelock.submit(msg.sender, address(0), new ExternalCall[](0), "");
+    }
+
+    function _scheduleProposal(uint256 proposalId, Timestamp submittedAt) internal {
+        _timelock.setSchedule(proposalId);
+
+        vm.mockCall(
+            address(_timelock),
+            abi.encodeWithSelector(TimelockMock.getProposalDetails.selector, proposalId),
+            abi.encode(
+                ITimelock.ProposalDetails({
+                    id: proposalId,
+                    status: ProposalStatus.Submitted,
+                    executor: address(_executor),
+                    submittedAt: submittedAt,
+                    scheduledAt: Timestamps.from(0)
+                })
+            )
+        );
+        vm.expectCall(address(_timelock), 0, abi.encodeWithSelector(TimelockMock.schedule.selector, proposalId));
+        _dualGovernance.scheduleProposal(proposalId);
     }
 
     function _generateExternalCalls() internal pure returns (ExternalCall[] memory calls) {

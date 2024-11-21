@@ -29,6 +29,7 @@ interface IDualGovernance is IGovernance, ITiebreaker {
     function ESCROW_MASTER_COPY() external view returns (IEscrow);
 
     function canSubmitProposal() external view returns (bool);
+    function canExecuteProposal(uint256 proposalId) external view returns (bool);
     function canCancelAllPendingProposals() external view returns (bool);
     function activateNextState() external;
     function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external;

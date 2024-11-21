@@ -2,10 +2,10 @@
 pragma solidity 0.8.26;
 
 import {Duration} from "contracts/types/Duration.sol";
-import {Timestamp} from "contracts/types/Timestamp.sol";
-import {ITimelock, ProposalStatus} from "contracts/interfaces/ITimelock.sol";
+import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
+/* solhint-disable custom-errors */
 contract TimelockMock is ITimelock {
     uint8 public constant OFFSET = 1;
 
@@ -16,6 +16,7 @@ contract TimelockMock is ITimelock {
     }
 
     mapping(uint256 => bool) public canScheduleProposal;
+    mapping(uint256 => bool) public canExecuteProposal;
 
     uint256[] public submittedProposals;
     uint256[] public scheduledProposals;
@@ -39,18 +40,22 @@ contract TimelockMock is ITimelock {
 
     function schedule(uint256 proposalId) external {
         if (canScheduleProposal[proposalId] == false) {
-            revert();
+            revert("Can't schedule");
         }
 
         scheduledProposals.push(proposalId);
     }
 
     function execute(uint256 proposalId) external {
+        if (canExecuteProposal[proposalId] == false) {
+            revert("Can't execute");
+        }
+
         executedProposals.push(proposalId);
     }
 
     function canExecute(uint256 proposalId) external view returns (bool) {
-        revert("Not Implemented");
+        return canExecuteProposal[proposalId];
     }
 
     function canSchedule(uint256 proposalId) external view returns (bool) {
@@ -63,6 +68,10 @@ contract TimelockMock is ITimelock {
 
     function setSchedule(uint256 proposalId) external {
         canScheduleProposal[proposalId] = true;
+    }
+
+    function setExecutable(uint256 proposalId) external {
+        canExecuteProposal[proposalId] = true;
     }
 
     function getSubmittedProposals() external view returns (uint256[] memory) {
@@ -81,7 +90,11 @@ contract TimelockMock is ITimelock {
         return lastCancelledProposalId;
     }
 
-    function getProposal(uint256 proposalId) external view returns (ProposalDetails memory, ExternalCall[] memory) {
+    function getProposal(uint256 /* proposalId */ )
+        external
+        view
+        returns (ProposalDetails memory, ExternalCall[] memory)
+    {
         revert("Not Implemented");
     }
 
@@ -97,7 +110,7 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
-    function emergencyExecute(uint256 proposalId) external {
+    function emergencyExecute(uint256 /* proposalId */ ) external {
         revert("Not Implemented");
     }
 
@@ -105,11 +118,11 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
-    function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory) {
+    function getProposalDetails(uint256 /* proposalId */ ) external view returns (ProposalDetails memory) {
         revert("Not Implemented");
     }
 
-    function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls) {
+    function getProposalCalls(uint256 /* proposalId */ ) external view returns (ExternalCall[] memory calls) {
         revert("Not Implemented");
     }
 
@@ -121,7 +134,7 @@ contract TimelockMock is ITimelock {
         return _ADMIN_EXECUTOR;
     }
 
-    function setAdminExecutor(address newAdminExecutor) external {
+    function setAdminExecutor(address /* newAdminExecutor */ ) external {
         revert("Not Implemented");
     }
 
@@ -133,11 +146,11 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
-    function setupDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
+    function setupDelays(Duration, /* afterSubmitDelay */ Duration /* afterScheduleDelay */ ) external {
         revert("Not Implemented");
     }
 
-    function transferExecutorOwnership(address executor, address owner) external {
+    function transferExecutorOwnership(address, /* executor */ address /* owner */ ) external {
         revert("Not Implemented");
     }
 }
