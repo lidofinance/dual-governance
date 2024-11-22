@@ -29,12 +29,12 @@ interface ITimelock {
 
     function getAdminExecutor() external view returns (address);
     function getGovernance() external view returns (address);
-    function setGovernance(address governance) external;
+    function setGovernance(address newGovernance) external;
 
     function getProposal(uint256 proposalId)
         external
         view
-        returns (ProposalDetails memory proposal, ExternalCall[] memory calls);
+        returns (ProposalDetails memory proposalDetails, ExternalCall[] memory calls);
     function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory proposalDetails);
     function getProposalsCount() external view returns (uint256 count);
 }

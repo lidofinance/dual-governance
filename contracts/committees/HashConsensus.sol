@@ -22,6 +22,7 @@ abstract contract HashConsensus is Ownable {
     event TimelockDurationSet(Duration timelockDuration);
 
     error DuplicatedMember(address account);
+    error InvalidMemberAccount(address account);
     error AccountIsNotMember(address account);
     error CallerIsNotMember(address caller);
     error HashAlreadyUsed(bytes32 hash);
@@ -35,20 +36,16 @@ abstract contract HashConsensus is Ownable {
     struct HashState {
         Timestamp scheduledAt;
         Timestamp usedAt;
-    }
-
-    struct HashSupportData {
-        uint256 supportAtScheduled;
-        uint256 quorumAtScheduled;
+        uint32 supportAtScheduled;
+        uint32 quorumAtScheduled;
     }
 
     uint256 public quorum;
     Duration public timelockDuration;
 
-    mapping(bytes32 => HashState) private _hashStates;
-    mapping(bytes32 => HashSupportData) private _historicalHashSupportData;
+    mapping(bytes32 hash => HashState state) private _hashStates;
     EnumerableSet.AddressSet private _members;
-    mapping(address signer => mapping(bytes32 => bool)) public approves;
+    mapping(address signer => mapping(bytes32 hash => bool approve)) public approves;
 
     constructor(address owner, Duration timelock) Ownable(owner) {
         timelockDuration = timelock;
@@ -127,7 +124,7 @@ abstract contract HashConsensus is Ownable {
     ///      or if it exceeds the total number of members.
     /// @param newMembers The array of addresses to be added as new members
     /// @param executionQuorum The minimum number of members required for executing certain operations
-    function addMembers(address[] memory newMembers, uint256 executionQuorum) public {
+    function addMembers(address[] memory newMembers, uint256 executionQuorum) external {
         _checkOwner();
 
         _addMembers(newMembers, executionQuorum);
@@ -140,7 +137,7 @@ abstract contract HashConsensus is Ownable {
     ///      the new total number of members.
     /// @param membersToRemove The array of addresses to be removed from the members list.
     /// @param executionQuorum The updated minimum number of members required for executing certain operations.
-    function removeMembers(address[] memory membersToRemove, uint256 executionQuorum) public {
+    function removeMembers(address[] memory membersToRemove, uint256 executionQuorum) external {
         _checkOwner();
 
         _removeMembers(membersToRemove, executionQuorum);
@@ -149,7 +146,7 @@ abstract contract HashConsensus is Ownable {
     /// @notice Gets the list of committee members
     /// @dev Public function to return the list of members
     /// @return An array of addresses representing the committee members
-    function getMembers() public view returns (address[] memory) {
+    function getMembers() external view returns (address[] memory) {
         return _members.values();
     }
 
@@ -157,14 +154,14 @@ abstract contract HashConsensus is Ownable {
     /// @dev Public function to check membership status
     /// @param member The address to check
     /// @return A boolean indicating whether the address is a member
-    function isMember(address member) public view returns (bool) {
+    function isMember(address member) external view returns (bool) {
         return _members.contains(member);
     }
 
     /// @notice Sets the timelock duration
     /// @dev Only callable by the owner
     /// @param timelock The new timelock duration in seconds
-    function setTimelockDuration(Duration timelock) public {
+    function setTimelockDuration(Duration timelock) external {
         _checkOwner();
         if (timelock == timelockDuration) {
             revert InvalidTimelockDuration(timelock);
@@ -176,7 +173,7 @@ abstract contract HashConsensus is Ownable {
     /// @notice Sets the quorum value
     /// @dev Only callable by the owner
     /// @param newQuorum The new quorum value
-    function setQuorum(uint256 newQuorum) public {
+    function setQuorum(uint256 newQuorum) external {
         _checkOwner();
         if (newQuorum == quorum) {
             revert InvalidQuorum();
@@ -189,7 +186,7 @@ abstract contract HashConsensus is Ownable {
     ///      the proposal has not been scheduled yet. Could happen when execution quorum was set to the same value as
     ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
-    function schedule(bytes32 hash) public {
+    function schedule(bytes32 hash) external {
         if (_hashStates[hash].scheduledAt.isNotZero()) {
             revert HashAlreadyScheduled(hash);
         }
@@ -223,6 +220,9 @@ abstract contract HashConsensus is Ownable {
     /// @param executionQuorum The minimum number of members required for executing certain operations.
     function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
         for (uint256 i = 0; i < newMembers.length; ++i) {
+            if (newMembers[i] == address(0)) {
+                revert InvalidMemberAccount(newMembers[i]);
+            }
             if (!_members.add(newMembers[i])) {
                 revert DuplicatedMember(newMembers[i]);
             }
