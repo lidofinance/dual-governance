@@ -141,7 +141,7 @@ library ExecutableProposals {
     function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
         ProposalData memory proposalState = self.proposals[proposalId].data;
 
-        if (proposalState.status != Status.Submitted || _isProposalMarkedCancelled(self, proposalId, proposalState)) {
+        if (!_isProposalSubmitted(self, proposalId, proposalState)) {
             revert ProposalNotSubmitted(proposalId);
         }
 
@@ -164,7 +164,7 @@ library ExecutableProposals {
     function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
-        if (proposal.data.status != Status.Scheduled || _isProposalMarkedCancelled(self, proposalId, proposal.data)) {
+        if (!_isProposalScheduled(self, proposalId, proposal.data)) {
             revert ProposalNotScheduled(proposalId);
         }
 
@@ -205,8 +205,7 @@ library ExecutableProposals {
         Duration afterScheduleDelay
     ) internal view returns (bool) {
         ProposalData memory proposalState = self.proposals[proposalId].data;
-        if (_isProposalMarkedCancelled(self, proposalId, proposalState)) return false;
-        return proposalState.status == Status.Scheduled
+        return _isProposalScheduled(self, proposalId, proposalState)
             && Timestamps.now() >= afterScheduleDelay.addTo(proposalState.scheduledAt);
     }
 
@@ -221,8 +220,7 @@ library ExecutableProposals {
         Duration afterSubmitDelay
     ) internal view returns (bool) {
         ProposalData memory proposalState = self.proposals[proposalId].data;
-        if (_isProposalMarkedCancelled(self, proposalId, proposalState)) return false;
-        return proposalState.status == Status.Submitted
+        return _isProposalSubmitted(self, proposalId, proposalState)
             && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
     }
 
@@ -282,5 +280,21 @@ library ExecutableProposals {
         ProposalData memory proposalData
     ) private view returns (bool) {
         return proposalId <= self.lastCancelledProposalId && proposalData.status != Status.Executed;
+    }
+
+    function _isProposalScheduled(
+        Context storage self,
+        uint256 proposalId,
+        ProposalData memory proposalData
+    ) private view returns (bool) {
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled;
+    }
+
+    function _isProposalSubmitted(
+        Context storage self,
+        uint256 proposalId,
+        ProposalData memory proposalData
+    ) private view returns (bool) {
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted;
     }
 }
