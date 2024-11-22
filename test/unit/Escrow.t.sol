@@ -15,7 +15,7 @@ import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 import {Escrow, LockedAssetsTotals, VetoerState} from "contracts/Escrow.sol";
 
 import {EscrowState as EscrowStateLib, State as EscrowState} from "contracts/libraries/EscrowState.sol";
-import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalBatchesQueue.sol";
+import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
 import {IEscrow} from "contracts/interfaces/IEscrow.sol";
@@ -483,7 +483,7 @@ contract EscrowUnitTests is UnitTest {
         vm.expectEmit();
         emit EscrowStateLib.RageQuitStarted(Durations.ZERO, Durations.ZERO);
         vm.expectEmit();
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueOpened(lri);
+        emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueOpened(lri);
 
         transitToRageQuit();
     }
@@ -504,7 +504,7 @@ contract EscrowUnitTests is UnitTest {
         uint256[] memory unstEthIds = getUnstEthIdsFromWQ();
 
         vm.expectEmit();
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueOpened(unstEthIds[0] - 1);
+        emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueOpened(unstEthIds[0] - 1);
         transitToRageQuit();
 
         WithdrawalQueueMock(_withdrawalQueue).setRequestWithdrawalsResult(unstEthIds);
@@ -516,7 +516,7 @@ contract EscrowUnitTests is UnitTest {
         vm.expectEmit();
         emit WithdrawalsBatchesQueue.UnstETHIdsAdded(unstEthIds);
         vm.expectEmit();
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueClosed();
+        emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueClosed();
         _escrow.requestNextWithdrawalsBatch(100);
     }
 
@@ -547,7 +547,7 @@ contract EscrowUnitTests is UnitTest {
         uint256[] memory unstEthIds = getUnstEthIdsFromWQ();
 
         vm.expectEmit();
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueOpened(unstEthIds[0] - 1);
+        emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueOpened(unstEthIds[0] - 1);
         transitToRageQuit();
 
         WithdrawalQueueMock(_withdrawalQueue).setRequestWithdrawalsResult(unstEthIds);
@@ -1497,9 +1497,11 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function ensureWithdrawalsBatchesQueueClosed() internal {
-        vm.expectEmit();
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueClosed();
-        _escrow.requestNextWithdrawalsBatch(100);
+        if (!_escrow.isWithdrawalsBatchesFinalized()) {
+            vm.expectEmit();
+            emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueClosed();
+            _escrow.requestNextWithdrawalsBatch(100);
+        }
     }
 
     function ensureRageQuitExtensionPeriodStartedNow() internal {
