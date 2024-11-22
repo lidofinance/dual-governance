@@ -5,7 +5,6 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {Duration} from "../types/Duration.sol";
-import {PercentD16} from "../types/PercentD16.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 import {IEscrow} from "../interfaces/IEscrow.sol";
@@ -13,6 +12,7 @@ import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 import {IDualGovernanceConfigProvider} from "../interfaces/IDualGovernanceConfigProvider.sol";
 
 import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
+import {DualGovernanceStateTransitions} from "./DualGovernanceStateTransitions.sol";
 
 /// @notice Enum describing the state of the Dual Governance State Machine
 /// @param Unset The initial (uninitialized) state of the Dual Governance State Machine. The state machine cannot
@@ -91,7 +91,7 @@ library DualGovernanceStateMachine {
     // ---
 
     event NewSignallingEscrowDeployed(IEscrow indexed escrow);
-    event DualGovernanceStateChanged(State from, State to, Context state);
+    event DualGovernanceStateChanged(State indexed from, State indexed to, Context state);
     event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
 
     // ---
@@ -103,7 +103,7 @@ library DualGovernanceStateMachine {
     uint256 internal constant MAX_RAGE_QUIT_ROUND = type(uint8).max;
 
     // ---
-    // Main functionality
+    // Main Functionality
     // ---
 
     /// @notice Initializes the Dual Governance State Machine context.
@@ -244,7 +244,7 @@ library DualGovernanceStateMachine {
     /// @param useEffectiveState If `true`, the check is performed against the `effective` state, which represents the state
     ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
     ///     performed against the `persisted` state, which is the currently stored state of the system.
-    /// @return A boolean indicating whether the submission of proposals is allowed in the selected state.
+    /// @return bool A boolean indicating whether the submission of proposals is allowed in the selected state.
     function canSubmitProposal(Context storage self, bool useEffectiveState) internal view returns (bool) {
         State state = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
         return state != State.VetoSignallingDeactivation && state != State.VetoCooldown;
@@ -257,7 +257,7 @@ library DualGovernanceStateMachine {
     ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
     ///     performed against the `persisted` state, which is the currently stored state of the system.
     /// @param proposalSubmittedAt The timestamp indicating when the proposal to be scheduled was originally submitted.
-    /// @return A boolean indicating whether scheduling the proposal is allowed in the chosen state.
+    /// @return bool A boolean indicating whether scheduling the proposal is allowed in the chosen state.
     function canScheduleProposal(
         Context storage self,
         bool useEffectiveState,
@@ -265,6 +265,11 @@ library DualGovernanceStateMachine {
     ) internal view returns (bool) {
         State state = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
         if (state == State.Normal) return true;
+
+        /// @dev The `vetoSignallingActivatedAt` timestamp is only updated when the state transitions into `VetoSignalling`.
+        ///     This ensures that, when checking the effective state, the expression below uses the most up-to-date
+        ///     `vetoSignallingActivatedAt`. If checking against the persisted state, it is assumed that `activateNextState()`
+        ///     has been invoked beforehand to ensure the persisted state is current.
         if (state == State.VetoCooldown) return proposalSubmittedAt <= self.vetoSignallingActivatedAt;
         return false;
     }
@@ -275,7 +280,7 @@ library DualGovernanceStateMachine {
     /// @param useEffectiveState If `true`, the check is performed against the `effective` state, which represents the state
     ///     the Dual Governance State Machine will enter after the next `activateNextState` call. If `false`, the check is
     ///     performed against the `persisted` state, which is the currently stored state of the system.
-    /// @return A boolean indicating whether the cancelling of proposals is allowed in the selected state.
+    /// @return bool A boolean indicating whether the cancelling of proposals is allowed in the selected state.
     function canCancelAllPendingProposals(Context storage self, bool useEffectiveState) internal view returns (bool) {
         State state = useEffectiveState ? getEffectiveState(self) : getPersistedState(self);
         return state == State.VetoSignalling || state == State.VetoSignallingDeactivation;
@@ -284,13 +289,13 @@ library DualGovernanceStateMachine {
     /// @notice Returns the configuration of the Dual Governance State Machine as provided by
     ///     the Dual Governance Config Provider.
     /// @param self The context of the Dual Governance State Machine.
-    /// @return The current configuration of the Dual Governance State
+    /// @return config The current configuration of the Dual Governance State
     function getDualGovernanceConfig(Context storage self)
         internal
         view
-        returns (DualGovernanceConfig.Context memory)
+        returns (DualGovernanceConfig.Context memory config)
     {
-        return self.configProvider.getDualGovernanceConfig();
+        config = self.configProvider.getDualGovernanceConfig();
     }
 
     // ---
@@ -317,116 +322,5 @@ library DualGovernanceStateMachine {
         newSignallingEscrow.initialize(minAssetsLockDuration);
         self.signallingEscrow = newSignallingEscrow;
         emit NewSignallingEscrowDeployed(newSignallingEscrow);
-    }
-}
-
-/// @title Dual Governance State Transitions Library
-/// @notice Library containing the transitions logic for the Dual Governance system
-library DualGovernanceStateTransitions {
-    using DualGovernanceConfig for DualGovernanceConfig.Context;
-
-    /// @notice Returns the allowed state transition for the Dual Governance State Machine.
-    ///     If no state transition is possible, `currentState` will be equal to `nextState`.
-    /// @param self The context of the Dual Governance State Machine.
-    /// @param config The configuration of the Dual Governance State Machine to use for determining
-    ///     state transitions.
-    /// @return currentState The current state of the Dual Governance State Machine.
-    /// @return nextState The next state of the Dual Governance State Machine if a transition
-    ///     is possible, otherwise it will be the same as `currentState`.
-    function getStateTransition(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceConfig.Context memory config
-    ) internal view returns (State currentState, State nextState) {
-        currentState = self.state;
-        if (currentState == State.Normal) {
-            nextState = _fromNormalState(self, config);
-        } else if (currentState == State.VetoSignalling) {
-            nextState = _fromVetoSignallingState(self, config);
-        } else if (currentState == State.VetoSignallingDeactivation) {
-            nextState = _fromVetoSignallingDeactivationState(self, config);
-        } else if (currentState == State.VetoCooldown) {
-            nextState = _fromVetoCooldownState(self, config);
-        } else if (currentState == State.RageQuit) {
-            nextState = _fromRageQuitState(self, config);
-        } else {
-            assert(false);
-        }
-    }
-
-    // ---
-    // Private Methods
-    // ---
-
-    function _fromNormalState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceConfig.Context memory config
-    ) private view returns (State) {
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
-            ? State.VetoSignalling
-            : State.Normal;
-    }
-
-    function _fromVetoSignallingState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceConfig.Context memory config
-    ) private view returns (State) {
-        PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
-
-        if (!config.isVetoSignallingDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
-            return State.VetoSignalling;
-        }
-
-        if (config.isSecondSealRageQuitSupportCrossed(rageQuitSupport)) {
-            return State.RageQuit;
-        }
-
-        return config.isVetoSignallingReactivationDurationPassed(
-            Timestamps.max(self.vetoSignallingReactivationTime, self.vetoSignallingActivatedAt)
-        ) ? State.VetoSignallingDeactivation : State.VetoSignalling;
-    }
-
-    function _fromVetoSignallingDeactivationState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceConfig.Context memory config
-    ) private view returns (State) {
-        PercentD16 rageQuitSupport = self.signallingEscrow.getRageQuitSupport();
-
-        if (!config.isVetoSignallingDurationPassed(self.vetoSignallingActivatedAt, rageQuitSupport)) {
-            return State.VetoSignalling;
-        }
-
-        if (config.isSecondSealRageQuitSupportCrossed(rageQuitSupport)) {
-            return State.RageQuit;
-        }
-
-        if (config.isVetoSignallingDeactivationMaxDurationPassed(self.enteredAt)) {
-            return State.VetoCooldown;
-        }
-
-        return State.VetoSignallingDeactivation;
-    }
-
-    function _fromVetoCooldownState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceConfig.Context memory config
-    ) private view returns (State) {
-        if (!config.isVetoCooldownDurationPassed(self.enteredAt)) {
-            return State.VetoCooldown;
-        }
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
-            ? State.VetoSignalling
-            : State.Normal;
-    }
-
-    function _fromRageQuitState(
-        DualGovernanceStateMachine.Context storage self,
-        DualGovernanceConfig.Context memory config
-    ) private view returns (State) {
-        if (!self.rageQuitEscrow.isRageQuitFinalized()) {
-            return State.RageQuit;
-        }
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
-            ? State.VetoSignalling
-            : State.VetoCooldown;
     }
 }

@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {stdError} from "forge-std/StdError.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
-import {WithdrawalsBatchesQueue, State} from "contracts/libraries/WithdrawalBatchesQueue.sol";
+import {WithdrawalsBatchesQueue, State} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 
 contract WithdrawalsBatchesQueueTest is UnitTest {
     using WithdrawalsBatchesQueue for WithdrawalsBatchesQueue.Context;
@@ -31,15 +31,15 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         _batchesQueue.info.state = State.Opened;
         assertEq(_batchesQueue.info.state, State.Opened);
 
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsNotInAbsentState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsNotInAbsentState.selector);
         _batchesQueue.open(_DEFAULT_BOUNDARY_UNST_ETH_ID);
     }
 
-    function test_open_Emit_WithdrawalBatchesQueueOpened() external {
+    function test_open_Emit_WithdrawalsBatchesQueueOpened() external {
         assertEq(_batchesQueue.info.state, State.Absent);
 
         vm.expectEmit(true, false, false, false);
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueOpened(_DEFAULT_BOUNDARY_UNST_ETH_ID);
+        emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueOpened(_DEFAULT_BOUNDARY_UNST_ETH_ID);
 
         _batchesQueue.open(_DEFAULT_BOUNDARY_UNST_ETH_ID);
     }
@@ -127,7 +127,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     function test_addUnstETHIds_RevertOn_QueueNotInOpenedState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsNotInOpenedState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsNotInOpenedState.selector);
         _batchesQueue.addUnstETHIds(new uint256[](0));
     }
 
@@ -306,22 +306,22 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     function test_close_RevertOn_QueueNotInOpenedState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsNotInOpenedState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsNotInOpenedState.selector);
         _batchesQueue.close();
 
         _batchesQueue.open({boundaryUnstETHId: 1});
         _batchesQueue.close();
 
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsNotInOpenedState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsNotInOpenedState.selector);
         _batchesQueue.close();
     }
 
-    function test_close_Emit_WithdrawalBatchesQueueClosed() external {
+    function test_close_Emit_WithdrawalsBatchesQueueClosed() external {
         _openBatchesQueue();
         assertEq(_batchesQueue.info.state, State.Opened);
 
         vm.expectEmit(true, false, false, false);
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueClosed();
+        emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueClosed();
 
         _batchesQueue.close();
     }
@@ -503,7 +503,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     function test_getBoundaryUnstETHId_RevertOn_QueueInAbsentState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsInAbsentState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsInAbsentState.selector);
         _batchesQueue.getBoundaryUnstETHId();
     }
 
@@ -577,7 +577,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     function test_getLastClaimedOrBoundaryUnstETHId_RevertOn_AbsentQueueState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsInAbsentState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsInAbsentState.selector);
         _batchesQueue.getLastClaimedOrBoundaryUnstETHId();
     }
 
