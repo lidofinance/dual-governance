@@ -68,7 +68,8 @@ abstract contract HashConsensus is Ownable {
 
         if (currentSupport >= quorum) {
             _hashStates[hash].scheduledAt = Timestamps.now();
-            _historicalHashSupportData[hash] = HashSupportData(currentSupport, quorum);
+            _hashStates[hash].supportAtScheduled = uint32(currentSupport);
+            _hashStates[hash].quorumAtScheduled = uint32(quorum);
             emit HashScheduled(hash);
         }
     }
@@ -106,15 +107,15 @@ abstract contract HashConsensus is Ownable {
         view
         returns (uint256 support, uint256 executionQuorum, Timestamp scheduledAt, bool isUsed)
     {
-        scheduledAt = _hashStates[hash].scheduledAt;
-        isUsed = _hashStates[hash].usedAt.isNotZero();
+        HashState storage hashState = _hashStates[hash];
+        scheduledAt = hashState.scheduledAt;
+        isUsed = hashState.usedAt.isNotZero();
         if (scheduledAt.isZero()) {
             support = _getSupport(hash);
             executionQuorum = quorum;
         } else {
-            HashSupportData memory data = _historicalHashSupportData[hash];
-            support = data.supportAtScheduled;
-            executionQuorum = data.quorumAtScheduled;
+            support = hashState.supportAtScheduled;
+            executionQuorum = hashState.quorumAtScheduled;
         }
     }
 
@@ -198,7 +199,8 @@ abstract contract HashConsensus is Ownable {
         }
 
         _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
-        _historicalHashSupportData[hash] = HashSupportData(currentSupport, quorum);
+        _hashStates[hash].supportAtScheduled = uint32(currentSupport);
+        _hashStates[hash].quorumAtScheduled = uint32(quorum);
         emit HashScheduled(hash);
     }
 
