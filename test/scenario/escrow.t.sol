@@ -303,7 +303,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         uint256 escrowStETHBalance = _lido.stETH.balanceOf(address(escrow));
-        uint256 expectedWithdrawalBatchesCount = escrowStETHBalance / requestAmount + 1;
+        uint256 expectedWithdrawalsBatchesCount = escrowStETHBalance / requestAmount + 1;
         assertEq(_lido.withdrawalQueue.balanceOf(address(escrow)), 10);
 
         escrow.requestNextWithdrawalsBatch(10);
@@ -314,13 +314,13 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
             escrow.requestNextWithdrawalsBatch(96);
         }
 
-        assertEq(_lido.withdrawalQueue.balanceOf(address(escrow)), 10 + expectedWithdrawalBatchesCount);
+        assertEq(_lido.withdrawalQueue.balanceOf(address(escrow)), 10 + expectedWithdrawalsBatchesCount);
         assertEq(escrow.isRageQuitFinalized(), false);
 
         _finalizeWithdrawalQueue();
 
-        uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatch(expectedWithdrawalBatchesCount);
-        // assertEq(total, expectedWithdrawalBatchesCount);
+        uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatch(expectedWithdrawalsBatchesCount);
+        // assertEq(total, expectedWithdrawalsBatchesCount);
 
         WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIdsToClaim);
 
@@ -459,76 +459,6 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         vm.startPrank(_VETOER_1);
         escrow.withdrawETH(unstETHIds);
         vm.stopPrank();
-    }
-
-    function test_request_st_eth_wst_eth_withdrawals() external {
-        uint256 firstVetoerStETHAmount = 10 ether;
-        uint256 firstVetoerWstETHAmount = 11 ether;
-
-        uint256 firstVetoerStETHShares = _lido.stETH.getSharesByPooledEth(firstVetoerStETHAmount);
-        uint256 totalSharesLocked = firstVetoerWstETHAmount + firstVetoerStETHShares;
-
-        _lockStETH(_VETOER_1, firstVetoerStETHAmount);
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).stETHLockedShares, firstVetoerStETHShares, 1);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, firstVetoerStETHShares, 1);
-
-        _lockWstETH(_VETOER_1, firstVetoerWstETHAmount);
-        assertApproxEqAbs(
-            escrow.getVetoerState(_VETOER_1).stETHLockedShares, firstVetoerWstETHAmount + firstVetoerStETHShares, 2
-        );
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, totalSharesLocked, 2);
-
-        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
-
-        uint256[] memory stETHWithdrawalRequestAmounts = new uint256[](1);
-        stETHWithdrawalRequestAmounts[0] = firstVetoerStETHAmount;
-
-        vm.prank(_VETOER_1);
-        uint256[] memory stETHWithdrawalRequestIds = escrow.requestWithdrawals(stETHWithdrawalRequestAmounts);
-
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, firstVetoerWstETHAmount, 2);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, firstVetoerStETHShares, 2);
-
-        uint256[] memory wstETHWithdrawalRequestAmounts = new uint256[](1);
-        wstETHWithdrawalRequestAmounts[0] = _lido.stETH.getPooledEthByShares(firstVetoerWstETHAmount);
-
-        vm.prank(_VETOER_1);
-        uint256[] memory wstETHWithdrawalRequestIds = escrow.requestWithdrawals(wstETHWithdrawalRequestAmounts);
-
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, 0, 2);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, totalSharesLocked, 2);
-
-        _finalizeWithdrawalQueue(wstETHWithdrawalRequestIds[0]);
-
-        escrow.markUnstETHFinalized(
-            stETHWithdrawalRequestIds,
-            _lido.withdrawalQueue.findCheckpointHints(
-                stETHWithdrawalRequestIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
-            )
-        );
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, 0, 2);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, firstVetoerWstETHAmount, 2);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHFinalizedETH, firstVetoerStETHAmount, 2);
-
-        escrow.markUnstETHFinalized(
-            wstETHWithdrawalRequestIds,
-            _lido.withdrawalQueue.findCheckpointHints(
-                wstETHWithdrawalRequestIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
-            )
-        );
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, 0, 2);
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, 0, 2);
-
-        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
-
-        vm.prank(_VETOER_1);
-        escrow.unlockUnstETH(stETHWithdrawalRequestIds);
-
-        // // assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).unstETHShares, firstVetoerWstETHAmount, 1);
-        // assertApproxEqAbs(escrow.getLockedAssetsTotals().stETHLockedShares, firstVetoerWstETHAmount, 1);
-
-        vm.prank(_VETOER_1);
-        escrow.unlockUnstETH(wstETHWithdrawalRequestIds);
     }
 
     function test_lock_unlock_funds_in_the_rage_quit_state_forbidden() external {

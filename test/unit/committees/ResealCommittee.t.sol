@@ -47,6 +47,12 @@ contract ResealCommitteeUnitTest is UnitTest {
         assertEq(quorumAt, Timestamp.wrap(uint40(block.timestamp)));
     }
 
+    function test_voteReseal_RevertOn_ZeroAddress() external {
+        vm.prank(committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSelector(ResealCommittee.InvalidSealable.selector, address(0)));
+        resealCommittee.voteReseal(address(0), true);
+    }
+
     function testFuzz_voteReseal_RevertOn_NotMember(address caller) external {
         vm.assume(caller != committeeMembers[0] && caller != committeeMembers[1] && caller != committeeMembers[2]);
         vm.prank(caller);

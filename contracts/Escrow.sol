@@ -16,7 +16,7 @@ import {IWithdrawalQueue, WithdrawalRequestStatus} from "./interfaces/IWithdrawa
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 
 import {EscrowState} from "./libraries/EscrowState.sol";
-import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalBatchesQueue.sol";
+import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalsBatchesQueue.sol";
 import {HolderAssets, StETHAccounting, UnstETHAccounting, AssetsAccounting} from "./libraries/AssetsAccounting.sol";
 
 /// @notice Summary of the total locked assets in the Escrow.
@@ -209,15 +209,15 @@ contract Escrow is IEscrow {
 
     /// @notice Unlocks all previously locked stETH and wstETH tokens, returning them in the form of wstETH tokens.
     ///     This action decreases the rage quit support proportionally to the number of unlocked wstETH shares.
-    /// @return unlockedStETHShares The total number of wstETH shares unlocked from the Escrow.
-    function unlockWstETH() external returns (uint256 unlockedStETHShares) {
+    /// @return wstETHUnlocked The total number of wstETH shares unlocked from the Escrow.
+    function unlockWstETH() external returns (uint256 wstETHUnlocked) {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
 
-        SharesValue wstETHUnlocked = _accounting.accountStETHSharesUnlock(msg.sender);
-        unlockedStETHShares = WST_ETH.wrap(ST_ETH.getPooledEthByShares(wstETHUnlocked.toUint256()));
-        WST_ETH.transfer(msg.sender, unlockedStETHShares);
+        SharesValue unlockedStETHShares = _accounting.accountStETHSharesUnlock(msg.sender);
+        wstETHUnlocked = WST_ETH.wrap(ST_ETH.getPooledEthByShares(unlockedStETHShares.toUint256()));
+        WST_ETH.transfer(msg.sender, wstETHUnlocked);
 
         DUAL_GOVERNANCE.activateNextState();
     }
@@ -284,33 +284,6 @@ contract Escrow is IEscrow {
     }
 
     // ---
-    // Convert To NFT
-    // ---
-
-    /// @notice Allows vetoers to convert their locked stETH or wstETH tokens into unstETH NFTs on behalf of the
-    ///     Veto Signalling Escrow contract.
-    /// @param stETHAmounts An array representing the amounts of stETH to be converted into unstETH NFTs.
-    /// @return unstETHIds An array of ids representing the newly created unstETH NFTs corresponding to
-    ///     the converted stETH amounts.
-    function requestWithdrawals(uint256[] calldata stETHAmounts) external returns (uint256[] memory unstETHIds) {
-        DUAL_GOVERNANCE.activateNextState();
-        _escrowState.checkSignallingEscrow();
-
-        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stETHAmounts, address(this));
-        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
-
-        uint256 sharesTotal = 0;
-        for (uint256 i = 0; i < statuses.length; ++i) {
-            sharesTotal += statuses[i].amountOfShares;
-        }
-        _accounting.accountStETHSharesUnlock(msg.sender, SharesValues.from(sharesTotal));
-        _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
-
-        /// @dev Skip calling activateNextState here to save gas, as converting stETH to unstETH NFTs
-        ///     does not affect the RageQuit support.
-    }
-
-    // ---
     // Start Rage Quit
     // ---
 
@@ -347,9 +320,13 @@ contract Escrow is IEscrow {
         uint256 minStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MIN_STETH_WITHDRAWAL_AMOUNT();
         uint256 maxStETHWithdrawalRequestAmount = WITHDRAWAL_QUEUE.MAX_STETH_WITHDRAWAL_AMOUNT();
 
-        /// @dev This check ensures that even if MIN_STETH_WITHDRAWAL_AMOUNT is set too low,
-        ///     the withdrawal batch request process can still be completed successfully
-        if (stETHRemaining < Math.max(_MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount)) {
+        /// @dev The remaining stETH amount must be greater than the minimum threshold to create a withdrawal request.
+        ///     Using only `minStETHWithdrawalRequestAmount` is insufficient because it is an external variable
+        ///     that could be decreased independently. Introducing `minWithdrawableStETHAmount` provides
+        ///     an internal safeguard, enforcing a minimum threshold within the contract.
+        uint256 minWithdrawableStETHAmount = Math.max(_MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount);
+
+        if (stETHRemaining < minWithdrawableStETHAmount) {
             return _batchesQueue.close();
         }
 
@@ -363,7 +340,7 @@ contract Escrow is IEscrow {
 
         stETHRemaining = ST_ETH.balanceOf(address(this));
 
-        if (stETHRemaining < minStETHWithdrawalRequestAmount) {
+        if (stETHRemaining < minWithdrawableStETHAmount) {
             _batchesQueue.close();
         }
     }
@@ -419,9 +396,9 @@ contract Escrow is IEscrow {
         }
 
         /// @dev This check is primarily required when only unstETH NFTs are locked in the Escrow
-        ///     and there are no WithdrawalBatches. In this scenario, the RageQuitExtensionPeriod can only begin
+        ///     and there are no WithdrawalsBatches. In this scenario, the RageQuitExtensionPeriod can only begin
         ///     when the last locked unstETH id is finalized in the WithdrawalQueue.
-        ///     When the WithdrawalBatchesQueue is not empty, this invariant is maintained by the following:
+        ///     When the WithdrawalsBatchesQueue is not empty, this invariant is maintained by the following:
         ///         - Any locked unstETH during the VetoSignalling phase has an id less than any unstETH NFT created
         ///           during the request for withdrawal batches.
         ///         - Claiming the withdrawal batches requires the finalization of the unstETH with the given id.

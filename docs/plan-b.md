@@ -238,31 +238,31 @@ The result of the call.
 
 ### Function: `ProposalsList.getProposals`
 ```solidity
-function getProposals(uint256 offset, uint256 limit) public view returns (Proposal[] memory proposals)
+function getProposals(uint256 offset, uint256 limit) external view returns (Proposal[] memory proposals)
 ```
 Returns a list of `Proposal` structs, starting from the specified `offset` and bounded to the specified `limit`.
 
 ### Function: `ProposalsList.getProposalAt`
 ```solidity
-function getProposalAt(uint256 index) public view returns (Proposal memory)
+function getProposalAt(uint256 index) external view returns (Proposal memory)
 ```
 Returns the `Proposal` at the specified index.
 
 ### Function: `ProposalsList.getProposal`
 ```solidity
-function getProposal(bytes32 key) public view returns (Proposal memory)
+function getProposal(bytes32 key) external view returns (Proposal memory)
 ```
 Returns the `Proposal` with the given key.
 
 ### Function: `ProposalsList.getProposalsLength`
 ```solidity
-function getProposalsLength() public view returns (uint256)
+function getProposalsLength() external view returns (uint256)
 ```
 Returns the total number of created `Proposal`s.
 
 ### Function: `ProposalsList.getOrderedKeys`
 ```solidity
-function getOrderedKeys(uint256 offset, uint256 limit) public view returns (bytes32[] memory)
+function getOrderedKeys(uint256 offset, uint256 limit) external view returns (bytes32[] memory)
 ```
 Returns a list of `Proposal` keys, starting from the specified `offset` and bounded by the specified `limit`.
 
@@ -272,7 +272,7 @@ Returns a list of `Proposal` keys, starting from the specified `offset` and boun
 
 ### Function: `HashConsensus.addMember`
 ```solidity
-function addMember(address newMember, uint256 newQuorum) public onlyOwner
+function addMember(address newMember, uint256 newQuorum) external onlyOwner
 ```
 Adds a new member and updates the quorum.
 
@@ -282,7 +282,7 @@ Adds a new member and updates the quorum.
 
 ### Function: `HashConsensus.removeMember`
 ```solidity
-function removeMember(address memberToRemove, uint256 newQuorum) public onlyOwner
+function removeMember(address memberToRemove, uint256 newQuorum) external onlyOwner
 ```
 Removes a member and updates the quorum.
 
@@ -293,19 +293,19 @@ Removes a member and updates the quorum.
 
 ### Function: `HashConsensus.getMembers`
 ```solidity
-function getMembers() public view returns (address[] memory)
+function getMembers() external view returns (address[] memory)
 ```
 Returns the list of current members.
 
 ### Function: `HashConsensus.isMember`
 ```solidity
-function isMember(address member) public view returns (bool)
+function isMember(address member) external view returns (bool)
 ```
 Returns whether an account is listed as a member.
 
 ### Function: `HashConsensus.setTimelockDuration`
 ```solidity
-function setTimelockDuration(uint256 timelock) public onlyOwner
+function setTimelockDuration(uint256 timelock) external onlyOwner
 ```
 Sets the duration of the timelock.
 
@@ -314,7 +314,7 @@ Sets the duration of the timelock.
 
 ### Function: `HashConsensus.setQuorum`
 ```solidity
-function setQuorum(uint256 newQuorum) public onlyOwner
+function setQuorum(uint256 newQuorum) external onlyOwner
 ```
 Sets the quorum required for decision execution.
 

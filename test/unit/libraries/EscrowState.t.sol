@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Duration, Durations, MAX_VALUE as DURATION_MAX_VALUE} from "contracts/types/Duration.sol";
+import {Duration, Durations, MAX_DURATION_VALUE} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps, MAX_TIMESTAMP_VALUE, TimestampOverflow} from "contracts/types/Timestamp.sol";
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 
@@ -195,14 +195,10 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
         _context.rageQuitEthWithdrawalsDelay = rageQuitEthWithdrawalsDelay;
 
-        _wait(
-            Durations.between(
-                (rageQuitExtensionPeriodDuration + rageQuitEthWithdrawalsDelay).plusSeconds(1).addTo(
-                    rageQuitExtensionPeriodStartedAt
-                ),
-                Timestamps.now()
-            )
-        );
+        Duration totalWithdrawalsDelay = rageQuitExtensionPeriodDuration + rageQuitEthWithdrawalsDelay;
+        Timestamp withdrawalsAllowedAt = totalWithdrawalsDelay.plusSeconds(1).addTo(rageQuitExtensionPeriodStartedAt);
+
+        _wait(Durations.from(withdrawalsAllowedAt.toSeconds() - Timestamps.now().toSeconds()));
         EscrowState.checkEthWithdrawalsDelayPassed(_context);
     }
 
@@ -226,12 +222,10 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
         _context.rageQuitEthWithdrawalsDelay = rageQuitEthWithdrawalsDelay;
 
-        _wait(
-            Durations.between(
-                (rageQuitExtensionPeriodDuration + rageQuitEthWithdrawalsDelay).addTo(rageQuitExtensionPeriodStartedAt),
-                Timestamps.now()
-            )
-        );
+        Duration totalWithdrawalsDelay = rageQuitExtensionPeriodDuration + rageQuitEthWithdrawalsDelay;
+        Timestamp withdrawalsAllowedAfter = totalWithdrawalsDelay.addTo(rageQuitExtensionPeriodStartedAt);
+
+        _wait(Durations.from(withdrawalsAllowedAfter.toSeconds() - Timestamps.now().toSeconds()));
 
         vm.expectRevert(EscrowState.EthWithdrawalsDelayNotPassed.selector);
 
@@ -239,8 +233,8 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkWithdrawalsDelayPassed_RevertWhen_EthWithdrawalsDelayOverflow() external {
-        Duration rageQuitExtensionPeriodDuration = Durations.from(DURATION_MAX_VALUE / 2);
-        Duration rageQuitEthWithdrawalsDelay = Durations.from(DURATION_MAX_VALUE / 2 + 1);
+        Duration rageQuitExtensionPeriodDuration = Durations.from(MAX_DURATION_VALUE / 2);
+        Duration rageQuitEthWithdrawalsDelay = Durations.from(MAX_DURATION_VALUE / 2 + 1);
 
         _context.rageQuitExtensionPeriodStartedAt = Timestamps.from(MAX_TIMESTAMP_VALUE - 1);
         _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
@@ -276,11 +270,10 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
         _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
 
-        _wait(
-            Durations.between(
-                rageQuitExtensionPeriodDuration.plusSeconds(1).addTo(rageQuitExtensionPeriodStartedAt), Timestamps.now()
-            )
-        );
+        Timestamp rageQuitExtensionPeriodPassedAfter =
+            rageQuitExtensionPeriodDuration.plusSeconds(1).addTo(rageQuitExtensionPeriodStartedAt);
+
+        _wait(Durations.from(rageQuitExtensionPeriodPassedAfter.toSeconds() - Timestamps.now().toSeconds()));
         bool res = EscrowState.isRageQuitExtensionPeriodPassed(_context);
         assertTrue(res);
     }
@@ -296,9 +289,10 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
         _context.rageQuitExtensionPeriodDuration = rageQuitExtensionPeriodDuration;
 
-        _wait(
-            Durations.between(rageQuitExtensionPeriodDuration.addTo(rageQuitExtensionPeriodStartedAt), Timestamps.now())
-        );
+        Timestamp rageQuitExtensionPeriodPassedAt =
+            rageQuitExtensionPeriodDuration.addTo(rageQuitExtensionPeriodStartedAt);
+
+        _wait(Durations.from(rageQuitExtensionPeriodPassedAt.toSeconds() - Timestamps.now().toSeconds()));
         bool res = EscrowState.isRageQuitExtensionPeriodPassed(_context);
         assertFalse(res);
     }
