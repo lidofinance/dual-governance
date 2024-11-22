@@ -190,9 +190,14 @@ library DualGovernanceStateMachine {
 
         /// @dev minAssetsLockDuration is stored as a storage variable in the Signalling Escrow instance.
         ///      To synchronize the new value with the current Signalling Escrow, it must be manually updated.
-        self.signallingEscrow.setMinAssetsLockDuration(
-            newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
-        );
+        if (
+            self.signallingEscrow.getMinAssetsLockDuration()
+                != newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
+        ) {
+            self.signallingEscrow.setMinAssetsLockDuration(
+                newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
+            );
+        }
     }
 
     // ---

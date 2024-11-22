@@ -40,4 +40,8 @@ contract EscrowMock is IEscrow {
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
         __minAssetsLockDuration = newMinAssetsLockDuration;
     }
+
+    function getMinAssetsLockDuration() external view returns (Duration minAssetsLockDuration) {
+        return __minAssetsLockDuration;
+    }
 }
