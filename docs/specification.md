@@ -451,7 +451,7 @@ To function properly, the **ResealManager** must be granted the `PAUSE_ROLE` and
 ### Function ResealManager.reseal
 
 ```solidity
-function reseal(address sealable) public
+function reseal(address sealable) external
 ```
 
 Extends the pause of the specified `sealable` contract indefinitely.
@@ -496,7 +496,7 @@ After the `Escrow` instance transitions into the `RageQuitEscrow` state, all loc
 
 Once all funds locked in the `Escrow` instance are converted into withdrawal NFTs, finalized, and claimed, the main rage quit phase concludes, and the `Escrow.startRageQuitExtensionPeriod()` method may be used to start the `RageQuitExtensionPeriod`.
 
-The purpose of the `startRageQuitExtensionPeriod` is to provide sufficient time to participants who locked withdrawal NFTs to claim them before Lido DAO's proposal execution is unblocked. As soon as a withdrawal NFT is claimed, the user's ETH is no longer affected by any code controlled by the DAO.
+The purpose of the `startRageQuitExtensionPeriod` is to provide participants who have locked withdrawal NFTs (unstETH) with additional time to [claim](https://docs.lido.fi/contracts/withdrawal-queue-erc721#claim) them before the Lido DAO’s proposal execution is unblocked. During the entire RageQuit period (including the RageQuitExtensionPeriod), users are able to claim their locked unstETH, ensuring that the DAO cannot affect the ETH tied to their Withdrawal NFT. It is expected that users will claim their unstETH within this time frame to safeguard their ETH. While users can still claim their ETH after the `RageQuitExtensionPeriod`, **they risk losing all ETH associated with their locked unstETH**, as a malicious DAO could still exert control over the WithdrawalQueue contract.
 
 When the `startRageQuitExtensionPeriod` period elapses, the `DualGovernance.activateNextState()` function exits the `RageQuit` state and initiates the `RageQuitEthWithdrawalsDelay`. Throughout this timelock, tokens remain locked within the `Escrow` instance and are inaccessible for withdrawal. Once the timelock expires, participants in the rage quit process can retrieve their ETH by withdrawing it from the `Escrow` instance.
 
@@ -1372,7 +1372,7 @@ Returns the state of a sealable resume request including support count, quorum, 
 ### Function: TiebreakerSubCommittee.executeSealableResume
 
 ```solidity
-function executeSealableResume(address sealable) public
+function executeSealableResume(address sealable) external
 ```
 
 Executes a sealable resume request by calling the sealableResume function on the `TiebreakerCoreCommittee` contract and increments the nonce.
