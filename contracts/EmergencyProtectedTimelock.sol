@@ -234,19 +234,19 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
 
     /// @notice Returns whether the emergency protection is enabled.
     /// @return isEmergencyProtectionEnabled A boolean indicating whether the emergency protection is enabled.
-    function isEmergencyProtectionEnabled() public view returns (bool) {
+    function isEmergencyProtectionEnabled() external view returns (bool) {
         return _emergencyProtection.isEmergencyProtectionEnabled();
     }
 
     /// @notice Returns whether the emergency mode is active.
     /// @return isEmergencyModeActive A boolean indicating whether the emergency protection is enabled.
-    function isEmergencyModeActive() public view returns (bool) {
+    function isEmergencyModeActive() external view returns (bool) {
         return _emergencyProtection.isEmergencyModeActive();
     }
 
     /// @notice Returns the details of the emergency protection.
     /// @return details A struct containing the emergency mode duration, emergency mode ends after, and emergency protection ends after.
-    function getEmergencyProtectionDetails() public view returns (EmergencyProtectionDetails memory details) {
+    function getEmergencyProtectionDetails() external view returns (EmergencyProtectionDetails memory details) {
         return _emergencyProtection.getEmergencyProtectionDetails();
     }
 

@@ -21,5 +21,5 @@ interface IDualGovernance is IGovernance, ITiebreaker {
 
     function activateNextState() external;
 
-    function resealSealable(address sealables) external;
+    function resealSealable(address sealable) external;
 }

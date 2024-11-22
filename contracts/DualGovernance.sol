@@ -43,6 +43,7 @@ contract DualGovernance is IDualGovernance {
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
+    error InvalidResealCommittee(address resealCommittee);
 
     // ---
     // Events
@@ -491,6 +492,10 @@ contract DualGovernance is IDualGovernance {
     /// @param resealCommittee The address of the new reseal committee.
     function setResealCommittee(address resealCommittee) external {
         _checkCallerIsAdminExecutor();
+
+        if (resealCommittee == _resealCommittee) {
+            revert InvalidResealCommittee(resealCommittee);
+        }
         _resealCommittee = resealCommittee;
 
         emit ResealCommitteeSet(resealCommittee);

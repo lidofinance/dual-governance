@@ -16,7 +16,7 @@ contract ProposalsList {
     /// @param offset The starting index for the list of proposals
     /// @param limit The maximum number of proposals to return
     /// @return proposals An array of Proposal structs
-    function getProposals(uint256 offset, uint256 limit) public view returns (Proposal[] memory proposals) {
+    function getProposals(uint256 offset, uint256 limit) external view returns (Proposal[] memory proposals) {
         bytes32[] memory keys = _proposals.getOrderedKeys(offset, limit);
 
         uint256 length = keys.length;
@@ -31,7 +31,7 @@ contract ProposalsList {
     /// @dev Fetches the proposal located at the specified index in the map
     /// @param index The index of the proposal to retrieve
     /// @return The Proposal struct at the given index
-    function getProposalAt(uint256 index) public view returns (Proposal memory) {
+    function getProposalAt(uint256 index) external view returns (Proposal memory) {
         return _proposals.at(index);
     }
 
@@ -39,14 +39,14 @@ contract ProposalsList {
     /// @dev Fetches the proposal associated with the given key
     /// @param key The key of the proposal to retrieve
     /// @return The Proposal struct associated with the given key
-    function getProposal(bytes32 key) public view returns (Proposal memory) {
+    function getProposal(bytes32 key) external view returns (Proposal memory) {
         return _proposals.get(key);
     }
 
     /// @notice Retrieves the total number of proposals
     /// @dev Fetches the length of the proposals map
     /// @return The total number of proposals
-    function getProposalsLength() public view returns (uint256) {
+    function getProposalsLength() external view returns (uint256) {
         return _proposals.length();
     }
 
@@ -55,7 +55,7 @@ contract ProposalsList {
     /// @param offset The starting index for the list of keys
     /// @param limit The maximum number of keys to return
     /// @return An array of proposal keys
-    function getOrderedKeys(uint256 offset, uint256 limit) public view returns (bytes32[] memory) {
+    function getOrderedKeys(uint256 offset, uint256 limit) external view returns (bytes32[] memory) {
         return _proposals.getOrderedKeys(offset, limit);
     }
 
