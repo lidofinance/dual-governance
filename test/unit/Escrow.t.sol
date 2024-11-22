@@ -1144,6 +1144,24 @@ contract EscrowUnitTests is UnitTest {
     }
 
     // ---
+    // getVetoerUnstETHIds()
+    // ---
+
+    function test_getVetoerUnstETHIds() external {
+        uint256[] memory unstEthAmounts = new uint256[](2);
+        unstEthAmounts[0] = 1 ether;
+        unstEthAmounts[1] = 10 ether;
+
+        uint256[] memory unstEthIds = vetoerLockedUnstEth(unstEthAmounts);
+
+        uint256[] memory vetoerUnstEthIds = _escrow.getVetoerUnstETHIds(_vetoer);
+
+        assertEq(vetoerUnstEthIds.length, unstEthIds.length);
+        assertEq(vetoerUnstEthIds[0], unstEthIds[0]);
+        assertEq(vetoerUnstEthIds[1], unstEthIds[1]);
+    }
+
+    // ---
     // getUnclaimedUnstETHIdsCount()
     // ---
 
