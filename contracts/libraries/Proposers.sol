@@ -4,8 +4,7 @@ pragma solidity 0.8.26;
 import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
 /// @title Proposers Library
-/// @dev This library manages proposers and their assigned executors in a governance system, providing functions to register,
-/// unregister, and verify proposers and their roles. It ensures proper assignment and validation of proposers and executors.
+/// @dev Manages proposers and their assigned executors in a governance system.
 library Proposers {
     // ---
     // Errors
@@ -26,19 +25,18 @@ library Proposers {
     // Data Types
     // ---
 
-    /// @notice The info about the registered proposer and associated executor
-    /// @param account Address of the proposer
-    /// @param executor Address of the executor associated with proposer. When proposer submits proposals, they execution
-    /// will be done with this address.
+    /// @notice The info about the registered proposer and associated executor.
+    /// @param account Address of the proposer.
+    /// @param executor The address of the executor assigned to execute proposals submitted by the proposer.
     struct Proposer {
         address account;
         address executor;
     }
 
-    /// @notice The internal info about the proposer's executor data
+    /// @notice Internal information about a proposer’s executor.
     /// @param proposerIndex The one-based index of the proposer associated with the `executor` from
-    /// the `Context.proposers` array
-    /// @param executor The address of the executor associated with the proposer
+    ///     the `Context.proposers` array.
+    /// @param executor The address of the executor associated with the proposer.
     struct ExecutorData {
         /// @dev slot0: [0..31]
         IndexOneBased proposerIndex;
@@ -46,11 +44,11 @@ library Proposers {
         address executor;
     }
 
-    /// @notice The context of the Proposers library
-    /// @param proposers The list of the registered proposers
-    /// @param executors The mapping with the executor info of the registered proposers
-    /// @param executorRefsCounts The mapping with the count of how many proposers is associated
-    /// with given executor address
+    /// @notice The context of the Proposers library.
+    /// @param proposers List of all registered proposers.
+    /// @param executors Mapping of proposers to their executor data.
+    /// @param executorRefsCounts Mapping of executors to the count of proposers associated
+    ///     with each executor.
     struct Context {
         address[] proposers;
         mapping(address proposer => ExecutorData) executors;
@@ -61,10 +59,10 @@ library Proposers {
     // Main Functionality
     // ---
 
-    /// @dev Registers a proposer with an assigned executor.
-    /// @param self The storage state of the Proposers library.
+    /// @notice Registers a proposer with an assigned executor.
+    /// @param self The context of the Proposers library.
     /// @param proposerAccount The address of the proposer to register.
-    /// @param executor The address of the assigned executor.
+    /// @param executor The address of the executor to assign to the proposer.
     function register(Context storage self, address proposerAccount, address executor) internal {
         if (proposerAccount == address(0)) {
             revert InvalidProposerAccount(proposerAccount);
@@ -86,8 +84,8 @@ library Proposers {
         emit ProposerRegistered(proposerAccount, executor);
     }
 
-    /// @dev Unregisters a proposer.
-    /// @param self The storage state of the Proposers library.
+    /// @notice Unregisters a proposer, removing its association with an executor.
+    /// @param self The context of the Proposers library.
     /// @param proposerAccount The address of the proposer to unregister.
     function unregister(Context storage self, address proposerAccount) internal {
         ExecutorData memory executorData = self.executors[proposerAccount];
@@ -115,10 +113,10 @@ library Proposers {
     // Getters
     // ---
 
-    /// @dev Retrieves the details of a specific proposer.
-    /// @param self The storage state of the Proposers library.
-    /// @param proposerAccount The address of the proposer.
-    /// @return proposer The struct representing the details of the proposer.
+    /// @notice Retrieves the details of a specific proposer.
+    /// @param self The context of the Proposers library.
+    /// @param proposerAccount The address of the proposer to retrieve.
+    /// @return proposer A struct containing the proposer’s address and associated executor address.
     function getProposer(
         Context storage self,
         address proposerAccount
@@ -130,9 +128,9 @@ library Proposers {
         proposer.executor = executorData.executor;
     }
 
-    /// @dev Retrieves all registered proposers.
-    /// @param self The storage state of the Proposers library.
-    /// @return proposers An array of structs representing all registered proposers.
+    /// @notice Retrieves all registered proposers.
+    /// @param self The context of the Proposers library.
+    /// @return proposers An array of `Proposer` structs representing all registered proposers.
     function getAllProposers(Context storage self) internal view returns (Proposer[] memory proposers) {
         proposers = new Proposer[](self.proposers.length);
         for (uint256 i = 0; i < proposers.length; ++i) {
@@ -140,30 +138,30 @@ library Proposers {
         }
     }
 
-    /// @dev Checks if an account is a registered proposer.
-    /// @param self The storage state of the Proposers library.
+    /// @notice Checks if an account is a registered proposer.
+    /// @param self The context of the Proposers library.
     /// @param account The address to check.
-    /// @return A boolean indicating whether the account is a registered proposer.
+    /// @return bool `true` if the account is a registered proposer, otherwise `false`.
     function isProposer(Context storage self, address account) internal view returns (bool) {
         return _isRegisteredProposer(self.executors[account]);
     }
 
-    /// @dev Checks if an account is an executor.
-    /// @param self The storage state of the Proposers library.
+    /// @notice Checks if an account is an executor associated with any proposer.
+    /// @param self The context of the Proposers library.
     /// @param account The address to check.
-    /// @return A boolean indicating whether the account is an executor.
+    /// @return bool `true` if the account is an executor, otherwise `false`.
     function isExecutor(Context storage self, address account) internal view returns (bool) {
         return self.executorRefsCounts[account] > 0;
     }
 
-    /// @dev Checks that proposer with given executorData is registered proposer
+    /// @notice Checks that the given proposer is registered.
     function _checkRegisteredProposer(address proposerAccount, ExecutorData memory executorData) internal pure {
         if (!_isRegisteredProposer(executorData)) {
             revert ProposerNotRegistered(proposerAccount);
         }
     }
 
-    /// @dev Returns if the executorData belongs to registered proposer
+    /// @notice Checks if the given executor data belongs to a registered proposer.
     function _isRegisteredProposer(ExecutorData memory executorData) internal pure returns (bool) {
         return executorData.proposerIndex.isNotEmpty();
     }

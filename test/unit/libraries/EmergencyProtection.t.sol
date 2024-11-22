@@ -34,7 +34,7 @@ contract EmergencyProtectionTest is UnitTest {
 
     function test_activateEmergencyMode_RevertOn_ProtectionExpired() external {
         Duration untilExpiration =
-            Durations.between(ctx.emergencyProtectionEndsAfter, Timestamps.from(block.timestamp)).plusSeconds(1);
+            Durations.from(ctx.emergencyProtectionEndsAfter.toSeconds() - Timestamps.now().toSeconds()).plusSeconds(1);
 
         _wait(untilExpiration);
 
@@ -210,7 +210,7 @@ contract EmergencyProtectionTest is UnitTest {
         assertFalse(EmergencyProtection.isEmergencyModeDurationPassed(ctx));
 
         Duration untilExpiration =
-            Durations.between(ctx.emergencyModeEndsAfter, Timestamps.from(block.timestamp)).plusSeconds(1);
+            Durations.from(ctx.emergencyModeEndsAfter.toSeconds() - Timestamps.now().toSeconds()).plusSeconds(1);
         _wait(untilExpiration);
 
         assertTrue(EmergencyProtection.isEmergencyModeDurationPassed(ctx));
@@ -220,7 +220,7 @@ contract EmergencyProtectionTest is UnitTest {
         assertTrue(EmergencyProtection.isEmergencyProtectionEnabled(ctx));
 
         Duration untilExpiration =
-            Durations.between(ctx.emergencyProtectionEndsAfter, Timestamps.from(block.timestamp)).plusSeconds(1);
+            Durations.from(ctx.emergencyProtectionEndsAfter.toSeconds() - Timestamps.now().toSeconds()).plusSeconds(1);
         _wait(untilExpiration);
 
         assertFalse(EmergencyProtection.isEmergencyProtectionEnabled(ctx));
@@ -232,13 +232,13 @@ contract EmergencyProtectionTest is UnitTest {
         assertTrue(EmergencyProtection.isEmergencyProtectionEnabled(ctx));
 
         Duration untilExpiration =
-            Durations.between(ctx.emergencyModeEndsAfter, Timestamps.from(block.timestamp)).plusSeconds(1);
+            Durations.from(ctx.emergencyModeEndsAfter.toSeconds() - Timestamps.now().toSeconds()).plusSeconds(1);
         _wait(untilExpiration);
 
         assertTrue(EmergencyProtection.isEmergencyProtectionEnabled(ctx));
 
         untilExpiration =
-            Durations.between(ctx.emergencyProtectionEndsAfter, Timestamps.from(block.timestamp)).plusSeconds(1);
+            Durations.from(ctx.emergencyProtectionEndsAfter.toSeconds() - Timestamps.now().toSeconds()).plusSeconds(1);
 
         assertTrue(EmergencyProtection.isEmergencyProtectionEnabled(ctx));
 
