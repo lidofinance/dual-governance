@@ -68,6 +68,8 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
     ///     values are within logical ranges to prevent malfunction of the Dual Governance system.
     /// @param dualGovernanceConfig The configuration struct containing all governance parameters.
     constructor(DualGovernanceConfig.Context memory dualGovernanceConfig) {
+        dualGovernanceConfig.validate();
+
         FIRST_SEAL_RAGE_QUIT_SUPPORT = dualGovernanceConfig.firstSealRageQuitSupport;
         SECOND_SEAL_RAGE_QUIT_SUPPORT = dualGovernanceConfig.secondSealRageQuitSupport;
 
