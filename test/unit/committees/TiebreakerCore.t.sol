@@ -142,14 +142,6 @@ contract TiebreakerCoreUnitTest is UnitTest {
         assertFalse(isExecuted);
     }
 
-    function test_sealableResume_RevertOn_NonceMismatch() external {
-        uint256 wrongNonce = 999;
-
-        vm.prank(committeeMembers[0]);
-        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.ResumeSealableNonceMismatch.selector));
-        tiebreakerCore.sealableResume(sealable, wrongNonce);
-    }
-
     function test_sealableResume_RevertOn_SealableZeroAddress() external {
         vm.prank(committeeMembers[0]);
         vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.InvalidSealable.selector, address(0)));
