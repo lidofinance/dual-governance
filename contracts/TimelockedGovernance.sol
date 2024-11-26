@@ -14,6 +14,8 @@ contract TimelockedGovernance is IGovernance {
     // ---
 
     error CallerIsNotGovernance(address caller);
+    error InvalidGovernance(address governance);
+    error InvalidTimelock(ITimelock timelock);
 
     // ---
     // Immutable Variables
@@ -30,6 +32,12 @@ contract TimelockedGovernance is IGovernance {
     /// @param governance The address of the governance contract.
     /// @param timelock The address of the timelock contract.
     constructor(address governance, ITimelock timelock) {
+        if (governance == address(0)) {
+            revert InvalidGovernance(governance);
+        }
+        if (address(timelock) == address(0)) {
+            revert InvalidTimelock(timelock);
+        }
         GOVERNANCE = governance;
         TIMELOCK = timelock;
     }
