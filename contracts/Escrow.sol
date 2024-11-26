@@ -513,6 +513,13 @@ contract Escrow is IEscrow {
         state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
     }
 
+    // @notice Retrieves the unstETH NFT ids of the specified vetoer.
+    /// @param vetoer The address of the vetoer whose unstETH NFTs are being queried.
+    /// @return unstETHIds An array of unstETH NFT IDs locked by the vetoer.
+    function getVetoerUnstETHIds(address vetoer) external view returns (uint256[] memory unstETHIds) {
+        return _accounting.assets[vetoer].unstETHIds;
+    }
+
     /// @notice Returns the total count of unstETH NFTs that have not been claimed yet.
     /// @return unclaimedUnstETHIdsCount The total number of unclaimed unstETH NFTs.
     function getUnclaimedUnstETHIdsCount() external view returns (uint256) {
