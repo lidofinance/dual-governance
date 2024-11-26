@@ -528,10 +528,10 @@ contract Escrow is IEscrow {
         return _batchesQueue.getNextWithdrawalsBatches(limit);
     }
 
-    /// @notice Returns whether all withdrawal batches have been finalized.
-    /// @return isWithdrawalsBatchesFinalized A boolean value indicating whether all withdrawal batches have been
-    ///     finalized (`true`) or not (`false`).
-    function isWithdrawalsBatchesFinalized() external view returns (bool) {
+    /// @notice Returns whether all withdrawal batches have been closed.
+    /// @return isWithdrawalsBatchesClosed A boolean value indicating whether all withdrawal batches have been
+    ///     closed (`true`) or not (`false`).
+    function isWithdrawalsBatchesClosed() external view returns (bool) {
         return _batchesQueue.isClosed();
     }
 

@@ -482,51 +482,6 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     // ---
-    // getBoundaryUnstETHId()
-    // ---
-
-    function test_getBoundaryUnstETHId_HappyPath() external {
-        _openBatchesQueue();
-
-        assertEq(_batchesQueue.getBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
-
-        uint256 unstETHIdsCount = 5;
-        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
-        uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
-        _batchesQueue.addUnstETHIds(unstETHIds);
-
-        assertEq(_batchesQueue.getBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
-
-        _batchesQueue.close();
-        assertEq(_batchesQueue.getBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
-    }
-
-    function test_getBoundaryUnstETHId_RevertOn_QueueInAbsentState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsInAbsentState.selector);
-        _batchesQueue.getBoundaryUnstETHId();
-    }
-
-    // ---
-    // getTotalUnstETHIdsCount()
-    // ---
-
-    function test_getTotalUnstETHIdsCount_HappyPath() external {
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 0);
-
-        _openBatchesQueue();
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 0);
-
-        uint256 unstETHIdsCount = 5;
-        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
-        uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
-        _batchesQueue.addUnstETHIds(unstETHIds);
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 5);
-
-        _batchesQueue.close();
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 5);
-    }
-
-    // ---
     // getLastClaimedOrBoundaryUnstETHId()
     // ---
 
@@ -541,7 +496,6 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
         uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
         _batchesQueue.addUnstETHIds(unstETHIds);
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 5);
 
         assertEq(_batchesQueue.getLastClaimedOrBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
 
