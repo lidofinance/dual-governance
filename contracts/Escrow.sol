@@ -532,6 +532,7 @@ contract Escrow is IEscrow {
     /// @return isWithdrawalsBatchesClosed A boolean value indicating whether all withdrawal batches have been
     ///     closed (`true`) or not (`false`).
     function isWithdrawalsBatchesClosed() external view returns (bool) {
+        _escrowState.checkRageQuitEscrow();
         return _batchesQueue.isClosed();
     }
 
