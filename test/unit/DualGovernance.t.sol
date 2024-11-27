@@ -102,7 +102,7 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function test_constructor_min_lt_max_timeout() external {
-        _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
+        _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(999);
         _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
 
         new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
