@@ -496,6 +496,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
         uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
         _batchesQueue.addUnstETHIds(unstETHIds);
+        assertEq(_batchesQueue.info.totalUnstETHIdsCount, 5);
 
         assertEq(_batchesQueue.getLastClaimedOrBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
 
