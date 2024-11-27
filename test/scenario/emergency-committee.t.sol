@@ -36,7 +36,7 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
 
         // Emergency Activation
         members = _emergencyActivationCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyActivationCommittee.quorum() - 1; i++) {
+        for (uint256 i = 0; i < _emergencyActivationCommittee.getQuorum() - 1; i++) {
             vm.prank(members[i]);
             _emergencyActivationCommittee.approveActivateEmergencyMode();
             (support, quorum,, isExecuted) = _emergencyActivationCommittee.getActivateEmergencyModeState();
@@ -56,7 +56,7 @@ contract EmergencyCommitteeTest is ScenarioTestBlueprint {
 
         // Emergency Execute
         members = _emergencyExecutionCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum() - 1; i++) {
+        for (uint256 i = 0; i < _emergencyExecutionCommittee.getQuorum() - 1; i++) {
             vm.prank(members[i]);
             _emergencyExecutionCommittee.voteEmergencyExecute(proposalIdToExecute, true);
             (support, quorum,, isExecuted) = _emergencyExecutionCommittee.getEmergencyExecuteState(proposalIdToExecute);

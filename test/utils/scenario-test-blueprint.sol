@@ -550,7 +550,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _executeActivateEmergencyMode() internal {
         address[] memory members = _emergencyActivationCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyActivationCommittee.quorum(); ++i) {
+        for (uint256 i = 0; i < _emergencyActivationCommittee.getQuorum(); ++i) {
             vm.prank(members[i]);
             _emergencyActivationCommittee.approveActivateEmergencyMode();
         }
@@ -559,7 +559,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _executeEmergencyExecute(uint256 proposalId) internal {
         address[] memory members = _emergencyExecutionCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
+        for (uint256 i = 0; i < _emergencyExecutionCommittee.getQuorum(); ++i) {
             vm.prank(members[i]);
             _emergencyExecutionCommittee.voteEmergencyExecute(proposalId, true);
         }
@@ -568,7 +568,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _executeEmergencyReset() internal {
         address[] memory members = _emergencyExecutionCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyExecutionCommittee.quorum(); ++i) {
+        for (uint256 i = 0; i < _emergencyExecutionCommittee.getQuorum(); ++i) {
             vm.prank(members[i]);
             _emergencyExecutionCommittee.approveEmergencyReset();
         }

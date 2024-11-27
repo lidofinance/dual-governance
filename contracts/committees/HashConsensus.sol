@@ -36,11 +36,11 @@ abstract contract HashConsensus is Ownable {
     struct HashState {
         Timestamp scheduledAt;
         Timestamp usedAt;
-        uint32 supportAtScheduled;
-        uint32 quorumAtScheduled;
+        uint32 supportWhenScheduled;
+        uint32 quorumWhenScheduled;
     }
 
-    uint256 public quorum;
+    uint32 private _quorum;
     Duration public timelockDuration;
 
     mapping(bytes32 hash => HashState state) private _hashStates;
@@ -64,12 +64,12 @@ abstract contract HashConsensus is Ownable {
         approves[msg.sender][hash] = support;
         emit Voted(msg.sender, hash, support);
 
-        uint256 currentSupport = _getSupport(hash);
+        uint32 currentSupport = _getSupport(hash);
 
-        if (currentSupport >= quorum) {
+        if (currentSupport >= _quorum) {
             _hashStates[hash].scheduledAt = Timestamps.now();
-            _hashStates[hash].supportAtScheduled = uint32(currentSupport);
-            _hashStates[hash].quorumAtScheduled = uint32(quorum);
+            _hashStates[hash].supportWhenScheduled = currentSupport;
+            _hashStates[hash].quorumWhenScheduled = _quorum;
             emit HashScheduled(hash);
         }
     }
@@ -112,10 +112,10 @@ abstract contract HashConsensus is Ownable {
         isUsed = hashState.usedAt.isNotZero();
         if (scheduledAt.isZero()) {
             support = _getSupport(hash);
-            executionQuorum = quorum;
+            executionQuorum = _quorum;
         } else {
-            support = hashState.supportAtScheduled;
-            executionQuorum = hashState.quorumAtScheduled;
+            support = hashState.supportWhenScheduled;
+            executionQuorum = hashState.quorumWhenScheduled;
         }
     }
 
@@ -171,12 +171,17 @@ abstract contract HashConsensus is Ownable {
         emit TimelockDurationSet(timelock);
     }
 
+    /// @notice Gets the quorum value
+    function getQuorum() external view returns (uint256) {
+        return _quorum;
+    }
+
     /// @notice Sets the quorum value
     /// @dev Only callable by the owner
     /// @param newQuorum The new quorum value
     function setQuorum(uint256 newQuorum) external {
         _checkOwner();
-        if (newQuorum == quorum) {
+        if (newQuorum == _quorum) {
             revert InvalidQuorum();
         }
         _setQuorum(newQuorum);
@@ -188,19 +193,21 @@ abstract contract HashConsensus is Ownable {
     ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
     function schedule(bytes32 hash) external {
-        if (_hashStates[hash].scheduledAt.isNotZero()) {
+        HashState memory state = _hashStates[hash];
+        if (state.scheduledAt.isNotZero()) {
             revert HashAlreadyScheduled(hash);
         }
 
         uint256 currentSupport = _getSupport(hash);
 
-        if (currentSupport < quorum) {
+        if (currentSupport < _quorum) {
             revert QuorumIsNotReached();
         }
 
-        _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
-        _hashStates[hash].supportAtScheduled = uint32(currentSupport);
-        _hashStates[hash].quorumAtScheduled = uint32(quorum);
+        state.scheduledAt = Timestamps.from(block.timestamp);
+        state.supportWhenScheduled = uint32(currentSupport);
+        state.quorumWhenScheduled = _quorum;
+        _hashStates[hash] = state;
         emit HashScheduled(hash);
     }
 
@@ -208,10 +215,15 @@ abstract contract HashConsensus is Ownable {
     /// @dev The quorum value must be greater than zero and not exceed the current number of members.
     /// @param executionQuorum The new quorum value to be set.
     function _setQuorum(uint256 executionQuorum) internal {
-        if (executionQuorum == 0 || executionQuorum > _members.length()) {
+        if (executionQuorum == 0 || executionQuorum > _members.length() || executionQuorum > type(uint32).max) {
             revert InvalidQuorum();
         }
-        quorum = executionQuorum;
+
+        if (_quorum == executionQuorum) {
+            return;
+        }
+
+        _quorum = uint32(executionQuorum);
         emit QuorumSet(executionQuorum);
     }
 
@@ -255,12 +267,19 @@ abstract contract HashConsensus is Ownable {
     /// @dev Internal function to count the votes in support of a hash
     /// @param hash The hash to check
     /// @return support The number of votes in support of the hash
-    function _getSupport(bytes32 hash) internal view returns (uint256 support) {
+    function _getSupport(bytes32 hash) internal view returns (uint32) {
+        uint256 support;
         for (uint256 i = 0; i < _members.length(); ++i) {
             if (approves[_members.at(i)][hash]) {
                 support++;
             }
         }
+
+        if (support > type(uint32).max) {
+            return uint32(type(uint32).max);
+        }
+
+        return uint32(support);
     }
 
     /// @notice Restricts access to only committee members
