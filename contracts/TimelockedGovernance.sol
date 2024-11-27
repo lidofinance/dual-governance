@@ -52,12 +52,6 @@ contract TimelockedGovernance is IGovernance {
         TIMELOCK.schedule(proposalId);
     }
 
-    /// @notice Executes a scheduled proposal.
-    /// @param proposalId The id of the proposal to be executed.
-    function executeProposal(uint256 proposalId) external {
-        TIMELOCK.execute(proposalId);
-    }
-
     /// @notice Checks if a proposal can be scheduled.
     /// @param proposalId The id of the proposal to check.
     /// @return A boolean indicating whether the proposal can be scheduled.

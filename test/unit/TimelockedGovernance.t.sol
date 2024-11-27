@@ -70,7 +70,7 @@ contract TimelockedGovernanceUnitTests is UnitTest {
         _timelock.setSchedule(1);
         _timelockedGovernance.scheduleProposal(1);
 
-        _timelockedGovernance.executeProposal(1);
+        _timelock.execute(1);
 
         assertEq(_timelock.getExecutedProposals().length, 1);
     }

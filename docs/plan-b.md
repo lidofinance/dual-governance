@@ -95,16 +95,6 @@ See: [`EmergencyProtectedTimelock.schedule`](#)
 #### Preconditions
 - The proposal with the given id MUST be in the `Submitted` state.
 
-### Function: `TimelockedGovernance.executeProposal`
-```solidity
-function executeProposal(uint256 proposalId) external
-```
-Instructs the [`EmergencyProtectedTimelock`](#) singleton instance to execute the proposal with id `proposalId`.
-
-See: [`EmergencyProtectedTimelock.execute`](#)
-#### Preconditions
-- The proposal with the given id MUST be in the `Scheduled` state.
-
 ### Function: `TimelockedGovernance.cancelAllPendingProposals`
 
 ```solidity
