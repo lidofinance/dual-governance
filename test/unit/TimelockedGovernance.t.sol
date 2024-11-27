@@ -31,12 +31,12 @@ contract TimelockedGovernanceUnitTests is UnitTest {
     }
 
     function test_constructor_RevertOn_invalid_governance() external {
-        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.InvalidGovernance.selector, [address(0)]));
+        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.InvalidGovernance.selector, address(0)));
         new TimelockedGovernance(address(0), _timelock);
     }
 
     function test_constructor_RevertOn_invalid_timelock() external {
-        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.InvalidTimelock.selector, [address(0)]));
+        vm.expectRevert(abi.encodeWithSelector(TimelockedGovernance.InvalidTimelock.selector, address(0)));
         new TimelockedGovernance(_governance, ITimelock(address(0)));
     }
 
