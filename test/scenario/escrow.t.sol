@@ -310,7 +310,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         assertEq(_lido.withdrawalQueue.balanceOf(address(escrow)), 20);
 
-        while (!escrow.isWithdrawalsBatchesFinalized()) {
+        while (!escrow.isWithdrawalsBatchesClosed()) {
             escrow.requestNextWithdrawalsBatch(96);
         }
 

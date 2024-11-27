@@ -213,21 +213,6 @@ library WithdrawalsBatchesQueue {
         (unstETHIds,) = _getNextClaimableUnstETHIds(self, limit);
     }
 
-    /// @notice Retrieves the id of the boundary unstETH id.
-    /// @param self The context of the Withdrawals Batches Queue library.
-    /// @return boundaryUnstETHId The id of the boundary unstETH.
-    function getBoundaryUnstETHId(Context storage self) internal view returns (uint256) {
-        _checkNotInAbsentState(self);
-        return self.batches[0].firstUnstETHId;
-    }
-
-    /// @notice Retrieves the total count of the unstETH ids added in the queue.
-    /// @param self The context of the Withdrawals Batches Queue library.
-    /// @return totalUnstETHIdsCount The total count of the unstETH ids.
-    function getTotalUnstETHIdsCount(Context storage self) internal view returns (uint256) {
-        return self.info.totalUnstETHIdsCount;
-    }
-
     /// @notice Retrieves the total unclaimed unstETH ids count.
     /// @param self The context of the Withdrawals Batches Queue library.
     /// @return totalUnclaimedUnstETHIdsCount The total count of unclaimed unstETH ids.
@@ -278,13 +263,14 @@ library WithdrawalsBatchesQueue {
         unstETHIds = new uint256[](unstETHIdsCount);
         SequentialBatch memory currentBatch = self.batches[info.lastClaimedBatchIndex];
 
+        uint256 unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             info.lastClaimedUnstETHIdIndex += 1;
-            uint256 unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
             if (unstETHIdsCountInTheBatch == info.lastClaimedUnstETHIdIndex) {
                 info.lastClaimedBatchIndex += 1;
                 info.lastClaimedUnstETHIdIndex = 0;
                 currentBatch = self.batches[info.lastClaimedBatchIndex];
+                unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
             }
             unstETHIds[i] = currentBatch.firstUnstETHId + info.lastClaimedUnstETHIdIndex;
         }

@@ -526,6 +526,7 @@ contract Escrow is IEscrow {
     /// @notice Returns the total count of unstETH NFTs that have not been claimed yet.
     /// @return unclaimedUnstETHIdsCount The total number of unclaimed unstETH NFTs.
     function getUnclaimedUnstETHIdsCount() external view returns (uint256) {
+        _escrowState.checkRageQuitEscrow();
         return _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
     }
 
@@ -533,13 +534,15 @@ contract Escrow is IEscrow {
     /// @param limit The maximum number of unstETH NFTs to return in the batch.
     /// @return unstETHIds An array of unstETH NFT ids available for the next withdrawal batch.
     function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds) {
+        _escrowState.checkRageQuitEscrow();
         unstETHIds = _batchesQueue.getNextWithdrawalsBatches(limit);
     }
 
-    /// @notice Returns whether all withdrawal batches have been finalized.
-    /// @return isWithdrawalsBatchesFinalized A boolean value indicating whether all withdrawal batches have been
-    ///     finalized (`true`) or not (`false`).
-    function isWithdrawalsBatchesFinalized() external view returns (bool) {
+    /// @notice Returns whether all withdrawal batches have been closed.
+    /// @return isWithdrawalsBatchesClosed A boolean value indicating whether all withdrawal batches have been
+    ///     closed (`true`) or not (`false`).
+    function isWithdrawalsBatchesClosed() external view returns (bool) {
+        _escrowState.checkRageQuitEscrow();
         return _batchesQueue.isClosed();
     }
 

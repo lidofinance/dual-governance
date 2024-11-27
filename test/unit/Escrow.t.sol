@@ -12,6 +12,7 @@ import {SharesValues} from "contracts/types/SharesValue.sol";
 import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {Escrow} from "contracts/Escrow.sol";
+import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
@@ -27,6 +28,7 @@ contract EscrowUnitTests is UnitTest {
     address private _dualGovernance = makeAddr("dualGovernance");
     address private _vetoer = makeAddr("vetoer");
 
+    Escrow private _masterCopy;
     Escrow private _escrow;
 
     StETHMock private _stETH;
@@ -42,9 +44,9 @@ contract EscrowUnitTests is UnitTest {
         _stETH.__setShareRate(1);
         _wstETH = IWstETH(address(new ERC20Mock()));
         _withdrawalQueue = address(new WithdrawalQueueMock());
-        Escrow masterCopy =
+        _masterCopy =
             new Escrow(_stETH, _wstETH, WithdrawalQueueMock(_withdrawalQueue), IDualGovernance(_dualGovernance), 100);
-        _escrow = Escrow(payable(Clones.clone(address(masterCopy))));
+        _escrow = Escrow(payable(Clones.clone(address(_masterCopy))));
 
         vm.prank(_dualGovernance);
         _escrow.initialize(_minLockAssetDuration);
@@ -58,7 +60,6 @@ contract EscrowUnitTests is UnitTest {
             _dualGovernance, abi.encodeWithSelector(IDualGovernance.activateNextState.selector), abi.encode(true)
         );
     }
-
     // ---
     // getVetoerUnstETHIds()
     // ---
@@ -95,6 +96,50 @@ contract EscrowUnitTests is UnitTest {
         _escrow.unlockUnstETH(unstEthIdsToUnlock);
 
         assertEq(_escrow.getVetoerUnstETHIds(_vetoer).length, 0);
+    }
+
+    // ---
+    // getUnclaimedUnstETHIdsCount()
+    // ---
+
+    function test_getUnclaimedUnstETHIdsCount_RevertOn_UnexpectedState_Signaling() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        _escrow.getUnclaimedUnstETHIdsCount();
+    }
+
+    function test_getUnclaimedUnstETHIdsCount_RevertOn_UnexpectedState_NotInitialized() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        _masterCopy.getUnclaimedUnstETHIdsCount();
+    }
+
+    // ---
+    // getNextWithdrawalBatch()
+    // ---
+
+    function test_getNextWithdrawalBatch_RevertOn_UnexpectedState_Signaling() external {
+        uint256 batchLimit = 10;
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        _escrow.getNextWithdrawalBatch(batchLimit);
+    }
+
+    function test_getNextWithdrawalBatch_RevertOn_UnexpectedState_NotInitialized() external {
+        uint256 batchLimit = 10;
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        _masterCopy.getNextWithdrawalBatch(batchLimit);
+    }
+
+    // ---
+    // isWithdrawalsBatchesClosed()
+    // ---
+
+    function test_isWithdrawalsBatchesClosed_RevertOn_UnexpectedState_Signaling() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        _escrow.isWithdrawalsBatchesClosed();
+    }
+
+    function test_isWithdrawalsBatchesClosed_RevertOn_UnexpectedState_NotInitialized() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        _masterCopy.isWithdrawalsBatchesClosed();
     }
 
     function vetoerLockedUnstEth(uint256[] memory amounts) internal returns (uint256[] memory unstethIds) {
