@@ -180,11 +180,15 @@ abstract contract HashConsensus is Ownable {
             revert HashAlreadyScheduled(hash);
         }
 
+        if (quorum == 0) {
+            revert InvalidQuorum();
+        }
+
         if (_getSupport(hash) < quorum) {
             revert QuorumIsNotReached();
         }
 
-        _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
+        _hashStates[hash].scheduledAt = Timestamps.now();
         emit HashScheduled(hash);
     }
 

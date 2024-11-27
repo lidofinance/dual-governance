@@ -67,22 +67,24 @@ contract DualGovernanceUnitTests is UnitTest {
         })
     );
 
-    DualGovernance internal _dualGovernance = new DualGovernance({
-        dependencies: DualGovernance.ExternalDependencies({
-            stETH: _STETH_MOCK,
-            wstETH: _WSTETH_STUB,
-            withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
-            timelock: _timelock,
-            resealManager: _RESEAL_MANAGER_STUB,
-            configProvider: _configProvider
-        }),
-        sanityCheckParams: DualGovernance.SanityCheckParams({
-            minWithdrawalsBatchSize: 4,
-            minTiebreakerActivationTimeout: Durations.from(30 days),
-            maxTiebreakerActivationTimeout: Durations.from(180 days),
-            maxSealableWithdrawalBlockersCount: 128
-        })
+    DualGovernance.ExternalDependencies internal _externalDependencies = DualGovernance.ExternalDependencies({
+        stETH: _STETH_MOCK,
+        wstETH: _WSTETH_STUB,
+        withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
+        timelock: _timelock,
+        resealManager: _RESEAL_MANAGER_STUB,
+        configProvider: _configProvider
     });
+
+    DualGovernance.SanityCheckParams internal _sanityCheckParams = DualGovernance.SanityCheckParams({
+        minWithdrawalsBatchSize: 4,
+        minTiebreakerActivationTimeout: Durations.from(30 days),
+        maxTiebreakerActivationTimeout: Durations.from(180 days),
+        maxSealableWithdrawalBlockersCount: 128
+    });
+
+    DualGovernance internal _dualGovernance =
+        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
 
     Escrow internal _escrow;
 
@@ -99,6 +101,29 @@ contract DualGovernanceUnitTests is UnitTest {
         _STETH_MOCK.approve(address(_escrow), 10 ether);
     }
 
+    function test_constructor_min_lt_max_timeout() external {
+        _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(999);
+        _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
+
+        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+    }
+
+    function test_constructor_min_max_timeout_same() external {
+        _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
+        _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
+
+        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+    }
+
+    function test_constructor_RevertsOn_InvalidTiebreakerActivationTimeoutBounds() external {
+        _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
+        _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(999);
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidTiebreakerActivationTimeoutBounds.selector));
+
+        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+    }
+
     // ---
     // submitProposal()
     // ---
@@ -107,7 +132,9 @@ contract DualGovernanceUnitTests is UnitTest {
         ExternalCall[] memory calls = _generateExternalCalls();
         Proposers.Proposer memory proposer = _dualGovernance.getProposer(address(this));
         vm.expectCall(
-            address(_timelock), 0, abi.encodeWithSelector(TimelockMock.submit.selector, proposer.executor, calls, "")
+            address(_timelock),
+            0,
+            abi.encodeWithSelector(TimelockMock.submit.selector, address(this), proposer.executor, calls, "")
         );
 
         uint256 proposalId = _dualGovernance.submitProposal(calls, "");
@@ -2090,7 +2117,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
     function _submitMockProposal() internal {
         // mock timelock doesn't uses proposal data
-        _timelock.submit(address(0), new ExternalCall[](0), "");
+        _timelock.submit(msg.sender, address(0), new ExternalCall[](0), "");
     }
 
     function _generateExternalCalls() internal pure returns (ExternalCall[] memory calls) {

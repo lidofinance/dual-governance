@@ -91,7 +91,9 @@ library ExecutableProposals {
     // Events
     // ---
 
-    event ProposalSubmitted(uint256 indexed id, address indexed executor, ExternalCall[] calls, string metadata);
+    event ProposalSubmitted(
+        uint256 indexed id, address indexed proposer, address indexed executor, ExternalCall[] calls, string metadata
+    );
     event ProposalScheduled(uint256 indexed id);
     event ProposalExecuted(uint256 indexed id, bytes[] callResults);
     event ProposalsCancelledTill(uint256 proposalId);
@@ -102,12 +104,14 @@ library ExecutableProposals {
 
     /// @notice Submits a new proposal with the specified executor and external calls.
     /// @param self The context of the Executable Proposal library.
+    /// @param proposer The address of the proposer submitting the proposal.
     /// @param executor The address authorized to execute the proposal.
     /// @param calls The list of external calls to include in the proposal.
     /// @param metadata Metadata describing the proposal.
     /// @return newProposalId The id of the newly submitted proposal.
     function submit(
         Context storage self,
+        address proposer,
         address executor,
         ExternalCall[] memory calls,
         string memory metadata
@@ -129,7 +133,7 @@ library ExecutableProposals {
             newProposal.calls.push(calls[i]);
         }
 
-        emit ProposalSubmitted(newProposalId, executor, calls, metadata);
+        emit ProposalSubmitted(newProposalId, proposer, executor, calls, metadata);
     }
 
     /// @notice Marks a previously submitted proposal as scheduled for execution if the required delay period
@@ -141,7 +145,7 @@ library ExecutableProposals {
     function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
         ProposalData memory proposalState = self.proposals[proposalId].data;
 
-        if (proposalState.status != Status.Submitted || _isProposalMarkedCancelled(self, proposalId, proposalState)) {
+        if (!_isProposalSubmitted(self, proposalId, proposalState)) {
             revert ProposalNotSubmitted(proposalId);
         }
 
@@ -164,7 +168,7 @@ library ExecutableProposals {
     function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
-        if (proposal.data.status != Status.Scheduled || _isProposalMarkedCancelled(self, proposalId, proposal.data)) {
+        if (!_isProposalScheduled(self, proposalId, proposal.data)) {
             revert ProposalNotScheduled(proposalId);
         }
 
@@ -205,8 +209,7 @@ library ExecutableProposals {
         Duration afterScheduleDelay
     ) internal view returns (bool) {
         ProposalData memory proposalState = self.proposals[proposalId].data;
-        if (_isProposalMarkedCancelled(self, proposalId, proposalState)) return false;
-        return proposalState.status == Status.Scheduled
+        return _isProposalScheduled(self, proposalId, proposalState)
             && Timestamps.now() >= afterScheduleDelay.addTo(proposalState.scheduledAt);
     }
 
@@ -221,8 +224,7 @@ library ExecutableProposals {
         Duration afterSubmitDelay
     ) internal view returns (bool) {
         ProposalData memory proposalState = self.proposals[proposalId].data;
-        if (_isProposalMarkedCancelled(self, proposalId, proposalState)) return false;
-        return proposalState.status == Status.Submitted
+        return _isProposalSubmitted(self, proposalId, proposalState)
             && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
     }
 
@@ -247,7 +249,7 @@ library ExecutableProposals {
 
         proposalDetails.id = proposalId;
         proposalDetails.status =
-            _isProposalMarkedCancelled(self, proposalId, proposalData) ? Status.Cancelled : proposalData.status;
+            _isProposalCancelled(self, proposalId, proposalData) ? Status.Cancelled : proposalData.status;
         proposalDetails.executor = address(proposalData.executor);
         proposalDetails.submittedAt = proposalData.submittedAt;
         proposalDetails.scheduledAt = proposalData.scheduledAt;
@@ -276,7 +278,23 @@ library ExecutableProposals {
         }
     }
 
-    function _isProposalMarkedCancelled(
+    function _isProposalSubmitted(
+        Context storage self,
+        uint256 proposalId,
+        ProposalData memory proposalData
+    ) private view returns (bool) {
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted;
+    }
+
+    function _isProposalScheduled(
+        Context storage self,
+        uint256 proposalId,
+        ProposalData memory proposalData
+    ) private view returns (bool) {
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled;
+    }
+
+    function _isProposalCancelled(
         Context storage self,
         uint256 proposalId,
         ProposalData memory proposalData

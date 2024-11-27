@@ -19,6 +19,21 @@ contract DualGovernanceConfigTest is UnitTest {
     // The actual max value will not exceed 255, but for testing is used higher upper bound
     uint256 internal immutable _MAX_RAGE_QUIT_ROUND = 512;
 
+    DualGovernanceConfig.Context _dualGovernanceConfig = DualGovernanceConfig.Context({
+        firstSealRageQuitSupport: PercentsD16.fromBasisPoints(10),
+        secondSealRageQuitSupport: PercentsD16.fromBasisPoints(20),
+        minAssetsLockDuration: Durations.from(1 days),
+        vetoSignallingMinDuration: Durations.from(1 days),
+        vetoSignallingMaxDuration: Durations.from(30 days),
+        vetoSignallingMinActiveDuration: Durations.from(7 days),
+        vetoSignallingDeactivationMaxDuration: Durations.from(3 days),
+        vetoCooldownDuration: Durations.from(1 days),
+        rageQuitExtensionPeriodDuration: Durations.from(1 days),
+        rageQuitEthWithdrawalsMinDelay: Durations.from(15 days),
+        rageQuitEthWithdrawalsMaxDelay: Durations.from(90 days),
+        rageQuitEthWithdrawalsDelayGrowth: Durations.from(30 days)
+    });
+
     // ---
     // validate()
     // ---
@@ -79,6 +94,15 @@ contract DualGovernanceConfigTest is UnitTest {
             )
         );
         config.validate();
+    }
+
+    function test_validate_RevertOn_InvalidMinAssetsLockDuration() external {
+        _dualGovernanceConfig.minAssetsLockDuration = Durations.ZERO;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernanceConfig.InvalidMinAssetsLockDuration.selector, Durations.ZERO)
+        );
+        _dualGovernanceConfig.validate();
     }
 
     // ---
@@ -337,5 +361,6 @@ contract DualGovernanceConfigTest is UnitTest {
         vm.assume(config.vetoSignallingMinDuration < config.vetoSignallingMaxDuration);
         vm.assume(config.secondSealRageQuitSupport < _SECOND_SEAL_RAGE_QUIT_SUPPORT_LIMIT);
         vm.assume(config.rageQuitEthWithdrawalsMinDelay <= config.rageQuitEthWithdrawalsMaxDelay);
+        vm.assume(config.minAssetsLockDuration > Durations.ZERO);
     }
 }

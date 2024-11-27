@@ -437,6 +437,14 @@ contract HashConsensusWrapper is HashConsensus {
     }
 }
 
+contract HashConsensusWrapperNoMembers is HashConsensus {
+    Target internal _target;
+
+    constructor(address owner, Duration timelock, Target target) HashConsensus(owner, timelock) {
+        _target = target;
+    }
+}
+
 contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
     HashConsensusWrapper internal _hashConsensusWrapper;
     Target internal _target;
@@ -647,6 +655,14 @@ contract HashConsensusInternalUnitTest is HashConsensusUnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(HashConsensus.HashAlreadyScheduled.selector, hash));
         _hashConsensusWrapper.schedule(hash);
+    }
+
+    function test_schedule_RevertsOn_IfQuorumIsZero() public {
+        HashConsensusWrapperNoMembers hashConsensusWrapperNoMembers =
+            new HashConsensusWrapperNoMembers(_owner, _timelock, _target);
+
+        vm.expectRevert(HashConsensus.InvalidQuorum.selector);
+        hashConsensusWrapperNoMembers.schedule(dataHash);
     }
 
     function test_schedule_RevertOn_IfQuorumAlreadyReached() public {

@@ -44,6 +44,7 @@ contract DualGovernance is IDualGovernance {
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
     error InvalidResealCommittee(address resealCommittee);
+    error InvalidTiebreakerActivationTimeoutBounds();
 
     // ---
     // Events
@@ -144,6 +145,10 @@ contract DualGovernance is IDualGovernance {
     // ---
 
     constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
+        if (sanityCheckParams.minTiebreakerActivationTimeout > sanityCheckParams.maxTiebreakerActivationTimeout) {
+            revert InvalidTiebreakerActivationTimeoutBounds();
+        }
+
         TIMELOCK = dependencies.timelock;
         RESEAL_MANAGER = dependencies.resealManager;
 
@@ -188,7 +193,7 @@ contract DualGovernance is IDualGovernance {
             revert ProposalSubmissionBlocked();
         }
         Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
-        proposalId = TIMELOCK.submit(proposer.executor, calls, metadata);
+        proposalId = TIMELOCK.submit(proposer.account, proposer.executor, calls, metadata);
     }
 
     /// @notice Schedules a previously submitted proposal for execution in the Dual Governance system.
@@ -363,7 +368,7 @@ contract DualGovernance is IDualGovernance {
         _proposers.unregister(proposer);
 
         /// @dev after the removal of the proposer, check that admin executor still belongs to some proposer
-        if (!_proposers.isExecutor(TIMELOCK.getAdminExecutor())) {
+        if (!_proposers.isExecutor(msg.sender)) {
             revert UnownedAdminExecutor();
         }
     }

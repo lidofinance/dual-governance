@@ -14,6 +14,8 @@ contract TimelockedGovernance is IGovernance {
     // ---
 
     error CallerIsNotGovernance(address caller);
+    error InvalidGovernance(address governance);
+    error InvalidTimelock(ITimelock timelock);
 
     // ---
     // Immutable Variables
@@ -30,6 +32,12 @@ contract TimelockedGovernance is IGovernance {
     /// @param governance The address of the governance contract.
     /// @param timelock The address of the timelock contract.
     constructor(address governance, ITimelock timelock) {
+        if (governance == address(0)) {
+            revert InvalidGovernance(governance);
+        }
+        if (address(timelock) == address(0)) {
+            revert InvalidTimelock(timelock);
+        }
         GOVERNANCE = governance;
         TIMELOCK = timelock;
     }
@@ -43,19 +51,13 @@ contract TimelockedGovernance is IGovernance {
         string calldata metadata
     ) external returns (uint256 proposalId) {
         _checkCallerIsGovernance();
-        return TIMELOCK.submit(TIMELOCK.getAdminExecutor(), calls, metadata);
+        return TIMELOCK.submit(msg.sender, TIMELOCK.getAdminExecutor(), calls, metadata);
     }
 
     /// @notice Schedules a submitted proposal.
     /// @param proposalId The id of the proposal to be scheduled.
     function scheduleProposal(uint256 proposalId) external {
         TIMELOCK.schedule(proposalId);
-    }
-
-    /// @notice Executes a scheduled proposal.
-    /// @param proposalId The id of the proposal to be executed.
-    function executeProposal(uint256 proposalId) external {
-        TIMELOCK.execute(proposalId);
     }
 
     /// @notice Checks if a proposal can be scheduled.
