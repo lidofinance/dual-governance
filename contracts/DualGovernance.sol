@@ -363,7 +363,7 @@ contract DualGovernance is IDualGovernance {
         _proposers.unregister(proposer);
 
         /// @dev after the removal of the proposer, check that admin executor still belongs to some proposer
-        if (!_proposers.isExecutor(TIMELOCK.getAdminExecutor())) {
+        if (!_proposers.isExecutor(msg.sender)) {
             revert UnownedAdminExecutor();
         }
     }

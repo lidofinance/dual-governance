@@ -188,7 +188,7 @@ abstract contract HashConsensus is Ownable {
             revert QuorumIsNotReached();
         }
 
-        _hashStates[hash].scheduledAt = Timestamps.from(block.timestamp);
+        _hashStates[hash].scheduledAt = Timestamps.now();
         emit HashScheduled(hash);
     }
 
