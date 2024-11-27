@@ -68,6 +68,8 @@ contract EscrowUnitTests is UnitTest {
         unstEthAmounts[0] = 1 ether;
         unstEthAmounts[1] = 10 ether;
 
+        assertEq(_escrow.getVetoerUnstETHIds(_vetoer).length, 0);
+
         uint256[] memory unstEthIds = vetoerLockedUnstEth(unstEthAmounts);
 
         uint256[] memory vetoerUnstEthIds = _escrow.getVetoerUnstETHIds(_vetoer);
@@ -75,6 +77,24 @@ contract EscrowUnitTests is UnitTest {
         assertEq(vetoerUnstEthIds.length, unstEthIds.length);
         assertEq(vetoerUnstEthIds[0], unstEthIds[0]);
         assertEq(vetoerUnstEthIds[1], unstEthIds[1]);
+
+        _wait(_minLockAssetDuration.plusSeconds(1));
+
+        uint256[] memory unstEthIdsToUnlock = new uint256[](1);
+        unstEthIdsToUnlock[0] = unstEthIds[0];
+
+        vm.prank(_vetoer);
+        _escrow.unlockUnstETH(unstEthIdsToUnlock);
+        vetoerUnstEthIds = _escrow.getVetoerUnstETHIds(_vetoer);
+
+        assertEq(vetoerUnstEthIds.length, 1);
+        assertEq(vetoerUnstEthIds[0], unstEthIds[1]);
+
+        unstEthIdsToUnlock[0] = unstEthIds[1];
+        vm.prank(_vetoer);
+        _escrow.unlockUnstETH(unstEthIdsToUnlock);
+
+        assertEq(_escrow.getVetoerUnstETHIds(_vetoer).length, 0);
     }
 
     function vetoerLockedUnstEth(uint256[] memory amounts) internal returns (uint256[] memory unstethIds) {
