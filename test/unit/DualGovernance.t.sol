@@ -67,22 +67,24 @@ contract DualGovernanceUnitTests is UnitTest {
         })
     );
 
-    DualGovernance internal _dualGovernance = new DualGovernance({
-        dependencies: DualGovernance.ExternalDependencies({
-            stETH: _STETH_MOCK,
-            wstETH: _WSTETH_STUB,
-            withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
-            timelock: _timelock,
-            resealManager: _RESEAL_MANAGER_STUB,
-            configProvider: _configProvider
-        }),
-        sanityCheckParams: DualGovernance.SanityCheckParams({
-            minWithdrawalsBatchSize: 4,
-            minTiebreakerActivationTimeout: Durations.from(30 days),
-            maxTiebreakerActivationTimeout: Durations.from(180 days),
-            maxSealableWithdrawalBlockersCount: 128
-        })
+    DualGovernance.ExternalDependencies internal _externalDependencies = DualGovernance.ExternalDependencies({
+        stETH: _STETH_MOCK,
+        wstETH: _WSTETH_STUB,
+        withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
+        timelock: _timelock,
+        resealManager: _RESEAL_MANAGER_STUB,
+        configProvider: _configProvider
     });
+
+    DualGovernance.SanityCheckParams internal _sanityCheckParams = DualGovernance.SanityCheckParams({
+        minWithdrawalsBatchSize: 4,
+        minTiebreakerActivationTimeout: Durations.from(30 days),
+        maxTiebreakerActivationTimeout: Durations.from(180 days),
+        maxSealableWithdrawalBlockersCount: 128
+    });
+
+    DualGovernance internal _dualGovernance =
+        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
 
     Escrow internal _escrow;
 
@@ -97,6 +99,29 @@ contract DualGovernanceUnitTests is UnitTest {
         _STETH_MOCK.mint(vetoer, 10 ether);
         vm.prank(vetoer);
         _STETH_MOCK.approve(address(_escrow), 10 ether);
+    }
+
+    function test_constructor_min_lt_max_timeout() external {
+        _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(999);
+        _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
+
+        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+    }
+
+    function test_constructor_min_max_timeout_same() external {
+        _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
+        _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
+
+        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+    }
+
+    function test_constructor_RevertsOn_InvalidTiebreakerActivationTimeoutBounds() external {
+        _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
+        _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(999);
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidTiebreakerActivationTimeoutBounds.selector));
+
+        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
     }
 
     // ---

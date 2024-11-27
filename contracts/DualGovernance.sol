@@ -44,6 +44,7 @@ contract DualGovernance is IDualGovernance {
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
     error InvalidResealCommittee(address resealCommittee);
+    error InvalidTiebreakerActivationTimeoutBounds();
 
     // ---
     // Events
@@ -144,6 +145,10 @@ contract DualGovernance is IDualGovernance {
     // ---
 
     constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
+        if (sanityCheckParams.minTiebreakerActivationTimeout > sanityCheckParams.maxTiebreakerActivationTimeout) {
+            revert InvalidTiebreakerActivationTimeoutBounds();
+        }
+
         TIMELOCK = dependencies.timelock;
         RESEAL_MANAGER = dependencies.resealManager;
 

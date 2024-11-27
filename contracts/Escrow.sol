@@ -251,6 +251,9 @@ contract Escrow is IEscrow {
     ///     that were previously locked by the vetoer.
     /// @param unstETHIds An array of ids representing the unstETH NFTs to be unlocked.
     function unlockUnstETH(uint256[] memory unstETHIds) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
