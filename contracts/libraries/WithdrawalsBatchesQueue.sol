@@ -5,7 +5,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @notice The state of the WithdrawalBatchesQueue.
-/// @param Empty The initial (uninitialized) state of the WithdrawalBatchesQueue.
+/// @param Absent The initial (uninitialized) state of the WithdrawalBatchesQueue.
 /// @param Opened In this state, the WithdrawalBatchesQueue allows the addition of new batches of unstETH ids.
 /// @param Closed The terminal state of the queue where adding new batches is no longer permitted.
 enum State {
@@ -98,7 +98,7 @@ library WithdrawalsBatchesQueue {
         self.info.state = State.Opened;
 
         /// @dev add the boundary unstETH element into the queue, which will be used as the last unstETH id
-        ///     when the queue is empty. This element doesn't used during the claiming of the batches created
+        ///     when the queue is empty. This element isn't used during the claiming of the batches created
         ///     via `addUnstETHIds()` method and always allocates single batch.
         self.batches.push(SequentialBatch({firstUnstETHId: boundaryUnstETHId, lastUnstETHId: boundaryUnstETHId}));
         emit WithdrawalsBatchesQueueOpened(boundaryUnstETHId);
