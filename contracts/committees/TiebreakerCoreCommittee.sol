@@ -23,6 +23,7 @@ enum ProposalType {
 /// @notice This contract allows a committee to vote on and execute proposals for scheduling and resuming sealable addresses
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, ProposalsList {
+    error ResumeSealableNonceMismatch();
     error ProposalDoesNotExist(uint256 proposalId);
     error InvalidSealable(address sealable);
 
@@ -118,6 +119,10 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
 
         if (sealable == address(0)) {
             revert InvalidSealable(sealable);
+        }
+
+        if (nonce != _sealableResumeNonces[sealable]) {
+            revert ResumeSealableNonceMismatch();
         }
 
         (bytes memory proposalData, bytes32 key) = _encodeSealableResume(sealable, nonce);
