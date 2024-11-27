@@ -96,7 +96,7 @@ library DGContractsDeployment {
         DeployConfig memory dgDeployConfig,
         address deployer
     ) internal returns (DeployedContracts memory contracts) {
-        Executor adminExecutor = deployExecutor({owner: deployer, operator: deployer});
+        Executor adminExecutor = deployExecutor({owner: deployer});
         EmergencyProtectedTimelock timelock = deployEmergencyProtectedTimelock(address(adminExecutor), dgDeployConfig);
 
         contracts.adminExecutor = adminExecutor;
@@ -150,8 +150,8 @@ library DGContractsDeployment {
         );
     }
 
-    function deployExecutor(address owner, address operator) internal returns (Executor) {
-        return new Executor(owner, operator);
+    function deployExecutor(address owner) internal returns (Executor) {
+        return new Executor(owner);
     }
 
     function deployEmergencyProtectedTimelock(
@@ -330,7 +330,6 @@ library DGContractsDeployment {
         DeployConfig memory dgDeployConfig
     ) internal {
         adminExecutor.execute(address(timelock), 0, abi.encodeCall(timelock.setGovernance, (dualGovernance)));
-        adminExecutor.setOperator(address(timelock));
-        adminExecutor.transferOwnership(address(adminExecutor));
+        adminExecutor.transferOwnership(address(timelock));
     }
 }

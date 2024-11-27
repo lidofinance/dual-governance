@@ -167,6 +167,14 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         _timelockState.checkExecutionDelay(MIN_EXECUTION_DELAY);
     }
 
+    /// @notice Transfers ownership of the executor contract to a new owner.
+    /// @param executor The address of the executor contract.
+    /// @param owner The address of the new owner.
+    function transferExecutorOwnership(address executor, address owner) external {
+        _checkCallerIsAdminExecutor();
+        IOwnable(executor).transferOwnership(owner);
+    }
+
     // ---
     // Emergency Protection Functionality
     // ---

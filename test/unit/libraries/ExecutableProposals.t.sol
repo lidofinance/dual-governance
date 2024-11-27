@@ -27,7 +27,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
     function setUp() external {
         _targetMock = new TargetMock();
-        _executor = new Executor(address(this), address(this));
+        _executor = new Executor(address(this));
     }
 
     function test_submit_reverts_if_empty_proposals() external {

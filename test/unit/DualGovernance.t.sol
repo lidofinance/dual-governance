@@ -36,7 +36,7 @@ import {SealableMock} from "test/mocks/SealableMock.sol";
 import {computeAddress} from "test/utils/addresses.sol";
 
 contract DualGovernanceUnitTests is UnitTest {
-    Executor private _executor = new Executor(address(this), address(this));
+    Executor private _executor = new Executor(address(this));
 
     address private vetoer = makeAddr("vetoer");
     address private resealCommittee = makeAddr("resealCommittee");

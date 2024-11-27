@@ -48,7 +48,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     Duration private _defaultAfterScheduleDelay = Durations.from(2 days);
 
     function setUp() external {
-        _executor = new Executor(address(this), address(this));
+        _executor = new Executor(address(this));
         _adminExecutor = address(_executor);
 
         _timelock = _deployEmergencyProtectedTimelock();
@@ -56,8 +56,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _targetMock = new TargetMock();
         _anotherTargetMock = new TargetMock();
 
-        _executor.setOperator(address(_timelock));
-        _executor.transferOwnership(address(_executor));
+        _executor.transferOwnership(address(_timelock));
 
         vm.startPrank(_adminExecutor);
         _timelock.setGovernance(_dualGovernance);
