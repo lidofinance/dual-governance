@@ -128,7 +128,7 @@ If the Emergency Committees are set up and active, the governance proposal under
 While active, the Emergency Activation Committee can enable Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. Once the **Emergency Duration** has ended, the Emergency Execution Committee or anyone else may disable the emergency mode, canceling all pending proposals. After the emergency mode is deactivated or the Emergency Period has elapsed, the Emergency Committees lose their power.
 ### Function: `EmergencyProtectedTimelock.submit`
 ```solidity
-function submit(address executor, ExecutorCall[] calls, string metadata)
+function submit(address proposer, address executor, ExecutorCall[] calls, string metadata)
   returns (uint256 proposalId)
 ```
 Registers a new governance proposal composed of one or more external `calls` to be made by the `executor` contract. Initiates the `AfterSubmitDelay`.

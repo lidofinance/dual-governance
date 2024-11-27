@@ -132,7 +132,9 @@ contract DualGovernanceUnitTests is UnitTest {
         ExternalCall[] memory calls = _generateExternalCalls();
         Proposers.Proposer memory proposer = _dualGovernance.getProposer(address(this));
         vm.expectCall(
-            address(_timelock), 0, abi.encodeWithSelector(TimelockMock.submit.selector, proposer.executor, calls, "")
+            address(_timelock),
+            0,
+            abi.encodeWithSelector(TimelockMock.submit.selector, address(this), proposer.executor, calls, "")
         );
 
         uint256 proposalId = _dualGovernance.submitProposal(calls, "");
@@ -2115,7 +2117,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
     function _submitMockProposal() internal {
         // mock timelock doesn't uses proposal data
-        _timelock.submit(address(0), new ExternalCall[](0), "");
+        _timelock.submit(msg.sender, address(0), new ExternalCall[](0), "");
     }
 
     function _generateExternalCalls() internal pure returns (ExternalCall[] memory calls) {
