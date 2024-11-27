@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ExternalCall, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {Proposers} from "contracts/libraries/Proposers.sol";
+
+import {ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 import {LidoUtils} from "../utils/lido-utils.sol";
 
 contract AgentTimelockTest is ScenarioTestBlueprint {
@@ -12,139 +14,138 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
     }
 
     function testFork_AragonAgentAsExecutor_HappyPath() external {
-        _step("0. Tweak the default setup to make Agent admin executor");
+        _step("0. Grant EXECUTE_ROLE permission to the timelock on the Agent contract");
+        {
+            _lido.grantPermission(address(_lido.agent), _lido.agent.EXECUTE_ROLE(), address(_timelock));
+            assertTrue(_lido.acl.hasPermission(address(_timelock), address(_lido.agent), _lido.agent.EXECUTE_ROLE()));
+        }
 
-        // set the Agent as admin executor in the timelock contract
-        vm.prank(address(_adminExecutor));
-        _timelock.setAdminExecutor(address(_lido.agent));
+        address agentProposer = makeAddr("AGENT_PROPOSER");
+        _step("1. Submit proposal to register Aragon as the executor");
+        {
+            ExternalCall[] memory externalCalls = ExternalCallHelpers.create(
+                [
+                    ExternalCall({
+                        value: 0,
+                        target: address(_dualGovernance),
+                        payload: abi.encodeCall(_dualGovernance.registerProposer, (agentProposer, address(_lido.agent)))
+                    })
+                ]
+            );
+            uint256 addAgentProposerProposalId =
+                _submitProposalViaDualGovernance("Add Aragon Agent as proposer to the Dual Governance", externalCalls);
 
-        assertEq(_timelock.getAdminExecutor(), address(_lido.agent));
+            _assertProposalSubmitted(addAgentProposerProposalId);
+            _waitAfterSubmitDelayPassed();
 
-        // grant EXECUTE_ROLE permission to the timelock contract to allow call Agent.execute() method
-        _lido.grantPermission({app: address(_lido.agent), role: _lido.agent.EXECUTE_ROLE(), grantee: address(_timelock)});
+            _scheduleProposalViaDualGovernance(addAgentProposerProposalId);
+            _assertProposalScheduled(addAgentProposerProposalId);
 
-        // update proposers for the Voting
-        vm.startPrank(address(_lido.agent));
+            _waitAfterScheduleDelayPassed();
+            _executeProposal(addAgentProposerProposalId);
+            _assertProposalExecuted(addAgentProposerProposalId);
 
-        address tmpProposer = makeAddr("tmpProposer");
+            Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
 
-        _dualGovernance.registerProposer(tmpProposer, address(_lido.agent));
-        _dualGovernance.unregisterProposer(address(_lido.voting));
-
-        _dualGovernance.registerProposer(address(_lido.voting), address(_lido.agent));
-        _dualGovernance.unregisterProposer(tmpProposer);
-        vm.stopPrank();
-
-        _step("Test setup preparations have done!");
+            assertEq(proposers.length, 2);
+            assertEq(proposers[1].account, agentProposer);
+            assertEq(proposers[1].executor, address(_lido.agent));
+        }
 
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
-        uint256 proposalId;
-        _step("1. THE PROPOSAL IS SUBMITTED");
+        uint256 agentActionsProposalId;
+        _step("2. Submit proposal via the Agent proposer");
         {
-            proposalId = _submitProposalViaDualGovernance(
-                "Propose to doSmth on target passing dual governance", regularStaffCalls
-            );
+            vm.prank(agentProposer);
+            agentActionsProposalId =
+                _dualGovernance.submitProposal(regularStaffCalls, "Make regular staff using Agent as executor");
 
-            _assertSubmittedProposalData(proposalId, _getAdminExecutor(), regularStaffCalls);
-            _assertCanScheduleViaDualGovernance(proposalId, false);
+            _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), regularStaffCalls);
         }
 
-        _step("2. THE PROPOSAL IS SCHEDULED");
+        _step("3. Execute the proposal");
         {
+            _assertProposalSubmitted(agentActionsProposalId);
             _waitAfterSubmitDelayPassed();
-            _assertCanScheduleViaDualGovernance(proposalId, true);
-            _scheduleProposalViaDualGovernance(proposalId);
 
-            _assertProposalScheduled(proposalId);
-            _assertCanExecute(proposalId, false);
-        }
+            _scheduleProposalViaDualGovernance(agentActionsProposalId);
+            _assertProposalScheduled(agentActionsProposalId);
 
-        _step("3. THE PROPOSAL CAN BE EXECUTED");
-        {
-            // wait until the second delay has passed
             _waitAfterScheduleDelayPassed();
-
-            // Now proposal can be executed
-            _assertCanExecute(proposalId, true);
-
-            _assertNoTargetMockCalls();
-
-            _executeProposal(proposalId);
-            _assertProposalExecuted(proposalId);
-
-            _assertCanExecute(proposalId, false);
-            _assertCanScheduleViaDualGovernance(proposalId, false);
+            _executeProposal(agentActionsProposalId);
+            _assertProposalExecuted(agentActionsProposalId);
 
             _assertTargetMockCalls(address(_lido.agent), regularStaffCalls);
         }
     }
 
     function testFork_AragonAgentAsExecutor_RevertOn_FailedCall() external {
-        _step("0. Tweak the default setup to make Agent admin executor");
+        _step("0. Grant EXECUTE_ROLE permission to the timelock on the Agent contract");
+        {
+            _lido.grantPermission(address(_lido.agent), _lido.agent.EXECUTE_ROLE(), address(_timelock));
+            assertTrue(_lido.acl.hasPermission(address(_timelock), address(_lido.agent), _lido.agent.EXECUTE_ROLE()));
+        }
 
-        // set the Agent as admin executor in the timelock contract
-        vm.prank(address(_adminExecutor));
-        _timelock.setAdminExecutor(address(_lido.agent));
+        address agentProposer = makeAddr("AGENT_PROPOSER");
+        _step("1. Submit proposal to register Aragon as the executor");
+        {
+            ExternalCall[] memory externalCalls = ExternalCallHelpers.create(
+                [
+                    ExternalCall({
+                        value: 0,
+                        target: address(_dualGovernance),
+                        payload: abi.encodeCall(_dualGovernance.registerProposer, (agentProposer, address(_lido.agent)))
+                    })
+                ]
+            );
+            uint256 addAgentProposerProposalId =
+                _submitProposalViaDualGovernance("Add Aragon Agent as proposer to the Dual Governance", externalCalls);
 
-        assertEq(_timelock.getAdminExecutor(), address(_lido.agent));
+            _assertProposalSubmitted(addAgentProposerProposalId);
+            _waitAfterSubmitDelayPassed();
 
-        // grant EXECUTE_ROLE permission to the timelock contract to allow call Agent.execute() method
-        _lido.grantPermission({app: address(_lido.agent), role: _lido.agent.EXECUTE_ROLE(), grantee: address(_timelock)});
+            _scheduleProposalViaDualGovernance(addAgentProposerProposalId);
+            _assertProposalScheduled(addAgentProposerProposalId);
 
-        // update proposers for the Voting
-        vm.startPrank(address(_lido.agent));
+            _waitAfterScheduleDelayPassed();
+            _executeProposal(addAgentProposerProposalId);
+            _assertProposalExecuted(addAgentProposerProposalId);
 
-        address tmpProposer = makeAddr("tmpProposer");
+            Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
 
-        _dualGovernance.registerProposer(tmpProposer, address(_lido.agent));
-        _dualGovernance.unregisterProposer(address(_lido.voting));
-
-        _dualGovernance.registerProposer(address(_lido.voting), address(_lido.agent));
-        _dualGovernance.unregisterProposer(tmpProposer);
-        vm.stopPrank();
-
-        _step("Test setup preparations have done!");
+            assertEq(proposers.length, 2);
+            assertEq(proposers[1].account, agentProposer);
+            assertEq(proposers[1].executor, address(_lido.agent));
+        }
 
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
-
-        // code to invalid contract
-        regularStaffCalls[0].target = makeAddr("invalidTarget");
         vm.mockCallRevert(regularStaffCalls[0].target, regularStaffCalls[0].payload, "INVALID TARGET");
 
-        uint256 proposalId;
-        _step("1. THE PROPOSAL IS SUBMITTED");
+        uint256 agentActionsProposalId;
+        _step("2. Submit proposal which should revert via the Agent proposer");
         {
-            proposalId = _submitProposalViaDualGovernance(
-                "Propose to doSmth on target passing dual governance", regularStaffCalls
-            );
+            vm.prank(agentProposer);
+            agentActionsProposalId =
+                _dualGovernance.submitProposal(regularStaffCalls, "Make regular staff using Agent as executor");
 
-            _assertSubmittedProposalData(proposalId, _getAdminExecutor(), regularStaffCalls);
-            _assertCanScheduleViaDualGovernance(proposalId, false);
+            _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), regularStaffCalls);
         }
 
-        _step("2. THE PROPOSAL IS SCHEDULED");
+        _step("3. The execution of the proposal fails");
         {
+            _assertProposalSubmitted(agentActionsProposalId);
             _waitAfterSubmitDelayPassed();
-            _assertCanScheduleViaDualGovernance(proposalId, true);
-            _scheduleProposalViaDualGovernance(proposalId);
 
-            _assertProposalScheduled(proposalId);
-            _assertCanExecute(proposalId, false);
-        }
+            _scheduleProposalViaDualGovernance(agentActionsProposalId);
+            _assertProposalScheduled(agentActionsProposalId);
 
-        _step("3. THE PROPOSAL CAN BE EXECUTED");
-        {
-            // wait until the second delay has passed
             _waitAfterScheduleDelayPassed();
 
-            // Now proposal can be executed
-            _assertCanExecute(proposalId, true);
+            vm.expectRevert("INVALID TARGET");
+            _executeProposal(agentActionsProposalId);
 
             _assertNoTargetMockCalls();
-
-            vm.expectRevert("INVALID TARGET");
-            _executeProposal(proposalId);
         }
     }
 
