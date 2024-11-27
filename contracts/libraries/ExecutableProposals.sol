@@ -245,7 +245,7 @@ library ExecutableProposals {
 
         proposalDetails.id = proposalId;
         proposalDetails.status =
-            _isProposalMarkedCancelled(self, proposalId, proposalData) ? Status.Cancelled : proposalData.status;
+            _isProposalCancelled(self, proposalId, proposalData) ? Status.Cancelled : proposalData.status;
         proposalDetails.executor = address(proposalData.executor);
         proposalDetails.submittedAt = proposalData.submittedAt;
         proposalDetails.scheduledAt = proposalData.scheduledAt;
@@ -274,12 +274,12 @@ library ExecutableProposals {
         }
     }
 
-    function _isProposalMarkedCancelled(
+    function _isProposalSubmitted(
         Context storage self,
         uint256 proposalId,
         ProposalData memory proposalData
     ) private view returns (bool) {
-        return proposalId <= self.lastCancelledProposalId && proposalData.status != Status.Executed;
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted;
     }
 
     function _isProposalScheduled(
@@ -290,11 +290,11 @@ library ExecutableProposals {
         return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled;
     }
 
-    function _isProposalSubmitted(
+    function _isProposalCancelled(
         Context storage self,
         uint256 proposalId,
         ProposalData memory proposalData
     ) private view returns (bool) {
-        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted;
+        return proposalId <= self.lastCancelledProposalId && proposalData.status != Status.Executed;
     }
 }
