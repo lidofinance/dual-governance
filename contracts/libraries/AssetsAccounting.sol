@@ -111,7 +111,7 @@ library AssetsAccounting {
     event ETHWithdrawn(address indexed holder, SharesValue shares, ETHValue value);
     event StETHSharesLocked(address indexed holder, SharesValue shares);
     event StETHSharesUnlocked(address indexed holder, SharesValue shares);
-    event UnstETHFinalized(uint256[] ids, SharesValue finalizedSharesIncrement, ETHValue finalizedAmountIncrement);
+    event UnstETHFinalized(uint256[] ids, SharesValue[] finalizedShares, ETHValue[] finalizedAmount);
     event UnstETHUnlocked(
         address indexed holder, uint256[] ids, SharesValue finalizedSharesIncrement, ETHValue finalizedAmountIncrement
     );
@@ -288,16 +288,19 @@ library AssetsAccounting {
         SharesValue totalSharesFinalized;
 
         uint256 unstETHIdsCount = unstETHIds.length;
+
+        SharesValue[] memory finalizedShares = new SharesValue[](unstETHIdsCount);
+        ETHValue[] memory finalizedAmounts = new ETHValue[](unstETHIdsCount);
+
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            (SharesValue sharesFinalized, ETHValue amountFinalized) =
-                _finalizeUnstETHRecord(self, unstETHIds[i], claimableAmounts[i]);
-            totalSharesFinalized = totalSharesFinalized + sharesFinalized;
-            totalAmountFinalized = totalAmountFinalized + amountFinalized;
+            (finalizedShares[i], finalizedAmounts[i]) = _finalizeUnstETHRecord(self, unstETHIds[i], claimableAmounts[i]);
+            totalSharesFinalized = totalSharesFinalized + finalizedShares[i];
+            totalAmountFinalized = totalAmountFinalized + finalizedAmounts[i];
         }
 
         self.unstETHTotals.finalizedETH = self.unstETHTotals.finalizedETH + totalAmountFinalized;
         self.unstETHTotals.unfinalizedShares = self.unstETHTotals.unfinalizedShares - totalSharesFinalized;
-        emit UnstETHFinalized(unstETHIds, totalSharesFinalized, totalAmountFinalized);
+        emit UnstETHFinalized(unstETHIds, finalizedShares, finalizedAmounts);
     }
 
     /// @notice Marks the previously locked unstETH NFTs with the given ids as claimed and sets the corresponding amount
