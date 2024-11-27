@@ -188,15 +188,13 @@ library DualGovernanceStateMachine {
     function setConfigProvider(Context storage self, IDualGovernanceConfigProvider newConfigProvider) internal {
         _setConfigProvider(self, newConfigProvider);
 
+        IEscrow signallingEscrow = self.signallingEscrow;
+        Duration newMinAssetsLockDuration = newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration;
+
         /// @dev minAssetsLockDuration is stored as a storage variable in the Signalling Escrow instance.
         ///      To synchronize the new value with the current Signalling Escrow, it must be manually updated.
-        if (
-            self.signallingEscrow.getMinAssetsLockDuration()
-                != newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
-        ) {
-            self.signallingEscrow.setMinAssetsLockDuration(
-                newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
-            );
+        if (signallingEscrow.getMinAssetsLockDuration() != newMinAssetsLockDuration) {
+            signallingEscrow.setMinAssetsLockDuration(newMinAssetsLockDuration);
         }
     }
 
