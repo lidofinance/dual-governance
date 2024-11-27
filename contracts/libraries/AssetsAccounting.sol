@@ -290,15 +290,9 @@ library AssetsAccounting {
         ETHValue[] memory finalizedAmounts = new ETHValue[](unstETHIdsCount);
 
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
-            if (claimableAmounts[i] == 0) {
-                continue;
-            }
-            (SharesValue sharesFinalized, ETHValue amountFinalized) =
-                _finalizeUnstETHRecord(self, unstETHIds[i], claimableAmounts[i]);
-            totalSharesFinalized = totalSharesFinalized + sharesFinalized;
-            totalAmountFinalized = totalAmountFinalized + amountFinalized;
-            finalizedShares[i] = sharesFinalized;
-            finalizedAmounts[i] = amountFinalized;
+            (finalizedShares[i], finalizedAmounts[i]) = _finalizeUnstETHRecord(self, unstETHIds[i], claimableAmounts[i]);
+            totalSharesFinalized = totalSharesFinalized + finalizedShares[i];
+            totalAmountFinalized = totalAmountFinalized + finalizedAmounts[i];
         }
 
         self.unstETHTotals.finalizedETH = self.unstETHTotals.finalizedETH + totalAmountFinalized;

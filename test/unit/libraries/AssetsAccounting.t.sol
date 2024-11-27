@@ -1489,9 +1489,9 @@ contract AssetsAccountingUnitTests is UnitTest {
         SharesValue unfinalizedShares,
         ETHValue finalizedETH
     ) internal {
-        // assertEq(_accountingContext.stETHTotals.lockedShares, lockedShares);
-        // assertEq(_accountingContext.stETHTotals.claimedETH, claimedETH);
-        // assertEq(_accountingContext.unstETHTotals.unfinalizedShares, unfinalizedShares);
+        assertEq(_accountingContext.stETHTotals.lockedShares, lockedShares);
+        assertEq(_accountingContext.stETHTotals.claimedETH, claimedETH);
+        assertEq(_accountingContext.unstETHTotals.unfinalizedShares, unfinalizedShares);
         assertEq(_accountingContext.unstETHTotals.finalizedETH, finalizedETH);
     }
 
