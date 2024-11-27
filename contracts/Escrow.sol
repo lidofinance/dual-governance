@@ -513,6 +513,13 @@ contract Escrow is IEscrow {
         state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
     }
 
+    // @notice Retrieves the unstETH NFT ids of the specified vetoer.
+    /// @param vetoer The address of the vetoer whose unstETH NFTs are being queried.
+    /// @return unstETHIds An array of unstETH NFT ids locked by the vetoer.
+    function getVetoerUnstETHIds(address vetoer) external view returns (uint256[] memory unstETHIds) {
+        unstETHIds = _accounting.assets[vetoer].unstETHIds;
+    }
+
     /// @notice Returns the total count of unstETH NFTs that have not been claimed yet.
     /// @return unclaimedUnstETHIdsCount The total number of unclaimed unstETH NFTs.
     function getUnclaimedUnstETHIdsCount() external view returns (uint256) {
@@ -521,9 +528,9 @@ contract Escrow is IEscrow {
 
     /// @notice Retrieves the unstETH NFT ids of the next batch available for claiming.
     /// @param limit The maximum number of unstETH NFTs to return in the batch.
-    /// @return unstETHIds An array of unstETH NFT IDs available for the next withdrawal batch.
+    /// @return unstETHIds An array of unstETH NFT ids available for the next withdrawal batch.
     function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds) {
-        return _batchesQueue.getNextWithdrawalsBatches(limit);
+        unstETHIds = _batchesQueue.getNextWithdrawalsBatches(limit);
     }
 
     /// @notice Returns whether all withdrawal batches have been finalized.
