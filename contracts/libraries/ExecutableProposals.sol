@@ -104,6 +104,7 @@ library ExecutableProposals {
 
     /// @notice Submits a new proposal with the specified executor and external calls.
     /// @param self The context of the Executable Proposal library.
+    /// @param proposer The address of the proposer submitting the proposal.
     /// @param executor The address authorized to execute the proposal.
     /// @param calls The list of external calls to include in the proposal.
     /// @param metadata Metadata describing the proposal.

@@ -14,6 +14,7 @@ import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock, TimelockState} from "contracts/EmergencyProtectedTimelock.sol";
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/target-mock.sol";
@@ -22,6 +23,7 @@ import {ExternalCall} from "test/utils/executor-calls.sol";
 contract EmergencyProtectedTimelockUnitTests is UnitTest {
     EmergencyProtectedTimelock private _timelock;
     TargetMock private _targetMock;
+    TargetMock private _anotherTargetMock;
     Executor private _executor;
 
     address private _emergencyActivator = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
@@ -40,6 +42,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock = _deployEmergencyProtectedTimelock();
 
         _targetMock = new TargetMock();
+        _anotherTargetMock = new TargetMock();
 
         _executor.transferOwnership(address(_timelock));
 
@@ -82,8 +85,16 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     }
 
     function test_submit_HappyPath() external {
+        string memory testMetadata = "testMetadata";
+
+        vm.expectEmit(true, true, true, true);
+        emit ExecutableProposals.ProposalSubmitted(
+            1, _dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), testMetadata
+        );
         vm.prank(_dualGovernance);
-        _timelock.submit(_dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(
+            _dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), testMetadata
+        );
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -808,8 +819,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.startPrank(_dualGovernance);
         ExternalCall[] memory executorCalls = _getMockTargetRegularStaffCalls(address(_targetMock));
+        ExternalCall[] memory anotherExecutorCalls = _getMockTargetRegularStaffCalls(address(_anotherTargetMock));
         _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
-        _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
+        _timelock.submit(_dualGovernance, _adminExecutor, anotherExecutorCalls, "");
 
         (ITimelock.ProposalDetails memory submittedProposal, ExternalCall[] memory calls) = _timelock.getProposal(1);
 
@@ -876,9 +888,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         // assertEq(cancelledProposal.executedAt, Timestamps.ZERO);
         // assertEq doesn't support comparing enumerables so far
         assertEq(cancelledCalls.length, 1);
-        assertEq(cancelledCalls[0].value, executorCalls[0].value);
-        assertEq(cancelledCalls[0].target, executorCalls[0].target);
-        assertEq(cancelledCalls[0].payload, executorCalls[0].payload);
+        assertEq(cancelledCalls[0].value, anotherExecutorCalls[0].value);
+        assertEq(cancelledCalls[0].target, anotherExecutorCalls[0].target);
+        assertEq(cancelledCalls[0].payload, anotherExecutorCalls[0].payload);
     }
 
     function test_get_not_existing_proposal() external {

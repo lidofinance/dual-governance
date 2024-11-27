@@ -204,8 +204,6 @@ contract ExecutableProposalsUnitTests is UnitTest {
     }
 
     function testFuzz_cannot_execute_before_delay_passed(Duration delay) external {
-        vm.assume(delay > Durations.ZERO && delay <= Durations.MAX);
-        _proposals.submit(proposer, address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
         vm.assume(delay > Durations.ZERO && delay.toSeconds() <= MAX_DURATION_VALUE);
         _proposals.submit(proposer, address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
         uint256 proposalId = _proposals.getProposalsCount();
