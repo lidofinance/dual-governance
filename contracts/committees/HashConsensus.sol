@@ -57,6 +57,101 @@ abstract contract HashConsensus is Ownable {
         emit TimelockDurationSet(timelock);
     }
 
+    /// @notice Gets the list of committee members
+    /// @dev Public function to return the list of members
+    /// @return An array of addresses representing the committee members
+    function getMembers() external view returns (address[] memory) {
+        return _members.values();
+    }
+
+    /// @notice Adds new members to the contract and sets the execution quorum.
+    /// @dev This function allows the contract owner to add multiple new members and set the execution quorum.
+    ///      The function reverts if the caller is not the owner, if the execution quorum is set to zero,
+    ///      or if it exceeds the total number of members.
+    /// @param newMembers The array of addresses to be added as new members
+    /// @param executionQuorum The minimum number of members required for executing certain operations
+    function addMembers(address[] memory newMembers, uint256 executionQuorum) external {
+        _checkOwner();
+
+        _addMembers(newMembers, executionQuorum);
+    }
+
+    /// @notice Removes specified members from the contract and updates the execution quorum.
+    /// @dev This function can only be called by the contract owner. It removes multiple members from
+    ///      the contract. If any of the specified members are not found in the members list, the
+    ///      function will revert. The quorum is also updated and must not be zero or greater than
+    ///      the new total number of members.
+    /// @param membersToRemove The array of addresses to be removed from the members list.
+    /// @param executionQuorum The updated minimum number of members required for executing certain operations.
+    function removeMembers(address[] memory membersToRemove, uint256 executionQuorum) external {
+        _checkOwner();
+
+        _removeMembers(membersToRemove, executionQuorum);
+    }
+
+    /// @notice Checks if an address is a member of the committee
+    /// @dev Public function to check membership status
+    /// @param member The address to check
+    /// @return A boolean indicating whether the address is a member
+    function isMember(address member) external view returns (bool) {
+        return _members.contains(member);
+    }
+
+    /// @notice Gets the timelock duration value
+    function getTimelockDuration() external view returns (Duration) {
+        return _timelockDuration;
+    }
+
+    /// @notice Sets the timelock duration
+    /// @dev Only callable by the owner
+    /// @param timelock The new timelock duration in seconds
+    function setTimelockDuration(Duration timelock) external {
+        _checkOwner();
+        if (timelock == _timelockDuration) {
+            revert InvalidTimelockDuration(timelock);
+        }
+        _timelockDuration = timelock;
+        emit TimelockDurationSet(timelock);
+    }
+
+    /// @notice Gets the quorum value
+    function getQuorum() external view returns (uint256) {
+        return _quorum;
+    }
+
+    /// @notice Sets the quorum value
+    /// @dev Only callable by the owner
+    /// @param newQuorum The new quorum value
+    function setQuorum(uint256 newQuorum) external {
+        _checkOwner();
+        _setQuorum(newQuorum);
+    }
+
+    /// @notice Schedules a proposal for execution if quorum is reached and it has not been scheduled yet.
+    /// @dev This function schedules a proposal for execution if the quorum is reached and
+    ///      the proposal has not been scheduled yet. Could happen when execution quorum was set to the same value as
+    ///      current support of the proposal.
+    /// @param hash The hash of the proposal to be scheduled
+    function schedule(bytes32 hash) external {
+        HashState memory state = _hashStates[hash];
+        if (state.scheduledAt.isNotZero()) {
+            revert HashAlreadyScheduled(hash);
+        }
+
+        uint256 currentSupport = _getSupport(hash);
+
+        if (currentSupport < _quorum) {
+            revert QuorumIsNotReached();
+        }
+
+        state.scheduledAt = Timestamps.from(block.timestamp);
+        // Cap the support and quorum values to uint32 max for storing historical values efficiently
+        state.supportWhenScheduled = currentSupport > type(uint32).max ? type(uint32).max : uint32(currentSupport);
+        state.quorumWhenScheduled = _quorum > type(uint32).max ? type(uint32).max : uint32(_quorum);
+        _hashStates[hash] = state;
+        emit HashScheduled(hash);
+    }
+
     /// @notice Casts a vote on a given hash if hash has not been used
     /// @dev Only callable by members
     /// @param hash The hash to vote on
@@ -127,101 +222,6 @@ abstract contract HashConsensus is Ownable {
         }
     }
 
-    /// @notice Adds new members to the contract and sets the execution quorum.
-    /// @dev This function allows the contract owner to add multiple new members and set the execution quorum.
-    ///      The function reverts if the caller is not the owner, if the execution quorum is set to zero,
-    ///      or if it exceeds the total number of members.
-    /// @param newMembers The array of addresses to be added as new members
-    /// @param executionQuorum The minimum number of members required for executing certain operations
-    function addMembers(address[] memory newMembers, uint256 executionQuorum) external {
-        _checkOwner();
-
-        _addMembers(newMembers, executionQuorum);
-    }
-
-    /// @notice Removes specified members from the contract and updates the execution quorum.
-    /// @dev This function can only be called by the contract owner. It removes multiple members from
-    ///      the contract. If any of the specified members are not found in the members list, the
-    ///      function will revert. The quorum is also updated and must not be zero or greater than
-    ///      the new total number of members.
-    /// @param membersToRemove The array of addresses to be removed from the members list.
-    /// @param executionQuorum The updated minimum number of members required for executing certain operations.
-    function removeMembers(address[] memory membersToRemove, uint256 executionQuorum) external {
-        _checkOwner();
-
-        _removeMembers(membersToRemove, executionQuorum);
-    }
-
-    /// @notice Gets the list of committee members
-    /// @dev Public function to return the list of members
-    /// @return An array of addresses representing the committee members
-    function getMembers() external view returns (address[] memory) {
-        return _members.values();
-    }
-
-    /// @notice Checks if an address is a member of the committee
-    /// @dev Public function to check membership status
-    /// @param member The address to check
-    /// @return A boolean indicating whether the address is a member
-    function isMember(address member) external view returns (bool) {
-        return _members.contains(member);
-    }
-
-    /// @notice Sets the timelock duration
-    /// @dev Only callable by the owner
-    /// @param timelock The new timelock duration in seconds
-    function setTimelockDuration(Duration timelock) external {
-        _checkOwner();
-        if (timelock == _timelockDuration) {
-            revert InvalidTimelockDuration(timelock);
-        }
-        _timelockDuration = timelock;
-        emit TimelockDurationSet(timelock);
-    }
-
-    /// @notice Gets the quorum value
-    function getQuorum() external view returns (uint256) {
-        return _quorum;
-    }
-
-    /// @notice Gets the timelock duration value
-    function getTimelockDuration() external view returns (Duration) {
-        return _timelockDuration;
-    }
-
-    /// @notice Sets the quorum value
-    /// @dev Only callable by the owner
-    /// @param newQuorum The new quorum value
-    function setQuorum(uint256 newQuorum) external {
-        _checkOwner();
-        _setQuorum(newQuorum);
-    }
-
-    /// @notice Schedules a proposal for execution if quorum is reached and it has not been scheduled yet.
-    /// @dev This function schedules a proposal for execution if the quorum is reached and
-    ///      the proposal has not been scheduled yet. Could happen when execution quorum was set to the same value as
-    ///      current support of the proposal.
-    /// @param hash The hash of the proposal to be scheduled
-    function schedule(bytes32 hash) external {
-        HashState memory state = _hashStates[hash];
-        if (state.scheduledAt.isNotZero()) {
-            revert HashAlreadyScheduled(hash);
-        }
-
-        uint256 currentSupport = _getSupport(hash);
-
-        if (currentSupport < _quorum) {
-            revert QuorumIsNotReached();
-        }
-
-        state.scheduledAt = Timestamps.from(block.timestamp);
-        // Cap the support and quorum values to uint32 max for storing historical values efficiently
-        state.supportWhenScheduled = currentSupport > type(uint32).max ? type(uint32).max : uint32(currentSupport);
-        state.quorumWhenScheduled = _quorum > type(uint32).max ? type(uint32).max : uint32(_quorum);
-        _hashStates[hash] = state;
-        emit HashScheduled(hash);
-    }
-
     /// @notice Sets the execution quorum required for certain operations.
     /// @dev The quorum value must be greater than zero and not exceed the current number of members.
     /// @param executionQuorum The new quorum value to be set.
@@ -240,6 +240,10 @@ abstract contract HashConsensus is Ownable {
     /// @param newMembers The array of addresses to be added as new members.
     /// @param executionQuorum The minimum number of members required for executing certain operations.
     function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
+        if (executionQuorum == 0) {
+            revert InvalidQuorum();
+        }
+
         for (uint256 i = 0; i < newMembers.length; ++i) {
             if (newMembers[i] == address(0)) {
                 revert InvalidMemberAccount(newMembers[i]);
