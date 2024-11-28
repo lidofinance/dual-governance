@@ -124,6 +124,11 @@ abstract contract HashConsensus is Ownable {
     /// @param newQuorum The new quorum value
     function setQuorum(uint256 newQuorum) external {
         _checkOwner();
+
+        if (newQuorum == _quorum) {
+            revert InvalidQuorum();
+        }
+
         _setQuorum(newQuorum);
     }
 
@@ -226,12 +231,14 @@ abstract contract HashConsensus is Ownable {
     /// @dev The quorum value must be greater than zero and not exceed the current number of members.
     /// @param executionQuorum The new quorum value to be set.
     function _setQuorum(uint256 executionQuorum) internal {
-        if (executionQuorum == 0 || executionQuorum > _members.length() || executionQuorum == _quorum) {
+        if (executionQuorum == 0 || executionQuorum > _members.length()) {
             revert InvalidQuorum();
         }
 
-        _quorum = executionQuorum;
-        emit QuorumSet(executionQuorum);
+        if (executionQuorum != _quorum) {
+            _quorum = executionQuorum;
+            emit QuorumSet(executionQuorum);
+        }
     }
 
     /// @notice Adds new members to the contract and sets the execution quorum.
@@ -240,10 +247,6 @@ abstract contract HashConsensus is Ownable {
     /// @param newMembers The array of addresses to be added as new members.
     /// @param executionQuorum The minimum number of members required for executing certain operations.
     function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
-        if (executionQuorum == 0) {
-            revert InvalidQuorum();
-        }
-
         for (uint256 i = 0; i < newMembers.length; ++i) {
             if (newMembers[i] == address(0)) {
                 revert InvalidMemberAccount(newMembers[i]);
@@ -254,9 +257,7 @@ abstract contract HashConsensus is Ownable {
             emit MemberAdded(newMembers[i]);
         }
 
-        if (executionQuorum != _quorum) {
-            _setQuorum(executionQuorum);
-        }
+        _setQuorum(executionQuorum);
     }
 
     /// @notice Removes specified members from the contract and updates the execution quorum.
@@ -273,9 +274,7 @@ abstract contract HashConsensus is Ownable {
             emit MemberRemoved(membersToRemove[i]);
         }
 
-        if (executionQuorum != _quorum) {
-            _setQuorum(executionQuorum);
-        }
+        _setQuorum(executionQuorum);
     }
 
     /// @notice Gets the number of votes in support of a given hash
