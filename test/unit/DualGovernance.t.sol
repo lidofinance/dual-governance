@@ -1146,7 +1146,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         assertNotEq(newProposalsCanceller, _dualGovernance.getProposalsCanceller());
 
-        vm.expectEmit(true, true, false, false);
+        vm.expectEmit();
         emit DualGovernance.ProposalsCancellerSet(newProposalsCanceller);
 
         vm.prank(address(_executor));
@@ -1160,7 +1160,7 @@ contract DualGovernanceUnitTests is UnitTest {
             newProposalsCanceller != address(0) && newProposalsCanceller != _dualGovernance.getProposalsCanceller()
         );
 
-        vm.expectEmit(true, true, false, false);
+        vm.expectEmit();
         emit DualGovernance.ProposalsCancellerSet(newProposalsCanceller);
 
         vm.prank(address(_executor));
