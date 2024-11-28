@@ -7,8 +7,8 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IExternalExecutor} from "./interfaces/IExternalExecutor.sol";
 
 /// @title Executor
-/// @notice Allows the designated operator to execute external function calls on specified target contracts with
-///     possible value transfers. The owner can set the operator.
+/// @notice Allows the contract owner to execute external function calls on specified target contracts with
+///     possible value transfers.
 contract Executor is IExternalExecutor, Ownable {
     // ---
     // Events
@@ -26,7 +26,7 @@ contract Executor is IExternalExecutor, Ownable {
     // Main Functionality
     // ---
 
-    /// @notice Allows the operator to execute external function calls on target contracts, optionally transferring ether.
+    /// @notice Allows the contract owner to execute external function calls on target contracts, optionally transferring ether.
     /// @param target The address of the target contract on which to execute the function call.
     /// @param value The amount of ether (in wei) to send with the function call.
     /// @param payload The calldata for the function call.
