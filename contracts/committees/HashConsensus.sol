@@ -46,14 +46,14 @@ abstract contract HashConsensus is Ownable {
     }
 
     uint256 private _quorum;
-    Duration public timelockDuration;
+    Duration private _timelockDuration;
 
     mapping(bytes32 hash => HashState state) private _hashStates;
     EnumerableSet.AddressSet private _members;
     mapping(address signer => mapping(bytes32 hash => bool approve)) public approves;
 
     constructor(address owner, Duration timelock) Ownable(owner) {
-        timelockDuration = timelock;
+        _timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
     }
 
@@ -94,7 +94,7 @@ abstract contract HashConsensus is Ownable {
             revert HashAlreadyUsed(hash);
         }
 
-        if (timelockDuration.addTo(_hashStates[hash].scheduledAt) > Timestamps.now()) {
+        if (_timelockDuration.addTo(_hashStates[hash].scheduledAt) > Timestamps.now()) {
             revert TimelockNotPassed();
         }
 
@@ -172,16 +172,21 @@ abstract contract HashConsensus is Ownable {
     /// @param timelock The new timelock duration in seconds
     function setTimelockDuration(Duration timelock) external {
         _checkOwner();
-        if (timelock == timelockDuration) {
+        if (timelock == _timelockDuration) {
             revert InvalidTimelockDuration(timelock);
         }
-        timelockDuration = timelock;
+        _timelockDuration = timelock;
         emit TimelockDurationSet(timelock);
     }
 
     /// @notice Gets the quorum value
     function getQuorum() external view returns (uint256) {
         return _quorum;
+    }
+
+    /// @notice Gets the timelock duration value
+    function getTimelockDuration() external view returns (Duration) {
+        return _timelockDuration;
     }
 
     /// @notice Sets the quorum value

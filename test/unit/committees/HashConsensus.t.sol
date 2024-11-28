@@ -297,7 +297,7 @@ abstract contract HashConsensusUnitTest is UnitTest {
         vm.prank(_owner);
         _hashConsensus.setTimelockDuration(newTimelockDuration);
 
-        assertEq(_hashConsensus.timelockDuration(), newTimelockDuration);
+        assertEq(_hashConsensus.getTimelockDuration(), newTimelockDuration);
     }
 
     function test_setTimelockDuration_RevertOn_IfNotOwner() public {

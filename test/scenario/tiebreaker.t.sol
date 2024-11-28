@@ -79,7 +79,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         assertEq(support, quorum);
 
         // Waiting for submit delay pass
-        _wait(_tiebreakerCoreCommittee.timelockDuration());
+        _wait(_tiebreakerCoreCommittee.getTimelockDuration());
 
         _tiebreakerCoreCommittee.executeScheduleProposal(proposalIdToExecute);
     }
@@ -160,7 +160,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         assertEq(support, quorum);
 
         // Waiting for submit delay pass
-        _wait(_tiebreakerCoreCommittee.timelockDuration());
+        _wait(_tiebreakerCoreCommittee.getTimelockDuration());
 
         _tiebreakerCoreCommittee.executeSealableResume(address(_lido.withdrawalQueue));
 
