@@ -9,20 +9,20 @@ import {ETHValue, ETHValues} from "./types/ETHValue.sol";
 import {SharesValue, SharesValues} from "./types/SharesValue.sol";
 import {PercentD16, PercentsD16} from "./types/PercentD16.sol";
 
-import {IEscrow} from "./interfaces/IEscrow.sol";
+import {IEscrowBase, ISignallingEscrow, IRageQuitEscrow} from "./interfaces/IEscrow.sol";
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 
-import {EscrowState} from "./libraries/EscrowState.sol";
+import {EscrowState, State} from "./libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalsBatchesQueue.sol";
 import {HolderAssets, StETHAccounting, UnstETHAccounting, AssetsAccounting} from "./libraries/AssetsAccounting.sol";
 
 /// @notice This contract is used to accumulate stETH, wstETH, unstETH, and withdrawn ETH from vetoers during the
 ///     veto signalling and rage quit processes.
 /// @dev This contract is intended to be used behind a minimal proxy deployed by the DualGovernance contract.
-contract Escrow is IEscrow {
+contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     using EscrowState for EscrowState.Context;
     using AssetsAccounting for AssetsAccounting.Context;
     using WithdrawalsBatchesQueue for WithdrawalsBatchesQueue.Context;
@@ -77,7 +77,7 @@ contract Escrow is IEscrow {
 
     /// @dev Reference to the address of the implementation contract, used to distinguish whether the call
     ///     is made to the proxy or directly to the implementation.
-    address private immutable _SELF;
+    IEscrowBase public immutable ESCROW_MASTER_COPY;
 
     /// @dev The address of the Dual Governance contract.
     IDualGovernance public immutable DUAL_GOVERNANCE;
@@ -106,7 +106,7 @@ contract Escrow is IEscrow {
         IDualGovernance dualGovernance,
         uint256 minWithdrawalsBatchSize
     ) {
-        _SELF = address(this);
+        ESCROW_MASTER_COPY = this;
         DUAL_GOVERNANCE = dualGovernance;
 
         ST_ETH = stETH;
@@ -120,7 +120,7 @@ contract Escrow is IEscrow {
     /// @param minAssetsLockDuration The minimum duration that must pass from the last stETH, wstETH, or unstETH lock
     ///     by the vetoer before they are allowed to unlock assets from the Escrow.
     function initialize(Duration minAssetsLockDuration) external {
-        if (address(this) == _SELF) {
+        if (this == ESCROW_MASTER_COPY) {
             revert NonProxyCallsForbidden();
         }
         _checkCallerIsDualGovernance();
@@ -129,6 +129,13 @@ contract Escrow is IEscrow {
 
         ST_ETH.approve(address(WST_ETH), type(uint256).max);
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
+    }
+
+    // ---
+    // Base Escrow Getters
+    // ---
+    function getEscrowState() external view returns (State) {
+        return _escrowState.state;
     }
 
     // ---
@@ -274,11 +281,46 @@ contract Escrow is IEscrow {
     ///     have sufficient time to claim it.
     /// @param rageQuitEthWithdrawalsDelay The waiting period that vetoers must observe after the Rage Quit process
     ///     is finalized before they can withdraw ETH from the Escrow.
-    function startRageQuit(Duration rageQuitExtensionPeriodDuration, Duration rageQuitEthWithdrawalsDelay) external {
+    function startRageQuit(
+        Duration rageQuitExtensionPeriodDuration,
+        Duration rageQuitEthWithdrawalsDelay
+    ) external returns (IRageQuitEscrow rageQuitEscrow) {
         _checkCallerIsDualGovernance();
         _escrowState.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
         _batchesQueue.open(WITHDRAWAL_QUEUE.getLastRequestId());
+        rageQuitEscrow = IRageQuitEscrow(this);
     }
+
+    // ---
+    // Signalling Escrow Getters
+    // ---
+
+    /// @notice Returns the current Rage Quit support value as a percentage.
+    /// @return rageQuitSupport The current Rage Quit support as a `PercentD16` value.
+    function getRageQuitSupport() external view returns (PercentD16) {
+        StETHAccounting memory stETHTotals = _accounting.stETHTotals;
+        UnstETHAccounting memory unstETHTotals = _accounting.unstETHTotals;
+
+        uint256 finalizedETH = unstETHTotals.finalizedETH.toUint256();
+        uint256 unfinalizedShares = (stETHTotals.lockedShares + unstETHTotals.unfinalizedShares).toUint256();
+
+        return PercentsD16.fromFraction({
+            numerator: ST_ETH.getPooledEthByShares(unfinalizedShares) + finalizedETH,
+            denominator: ST_ETH.totalSupply() + finalizedETH
+        });
+    }
+
+    /// @notice Returns the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
+    ///    by a vetoer before they are permitted to unlock their assets from the Escrow.
+    function getMinAssetsLockDuration() external view returns (Duration minAssetsLockDuration) {
+        minAssetsLockDuration = _escrowState.minAssetsLockDuration;
+    }
+
+    // TODO: implement
+    function getLockedUnstETHState(uint256 unstETHId) external view returns (LockedUnstETHState memory) {}
+
+    // TODO: implement
+    function getSignallingEscrowState() external view returns (SignallingEscrowState memory) {}
 
     // ---
     // Request Withdrawal Batches
@@ -421,12 +463,6 @@ contract Escrow is IEscrow {
     // Escrow Management
     // ---
 
-    /// @notice Returns the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
-    ///    by a vetoer before they are permitted to unlock their assets from the Escrow.
-    function getMinAssetsLockDuration() external view returns (Duration) {
-        return _escrowState.minAssetsLockDuration;
-    }
-
     /// @notice Sets the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
     ///     by a vetoer before they are permitted to unlock their assets from the Escrow.
     /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
@@ -463,8 +499,11 @@ contract Escrow is IEscrow {
     }
 
     // ---
-    // Getters
+    // Rage Quit Escrow Getters
     // ---
+
+    // TODO: implement
+    function getRageQuitEscrowState() external view returns (RageQuitEscrowState memory) {}
 
     /// @notice Returns the total amounts of locked and claimed assets in the Escrow.
     /// @return totals A struct containing the total amounts of locked and claimed assets, including:
@@ -539,21 +578,6 @@ contract Escrow is IEscrow {
     /// @return rageQuitExtensionPeriodStartedAt The timestamp when the Rage Quit Extension Period began.
     function getRageQuitExtensionPeriodStartedAt() external view returns (Timestamp) {
         return _escrowState.rageQuitExtensionPeriodStartedAt;
-    }
-
-    /// @notice Returns the current Rage Quit support value as a percentage.
-    /// @return rageQuitSupport The current Rage Quit support as a `PercentD16` value.
-    function getRageQuitSupport() external view returns (PercentD16) {
-        StETHAccounting memory stETHTotals = _accounting.stETHTotals;
-        UnstETHAccounting memory unstETHTotals = _accounting.unstETHTotals;
-
-        uint256 finalizedETH = unstETHTotals.finalizedETH.toUint256();
-        uint256 unfinalizedShares = (stETHTotals.lockedShares + unstETHTotals.unfinalizedShares).toUint256();
-
-        return PercentsD16.fromFraction({
-            numerator: ST_ETH.getPooledEthByShares(unfinalizedShares) + finalizedETH,
-            denominator: ST_ETH.totalSupply() + finalizedETH
-        });
     }
 
     /// @notice Returns whether the Rage Quit process has been finalized.

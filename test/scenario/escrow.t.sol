@@ -6,13 +6,14 @@ import {console} from "forge-std/Test.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
+import {IEscrowBase} from "contracts/interfaces/IEscrow.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
-
-import {IEscrow} from "contracts/interfaces/IEscrow.sol";
-import {Escrow, WithdrawalsBatchesQueue} from "contracts/Escrow.sol";
+import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
+
+import {Escrow} from "contracts/Escrow.sol";
 
 import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
 
@@ -220,10 +221,10 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        IEscrow.VetoerState memory vetoerState = escrow.getVetoerState(_VETOER_1);
+        Escrow.VetoerState memory vetoerState = escrow.getVetoerState(_VETOER_1);
         assertEq(vetoerState.unstETHIdsCount, 2);
 
-        IEscrow.LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
+        IEscrowBase.LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
         assertEq(totals.unstETHFinalizedETH, 0);
         assertEq(totals.unstETHUnfinalizedShares, totalSharesLocked);
 

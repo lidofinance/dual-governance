@@ -12,7 +12,7 @@ import {PercentD16} from "contracts/types/PercentD16.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
-import {IEscrow} from "contracts/interfaces/IEscrow.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrow.sol";
 import {Escrow} from "contracts/Escrow.sol";
 
 // ---
@@ -199,7 +199,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     function _unlockWstETH(address vetoer) internal {
         Escrow escrow = _getVetoSignallingEscrow();
         uint256 wstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
-        IEscrow.VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
+        IEscrowBase.VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
 
         vm.startPrank(vetoer);
         uint256 wstETHUnlocked = escrow.unlockWstETH();
@@ -213,8 +213,8 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        IEscrow.VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
-        IEscrow.LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
+        IEscrowBase.VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
+        IEscrowBase.LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
 
         uint256 unstETHTotalSharesLocked = 0;
         IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
@@ -233,10 +233,10 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
             assertEq(_lido.withdrawalQueue.ownerOf(unstETHIds[i]), address(escrow));
         }
 
-        IEscrow.VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
+        IEscrowBase.VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
         assertEq(vetoerStateAfter.unstETHIdsCount, vetoerStateBefore.unstETHIdsCount + unstETHIds.length);
 
-        IEscrow.LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
+        IEscrowBase.LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
         assertEq(
             lockedAssetsTotalsAfter.unstETHUnfinalizedShares,
             lockedAssetsTotalsBefore.unstETHUnfinalizedShares + unstETHTotalSharesLocked
@@ -245,8 +245,8 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _unlockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        IEscrow.VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
-        IEscrow.LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
+        IEscrowBase.VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
+        IEscrowBase.LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
 
         uint256 unstETHTotalSharesUnlocked = 0;
         IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
@@ -263,11 +263,11 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
             assertEq(_lido.withdrawalQueue.ownerOf(unstETHIds[i]), vetoer);
         }
 
-        IEscrow.VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
+        IEscrowBase.VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
         assertEq(vetoerStateAfter.unstETHIdsCount, vetoerStateBefore.unstETHIdsCount - unstETHIds.length);
 
         // TODO: implement correct assert. It must consider was unstETH finalized or not
-        IEscrow.LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
+        IEscrowBase.LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
         assertEq(
             lockedAssetsTotalsAfter.unstETHUnfinalizedShares,
             lockedAssetsTotalsBefore.unstETHUnfinalizedShares - unstETHTotalSharesUnlocked
