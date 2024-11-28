@@ -17,6 +17,7 @@ library DualGovernanceConfig {
         Duration rageQuitEthWithdrawalsMinDelay, Duration rageQuitEthWithdrawalsMaxDelay
     );
     error InvalidVetoSignallingDurationRange(Duration vetoSignallingMinDuration, Duration vetoSignallingMaxDuration);
+    error InvalidMinAssetsLockDuration(Duration minAssetsLockDuration);
 
     // ---
     // Data Types
@@ -82,6 +83,10 @@ library DualGovernanceConfig {
             revert InvalidRageQuitEthWithdrawalsDelayRange(
                 self.rageQuitEthWithdrawalsMinDelay, self.rageQuitEthWithdrawalsMaxDelay
             );
+        }
+
+        if (self.minAssetsLockDuration == Durations.ZERO) {
+            revert InvalidMinAssetsLockDuration(self.minAssetsLockDuration);
         }
     }
 

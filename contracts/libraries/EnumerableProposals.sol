@@ -2,13 +2,14 @@
 pragma solidity 0.8.26;
 
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 /// @notice Data structure representing a proposal.
 /// @param submittedAt The timestamp when the proposal was submitted.
 /// @param proposalType The type identifier for the proposal.
 /// @param data The additional data associated with the proposal.
 struct Proposal {
-    uint40 submittedAt;
+    Timestamp submittedAt;
     uint256 proposalType;
     bytes data;
 }
@@ -59,7 +60,7 @@ library EnumerableProposals {
         bytes memory data
     ) internal returns (bool) {
         if (map._keys.add(key)) {
-            Proposal memory proposal = Proposal(uint40(block.timestamp), proposalType, data);
+            Proposal memory proposal = Proposal(Timestamps.now(), proposalType, data);
             map._proposals[key] = proposal;
             map._orderedKeys.push(key);
             return true;

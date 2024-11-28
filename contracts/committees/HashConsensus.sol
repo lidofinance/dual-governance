@@ -143,17 +143,22 @@ abstract contract HashConsensus is Ownable {
             revert HashAlreadyScheduled(hash);
         }
 
+        if (quorum == 0) {
+            revert InvalidQuorum();
+        }
+
         uint256 currentSupport = _getSupport(hash);
 
         if (currentSupport < _quorum) {
             revert QuorumIsNotReached();
         }
 
-        state.scheduledAt = Timestamps.from(block.timestamp);
+        state.scheduledAt = Timestamps.now;
         // Cap the support and quorum values to uint32 max for storing historical values efficiently
         state.supportWhenScheduled = currentSupport > type(uint32).max ? type(uint32).max : uint32(currentSupport);
         state.quorumWhenScheduled = _quorum > type(uint32).max ? type(uint32).max : uint32(_quorum);
         _hashStates[hash] = state;
+
         emit HashScheduled(hash);
     }
 

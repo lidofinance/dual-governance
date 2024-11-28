@@ -93,17 +93,19 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // ---
 
     /// @notice Submits a new proposal to execute a series of calls through an executor.
+    /// @param proposer The address of the proposer submitting the proposal.
     /// @param executor The address of the executor contract that will execute the calls.
     /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
     /// @param metadata A string containing additional information about the proposal.
     /// @return newProposalId The id of the newly created proposal.
     function submit(
+        address proposer,
         address executor,
         ExternalCall[] calldata calls,
         string calldata metadata
     ) external returns (uint256 newProposalId) {
         _timelockState.checkCallerIsGovernance();
-        newProposalId = _proposals.submit(executor, calls, metadata);
+        newProposalId = _proposals.submit(proposer, executor, calls, metadata);
     }
 
     /// @notice Schedules a proposal for execution after a specified delay.
