@@ -41,8 +41,8 @@ abstract contract HashConsensus is Ownable {
     struct HashState {
         Timestamp scheduledAt;
         Timestamp usedAt;
-        uint32 supportWhenScheduled;
-        uint32 quorumWhenScheduled;
+        uint256 supportWhenScheduled;
+        uint256 quorumWhenScheduled;
     }
 
     uint256 private _quorum;
@@ -138,27 +138,26 @@ abstract contract HashConsensus is Ownable {
     ///      current support of the proposal.
     /// @param hash The hash of the proposal to be scheduled
     function schedule(bytes32 hash) external {
-        HashState memory state = _hashStates[hash];
+        HashState storage state = _hashStates[hash];
         if (state.scheduledAt.isNotZero()) {
             revert HashAlreadyScheduled(hash);
         }
 
-        if (quorum == 0) {
+        uint256 currentQuorum = _quorum;
+
+        if (currentQuorum == 0) {
             revert InvalidQuorum();
         }
 
         uint256 currentSupport = _getSupport(hash);
 
-        if (currentSupport < _quorum) {
+        if (currentSupport < currentQuorum) {
             revert QuorumIsNotReached();
         }
 
-        state.scheduledAt = Timestamps.now;
-        // Cap the support and quorum values to uint32 max for storing historical values efficiently
-        state.supportWhenScheduled = currentSupport > type(uint32).max ? type(uint32).max : uint32(currentSupport);
-        state.quorumWhenScheduled = _quorum > type(uint32).max ? type(uint32).max : uint32(_quorum);
-        _hashStates[hash] = state;
-
+        state.scheduledAt = Timestamps.now();
+        state.supportWhenScheduled = currentSupport;
+        state.quorumWhenScheduled = currentQuorum;
         emit HashScheduled(hash);
     }
 
@@ -167,7 +166,7 @@ abstract contract HashConsensus is Ownable {
     /// @param hash The hash to vote on
     /// @param support Indicates whether the member supports the hash
     function _vote(bytes32 hash, bool support) internal {
-        HashState memory state = _hashStates[hash];
+        HashState storage state = _hashStates[hash];
         if (state.scheduledAt.isNotZero()) {
             revert HashAlreadyScheduled(hash);
         }
@@ -176,15 +175,14 @@ abstract contract HashConsensus is Ownable {
         emit Voted(msg.sender, hash, support);
 
         uint256 currentSupport = _getSupport(hash);
+        uint256 currentQuorum = _quorum;
 
-        if (currentSupport >= _quorum) {
+        if (currentSupport >= currentQuorum) {
             state.scheduledAt = Timestamps.now();
-            // Cap the support and quorum values to uint32 max for storing historical values efficiently
-            state.supportWhenScheduled = currentSupport > type(uint32).max ? type(uint32).max : uint32(currentSupport);
-            state.quorumWhenScheduled = _quorum > type(uint32).max ? type(uint32).max : uint32(_quorum);
+            state.supportWhenScheduled = currentSupport;
+            state.quorumWhenScheduled = currentQuorum;
             emit HashScheduled(hash);
         }
-        _hashStates[hash] = state;
     }
 
     /// @notice Marks a hash as used if quorum is reached and timelock has passed
@@ -220,7 +218,7 @@ abstract contract HashConsensus is Ownable {
         view
         returns (uint256 support, uint256 executionQuorum, Timestamp scheduledAt, bool isUsed)
     {
-        HashState memory hashState = _hashStates[hash];
+        HashState storage hashState = _hashStates[hash];
         scheduledAt = hashState.scheduledAt;
         isUsed = hashState.usedAt.isNotZero();
         if (scheduledAt.isZero()) {
