@@ -293,6 +293,8 @@ contract DualGovernance is IDualGovernance {
         _stateMachine.setConfigProvider(newConfigProvider);
     }
 
+    /// @notice Sets the address of the proposals canceller authorized to cancel pending proposals.
+    /// @param newProposalsCanceller The address of the new proposals canceller.
     function setProposalsCanceller(address newProposalsCanceller) external {
         _checkCallerIsAdminExecutor();
 
@@ -304,6 +306,8 @@ contract DualGovernance is IDualGovernance {
         emit ProposalsCancellerSet(newProposalsCanceller);
     }
 
+    /// @notice Retrieves the current proposals canceller address.
+    /// @return address The address of the current proposals canceller.
     function getProposalsCanceller() external view returns (address) {
         return _proposalsCanceller;
     }
