@@ -10,18 +10,18 @@ library Proposers {
     // Errors
     // ---
     error InvalidExecutor(address executor);
-    error ExecutorNotRegistered(address account);
-    error InvalidProposerAccount(address account);
-    error ProposerNotRegistered(address proposer);
-    error ProposerAlreadyRegistered(address proposer);
+    error ExecutorNotRegistered(address executor);
+    error InvalidProposerAccount(address proposerAccount);
+    error ProposerNotRegistered(address proposerAccount);
+    error ProposerAlreadyRegistered(address proposerAccount);
 
     // ---
     // Events
     // ---
 
-    event ProposerRegistered(address indexed proposer, address indexed executor);
-    event ProposerExecutorSet(address indexed proposer, address indexed executor);
-    event ProposerUnregistered(address indexed proposer, address indexed executor);
+    event ProposerRegistered(address indexed proposerAccount, address indexed executor);
+    event ProposerExecutorSet(address indexed proposerAccount, address indexed executor);
+    event ProposerUnregistered(address indexed proposerAccount, address indexed executor);
 
     // ---
     // Data Types
@@ -160,32 +160,32 @@ library Proposers {
         }
     }
 
-    /// @notice Checks if an account is a registered proposer.
+    /// @notice Checks if an `proposerAccount` is a registered proposer.
     /// @param self The context of the Proposers library.
-    /// @param account The address to check.
-    /// @return bool `true` if the account is a registered proposer, otherwise `false`.
-    function isProposer(Context storage self, address account) internal view returns (bool) {
-        return _isRegisteredProposer(self.executors[account]);
+    /// @param proposerAccount The address to check.
+    /// @return bool `true` if the `proposerAccount` is a registered proposer, otherwise `false`.
+    function isRegisteredProposer(Context storage self, address proposerAccount) internal view returns (bool) {
+        return _isRegisteredProposer(self.executors[proposerAccount]);
     }
 
-    /// @notice Checks if an account is an executor associated with any proposer.
+    /// @notice Checks if an `executor` address is an executor associated with any proposer.
     /// @param self The context of the Proposers library.
-    /// @param account The address to check.
-    /// @return bool `true` if the account is an executor, otherwise `false`.
-    function isExecutor(Context storage self, address account) internal view returns (bool) {
-        return self.executorRefsCounts[account] > 0;
+    /// @param executor The address to check.
+    /// @return bool `true` if the `executor` address is an registered executor, otherwise `false`.
+    function isRegisteredExecutor(Context storage self, address executor) internal view returns (bool) {
+        return self.executorRefsCounts[executor] > 0;
     }
 
     // ---
     // Checks
     // ---
 
-    /// @notice Checks that a given account is a registered executor.
+    /// @notice Checks that a given `executor` address is a registered executor.
     /// @param self The storage context of the Proposers library.
-    /// @param account The address to verify as a registered executor.
-    function checkRegisteredExecutor(Context storage self, address account) internal view {
-        if (!isExecutor(self, account)) {
-            revert ExecutorNotRegistered(account);
+    /// @param executor The address to verify as a registered executor.
+    function checkRegisteredExecutor(Context storage self, address executor) internal view {
+        if (!isRegisteredExecutor(self, executor)) {
+            revert ExecutorNotRegistered(executor);
         }
     }
 

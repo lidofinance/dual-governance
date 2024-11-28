@@ -41,10 +41,10 @@ interface IDualGovernance is IGovernance, ITiebreaker {
 
     function registerProposer(address proposer, address executor) external;
     function unregisterProposer(address proposer) external;
-    function isProposer(address account) external view returns (bool);
+    function isRegisteredProposer(address account) external view returns (bool);
     function getProposer(address account) external view returns (Proposers.Proposer memory proposer);
     function getProposers() external view returns (Proposers.Proposer[] memory proposers);
-    function isExecutor(address account) external view returns (bool);
+    function isRegisteredExecutor(address account) external view returns (bool);
 
     function resealSealable(address sealable) external;
     function setResealCommittee(address resealCommittee) external;

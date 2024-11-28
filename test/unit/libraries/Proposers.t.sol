@@ -113,35 +113,35 @@ contract ProposersLibraryUnitTests is UnitTest {
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
 
         assertEq(_proposers.proposers.length, 1);
-        assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
-        assertTrue(_proposers.isExecutor(_ADMIN_EXECUTOR));
+        assertTrue(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
+        assertTrue(_proposers.isRegisteredExecutor(_ADMIN_EXECUTOR));
 
         _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR);
         assertEq(_proposers.proposers.length, 2);
-        assertTrue(_proposers.isProposer(_DEFAULT_PROPOSER));
-        assertTrue(_proposers.isExecutor(_DEFAULT_EXECUTOR));
+        assertTrue(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
+        assertTrue(_proposers.isRegisteredExecutor(_DEFAULT_EXECUTOR));
 
         _proposers.unregister(_DEFAULT_PROPOSER);
         assertEq(_proposers.proposers.length, 1);
-        assertFalse(_proposers.isProposer(_DEFAULT_PROPOSER));
-        assertFalse(_proposers.isExecutor(_DEFAULT_EXECUTOR));
+        assertFalse(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
+        assertFalse(_proposers.isRegisteredExecutor(_DEFAULT_EXECUTOR));
 
         _proposers.unregister(_ADMIN_PROPOSER);
         assertEq(_proposers.proposers.length, 0);
-        assertFalse(_proposers.isProposer(_ADMIN_PROPOSER));
-        assertFalse(_proposers.isExecutor(_ADMIN_EXECUTOR));
+        assertFalse(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
+        assertFalse(_proposers.isRegisteredExecutor(_ADMIN_EXECUTOR));
     }
 
     function test_unregister_RevertOn_ProposerIsNotRegistered() external {
-        assertFalse(_proposers.isProposer(_DEFAULT_PROPOSER));
+        assertFalse(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
         _proposers.unregister(_DEFAULT_PROPOSER);
 
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
 
-        assertFalse(_proposers.isProposer(_DEFAULT_PROPOSER));
-        assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
+        assertFalse(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
+        assertTrue(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
         _proposers.unregister(_DEFAULT_PROPOSER);
@@ -149,7 +149,7 @@ contract ProposersLibraryUnitTests is UnitTest {
 
     function test_uregister_Emit_ProposerUnregistered() external {
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
-        assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
+        assertTrue(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
 
         vm.expectEmit(true, true, true, false);
         emit Proposers.ProposerUnregistered(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
@@ -163,14 +163,14 @@ contract ProposersLibraryUnitTests is UnitTest {
 
     function test_getProposer_HappyPath() external {
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
-        assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
+        assertTrue(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
 
         Proposers.Proposer memory adminProposer = _proposers.getProposer(_ADMIN_PROPOSER);
         assertEq(adminProposer.account, _ADMIN_PROPOSER);
         assertEq(adminProposer.executor, _ADMIN_EXECUTOR);
 
         _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR);
-        assertTrue(_proposers.isProposer(_DEFAULT_PROPOSER));
+        assertTrue(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
 
         Proposers.Proposer memory defaultProposer = _proposers.getProposer(_DEFAULT_PROPOSER);
         assertEq(defaultProposer.account, _DEFAULT_PROPOSER);
@@ -178,14 +178,14 @@ contract ProposersLibraryUnitTests is UnitTest {
     }
 
     function test_getProposer_RevertOn_RetrievingUnregisteredProposer() external {
-        assertFalse(_proposers.isProposer(_DEFAULT_PROPOSER));
+        assertFalse(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
         _proposers.getProposer(_DEFAULT_PROPOSER);
 
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
-        assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
-        assertFalse(_proposers.isProposer(_DEFAULT_PROPOSER));
+        assertTrue(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
+        assertFalse(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
         _proposers.getProposer(_DEFAULT_PROPOSER);
@@ -200,7 +200,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         assertEq(emptyProposers.length, 0);
 
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
-        assertTrue(_proposers.isProposer(_ADMIN_PROPOSER));
+        assertTrue(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
 
         Proposers.Proposer[] memory allProposers = _proposers.getAllProposers();
         assertEq(allProposers.length, 1);
@@ -209,7 +209,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         assertEq(allProposers[0].executor, _ADMIN_EXECUTOR);
 
         _proposers.register(_DEFAULT_PROPOSER, _DEFAULT_EXECUTOR);
-        assertTrue(_proposers.isProposer(_DEFAULT_PROPOSER));
+        assertTrue(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
 
         allProposers = _proposers.getAllProposers();
         assertEq(allProposers.length, 2);

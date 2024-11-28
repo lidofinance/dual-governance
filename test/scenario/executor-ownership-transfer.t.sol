@@ -117,7 +117,12 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
                     ExternalCall({
                         value: 0,
                         target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setupDelays, (Durations.from(5 days), Durations.ZERO))
+                        payload: abi.encodeCall(_timelock.setAfterSubmitDelay, (Durations.from(5 days)))
+                    }),
+                    ExternalCall({
+                        value: 0,
+                        target: address(_timelock),
+                        payload: abi.encodeCall(_timelock.setAfterScheduleDelay, (Durations.ZERO))
                     })
                 ]
             );

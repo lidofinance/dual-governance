@@ -397,21 +397,13 @@ contract DualGovernance is IDualGovernance {
         _proposers.checkRegisteredExecutor(msg.sender);
     }
 
-    /// @notice Checks whether the given `account` is a registered proposer.
-    /// @param account The address to check.
-    /// @return isProposer A boolean value indicating whether the `account` is a registered
-    ///     proposer (`true`) or not (`false`).
-    function isProposer(address account) external view returns (bool) {
-        return _proposers.isProposer(account);
-    }
-
-    /// @notice Returns the proposer data if the given `account` is a registered proposer.
-    /// @param account The address of the proposer to retrieve information for.
+    /// @notice Returns the proposer data if the given `proposerAccount` is a registered proposer.
+    /// @param proposerAccount The address of the proposer to retrieve information for.
     /// @return proposer A Proposer struct containing the data of the registered proposer, including:
     ///     - `account`: The address of the registered proposer.
     ///     - `executor`: The address of the executor associated with the proposer.
-    function getProposer(address account) external view returns (Proposers.Proposer memory proposer) {
-        proposer = _proposers.getProposer(account);
+    function getProposer(address proposerAccount) external view returns (Proposers.Proposer memory proposer) {
+        proposer = _proposers.getProposer(proposerAccount);
     }
 
     /// @notice Returns the information about all registered proposers.
@@ -420,12 +412,20 @@ contract DualGovernance is IDualGovernance {
         proposers = _proposers.getAllProposers();
     }
 
-    /// @notice Checks whether the given `account` is associated with an executor contract in the system.
-    /// @param account The address to check.
-    /// @return isExecutor A boolean value indicating whether the `account` is a registered
+    /// @notice Checks whether the given `proposerAccount` is a registered proposer.
+    /// @param proposerAccount The address to check.
+    /// @return isProposer A boolean value indicating whether the `proposerAccount` is a registered
+    ///     proposer (`true`) or not (`false`).
+    function isRegisteredProposer(address proposerAccount) external view returns (bool) {
+        return _proposers.isRegisteredProposer(proposerAccount);
+    }
+
+    /// @notice Checks whether the given `executor` address is associated with an executor contract in the system.
+    /// @param executor The address to check.
+    /// @return isExecutor A boolean value indicating whether the `executor` is a registered
     ///     executor (`true`) or not (`false`).
-    function isExecutor(address account) external view returns (bool) {
-        return _proposers.isExecutor(account);
+    function isRegisteredExecutor(address executor) external view returns (bool) {
+        return _proposers.isRegisteredExecutor(executor);
     }
 
     // ---

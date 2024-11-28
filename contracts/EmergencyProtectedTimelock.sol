@@ -171,7 +171,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @param executor The address of the executor contract.
     /// @param owner The address of the new owner.
     function transferExecutorOwnership(address executor, address owner) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         IOwnable(executor).transferOwnership(owner);
     }
 
