@@ -358,9 +358,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_setAfterSubmitDelay_RevertOn_CalledNotByAdminExecutor() external {
         Duration newAfterSubmitDelay = _defaultSanityCheckParams.maxAfterSubmitDelay + Durations.from(1 seconds);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this))
-        );
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this)));
         _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
     }
 
@@ -430,9 +428,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_setAfterScheduleDelay_RevertOn_CalledNotByAdminExecutor() external {
         Duration newAfterScheduleDelay = _defaultSanityCheckParams.maxAfterScheduleDelay + Durations.from(1 seconds);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this))
-        );
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this)));
         _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
     }
 

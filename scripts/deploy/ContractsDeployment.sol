@@ -96,7 +96,7 @@ library DGContractsDeployment {
         DeployConfig memory dgDeployConfig,
         address deployer
     ) internal returns (DeployedContracts memory contracts) {
-        Executor adminExecutor = deployExecutor(deployer);
+        Executor adminExecutor = deployExecutor({owner: deployer});
         EmergencyProtectedTimelock timelock = deployEmergencyProtectedTimelock(address(adminExecutor), dgDeployConfig);
 
         contracts.adminExecutor = adminExecutor;
