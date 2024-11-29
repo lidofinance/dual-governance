@@ -11,9 +11,11 @@ library TimelockState {
     // ---
 
     error CallerIsNotGovernance(address caller);
-    error InvalidGovernance(address value);
-    error InvalidAfterSubmitDelay(Duration value);
-    error InvalidAfterScheduleDelay(Duration value);
+    error InvalidGovernance(address governance);
+    error InvalidAdminExecutor(address adminExecutor);
+    error InvalidExecutionDelay(Duration executionDelay);
+    error InvalidAfterSubmitDelay(Duration afterSubmitDelay);
+    error InvalidAfterScheduleDelay(Duration afterScheduleDelay);
 
     // ---
     // Events
@@ -22,6 +24,7 @@ library TimelockState {
     event GovernanceSet(address newGovernance);
     event AfterSubmitDelaySet(Duration newAfterSubmitDelay);
     event AfterScheduleDelaySet(Duration newAfterScheduleDelay);
+    event AdminExecutorSet(address newAdminExecutor);
 
     // ---
     // Data Types
@@ -34,6 +37,8 @@ library TimelockState {
         Duration afterSubmitDelay;
         /// @dev slot0 [192..224]
         Duration afterScheduleDelay;
+        /// @dev slot1 [0..159]
+        address adminExecutor;
     }
 
     // ---
@@ -84,6 +89,18 @@ library TimelockState {
         self.afterScheduleDelay = newAfterScheduleDelay;
         emit AfterScheduleDelaySet(newAfterScheduleDelay);
     }
+    /// @notice Sets the admin executor address.
+    /// @dev Reverts if the new admin executor address is zero or the same as the current one.
+    /// @param self The context of the timelock state.
+    /// @param newAdminExecutor The new admin executor address.
+
+    function setAdminExecutor(Context storage self, address newAdminExecutor) internal {
+        if (newAdminExecutor == address(0) || newAdminExecutor == self.adminExecutor) {
+            revert InvalidAdminExecutor(newAdminExecutor);
+        }
+        self.adminExecutor = newAdminExecutor;
+        emit AdminExecutorSet(newAdminExecutor);
+    }
 
     /// @notice Retrieves the delay period required after a proposal is submitted before it can be scheduled.
     /// @param self The context of the Timelock State library.
@@ -104,6 +121,16 @@ library TimelockState {
     function checkCallerIsGovernance(Context storage self) internal view {
         if (self.governance != msg.sender) {
             revert CallerIsNotGovernance(msg.sender);
+        }
+    }
+
+    /// @notice Checks that the combined after-submit and after-schedule delays meet the minimum required execution delay.
+    /// @param self The context of the Timelock State library library.
+    /// @param minExecutionDelay The minimum required delay between proposal submission and execution.
+    function checkExecutionDelay(Context storage self, Duration minExecutionDelay) internal view {
+        Duration executionDelay = self.afterScheduleDelay + self.afterSubmitDelay;
+        if (executionDelay < minExecutionDelay) {
+            revert InvalidExecutionDelay(executionDelay);
         }
     }
 }

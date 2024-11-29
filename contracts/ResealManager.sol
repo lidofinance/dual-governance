@@ -49,7 +49,7 @@ contract ResealManager is IResealManager {
         _checkCallerIsGovernance();
 
         uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
-        if (sealableResumeSinceTimestamp < block.timestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {
+        if (block.timestamp >= sealableResumeSinceTimestamp || sealableResumeSinceTimestamp == PAUSE_INFINITELY) {
             revert SealableWrongPauseState();
         }
         Address.functionCall(sealable, abi.encodeWithSelector(ISealable.resume.selector));
@@ -66,7 +66,7 @@ contract ResealManager is IResealManager {
         _checkCallerIsGovernance();
 
         uint256 sealableResumeSinceTimestamp = ISealable(sealable).getResumeSinceTimestamp();
-        if (sealableResumeSinceTimestamp < block.timestamp) {
+        if (block.timestamp >= sealableResumeSinceTimestamp) {
             revert SealableWrongPauseState();
         }
         Address.functionCall(sealable, abi.encodeWithSelector(ISealable.resume.selector));

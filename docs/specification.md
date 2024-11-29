@@ -34,11 +34,8 @@ This document provides the system description on the code architecture level. A 
 * Committees:
   * [Contract: ProposalsList.sol](#contract-proposalslistsol)
   * [Contract: HashConsensus.sol](#contract-hashconsensussol)
-  * [Contract: ResealCommittee.sol](#contract-resealcommitteesol)
   * [Contract: TiebreakerCoreCommittee.sol](#contract-tiebreakercorecommitteesol)
   * [Contract: TiebreakerSubCommittee.sol](#contract-tiebreakersubcommitteesol)
-  * [Contract: EmergencyActivationCommittee.sol](#contract-emergencyactivationcommitteesol)
-  * [Contract: EmergencyExecutionCommittee.sol](#contract-emergencyexecutioncommitteesol)
 * [Upgrade flow description](#upgrade-flow-description)
 
 
@@ -58,11 +55,8 @@ The system is composed of the following main contracts:
 
 Additionally, the system uses several committee contracts that allow members to  execute, acquiring quorum, a narrow set of actions while protecting management of the committees by the Dual Governance mechanism:
 
-* [`ResealCommittee.sol`](#contract-resealcommitteesol) is a committee contract that allows members to obtain a quorum and reseal contracts temporarily paused by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals).
 * [`TiebreakerCoreCommittee.sol`](#contract-tiebreakercorecommitteesol) is a committee contract designed to approve proposals for execution in extreme situations where the Dual Governance system is deadlocked. This includes scenarios such as the inability to finalize user withdrawal requests during ongoing `RageQuit` or when the system is held in a locked state for an extended period. The `TiebreakerCoreCommittee` consists of multiple `TiebreakerSubCommittee` contracts appointed by the DAO.
 * [`TiebreakerSubCommittee.sol`](#contract-tiebreakersubcommitteesol) is a committee contracts that provides ability to participate in `TiebreakerCoreCommittee` for external actors.
-* [`EmergencyActivationCommittee`](#contract-emergencyactivationcommitteesol) is a committee contract responsible for activating Emergency Mode by acquiring quorum. Only the EmergencyExecutionCommittee can execute proposals. This committee is expected to be active for a limited period following the initial deployment or update of the DualGovernance system.
-* [`EmergencyExecutionCommittee`](#contract-emergencyexecutioncommitteesol) is  a committee contract that enables quorum-based execution of proposals during Emergency Mode or disabling the DualGovernance mechanism by assigning the EmergencyProtectedTimelock to Aragon Voting. Like the EmergencyActivationCommittee, this committee is also intended for short-term use after the system’s deployment or update.
 
 
 ## Proposal flow
@@ -749,29 +743,6 @@ The method calls the `DualGovernance.activateNextState()` function at the beginn
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
 
-### Function Escrow.requestWithdrawals
-
-```solidity
-function requestWithdrawals(uint256[] calldata stETHAmounts) returns (uint256[] memory unstETHIds)
-```
-
-Allows users who have locked their stETH and wstETH to convert it into unstETH NFTs by requesting withdrawals on the Lido's `WithdrawalQueue` contract.
-
-Internally, this function marks the total amount specified in `stETHAmounts` as unlocked from the `Escrow` and accounts for it in the form of a list of unstETH NFTs, with amounts corresponding to `stETHAmounts`.
-
-The method calls the `DualGovernance.activateNextState()` function at the beginning of the execution.
-
-> [!IMPORTANT]
-> To mitigate possible failures when calling the `Escrow.requestWithdrawals()` method, it SHOULD be used in conjunction with the `DualGovernance.getPersistedState()`, `DualGovernance.getEffectiveState()`, or `DualGovernance.getStateDetails()` methods. These methods help identify scenarios where `persistedState != RageQuit` but `effectiveState == RageQuit`. When this state is detected, further token manipulation within the `SignallingEscrow` is no longer possible and will result in a revert. In such cases, `DualGovernance.activateNextState()` MUST be called to initiate the pending `RageQuit`.
-
-#### Preconditions
-- The total amount specified in `stETHAmounts` MUST NOT exceed the user's currently locked stETH and wstETH.
-- The `stETHAmounts` values MUST be in range [`WithdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()`, `WithdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT()`].
-
-#### Returns
-
-An array of ids for the generated unstETH NFTs.
-
 ### Function Escrow.getRageQuitSupport()
 
 ```solidity
@@ -950,7 +921,7 @@ The governance reset entails the following steps:
 ### Function: EmergencyProtectedTimelock.submit
 
 ```solidity
-function submit(address executor, ExecutorCall[] calls, string calldata metadata)
+function submit(address proposer, address executor, ExecutorCall[] calls, string calldata metadata)
   returns (uint256 proposalId)
 ```
 
@@ -1059,7 +1030,7 @@ Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in t
 
 ### Admin functions
 
-The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtectionActivationCommittee`, `setEmergencyProtectionExecutionCommittee`, `setEmergencyProtectionEndDate`, `setEmergencyModeDuration`, `setEmergencyGovernance`) and general system wiring (`transferExecutorOwnership`, `setGovernance`, `setupDelays`). These functions MUST be called by the [Admin Executor](#Administrative-actions) address, basically routing any such changes through the Dual Governance mechanics.
+The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtectionActivationCommittee`, `setEmergencyProtectionExecutionCommittee`, `setEmergencyProtectionEndDate`, `setEmergencyModeDuration`, `setEmergencyGovernance`) and general system wiring (`transferExecutorOwnership`, `setGovernance`, `setAfterSubmitDelay`, `setAfterScheduleDelay`). These functions MUST be called by the [Admin Executor](#Administrative-actions) address, basically routing any such changes through the Dual Governance mechanics.
 
 ## Contract: ImmutableDualGovernanceConfigProvider.sol
 
@@ -1190,42 +1161,6 @@ Sets the quorum required for decision execution.
 
 * Only the owner can call this function.
 * `newQuorum` MUST be greater than 0, less than or equal to the number of members, and not equal to the current `quorum` value.
-
-## Contract: ResealCommittee.sol
-
-`ResealCommittee` is a smart contract that extends the `HashConsensus` and `PropsoalsList` contracts and allows members to obtain a quorum and reseal contracts temporarily paused by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals). It interacts with a DualGovernance contract to execute decisions once consensus is reached.
-
-### Function: ResealCommittee.voteReseal
-
-```solidity
-function voteReseal(address sealable, bool support)
-```
-
-Reseals sealable by voting on it and adding it to the proposal list.
-
-#### Preconditions
-* MUST be called by a member.
-
-### Function: ResealCommittee.getResealState
-
-```solidity
-function getResealState(address sealable)
-    view
-    returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt)
-```
-
-Returns the state of the sealable resume proposal including support count, quorum, and execution status.
-
-### Function: ResealCommittee.executeReseal
-
-```solidity
-function executeReseal(address sealable)
-```
-
-Executes a reseal of the sealable contract by calling the `resealSealable` method on the `DualGovernance` contract
-
-#### Preconditions
-* Proposal MUST be scheduled for execution and passed the timelock duration.
 
 
 ## Contract: TiebreakerCoreCommittee.sol
@@ -1381,116 +1316,6 @@ Executes a sealable resume request by calling the sealableResume function on the
 
 * Resume request MUST have reached quorum and passed the timelock duration.
 
-## Contract: EmergencyActivationCommittee.sol
-
-`EmergencyActivationCommittee` is a smart contract that extends the functionalities of `HashConsensus` to manage the emergency activation process. It allows committee members to vote on and execute the activation of emergency protocols in the `HashConsensus` contract.
-
-### Function: EmergencyActivationCommittee.approveActivateEmergencyMode
-
-```solidity
-function approveActivateEmergencyMode()
-```
-
-Approves the emergency activation by voting on the `EMERGENCY_ACTIVATION_HASH`.
-
-#### Preconditions
-
-* MUST be called by a member.
-
-### Function: EmergencyActivationCommittee.getActivateEmergencyModeState
-
-```solidity
-function getActivateEmergencyModeState()
-    view
-    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
-```
-
-Returns the state of the emergency activation proposal including support count, quorum, and execution status.
-
-### Function: EmergencyActivationCommittee.executeActivateEmergencyMode
-
-```solidity
-function executeActivateEmergencyMode() external
-```
-
-Executes the emergency activation by calling the `activateEmergencyMode` function on the `EmergencyProtectedTimelock` contract.
-
-#### Preconditions
-
-* Emergency activation proposal MUST have reached quorum and passed the timelock duration.
-
-
-## Contract: EmergencyExecutionCommittee.sol
-
-`EmergencyExecutionCommittee` is a smart contract that extends the functionalities of `HashConsensus` and `ProposalsList` to manage emergency execution and governance reset proposals through a consensus mechanism. It interacts with the `EmergencyProtectedTimelock` contract to execute critical emergency proposals.
-
-### Function: EmergencyExecutionCommittee.voteEmergencyExecute
-
-```solidity
-function voteEmergencyExecute(uint256 proposalId, bool _support)
-```
-
-Allows committee members to vote on an emergency execution proposal.
-
-#### Preconditions
-
-* MUST be called by a member.
-
-### Function: EmergencyExecutionCommittee.getEmergencyExecuteState
-
-```solidity
-function getEmergencyExecuteState(uint256 proposalId)
-    view
-    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
-```
-
-Returns the state of an emergency execution proposal including support count, quorum, and execution status.
-
-### Function: EmergencyExecutionCommittee.executeEmergencyExecute
-
-```solidity
-function executeEmergencyExecute(uint256 proposalId)
-```
-
-Executes an emergency execution proposal by calling the `emergencyExecute` function on the `EmergencyProtectedTimelock` contract.
-
-#### Preconditions
-* Emergency execution proposal MUST have reached quorum and passed the timelock duration.
-
-
-### Function: EmergencyExecutionCommittee.approveEmergencyReset
-
-```solidity
-function approveEmergencyReset()
-```
-
-Approves the governance reset by voting on the reset proposal.
-
-#### Preconditions
-
-* MUST be called by a member.
-
-### Function: EmergencyExecutionCommittee.getEmergencyResetState
-
-```solidity
-function getEmergencyResetState()
-    view
-    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
-```
-
-Returns the state of the governance reset proposal including support count, quorum, and execution status.
-
-### Function: EmergencyExecutionCommittee.executeEmergencyReset
-
-```solidity
-function executeEmergencyReset() external
-```
-
-Executes the governance reset by calling the `emergencyReset` function on the `EmergencyProtectedTimelock` contract.
-
-#### Preconditions
-
-* Governance reset proposal MUST have reached quorum and passed the timelock duration.
 
 ## Upgrade flow description
 

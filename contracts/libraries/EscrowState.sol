@@ -137,11 +137,13 @@ library EscrowState {
     /// @notice Checks if the withdrawals delay has passed.
     /// @param self The context of the Escrow State library.
     function checkEthWithdrawalsDelayPassed(Context storage self) internal view {
-        if (self.rageQuitExtensionPeriodStartedAt.isZero()) {
+        Timestamp rageQuitExtensionPeriodStartedAt = self.rageQuitExtensionPeriodStartedAt;
+
+        if (rageQuitExtensionPeriodStartedAt.isZero()) {
             revert RageQuitExtensionPeriodNotStarted();
         }
         Duration ethWithdrawalsDelay = self.rageQuitExtensionPeriodDuration + self.rageQuitEthWithdrawalsDelay;
-        if (Timestamps.now() <= ethWithdrawalsDelay.addTo(self.rageQuitExtensionPeriodStartedAt)) {
+        if (Timestamps.now() <= ethWithdrawalsDelay.addTo(rageQuitExtensionPeriodStartedAt)) {
             revert EthWithdrawalsDelayNotPassed();
         }
     }

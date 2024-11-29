@@ -147,20 +147,22 @@ library DualGovernanceStateMachine {
             return;
         }
 
+        Timestamp newStateEnteredAt = Timestamps.now();
+
         self.state = newState;
-        self.enteredAt = Timestamps.now();
+        self.enteredAt = newStateEnteredAt;
 
         if (currentState == State.Normal || currentState == State.VetoCooldown) {
-            self.normalOrVetoCooldownExitedAt = Timestamps.now();
+            self.normalOrVetoCooldownExitedAt = newStateEnteredAt;
         }
 
-        if (newState == State.Normal && self.rageQuitRound != 0) {
+        if (newState == State.VetoCooldown && self.rageQuitRound != 0) {
             self.rageQuitRound = 0;
         } else if (newState == State.VetoSignalling) {
             if (currentState == State.VetoSignallingDeactivation) {
-                self.vetoSignallingReactivationTime = Timestamps.now();
+                self.vetoSignallingReactivationTime = newStateEnteredAt;
             } else {
-                self.vetoSignallingActivatedAt = Timestamps.now();
+                self.vetoSignallingActivatedAt = newStateEnteredAt;
             }
         } else if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
@@ -188,11 +190,14 @@ library DualGovernanceStateMachine {
     function setConfigProvider(Context storage self, IDualGovernanceConfigProvider newConfigProvider) internal {
         _setConfigProvider(self, newConfigProvider);
 
+        IEscrow signallingEscrow = self.signallingEscrow;
+        Duration newMinAssetsLockDuration = newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration;
+
         /// @dev minAssetsLockDuration is stored as a storage variable in the Signalling Escrow instance.
         ///      To synchronize the new value with the current Signalling Escrow, it must be manually updated.
-        self.signallingEscrow.setMinAssetsLockDuration(
-            newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration
-        );
+        if (signallingEscrow.getMinAssetsLockDuration() != newMinAssetsLockDuration) {
+            signallingEscrow.setMinAssetsLockDuration(newMinAssetsLockDuration);
+        }
     }
 
     // ---

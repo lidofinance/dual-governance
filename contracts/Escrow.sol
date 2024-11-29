@@ -12,36 +12,12 @@ import {PercentD16, PercentsD16} from "./types/PercentD16.sol";
 import {IEscrow} from "./interfaces/IEscrow.sol";
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
-import {IWithdrawalQueue, WithdrawalRequestStatus} from "./interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 
 import {EscrowState} from "./libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalsBatchesQueue.sol";
 import {HolderAssets, StETHAccounting, UnstETHAccounting, AssetsAccounting} from "./libraries/AssetsAccounting.sol";
-
-/// @notice Summary of the total locked assets in the Escrow.
-/// @param stETHLockedShares The total number of stETH shares currently locked in the Escrow.
-/// @param stETHClaimedETH The total amount of ETH claimed from the stETH shares locked in the Escrow.
-/// @param unstETHUnfinalizedShares The total number of shares from unstETH NFTs that have not yet been marked as finalized.
-/// @param unstETHFinalizedETH The total amount of ETH claimable from unstETH NFTs that have been marked as finalized.
-struct LockedAssetsTotals {
-    uint256 stETHLockedShares;
-    uint256 stETHClaimedETH;
-    uint256 unstETHUnfinalizedShares;
-    uint256 unstETHFinalizedETH;
-}
-
-/// @notice Summary of the assets locked in the Escrow by a specific vetoer.
-/// @param stETHLockedShares The total number of stETH shares currently locked in the Escrow by the vetoer.
-/// @param unstETHLockedShares The total number of unstETH shares currently locked in the Escrow by the vetoer.
-/// @param unstETHIdsCount The total number of unstETH NFTs locked in the Escrow by the vetoer.
-/// @param lastAssetsLockTimestamp The timestamp of the last time the vetoer locked stETH, wstETH, or unstETH in the Escrow.
-struct VetoerState {
-    uint256 stETHLockedShares;
-    uint256 unstETHLockedShares;
-    uint256 unstETHIdsCount;
-    uint256 lastAssetsLockTimestamp;
-}
 
 /// @notice This contract is used to accumulate stETH, wstETH, unstETH, and withdrawn ETH from vetoers during the
 ///     veto signalling and rage quit processes.
@@ -237,7 +213,7 @@ contract Escrow is IEscrow {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 
-        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
         _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
         uint256 unstETHIdsCount = unstETHIds.length;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
@@ -251,6 +227,9 @@ contract Escrow is IEscrow {
     ///     that were previously locked by the vetoer.
     /// @param unstETHIds An array of ids representing the unstETH NFTs to be unlocked.
     function unlockUnstETH(uint256[] memory unstETHIds) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
         _accounting.checkMinAssetsLockDurationPassed(msg.sender, _escrowState.minAssetsLockDuration);
@@ -281,33 +260,6 @@ contract Escrow is IEscrow {
         uint256[] memory claimableAmounts = WITHDRAWAL_QUEUE.getClaimableEther(unstETHIds, hints);
         _accounting.accountUnstETHFinalized(unstETHIds, claimableAmounts);
         DUAL_GOVERNANCE.activateNextState();
-    }
-
-    // ---
-    // Convert To NFT
-    // ---
-
-    /// @notice Allows vetoers to convert their locked stETH or wstETH tokens into unstETH NFTs on behalf of the
-    ///     Veto Signalling Escrow contract.
-    /// @param stETHAmounts An array representing the amounts of stETH to be converted into unstETH NFTs.
-    /// @return unstETHIds An array of ids representing the newly created unstETH NFTs corresponding to
-    ///     the converted stETH amounts.
-    function requestWithdrawals(uint256[] calldata stETHAmounts) external returns (uint256[] memory unstETHIds) {
-        DUAL_GOVERNANCE.activateNextState();
-        _escrowState.checkSignallingEscrow();
-
-        unstETHIds = WITHDRAWAL_QUEUE.requestWithdrawals(stETHAmounts, address(this));
-        WithdrawalRequestStatus[] memory statuses = WITHDRAWAL_QUEUE.getWithdrawalStatus(unstETHIds);
-
-        uint256 sharesTotal = 0;
-        for (uint256 i = 0; i < statuses.length; ++i) {
-            sharesTotal += statuses[i].amountOfShares;
-        }
-        _accounting.accountStETHSharesUnlock(msg.sender, SharesValues.from(sharesTotal));
-        _accounting.accountUnstETHLock(msg.sender, unstETHIds, statuses);
-
-        /// @dev Skip calling activateNextState here to save gas, as converting stETH to unstETH NFTs
-        ///     does not affect the RageQuit support.
     }
 
     // ---
@@ -469,6 +421,12 @@ contract Escrow is IEscrow {
     // Escrow Management
     // ---
 
+    /// @notice Returns the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
+    ///    by a vetoer before they are permitted to unlock their assets from the Escrow.
+    function getMinAssetsLockDuration() external view returns (Duration) {
+        return _escrowState.minAssetsLockDuration;
+    }
+
     /// @notice Sets the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
     ///     by a vetoer before they are permitted to unlock their assets from the Escrow.
     /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
@@ -540,23 +498,33 @@ contract Escrow is IEscrow {
         state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
     }
 
+    // @notice Retrieves the unstETH NFT ids of the specified vetoer.
+    /// @param vetoer The address of the vetoer whose unstETH NFTs are being queried.
+    /// @return unstETHIds An array of unstETH NFT ids locked by the vetoer.
+    function getVetoerUnstETHIds(address vetoer) external view returns (uint256[] memory unstETHIds) {
+        unstETHIds = _accounting.assets[vetoer].unstETHIds;
+    }
+
     /// @notice Returns the total count of unstETH NFTs that have not been claimed yet.
     /// @return unclaimedUnstETHIdsCount The total number of unclaimed unstETH NFTs.
     function getUnclaimedUnstETHIdsCount() external view returns (uint256) {
+        _escrowState.checkRageQuitEscrow();
         return _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
     }
 
     /// @notice Retrieves the unstETH NFT ids of the next batch available for claiming.
     /// @param limit The maximum number of unstETH NFTs to return in the batch.
-    /// @return unstETHIds An array of unstETH NFT IDs available for the next withdrawal batch.
+    /// @return unstETHIds An array of unstETH NFT ids available for the next withdrawal batch.
     function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds) {
-        return _batchesQueue.getNextWithdrawalsBatches(limit);
+        _escrowState.checkRageQuitEscrow();
+        unstETHIds = _batchesQueue.getNextWithdrawalsBatches(limit);
     }
 
-    /// @notice Returns whether all withdrawal batches have been finalized.
-    /// @return isWithdrawalsBatchesFinalized A boolean value indicating whether all withdrawal batches have been
-    ///     finalized (`true`) or not (`false`).
-    function isWithdrawalsBatchesFinalized() external view returns (bool) {
+    /// @notice Returns whether all withdrawal batches have been closed.
+    /// @return isWithdrawalsBatchesClosed A boolean value indicating whether all withdrawal batches have been
+    ///     closed (`true`) or not (`false`).
+    function isWithdrawalsBatchesClosed() external view returns (bool) {
+        _escrowState.checkRageQuitEscrow();
         return _batchesQueue.isClosed();
     }
 

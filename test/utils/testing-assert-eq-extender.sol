@@ -25,6 +25,10 @@ contract TestingAssertEqExtender is Test {
         assertEq(uint256(Duration.unwrap(a)), uint256(Duration.unwrap(b)));
     }
 
+    function assertEq(Duration a, Duration b, string memory message) internal {
+        assertEq(uint256(Duration.unwrap(a)), uint256(Duration.unwrap(b)), message);
+    }
+
     function assertEq(Timestamp a, Timestamp b) internal {
         assertEq(uint256(Timestamp.unwrap(a)), uint256(Timestamp.unwrap(b)));
     }
@@ -39,6 +43,10 @@ contract TestingAssertEqExtender is Test {
 
     function assertEq(DualGovernanceState a, DualGovernanceState b) internal {
         assertEq(uint256(a), uint256(b));
+    }
+
+    function assertEq(DualGovernanceState a, DualGovernanceState b, string memory message) internal {
+        assertEq(uint256(a), uint256(b), message);
     }
 
     function assertEq(Balances memory b1, Balances memory b2, uint256 sharesEpsilon) internal {

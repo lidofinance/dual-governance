@@ -21,7 +21,7 @@ contract ResealManagerUnitTests is UnitTest {
         resealManager = new ResealManager(ITimelock(timelock));
     }
 
-    function test_resealSuccess() public {
+    function test_reseal_HappyPath() public {
         uint256 futureTimestamp = block.timestamp + 1000;
         vm.mockCall(
             sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(futureTimestamp)
@@ -34,7 +34,7 @@ contract ResealManagerUnitTests is UnitTest {
         resealManager.reseal(sealable);
     }
 
-    function test_resealFailsForPastTimestamp() public {
+    function test_reseal_RevertOn_PastTimestamp() public {
         uint256 pastTimestamp = block.timestamp;
         vm.mockCall(
             sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(pastTimestamp)
@@ -47,7 +47,18 @@ contract ResealManagerUnitTests is UnitTest {
         resealManager.reseal(sealable);
     }
 
-    function test_resealFailsForInfinitePause() public {
+    function test_reseal_RevertOn_NowTimestamp() public {
+        uint256 nowTimestamp = block.timestamp;
+        vm.mockCall(
+            sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(nowTimestamp)
+        );
+
+        vm.prank(governance);
+        vm.expectRevert(ResealManager.SealableWrongPauseState.selector);
+        resealManager.reseal(sealable);
+    }
+
+    function test_reseal_RevertOn_InfinitePause() public {
         vm.mockCall(
             sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(type(uint256).max)
         );
@@ -57,7 +68,18 @@ contract ResealManagerUnitTests is UnitTest {
         resealManager.reseal(sealable);
     }
 
-    function test_resumeSuccess() public {
+    function test_reseal_RevertOn_WhenSenderIsNotGovernance() public {
+        uint256 futureTimestamp = block.timestamp + 1000;
+        vm.mockCall(
+            sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(futureTimestamp)
+        );
+
+        vm.prank(address(0x123));
+        vm.expectRevert(abi.encodeWithSelector(ResealManager.CallerIsNotGovernance.selector, address(0x123)));
+        resealManager.reseal(sealable);
+    }
+
+    function test_resume_HappyPath() public {
         uint256 futureTimestamp = block.timestamp + 1000;
         vm.mockCall(
             sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(futureTimestamp)
@@ -69,7 +91,7 @@ contract ResealManagerUnitTests is UnitTest {
         resealManager.resume(sealable);
     }
 
-    function test_resumeFailsForPastTimestamp() public {
+    function test_resume_RevertOn_PastTimestamp() public {
         uint256 pastTimestamp = block.timestamp;
         vm.mockCall(
             sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(pastTimestamp)
@@ -82,18 +104,18 @@ contract ResealManagerUnitTests is UnitTest {
         resealManager.resume(sealable);
     }
 
-    function test_revertWhenSenderIsNotGovernanceOnReseal() public {
-        uint256 futureTimestamp = block.timestamp + 1000;
+    function test_resume_RevertOn_NowTimestamp() public {
+        uint256 nowTimestamp = block.timestamp;
         vm.mockCall(
-            sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(futureTimestamp)
+            sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(nowTimestamp)
         );
 
-        vm.prank(address(0x123));
-        vm.expectRevert(abi.encodeWithSelector(ResealManager.CallerIsNotGovernance.selector, address(0x123)));
-        resealManager.reseal(sealable);
+        vm.prank(governance);
+        vm.expectRevert(ResealManager.SealableWrongPauseState.selector);
+        resealManager.resume(sealable);
     }
 
-    function test_revertWhenSenderIsNotGovernanceOnResume() public {
+    function test_resume_RevertOn_WhenSenderIsNotGovernance() public {
         uint256 futureTimestamp = block.timestamp + 1000;
         vm.mockCall(
             sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), abi.encode(futureTimestamp)
