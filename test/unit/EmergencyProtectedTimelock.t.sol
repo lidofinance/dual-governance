@@ -358,9 +358,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_setAfterSubmitDelay_RevertOn_CalledNotByAdminExecutor() external {
         Duration newAfterSubmitDelay = _defaultSanityCheckParams.maxAfterSubmitDelay + Durations.from(1 seconds);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this))
-        );
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this)));
         _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
     }
 
@@ -430,9 +428,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_setAfterScheduleDelay_RevertOn_CalledNotByAdminExecutor() external {
         Duration newAfterScheduleDelay = _defaultSanityCheckParams.maxAfterScheduleDelay + Durations.from(1 seconds);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this))
-        );
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this)));
         _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
     }
 
@@ -461,6 +457,34 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
 
         assertEq(_timelock.getAfterScheduleDelay(), newAfterScheduleDelay);
+    }
+
+    // EmergencyProtectedTimelock.transferExecutorOwnership()
+
+    function testFuzz_transferExecutorOwnership_HappyPath(address newOwner) external {
+        vm.assume(newOwner != _adminExecutor);
+        vm.assume(newOwner != address(0));
+
+        Executor executor = new Executor(address(_timelock));
+
+        assertEq(executor.owner(), address(_timelock));
+
+        vm.prank(_adminExecutor);
+
+        vm.expectEmit(address(executor));
+        emit Ownable.OwnershipTransferred(address(_timelock), newOwner);
+
+        _timelock.transferExecutorOwnership(address(executor), newOwner);
+
+        assertEq(executor.owner(), newOwner);
+    }
+
+    function test_transferExecutorOwnership_RevertOn_ByStranger(address stranger) external {
+        vm.assume(stranger != _adminExecutor);
+
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
+        _timelock.transferExecutorOwnership(_adminExecutor, makeAddr("newOwner"));
     }
 
     // EmergencyProtectedTimelock.setGovernance()
