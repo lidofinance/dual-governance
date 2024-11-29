@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {UnitTest} from "test/utils/unit-test.sol";
-import {WithdrawalsBatchesQueue, State} from "contracts/libraries/WithdrawalBatchesQueue.sol";
+import {WithdrawalsBatchesQueue, State} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 
 contract WithdrawalsBatchesQueueTest is UnitTest {
     using WithdrawalsBatchesQueue for WithdrawalsBatchesQueue.Context;
@@ -30,15 +30,15 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         _batchesQueue.info.state = State.Opened;
         assertEq(_batchesQueue.info.state, State.Opened);
 
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsNotInAbsentState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsNotInAbsentState.selector);
         _batchesQueue.open(_DEFAULT_BOUNDARY_UNST_ETH_ID);
     }
 
-    function test_open_Emit_WithdrawalBatchesQueueOpened() external {
+    function test_open_Emit_WithdrawalsBatchesQueueOpened() external {
         assertEq(_batchesQueue.info.state, State.Absent);
 
         vm.expectEmit(true, false, false, false);
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueOpened(_DEFAULT_BOUNDARY_UNST_ETH_ID);
+        emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueOpened(_DEFAULT_BOUNDARY_UNST_ETH_ID);
 
         _batchesQueue.open(_DEFAULT_BOUNDARY_UNST_ETH_ID);
     }
@@ -126,7 +126,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     function test_addUnstETHIds_RevertOn_QueueNotInOpenedState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsNotInOpenedState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsNotInOpenedState.selector);
         _batchesQueue.addUnstETHIds(new uint256[](0));
     }
 
@@ -285,6 +285,13 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         }
     }
 
+    function test_claimNextBatch_RevertOn_EmptyBatch() external {
+        _openBatchesQueue();
+
+        vm.expectRevert(WithdrawalsBatchesQueue.EmptyBatch.selector);
+        _batchesQueue.claimNextBatch(1);
+    }
+
     // ---
     // close()
     // ---
@@ -298,22 +305,22 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     function test_close_RevertOn_QueueNotInOpenedState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsNotInOpenedState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsNotInOpenedState.selector);
         _batchesQueue.close();
 
         _batchesQueue.open({boundaryUnstETHId: 1});
         _batchesQueue.close();
 
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsNotInOpenedState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsNotInOpenedState.selector);
         _batchesQueue.close();
     }
 
-    function test_close_Emit_WithdrawalBatchesQueueClosed() external {
+    function test_close_Emit_WithdrawalsBatchesQueueClosed() external {
         _openBatchesQueue();
         assertEq(_batchesQueue.info.state, State.Opened);
 
         vm.expectEmit(true, false, false, false);
-        emit WithdrawalsBatchesQueue.WithdrawalBatchesQueueClosed();
+        emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueClosed();
 
         _batchesQueue.close();
     }
@@ -475,51 +482,6 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     // ---
-    // getBoundaryUnstETHId()
-    // ---
-
-    function test_getBoundaryUnstETHId_HappyPath() external {
-        _openBatchesQueue();
-
-        assertEq(_batchesQueue.getBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
-
-        uint256 unstETHIdsCount = 5;
-        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
-        uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
-        _batchesQueue.addUnstETHIds(unstETHIds);
-
-        assertEq(_batchesQueue.getBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
-
-        _batchesQueue.close();
-        assertEq(_batchesQueue.getBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
-    }
-
-    function test_getBoundaryUnstETHId_RevertOn_QueueInAbsentState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsInAbsentState.selector);
-        _batchesQueue.getBoundaryUnstETHId();
-    }
-
-    // ---
-    // getTotalUnstETHIdsCount()
-    // ---
-
-    function test_getTotalUnstETHIdsCount_HappyPath() external {
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 0);
-
-        _openBatchesQueue();
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 0);
-
-        uint256 unstETHIdsCount = 5;
-        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
-        uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
-        _batchesQueue.addUnstETHIds(unstETHIds);
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 5);
-
-        _batchesQueue.close();
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 5);
-    }
-
-    // ---
     // getLastClaimedOrBoundaryUnstETHId()
     // ---
 
@@ -534,7 +496,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
         uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
         _batchesQueue.addUnstETHIds(unstETHIds);
-        assertEq(_batchesQueue.getTotalUnstETHIdsCount(), 5);
+        assertEq(_batchesQueue.info.totalUnstETHIdsCount, 5);
 
         assertEq(_batchesQueue.getLastClaimedOrBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
 
@@ -547,8 +509,63 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     function test_getLastClaimedOrBoundaryUnstETHId_RevertOn_AbsentQueueState() external {
-        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalBatchesQueueIsInAbsentState.selector);
+        vm.expectRevert(WithdrawalsBatchesQueue.WithdrawalsBatchesQueueIsInAbsentState.selector);
         _batchesQueue.getLastClaimedOrBoundaryUnstETHId();
+    }
+
+    // ---
+    // getTotalUnclaimedUnstETHIdsCount()
+    // ---
+
+    function test_getTotalUnclaimedUnstETHIdsCount_HappyPath() external {
+        _openBatchesQueue();
+
+        uint256 firstBatchCount = 3;
+        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
+        uint256[] memory firstBatch = _generateFakeUnstETHIds({length: firstBatchCount, firstUnstETHId: firstUnstETHId});
+
+        _batchesQueue.addUnstETHIds(firstBatch);
+
+        uint256 secondBatchCount = 2;
+        uint256[] memory secondBatch =
+            _generateFakeUnstETHIds({length: secondBatchCount, firstUnstETHId: firstUnstETHId + firstBatchCount});
+
+        _batchesQueue.addUnstETHIds(secondBatch);
+
+        uint256 totalUnclaimed = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+        assertEq(totalUnclaimed, 5);
+
+        uint256 claimLimit = 2;
+        _batchesQueue.claimNextBatch(claimLimit);
+
+        totalUnclaimed = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+        assertEq(totalUnclaimed, 3);
+
+        _batchesQueue.claimNextBatch(claimLimit);
+        _batchesQueue.claimNextBatch(claimLimit);
+
+        totalUnclaimed = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+        assertEq(totalUnclaimed, 0);
+    }
+
+    // ---
+    // isAllBatchesClaimed()
+    // ---
+
+    function test_isAllBatchesClaimed_HappyPath() external {
+        _openBatchesQueue();
+
+        assertEq(_batchesQueue.isAllBatchesClaimed(), true);
+
+        uint256 unstETHIdsCount = 5;
+        uint256 firstUnstETHId = _DEFAULT_BOUNDARY_UNST_ETH_ID + 1;
+        uint256[] memory unstETHIds = _generateFakeUnstETHIds({length: unstETHIdsCount, firstUnstETHId: firstUnstETHId});
+        _batchesQueue.addUnstETHIds(unstETHIds);
+
+        assertEq(_batchesQueue.isAllBatchesClaimed(), false);
+
+        _batchesQueue.claimNextBatch(5);
+        assertEq(_batchesQueue.isAllBatchesClaimed(), true);
     }
 
     // ---

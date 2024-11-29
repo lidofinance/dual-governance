@@ -6,7 +6,7 @@ import {stdError} from "forge-std/StdError.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {ETHValue, ETHValues, ETHValueOverflow, ETHValueUnderflow} from "contracts/types/ETHValue.sol";
-import {SharesValue, SharesValues, SharesValueOverflow} from "contracts/types/SharesValue.sol";
+import {SharesValue, SharesValues, SharesValueOverflow, SharesValueUnderflow} from "contracts/types/SharesValue.sol";
 import {IndicesOneBased} from "contracts/types/IndexOneBased.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamps} from "contracts/types/Timestamp.sol";
@@ -149,7 +149,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
         _accountingContext.assets[holder].stETHLockedShares = shares;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueUnderflow.selector);
 
         AssetsAccounting.accountStETHSharesUnlock(_accountingContext, holder, shares);
     }
@@ -306,10 +306,10 @@ contract AssetsAccountingUnitTests is UnitTest {
     }
 
     // ---
-    // accountClaimedStETH
+    // accountClaimedETH
     // ---
 
-    function testFuzz_accountClaimedStETH_happyPath(ETHValue amount, ETHValue totalClaimedETH) external {
+    function testFuzz_accountClaimedETH_happyPath(ETHValue amount, ETHValue totalClaimedETH) external {
         vm.assume(amount.toUint256() < type(uint128).max / 2);
         vm.assume(totalClaimedETH.toUint256() < type(uint128).max / 2);
 
@@ -318,7 +318,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         vm.expectEmit();
         emit AssetsAccounting.ETHClaimed(amount);
 
-        AssetsAccounting.accountClaimedStETH(_accountingContext, amount);
+        AssetsAccounting.accountClaimedETH(_accountingContext, amount);
 
         checkAccountingContextTotalCounters(
             SharesValues.ZERO, totalClaimedETH + amount, SharesValues.ZERO, ETHValues.ZERO
@@ -620,7 +620,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         withdrawalRequestStatuses[0].isClaimed = false;
         _accountingContext.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.NotLocked;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
     }
@@ -644,7 +644,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         withdrawalRequestStatuses[0].isClaimed = false;
         _accountingContext.unstETHRecords[unstETHIds[0]].status = UnstETHRecordStatus.NotLocked;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
     }
@@ -781,9 +781,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](1);
         unstETHIds[0] = genRandomUnstEthId(1234);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], holder, address(0x0))
-        );
+        vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], holder));
 
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
     }
@@ -798,9 +796,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         unstETHIds[0] = genRandomUnstEthId(1234);
         _accountingContext.unstETHRecords[unstETHIds[0]].lockedBy = holder;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current, holder)
-        );
+        vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current));
 
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, current, unstETHIds);
     }
@@ -880,7 +876,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
         _accountingContext.assets[holder].unstETHIds.push(unstETHIds[0]);
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueUnderflow.selector);
 
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
     }
@@ -919,7 +915,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].index = IndicesOneBased.fromOneBasedValue(1);
         _accountingContext.assets[holder].unstETHIds.push(unstETHIds[0]);
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueUnderflow.selector);
 
         AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
     }
@@ -949,6 +945,9 @@ contract AssetsAccountingUnitTests is UnitTest {
         uint256[] memory unstETHIds = new uint256[](claimableAmounts.length);
         uint256[] memory claimableAmountsPrepared = new uint256[](claimableAmounts.length);
 
+        SharesValue[] memory expectedSharesFinalized = new SharesValue[](claimableAmounts.length);
+        ETHValue[] memory expectedAmountFinalized = new ETHValue[](claimableAmounts.length);
+
         for (uint256 i = 0; i < claimableAmounts.length; ++i) {
             unstETHIds[i] = genRandomUnstEthId(i);
             _accountingContext.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus.Locked;
@@ -956,13 +955,13 @@ contract AssetsAccountingUnitTests is UnitTest {
             _accountingContext.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(sharesAmount);
             expectedTotalSharesFinalized += sharesAmount;
             expectedTotalAmountFinalized += claimableAmounts[i];
+            expectedSharesFinalized[i] = SharesValues.from(sharesAmount);
+            expectedAmountFinalized[i] = ETHValues.from(claimableAmounts[i]);
             claimableAmountsPrepared[i] = claimableAmounts[i];
         }
 
         vm.expectEmit();
-        emit AssetsAccounting.UnstETHFinalized(
-            unstETHIds, SharesValues.from(expectedTotalSharesFinalized), ETHValues.from(expectedTotalAmountFinalized)
-        );
+        emit AssetsAccounting.UnstETHFinalized(unstETHIds, expectedSharesFinalized, expectedAmountFinalized);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
 
@@ -1001,9 +1000,11 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         uint256[] memory unstETHIds = new uint256[](0);
         uint256[] memory claimableAmountsPrepared = new uint256[](0);
+        SharesValue[] memory expectedSharesFinalized = new SharesValue[](0);
+        ETHValue[] memory expectedAmountFinalized = new ETHValue[](0);
 
         vm.expectEmit();
-        emit AssetsAccounting.UnstETHFinalized(unstETHIds, SharesValues.from(0), ETHValues.from(0));
+        emit AssetsAccounting.UnstETHFinalized(unstETHIds, expectedSharesFinalized, expectedAmountFinalized);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
 
@@ -1030,8 +1031,11 @@ contract AssetsAccountingUnitTests is UnitTest {
         unstETHIds[0] = genRandomUnstEthId(9876);
         claimableAmountsPrepared[0] = claimableAmount;
 
+        SharesValue[] memory expectedSharesFinalized = new SharesValue[](1);
+        ETHValue[] memory expectedAmountFinalized = new ETHValue[](1);
+
         vm.expectEmit();
-        emit AssetsAccounting.UnstETHFinalized(unstETHIds, SharesValues.from(0), ETHValues.from(0));
+        emit AssetsAccounting.UnstETHFinalized(unstETHIds, expectedSharesFinalized, expectedAmountFinalized);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
 
@@ -1059,8 +1063,11 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(123);
         claimableAmountsPrepared[0] = 0;
 
+        SharesValue[] memory expectedSharesFinalized = new SharesValue[](1);
+        ETHValue[] memory expectedAmountFinalized = new ETHValue[](1);
+
         vm.expectEmit();
-        emit AssetsAccounting.UnstETHFinalized(unstETHIds, SharesValues.from(0), ETHValues.from(0));
+        emit AssetsAccounting.UnstETHFinalized(unstETHIds, expectedSharesFinalized, expectedAmountFinalized);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
 
@@ -1111,7 +1118,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(123);
         claimableAmountsPrepared[0] = uint256(type(uint128).max - 2);
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
     }
@@ -1135,7 +1142,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].shares = SharesValues.from(type(uint64).max);
         claimableAmountsPrepared[0] = 1;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueUnderflow.selector);
 
         AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
     }
@@ -1251,12 +1258,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         }
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                AssetsAccounting.InvalidClaimableAmount.selector,
-                unstETHIds[0],
-                claimableAmounts[0],
-                uint256(claimableAmounts[0]) + 1
-            )
+            abi.encodeWithSelector(AssetsAccounting.InvalidClaimableAmount.selector, unstETHIds[0], claimableAmounts[0])
         );
 
         AssetsAccounting.accountUnstETHClaimed(_accountingContext, unstETHIds, claimableAmountsPrepared);
@@ -1392,9 +1394,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHRecords[unstETHIds[0]].lockedBy = holder;
         _accountingContext.unstETHRecords[unstETHIds[0]].claimableAmount = ETHValues.from(123);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current, holder)
-        );
+        vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current));
 
         AssetsAccounting.accountUnstETHWithdraw(_accountingContext, current, unstETHIds);
     }
@@ -1410,7 +1410,7 @@ contract AssetsAccountingUnitTests is UnitTest {
                 ETHValues.from(uint256(type(uint128).max) / 2 + 1);
         }
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
     }
@@ -1447,7 +1447,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.unstETHTotals.unfinalizedShares = totalUnfinalizedShares;
         _accountingContext.stETHTotals.lockedShares = totalLockedShares;
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(SharesValueOverflow.selector);
         AssetsAccounting.getLockedAssetsTotals(_accountingContext);
     }
 
@@ -1493,14 +1493,6 @@ contract AssetsAccountingUnitTests is UnitTest {
         assertEq(_accountingContext.stETHTotals.claimedETH, claimedETH);
         assertEq(_accountingContext.unstETHTotals.unfinalizedShares, unfinalizedShares);
         assertEq(_accountingContext.unstETHTotals.finalizedETH, finalizedETH);
-    }
-
-    function assertEq(SharesValue a, SharesValue b) internal {
-        assertEq(a.toUint256(), b.toUint256());
-    }
-
-    function assertEq(ETHValue a, ETHValue b) internal {
-        assertEq(a.toUint256(), b.toUint256());
     }
 
     function assertEq(UnstETHRecordStatus a, UnstETHRecordStatus b) internal {

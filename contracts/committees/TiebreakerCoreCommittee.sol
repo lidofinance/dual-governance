@@ -3,27 +3,33 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {ITiebreakerCore} from "../interfaces/ITiebreaker.sol";
+import {Duration} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
+import {ITimelock} from "../interfaces/ITimelock.sol";
+import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+import {ITiebreakerCoreCommittee} from "../interfaces/ITiebreakerCoreCommittee.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Duration} from "../types/Duration.sol";
 
 enum ProposalType {
     ScheduleProposal,
     ResumeSealable
 }
 
-/// @title Tiebreaker Core Contract
+/// @title Tiebreaker Core Committee Contract
 /// @notice This contract allows a committee to vote on and execute proposals for scheduling and resuming sealable addresses
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
-contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
+contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, ProposalsList {
     error ResumeSealableNonceMismatch();
+    error ProposalDoesNotExist(uint256 proposalId);
+    error InvalidSealable(address sealable);
 
-    address immutable DUAL_GOVERNANCE;
+    address public immutable DUAL_GOVERNANCE;
 
-    mapping(address => uint256) private _sealableResumeNonces;
+    mapping(address sealable => uint256 nonce) private _sealableResumeNonces;
 
     constructor(address owner, address dualGovernance, Duration timelock) HashConsensus(owner, timelock) {
         DUAL_GOVERNANCE = dualGovernance;
@@ -36,8 +42,9 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     /// @notice Votes on a proposal to schedule
     /// @dev Allows committee members to vote on scheduling a proposal
     /// @param proposalId The ID of the proposal to schedule
-    function scheduleProposal(uint256 proposalId) public {
+    function scheduleProposal(uint256 proposalId) external {
         _checkCallerIsMember();
+        checkProposalExists(proposalId);
         (bytes memory proposalData, bytes32 key) = _encodeScheduleProposal(proposalId);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ScheduleProposal), proposalData);
@@ -51,7 +58,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     /// @return quorumAt The timestamp when the quorum was reached
     /// @return isExecuted Whether the proposal has been executed
     function getScheduleProposalState(uint256 proposalId)
-        public
+        external
         view
         returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
     {
@@ -62,12 +69,22 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     /// @notice Executes an approved schedule proposal
     /// @dev Executes the schedule proposal by calling the tiebreakerScheduleProposal function on the Dual Governance contract
     /// @param proposalId The ID of the proposal to schedule
-    function executeScheduleProposal(uint256 proposalId) public {
+    function executeScheduleProposal(uint256 proposalId) external {
         (, bytes32 key) = _encodeScheduleProposal(proposalId);
         _markUsed(key);
         Address.functionCall(
-            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerScheduleProposal.selector, proposalId)
+            DUAL_GOVERNANCE, abi.encodeWithSelector(ITiebreaker.tiebreakerScheduleProposal.selector, proposalId)
         );
+    }
+
+    /// @notice Checks if a proposal exists
+    /// @param proposalId The ID of the proposal to check
+    function checkProposalExists(uint256 proposalId) public view {
+        ITimelock timelock = IDualGovernance(DUAL_GOVERNANCE).TIMELOCK();
+
+        if (proposalId == 0 || proposalId > timelock.getProposalsCount()) {
+            revert ProposalDoesNotExist(proposalId);
+        }
     }
 
     /// @notice Encodes a schedule proposal
@@ -88,15 +105,26 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     /// @dev Retrieves the resume nonce for the given sealable address
     /// @param sealable The address of the sealable to get the nonce for
     /// @return The current resume nonce for the sealable address
-    function getSealableResumeNonce(address sealable) public view returns (uint256) {
+    function getSealableResumeNonce(address sealable) external view returns (uint256) {
         return _sealableResumeNonces[sealable];
     }
 
-    function sealableResume(address sealable, uint256 nonce) public {
+    /// @notice Votes on a proposal to resume a sealable address
+    /// @dev Allows committee members to vote on resuming a sealable address
+    ///      reverts if the sealable address is the zero address
+    /// @param sealable The address to resume
+    /// @param nonce The nonce for the resume proposal
+    function sealableResume(address sealable, uint256 nonce) external {
         _checkCallerIsMember();
+
+        if (sealable == address(0)) {
+            revert InvalidSealable(sealable);
+        }
+
         if (nonce != _sealableResumeNonces[sealable]) {
             revert ResumeSealableNonceMismatch();
         }
+
         (bytes memory proposalData, bytes32 key) = _encodeSealableResume(sealable, nonce);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ResumeSealable), proposalData);
@@ -113,7 +141,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
     function getSealableResumeState(
         address sealable,
         uint256 nonce
-    ) public view returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) {
+    ) external view returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) {
         (, bytes32 key) = _encodeSealableResume(sealable, nonce);
         return _getHashState(key);
     }
@@ -126,7 +154,7 @@ contract TiebreakerCore is ITiebreakerCore, HashConsensus, ProposalsList {
         _markUsed(key);
         _sealableResumeNonces[sealable]++;
         Address.functionCall(
-            DUAL_GOVERNANCE, abi.encodeWithSelector(IDualGovernance.tiebreakerResumeSealable.selector, sealable)
+            DUAL_GOVERNANCE, abi.encodeWithSelector(ITiebreaker.tiebreakerResumeSealable.selector, sealable)
         );
     }
 

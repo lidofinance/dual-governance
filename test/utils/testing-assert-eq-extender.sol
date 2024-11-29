@@ -3,11 +3,14 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 
+import {ETHValue} from "contracts/types/ETHValue.sol";
+import {SharesValue} from "contracts/types/SharesValue.sol";
 import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
+import {IndexOneBased} from "contracts/types/IndexOneBased.sol";
 
-import {ProposalStatus} from "contracts/EmergencyProtectedTimelock.sol";
+import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {State as DualGovernanceState} from "contracts/DualGovernance.sol";
 
 contract TestingAssertEqExtender is Test {
@@ -20,6 +23,10 @@ contract TestingAssertEqExtender is Test {
 
     function assertEq(Duration a, Duration b) internal {
         assertEq(uint256(Duration.unwrap(a)), uint256(Duration.unwrap(b)));
+    }
+
+    function assertEq(Duration a, Duration b, string memory message) internal {
+        assertEq(uint256(Duration.unwrap(a)), uint256(Duration.unwrap(b)), message);
     }
 
     function assertEq(Timestamp a, Timestamp b) internal {
@@ -48,5 +55,17 @@ contract TestingAssertEqExtender is Test {
 
     function assertEq(PercentD16 a, PercentD16 b) internal {
         assertEq(PercentD16.unwrap(a), PercentD16.unwrap(b));
+    }
+
+    function assertEq(ETHValue a, ETHValue b) internal {
+        assertEq(ETHValue.unwrap(a), ETHValue.unwrap(b));
+    }
+
+    function assertEq(SharesValue a, SharesValue b) internal {
+        assertEq(SharesValue.unwrap(a), SharesValue.unwrap(b));
+    }
+
+    function assertEq(IndexOneBased a, IndexOneBased b) internal {
+        assertEq(IndexOneBased.unwrap(a), IndexOneBased.unwrap(b));
     }
 }

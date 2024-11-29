@@ -4,13 +4,16 @@ pragma solidity 0.8.26;
 import {ISealable} from "contracts/interfaces/ISealable.sol";
 
 contract SealableMock is ISealable {
+    uint256 public constant PAUSE_INFINITELY = type(uint256).max;
+
     bool private paused;
     bool private shouldRevertPauseFor;
     bool private shouldRevertIsPaused;
     bool private shouldRevertResume;
+    uint256 private _resumeSinceTimestamp;
 
     function getResumeSinceTimestamp() external view override returns (uint256) {
-        revert("Not implemented");
+        return _resumeSinceTimestamp;
     }
 
     function setShouldRevertPauseFor(bool _shouldRevert) external {
@@ -25,24 +28,21 @@ contract SealableMock is ISealable {
         shouldRevertResume = _shouldRevert;
     }
 
-    function pauseFor(uint256) external override {
+    function pauseFor(uint256 duration) external override {
         if (shouldRevertPauseFor) {
             revert("pauseFor failed");
         }
-        paused = true;
-    }
-
-    function isPaused() external view override returns (bool) {
-        if (shouldRevertIsPaused) {
-            revert("isPaused failed");
+        if (duration == PAUSE_INFINITELY) {
+            _resumeSinceTimestamp = PAUSE_INFINITELY;
+        } else {
+            _resumeSinceTimestamp = block.timestamp + duration;
         }
-        return paused;
     }
 
     function resume() external override {
         if (shouldRevertResume) {
             revert("resume failed");
         }
-        paused = false;
+        _resumeSinceTimestamp = block.timestamp;
     }
 }

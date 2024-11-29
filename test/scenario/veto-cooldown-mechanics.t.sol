@@ -41,7 +41,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             );
             _assertVetoSignalingState();
 
-            _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
             _activateNextState();
             _assertRageQuitState();
         }
@@ -65,7 +65,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             // request withdrawals batches
             Escrow rageQuitEscrow = _getRageQuitEscrow();
 
-            while (!rageQuitEscrow.isWithdrawalsBatchesFinalized()) {
+            while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
             }
 
@@ -75,9 +75,9 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
                 rageQuitEscrow.claimNextWithdrawalsBatch(128);
             }
 
-            rageQuitEscrow.startRageQuitExtensionDelay();
+            rageQuitEscrow.startRageQuitExtensionPeriod();
 
-            _wait(_dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_DELAY().plusSeconds(1));
+            _wait(_dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_PERIOD_DURATION().plusSeconds(1));
             assertTrue(rageQuitEscrow.isRageQuitFinalized());
         }
 

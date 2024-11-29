@@ -25,7 +25,8 @@ contract StETHMock is ERC20Mock, IStETH {
         return __shareRate * sharesAmount;
     }
 
-    function transferShares(address to, uint256 sharesAmount) external {
+    function transferShares(address to, uint256 sharesAmount) external returns (uint256 tokensAmount) {
+        tokensAmount = sharesAmount * __shareRate;
         transfer(to, sharesAmount * __shareRate);
     }
 

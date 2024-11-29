@@ -3,17 +3,30 @@ pragma solidity 0.8.26;
 
 import {Duration} from "../types/Duration.sol";
 
-/// @title TimelockState
-/// @dev Library for managing the configuration related to emergency protection.
+/// @title Timelock State Library
+/// @dev Library for managing the configuration related  the state of timelock contract.
 library TimelockState {
+    // ---
+    // Errors
+    // ---
+
     error CallerIsNotGovernance(address caller);
-    error InvalidGovernance(address value);
-    error InvalidAfterSubmitDelay(Duration value);
-    error InvalidAfterScheduleDelay(Duration value);
+    error InvalidGovernance(address governance);
+    error InvalidExecutionDelay(Duration executionDelay);
+    error InvalidAfterSubmitDelay(Duration afterSubmitDelay);
+    error InvalidAfterScheduleDelay(Duration afterScheduleDelay);
+
+    // ---
+    // Events
+    // ---
 
     event GovernanceSet(address newGovernance);
     event AfterSubmitDelaySet(Duration newAfterSubmitDelay);
     event AfterScheduleDelaySet(Duration newAfterScheduleDelay);
+
+    // ---
+    // Data Types
+    // ---
 
     struct Context {
         /// @dev slot0 [0..159]
@@ -24,9 +37,12 @@ library TimelockState {
         Duration afterScheduleDelay;
     }
 
+    // ---
+    // Main Functionality
+    // ---
+
     /// @notice Sets the governance address.
-    /// @dev Reverts if the new governance address is zero or the same as the current one.
-    /// @param self The context of the timelock state.
+    /// @param self The context of the Timelock State library.
     /// @param newGovernance The new governance address.
     function setGovernance(Context storage self, address newGovernance) internal {
         if (newGovernance == address(0) || newGovernance == self.governance) {
@@ -36,9 +52,9 @@ library TimelockState {
         emit GovernanceSet(newGovernance);
     }
 
-    /// @notice Sets the after submit delay.
-    /// @dev Reverts if the new delay is greater than the maximum allowed or the same as the current one.
-    /// @param self The context of the timelock state.
+    /// @notice Sets the delay period after a proposal is submitted before it can be scheduled for execution,
+    ///     ensuring new delay does not exceed the maximum allowed duration.
+    /// @param self The context of the Timelock State library.
     /// @param newAfterSubmitDelay The new after submit delay.
     /// @param maxAfterSubmitDelay The maximum allowed after submit delay.
     function setAfterSubmitDelay(
@@ -53,9 +69,9 @@ library TimelockState {
         emit AfterSubmitDelaySet(newAfterSubmitDelay);
     }
 
-    /// @notice Sets the after schedule delay.
-    /// @dev Reverts if the new delay is greater than the maximum allowed or the same as the current one.
-    /// @param self The context of the timelock state.
+    /// @notice Sets the delay period after a proposal is scheduled before it can be executed, ensuring
+    ///     the new delay does not exceed the maximum allowed duration.
+    /// @param self The context of the Timelock State library.
     /// @param newAfterScheduleDelay The new after schedule delay.
     /// @param maxAfterScheduleDelay The maximum allowed after schedule delay.
     function setAfterScheduleDelay(
@@ -70,26 +86,35 @@ library TimelockState {
         emit AfterScheduleDelaySet(newAfterScheduleDelay);
     }
 
-    /// @notice Gets the after submit delay.
-    /// @param self The context of the timelock state.
-    /// @return The current after submit delay.
+    /// @notice Retrieves the delay period required after a proposal is submitted before it can be scheduled.
+    /// @param self The context of the Timelock State library.
+    /// @return Duration The current after submit delay.
     function getAfterSubmitDelay(Context storage self) internal view returns (Duration) {
         return self.afterSubmitDelay;
     }
 
-    /// @notice Gets the after schedule delay.
-    /// @param self The context of the timelock state.
-    /// @return The current after schedule delay.
+    /// @notice Retrieves the delay period required after a proposal is scheduled before it can be executed.
+    /// @param self The context of the Timelock State library library.
+    /// @return Duration The current after schedule delay.
     function getAfterScheduleDelay(Context storage self) internal view returns (Duration) {
         return self.afterScheduleDelay;
     }
 
-    /// @notice Checks if the caller is the governance address.
-    /// @dev Reverts if the caller is not the governance address.
-    /// @param self The context of the timelock state.
+    /// @notice Checks if the caller is the governance address, reverting if not.
+    /// @param self The context of the Timelock State library.
     function checkCallerIsGovernance(Context storage self) internal view {
         if (self.governance != msg.sender) {
             revert CallerIsNotGovernance(msg.sender);
+        }
+    }
+
+    /// @notice Checks that the combined after-submit and after-schedule delays meet the minimum required execution delay.
+    /// @param self The context of the Timelock State library library.
+    /// @param minExecutionDelay The minimum required delay between proposal submission and execution.
+    function checkExecutionDelay(Context storage self, Duration minExecutionDelay) internal view {
+        Duration executionDelay = self.afterScheduleDelay + self.afterSubmitDelay;
+        if (executionDelay < minExecutionDelay) {
+            revert InvalidExecutionDelay(executionDelay);
         }
     }
 }

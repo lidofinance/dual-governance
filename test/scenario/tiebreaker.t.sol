@@ -28,10 +28,10 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _assertNormalState();
         _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
         _lockStETH(_VETOER, 1 gwei);
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
-        _wait(_dualGovernance.getTiebreakerState().tiebreakerActivationTimeout);
+        _wait(_dualGovernance.getTiebreakerDetails().tiebreakerActivationTimeout);
         _activateNextState();
 
         ExternalCall[] memory proposalCalls = ExternalCallHelpers.create(address(0), new bytes(0));
@@ -39,7 +39,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         // Tiebreaker subcommittee 0
         members = _tiebreakerSubCommittees[0].getMembers();
-        for (uint256 i = 0; i < _tiebreakerSubCommittees[0].quorum() - 1; i++) {
+        for (uint256 i = 0; i < _tiebreakerSubCommittees[0].getQuorum() - 1; i++) {
             vm.prank(members[i]);
             _tiebreakerSubCommittees[0].scheduleProposal(proposalIdToExecute);
             (support, quorum,, isExecuted) = _tiebreakerSubCommittees[0].getScheduleProposalState(proposalIdToExecute);
@@ -59,7 +59,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         // Tiebreaker subcommittee 1
         members = _tiebreakerSubCommittees[1].getMembers();
-        for (uint256 i = 0; i < _tiebreakerSubCommittees[1].quorum() - 1; i++) {
+        for (uint256 i = 0; i < _tiebreakerSubCommittees[1].getQuorum() - 1; i++) {
             vm.prank(members[i]);
             _tiebreakerSubCommittees[1].scheduleProposal(proposalIdToExecute);
             (support, quorum,, isExecuted) = _tiebreakerSubCommittees[1].getScheduleProposalState(proposalIdToExecute);
@@ -79,7 +79,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         assertEq(support, quorum);
 
         // Waiting for submit delay pass
-        _wait(_tiebreakerCoreCommittee.timelockDuration());
+        _wait(_tiebreakerCoreCommittee.getTimelockDuration());
 
         _tiebreakerCoreCommittee.executeScheduleProposal(proposalIdToExecute);
     }
@@ -103,15 +103,15 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         _assertNormalState();
         _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
         _lockStETH(_VETOER, 1 gwei);
-        _wait(_dualGovernanceConfigProvider.DYNAMIC_TIMELOCK_MAX_DURATION().plusSeconds(1));
+        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
         _activateNextState();
         _assertRageQuitState();
-        _wait(_dualGovernance.getTiebreakerState().tiebreakerActivationTimeout);
+        _wait(_dualGovernance.getTiebreakerDetails().tiebreakerActivationTimeout);
         _activateNextState();
 
         // Tiebreaker subcommittee 0
         members = _tiebreakerSubCommittees[0].getMembers();
-        for (uint256 i = 0; i < _tiebreakerSubCommittees[0].quorum() - 1; i++) {
+        for (uint256 i = 0; i < _tiebreakerSubCommittees[0].getQuorum() - 1; i++) {
             vm.prank(members[i]);
             _tiebreakerSubCommittees[0].sealableResume(address(_lido.withdrawalQueue));
             (support, quorum,, isExecuted) =
@@ -136,7 +136,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
 
         // Tiebreaker subcommittee 1
         members = _tiebreakerSubCommittees[1].getMembers();
-        for (uint256 i = 0; i < _tiebreakerSubCommittees[1].quorum() - 1; i++) {
+        for (uint256 i = 0; i < _tiebreakerSubCommittees[1].getQuorum() - 1; i++) {
             vm.prank(members[i]);
             _tiebreakerSubCommittees[1].sealableResume(address(_lido.withdrawalQueue));
             (support, quorum,, isExecuted) =
@@ -160,7 +160,7 @@ contract TiebreakerScenarioTest is ScenarioTestBlueprint {
         assertEq(support, quorum);
 
         // Waiting for submit delay pass
-        _wait(_tiebreakerCoreCommittee.timelockDuration());
+        _wait(_tiebreakerCoreCommittee.getTimelockDuration());
 
         _tiebreakerCoreCommittee.executeSealableResume(address(_lido.withdrawalQueue));
 

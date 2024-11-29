@@ -3,19 +3,23 @@ pragma solidity 0.8.26;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
+import {Duration} from "../types/Duration.sol";
+import {Timestamp} from "../types/Timestamp.sol";
+
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
+
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
-import {Timestamp} from "../types/Timestamp.sol";
-import {Duration} from "../types/Duration.sol";
 
 /// @title Reseal Committee Contract
 /// @notice This contract allows a committee to vote on and execute resealing proposals
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract ResealCommittee is HashConsensus, ProposalsList {
+    error InvalidSealable(address sealable);
+
     address public immutable DUAL_GOVERNANCE;
 
-    mapping(bytes32 => uint256) private _resealNonces;
+    mapping(bytes32 hash => uint256 nonce) private _resealNonces;
 
     constructor(
         address owner,
@@ -33,8 +37,13 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @dev Allows committee members to vote on resealing a sealed address
     /// @param sealable The address to reseal
     /// @param support Indicates whether the member supports the proposal
-    function voteReseal(address sealable, bool support) public {
+    function voteReseal(address sealable, bool support) external {
         _checkCallerIsMember();
+
+        if (sealable == address(0)) {
+            revert InvalidSealable(sealable);
+        }
+
         (bytes memory proposalData, bytes32 key) = _encodeResealProposal(sealable);
         _vote(key, support);
         _pushProposal(key, 0, proposalData);
@@ -46,14 +55,13 @@ contract ResealCommittee is HashConsensus, ProposalsList {
     /// @return support The number of votes in support of the proposal
     /// @return executionQuorum The required number of votes for execution
     /// @return quorumAt The timestamp when the quorum was reached
-    /// @return isExecuted Whether the proposal has been executed
     function getResealState(address sealable)
-        public
+        external
         view
-        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted)
+        returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt)
     {
         (, bytes32 key) = _encodeResealProposal(sealable);
-        return _getHashState(key);
+        (support, executionQuorum, quorumAt,) = _getHashState(key);
     }
 
     /// @notice Executes an approved reseal proposal
