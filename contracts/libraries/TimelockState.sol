@@ -11,9 +11,10 @@ library TimelockState {
     // ---
 
     error CallerIsNotGovernance(address caller);
-    error InvalidGovernance(address value);
-    error InvalidAfterSubmitDelay(Duration value);
-    error InvalidAfterScheduleDelay(Duration value);
+    error InvalidGovernance(address governance);
+    error InvalidExecutionDelay(Duration executionDelay);
+    error InvalidAfterSubmitDelay(Duration afterSubmitDelay);
+    error InvalidAfterScheduleDelay(Duration afterScheduleDelay);
 
     // ---
     // Events
@@ -104,6 +105,16 @@ library TimelockState {
     function checkCallerIsGovernance(Context storage self) internal view {
         if (self.governance != msg.sender) {
             revert CallerIsNotGovernance(msg.sender);
+        }
+    }
+
+    /// @notice Checks that the combined after-submit and after-schedule delays meet the minimum required execution delay.
+    /// @param self The context of the Timelock State library library.
+    /// @param minExecutionDelay The minimum required delay between proposal submission and execution.
+    function checkExecutionDelay(Context storage self, Duration minExecutionDelay) internal view {
+        Duration executionDelay = self.afterScheduleDelay + self.afterSubmitDelay;
+        if (executionDelay < minExecutionDelay) {
+            revert InvalidExecutionDelay(executionDelay);
         }
     }
 }
