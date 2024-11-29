@@ -68,6 +68,7 @@ abstract contract SetupDeployment is Test {
     // Emergency Protected Timelock Deployment Parameters
     // ---
 
+    Duration internal immutable _MIN_EXECUTION_DELAY = Durations.from(0 seconds);
     Duration internal immutable _AFTER_SUBMIT_DELAY = Durations.from(3 days);
     Duration internal immutable _MAX_AFTER_SUBMIT_DELAY = Durations.from(45 days);
 
@@ -288,9 +289,6 @@ abstract contract SetupDeployment is Test {
     }
 
     function _finalizeEmergencyProtectedTimelockDeploy(IGovernance governance) internal {
-        _adminExecutor.execute(
-            address(_timelock), 0, abi.encodeCall(_timelock.setupDelays, (_AFTER_SUBMIT_DELAY, _AFTER_SCHEDULE_DELAY))
-        );
         _adminExecutor.execute(address(_timelock), 0, abi.encodeCall(_timelock.setGovernance, (address(governance))));
         _adminExecutor.transferOwnership(address(_timelock));
     }
@@ -303,11 +301,14 @@ abstract contract SetupDeployment is Test {
         return new EmergencyProtectedTimelock({
             adminExecutor: address(adminExecutor),
             sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
+                minExecutionDelay: _MIN_EXECUTION_DELAY,
                 maxAfterSubmitDelay: _MAX_AFTER_SUBMIT_DELAY,
                 maxAfterScheduleDelay: _MAX_AFTER_SCHEDULE_DELAY,
                 maxEmergencyModeDuration: _MAX_EMERGENCY_MODE_DURATION,
                 maxEmergencyProtectionDuration: _MAX_EMERGENCY_PROTECTION_DURATION
-            })
+            }),
+            afterSubmitDelay: _AFTER_SUBMIT_DELAY,
+            afterScheduleDelay: _AFTER_SCHEDULE_DELAY
         });
     }
 
