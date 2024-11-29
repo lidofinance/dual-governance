@@ -319,61 +319,6 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     // ---
-    // executeProposal()
-    // ---
-
-    function testFuzz_executeProposal_HappyPath(address stranger) external {
-        uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
-
-        _scheduleProposal(proposalId, Timestamps.now());
-
-        uint256[] memory scheduledProposals = _timelock.getScheduledProposals();
-        assertEq(scheduledProposals.length, 1);
-        assertEq(scheduledProposals[0], proposalId);
-
-        _timelock.setExecutable(proposalId);
-
-        vm.prank(stranger);
-        _dualGovernance.executeProposal(proposalId);
-
-        assertEq(_timelock.getExecutedProposals().length, 1);
-        assertEq(_timelock.getExecutedProposals()[0], proposalId);
-    }
-
-    function test_executeProposal_ActivatesNextState() external {
-        uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
-
-        _scheduleProposal(proposalId, Timestamps.now());
-        assertEq(_timelock.getScheduledProposals().length, 1);
-
-        vm.startPrank(vetoer);
-        _escrow.lockStETH(5 ether);
-        _wait(_configProvider.VETO_SIGNALLING_MIN_DURATION());
-        _escrow.unlockStETH();
-        vm.stopPrank();
-        _wait(_configProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
-
-        _timelock.setExecutable(proposalId);
-        assertEq(_dualGovernance.getPersistedState(), State.VetoSignallingDeactivation);
-
-        _dualGovernance.executeProposal(proposalId);
-
-        assertEq(_dualGovernance.getPersistedState(), State.VetoCooldown);
-    }
-
-    function test_executeProposal_RevertOn_CannotExecute() external {
-        uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
-        _scheduleProposal(proposalId, Timestamps.now());
-
-        uint256[] memory scheduledProposals = _timelock.getScheduledProposals();
-        assertEq(scheduledProposals.length, 1);
-        assertEq(scheduledProposals[0], proposalId);
-
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalExecutionBlocked.selector, proposalId));
-        _dualGovernance.executeProposal(proposalId);
-    }
-
-    // ---
     // cancelAllPendingProposals()
     // ---
 
@@ -649,22 +594,6 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_dualGovernance.getPersistedState(), State.Normal);
         assertEq(_dualGovernance.getEffectiveState(), State.Normal);
         assertTrue(_dualGovernance.canSubmitProposal());
-    }
-
-    // ---
-    // canExecuteProposal()
-    // ---
-
-    function test_canExecuteProposal() external {
-        uint256 proposalId = _dualGovernance.submitProposal(_generateExternalCalls(), "");
-
-        _scheduleProposal(proposalId, Timestamps.now());
-        assertEq(_timelock.getScheduledProposals().length, 1);
-
-        assertFalse(_dualGovernance.canExecuteProposal(proposalId));
-
-        _timelock.setExecutable(proposalId);
-        assertTrue(_dualGovernance.canExecuteProposal(proposalId));
     }
 
     // ---

@@ -57,7 +57,7 @@ interface IEscrow {
     function getVetoerState(address vetoer) external view returns (VetoerState memory state);
     function getUnclaimedUnstETHIdsCount() external view returns (uint256);
     function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds);
-    function isWithdrawalsBatchesFinalized() external view returns (bool);
+    function isWithdrawalsBatchesClosed() external view returns (bool);
     function isRageQuitExtensionPeriodStarted() external view returns (bool);
     function getRageQuitExtensionPeriodStartedAt() external view returns (Timestamp);
 

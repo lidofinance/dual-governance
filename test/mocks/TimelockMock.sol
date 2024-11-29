@@ -146,7 +146,11 @@ contract TimelockMock is ITimelock {
         revert("Not Implemented");
     }
 
-    function setupDelays(Duration, /* afterSubmitDelay */ Duration /* afterScheduleDelay */ ) external {
+    function setAfterSubmitDelay(Duration /* newAfterSubmitDelay */ ) external {
+        revert("Not Implemented");
+    }
+
+    function setAfterScheduleDelay(Duration /* newAfterScheduleDelay */ ) external {
         revert("Not Implemented");
     }
 

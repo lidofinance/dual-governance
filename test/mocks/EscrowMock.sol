@@ -103,7 +103,7 @@ contract EscrowMock is IEscrow {
         revert("Not implemented");
     }
 
-    function isWithdrawalsBatchesFinalized() external view returns (bool) {
+    function isWithdrawalsBatchesClosed() external view returns (bool) {
         revert("Not implemented");
     }
 

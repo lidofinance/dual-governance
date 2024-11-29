@@ -12,7 +12,6 @@ interface IGovernance {
         string calldata metadata
     ) external returns (uint256 proposalId);
     function scheduleProposal(uint256 proposalId) external;
-    function executeProposal(uint256 proposalId) external;
     function cancelAllPendingProposals() external returns (bool);
 
     function canScheduleProposal(uint256 proposalId) external view returns (bool);

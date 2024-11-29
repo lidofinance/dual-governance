@@ -44,6 +44,7 @@ interface ITimelock {
 
     function getAfterSubmitDelay() external view returns (Duration);
     function getAfterScheduleDelay() external view returns (Duration);
-    function setupDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external;
+    function setAfterSubmitDelay(Duration newAfterSubmitDelay) external;
+    function setAfterScheduleDelay(Duration newAfterScheduleDelay) external;
     function transferExecutorOwnership(address executor, address owner) external;
 }

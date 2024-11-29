@@ -40,11 +40,9 @@ contract DualGovernance is IDualGovernance {
 
     error NotAdminProposer();
     error UnownedAdminExecutor();
-    error CallerIsNotResealCommittee(address caller);
     error CallerIsNotAdminExecutor(address caller);
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
-    error ProposalExecutionBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
     error InvalidTiebreakerActivationTimeoutBounds();
 
@@ -203,21 +201,6 @@ contract DualGovernance is IDualGovernance {
         TIMELOCK.schedule(proposalId);
     }
 
-    /// @notice Executes a proposal previously scheduled for execution in the Dual Governance system.
-    ///     The proposal can only be executed when the `ITimelock.getAfterScheduleDelay()` has passed and proposal
-    ///     wasn't cancelled earlier.
-    /// @param proposalId The unique identifier of the proposal to be executed. This ID is obtained when the proposal
-    ///     is initially submitted to the Dual Governance system.
-    function executeProposal(uint256 proposalId) external {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
-
-        if (!TIMELOCK.canExecute(proposalId)) {
-            revert ProposalExecutionBlocked(proposalId);
-        }
-
-        TIMELOCK.execute(proposalId);
-    }
-
     /// @notice Allows a proposer associated with the admin executor to cancel all previously submitted or scheduled
     ///     but not yet executed proposals when the Dual Governance system is in the `VetoSignalling`
     ///     or `VetoSignallingDeactivation` state.
@@ -273,19 +256,6 @@ contract DualGovernance is IDualGovernance {
         Timestamp proposalSubmittedAt = TIMELOCK.getProposalDetails(proposalId).submittedAt;
         return _stateMachine.canScheduleProposal({useEffectiveState: true, proposalSubmittedAt: proposalSubmittedAt})
             && TIMELOCK.canSchedule(proposalId);
-    }
-
-    /// @notice Returns whether a previously scheduled proposal can be executed based on the proposal's submission time,
-    ///     and its current status.
-    /// @dev Proposal execution is allowed only if all the following conditions are met:
-    ///     - The proposal has already been scheduled.
-    ///     - The required delay period, as defined by `ITimelock.getAfterScheduleDelay()`, has elapsed since the proposal
-    ///         was scheduled.
-    /// @param proposalId The unique identifier of the proposal to check.
-    /// @return canExecuteProposal A boolean value indicating whether the proposal can be executed (`true`) or
-    ///     not (`false`) based on the proposal's status.
-    function canExecuteProposal(uint256 proposalId) external view returns (bool) {
-        return TIMELOCK.canExecute(proposalId);
     }
 
     /// @notice Indicates whether the cancellation of all pending proposals is allowed based on the `effective` state
