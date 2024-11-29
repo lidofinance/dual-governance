@@ -1036,7 +1036,7 @@ Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in t
 
 ### Admin functions
 
-The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtectionActivationCommittee`, `setEmergencyProtectionExecutionCommittee`, `setEmergencyProtectionEndDate`, `setEmergencyModeDuration`, `setEmergencyGovernance`) and general system wiring (`transferExecutorOwnership`, `setGovernance`, `setupDelays`). These functions MUST be called by the [Admin Executor](#Administrative-actions) address, basically routing any such changes through the Dual Governance mechanics.
+The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtectionActivationCommittee`, `setEmergencyProtectionExecutionCommittee`, `setEmergencyProtectionEndDate`, `setEmergencyModeDuration`, `setEmergencyGovernance`) and general system wiring (`transferExecutorOwnership`, `setGovernance`, `setAfterSubmitDelay`, `setAfterScheduleDelay`). These functions MUST be called by the [Admin Executor](#Administrative-actions) address, basically routing any such changes through the Dual Governance mechanics.
 
 ## Contract: ImmutableDualGovernanceConfigProvider.sol
 
