@@ -1037,6 +1037,50 @@ contract DualGovernanceUnitTests is UnitTest {
         assertTrue(address(_dualGovernance.getConfigProvider()) != address(oldConfigProvider));
     }
 
+    function test_setConfigProvider_same_minAssetsLockDuration() external {
+        Duration newMinAssetsLockDuration = Durations.from(5 hours);
+        ImmutableDualGovernanceConfigProvider newConfigProvider = new ImmutableDualGovernanceConfigProvider(
+            DualGovernanceConfig.Context({
+                firstSealRageQuitSupport: PercentsD16.fromBasisPoints(5_00), // 5%
+                secondSealRageQuitSupport: PercentsD16.fromBasisPoints(20_00), // 20%
+                //
+                minAssetsLockDuration: newMinAssetsLockDuration,
+                //
+                vetoSignallingMinDuration: Durations.from(4 days),
+                vetoSignallingMaxDuration: Durations.from(35 days),
+                vetoSignallingMinActiveDuration: Durations.from(6 hours),
+                vetoSignallingDeactivationMaxDuration: Durations.from(6 days),
+                vetoCooldownDuration: Durations.from(5 days),
+                //
+                rageQuitExtensionPeriodDuration: Durations.from(8 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
+            })
+        );
+
+        IDualGovernanceConfigProvider oldConfigProvider = _dualGovernance.getConfigProvider();
+
+        vm.expectEmit();
+        emit DualGovernanceStateMachine.ConfigProviderSet(IDualGovernanceConfigProvider(address(newConfigProvider)));
+        vm.expectCall(
+            address(_escrow),
+            0,
+            abi.encodeWithSelector(Escrow.setMinAssetsLockDuration.selector, newMinAssetsLockDuration),
+            0
+        );
+        vm.recordLogs();
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(newConfigProvider))
+        );
+        assertEq(vm.getRecordedLogs().length, 1);
+
+        assertEq(address(_dualGovernance.getConfigProvider()), address(newConfigProvider));
+        assertTrue(address(_dualGovernance.getConfigProvider()) != address(oldConfigProvider));
+    }
+
     function testFuzz_setConfigProvider_RevertOn_NotAdminExecutor(address stranger) external {
         vm.assume(stranger != address(_executor));
         ImmutableDualGovernanceConfigProvider newConfigProvider = new ImmutableDualGovernanceConfigProvider(

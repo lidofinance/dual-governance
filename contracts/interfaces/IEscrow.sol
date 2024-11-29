@@ -63,5 +63,6 @@ interface IEscrow {
 
     function isRageQuitFinalized() external view returns (bool);
     function getRageQuitSupport() external view returns (PercentD16 rageQuitSupport);
+    function getMinAssetsLockDuration() external view returns (Duration minAssetsLockDuration);
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external;
 }
