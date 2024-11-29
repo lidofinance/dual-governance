@@ -6,7 +6,6 @@ pragma solidity 0.8.26;
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
-import {IAragonVoting} from "contracts/interfaces/IAragonVoting.sol";
 import {Duration} from "contracts/types/Duration.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
 
@@ -97,7 +96,7 @@ struct LidoContracts {
     IStETH stETH;
     IWstETH wstETH;
     IWithdrawalQueue withdrawalQueue;
-    IAragonVoting voting;
+    address voting;
 }
 
 function getSubCommitteeData(

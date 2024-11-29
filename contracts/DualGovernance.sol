@@ -40,7 +40,6 @@ contract DualGovernance is IDualGovernance {
 
     error NotAdminProposer();
     error UnownedAdminExecutor();
-    error CallerIsNotResealCommittee(address caller);
     error CallerIsNotAdminExecutor(address caller);
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
@@ -189,10 +188,10 @@ contract DualGovernance is IDualGovernance {
 
     /// @notice Schedules a previously submitted proposal for execution in the Dual Governance system.
     ///     The proposal can only be scheduled if the current state allows scheduling of the given proposal based on
-    ///     the submission time, when the `Escrow.getAfterScheduleDelay()` has passed and proposal wasn't cancelled
+    ///     the submission time, when the `ITimelock.getAfterSubmitDelay()` has passed and proposal wasn't cancelled
     ///     or scheduled earlier.
     /// @param proposalId The unique identifier of the proposal to be scheduled. This ID is obtained when the proposal
-    ///     is initially submitted to the timelock contract.
+    ///     is initially submitted to the Dual Governance system.
     function scheduleProposal(uint256 proposalId) external {
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
         Timestamp proposalSubmittedAt = TIMELOCK.getProposalDetails(proposalId).submittedAt;
@@ -248,7 +247,7 @@ contract DualGovernance is IDualGovernance {
     ///     - If the system is in the `VetoCooldown` state, the proposal must have been submitted before the system
     ///         last entered the `VetoSignalling` state.
     ///     - The proposal has not already been scheduled, canceled, or executed.
-    ///     - The required delay period, as defined by `Escrow.getAfterSubmitDelay()`, has elapsed since the proposal
+    ///     - The required delay period, as defined by `ITimelock.getAfterSubmitDelay()`, has elapsed since the proposal
     ///         was submitted.
     /// @param proposalId The unique identifier of the proposal to check.
     /// @return canScheduleProposal A boolean value indicating whether the proposal can be scheduled (`true`) or

@@ -18,7 +18,6 @@ import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
-import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
 
 import {StETHMock} from "test/mocks/StETHMock.sol";
 import {WithdrawalQueueMock} from "test/mocks/WithdrawalQueueMock.sol";
@@ -144,11 +143,13 @@ contract EscrowUnitTests is UnitTest {
 
     function vetoerLockedUnstEth(uint256[] memory amounts) internal returns (uint256[] memory unstethIds) {
         unstethIds = new uint256[](amounts.length);
-        WithdrawalRequestStatus[] memory statuses = new WithdrawalRequestStatus[](amounts.length);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](amounts.length);
 
         for (uint256 i = 0; i < amounts.length; ++i) {
             unstethIds[i] = i;
-            statuses[i] = WithdrawalRequestStatus(amounts[i], amounts[i], _vetoer, block.timestamp, false, false);
+            statuses[i] =
+                IWithdrawalQueue.WithdrawalRequestStatus(amounts[i], amounts[i], _vetoer, block.timestamp, false, false);
         }
 
         vm.mockCall(

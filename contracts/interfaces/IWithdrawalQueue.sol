@@ -3,16 +3,16 @@ pragma solidity 0.8.26;
 
 import {IERC721} from "@openzeppelin/contracts/interfaces/IERC721.sol";
 
-struct WithdrawalRequestStatus {
-    uint256 amountOfStETH;
-    uint256 amountOfShares;
-    address owner;
-    uint256 timestamp;
-    bool isFinalized;
-    bool isClaimed;
-}
-
 interface IWithdrawalQueue is IERC721 {
+    struct WithdrawalRequestStatus {
+        uint256 amountOfStETH;
+        uint256 amountOfShares;
+        address owner;
+        uint256 timestamp;
+        bool isFinalized;
+        bool isClaimed;
+    }
+
     function MIN_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
     function MAX_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256);
 

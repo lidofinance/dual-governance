@@ -16,5 +16,6 @@ interface ITiebreaker {
     function setTiebreakerCommittee(address tiebreakerCommittee) external;
     function setTiebreakerActivationTimeout(Duration tiebreakerActivationTimeout) external;
     function tiebreakerScheduleProposal(uint256 proposalId) external;
+    function getTiebreakerDetails() external view returns (TiebreakerDetails memory tiebreakerState);
     function tiebreakerResumeSealable(address sealable) external;
 }
