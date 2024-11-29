@@ -124,6 +124,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
         if (nonce != _sealableResumeNonces[sealable]) {
             revert ResumeSealableNonceMismatch();
         }
+
         (bytes memory proposalData, bytes32 key) = _encodeSealableResume(sealable, nonce);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ResumeSealable), proposalData);

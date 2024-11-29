@@ -5,7 +5,6 @@ import {stdError} from "forge-std/StdError.sol";
 import {ISealable, SealableCalls} from "contracts/libraries/SealableCalls.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
-import {SealableMock} from "test/mocks/SealableMock.sol";
 
 error CustomSealableError(string message);
 

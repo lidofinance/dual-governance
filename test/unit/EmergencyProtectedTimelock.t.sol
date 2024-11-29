@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {Vm} from "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Duration, Durations, MAX_DURATION_VALUE} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
@@ -14,6 +14,7 @@ import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock, TimelockState} from "contracts/EmergencyProtectedTimelock.sol";
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/target-mock.sol";
@@ -22,6 +23,7 @@ import {ExternalCall} from "test/utils/executor-calls.sol";
 contract EmergencyProtectedTimelockUnitTests is UnitTest {
     EmergencyProtectedTimelock private _timelock;
     TargetMock private _targetMock;
+    TargetMock private _anotherTargetMock;
     Executor private _executor;
 
     address private _emergencyActivator = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
@@ -33,6 +35,17 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     address private _dualGovernance = makeAddr("DUAL_GOVERNANCE");
     address private _adminExecutor;
 
+    EmergencyProtectedTimelock.SanityCheckParams private _defaultSanityCheckParams = EmergencyProtectedTimelock
+        .SanityCheckParams({
+        minExecutionDelay: Durations.from(4 days),
+        maxAfterSubmitDelay: Durations.from(14 days),
+        maxAfterScheduleDelay: Durations.from(7 days),
+        maxEmergencyModeDuration: Durations.from(365 days),
+        maxEmergencyProtectionDuration: Durations.from(365 days)
+    });
+    Duration private _defaultAfterSubmitDelay = Durations.from(3 days);
+    Duration private _defaultAfterScheduleDelay = Durations.from(2 days);
+
     function setUp() external {
         _executor = new Executor(address(this));
         _adminExecutor = address(_executor);
@@ -40,12 +53,12 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock = _deployEmergencyProtectedTimelock();
 
         _targetMock = new TargetMock();
+        _anotherTargetMock = new TargetMock();
 
         _executor.transferOwnership(address(_timelock));
 
         vm.startPrank(_adminExecutor);
         _timelock.setGovernance(_dualGovernance);
-        _timelock.setupDelays({afterSubmitDelay: Durations.from(3 days), afterScheduleDelay: Durations.from(2 days)});
         _timelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
         _timelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
         _timelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
@@ -56,18 +69,106 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     // EmergencyProtectedTimelock.constructor()
 
+    function test_constructor_HappyPath_NonZeroDelays() external {
+        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams = _defaultSanityCheckParams;
+
+        address adminExecutor = makeAddr("ADMIN_EXECUTOR");
+        Duration afterSubmitDelay = _defaultAfterSubmitDelay;
+        Duration afterScheduleDelay = _defaultAfterScheduleDelay;
+
+        vm.expectEmit();
+        emit TimelockState.AfterSubmitDelaySet(afterSubmitDelay);
+
+        vm.expectEmit();
+        emit TimelockState.AfterScheduleDelaySet(afterScheduleDelay);
+
+        EmergencyProtectedTimelock timelock =
+            new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay);
+
+        _assertEmergencyProtectedTimelockConstructorParams(
+            timelock, sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay
+        );
+    }
+
+    function test_constructor_HappyPath_ZeroDelays() external {
+        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams = _defaultSanityCheckParams;
+        sanityCheckParams.minExecutionDelay = Durations.ZERO;
+
+        address adminExecutor = makeAddr("ADMIN_EXECUTOR");
+        Duration afterSubmitDelay = Durations.ZERO;
+        Duration afterScheduleDelay = Durations.ZERO;
+
+        vm.recordLogs();
+
+        EmergencyProtectedTimelock timelock =
+            new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay);
+
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        _assertEmergencyProtectedTimelockConstructorParams(
+            timelock, sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay
+        );
+    }
+
+    function test_constructor_RevertOn_AfterSubmitDelayExceeded() external {
+        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams = _defaultSanityCheckParams;
+
+        address adminExecutor = makeAddr("ADMIN_EXECUTOR");
+        Duration afterSubmitDelay = sanityCheckParams.maxAfterSubmitDelay + Durations.from(1 seconds);
+        Duration afterScheduleDelay = sanityCheckParams.maxAfterScheduleDelay;
+
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterSubmitDelay.selector, afterSubmitDelay));
+
+        EmergencyProtectedTimelock timelock =
+            new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay);
+    }
+
+    function test_constructor_RevertOn_AfterScheduleDelayExceeded() external {
+        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams = _defaultSanityCheckParams;
+
+        address adminExecutor = makeAddr("ADMIN_EXECUTOR");
+        Duration afterSubmitDelay = sanityCheckParams.maxAfterSubmitDelay;
+        Duration afterScheduleDelay = sanityCheckParams.maxAfterScheduleDelay + Durations.from(1 seconds);
+
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterScheduleDelay.selector, afterScheduleDelay));
+
+        EmergencyProtectedTimelock timelock =
+            new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay);
+    }
+
+    function test_constructor_RevertOn_MinExecutionDelayTooLow() external {
+        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams = _defaultSanityCheckParams;
+        sanityCheckParams.minExecutionDelay = Durations.from(MAX_DURATION_VALUE);
+
+        address adminExecutor = makeAddr("ADMIN_EXECUTOR");
+        Duration afterSubmitDelay = _defaultAfterSubmitDelay;
+        Duration afterScheduleDelay = _defaultAfterScheduleDelay;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(TimelockState.InvalidExecutionDelay.selector, afterSubmitDelay + afterScheduleDelay)
+        );
+
+        EmergencyProtectedTimelock timelock =
+            new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay);
+    }
+
     function testFuzz_constructor_HappyPath(
         EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams,
-        address adminExecutor
+        address adminExecutor,
+        Duration afterSubmitDelay,
+        Duration afterScheduleDelay
     ) external {
-        EmergencyProtectedTimelock timelock = new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor);
+        vm.assume(afterSubmitDelay <= sanityCheckParams.maxAfterSubmitDelay);
+        vm.assume(afterScheduleDelay <= sanityCheckParams.maxAfterScheduleDelay);
+        vm.assume(afterSubmitDelay.toSeconds() + afterScheduleDelay.toSeconds() <= MAX_DURATION_VALUE);
+        vm.assume(afterSubmitDelay + afterScheduleDelay >= sanityCheckParams.minExecutionDelay);
 
-        assertEq(timelock.getAdminExecutor(), adminExecutor);
+        EmergencyProtectedTimelock timelock =
+            new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay);
 
-        assertEq(timelock.MAX_AFTER_SUBMIT_DELAY(), sanityCheckParams.maxAfterSubmitDelay);
-        assertEq(timelock.MAX_AFTER_SCHEDULE_DELAY(), sanityCheckParams.maxAfterScheduleDelay);
-        assertEq(timelock.MAX_EMERGENCY_MODE_DURATION(), sanityCheckParams.maxEmergencyModeDuration);
-        assertEq(timelock.MAX_EMERGENCY_PROTECTION_DURATION(), sanityCheckParams.maxEmergencyProtectionDuration);
+        _assertEmergencyProtectedTimelockConstructorParams(
+            timelock, sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay
+        );
     }
 
     // EmergencyProtectedTimelock.submit()
@@ -77,13 +178,21 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotGovernance.selector, [stranger]));
-        _timelock.submit(_adminExecutor, new ExternalCall[](0), "");
+        _timelock.submit(stranger, _adminExecutor, new ExternalCall[](0), "");
         assertEq(_timelock.getProposalsCount(), 0);
     }
 
     function test_submit_HappyPath() external {
+        string memory testMetadata = "testMetadata";
+
+        vm.expectEmit(true, true, true, true);
+        emit ExecutableProposals.ProposalSubmitted(
+            1, _dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), testMetadata
+        );
         vm.prank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(
+            _dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), testMetadata
+        );
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -201,29 +310,149 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.cancelAllNonExecutedProposals();
     }
 
-    function testFuzz_setupDelays_HappyPath(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
-        vm.assume(
-            afterSubmitDelay != _timelock.getAfterSubmitDelay() && afterSubmitDelay < _timelock.MAX_AFTER_SUBMIT_DELAY()
-        );
-        vm.assume(
-            afterScheduleDelay != _timelock.getAfterScheduleDelay()
-                && afterScheduleDelay < _timelock.MAX_AFTER_SCHEDULE_DELAY()
+    // EmergencyProtectedTimelock.setAfterSubmitDelay()
+
+    function test_setAfterSubmitDelay_HappyPath() external {
+        Duration newAfterSubmitDelay = _timelock.getAfterSubmitDelay() + Durations.from(1 seconds);
+
+        vm.expectEmit();
+        emit TimelockState.AfterSubmitDelaySet(newAfterSubmitDelay);
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
+
+        assertEq(_timelock.getAfterSubmitDelay(), newAfterSubmitDelay);
+    }
+
+    function test_setAfterSubmitDelay_RevertOn_MaxAfterSubmitDelayExceeded() external {
+        Duration newAfterSubmitDelay = _defaultSanityCheckParams.maxAfterSubmitDelay + Durations.from(1 seconds);
+
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterSubmitDelay.selector, newAfterSubmitDelay));
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
+    }
+
+    function test_setAfterSubmitDelay_RevertOn_ExecutionDelayTooLow() external {
+        Duration afterScheduleDelay = _timelock.getAfterScheduleDelay();
+        Duration newAfterSubmitDelay = (_defaultSanityCheckParams.minExecutionDelay - afterScheduleDelay).dividedBy(2);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockState.InvalidExecutionDelay.selector, newAfterSubmitDelay + afterScheduleDelay
+            )
         );
 
         vm.prank(_adminExecutor);
-        _timelock.setupDelays({afterSubmitDelay: afterSubmitDelay, afterScheduleDelay: afterScheduleDelay});
-
-        assertEq(_timelock.getAfterSubmitDelay(), afterSubmitDelay);
-        assertEq(_timelock.getAfterScheduleDelay(), afterScheduleDelay);
+        _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
     }
 
-    function test_setupDelays_RevertOn_ByStranger(address stranger) external {
-        vm.assume(stranger != _adminExecutor);
-        vm.assume(stranger != address(0));
+    function test_setAfterSubmitDelay_RevertOn_CalledNotByAdminExecutor() external {
+        Duration newAfterSubmitDelay = _defaultSanityCheckParams.maxAfterSubmitDelay + Durations.from(1 seconds);
 
-        vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
-        _timelock.setupDelays({afterSubmitDelay: Durations.from(1 days), afterScheduleDelay: Durations.from(1 days)});
+        vm.expectRevert(
+            abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, address(this))
+        );
+        _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
+    }
+
+    function testFuzz_setAfterSubmitDelay_HappyPath(
+        Duration newAfterSubmitDelay,
+        Duration newAfterScheduleDelay
+    ) external {
+        Duration prevAfterSubmitDelay = _timelock.getAfterSubmitDelay();
+        Duration prevAfterScheduleDelay = _timelock.getAfterScheduleDelay();
+
+        // Update the after schedule delay in the default setup to increase "randomness" of the fuzz test
+        vm.assume(prevAfterScheduleDelay != newAfterScheduleDelay);
+        vm.assume(newAfterScheduleDelay <= _defaultSanityCheckParams.maxAfterScheduleDelay);
+        vm.assume(prevAfterSubmitDelay + newAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay);
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
+        assertEq(_timelock.getAfterScheduleDelay(), newAfterScheduleDelay);
+
+        vm.assume(newAfterSubmitDelay != prevAfterSubmitDelay);
+        vm.assume(newAfterSubmitDelay <= _defaultSanityCheckParams.maxAfterSubmitDelay);
+        vm.assume(newAfterSubmitDelay + newAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay);
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
+
+        assertEq(_timelock.getAfterSubmitDelay(), newAfterSubmitDelay);
+    }
+
+    // EmergencyProtectedTimelock.setAfterScheduleDelay()
+
+    function test_setAfterScheduleDelay_HappyPath() external {
+        Duration newAfterScheduleDelay = _timelock.getAfterScheduleDelay() + Durations.from(1 seconds);
+
+        vm.expectEmit();
+        emit TimelockState.AfterScheduleDelaySet(newAfterScheduleDelay);
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
+
+        assertEq(_timelock.getAfterScheduleDelay(), newAfterScheduleDelay);
+    }
+
+    function test_setAfterScheduleDelay_RevertOn_MaxAfterScheduleDelayExceeded() external {
+        Duration newAfterScheduleDelay = _defaultSanityCheckParams.maxAfterScheduleDelay + Durations.from(1 seconds);
+
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterScheduleDelay.selector, newAfterScheduleDelay));
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
+    }
+
+    function test_setAfterScheduleDelay_RevertOn_ExecutionDelayTooLow() external {
+        Duration afterSubmitDelay = _timelock.getAfterSubmitDelay();
+        Duration newAfterScheduleDelay = (_defaultSanityCheckParams.minExecutionDelay - afterSubmitDelay).dividedBy(2);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockState.InvalidExecutionDelay.selector, newAfterScheduleDelay + afterSubmitDelay
+            )
+        );
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
+    }
+
+    function test_setAfterScheduleDelay_RevertOn_CalledNotByAdminExecutor() external {
+        Duration newAfterScheduleDelay = _defaultSanityCheckParams.maxAfterScheduleDelay + Durations.from(1 seconds);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, address(this))
+        );
+        _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
+    }
+
+    function testFuzz_setAfterScheduleDelay_HappyPath(
+        Duration newAfterSubmitDelay,
+        Duration newAfterScheduleDelay
+    ) external {
+        Duration prevAfterSubmitDelay = _timelock.getAfterSubmitDelay();
+        Duration prevAfterScheduleDelay = _timelock.getAfterScheduleDelay();
+
+        // Update the after submit delay in the default setup to increase "randomness" of the fuzz test
+        vm.assume(newAfterSubmitDelay != prevAfterSubmitDelay);
+        vm.assume(newAfterSubmitDelay <= _defaultSanityCheckParams.maxAfterSubmitDelay);
+        vm.assume(newAfterSubmitDelay + prevAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay);
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
+
+        assertEq(_timelock.getAfterSubmitDelay(), newAfterSubmitDelay);
+
+        vm.assume(prevAfterScheduleDelay != newAfterScheduleDelay);
+        vm.assume(newAfterScheduleDelay <= _defaultSanityCheckParams.maxAfterScheduleDelay);
+        vm.assume(newAfterSubmitDelay + newAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay);
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
+
+        assertEq(_timelock.getAfterScheduleDelay(), newAfterScheduleDelay);
     }
 
     // EmergencyProtectedTimelock.transferExecutorOwnership()
@@ -357,7 +586,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_emergencyExecute_RevertOn_ModeNotActive() external {
         vm.startPrank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(_dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -808,8 +1037,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.startPrank(_dualGovernance);
         ExternalCall[] memory executorCalls = _getMockTargetRegularStaffCalls(address(_targetMock));
-        _timelock.submit(_adminExecutor, executorCalls, "");
-        _timelock.submit(_adminExecutor, executorCalls, "");
+        ExternalCall[] memory anotherExecutorCalls = _getMockTargetRegularStaffCalls(address(_anotherTargetMock));
+        _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
+        _timelock.submit(_dualGovernance, _adminExecutor, anotherExecutorCalls, "");
 
         (ITimelock.ProposalDetails memory submittedProposal, ExternalCall[] memory calls) = _timelock.getProposal(1);
 
@@ -876,9 +1106,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         // assertEq(cancelledProposal.executedAt, Timestamps.ZERO);
         // assertEq doesn't support comparing enumerables so far
         assertEq(cancelledCalls.length, 1);
-        assertEq(cancelledCalls[0].value, executorCalls[0].value);
-        assertEq(cancelledCalls[0].target, executorCalls[0].target);
-        assertEq(cancelledCalls[0].payload, executorCalls[0].payload);
+        assertEq(cancelledCalls[0].value, anotherExecutorCalls[0].value);
+        assertEq(cancelledCalls[0].target, anotherExecutorCalls[0].target);
+        assertEq(cancelledCalls[0].payload, anotherExecutorCalls[0].payload);
     }
 
     function test_get_not_existing_proposal() external {
@@ -966,7 +1196,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_getProposalCalls() external {
         ExternalCall[] memory executorCalls = _getMockTargetRegularStaffCalls(address(_targetMock));
         vm.prank(_dualGovernance);
-        _timelock.submit(_adminExecutor, executorCalls, "");
+        _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
 
         ExternalCall[] memory calls = _timelock.getProposalCalls(1);
 
@@ -977,14 +1207,20 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     }
 
     function testFuzz_getAdminExecutor(address executor) external {
+        Duration afterSubmitDelay = Durations.from(3 days);
+        Duration afterScheduleDelay = Durations.from(1 days);
+
         EmergencyProtectedTimelock timelock = new EmergencyProtectedTimelock(
             EmergencyProtectedTimelock.SanityCheckParams({
+                minExecutionDelay: Durations.from(0 seconds),
                 maxAfterSubmitDelay: Durations.from(45 days),
                 maxAfterScheduleDelay: Durations.from(45 days),
                 maxEmergencyModeDuration: Durations.from(365 days),
                 maxEmergencyProtectionDuration: Durations.from(365 days)
             }),
-            executor
+            executor,
+            afterSubmitDelay,
+            afterScheduleDelay
         );
 
         assertEq(timelock.getAdminExecutor(), executor);
@@ -994,7 +1230,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function _submitProposal() internal {
         vm.prank(_dualGovernance);
-        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(_dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
     }
 
     function _scheduleProposal(uint256 proposalId) internal {
@@ -1020,13 +1256,45 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function _deployEmergencyProtectedTimelock() internal returns (EmergencyProtectedTimelock) {
         return new EmergencyProtectedTimelock(
-            EmergencyProtectedTimelock.SanityCheckParams({
-                maxAfterSubmitDelay: Durations.from(45 days),
-                maxAfterScheduleDelay: Durations.from(45 days),
-                maxEmergencyModeDuration: Durations.from(365 days),
-                maxEmergencyProtectionDuration: Durations.from(365 days)
-            }),
-            _adminExecutor
+            _defaultSanityCheckParams, _adminExecutor, _defaultAfterSubmitDelay, _defaultAfterScheduleDelay
+        );
+    }
+
+    function _assertEmergencyProtectedTimelockConstructorParams(
+        EmergencyProtectedTimelock timelock,
+        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams,
+        address adminExecutor,
+        Duration afterSubmitDelay,
+        Duration afterScheduleDelay
+    ) internal {
+        assertEq(timelock.getAdminExecutor(), adminExecutor, "Unexpected 'adminExecutor' value");
+        assertEq(timelock.getAfterSubmitDelay(), afterSubmitDelay, "Unexpected 'afterSubmitDelay' value");
+        assertEq(timelock.getAfterScheduleDelay(), afterScheduleDelay, "Unexpected 'afterScheduleDelay' value");
+
+        assertEq(
+            timelock.MIN_EXECUTION_DELAY(),
+            sanityCheckParams.minExecutionDelay,
+            "Unexpected 'MIN_EXECUTION_DELAY' value"
+        );
+        assertEq(
+            timelock.MAX_AFTER_SUBMIT_DELAY(),
+            sanityCheckParams.maxAfterSubmitDelay,
+            "Unexpected 'MAX_AFTER_SUBMIT_DELAY' value"
+        );
+        assertEq(
+            timelock.MAX_AFTER_SCHEDULE_DELAY(),
+            sanityCheckParams.maxAfterScheduleDelay,
+            "Unexpected 'MAX_AFTER_SCHEDULE_DELAY' value"
+        );
+        assertEq(
+            timelock.MAX_EMERGENCY_MODE_DURATION(),
+            sanityCheckParams.maxEmergencyModeDuration,
+            "Unexpected 'MAX_EMERGENCY_MODE_DURATION' value"
+        );
+        assertEq(
+            timelock.MAX_EMERGENCY_PROTECTION_DURATION(),
+            sanityCheckParams.maxEmergencyProtectionDuration,
+            "Unexpected 'MAX_EMERGENCY_PROTECTION_DURATION' value"
         );
     }
 }

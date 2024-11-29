@@ -5,7 +5,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @notice The state of the WithdrawalBatchesQueue.
-/// @param Empty The initial (uninitialized) state of the WithdrawalBatchesQueue.
+/// @param Absent The initial (uninitialized) state of the WithdrawalBatchesQueue.
 /// @param Opened In this state, the WithdrawalBatchesQueue allows the addition of new batches of unstETH ids.
 /// @param Closed The terminal state of the queue where adding new batches is no longer permitted.
 enum State {
@@ -98,7 +98,7 @@ library WithdrawalsBatchesQueue {
         self.info.state = State.Opened;
 
         /// @dev add the boundary unstETH element into the queue, which will be used as the last unstETH id
-        ///     when the queue is empty. This element doesn't used during the claiming of the batches created
+        ///     when the queue is empty. This element isn't used during the claiming of the batches created
         ///     via `addUnstETHIds()` method and always allocates single batch.
         self.batches.push(SequentialBatch({firstUnstETHId: boundaryUnstETHId, lastUnstETHId: boundaryUnstETHId}));
         emit WithdrawalsBatchesQueueOpened(boundaryUnstETHId);
@@ -213,21 +213,6 @@ library WithdrawalsBatchesQueue {
         (unstETHIds,) = _getNextClaimableUnstETHIds(self, limit);
     }
 
-    /// @notice Retrieves the id of the boundary unstETH id.
-    /// @param self The context of the Withdrawals Batches Queue library.
-    /// @return boundaryUnstETHId The id of the boundary unstETH.
-    function getBoundaryUnstETHId(Context storage self) internal view returns (uint256) {
-        _checkNotInAbsentState(self);
-        return self.batches[0].firstUnstETHId;
-    }
-
-    /// @notice Retrieves the total count of the unstETH ids added in the queue.
-    /// @param self The context of the Withdrawals Batches Queue library.
-    /// @return totalUnstETHIdsCount The total count of the unstETH ids.
-    function getTotalUnstETHIdsCount(Context storage self) internal view returns (uint256) {
-        return self.info.totalUnstETHIdsCount;
-    }
-
     /// @notice Retrieves the total unclaimed unstETH ids count.
     /// @param self The context of the Withdrawals Batches Queue library.
     /// @return totalUnclaimedUnstETHIdsCount The total count of unclaimed unstETH ids.
@@ -278,13 +263,14 @@ library WithdrawalsBatchesQueue {
         unstETHIds = new uint256[](unstETHIdsCount);
         SequentialBatch memory currentBatch = self.batches[info.lastClaimedBatchIndex];
 
+        uint256 unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             info.lastClaimedUnstETHIdIndex += 1;
-            uint256 unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
             if (unstETHIdsCountInTheBatch == info.lastClaimedUnstETHIdIndex) {
                 info.lastClaimedBatchIndex += 1;
                 info.lastClaimedUnstETHIdIndex = 0;
                 currentBatch = self.batches[info.lastClaimedBatchIndex];
+                unstETHIdsCountInTheBatch = currentBatch.lastUnstETHId - currentBatch.firstUnstETHId + 1;
             }
             unstETHIds[i] = currentBatch.firstUnstETHId + info.lastClaimedUnstETHIdIndex;
         }

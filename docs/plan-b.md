@@ -95,16 +95,6 @@ See: [`EmergencyProtectedTimelock.schedule`](#)
 #### Preconditions
 - The proposal with the given id MUST be in the `Submitted` state.
 
-### Function: `TimelockedGovernance.executeProposal`
-```solidity
-function executeProposal(uint256 proposalId) external
-```
-Instructs the [`EmergencyProtectedTimelock`](#) singleton instance to execute the proposal with id `proposalId`.
-
-See: [`EmergencyProtectedTimelock.execute`](#)
-#### Preconditions
-- The proposal with the given id MUST be in the `Scheduled` state.
-
 ### Function: `TimelockedGovernance.cancelAllPendingProposals`
 
 ```solidity
@@ -138,7 +128,7 @@ If the Emergency Committees are set up and active, the governance proposal under
 While active, the Emergency Activation Committee can enable Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. Once the **Emergency Duration** has ended, the Emergency Execution Committee or anyone else may disable the emergency mode, canceling all pending proposals. After the emergency mode is deactivated or the Emergency Period has elapsed, the Emergency Committees lose their power.
 ### Function: `EmergencyProtectedTimelock.submit`
 ```solidity
-function submit(address executor, ExecutorCall[] calls, string metadata)
+function submit(address proposer, address executor, ExecutorCall[] calls, string metadata)
   returns (uint256 proposalId)
 ```
 Registers a new governance proposal composed of one or more external `calls` to be made by the `executor` contract. Initiates the `AfterSubmitDelay`.
@@ -210,7 +200,7 @@ Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in t
 * MUST be called by the Emergency Execution Committee address.
 
 ### Admin functions
-The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtectionActivationCommittee`, `setEmergencyProtectionExecutionCommittee`, `setEmergencyProtectionEndDate`, `setEmergencyModeDuration`, `setEmergencyGovernance`) and general system wiring (`transferExecutorOwnership`, `setGovernance`, `setupDelays`). These functions MUST be called by the [Admin Executor](#) address.
+The contract has the interface for managing the configuration related to emergency protection (`setEmergencyProtectionActivationCommittee`, `setEmergencyProtectionExecutionCommittee`, `setEmergencyProtectionEndDate`, `setEmergencyModeDuration`, `setEmergencyGovernance`) and general system wiring (`transferExecutorOwnership`, `setGovernance`, `setAfterSubmitDelay`, `setAfterScheduleDelay`). These functions MUST be called by the [Admin Executor](#) address.
 
 ## Contract: `Executor`
 Executes calls resulting from governance proposals' execution. Every protocol permission or role protected by the TG, as well as the permission to manage these roles/permissions, should be assigned exclusively to instances of this contract.

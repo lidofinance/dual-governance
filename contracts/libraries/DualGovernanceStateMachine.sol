@@ -147,20 +147,22 @@ library DualGovernanceStateMachine {
             return;
         }
 
+        Timestamp newStateEnteredAt = Timestamps.now();
+
         self.state = newState;
-        self.enteredAt = Timestamps.now();
+        self.enteredAt = newStateEnteredAt;
 
         if (currentState == State.Normal || currentState == State.VetoCooldown) {
-            self.normalOrVetoCooldownExitedAt = Timestamps.now();
+            self.normalOrVetoCooldownExitedAt = newStateEnteredAt;
         }
 
         if (newState == State.Normal && self.rageQuitRound != 0) {
             self.rageQuitRound = 0;
         } else if (newState == State.VetoSignalling) {
             if (currentState == State.VetoSignallingDeactivation) {
-                self.vetoSignallingReactivationTime = Timestamps.now();
+                self.vetoSignallingReactivationTime = newStateEnteredAt;
             } else {
-                self.vetoSignallingActivatedAt = Timestamps.now();
+                self.vetoSignallingActivatedAt = newStateEnteredAt;
             }
         } else if (newState == State.RageQuit) {
             IEscrow signallingEscrow = self.signallingEscrow;
