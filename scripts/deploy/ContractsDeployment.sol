@@ -161,11 +161,14 @@ library DGContractsDeployment {
         return new EmergencyProtectedTimelock({
             adminExecutor: address(adminExecutor),
             sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
+                minExecutionDelay: dgDeployConfig.MIN_EXECUTION_DELAY,
                 maxAfterSubmitDelay: dgDeployConfig.MAX_AFTER_SUBMIT_DELAY,
                 maxAfterScheduleDelay: dgDeployConfig.MAX_AFTER_SCHEDULE_DELAY,
                 maxEmergencyModeDuration: dgDeployConfig.MAX_EMERGENCY_MODE_DURATION,
                 maxEmergencyProtectionDuration: dgDeployConfig.MAX_EMERGENCY_PROTECTION_DURATION
-            })
+            }),
+            afterSubmitDelay: dgDeployConfig.AFTER_SUBMIT_DELAY,
+            afterScheduleDelay: dgDeployConfig.AFTER_SCHEDULE_DELAY
         });
     }
 
@@ -322,13 +325,6 @@ library DGContractsDeployment {
         address dualGovernance,
         DeployConfig memory dgDeployConfig
     ) internal {
-        adminExecutor.execute(
-            address(timelock),
-            0,
-            abi.encodeCall(
-                timelock.setupDelays, (dgDeployConfig.AFTER_SUBMIT_DELAY, dgDeployConfig.AFTER_SCHEDULE_DELAY)
-            )
-        );
         adminExecutor.execute(address(timelock), 0, abi.encodeCall(timelock.setGovernance, (dualGovernance)));
         adminExecutor.transferOwnership(address(timelock));
     }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
+import {Duration, Durations} from "./types/Duration.sol";
 
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {IEmergencyProtectedTimelock} from "./interfaces/IEmergencyProtectedTimelock.sol";
@@ -32,16 +32,22 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // ---
 
     /// @notice The parameters for the sanity checks.
+    /// @param minExecutionDelay The minimum allowable duration for the combined after-submit and after-schedule delays.
     /// @param maxAfterSubmitDelay The maximum allowable delay before a submitted proposal can be scheduled for execution.
     /// @param maxAfterScheduleDelay The maximum allowable delay before a scheduled proposal can be executed.
     /// @param maxEmergencyModeDuration The maximum time the timelock can remain in emergency mode.
     /// @param maxEmergencyProtectionDuration The maximum time the emergency protection mechanism can be activated.
     struct SanityCheckParams {
+        Duration minExecutionDelay;
         Duration maxAfterSubmitDelay;
         Duration maxAfterScheduleDelay;
         Duration maxEmergencyModeDuration;
         Duration maxEmergencyProtectionDuration;
     }
+
+    /// @notice Represents the minimum allowed time that must pass between the submission of a proposal and its execution.
+    /// @dev The minimum permissible value for the sum of `afterScheduleDelay` and `afterSubmitDelay`.
+    Duration public immutable MIN_EXECUTION_DELAY;
 
     /// @notice The upper bound for the delay required before a submitted proposal can be scheduled for execution.
     Duration public immutable MAX_AFTER_SUBMIT_DELAY;
@@ -72,13 +78,29 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // Constructor
     // ---
 
-    constructor(SanityCheckParams memory sanityCheckParams, address adminExecutor) {
+    constructor(
+        SanityCheckParams memory sanityCheckParams,
+        address adminExecutor,
+        Duration afterSubmitDelay,
+        Duration afterScheduleDelay
+    ) {
+        MIN_EXECUTION_DELAY = sanityCheckParams.minExecutionDelay;
         MAX_AFTER_SUBMIT_DELAY = sanityCheckParams.maxAfterSubmitDelay;
         MAX_AFTER_SCHEDULE_DELAY = sanityCheckParams.maxAfterScheduleDelay;
         MAX_EMERGENCY_MODE_DURATION = sanityCheckParams.maxEmergencyModeDuration;
         MAX_EMERGENCY_PROTECTION_DURATION = sanityCheckParams.maxEmergencyProtectionDuration;
 
         _timelockState.setAdminExecutor(adminExecutor);
+
+        if (afterSubmitDelay > Durations.ZERO) {
+            _timelockState.setAfterSubmitDelay(afterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
+        }
+
+        if (afterScheduleDelay > Durations.ZERO) {
+            _timelockState.setAfterScheduleDelay(afterScheduleDelay, MAX_AFTER_SCHEDULE_DELAY);
+        }
+
+        _timelockState.checkExecutionDelay(MIN_EXECUTION_DELAY);
     }
 
     // ---
@@ -132,13 +154,22 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         _timelockState.setGovernance(newGovernance);
     }
 
-    /// @notice Configures the delays for submitting and scheduling proposals, within defined upper bounds.
-    /// @param afterSubmitDelay The delay required before a submitted proposal can be scheduled.
-    /// @param afterScheduleDelay The delay required before a scheduled proposal can be executed.
-    function setupDelays(Duration afterSubmitDelay, Duration afterScheduleDelay) external {
+    /// @notice Sets the delay required to pass from the submission of a proposal before it can be scheduled for execution.
+    ///     Ensures that the new delay value complies with the defined sanity check bounds.
+    /// @param newAfterSubmitDelay The delay required before a submitted proposal can be scheduled.
+    function setAfterSubmitDelay(Duration newAfterSubmitDelay) external {
         _checkCallerIsAdminExecutor();
-        _timelockState.setAfterSubmitDelay(afterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
-        _timelockState.setAfterScheduleDelay(afterScheduleDelay, MAX_AFTER_SCHEDULE_DELAY);
+        _timelockState.setAfterSubmitDelay(newAfterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
+        _timelockState.checkExecutionDelay(MIN_EXECUTION_DELAY);
+    }
+
+    /// @notice Sets the delay required to pass from the scheduling of a proposal before it can be executed.
+    ///     Ensures that the new delay value complies with the defined sanity check bounds.
+    /// @param newAfterScheduleDelay The delay required before a scheduled proposal can be executed.
+    function setAfterScheduleDelay(Duration newAfterScheduleDelay) external {
+        _checkCallerIsAdminExecutor();
+        _timelockState.setAfterScheduleDelay(newAfterScheduleDelay, MAX_AFTER_SCHEDULE_DELAY);
+        _timelockState.checkExecutionDelay(MIN_EXECUTION_DELAY);
     }
 
     /// @notice Transfers ownership of the executor contract to a new owner.

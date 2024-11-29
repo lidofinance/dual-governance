@@ -10,6 +10,8 @@ import {IAragonVoting} from "contracts/interfaces/IAragonVoting.sol";
 import {Duration} from "contracts/types/Duration.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
 
+// TODO: choose better value for MIN_EXECUTION_DELAY
+uint256 constant DEFAULT_MIN_EXECUTION_DELAY = 0 seconds;
 uint256 constant DEFAULT_AFTER_SUBMIT_DELAY = 3 days;
 uint256 constant DEFAULT_MAX_AFTER_SUBMIT_DELAY = 45 days;
 uint256 constant DEFAULT_AFTER_SCHEDULE_DELAY = 3 days;
@@ -45,6 +47,7 @@ bytes32 constant CHAIN_NAME_HOLESKY_HASH = keccak256(bytes("holesky"));
 bytes32 constant CHAIN_NAME_HOLESKY_MOCKS_HASH = keccak256(bytes("holesky-mocks"));
 
 struct DeployConfig {
+    Duration MIN_EXECUTION_DELAY;
     Duration AFTER_SUBMIT_DELAY;
     Duration MAX_AFTER_SUBMIT_DELAY;
     Duration AFTER_SCHEDULE_DELAY;

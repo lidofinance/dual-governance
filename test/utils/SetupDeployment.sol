@@ -65,6 +65,8 @@ abstract contract SetupDeployment is Test {
     // Emergency Protected Timelock Deployment Parameters
     // ---
 
+    // TODO: consider to use non zero value for the more realistic setup in the tests
+    Duration internal immutable _MIN_EXECUTION_DELAY = Durations.ZERO;
     Duration internal immutable _AFTER_SUBMIT_DELAY = Durations.from(3 days);
     Duration internal immutable _MAX_AFTER_SUBMIT_DELAY = Durations.from(45 days);
 
@@ -144,7 +146,7 @@ abstract contract SetupDeployment is Test {
         _emergencyExecutionCommittee = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
         _resealCommittee = makeAddr("RESEAL_COMMITTEE");
 
-        dgDeployConfig.AFTER_SUBMIT_DELAY = _AFTER_SUBMIT_DELAY;
+        dgDeployConfig.MIN_EXECUTION_DELAY = dgDeployConfig.AFTER_SUBMIT_DELAY = _AFTER_SUBMIT_DELAY;
         dgDeployConfig.MAX_AFTER_SUBMIT_DELAY = _MAX_AFTER_SUBMIT_DELAY;
         dgDeployConfig.AFTER_SCHEDULE_DELAY = _AFTER_SCHEDULE_DELAY;
         dgDeployConfig.MAX_AFTER_SCHEDULE_DELAY = _MAX_AFTER_SCHEDULE_DELAY;

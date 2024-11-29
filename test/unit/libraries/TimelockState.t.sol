@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {TimelockState} from "contracts/libraries/TimelockState.sol";
-import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Duration, Durations, MAX_DURATION_VALUE, DurationOverflow} from "contracts/types/Duration.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 
@@ -130,7 +130,134 @@ contract TimelockStateUnitTests is UnitTest {
         this.external__checkCallerIsGovernance();
     }
 
+    // ---
+    // checkExecutionDelay()
+    // ---
+
+    function test_checkExecutionDelay_HappyPath_Positive() external {
+        assertTrue(_timelockState.afterSubmitDelay > Durations.ZERO);
+        assertTrue(_timelockState.afterScheduleDelay > Durations.ZERO);
+
+        // regular case
+        Duration minExecutionDelay = (_timelockState.afterSubmitDelay + _timelockState.afterScheduleDelay).dividedBy(2);
+        this.external__checkExecutionDelay(minExecutionDelay);
+
+        // edge case, when minExecutionDelay equal to sum of after submit and after schedule delays
+        minExecutionDelay = _timelockState.afterSubmitDelay + _timelockState.afterScheduleDelay;
+        this.external__checkExecutionDelay(minExecutionDelay);
+
+        // edge case, when minExecutionDelay is zero while after submit and after schedule is not
+        minExecutionDelay = Durations.ZERO;
+        this.external__checkExecutionDelay(minExecutionDelay);
+
+        // edge case, when minExecutionDelay, afterSubmitDelay and afterScheduleDelay is zero
+        minExecutionDelay = Durations.ZERO;
+        _timelockState.afterSubmitDelay = Durations.ZERO;
+        _timelockState.afterScheduleDelay = Durations.ZERO;
+        this.external__checkExecutionDelay(minExecutionDelay);
+
+        // edge case with MAX_DURATION_VALUE
+        minExecutionDelay = Durations.from(MAX_DURATION_VALUE);
+
+        _timelockState.afterSubmitDelay = Durations.ZERO;
+        _timelockState.afterScheduleDelay = Durations.from(MAX_DURATION_VALUE);
+        this.external__checkExecutionDelay(minExecutionDelay);
+
+        _timelockState.afterSubmitDelay = Durations.from(MAX_DURATION_VALUE);
+        _timelockState.afterScheduleDelay = Durations.ZERO;
+        this.external__checkExecutionDelay(minExecutionDelay);
+    }
+
+    function test_checkExecutionDelay_HappyPath_Negative() external {
+        assertTrue(_timelockState.afterSubmitDelay > Durations.ZERO);
+        assertTrue(_timelockState.afterScheduleDelay > Durations.ZERO);
+
+        // regular case
+        Duration minExecutionDelay =
+            _timelockState.afterSubmitDelay + _timelockState.afterScheduleDelay + Durations.from(1 seconds);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockState.InvalidExecutionDelay.selector,
+                _timelockState.afterSubmitDelay + _timelockState.afterScheduleDelay
+            )
+        );
+        this.external__checkExecutionDelay(minExecutionDelay);
+
+        // edge case afterSubmitDelay and afterScheduleDelay is zero while minExecutionDelay is not
+        minExecutionDelay = Durations.from(1 seconds);
+        _timelockState.afterSubmitDelay = Durations.ZERO;
+        _timelockState.afterScheduleDelay = Durations.ZERO;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockState.InvalidExecutionDelay.selector,
+                _timelockState.afterSubmitDelay + _timelockState.afterScheduleDelay
+            )
+        );
+        this.external__checkExecutionDelay(minExecutionDelay);
+
+        // edge case afterSubmitDelay + afterScheduleDelay sum overflows Duration max value
+        minExecutionDelay = Durations.from(MAX_DURATION_VALUE);
+        _timelockState.afterSubmitDelay = Durations.from(1 seconds);
+        _timelockState.afterScheduleDelay = Durations.from(MAX_DURATION_VALUE);
+
+        vm.expectRevert(abi.encodeWithSelector(DurationOverflow.selector));
+        this.external__checkExecutionDelay(minExecutionDelay);
+    }
+
+    function testFuzz_checkExecutionDelay_Positive(
+        Duration minExecutionDelay,
+        Duration afterSubmitDelay,
+        Duration afterScheduleDelay
+    ) external {
+        vm.assume(afterSubmitDelay.toSeconds() + afterScheduleDelay.toSeconds() <= MAX_DURATION_VALUE);
+        vm.assume(minExecutionDelay <= afterSubmitDelay + afterScheduleDelay);
+
+        _timelockState.afterSubmitDelay = afterSubmitDelay;
+        _timelockState.afterScheduleDelay = afterScheduleDelay;
+        this.external__checkExecutionDelay(minExecutionDelay);
+    }
+
+    function testFuzz_checkExecutionDelay_Negative(
+        Duration minExecutionDelay,
+        Duration afterSubmitDelay,
+        Duration afterScheduleDelay
+    ) external {
+        vm.assume(afterSubmitDelay.toSeconds() + afterScheduleDelay.toSeconds() <= MAX_DURATION_VALUE);
+        vm.assume(minExecutionDelay > afterSubmitDelay + afterScheduleDelay);
+
+        _timelockState.afterSubmitDelay = afterSubmitDelay;
+        _timelockState.afterScheduleDelay = afterScheduleDelay;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(TimelockState.InvalidExecutionDelay.selector, afterSubmitDelay + afterScheduleDelay)
+        );
+        this.external__checkExecutionDelay(minExecutionDelay);
+    }
+
+    function testFuzz_checkExecutionDelay_DurationOverflow(
+        Duration minExecutionDelay,
+        Duration afterSubmitDelay,
+        Duration afterScheduleDelay
+    ) external {
+        vm.assume(afterSubmitDelay.toSeconds() + afterScheduleDelay.toSeconds() > MAX_DURATION_VALUE);
+
+        _timelockState.afterSubmitDelay = afterSubmitDelay;
+        _timelockState.afterScheduleDelay = afterScheduleDelay;
+
+        vm.expectRevert(abi.encodeWithSelector(DurationOverflow.selector));
+        this.external__checkExecutionDelay(minExecutionDelay);
+    }
+
+    // ---
+    // Helper Methods
+    // ---
+
     function external__checkCallerIsGovernance() external {
         TimelockState.checkCallerIsGovernance(_timelockState);
+    }
+
+    function external__checkExecutionDelay(Duration minExecutionDelay) external {
+        _timelockState.checkExecutionDelay(minExecutionDelay);
     }
 }

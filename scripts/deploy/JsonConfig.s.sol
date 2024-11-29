@@ -27,6 +27,7 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {
     DeployConfig,
     LidoContracts,
+    DEFAULT_MIN_EXECUTION_DELAY,
     DEFAULT_AFTER_SUBMIT_DELAY,
     DEFAULT_MAX_AFTER_SUBMIT_DELAY,
     DEFAULT_AFTER_SCHEDULE_DELAY,
@@ -75,6 +76,9 @@ contract DGDeployJSONConfigProvider is Script {
         string memory jsonConfig = loadConfigFile();
 
         config = DeployConfig({
+            MIN_EXECUTION_DELAY: Durations.from(
+                stdJson.readUintOr(jsonConfig, ".MIN_EXECUTION_DELAY", DEFAULT_MIN_EXECUTION_DELAY)
+            ),
             AFTER_SUBMIT_DELAY: Durations.from(
                 stdJson.readUintOr(jsonConfig, ".AFTER_SUBMIT_DELAY", DEFAULT_AFTER_SUBMIT_DELAY)
             ),
