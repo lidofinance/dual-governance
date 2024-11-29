@@ -38,9 +38,10 @@ contract DualGovernance is IDualGovernance {
     // Errors
     // ---
 
-    error NotAdminProposer();
     error UnownedAdminExecutor();
     error CallerIsNotAdminExecutor(address caller);
+    error CallerIsNotProposalsCanceller(address caller);
+    error InvalidProposalsCanceller(address canceller);
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
@@ -53,6 +54,7 @@ contract DualGovernance is IDualGovernance {
     event CancelAllPendingProposalsSkipped();
     event CancelAllPendingProposalsExecuted();
     event EscrowMasterCopyDeployed(IEscrow escrowMasterCopy);
+    event ProposalsCancellerSet(address proposalsCanceller);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -131,6 +133,10 @@ contract DualGovernance is IDualGovernance {
     /// @dev The functionality for sealing/resuming critical components of Lido protocol.
     Resealer.Context internal _resealer;
 
+    /// @dev The address authorized to call `cancelAllPendingProposals()`, allowing it to cancel all proposals that are
+    ///     submitted or scheduled but not yet executed.
+    address internal _proposalsCanceller;
+
     // ---
     // Constructor
     // ---
@@ -201,7 +207,7 @@ contract DualGovernance is IDualGovernance {
         TIMELOCK.schedule(proposalId);
     }
 
-    /// @notice Allows a proposer associated with the admin executor to cancel all previously submitted or scheduled
+    /// @notice Allows authorized proposer to cancel all previously submitted or scheduled
     ///     but not yet executed proposals when the Dual Governance system is in the `VetoSignalling`
     ///     or `VetoSignallingDeactivation` state.
     /// @dev If the Dual Governance state is not `VetoSignalling` or `VetoSignallingDeactivation`, the function will
@@ -211,9 +217,8 @@ contract DualGovernance is IDualGovernance {
     function cancelAllPendingProposals() external returns (bool) {
         _stateMachine.activateNextState(ESCROW_MASTER_COPY);
 
-        Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
-        if (proposer.executor != TIMELOCK.getAdminExecutor()) {
-            revert NotAdminProposer();
+        if (msg.sender != _proposalsCanceller) {
+            revert CallerIsNotProposalsCanceller(msg.sender);
         }
 
         if (!_stateMachine.canCancelAllPendingProposals({useEffectiveState: false})) {
@@ -286,6 +291,25 @@ contract DualGovernance is IDualGovernance {
     function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external {
         _checkCallerIsAdminExecutor();
         _stateMachine.setConfigProvider(newConfigProvider);
+    }
+
+    /// @notice Sets the address of the proposals canceller authorized to cancel pending proposals.
+    /// @param newProposalsCanceller The address of the new proposals canceller.
+    function setProposalsCanceller(address newProposalsCanceller) external {
+        _checkCallerIsAdminExecutor();
+
+        if (newProposalsCanceller == address(0) || newProposalsCanceller == _proposalsCanceller) {
+            revert InvalidProposalsCanceller(newProposalsCanceller);
+        }
+
+        _proposalsCanceller = newProposalsCanceller;
+        emit ProposalsCancellerSet(newProposalsCanceller);
+    }
+
+    /// @notice Retrieves the current proposals canceller address.
+    /// @return address The address of the current proposals canceller.
+    function getProposalsCanceller() external view returns (address) {
+        return _proposalsCanceller;
     }
 
     /// @notice Returns the current configuration provider address for the Dual Governance system.

@@ -40,6 +40,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
     address private vetoer = makeAddr("vetoer");
     address private resealCommittee = makeAddr("resealCommittee");
+    address private proposalsCanceller = makeAddr("proposalsCanceller");
 
     StETHMock private immutable _STETH_MOCK = new StETHMock();
     IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock();
@@ -96,6 +97,12 @@ contract DualGovernanceUnitTests is UnitTest {
             address(_dualGovernance),
             0,
             abi.encodeWithSelector(DualGovernance.registerProposer.selector, address(this), address(_executor))
+        );
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setProposalsCanceller.selector, proposalsCanceller)
         );
 
         _executor.execute(
@@ -331,6 +338,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertFalse(isProposalsCancelled);
@@ -367,6 +375,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertFalse(isProposalsCancelled);
@@ -394,6 +403,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertFalse(isProposalsCancelled);
@@ -416,6 +426,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertTrue(isProposalsCancelled);
@@ -445,6 +456,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertTrue(isProposalsCancelled);
@@ -452,19 +464,16 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_timelock.lastCancelledProposalId(), 1);
     }
 
-    function test_cancelAllPendingProposals_RevertOn_NotAdminProposer() external {
-        address nonAdminProposer = makeAddr("NON_ADMIN_PROPOSER");
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, nonAdminProposer, address(0x123))
-        );
+    function test_cancelAllPendingProposals_RevertOn_CallerNotProposalsCanceller() external {
+        address notProposalsCanceller = makeAddr("NON_PROPOSALS_CANCELLER");
         _submitMockProposal();
 
         assertEq(_timelock.getProposalsCount(), 1);
 
-        vm.prank(nonAdminProposer);
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.NotAdminProposer.selector));
+        vm.prank(notProposalsCanceller);
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernance.CallerIsNotProposalsCanceller.selector, notProposalsCanceller)
+        );
         _dualGovernance.cancelAllPendingProposals();
 
         assertEq(_timelock.getProposalsCount(), 1);
@@ -1126,6 +1135,66 @@ contract DualGovernanceUnitTests is UnitTest {
             0,
             abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(_configProvider))
         );
+    }
+
+    // ---
+    // setProposalsCanceller()
+    // ---
+
+    function test_setProposalsCanceller_HappyPath() external {
+        address newProposalsCanceller = makeAddr("newProposalsCanceller");
+
+        assertNotEq(newProposalsCanceller, _dualGovernance.getProposalsCanceller());
+
+        vm.expectEmit();
+        emit DualGovernance.ProposalsCancellerSet(newProposalsCanceller);
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposalsCanceller(newProposalsCanceller);
+
+        assertEq(newProposalsCanceller, _dualGovernance.getProposalsCanceller());
+    }
+
+    function testFuzz_setProposalsCanceller_HappyPath(address newProposalsCanceller) external {
+        vm.assume(
+            newProposalsCanceller != address(0) && newProposalsCanceller != _dualGovernance.getProposalsCanceller()
+        );
+
+        vm.expectEmit();
+        emit DualGovernance.ProposalsCancellerSet(newProposalsCanceller);
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposalsCanceller(newProposalsCanceller);
+
+        assertEq(newProposalsCanceller, _dualGovernance.getProposalsCanceller());
+    }
+
+    function test_setProposalsCanceller_RevertOn_CancellerIsZeroAddress() external {
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidProposalsCanceller.selector, address(0)));
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposalsCanceller(address(0));
+    }
+
+    function test_setProposalsCanceller_RevertOn_NewCancellerAddressIsTheSame() external {
+        address prevProposalsCanceller = _dualGovernance.getProposalsCanceller();
+        assertNotEq(prevProposalsCanceller, address(0));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernance.InvalidProposalsCanceller.selector, prevProposalsCanceller)
+        );
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposalsCanceller(prevProposalsCanceller);
+    }
+
+    function testFuzz_setProposalsCanceller_RevertOn_CalledNotByAdminExecutor(address notAllowedCaller) external {
+        vm.assume(notAllowedCaller != address(_executor));
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, notAllowedCaller));
+
+        vm.prank(notAllowedCaller);
+        _dualGovernance.setProposalsCanceller(notAllowedCaller);
     }
 
     // ---

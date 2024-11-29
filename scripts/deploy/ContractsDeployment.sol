@@ -295,6 +295,11 @@ library DGContractsDeployment {
         contracts.adminExecutor.execute(
             address(contracts.dualGovernance),
             0,
+            abi.encodeCall(contracts.dualGovernance.setProposalsCanceller, address(lidoAddresses.voting))
+        );
+        contracts.adminExecutor.execute(
+            address(contracts.dualGovernance),
+            0,
             abi.encodeCall(
                 contracts.dualGovernance.setTiebreakerActivationTimeout, dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT
             )
