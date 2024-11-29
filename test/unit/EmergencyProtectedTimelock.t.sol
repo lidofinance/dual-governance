@@ -37,7 +37,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     EmergencyProtectedTimelock.SanityCheckParams private _defaultSanityCheckParams = EmergencyProtectedTimelock
         .SanityCheckParams({
-        minExecutionDelay: Durations.from(1 days),
+        minExecutionDelay: Durations.from(4 days),
         maxAfterSubmitDelay: Durations.from(14 days),
         maxAfterScheduleDelay: Durations.from(7 days),
         maxEmergencyModeDuration: Durations.from(365 days),
@@ -334,13 +334,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     }
 
     function test_setAfterSubmitDelay_RevertOn_ExecutionDelayTooLow() external {
-        vm.prank(_adminExecutor);
-        _timelock.setAfterScheduleDelay(Durations.ZERO);
-
         Duration afterScheduleDelay = _timelock.getAfterScheduleDelay();
-        assertEq(afterScheduleDelay, Durations.ZERO);
-
-        Duration newAfterSubmitDelay = _defaultSanityCheckParams.minExecutionDelay.dividedBy(2);
+        Duration newAfterSubmitDelay = (_defaultSanityCheckParams.minExecutionDelay - afterScheduleDelay).dividedBy(2);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -361,12 +356,25 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
     }
 
-    function testFuzz_setAfterSubmitDelay_HappyPath(Duration newAfterSubmitDelay) external {
+    function testFuzz_setAfterSubmitDelay_HappyPath(
+        Duration newAfterSubmitDelay,
+        Duration newAfterScheduleDelay
+    ) external {
+        Duration prevAfterSubmitDelay = _timelock.getAfterSubmitDelay();
+        Duration prevAfterScheduleDelay = _timelock.getAfterScheduleDelay();
+
+        // Update the after schedule delay in the default setup to increase "randomness" of the fuzz test
+        vm.assume(prevAfterScheduleDelay != newAfterScheduleDelay);
+        vm.assume(newAfterScheduleDelay <= _defaultSanityCheckParams.maxAfterScheduleDelay);
+        vm.assume(prevAfterSubmitDelay + newAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay);
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
+        assertEq(_timelock.getAfterScheduleDelay(), newAfterScheduleDelay);
+
+        vm.assume(newAfterSubmitDelay != prevAfterSubmitDelay);
         vm.assume(newAfterSubmitDelay <= _defaultSanityCheckParams.maxAfterSubmitDelay);
-        vm.assume(
-            _timelock.getAfterScheduleDelay() + newAfterSubmitDelay >= _defaultSanityCheckParams.minExecutionDelay
-        );
-        vm.assume(_timelock.getAfterSubmitDelay() != newAfterSubmitDelay);
+        vm.assume(newAfterSubmitDelay + newAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay);
 
         vm.prank(_adminExecutor);
         _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
@@ -398,13 +406,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     }
 
     function test_setAfterScheduleDelay_RevertOn_ExecutionDelayTooLow() external {
-        vm.prank(_adminExecutor);
-        _timelock.setAfterSubmitDelay(Durations.ZERO);
-
         Duration afterSubmitDelay = _timelock.getAfterSubmitDelay();
-        assertEq(afterSubmitDelay, Durations.ZERO);
-
-        Duration newAfterScheduleDelay = _defaultSanityCheckParams.minExecutionDelay.dividedBy(2);
+        Duration newAfterScheduleDelay = (_defaultSanityCheckParams.minExecutionDelay - afterSubmitDelay).dividedBy(2);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -425,12 +428,26 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
     }
 
-    function testFuzz_setAfterScheduleDelay_HappyPath(Duration newAfterScheduleDelay) external {
+    function testFuzz_setAfterScheduleDelay_HappyPath(
+        Duration newAfterSubmitDelay,
+        Duration newAfterScheduleDelay
+    ) external {
+        Duration prevAfterSubmitDelay = _timelock.getAfterSubmitDelay();
+        Duration prevAfterScheduleDelay = _timelock.getAfterScheduleDelay();
+
+        // Update the after submit delay in the default setup to increase "randomness" of the fuzz test
+        vm.assume(newAfterSubmitDelay != prevAfterSubmitDelay);
+        vm.assume(newAfterSubmitDelay <= _defaultSanityCheckParams.maxAfterSubmitDelay);
+        vm.assume(newAfterSubmitDelay + prevAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay);
+
+        vm.prank(_adminExecutor);
+        _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
+
+        assertEq(_timelock.getAfterSubmitDelay(), newAfterSubmitDelay);
+
+        vm.assume(prevAfterScheduleDelay != newAfterScheduleDelay);
         vm.assume(newAfterScheduleDelay <= _defaultSanityCheckParams.maxAfterScheduleDelay);
-        vm.assume(
-            _timelock.getAfterScheduleDelay() + newAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay
-        );
-        vm.assume(_timelock.getAfterScheduleDelay() != newAfterScheduleDelay);
+        vm.assume(newAfterSubmitDelay + newAfterScheduleDelay >= _defaultSanityCheckParams.minExecutionDelay);
 
         vm.prank(_adminExecutor);
         _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
