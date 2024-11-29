@@ -464,8 +464,8 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_timelock.lastCancelledProposalId(), 1);
     }
 
-    function test_cancelAllPendingProposals_RevertOn_ProposerCanNotCancelProposers() external {
-        address notProposalsCanceller = makeAddr("NON_ADMIN_PROPOSER");
+    function test_cancelAllPendingProposals_RevertOn_CallerNotProposalsCanceller() external {
+        address notProposalsCanceller = makeAddr("NON_PROPOSALS_CANCELLER");
         _submitMockProposal();
 
         assertEq(_timelock.getProposalsCount(), 1);
