@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 // import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol"; /*, ERC721("test", "test")*/
-import {IWithdrawalQueue, WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 
 /* solhint-disable no-unused-vars,custom-errors */
 contract WithdrawalQueueMock is IWithdrawalQueue {
@@ -37,7 +37,7 @@ contract WithdrawalQueueMock is IWithdrawalQueue {
     function getWithdrawalStatus(uint256[] calldata _requestIds)
         external
         view
-        returns (WithdrawalRequestStatus[] memory statuses)
+        returns (IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses)
     {
         revert("Not Implemented");
     }

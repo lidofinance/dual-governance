@@ -10,9 +10,8 @@ import {SharesValue, SharesValues, SharesValueOverflow, SharesValueUnderflow} fr
 import {IndicesOneBased} from "contracts/types/IndexOneBased.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamps} from "contracts/types/Timestamp.sol";
-import {
-    AssetsAccounting, WithdrawalRequestStatus, UnstETHRecordStatus
-} from "contracts/libraries/AssetsAccounting.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
 import {UnitTest, Duration} from "test/utils/unit-test.sol";
 
@@ -347,8 +346,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHIds.push(genRandomUnstEthId(1024));
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
-            new WithdrawalRequestStatus[](amountsOfShares.length);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](amountsOfShares.length);
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
@@ -389,7 +388,8 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountUnstETHLock_RevertOn_UnstETHIdsLengthNotEqualToWithdrawalRequestStatusesLength(
         address holder
     ) external {
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses = new WithdrawalRequestStatus[](1);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](1);
         uint256[] memory unstETHIds = new uint256[](0);
 
         vm.expectRevert();
@@ -411,8 +411,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
-            new WithdrawalRequestStatus[](amountsOfShares.length);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](amountsOfShares.length);
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
@@ -450,8 +450,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
-            new WithdrawalRequestStatus[](amountsOfShares.length);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](amountsOfShares.length);
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
@@ -483,8 +483,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
-            new WithdrawalRequestStatus[](amountsOfShares.length);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](amountsOfShares.length);
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
@@ -522,8 +522,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
-            new WithdrawalRequestStatus[](amountsOfShares.length);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](amountsOfShares.length);
         uint256[] memory unstETHIds = new uint256[](amountsOfShares.length);
 
         for (uint256 i = 0; i < amountsOfShares.length; ++i) {
@@ -559,7 +559,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses = new WithdrawalRequestStatus[](0);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](0);
         uint256[] memory unstETHIds = new uint256[](0);
 
         vm.expectEmit();
@@ -586,7 +587,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses = new WithdrawalRequestStatus[](1);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](1);
         uint256[] memory unstETHIds = new uint256[](1);
 
         unstETHIds[0] = genRandomUnstEthId(0);
@@ -611,7 +613,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses = new WithdrawalRequestStatus[](1);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](1);
         uint256[] memory unstETHIds = new uint256[](1);
 
         unstETHIds[0] = genRandomUnstEthId(0);
@@ -635,7 +638,8 @@ contract AssetsAccountingUnitTests is UnitTest {
         _accountingContext.assets[holder].unstETHLockedShares = holderUnstETHLockedShares;
         _accountingContext.unstETHTotals.unfinalizedShares = initialTotalUnfinalizedShares;
 
-        WithdrawalRequestStatus[] memory withdrawalRequestStatuses = new WithdrawalRequestStatus[](1);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalRequestStatuses =
+            new IWithdrawalQueue.WithdrawalRequestStatus[](1);
         uint256[] memory unstETHIds = new uint256[](1);
 
         unstETHIds[0] = genRandomUnstEthId(0);
@@ -1413,42 +1417,6 @@ contract AssetsAccountingUnitTests is UnitTest {
         vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
-    }
-
-    // ---
-    // getLockedAssetsTotals
-    // ---
-
-    function testFuzz_getLockedAssetsTotals_happyPath(
-        ETHValue totalFinalizedETH,
-        SharesValue totalLockedShares,
-        SharesValue totalUnfinalizedShares
-    ) external {
-        vm.assume(totalFinalizedETH.toUint256() < type(uint96).max);
-        vm.assume(totalLockedShares.toUint256() < type(uint96).max);
-        vm.assume(totalUnfinalizedShares.toUint256() < type(uint96).max);
-        _accountingContext.unstETHTotals.finalizedETH = totalFinalizedETH;
-        _accountingContext.unstETHTotals.unfinalizedShares = totalUnfinalizedShares;
-        _accountingContext.stETHTotals.lockedShares = totalLockedShares;
-
-        (SharesValue unfinalizedShares, ETHValue finalizedETH) =
-            AssetsAccounting.getLockedAssetsTotals(_accountingContext);
-
-        assertEq(unfinalizedShares, totalLockedShares + totalUnfinalizedShares);
-        assertEq(finalizedETH, totalFinalizedETH);
-    }
-
-    function test_getLockedAssetsTotals_RevertOn_UnfinalizedSharesOverflow() external {
-        ETHValue totalFinalizedETH = ETHValues.from(1);
-        SharesValue totalUnfinalizedShares = SharesValues.from(type(uint128).max - 1);
-        SharesValue totalLockedShares = SharesValues.from(type(uint128).max - 1);
-
-        _accountingContext.unstETHTotals.finalizedETH = totalFinalizedETH;
-        _accountingContext.unstETHTotals.unfinalizedShares = totalUnfinalizedShares;
-        _accountingContext.stETHTotals.lockedShares = totalLockedShares;
-
-        vm.expectRevert(SharesValueOverflow.selector);
-        AssetsAccounting.getLockedAssetsTotals(_accountingContext);
     }
 
     // ---

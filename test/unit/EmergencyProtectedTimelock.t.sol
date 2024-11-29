@@ -11,6 +11,7 @@ import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtec
 import {ITimelock, ProposalStatus} from "contracts/interfaces/ITimelock.sol";
 
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
+import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {Executor} from "contracts/Executor.sol";
 import {EmergencyProtectedTimelock, TimelockState} from "contracts/EmergencyProtectedTimelock.sol";
@@ -77,6 +78,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         Duration afterScheduleDelay = _defaultAfterScheduleDelay;
 
         vm.expectEmit();
+        emit TimelockState.AdminExecutorSet(adminExecutor);
+
+        vm.expectEmit();
         emit TimelockState.AfterSubmitDelaySet(afterSubmitDelay);
 
         vm.expectEmit();
@@ -98,12 +102,15 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         Duration afterSubmitDelay = Durations.ZERO;
         Duration afterScheduleDelay = Durations.ZERO;
 
+        vm.expectEmit();
+        emit TimelockState.AdminExecutorSet(adminExecutor);
+
         vm.recordLogs();
 
         EmergencyProtectedTimelock timelock =
             new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay);
 
-        assertEq(vm.getRecordedLogs().length, 0);
+        assertEq(vm.getRecordedLogs().length, 1);
 
         _assertEmergencyProtectedTimelockConstructorParams(
             timelock, sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay
@@ -158,6 +165,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         Duration afterSubmitDelay,
         Duration afterScheduleDelay
     ) external {
+        vm.assume(adminExecutor != address(0));
         vm.assume(afterSubmitDelay <= sanityCheckParams.maxAfterSubmitDelay);
         vm.assume(afterScheduleDelay <= sanityCheckParams.maxAfterScheduleDelay);
         vm.assume(afterSubmitDelay.toSeconds() + afterScheduleDelay.toSeconds() <= MAX_DURATION_VALUE);
@@ -350,9 +358,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_setAfterSubmitDelay_RevertOn_CalledNotByAdminExecutor() external {
         Duration newAfterSubmitDelay = _defaultSanityCheckParams.maxAfterSubmitDelay + Durations.from(1 seconds);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, address(this))
-        );
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this)));
         _timelock.setAfterSubmitDelay(newAfterSubmitDelay);
     }
 
@@ -422,9 +428,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_setAfterScheduleDelay_RevertOn_CalledNotByAdminExecutor() external {
         Duration newAfterScheduleDelay = _defaultSanityCheckParams.maxAfterScheduleDelay + Durations.from(1 seconds);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, address(this))
-        );
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, address(this)));
         _timelock.setAfterScheduleDelay(newAfterScheduleDelay);
     }
 
@@ -479,7 +483,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
         _timelock.transferExecutorOwnership(_adminExecutor, makeAddr("newOwner"));
     }
 
@@ -492,6 +496,9 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.expectEmit(address(_timelock));
         emit TimelockState.GovernanceSet(newGovernance);
 
+        vm.expectEmit(address(_timelock));
+        emit ExecutableProposals.ProposalsCancelledTill(0);
+
         vm.recordLogs();
         vm.prank(_adminExecutor);
         _timelock.setGovernance(newGovernance);
@@ -500,7 +507,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
-        assertEq(entries.length, 1);
+        assertEq(entries.length, 2);
     }
 
     function test_setGovernance_RevertOn_ZeroAddress() external {
@@ -522,7 +529,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
         _timelock.setGovernance(makeAddr("newGovernance"));
     }
 
@@ -691,7 +698,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), true);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
         _timelock.deactivateEmergencyMode();
     }
 
@@ -789,7 +796,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
         EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
 
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
         vm.prank(stranger);
         _localTimelock.setEmergencyProtectionActivationCommittee(_emergencyActivator);
 
@@ -814,7 +821,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor && stranger != _emergencyEnactor);
         EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
 
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
         vm.prank(stranger);
         _localTimelock.setEmergencyProtectionExecutionCommittee(_emergencyEnactor);
 
@@ -842,7 +849,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
         EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
 
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
         vm.prank(stranger);
         _localTimelock.setEmergencyProtectionEndDate(_emergencyProtectionDuration.addTo(Timestamps.now()));
 
@@ -873,7 +880,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
         EmergencyProtectedTimelock _localTimelock = _deployEmergencyProtectedTimelock();
 
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtectedTimelock.CallerIsNotAdminExecutor.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
         vm.prank(stranger);
         _localTimelock.setEmergencyModeDuration(_emergencyModeDuration);
 
@@ -1207,6 +1214,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     }
 
     function testFuzz_getAdminExecutor(address executor) external {
+        vm.assume(executor != address(0));
         Duration afterSubmitDelay = Durations.from(3 days);
         Duration afterScheduleDelay = Durations.from(1 days);
 
@@ -1224,6 +1232,22 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         );
 
         assertEq(timelock.getAdminExecutor(), executor);
+    }
+
+    function testFuzz_setAdminExecutor_HappyPath(address adminExecutor) external {
+        vm.assume(adminExecutor != _adminExecutor && adminExecutor != address(0));
+        vm.prank(_adminExecutor);
+        _timelock.setAdminExecutor(adminExecutor);
+
+        assertEq(_timelock.getAdminExecutor(), adminExecutor);
+    }
+
+    function test_setAdminExecutor_RevertOn_NotAdminExecutor(address stranger) external {
+        vm.assume(stranger != _adminExecutor);
+
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotAdminExecutor.selector, stranger));
+        _timelock.setAdminExecutor(address(0x123));
     }
 
     // Utils

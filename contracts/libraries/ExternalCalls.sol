@@ -20,15 +20,10 @@ library ExternalCalls {
     ///     `IExternalExecutor` interface.
     /// @param calls An array of `ExternalCall` structs, each specifying a call to be executed.
     /// @param executor The contract responsible for executing each call, conforming to the `IExternalExecutor` interface.
-    /// @return results An array containing the return data from each call.
-    function execute(
-        ExternalCall[] memory calls,
-        IExternalExecutor executor
-    ) internal returns (bytes[] memory results) {
+    function execute(IExternalExecutor executor, ExternalCall[] memory calls) internal {
         uint256 callsCount = calls.length;
-        results = new bytes[](callsCount);
         for (uint256 i = 0; i < callsCount; ++i) {
-            results[i] = executor.execute(calls[i].target, calls[i].value, calls[i].payload);
+            executor.execute(calls[i].target, calls[i].value, calls[i].payload);
         }
     }
 }

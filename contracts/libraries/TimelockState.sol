@@ -12,6 +12,8 @@ library TimelockState {
 
     error CallerIsNotGovernance(address caller);
     error InvalidGovernance(address governance);
+    error CallerIsNotAdminExecutor(address caller);
+    error InvalidAdminExecutor(address adminExecutor);
     error InvalidExecutionDelay(Duration executionDelay);
     error InvalidAfterSubmitDelay(Duration afterSubmitDelay);
     error InvalidAfterScheduleDelay(Duration afterScheduleDelay);
@@ -23,6 +25,7 @@ library TimelockState {
     event GovernanceSet(address newGovernance);
     event AfterSubmitDelaySet(Duration newAfterSubmitDelay);
     event AfterScheduleDelaySet(Duration newAfterScheduleDelay);
+    event AdminExecutorSet(address newAdminExecutor);
 
     // ---
     // Data Types
@@ -35,10 +38,12 @@ library TimelockState {
         Duration afterSubmitDelay;
         /// @dev slot0 [192..224]
         Duration afterScheduleDelay;
+        /// @dev slot1 [0..159]
+        address adminExecutor;
     }
 
     // ---
-    // Main Functionality
+    // State Management
     // ---
 
     /// @notice Sets the governance address.
@@ -85,6 +90,22 @@ library TimelockState {
         self.afterScheduleDelay = newAfterScheduleDelay;
         emit AfterScheduleDelaySet(newAfterScheduleDelay);
     }
+    /// @notice Sets the admin executor address.
+    /// @dev Reverts if the new admin executor address is zero or the same as the current one.
+    /// @param self The context of the timelock state.
+    /// @param newAdminExecutor The new admin executor address.
+
+    function setAdminExecutor(Context storage self, address newAdminExecutor) internal {
+        if (newAdminExecutor == address(0) || newAdminExecutor == self.adminExecutor) {
+            revert InvalidAdminExecutor(newAdminExecutor);
+        }
+        self.adminExecutor = newAdminExecutor;
+        emit AdminExecutorSet(newAdminExecutor);
+    }
+
+    // ---
+    // Getters
+    // ---
 
     /// @notice Retrieves the delay period required after a proposal is submitted before it can be scheduled.
     /// @param self The context of the Timelock State library.
@@ -99,6 +120,10 @@ library TimelockState {
     function getAfterScheduleDelay(Context storage self) internal view returns (Duration) {
         return self.afterScheduleDelay;
     }
+
+    // ---
+    // Checks
+    // ---
 
     /// @notice Checks if the caller is the governance address, reverting if not.
     /// @param self The context of the Timelock State library.
@@ -117,4 +142,14 @@ library TimelockState {
             revert InvalidExecutionDelay(executionDelay);
         }
     }
+
+    /// @notice Ensures that the caller is the designated admin executor.
+    /// @param self The context of the calling contract.
+    function checkCallerIsAdminExecutor(Context storage self) internal view {
+        if (self.adminExecutor != msg.sender) {
+            revert CallerIsNotAdminExecutor(msg.sender);
+        }
+    }
 }
+
+

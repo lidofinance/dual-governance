@@ -22,12 +22,6 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     using EmergencyProtection for EmergencyProtection.Context;
 
     // ---
-    // Errors
-    // ---
-
-    error CallerIsNotAdminExecutor(address value);
-
-    // ---
     // Sanity Check Parameters & Immutables
     // ---
 
@@ -62,13 +56,6 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
 
     // ---
-    // Admin Executor Immutables
-    // ---
-
-    /// @dev The address of the admin executor, authorized to manage the EmergencyProtectedTimelock instance.
-    address private immutable _ADMIN_EXECUTOR;
-
-    // ---
     // Aspects
     // ---
 
@@ -91,13 +78,13 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         Duration afterSubmitDelay,
         Duration afterScheduleDelay
     ) {
-        _ADMIN_EXECUTOR = adminExecutor;
-
         MIN_EXECUTION_DELAY = sanityCheckParams.minExecutionDelay;
         MAX_AFTER_SUBMIT_DELAY = sanityCheckParams.maxAfterSubmitDelay;
         MAX_AFTER_SCHEDULE_DELAY = sanityCheckParams.maxAfterScheduleDelay;
         MAX_EMERGENCY_MODE_DURATION = sanityCheckParams.maxEmergencyModeDuration;
         MAX_EMERGENCY_PROTECTION_DURATION = sanityCheckParams.maxEmergencyProtectionDuration;
+
+        _timelockState.setAdminExecutor(adminExecutor);
 
         if (afterSubmitDelay > Durations.ZERO) {
             _timelockState.setAfterSubmitDelay(afterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
@@ -157,15 +144,16 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @notice Updates the address of the governance contract.
     /// @param newGovernance The address of the new governance contract to be set.
     function setGovernance(address newGovernance) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         _timelockState.setGovernance(newGovernance);
+        _proposals.cancelAll();
     }
 
     /// @notice Sets the delay required to pass from the submission of a proposal before it can be scheduled for execution.
     ///     Ensures that the new delay value complies with the defined sanity check bounds.
     /// @param newAfterSubmitDelay The delay required before a submitted proposal can be scheduled.
     function setAfterSubmitDelay(Duration newAfterSubmitDelay) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         _timelockState.setAfterSubmitDelay(newAfterSubmitDelay, MAX_AFTER_SUBMIT_DELAY);
         _timelockState.checkExecutionDelay(MIN_EXECUTION_DELAY);
     }
@@ -174,7 +162,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     ///     Ensures that the new delay value complies with the defined sanity check bounds.
     /// @param newAfterScheduleDelay The delay required before a scheduled proposal can be executed.
     function setAfterScheduleDelay(Duration newAfterScheduleDelay) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         _timelockState.setAfterScheduleDelay(newAfterScheduleDelay, MAX_AFTER_SCHEDULE_DELAY);
         _timelockState.checkExecutionDelay(MIN_EXECUTION_DELAY);
     }
@@ -183,7 +171,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @param executor The address of the executor contract.
     /// @param owner The address of the new owner.
     function transferExecutorOwnership(address executor, address owner) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         IOwnable(executor).transferOwnership(owner);
     }
 
@@ -194,21 +182,21 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @notice Sets the emergency activation committee address.
     /// @param emergencyActivationCommittee The address of the emergency activation committee.
     function setEmergencyProtectionActivationCommittee(address emergencyActivationCommittee) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyActivationCommittee(emergencyActivationCommittee);
     }
 
     /// @notice Sets the emergency execution committee address.
     /// @param emergencyExecutionCommittee The address of the emergency execution committee.
     function setEmergencyProtectionExecutionCommittee(address emergencyExecutionCommittee) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyExecutionCommittee(emergencyExecutionCommittee);
     }
 
     /// @notice Sets the emergency protection end date.
     /// @param emergencyProtectionEndDate The timestamp of the emergency protection end date.
     function setEmergencyProtectionEndDate(Timestamp emergencyProtectionEndDate) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyProtectionEndDate(
             emergencyProtectionEndDate, MAX_EMERGENCY_PROTECTION_DURATION
         );
@@ -217,14 +205,14 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @notice Sets the emergency mode duration.
     /// @param emergencyModeDuration The duration of the emergency mode.
     function setEmergencyModeDuration(Duration emergencyModeDuration) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyModeDuration(emergencyModeDuration, MAX_EMERGENCY_MODE_DURATION);
     }
 
     /// @notice Sets the emergency governance address.
     /// @param emergencyGovernance The address of the emergency governance.
     function setEmergencyGovernance(address emergencyGovernance) external {
-        _checkCallerIsAdminExecutor();
+        _timelockState.checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyGovernance(emergencyGovernance);
     }
 
@@ -247,7 +235,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     function deactivateEmergencyMode() external {
         _emergencyProtection.checkEmergencyMode({isActive: true});
         if (!_emergencyProtection.isEmergencyModeDurationPassed()) {
-            _checkCallerIsAdminExecutor();
+            _timelockState.checkCallerIsAdminExecutor();
         }
         _emergencyProtection.deactivateEmergencyMode();
         _proposals.cancelAll();
@@ -312,7 +300,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @notice Returns the address of the admin executor.
     /// @return adminExecutor The address of the admin executor.
     function getAdminExecutor() external view returns (address) {
-        return _ADMIN_EXECUTOR;
+        return _timelockState.adminExecutor;
     }
 
     /// @notice Returns the configured delay duration required before a submitted proposal can be scheduled.
@@ -388,12 +376,13 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     }
 
     // ---
-    // Internal Methods
+    // Admin Executor Methods
     // ---
 
-    function _checkCallerIsAdminExecutor() internal view {
-        if (msg.sender != _ADMIN_EXECUTOR) {
-            revert CallerIsNotAdminExecutor(msg.sender);
-        }
+    /// @notice Sets the address of the admin executor.
+    /// @param newAdminExecutor The address of the new admin executor.
+    function setAdminExecutor(address newAdminExecutor) external {
+        _timelockState.checkCallerIsAdminExecutor();
+        _timelockState.setAdminExecutor(newAdminExecutor);
     }
 }
