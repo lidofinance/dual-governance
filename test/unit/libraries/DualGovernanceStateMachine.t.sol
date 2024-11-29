@@ -66,7 +66,7 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
         _activateNextState();
         _wait(_CONFIG_PROVIDER.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
-        // Simulate the Rage Quit process has completed and in the SignallingEscrow the first seal is not crossed
+        // Simulate the Rage Quit process has completed and in the SignallingEscrow the first seal is not reached
         _mockRageQuitFinalized(true);
         _activateNextState();
         _mockRageQuitSupport(PercentsD16.fromBasisPoints(0));
@@ -90,7 +90,7 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
         _activateNextState();
         _wait(_CONFIG_PROVIDER.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
-        // Simulate the Rage Quit process has completed and in the SignallingEscrow the first seal is crossed
+        // Simulate the Rage Quit process has completed and in the SignallingEscrow the first seal is reached
         _mockRageQuitFinalized(true);
         _activateNextState();
 

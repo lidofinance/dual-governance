@@ -42,7 +42,7 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
 
         _step("3. Users accumulate some stETH in the Signalling Escrow");
         {
-            _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+            _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
             _assertVetoSignalingState();
             _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
@@ -88,7 +88,7 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
         _step("7. Users can withdraw funds even if the Rage Quit is started in the old instance of the Dual Governance");
         {
             // the Rage Quit started on the old DualGovernance instance
-            _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.from(1));
+            _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
             _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
             _activateNextState();
             _assertRageQuitState();

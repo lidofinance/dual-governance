@@ -27,7 +27,7 @@ import {DualGovernanceStateTransitions} from "./DualGovernanceStateTransitions.s
 /// @param VetoCooldown A state where the DAO can execute non-cancelled proposals but is prohibited from submitting
 ///     new proposals.
 /// @param RageQuit Represents the process where users opting to leave the protocol can withdraw their funds. This state
-///     is triggered when the Second Seal Threshold is crossed. During this state, the scheduling of proposals for
+///     is triggered when the Second Seal Threshold is reached. During this state, the scheduling of proposals for
 ///     execution is forbidden, but new proposals can still be submitted.
 enum State {
     Unset,

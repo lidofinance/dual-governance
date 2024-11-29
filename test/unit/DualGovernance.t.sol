@@ -537,7 +537,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
 
-        // The RageQuit second seal threshold wasn't crossed, the system should enter Deactivation state
+        // The RageQuit second seal threshold wasn't reached, the system should enter Deactivation state
         // where the proposals submission is not allowed
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
@@ -754,7 +754,7 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encode(true)
         );
 
-        // The RageQuit second seal threshold wasn't crossed, the system should enter Deactivation state
+        // The RageQuit second seal threshold wasn't reached, the system should enter Deactivation state
         // where the proposals submission is not allowed
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);

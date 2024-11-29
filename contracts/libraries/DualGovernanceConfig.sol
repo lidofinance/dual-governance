@@ -90,26 +90,26 @@ library DualGovernanceConfig {
         }
     }
 
-    /// @notice Determines whether the first seal Rage Quit support threshold has been exceeded.
+    /// @notice Determines whether the first seal Rage Quit support threshold has been reached.
     /// @param self The configuration context.
     /// @param rageQuitSupport The current Rage Quit support level.
-    /// @return bool A boolean indicating whether the Rage Quit support level exceeds the first seal threshold.
-    function isFirstSealRageQuitSupportCrossed(
+    /// @return bool A boolean indicating whether the Rage Quit support level reaches the first seal threshold.
+    function isFirstSealRageQuitSupportReached(
         Context memory self,
         PercentD16 rageQuitSupport
     ) internal pure returns (bool) {
-        return rageQuitSupport > self.firstSealRageQuitSupport;
+        return rageQuitSupport >= self.firstSealRageQuitSupport;
     }
 
-    /// @notice Determines whether the second seal Rage Quit support threshold has been exceeded.
+    /// @notice Determines whether the second seal Rage Quit support threshold has been reached.
     /// @param self The configuration context.
     /// @param rageQuitSupport The current Rage Quit support level.
-    /// @return bool A boolean indicating whether the Rage Quit support level exceeds the second seal threshold.
-    function isSecondSealRageQuitSupportCrossed(
+    /// @return bool A boolean indicating whether the Rage Quit support level reaches the second seal threshold.
+    function isSecondSealRageQuitSupportReached(
         Context memory self,
         PercentD16 rageQuitSupport
     ) internal pure returns (bool) {
-        return rageQuitSupport > self.secondSealRageQuitSupport;
+        return rageQuitSupport >= self.secondSealRageQuitSupport;
     }
 
     /// @notice Determines whether the VetoSignalling duration has passed based on the current time.
@@ -176,7 +176,7 @@ library DualGovernanceConfig {
         Duration vetoSignallingMinDuration = self.vetoSignallingMinDuration;
         Duration vetoSignallingMaxDuration = self.vetoSignallingMaxDuration;
 
-        if (rageQuitSupport <= firstSealRageQuitSupport) {
+        if (rageQuitSupport < firstSealRageQuitSupport) {
             return Durations.ZERO;
         }
 
