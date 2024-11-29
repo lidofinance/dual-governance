@@ -958,12 +958,13 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function test_setConfigProvider_same_minAssetsLockDuration() external {
+        Duration newMinAssetsLockDuration = Durations.from(5 hours);
         ImmutableDualGovernanceConfigProvider newConfigProvider = new ImmutableDualGovernanceConfigProvider(
             DualGovernanceConfig.Context({
                 firstSealRageQuitSupport: PercentsD16.fromBasisPoints(5_00), // 5%
                 secondSealRageQuitSupport: PercentsD16.fromBasisPoints(20_00), // 20%
                 //
-                minAssetsLockDuration: Durations.from(5 hours),
+                minAssetsLockDuration: newMinAssetsLockDuration,
                 //
                 vetoSignallingMinDuration: Durations.from(4 days),
                 vetoSignallingMaxDuration: Durations.from(35 days),
@@ -982,11 +983,19 @@ contract DualGovernanceUnitTests is UnitTest {
 
         vm.expectEmit();
         emit DualGovernanceStateMachine.ConfigProviderSet(IDualGovernanceConfigProvider(address(newConfigProvider)));
+        vm.expectCall(
+            address(_escrow),
+            0,
+            abi.encodeWithSelector(Escrow.setMinAssetsLockDuration.selector, newMinAssetsLockDuration),
+            0
+        );
+        vm.recordLogs();
         _executor.execute(
             address(_dualGovernance),
             0,
             abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(newConfigProvider))
         );
+        assertEq(vm.getRecordedLogs().length, 1);
 
         assertEq(address(_dualGovernance.getConfigProvider()), address(newConfigProvider));
         assertTrue(address(_dualGovernance.getConfigProvider()) != address(oldConfigProvider));

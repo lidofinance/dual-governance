@@ -442,6 +442,8 @@ contract Escrow is IEscrow {
     // Escrow Management
     // ---
 
+    /// @notice Returns the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
+    ///    by a vetoer before they are permitted to unlock their assets from the Escrow.
     function getMinAssetsLockDuration() external view returns (Duration) {
         return _escrowState.minAssetsLockDuration;
     }
