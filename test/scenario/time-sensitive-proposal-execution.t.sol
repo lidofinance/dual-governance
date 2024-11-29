@@ -15,7 +15,7 @@ interface ITimeSensitiveContract {
 contract ScheduledProposalExecution is ScenarioTestBlueprint {
     TimeConstraints private immutable _TIME_CONSTRAINTS = new TimeConstraints();
 
-    Duration private immutable _MIN_EXECUTION_DELAY = Durations.from(30 days); // Proposal may be executed not earlier than the 30 days from launch
+    Duration private immutable _EXECUTION_DELAY = Durations.from(30 days); // Proposal may be executed not earlier than the 30 days from launch
     Duration private immutable _EXECUTION_START_DAY_TIME = Durations.from(4 hours); // And at time frame starting from the 4:00 UTC
     Duration private immutable _EXECUTION_END_DAY_TIME = Durations.from(12 hours); // till the 12:00 UTC
 
@@ -24,7 +24,7 @@ contract ScheduledProposalExecution is ScenarioTestBlueprint {
     }
 
     function testFork_TimeFrameProposalExecution() external {
-        Timestamp executableAfter = _MIN_EXECUTION_DELAY.addTo(Timestamps.now());
+        Timestamp executableAfter = _EXECUTION_DELAY.addTo(Timestamps.now());
         // Prepare the call to be launched not earlier than the minExecutionDelay seconds from the creation of the
         // Aragon Voting to submit proposal and only in the day time range [executionStartDayTime, executionEndDayTime] in UTC
         ExternalCall[] memory scheduledProposalCalls = ExternalCallHelpers.create(
@@ -79,7 +79,7 @@ contract ScheduledProposalExecution is ScenarioTestBlueprint {
 
         _step("4. Wait until the proposal become executable");
         {
-            _wait(_MIN_EXECUTION_DELAY);
+            _wait(_EXECUTION_DELAY);
             assertTrue(Timestamps.now() >= executableAfter);
         }
 

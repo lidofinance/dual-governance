@@ -2141,7 +2141,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         vm.prank(notResealCommittee);
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotResealCommittee.selector, notResealCommittee));
+        vm.expectRevert(abi.encodeWithSelector(Resealer.CallerIsNotResealCommittee.selector, notResealCommittee));
         _dualGovernance.resealSealable(sealable);
     }
 
