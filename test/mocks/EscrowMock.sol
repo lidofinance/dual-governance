@@ -3,9 +3,11 @@ pragma solidity 0.8.26;
 
 import {Duration} from "contracts/types/Duration.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
-import {Timestamp} from "contracts/types/Timestamp.sol";
 
-import {IEscrowBase, ISignallingEscrow, IRageQuitEscrow} from "contracts/interfaces/IEscrow.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "contracts/interfaces/IRageQuitEscrow.sol";
+
 import {State as EscrowState} from "contracts/libraries/EscrowState.sol";
 
 contract EscrowMock is ISignallingEscrow, IRageQuitEscrow {
@@ -25,7 +27,11 @@ contract EscrowMock is ISignallingEscrow, IRageQuitEscrow {
         revert("Not implemented");
     }
 
-    function getVetoerState(address vetoer) external view returns (VetoerState memory) {
+    function getVetoerDetails(address vetoer) external view returns (VetoerDetails memory) {
+        revert("Not implemented");
+    }
+
+    function getVetoerUnstETHIds(address vetoer) external view returns (uint256[] memory) {
         revert("Not implemented");
     }
 
@@ -81,11 +87,15 @@ contract EscrowMock is ISignallingEscrow, IRageQuitEscrow {
         revert("Not implemented");
     }
 
-    function getLockedUnstETHState(uint256 unstETHId) external view returns (LockedUnstETHState memory) {
+    function getLockedUnstETHDetails(uint256[] calldata unstETHIds)
+        external
+        view
+        returns (LockedUnstETHDetails[] memory)
+    {
         revert("Not implemented");
     }
 
-    function getSignallingEscrowState() external view returns (SignallingEscrowState memory) {
+    function getSignallingEscrowDetails() external view returns (SignallingEscrowDetails memory) {
         revert("Not implemented");
     }
 
@@ -125,7 +135,7 @@ contract EscrowMock is ISignallingEscrow, IRageQuitEscrow {
         return __isRageQuitFinalized;
     }
 
-    function getRageQuitEscrowState() external view returns (RageQuitEscrowState memory) {
+    function getRageQuitEscrowDetails() external view returns (RageQuitEscrowDetails memory) {
         revert("Not implemented");
     }
 

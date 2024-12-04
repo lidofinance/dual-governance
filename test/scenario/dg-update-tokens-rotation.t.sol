@@ -96,13 +96,13 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
             // The Rage Quit may be finished in the previous DG instance so vetoers will not lose their funds by mistake
             Escrow rageQuitEscrow = Escrow(payable(_dualGovernance.getRageQuitEscrow()));
 
-            while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
+            while (!rageQuitEscrow.getRageQuitEscrowDetails().isWithdrawalsBatchesClosed) {
                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
             }
 
             _finalizeWithdrawalQueue();
 
-            while (rageQuitEscrow.getUnclaimedUnstETHIdsCount() > 0) {
+            while (rageQuitEscrow.getRageQuitEscrowDetails().unclaimedUnstETHIdsCount > 0) {
                 rageQuitEscrow.claimNextWithdrawalsBatch(32);
             }
 

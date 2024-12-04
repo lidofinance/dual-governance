@@ -4,12 +4,14 @@ pragma solidity 0.8.26;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {Duration} from "./types/Duration.sol";
-import {Timestamp} from "./types/Timestamp.sol";
 import {ETHValue, ETHValues} from "./types/ETHValue.sol";
 import {SharesValue, SharesValues} from "./types/SharesValue.sol";
 import {PercentD16, PercentsD16} from "./types/PercentD16.sol";
 
-import {IEscrowBase, ISignallingEscrow, IRageQuitEscrow} from "./interfaces/IEscrow.sol";
+import {IEscrowBase} from "./interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "./interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "./interfaces/IRageQuitEscrow.sol";
+
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
@@ -17,7 +19,13 @@ import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 
 import {EscrowState, State} from "./libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalsBatchesQueue.sol";
-import {HolderAssets, StETHAccounting, UnstETHAccounting, AssetsAccounting} from "./libraries/AssetsAccounting.sol";
+import {
+    HolderAssets,
+    UnstETHRecord,
+    StETHAccounting,
+    UnstETHAccounting,
+    AssetsAccounting
+} from "./libraries/AssetsAccounting.sol";
 
 /// @notice This contract is used to accumulate stETH, wstETH, unstETH, and withdrawn ETH from vetoers during the
 ///     veto signalling and rage quit processes.
@@ -116,6 +124,10 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         MIN_WITHDRAWALS_BATCH_SIZE = minWithdrawalsBatchSize;
     }
 
+    // ---
+    // Escrow Base
+    // ---
+
     /// @notice Initializes the proxy instance with the specified minimum assets lock duration.
     /// @param minAssetsLockDuration The minimum duration that must pass from the last stETH, wstETH, or unstETH lock
     ///     by the vetoer before they are allowed to unlock assets from the Escrow.
@@ -131,15 +143,12 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
     }
 
-    // ---
-    // Base Escrow Getters
-    // ---
     function getEscrowState() external view returns (State) {
         return _escrowState.state;
     }
 
     // ---
-    // Lock & Unlock stETH
+    // Signalling Escrow: Lock & Unlock stETH
     // ---
 
     /// @notice Locks the vetoer's specified `amount` of stETH in the Veto Signalling Escrow, thereby increasing
@@ -206,7 +215,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Lock & Unlock unstETH
+    // Signalling Escrow: Lock & Unlock unstETH
     // ---
 
     /// @notice Locks the specified unstETH NFTs, identified by their ids, in the Veto Signalling Escrow, thereby increasing
@@ -270,7 +279,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Start Rage Quit
+    // Signalling Escrow: Start Rage Quit
     // ---
 
     /// @notice Irreversibly converts the Signalling Escrow into the Rage Quit Escrow, allowing vetoers who have locked
@@ -292,7 +301,19 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Signalling Escrow Getters
+    // Signalling Escrow: Management
+    // ---
+
+    /// @notice Sets the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
+    ///     by a vetoer before they are permitted to unlock their assets from the Escrow.
+    /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
+    function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
+        _checkCallerIsDualGovernance();
+        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration);
+    }
+
+    // ---
+    // Signalling Escrow: Getters
     // ---
 
     /// @notice Returns the current Rage Quit support value as a percentage.
@@ -316,14 +337,74 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         minAssetsLockDuration = _escrowState.minAssetsLockDuration;
     }
 
-    // TODO: implement
-    function getLockedUnstETHState(uint256 unstETHId) external view returns (LockedUnstETHState memory) {}
+    /// @notice Returns the state of locked assets for a specific vetoer.
+    /// @param vetoer The address of the vetoer whose locked asset state is being queried.
+    /// @return details A struct containing information about the vetoer's locked assets, including:
+    ///     - `unstETHIdsCount`: The total number of unstETH NFTs locked by the vetoer.
+    ///     - `stETHLockedShares`: The total number of stETH shares locked by the vetoer.
+    ///     - `unstETHLockedShares`: The total number of unstETH shares locked by the vetoer.
+    ///     - `lastAssetsLockTimestamp`: The timestamp of the last assets lock by the vetoer.
+    function getVetoerDetails(address vetoer) external view returns (VetoerDetails memory details) {
+        HolderAssets storage assets = _accounting.assets[vetoer];
 
-    // TODO: implement
-    function getSignallingEscrowState() external view returns (SignallingEscrowState memory) {}
+        details.unstETHIdsCount = assets.unstETHIds.length;
+        details.stETHLockedShares = assets.stETHLockedShares;
+        details.unstETHLockedShares = assets.unstETHLockedShares;
+        details.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp;
+    }
+
+    // @notice Retrieves the unstETH NFT ids of the specified vetoer.
+    /// @param vetoer The address of the vetoer whose unstETH NFTs are being queried.
+    /// @return unstETHIds An array of unstETH NFT ids locked by the vetoer.
+    function getVetoerUnstETHIds(address vetoer) external view returns (uint256[] memory unstETHIds) {
+        unstETHIds = _accounting.assets[vetoer].unstETHIds;
+    }
+
+    /// @notice Returns the total amounts of locked and claimed assets in the Escrow.
+    /// @return details A struct containing the total amounts of locked and claimed assets, including:
+    ///     - `totalStETHClaimedETH`: The total amount of ETH claimed from locked stETH.
+    ///     - `totalStETHLockedShares`: The total number of stETH shares currently locked in the Escrow.
+    ///     - `totalUnstETHUnfinalizedShares`: The total number of shares from unstETH NFTs that have not yet been finalized.
+    ///     - `totalUnstETHFinalizedETH`: The total amount of ETH from finalized unstETH NFTs.
+    function getSignallingEscrowDetails() external view returns (SignallingEscrowDetails memory details) {
+        StETHAccounting memory stETHTotals = _accounting.stETHTotals;
+        details.totalStETHClaimedETH = stETHTotals.claimedETH;
+        details.totalStETHLockedShares = stETHTotals.lockedShares;
+
+        UnstETHAccounting memory unstETHTotals = _accounting.unstETHTotals;
+        details.totalUnstETHUnfinalizedShares = unstETHTotals.unfinalizedShares;
+        details.totalUnstETHFinalizedETH = unstETHTotals.finalizedETH;
+    }
+
+    /// @notice Retrieves details of locked unstETH records for the given ids.
+    /// @param unstETHIds The array of ids for the unstETH records to retrieve.
+    /// @return unstETHDetails An array of `LockedUnstETHDetails` containing the details for each provided unstETH id.
+    ///
+    /// The details include:
+    /// - `status`: The current status of the unstETH record.
+    /// - `lockedBy`: The address that locked the unstETH record.
+    /// - `shares`: The number of shares associated with the locked unstETH.
+    /// - `claimableAmount`: The amount of claimable ETH contained in the unstETH. This value is 0
+    ///     until the unstETH is finalized or claimed.
+    function getLockedUnstETHDetails(uint256[] calldata unstETHIds)
+        external
+        view
+        returns (LockedUnstETHDetails[] memory unstETHDetails)
+    {
+        unstETHDetails = new LockedUnstETHDetails[](unstETHIds.length);
+
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            UnstETHRecord memory unstETHRecord = _accounting.unstETHRecords[unstETHIds[i]];
+
+            unstETHDetails[i].status = unstETHRecord.status;
+            unstETHDetails[i].lockedBy = unstETHRecord.lockedBy;
+            unstETHDetails[i].shares = unstETHRecord.shares;
+            unstETHDetails[i].claimableAmount = unstETHRecord.claimableAmount;
+        }
+    }
 
     // ---
-    // Request Withdrawal Batches
+    // Rage Quit Escrow: Request Withdrawal Batches
     // ---
 
     /// @notice Creates unstETH NFTs from the stETH held in the Rage Quit Escrow via the WithdrawalQueue contract.
@@ -367,7 +448,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Claim Requested Withdrawal Batches
+    // Rage Quit Escrow: Claim Requested Withdrawal Batches
     // ---
 
     /// @notice Allows the claim of finalized withdrawal NFTs generated via the `Escrow.requestNextWithdrawalsBatch()` method.
@@ -403,7 +484,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Start Rage Quit Extension Delay
+    // Rage Quit Escrow: Start Rage Quit Extension Delay
     // ---
 
     /// @notice Initiates the Rage Quit Extension Period once all withdrawal batches have been claimed.
@@ -436,7 +517,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Claim Locked unstETH NFTs
+    // Rage Quit Escrow: Claim Locked unstETH NFTs
     // ---
 
     /// @notice Allows users to claim finalized unstETH NFTs locked in the Rage Quit Escrow contract.
@@ -460,19 +541,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Escrow Management
-    // ---
-
-    /// @notice Sets the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
-    ///     by a vetoer before they are permitted to unlock their assets from the Escrow.
-    /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
-    function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
-        _checkCallerIsDualGovernance();
-        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration);
-    }
-
-    // ---
-    // Withdraw Logic
+    // Rage Quit Escrow: Withdraw Logic
     // ---
 
     /// @notice Allows the caller (i.e., `msg.sender`) to withdraw all stETH and wstETH they have previously locked
@@ -502,53 +571,10 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     // Rage Quit Escrow Getters
     // ---
 
-    // TODO: implement
-    function getRageQuitEscrowState() external view returns (RageQuitEscrowState memory) {}
-
-    /// @notice Returns the total amounts of locked and claimed assets in the Escrow.
-    /// @return totals A struct containing the total amounts of locked and claimed assets, including:
-    ///     - `stETHClaimedETH`: The total amount of ETH claimed from locked stETH.
-    ///     - `stETHLockedShares`: The total number of stETH shares currently locked in the Escrow.
-    ///     - `unstETHUnfinalizedShares`: The total number of shares from unstETH NFTs that have not yet been finalized.
-    ///     - `unstETHFinalizedETH`: The total amount of ETH from finalized unstETH NFTs.
-    function getLockedAssetsTotals() external view returns (LockedAssetsTotals memory totals) {
-        StETHAccounting memory stETHTotals = _accounting.stETHTotals;
-        totals.stETHClaimedETH = stETHTotals.claimedETH.toUint256();
-        totals.stETHLockedShares = stETHTotals.lockedShares.toUint256();
-
-        UnstETHAccounting memory unstETHTotals = _accounting.unstETHTotals;
-        totals.unstETHUnfinalizedShares = unstETHTotals.unfinalizedShares.toUint256();
-        totals.unstETHFinalizedETH = unstETHTotals.finalizedETH.toUint256();
-    }
-
-    /// @notice Returns the state of locked assets for a specific vetoer.
-    /// @param vetoer The address of the vetoer whose locked asset state is being queried.
-    /// @return state A struct containing information about the vetoer's locked assets, including:
-    ///     - `stETHLockedShares`: The total number of stETH shares locked by the vetoer.
-    ///     - `unstETHLockedShares`: The total number of unstETH shares locked by the vetoer.
-    ///     - `unstETHIdsCount`: The total number of unstETH NFTs locked by the vetoer.
-    ///     - `lastAssetsLockTimestamp`: The timestamp of the last assets lock by the vetoer.
-    function getVetoerState(address vetoer) external view returns (VetoerState memory state) {
-        HolderAssets storage assets = _accounting.assets[vetoer];
-
-        state.unstETHIdsCount = assets.unstETHIds.length;
-        state.stETHLockedShares = assets.stETHLockedShares.toUint256();
-        state.unstETHLockedShares = assets.unstETHLockedShares.toUint256();
-        state.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp.toSeconds();
-    }
-
-    // @notice Retrieves the unstETH NFT ids of the specified vetoer.
-    /// @param vetoer The address of the vetoer whose unstETH NFTs are being queried.
-    /// @return unstETHIds An array of unstETH NFT ids locked by the vetoer.
-    function getVetoerUnstETHIds(address vetoer) external view returns (uint256[] memory unstETHIds) {
-        unstETHIds = _accounting.assets[vetoer].unstETHIds;
-    }
-
-    /// @notice Returns the total count of unstETH NFTs that have not been claimed yet.
-    /// @return unclaimedUnstETHIdsCount The total number of unclaimed unstETH NFTs.
-    function getUnclaimedUnstETHIdsCount() external view returns (uint256) {
-        _escrowState.checkRageQuitEscrow();
-        return _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+    /// @notice Returns whether the Rage Quit process has been finalized.
+    /// @return A boolean value indicating whether the Rage Quit process has been finalized (`true`) or not (`false`).
+    function isRageQuitFinalized() external view returns (bool) {
+        return _escrowState.isRageQuitEscrow() && _escrowState.isRageQuitExtensionPeriodPassed();
     }
 
     /// @notice Retrieves the unstETH NFT ids of the next batch available for claiming.
@@ -559,31 +585,25 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         unstETHIds = _batchesQueue.getNextWithdrawalsBatches(limit);
     }
 
-    /// @notice Returns whether all withdrawal batches have been closed.
-    /// @return isWithdrawalsBatchesClosed A boolean value indicating whether all withdrawal batches have been
-    ///     closed (`true`) or not (`false`).
-    function isWithdrawalsBatchesClosed() external view returns (bool) {
+    /// @notice Retrieves details about the current state of the rage quit escrow.
+    /// @return details A `RageQuitEscrowDetails` struct containing the following fields:
+    /// - `isWithdrawalsBatchesClosed`: Indicates whether the withdrawals batches are closed.
+    /// - `isRageQuitExtensionPeriodStarted`: Indicates whether the rage quit extension period has started.
+    /// - `unclaimedUnstETHIdsCount`: The total count of unstETH NFTs that have not been claimed yet.
+    /// - `rageQuitEthWithdrawalsDelay`: The delay period for ETH withdrawals during rage quit.
+    /// - `rageQuitExtensionPeriodDuration`: The duration of the rage quit extension period.
+    /// - `rageQuitExtensionPeriodStartedAt`: The timestamp when the rage quit extension period started.
+    function getRageQuitEscrowDetails() external view returns (RageQuitEscrowDetails memory details) {
         _escrowState.checkRageQuitEscrow();
-        return _batchesQueue.isClosed();
-    }
 
-    /// @notice Returns whether the Rage Quit Extension Period has started.
-    /// @return isRageQuitExtensionPeriodStarted A boolean value indicating whether the Rage Quit Extension Period
-    ///     has started (`true`) or not (`false`).
-    function isRageQuitExtensionPeriodStarted() external view returns (bool) {
-        return _escrowState.isRageQuitExtensionPeriodStarted();
-    }
+        details.isWithdrawalsBatchesClosed = _batchesQueue.isClosed();
+        details.isRageQuitExtensionPeriodStarted = _escrowState.isRageQuitExtensionPeriodStarted();
 
-    /// @notice Returns the timestamp when the Rage Quit Extension Period started.
-    /// @return rageQuitExtensionPeriodStartedAt The timestamp when the Rage Quit Extension Period began.
-    function getRageQuitExtensionPeriodStartedAt() external view returns (Timestamp) {
-        return _escrowState.rageQuitExtensionPeriodStartedAt;
-    }
+        details.unclaimedUnstETHIdsCount = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
 
-    /// @notice Returns whether the Rage Quit process has been finalized.
-    /// @return A boolean value indicating whether the Rage Quit process has been finalized (`true`) or not (`false`).
-    function isRageQuitFinalized() external view returns (bool) {
-        return _escrowState.isRageQuitEscrow() && _escrowState.isRageQuitExtensionPeriodPassed();
+        details.rageQuitEthWithdrawalsDelay = _escrowState.rageQuitEthWithdrawalsDelay;
+        details.rageQuitExtensionPeriodDuration = _escrowState.rageQuitExtensionPeriodDuration;
+        details.rageQuitExtensionPeriodStartedAt = _escrowState.rageQuitExtensionPeriodStartedAt;
     }
 
     // ---

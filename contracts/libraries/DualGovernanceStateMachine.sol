@@ -7,7 +7,9 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
-import {IEscrowBase, ISignallingEscrow, IRageQuitEscrow} from "../interfaces/IEscrow.sol";
+import {IEscrowBase} from "../interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "../interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "../interfaces/IRageQuitEscrow.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 import {IDualGovernanceConfigProvider} from "../interfaces/IDualGovernanceConfigProvider.sol";
 

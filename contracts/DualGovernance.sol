@@ -7,7 +7,7 @@ import {Timestamp} from "./types/Timestamp.sol";
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
-import {IEscrowBase} from "./interfaces/IEscrow.sol";
+import {IEscrowBase} from "./interfaces/IEscrowBase.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";

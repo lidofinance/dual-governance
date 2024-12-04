@@ -5,7 +5,9 @@ import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 
-import {IEscrowBase, ISignallingEscrow, IRageQuitEscrow} from "contracts/interfaces/IEscrow.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "contracts/interfaces/IRageQuitEscrow.sol";
 
 import {
     State,
