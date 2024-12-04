@@ -265,7 +265,7 @@ contract DualGovernanceConfigTest is UnitTest {
     // calcVetoSignallingDuration()
     // ---
 
-    function testFuzz_calcVetoSignallingDuration_HappyPath_RageQuitSupportLessOrEqualThanFirstSeal(
+    function testFuzz_calcVetoSignallingDuration_HappyPath_RageQuitSupportLessThanFirstSeal(
         DualGovernanceConfig.Context memory config,
         PercentD16 rageQuitSupport
     ) external {
@@ -288,7 +288,7 @@ contract DualGovernanceConfigTest is UnitTest {
         PercentD16 rageQuitSupport
     ) external {
         _assumeConfigParams(config);
-        vm.assume(rageQuitSupport > config.firstSealRageQuitSupport);
+        vm.assume(rageQuitSupport >= config.firstSealRageQuitSupport);
         vm.assume(rageQuitSupport < config.secondSealRageQuitSupport);
 
         PercentD16 rageQuitSupportFirstSealDelta = rageQuitSupport - config.firstSealRageQuitSupport;

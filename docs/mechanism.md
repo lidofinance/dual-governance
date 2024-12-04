@@ -399,7 +399,7 @@ Dual governance should not cover:
 
 ## Changelog
 ### 2024-12-04
-- Updated calculations of Rage Quit support first/second seal reaching.
+- Updated calculations of Rage Quit support first/second threshold's reaching. The transition to VetoSignalling state now starts when the amount of locked funds reaches the first seal threshold (including the exact threshold value), and the transition to RageQuit state appropriately starts when the amount of locked funds reaches the second seal threshold (including the exact threshold value; the appropriate duration of time in VetoSignalling state still should pass).
 
 ### 2024-11-15
 - The rage quit sequence number is now reset in the `VetoCooldown` state instead of the `Normal` state. This adjustment ensures that the ETH withdrawal timelock does not increase unnecessarily in cases where, after a Rage Quit, Dual Governance cycles through `VetoSignalling` → `VetoSignallingDeactivation` → `VetoCooldown` without entering the `Normal` state, as the DAO remains operational and can continue submitting and executing proposals in this scenario.
