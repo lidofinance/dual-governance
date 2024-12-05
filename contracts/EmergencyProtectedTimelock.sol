@@ -180,40 +180,40 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // ---
 
     /// @notice Sets the emergency activation committee address.
-    /// @param emergencyActivationCommittee The address of the emergency activation committee.
-    function setEmergencyProtectionActivationCommittee(address emergencyActivationCommittee) external {
+    /// @param newEmergencyActivationCommittee The address of the emergency activation committee.
+    function setEmergencyProtectionActivationCommittee(address newEmergencyActivationCommittee) external {
         _timelockState.checkCallerIsAdminExecutor();
-        _emergencyProtection.setEmergencyActivationCommittee(emergencyActivationCommittee);
+        _emergencyProtection.setEmergencyActivationCommittee(newEmergencyActivationCommittee);
     }
 
     /// @notice Sets the emergency execution committee address.
-    /// @param emergencyExecutionCommittee The address of the emergency execution committee.
-    function setEmergencyProtectionExecutionCommittee(address emergencyExecutionCommittee) external {
+    /// @param newEmergencyExecutionCommittee The address of the emergency execution committee.
+    function setEmergencyProtectionExecutionCommittee(address newEmergencyExecutionCommittee) external {
         _timelockState.checkCallerIsAdminExecutor();
-        _emergencyProtection.setEmergencyExecutionCommittee(emergencyExecutionCommittee);
+        _emergencyProtection.setEmergencyExecutionCommittee(newEmergencyExecutionCommittee);
     }
 
     /// @notice Sets the emergency protection end date.
-    /// @param emergencyProtectionEndDate The timestamp of the emergency protection end date.
-    function setEmergencyProtectionEndDate(Timestamp emergencyProtectionEndDate) external {
+    /// @param newEmergencyProtectionEndDate The timestamp of the emergency protection end date.
+    function setEmergencyProtectionEndDate(Timestamp newEmergencyProtectionEndDate) external {
         _timelockState.checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyProtectionEndDate(
-            emergencyProtectionEndDate, MAX_EMERGENCY_PROTECTION_DURATION
+            newEmergencyProtectionEndDate, MAX_EMERGENCY_PROTECTION_DURATION
         );
     }
 
     /// @notice Sets the emergency mode duration.
-    /// @param emergencyModeDuration The duration of the emergency mode.
-    function setEmergencyModeDuration(Duration emergencyModeDuration) external {
+    /// @param newEmergencyModeDuration The duration of the emergency mode.
+    function setEmergencyModeDuration(Duration newEmergencyModeDuration) external {
         _timelockState.checkCallerIsAdminExecutor();
-        _emergencyProtection.setEmergencyModeDuration(emergencyModeDuration, MAX_EMERGENCY_MODE_DURATION);
+        _emergencyProtection.setEmergencyModeDuration(newEmergencyModeDuration, MAX_EMERGENCY_MODE_DURATION);
     }
 
     /// @notice Sets the emergency governance address.
-    /// @param emergencyGovernance The address of the emergency governance.
-    function setEmergencyGovernance(address emergencyGovernance) external {
+    /// @param newEmergencyGovernance The address of the emergency governance.
+    function setEmergencyGovernance(address newEmergencyGovernance) external {
         _timelockState.checkCallerIsAdminExecutor();
-        _emergencyProtection.setEmergencyGovernance(emergencyGovernance);
+        _emergencyProtection.setEmergencyGovernance(newEmergencyGovernance);
     }
 
     /// @notice Activates the emergency mode.

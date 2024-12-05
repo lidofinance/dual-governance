@@ -47,8 +47,8 @@ interface IDualGovernance is IGovernance, ITiebreaker {
     function isRegisteredExecutor(address account) external view returns (bool);
 
     function resealSealable(address sealable) external;
-    function setResealCommittee(address resealCommittee) external;
-    function setResealManager(address resealManager) external;
+    function setResealCommittee(address newResealCommittee) external;
+    function setResealManager(address newResealManager) external;
     function getResealManager() external view returns (IResealManager);
     function getResealCommittee() external view returns (address);
 }
