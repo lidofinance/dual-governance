@@ -4,6 +4,7 @@ import { JsonRpcProvider } from "ethers";
 import oz from "./src/oz-roles";
 import aragon from "./src/aragon-permissions";
 import managed from "./src/managed-contracts";
+import { retrieveDeployConfiguration } from "./src/aragon-deploy";
 
 import {
   ARAGON_CONTRACT_ROLES_CONFIG,
@@ -38,6 +39,7 @@ async function main() {
       await managed.collectManagedContractsInfo(provider, MANAGED_CONTRACTS)
     )
   );
+  console.log(await retrieveDeployConfiguration(provider));
 }
 
 main().catch((error) => {
