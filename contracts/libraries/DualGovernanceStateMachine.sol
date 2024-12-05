@@ -17,7 +17,7 @@ import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
 import {DualGovernanceStateTransitions} from "./DualGovernanceStateTransitions.sol";
 
 /// @notice Enum describing the state of the Dual Governance State Machine
-/// @param Unset The initial (uninitialized) state of the Dual Governance State Machine. The state machine cannot
+/// @param NotInitialized The initial (uninitialized) state of the Dual Governance State Machine. The state machine cannot
 ///     operate in this state and must be initialized before use.
 /// @param Normal The default state where the system is expected to remain most of the time. In this state, proposals
 ///     can be both submitted and scheduled for execution.
@@ -32,7 +32,7 @@ import {DualGovernanceStateTransitions} from "./DualGovernanceStateTransitions.s
 ///     is triggered when the Second Seal Threshold is reached. During this state, the scheduling of proposals for
 ///     execution is forbidden, but new proposals can still be submitted.
 enum State {
-    Unset,
+    NotInitialized,
     Normal,
     VetoSignalling,
     VetoSignallingDeactivation,
@@ -118,7 +118,7 @@ library DualGovernanceStateMachine {
         IDualGovernanceConfigProvider configProvider,
         IEscrowBase escrowMasterCopy
     ) internal {
-        if (self.state != State.Unset) {
+        if (self.state != State.NotInitialized) {
             revert AlreadyInitialized();
         }
 
@@ -130,7 +130,7 @@ library DualGovernanceStateMachine {
         DualGovernanceConfig.Context memory config = configProvider.getDualGovernanceConfig();
         _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
 
-        emit DualGovernanceStateChanged(State.Unset, State.Normal, self);
+        emit DualGovernanceStateChanged(State.NotInitialized, State.Normal, self);
     }
 
     /// @notice Executes a state transition for the Dual Governance State Machine, if applicable.

@@ -5,11 +5,11 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @notice The state of the WithdrawalBatchesQueue.
-/// @param Absent The initial (uninitialized) state of the WithdrawalBatchesQueue.
+/// @param NotInitialized The initial (uninitialized) state of the WithdrawalBatchesQueue.
 /// @param Opened In this state, the WithdrawalBatchesQueue allows the addition of new batches of unstETH ids.
 /// @param Closed The terminal state of the queue where adding new batches is no longer permitted.
 enum State {
-    Absent,
+    NotInitialized,
     Opened,
     Closed
 }
@@ -89,7 +89,7 @@ library WithdrawalsBatchesQueue {
     /// @param boundaryUnstETHId The id of the unstETH NFT which is used as the boundary value for the withdrawal queue.
     ///     `boundaryUnstETHId` value is used as a lower bound for the adding unstETH ids.
     function open(Context storage self, uint256 boundaryUnstETHId) internal {
-        _checkState(self, State.Absent);
+        _checkState(self, State.NotInitialized);
 
         self.info.state = State.Opened;
 
@@ -217,7 +217,8 @@ library WithdrawalsBatchesQueue {
     }
 
     /// @notice Returns the ID of the boundary unstETH.
-    /// @dev Reverts with an index OOB error if called when the `WithdrawalsBatchesQueue` is in the `Absent` state.
+    /// @dev Reverts with an index OOB error if called when the `WithdrawalsBatchesQueue` is in the
+    ///     `NotInitialized` state.
     /// @param self The context of the Withdrawals Batches Queue library.
     /// @return boundaryUnstETHId The id of the boundary unstETH.
     function getBoundaryUnstETHId(Context storage self) internal view returns (uint256) {

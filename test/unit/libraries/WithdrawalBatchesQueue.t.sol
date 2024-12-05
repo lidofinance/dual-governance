@@ -16,7 +16,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     // ---
 
     function test_open_HappyPath() external {
-        assertEq(_batchesQueue.info.state, State.Absent);
+        assertEq(_batchesQueue.info.state, State.NotInitialized);
         assertEq(_batchesQueue.batches.length, 0);
 
         _batchesQueue.open(_DEFAULT_BOUNDARY_UNST_ETH_ID);
@@ -40,7 +40,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     }
 
     function test_open_Emit_WithdrawalsBatchesQueueOpened() external {
-        assertEq(_batchesQueue.info.state, State.Absent);
+        assertEq(_batchesQueue.info.state, State.NotInitialized);
 
         vm.expectEmit(true, false, false, false);
         emit WithdrawalsBatchesQueue.WithdrawalsBatchesQueueOpened(_DEFAULT_BOUNDARY_UNST_ETH_ID);
@@ -130,10 +130,10 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         );
     }
 
-    function test_addUnstETHIds_RevertOn_QueueInAbsentState() external {
+    function test_addUnstETHIds_RevertOn_QueueInNotInitializedState() external {
         vm.expectRevert(
             abi.encodeWithSelector(
-                WithdrawalsBatchesQueue.UnexpectedWithdrawalsBatchesQueueState.selector, State.Absent
+                WithdrawalsBatchesQueue.UnexpectedWithdrawalsBatchesQueueState.selector, State.NotInitialized
             )
         );
         _batchesQueue.addUnstETHIds(new uint256[](0));
@@ -369,7 +369,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
     function test_close_RevertOn_QueueNotInOpenedState() external {
         vm.expectRevert(
             abi.encodeWithSelector(
-                WithdrawalsBatchesQueue.UnexpectedWithdrawalsBatchesQueueState.selector, State.Absent
+                WithdrawalsBatchesQueue.UnexpectedWithdrawalsBatchesQueueState.selector, State.NotInitialized
             )
         );
         _batchesQueue.close();
@@ -600,7 +600,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         assertEq(_batchesQueue.getBoundaryUnstETHId(), _DEFAULT_BOUNDARY_UNST_ETH_ID);
     }
 
-    function test_getBoundaryUnstETHId_RevertOn_AbsentQueueState() external {
+    function test_getBoundaryUnstETHId_RevertOn_NotInitializedQueueState() external {
         vm.expectRevert(stdError.indexOOBError);
         _batchesQueue.getBoundaryUnstETHId();
     }
