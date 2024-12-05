@@ -294,14 +294,10 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     ///     have sufficient time to claim it.
     /// @param rageQuitEthWithdrawalsDelay The waiting period that vetoers must observe after the Rage Quit process
     ///     is finalized before they can withdraw ETH from the Escrow.
-    function startRageQuit(
-        Duration rageQuitExtensionPeriodDuration,
-        Duration rageQuitEthWithdrawalsDelay
-    ) external returns (IRageQuitEscrow rageQuitEscrow) {
+    function startRageQuit(Duration rageQuitExtensionPeriodDuration, Duration rageQuitEthWithdrawalsDelay) external {
         _checkCallerIsDualGovernance();
         _escrowState.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
         _batchesQueue.open(WITHDRAWAL_QUEUE.getLastRequestId());
-        rageQuitEscrow = IRageQuitEscrow(this);
     }
 
     // ---

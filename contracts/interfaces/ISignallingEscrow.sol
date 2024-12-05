@@ -44,10 +44,7 @@ interface ISignallingEscrow is IEscrowBase {
 
     function markUnstETHFinalized(uint256[] memory unstETHIds, uint256[] calldata hints) external;
 
-    function startRageQuit(
-        Duration rageQuitExtensionPeriodDuration,
-        Duration rageQuitEthWithdrawalsDelay
-    ) external returns (IRageQuitEscrow);
+    function startRageQuit(Duration rageQuitExtensionPeriodDuration, Duration rageQuitEthWithdrawalsDelay) external;
 
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external;
 

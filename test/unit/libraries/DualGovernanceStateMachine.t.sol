@@ -52,7 +52,6 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
         _mockRageQuitFinalized(false);
         _mockRageQuitSupport(PercentsD16.from(0));
         _mockEscrowMasterCopy();
-        _mockStartRageQuit();
     }
 
     function test_initialize_RevertOn_ReInitialization() external {
@@ -457,14 +456,6 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
             _ESCROW_MASTER_COPY_MOCK,
             abi.encodeWithSelector(IEscrowBase.ESCROW_MASTER_COPY.selector),
             abi.encode(_ESCROW_MASTER_COPY_MOCK)
-        );
-    }
-
-    function _mockStartRageQuit() internal {
-        vm.mockCall(
-            _ESCROW_MASTER_COPY_MOCK,
-            abi.encodeWithSelector(ISignallingEscrow.startRageQuit.selector),
-            abi.encode(_stateMachine.signallingEscrow)
         );
     }
 
