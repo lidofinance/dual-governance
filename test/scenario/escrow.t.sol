@@ -488,22 +488,22 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         // After the Escrow enters RageQuitEscrow state, lock/unlock of tokens is forbidden
         // ---
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalLockStETH(_VETOER_1, 1 ether);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalLockWstETH(_VETOER_1, 1 ether);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalLockUnstETH(_VETOER_1, notLockedWithdrawalNfts);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockStETH(_VETOER_1);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockWstETH(_VETOER_1);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockUnstETH(_VETOER_1, lockedWithdrawalNfts);
     }
 
@@ -547,7 +547,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         vm.revertTo(snapshotId);
 
         // The attempt to unlock funds from Escrow will fail
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockStETH(_VETOER_1);
     }
 

@@ -35,11 +35,11 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
 
     error EmptyUnstETHIds();
     error UnclaimedBatches();
-    error UnexpectedUnstETHId();
     error UnfinalizedUnstETHIds();
     error NonProxyCallsForbidden();
     error BatchesQueueIsNotClosed();
     error InvalidBatchSize(uint256 size);
+    error InvalidFromUnstETHId(uint256 unstETHId);
     error CallerIsNotDualGovernance(address caller);
     error InvalidHintsLength(uint256 actual, uint256 expected);
     error InvalidETHSender(address actual, address expected);
@@ -489,15 +489,15 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
             revert BatchesQueueIsNotClosed();
         }
 
-        /// @dev This check is primarily required when only unstETH NFTs are locked in the Escrow
-        ///     and there are no WithdrawalsBatches. In this scenario, the RageQuitExtensionPeriod can only begin
-        ///     when the last locked unstETH id is finalized in the WithdrawalQueue.
-        ///     When the WithdrawalsBatchesQueue is not empty, this invariant is maintained by the following:
+        /// @dev This check is required when only unstETH NFTs are locked in the Escrow and there are no WithdrawalsBatches.
+        ///     In this scenario, the RageQuitExtensionPeriod can only begin when the last locked unstETH id is finalized
+        ///     in the WithdrawalQueue. When the WithdrawalsBatchesQueue is not empty, this invariant is maintained by
+        ///     the following:
         ///         - Any locked unstETH during the VetoSignalling phase has an id less than any unstETH NFT created
         ///           during the request for withdrawal batches.
         ///         - Claiming the withdrawal batches requires the finalization of the unstETH with the given id.
         ///         - The finalization of unstETH NFTs occurs in FIFO order.
-        if (_batchesQueue.getLastClaimedOrBoundaryUnstETHId() > WITHDRAWAL_QUEUE.getLastFinalizedRequestId()) {
+        if (_batchesQueue.getBoundaryUnstETHId() > WITHDRAWAL_QUEUE.getLastFinalizedRequestId()) {
             revert UnfinalizedUnstETHIds();
         }
 
@@ -629,7 +629,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         uint256[] memory hints
     ) internal {
         if (fromUnstETHId != unstETHIds[0]) {
-            revert UnexpectedUnstETHId();
+            revert InvalidFromUnstETHId(fromUnstETHId);
         }
 
         if (hints.length != unstETHIds.length) {

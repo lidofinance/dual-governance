@@ -23,9 +23,7 @@ library WithdrawalsBatchesQueue {
 
     error EmptyBatch();
     error InvalidUnstETHIdsSequence();
-    error WithdrawalsBatchesQueueIsInAbsentState();
-    error WithdrawalsBatchesQueueIsNotInOpenedState();
-    error WithdrawalsBatchesQueueIsNotInAbsentState();
+    error UnexpectedWithdrawalsBatchesQueueState(State state);
 
     // ---
     // Events
@@ -91,9 +89,7 @@ library WithdrawalsBatchesQueue {
     /// @param boundaryUnstETHId The id of the unstETH NFT which is used as the boundary value for the withdrawal queue.
     ///     `boundaryUnstETHId` value is used as a lower bound for the adding unstETH ids.
     function open(Context storage self, uint256 boundaryUnstETHId) internal {
-        if (self.info.state != State.Absent) {
-            revert WithdrawalsBatchesQueueIsNotInAbsentState();
-        }
+        _checkState(self, State.Absent);
 
         self.info.state = State.Opened;
 
@@ -108,7 +104,7 @@ library WithdrawalsBatchesQueue {
     /// @param self The context of the Withdrawals Batches Queue library.
     /// @param unstETHIds An array of sequential unstETH ids to be added to the queue.
     function addUnstETHIds(Context storage self, uint256[] memory unstETHIds) internal {
-        _checkInOpenedState(self);
+        _checkState(self, State.Opened);
 
         uint256 unstETHIdsCount = unstETHIds.length;
 
@@ -163,7 +159,7 @@ library WithdrawalsBatchesQueue {
     /// @notice Closes the WithdrawalsBatchesQueue, preventing further batch additions.
     /// @param self The context of the Withdrawals Batches Queue library.
     function close(Context storage self) internal {
-        _checkInOpenedState(self);
+        _checkState(self, State.Opened);
         self.info.state = State.Closed;
         emit WithdrawalsBatchesQueueClosed();
     }
@@ -220,13 +216,12 @@ library WithdrawalsBatchesQueue {
         return self.info.totalUnstETHIdsCount - self.info.totalUnstETHIdsClaimed;
     }
 
-    /// @notice Returns the id of the last claimed unstETH. When the queue is empty, returns 0.
+    /// @notice Returns the ID of the boundary unstETH.
+    /// @dev Reverts with an index OOB error if called when the `WithdrawalsBatchesQueue` is in the `Absent` state.
     /// @param self The context of the Withdrawals Batches Queue library.
-    /// @return lastClaimedUnstETHId The id of the lastClaimedUnstETHId or 0 when the queue is empty
-    function getLastClaimedOrBoundaryUnstETHId(Context storage self) internal view returns (uint256) {
-        _checkNotInAbsentState(self);
-        QueueInfo memory info = self.info;
-        return self.batches[info.lastClaimedBatchIndex].firstUnstETHId + info.lastClaimedUnstETHIdIndex;
+    /// @return boundaryUnstETHId The id of the boundary unstETH.
+    function getBoundaryUnstETHId(Context storage self) internal view returns (uint256) {
+        return self.batches[0].firstUnstETHId;
     }
 
     /// @notice Returns if all unstETH ids in the queue have been claimed.
@@ -277,15 +272,9 @@ library WithdrawalsBatchesQueue {
         info.totalUnstETHIdsClaimed += SafeCast.toUint64(unstETHIdsCount);
     }
 
-    function _checkNotInAbsentState(Context storage self) private view {
-        if (self.info.state == State.Absent) {
-            revert WithdrawalsBatchesQueueIsInAbsentState();
-        }
-    }
-
-    function _checkInOpenedState(Context storage self) private view {
-        if (self.info.state != State.Opened) {
-            revert WithdrawalsBatchesQueueIsNotInOpenedState();
+    function _checkState(Context storage self, State expectedState) private view {
+        if (self.info.state != expectedState) {
+            revert UnexpectedWithdrawalsBatchesQueueState(self.info.state);
         }
     }
 }

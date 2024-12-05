@@ -38,8 +38,7 @@ contract EscrowStateUnitTests is UnitTest {
     function testFuzz_initialize_RevertOn_InvalidState(Duration minAssetsLockDuration) external {
         _context.state = State.SignallingEscrow;
 
-        // TODO: not very informative, maybe need to change to `revert UnexpectedState(self.state);`: UnexpectedState(NotInitialized)[current implementation] => UnexpectedState(SignallingEscrow)[proposed]
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.NotInitialized));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.SignallingEscrow));
 
         EscrowState.initialize(_context, minAssetsLockDuration);
     }
@@ -75,7 +74,7 @@ contract EscrowStateUnitTests is UnitTest {
     ) external {
         _context.state = State.NotInitialized;
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
 
         EscrowState.startRageQuit(_context, rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
     }
@@ -139,8 +138,11 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkSignallingEscrow_RevertOn_InvalidState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
+        EscrowState.checkSignallingEscrow(_context);
 
+        _context.state = State.RageQuitEscrow;
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         EscrowState.checkSignallingEscrow(_context);
     }
 
@@ -154,8 +156,11 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkRageQuitEscrow_RevertOn_InvalidState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
+        EscrowState.checkRageQuitEscrow(_context);
 
+        _context.state = State.SignallingEscrow;
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.SignallingEscrow));
         EscrowState.checkRageQuitEscrow(_context);
     }
 
