@@ -48,7 +48,7 @@ contract Escrow is IEscrow {
     /// @dev The lower limit for stETH transfers when requesting a withdrawal batch
     ///     during the Rage Quit phase. For more details, see https://github.com/lidofinance/lido-dao/issues/442.
     ///     The current value is chosen to ensure functionality over an extended period, spanning several decades.
-    uint256 private constant _MIN_TRANSFERRABLE_ST_ETH_AMOUNT = 8 wei;
+    uint256 public constant MIN_TRANSFERRABLE_ST_ETH_AMOUNT = 100 wei;
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -303,7 +303,7 @@ contract Escrow is IEscrow {
         ///     Using only `minStETHWithdrawalRequestAmount` is insufficient because it is an external variable
         ///     that could be decreased independently. Introducing `minWithdrawableStETHAmount` provides
         ///     an internal safeguard, enforcing a minimum threshold within the contract.
-        uint256 minWithdrawableStETHAmount = Math.max(_MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount);
+        uint256 minWithdrawableStETHAmount = Math.max(MIN_TRANSFERRABLE_ST_ETH_AMOUNT, minStETHWithdrawalRequestAmount);
 
         if (stETHRemaining < minWithdrawableStETHAmount) {
             return _batchesQueue.close();

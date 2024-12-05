@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 // import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol"; /*, ERC721("test", "test")*/
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /* solhint-disable no-unused-vars,custom-errors */
 contract WithdrawalQueueMock is IWithdrawalQueue {
@@ -11,8 +12,11 @@ contract WithdrawalQueueMock is IWithdrawalQueue {
     uint256 private _minStETHWithdrawalAmount;
     uint256 private _maxStETHWithdrawalAmount;
     uint256[] private _requestWithdrawalsResult;
+    IERC20 private _stETH;
 
-    constructor() {}
+    constructor(IERC20 stETH) {
+        _stETH = stETH;
+    }
 
     function MIN_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256) {
         return _minStETHWithdrawalAmount;
@@ -70,6 +74,17 @@ contract WithdrawalQueueMock is IWithdrawalQueue {
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds) {
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < _amounts.length; i++) {
+            if (_amounts[i] < _minStETHWithdrawalAmount) {
+                revert("Amount is less than MIN_STETH_WITHDRAWAL_AMOUNT");
+            }
+            if (_amounts[i] > _maxStETHWithdrawalAmount) {
+                revert("Amount is more than MAX_STETH_WITHDRAWAL_AMOUNT");
+            }
+            totalAmount += _amounts[i];
+        }
+        IERC20(_stETH).transferFrom(_owner, address(this), totalAmount);
         return _requestWithdrawalsResult;
     }
 
