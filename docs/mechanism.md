@@ -183,7 +183,8 @@ L(R) = L_{min} + \frac{(R - R_1)} {R_2 - R_1} (L_{max} - L_{min})
 
 where $R_1$ is `FirstSealRageQuitSupport`, $R_2$ is `SecondSealRageQuitSupport`, $L_{min}$ is `DynamicTimelockMinDuration`, $L_{max}$ is `DynamicTimelockMaxDuration`. The dependence of the dynamic timelock on the rage quit support $R$ can be illustrated by the following graph:
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/b98dd9f1-1e55-4b5d-8ce1-56539f4cc3f8)
+![image](https://github.com/user-attachments/assets/15cb6cdb-68a6-41ce-8d47-c34da19b84f1)
+
 
 When the current rage quit support changes due to stakers locking or unlocking tokens into/out of the signalling escrow or the total stETH supply changing, the dynamic timelock duration is re-evaluated.
 
