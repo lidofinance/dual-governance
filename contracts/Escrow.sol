@@ -83,8 +83,10 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     // Implementation Immutables
     // ---
 
-    /// @dev Reference to the address of the implementation contract, used to distinguish whether the call
-    ///     is made to the proxy or directly to the implementation.
+    /// @notice The address of the implementation used for Signalling and Rage Quit escrows deployed
+    ///     by the DualGovernance contract.
+    /// @dev This address is also used to distinguish whether the call is made to the proxy or directly
+    ///     to the implementation.
     IEscrowBase public immutable ESCROW_MASTER_COPY;
 
     /// @dev The address of the Dual Governance contract.
@@ -143,6 +145,8 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
     }
 
+    /// @notice Retrieves the current state of the Escrow.
+    /// @return State The current state of the Escrow.
     function getEscrowState() external view returns (State) {
         return _escrowState.state;
     }
