@@ -149,6 +149,10 @@ contract EscrowUnitTests is UnitTest {
     // MIN_TRANSFERRABLE_ST_ETH_AMOUNT
     // ---
 
+    function test_MIN_TRANSFERRABLE_ST_ETH_AMOUNT() external {
+        assertEq(_escrow.MIN_TRANSFERRABLE_ST_ETH_AMOUNT(), 100);
+    }
+
     function test_MIN_TRANSFERRABLE_ST_ETH_AMOUNT_gt_minWithdrawableStETHAmountWei_HappyPath() external {
         uint256 amountToLock = 100;
 
