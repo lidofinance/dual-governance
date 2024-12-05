@@ -43,7 +43,7 @@ contract DualGovernanceUnitTests is UnitTest {
     address private proposalsCanceller = makeAddr("proposalsCanceller");
 
     StETHMock private immutable _STETH_MOCK = new StETHMock();
-    IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock();
+    IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock(_STETH_MOCK);
 
     // TODO: Replace with mocks
     IWstETH private immutable _WSTETH_STUB = IWstETH(makeAddr("WSTETH_STUB"));

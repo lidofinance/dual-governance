@@ -33,7 +33,7 @@ contract EscrowUnitTests is UnitTest {
     StETHMock private _stETH;
     IWstETH private _wstETH;
 
-    address private _withdrawalQueue;
+    WithdrawalQueueMock private _withdrawalQueue;
 
     Duration private _minLockAssetDuration = Durations.from(1 days);
     uint256 private stethAmount = 100 ether;
@@ -42,10 +42,14 @@ contract EscrowUnitTests is UnitTest {
         _stETH = new StETHMock();
         _stETH.__setShareRate(1);
         _wstETH = IWstETH(address(new ERC20Mock()));
-        _withdrawalQueue = address(new WithdrawalQueueMock());
+        _withdrawalQueue = new WithdrawalQueueMock(_stETH);
+        _withdrawalQueue.setMaxStETHWithdrawalAmount(1_000 ether);
         _masterCopy =
             new Escrow(_stETH, _wstETH, WithdrawalQueueMock(_withdrawalQueue), IDualGovernance(_dualGovernance), 100);
         _escrow = Escrow(payable(Clones.clone(address(_masterCopy))));
+
+        vm.prank(address(_escrow));
+        _stETH.approve(address(_withdrawalQueue), type(uint256).max);
 
         vm.prank(_dualGovernance);
         _escrow.initialize(_minLockAssetDuration);
@@ -141,6 +145,125 @@ contract EscrowUnitTests is UnitTest {
         _masterCopy.isWithdrawalsBatchesClosed();
     }
 
+    // ---
+    // MIN_TRANSFERRABLE_ST_ETH_AMOUNT
+    // ---
+
+    function test_MIN_TRANSFERRABLE_ST_ETH_AMOUNT_gt_minWithdrawableStETHAmountWei_HappyPath() external {
+        uint256 amountToLock = 100;
+
+        uint256 minWithdrawableStETHAmountWei = 99;
+        assertEq(_escrow.MIN_TRANSFERRABLE_ST_ETH_AMOUNT(), 100);
+        _withdrawalQueue.setMinStETHWithdrawalAmount(minWithdrawableStETHAmountWei);
+
+        // Lock stETH
+        _stETH.mint(_vetoer, amountToLock);
+        vm.prank(_vetoer);
+        _escrow.lockStETH(amountToLock);
+        assertEq(_stETH.balanceOf(address(_escrow)), amountToLock);
+
+        // Request withdrawal
+        vm.prank(_dualGovernance);
+        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
+        assertEq(_escrow.getNextWithdrawalBatch(100).length, 0);
+        assertEq(_escrow.isWithdrawalsBatchesClosed(), false);
+
+        uint256[] memory unstEthIds = new uint256[](1);
+        unstEthIds[0] = 1;
+        _withdrawalQueue.setRequestWithdrawalsResult(unstEthIds);
+        _escrow.requestNextWithdrawalsBatch(100);
+
+        assertEq(_stETH.balanceOf(address(_escrow)), 0);
+        assertEq(_escrow.getNextWithdrawalBatch(100).length, 1);
+        assertEq(_escrow.isWithdrawalsBatchesClosed(), true);
+    }
+
+    function test_MIN_TRANSFERRABLE_ST_ETH_AMOUNT_gt_minWithdrawableStETHAmountWei_HappyPath_closes_queue() external {
+        uint256 amountToLock = 99;
+
+        uint256 minWithdrawableStETHAmountWei = 99;
+        assertEq(_escrow.MIN_TRANSFERRABLE_ST_ETH_AMOUNT(), 100);
+        _withdrawalQueue.setMinStETHWithdrawalAmount(minWithdrawableStETHAmountWei);
+
+        // Lock stETH
+        _stETH.mint(_vetoer, amountToLock);
+        vm.prank(_vetoer);
+        _escrow.lockStETH(amountToLock);
+        assertEq(_stETH.balanceOf(address(_escrow)), amountToLock);
+
+        // Request withdrawal
+        vm.prank(_dualGovernance);
+        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
+        assertEq(_escrow.getNextWithdrawalBatch(100).length, 0);
+        assertEq(_escrow.isWithdrawalsBatchesClosed(), false);
+
+        uint256[] memory unstEthIds = new uint256[](0);
+        _withdrawalQueue.setRequestWithdrawalsResult(unstEthIds);
+        _escrow.requestNextWithdrawalsBatch(100);
+
+        assertEq(_stETH.balanceOf(address(_escrow)), 99);
+        assertEq(_escrow.getNextWithdrawalBatch(100).length, 0);
+        assertEq(_escrow.isWithdrawalsBatchesClosed(), true);
+    }
+
+    function test_MIN_TRANSFERRABLE_ST_ETH_AMOUNT_lt_minWithdrawableStETHAmountWei_HappyPath() external {
+        uint256 amountToLock = 101;
+
+        uint256 minWithdrawableStETHAmountWei = 101;
+        assertEq(_escrow.MIN_TRANSFERRABLE_ST_ETH_AMOUNT(), 100);
+        _withdrawalQueue.setMinStETHWithdrawalAmount(minWithdrawableStETHAmountWei);
+
+        // Lock stETH
+        _stETH.mint(_vetoer, amountToLock);
+        vm.prank(_vetoer);
+        _escrow.lockStETH(amountToLock);
+        assertEq(_stETH.balanceOf(address(_escrow)), amountToLock);
+
+        // Request withdrawal
+        vm.prank(_dualGovernance);
+        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
+        assertEq(_escrow.getNextWithdrawalBatch(100).length, 0);
+        assertEq(_escrow.isWithdrawalsBatchesClosed(), false);
+
+        uint256[] memory unstEthIds = new uint256[](1);
+        unstEthIds[0] = 1;
+        _withdrawalQueue.setRequestWithdrawalsResult(unstEthIds);
+        _escrow.requestNextWithdrawalsBatch(100);
+
+        assertEq(_stETH.balanceOf(address(_escrow)), 0);
+        assertEq(_escrow.getNextWithdrawalBatch(100).length, 1);
+        assertEq(_escrow.isWithdrawalsBatchesClosed(), true);
+    }
+
+    function test_MIN_TRANSFERRABLE_ST_ETH_AMOUNT_lt_minWithdrawableStETHAmountWei_HappyPath_closes_queue() external {
+        uint256 amountToLock = 100;
+
+        uint256 minWithdrawableStETHAmountWei = 101;
+        assertEq(_escrow.MIN_TRANSFERRABLE_ST_ETH_AMOUNT(), 100);
+        _withdrawalQueue.setMinStETHWithdrawalAmount(minWithdrawableStETHAmountWei);
+
+        // Lock stETH
+        _stETH.mint(_vetoer, amountToLock);
+        vm.prank(_vetoer);
+        _escrow.lockStETH(amountToLock);
+        assertEq(_stETH.balanceOf(address(_escrow)), amountToLock);
+
+        // Request withdrawal
+        vm.prank(_dualGovernance);
+        _escrow.startRageQuit(Durations.ZERO, Durations.ZERO);
+        assertEq(_escrow.getNextWithdrawalBatch(100).length, 0);
+        assertEq(_escrow.isWithdrawalsBatchesClosed(), false);
+
+        uint256[] memory unstEthIds = new uint256[](1);
+        unstEthIds[0] = 1;
+        _withdrawalQueue.setRequestWithdrawalsResult(unstEthIds);
+        _escrow.requestNextWithdrawalsBatch(100);
+
+        assertEq(_stETH.balanceOf(address(_escrow)), 100);
+        assertEq(_escrow.getNextWithdrawalBatch(100).length, 0);
+        assertEq(_escrow.isWithdrawalsBatchesClosed(), true);
+    }
+
     function vetoerLockedUnstEth(uint256[] memory amounts) internal returns (uint256[] memory unstethIds) {
         unstethIds = new uint256[](amounts.length);
         IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
@@ -153,36 +276,16 @@ contract EscrowUnitTests is UnitTest {
         }
 
         vm.mockCall(
-            _withdrawalQueue,
+            address(_withdrawalQueue),
             abi.encodeWithSelector(IWithdrawalQueue.getWithdrawalStatus.selector, unstethIds),
             abi.encode(statuses)
         );
-        vm.mockCall(_withdrawalQueue, abi.encodeWithSelector(IWithdrawalQueue.transferFrom.selector), abi.encode(true));
+        vm.mockCall(
+            address(_withdrawalQueue), abi.encodeWithSelector(IWithdrawalQueue.transferFrom.selector), abi.encode(true)
+        );
 
         vm.startPrank(_vetoer);
         _escrow.lockUnstETH(unstethIds);
         vm.stopPrank();
-    }
-
-    function createEscrow(uint256 size) internal returns (Escrow) {
-        return
-            new Escrow(_stETH, _wstETH, WithdrawalQueueMock(_withdrawalQueue), IDualGovernance(_dualGovernance), size);
-    }
-
-    function createEscrowProxy(uint256 minWithdrawalsBatchSize) internal returns (Escrow) {
-        Escrow masterCopy = createEscrow(minWithdrawalsBatchSize);
-        return Escrow(payable(Clones.clone(address(masterCopy))));
-    }
-
-    function createInitializedEscrowProxy(
-        uint256 minWithdrawalsBatchSize,
-        Duration minAssetsLockDuration
-    ) internal returns (Escrow) {
-        Escrow instance = createEscrowProxy(minWithdrawalsBatchSize);
-
-        vm.startPrank(_dualGovernance);
-        instance.initialize(minAssetsLockDuration);
-        vm.stopPrank();
-        return instance;
     }
 }
