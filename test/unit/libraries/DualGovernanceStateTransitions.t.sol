@@ -65,7 +65,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function test_getStateTransition_FromNormalToNormal() external {
         assertEq(_stateMachine.state, State.Normal);
 
-        _setMockRageQuitSupportInBP(3_00);
+        _setMockRageQuitSupportInBP(2_99);
 
         (State current, State next) = _stateMachine.getStateTransition(_configProvider.getDualGovernanceConfig());
 
@@ -80,7 +80,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function test_getStateTransition_FromNormalToVetoSignalling() external {
         assertEq(_stateMachine.state, State.Normal);
 
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         (State current, State next) = _stateMachine.getStateTransition(_configProvider.getDualGovernanceConfig());
 
@@ -94,7 +94,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
 
     function test_getStateTransition_FromVetoSignallingToVetoSignalling_VetoSignallingDurationNotPassed() external {
         _setupVetoSignallingState();
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         (State current, State next) = _stateMachine.getStateTransition(_configProvider.getDualGovernanceConfig());
 
@@ -109,7 +109,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function test_getStateTransition_FromVetoSignallingToVetoSignalling_VetoSignallingReactivationNotPassed()
         external
     {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         // the veto signalling state was entered
         _setupVetoSignallingState();
@@ -139,7 +139,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingToRageQuit() external {
-        _setMockRageQuitSupportInBP(15_01);
+        _setMockRageQuitSupportInBP(15_00);
 
         // the veto signalling state was entered
         _setupVetoSignallingState();
@@ -160,12 +160,12 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingDeactivationToVetoSignalling() external {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
         _setupVetoSignallingDeactivationState();
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignallingDeactivation});
 
-        _setMockRageQuitSupportInBP(15_01);
+        _setMockRageQuitSupportInBP(15_00);
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignalling});
     }
@@ -175,12 +175,12 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingDeactivationToRageQuit() external {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
         _setupVetoSignallingDeactivationState();
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignallingDeactivation});
 
-        _setMockRageQuitSupportInBP(15_01);
+        _setMockRageQuitSupportInBP(15_00);
 
         _wait(_calcVetoSignallingDuration().plusSeconds(1 seconds));
 
@@ -192,7 +192,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingDeactivationToVetoCooldown() external {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
         _setupVetoSignallingDeactivationState();
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignallingDeactivation});
@@ -207,7 +207,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingDeactivationToVetoSignallingDeactivation() external {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
         _setupVetoSignallingDeactivationState();
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignallingDeactivation});
@@ -248,7 +248,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
 
         _assertStateMachineTransition({from: State.VetoCooldown, to: State.VetoCooldown});
 
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
 
@@ -291,7 +291,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
         _assertStateMachineTransition({from: State.RageQuit, to: State.RageQuit});
 
         _setMockIsRageQuitFinalized(true);
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         _assertStateMachineTransition({from: State.RageQuit, to: State.VetoSignalling});
     }
