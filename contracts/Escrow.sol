@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import {Duration} from "./types/Duration.sol";
+import {Durations, Duration} from "./types/Duration.sol";
 import {Timestamp} from "./types/Timestamp.sol";
 import {ETHValue, ETHValues} from "./types/ETHValue.sol";
 import {SharesValue, SharesValues} from "./types/SharesValue.sol";
@@ -58,6 +58,9 @@ contract Escrow is IEscrow {
     ///     the `Escrow.requestNextWithdrawalsBatch(batchSize)` method.
     uint256 public immutable MIN_WITHDRAWALS_BATCH_SIZE;
 
+    /// @notice The maximum duration that can be set as the minimum assets lock duration.
+    Duration public immutable MAX_ASSETS_LOCK_DURATION;
+
     // ---
     // Dependencies Immutables
     // ---
@@ -104,7 +107,8 @@ contract Escrow is IEscrow {
         IWstETH wstETH,
         IWithdrawalQueue withdrawalQueue,
         IDualGovernance dualGovernance,
-        uint256 minWithdrawalsBatchSize
+        uint256 minWithdrawalsBatchSize,
+        Duration maxAssetsLockDuration
     ) {
         _SELF = address(this);
         DUAL_GOVERNANCE = dualGovernance;
@@ -114,6 +118,7 @@ contract Escrow is IEscrow {
         WITHDRAWAL_QUEUE = withdrawalQueue;
 
         MIN_WITHDRAWALS_BATCH_SIZE = minWithdrawalsBatchSize;
+        MAX_ASSETS_LOCK_DURATION = maxAssetsLockDuration;
     }
 
     /// @notice Initializes the proxy instance with the specified minimum assets lock duration.
@@ -432,7 +437,7 @@ contract Escrow is IEscrow {
     /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
         _checkCallerIsDualGovernance();
-        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration);
+        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration, MAX_ASSETS_LOCK_DURATION);
     }
 
     // ---

@@ -44,8 +44,14 @@ contract EscrowUnitTests is UnitTest {
         _wstETH = IWstETH(address(new ERC20Mock()));
         _withdrawalQueue = new WithdrawalQueueMock(_stETH);
         _withdrawalQueue.setMaxStETHWithdrawalAmount(1_000 ether);
-        _masterCopy =
-            new Escrow(_stETH, _wstETH, WithdrawalQueueMock(_withdrawalQueue), IDualGovernance(_dualGovernance), 100);
+        _masterCopy = new Escrow(
+            _stETH,
+            _wstETH,
+            WithdrawalQueueMock(_withdrawalQueue),
+            IDualGovernance(_dualGovernance),
+            100,
+            Durations.from(1000)
+        );
         _escrow = Escrow(payable(Clones.clone(address(_masterCopy))));
 
         vm.prank(address(_escrow));

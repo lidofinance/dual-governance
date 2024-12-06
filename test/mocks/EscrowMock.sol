@@ -12,6 +12,7 @@ contract EscrowMock is IEscrow {
     event __RageQuitStarted(Duration rageQuitExtraTimelock, Duration rageQuitWithdrawalsTimelock);
 
     Duration public __minAssetsLockDuration;
+    Duration public __maxAssetsLockDuration;
     PercentD16 public __rageQuitSupport;
     bool public __isRageQuitFinalized;
 
@@ -129,5 +130,13 @@ contract EscrowMock is IEscrow {
 
     function getMinAssetsLockDuration() external view returns (Duration minAssetsLockDuration) {
         return __minAssetsLockDuration;
+    }
+
+    function MAX_ASSETS_LOCK_DURATION() external view returns (Duration) {
+        return __maxAssetsLockDuration;
+    }
+
+    function setMaxAssetsLockDuration(Duration newMaxAssetsLockDuration) external {
+        __maxAssetsLockDuration = newMaxAssetsLockDuration;
     }
 }

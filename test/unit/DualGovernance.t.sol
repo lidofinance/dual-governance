@@ -84,7 +84,8 @@ contract DualGovernanceUnitTests is UnitTest {
         minWithdrawalsBatchSize: 4,
         minTiebreakerActivationTimeout: Durations.from(30 days),
         maxTiebreakerActivationTimeout: Durations.from(180 days),
-        maxSealableWithdrawalBlockersCount: 128
+        maxSealableWithdrawalBlockersCount: 128,
+        maxAssetsLockDuration: Durations.from(365 days)
     });
 
     DualGovernance internal _dualGovernance =

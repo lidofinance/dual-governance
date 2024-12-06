@@ -103,13 +103,17 @@ contract EscrowStateUnitTests is UnitTest {
     // setMinAssetsLockDuration()
     // ---
 
-    function test_setMinAssetsLockDuration_happyPath(Duration minAssetsLockDuration) external {
+    function testFuzz_setMinAssetsLockDuration_happyPath(
+        Duration minAssetsLockDuration,
+        Duration maxAssetsLockDuration
+    ) external {
         vm.assume(minAssetsLockDuration != Durations.ZERO);
+        vm.assume(minAssetsLockDuration <= maxAssetsLockDuration);
 
         vm.expectEmit();
         emit EscrowState.MinAssetsLockDurationSet(minAssetsLockDuration);
 
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxAssetsLockDuration);
 
         checkContext({
             state: State.NotInitialized,
@@ -120,13 +124,25 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
         _context.minAssetsLockDuration = minAssetsLockDuration;
 
         vm.expectRevert(
             abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
         );
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, Durations.from(type(uint16).max));
+    }
+
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationGreaterThenMaxAssetsLockDuration(
+        Duration minAssetsLockDuration,
+        Duration maxAssetsLockDuration
+    ) external {
+        vm.assume(minAssetsLockDuration > maxAssetsLockDuration);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
+        );
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxAssetsLockDuration);
     }
 
     // ---
