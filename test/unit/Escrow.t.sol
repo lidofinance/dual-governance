@@ -1291,6 +1291,50 @@ contract EscrowUnitTests is UnitTest {
     }
 
     // ---
+    // getLockedUnstETHDetails()
+    // ---
+
+    function test_getLockedUnstETHDetails_HappyPath() external {
+        uint256[] memory unstEthAmounts = new uint256[](2);
+        unstEthAmounts[0] = 1 ether;
+        unstEthAmounts[1] = 10 ether;
+
+        assertEq(_escrow.getVetoerUnstETHIds(_vetoer).length, 0);
+
+        uint256[] memory unstEthIds = _vetoerLockedUnstEth(unstEthAmounts);
+
+        IEscrow.LockedUnstETHDetails[] memory unstETHDetails = _escrow.getLockedUnstETHDetails(unstEthIds);
+
+        assertEq(unstETHDetails.length, unstEthIds.length);
+
+        assertEq(unstETHDetails[0].id, unstEthIds[0]);
+        assertEq(unstETHDetails[0].lockedBy, _vetoer);
+        assertTrue(unstETHDetails[0].status == UnstETHRecordStatus.Locked);
+        assertEq(unstETHDetails[0].shares.toUint256(), unstEthAmounts[0]);
+        assertEq(unstETHDetails[0].claimableAmount.toUint256(), 0);
+
+        assertEq(unstETHDetails[1].id, unstEthIds[1]);
+        assertEq(unstETHDetails[1].lockedBy, _vetoer);
+        assertTrue(unstETHDetails[1].status == UnstETHRecordStatus.Locked);
+        assertEq(unstETHDetails[1].shares.toUint256(), unstEthAmounts[1]);
+        assertEq(unstETHDetails[1].claimableAmount.toUint256(), 0);
+    }
+
+    function test_getLockedUnstETHDetails_RevertOn_unstETHNotLocked() external {
+        uint256 notLockedUnstETHId = 42;
+
+        uint256[] memory notLockedUnstETHIds = new uint256[](1);
+        notLockedUnstETHIds[0] = notLockedUnstETHId;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetsAccounting.InvalidUnstETHStatus.selector, notLockedUnstETHId, UnstETHRecordStatus.NotLocked
+            )
+        );
+        _escrow.getLockedUnstETHDetails(notLockedUnstETHIds);
+    }
+
+    // ---
     // getNextWithdrawalBatch()
     // ---
 

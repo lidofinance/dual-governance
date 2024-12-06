@@ -11,6 +11,7 @@ import {IndicesOneBased} from "contracts/types/IndexOneBased.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamps} from "contracts/types/Timestamp.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
 import {UnitTest, Duration} from "test/utils/unit-test.sol";
@@ -1417,6 +1418,62 @@ contract AssetsAccountingUnitTests is UnitTest {
         vm.expectRevert(ETHValueOverflow.selector);
 
         AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
+    }
+
+    // ---
+    // getLockedUnstETHDetails
+    // ---
+
+    function test_getLockedUnstETHDetails_HappyPath() external {
+        uint256 unstETHIdsCount = 4;
+        uint256[] memory unstETHIds = new uint256[](unstETHIdsCount);
+        for (uint256 i = 0; i < unstETHIdsCount; ++i) {
+            unstETHIds[i] = genRandomUnstEthId(i);
+            address holder = address(uint160(uint256(keccak256(abi.encode(i)))));
+
+            _accountingContext.unstETHRecords[unstETHIds[i]].lockedBy = holder;
+            _accountingContext.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus(i + 1);
+            _accountingContext.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(i * 1 ether);
+            _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(i * 10 ether);
+
+            _accountingContext.assets[holder].unstETHIds.push(unstETHIds[i]);
+        }
+
+        for (uint256 i = 0; i < unstETHIdsCount; ++i) {
+            ISignallingEscrow.LockedUnstETHDetails memory unstETHDetails =
+                AssetsAccounting.getLockedUnstETHDetails(_accountingContext, unstETHIds[i]);
+
+            assertEq(unstETHDetails.id, unstETHIds[i]);
+            assertEq(unstETHDetails.status, UnstETHRecordStatus(i + 1));
+            assertEq(unstETHDetails.lockedBy, address(uint160(uint256(keccak256(abi.encode(i))))));
+            assertEq(unstETHDetails.shares, SharesValues.from(i * 1 ether));
+            assertEq(unstETHDetails.claimableAmount, ETHValues.from(i * 10 ether));
+        }
+    }
+
+    function test_getLockedUnstETHDetails_RevertOn_UnstETHNotLocked() external {
+        uint256 unstETHIdsCount = 4;
+        uint256[] memory unstETHIds = new uint256[](unstETHIdsCount);
+        for (uint256 i = 0; i < unstETHIdsCount; ++i) {
+            unstETHIds[i] = genRandomUnstEthId(i);
+            address holder = address(uint160(uint256(keccak256(abi.encode(i)))));
+
+            _accountingContext.unstETHRecords[unstETHIds[i]].lockedBy = holder;
+            _accountingContext.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus(i + 1);
+            _accountingContext.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(i * 1 ether);
+            _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(i * 10 ether);
+
+            _accountingContext.assets[holder].unstETHIds.push(unstETHIds[i]);
+        }
+
+        uint256 notLockedUnstETHId = genRandomUnstEthId(5);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetsAccounting.InvalidUnstETHStatus.selector, notLockedUnstETHId, UnstETHRecordStatus.NotLocked
+            )
+        );
+        AssetsAccounting.getLockedUnstETHDetails(_accountingContext, notLockedUnstETHId);
     }
 
     // ---

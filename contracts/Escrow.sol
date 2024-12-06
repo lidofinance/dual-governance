@@ -376,6 +376,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @return unstETHDetails An array of `LockedUnstETHDetails` containing the details for each provided unstETH id.
     ///
     /// The details include:
+    /// - `id`: The id of the locked unstETH NFT.
     /// - `status`: The current status of the unstETH record.
     /// - `lockedBy`: The address that locked the unstETH record.
     /// - `shares`: The number of shares associated with the locked unstETH.

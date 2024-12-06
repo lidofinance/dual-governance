@@ -20,6 +20,7 @@ interface ISignallingEscrow is IEscrowBase {
     }
 
     struct LockedUnstETHDetails {
+        uint256 id;
         UnstETHRecordStatus status;
         address lockedBy;
         SharesValue shares;

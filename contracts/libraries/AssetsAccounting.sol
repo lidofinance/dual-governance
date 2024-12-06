@@ -359,6 +359,7 @@ library AssetsAccounting {
             revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.NotLocked);
         }
 
+        unstETHDetails.id = unstETHId;
         unstETHDetails.status = unstETHRecord.status;
         unstETHDetails.lockedBy = unstETHRecord.lockedBy;
         unstETHDetails.shares = unstETHRecord.shares;

@@ -8,10 +8,10 @@ import {IEscrowBase} from "./IEscrowBase.sol";
 
 interface IRageQuitEscrow is IEscrowBase {
     struct RageQuitEscrowDetails {
-        bool isRageQuitExtensionPeriodStarted;
         Duration rageQuitEthWithdrawalsDelay;
         Duration rageQuitExtensionPeriodDuration;
         Timestamp rageQuitExtensionPeriodStartedAt;
+        bool isRageQuitExtensionPeriodStarted;
     }
 
     function requestNextWithdrawalsBatch(uint256 batchSize) external;
