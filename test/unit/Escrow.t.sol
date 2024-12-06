@@ -94,7 +94,8 @@ contract EscrowUnitTests is UnitTest {
         address wsteth,
         address withdrawalQueue,
         address dualGovernance,
-        uint256 size
+        uint256 size,
+        Duration maxMinAssetsLockDuration
     ) external {
         Escrow instance = new Escrow(
             IStETH(steth),
@@ -102,7 +103,7 @@ contract EscrowUnitTests is UnitTest {
             IWithdrawalQueue(withdrawalQueue),
             IDualGovernance(dualGovernance),
             size,
-            _maxMinAssetsLockDuration
+            maxMinAssetsLockDuration
         );
 
         assertEq(address(instance.ST_ETH()), address(steth));
@@ -110,6 +111,7 @@ contract EscrowUnitTests is UnitTest {
         assertEq(address(instance.WITHDRAWAL_QUEUE()), address(withdrawalQueue));
         assertEq(address(instance.DUAL_GOVERNANCE()), address(dualGovernance));
         assertEq(instance.MIN_WITHDRAWALS_BATCH_SIZE(), size);
+        assertEq(instance.MAX_MIN_ASSETS_LOCK_DURATION(), maxMinAssetsLockDuration);
     }
 
     // ---

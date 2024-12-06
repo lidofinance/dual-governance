@@ -44,7 +44,9 @@ contract DualGovernance is IDualGovernance {
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
-    error InvalidTiebreakerActivationTimeoutBounds();
+    error InvalidTiebreakerActivationTimeoutBounds(
+        Duration minTiebreakerActivationTimeout, Duration maxTiebreakerActivationTimeout
+    );
 
     // ---
     // Events
@@ -148,7 +150,9 @@ contract DualGovernance is IDualGovernance {
         SanityCheckParams memory sanityCheckParams
     ) {
         if (sanityCheckParams.minTiebreakerActivationTimeout > sanityCheckParams.maxTiebreakerActivationTimeout) {
-            revert InvalidTiebreakerActivationTimeoutBounds();
+            revert InvalidTiebreakerActivationTimeoutBounds(
+                sanityCheckParams.minTiebreakerActivationTimeout, sanityCheckParams.maxTiebreakerActivationTimeout
+            );
         }
 
         TIMELOCK = components.timelock;

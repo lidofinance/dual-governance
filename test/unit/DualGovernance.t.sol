@@ -150,7 +150,13 @@ contract DualGovernanceUnitTests is UnitTest {
         _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
         _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(999);
 
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidTiebreakerActivationTimeoutBounds.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DualGovernance.InvalidTiebreakerActivationTimeoutBounds.selector,
+                _sanityCheckParams.minTiebreakerActivationTimeout,
+                _sanityCheckParams.maxTiebreakerActivationTimeout
+            )
+        );
 
         new DualGovernance({
             components: _dgComponents,
