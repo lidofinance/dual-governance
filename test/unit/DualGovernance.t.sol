@@ -71,10 +71,13 @@ contract DualGovernanceUnitTests is UnitTest {
         })
     );
 
-    DualGovernance.ExternalDependencies internal _externalDependencies = DualGovernance.ExternalDependencies({
+    DualGovernance.SignallingTokens internal _signallingTokens = DualGovernance.SignallingTokens({
         stETH: _STETH_MOCK,
         wstETH: _WSTETH_STUB,
-        withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
+        withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK
+    });
+
+    DualGovernance.DualGovernanceComponents internal _dgComponents = DualGovernance.DualGovernanceComponents({
         timelock: _timelock,
         resealManager: _RESEAL_MANAGER_STUB,
         configProvider: _configProvider
@@ -88,8 +91,11 @@ contract DualGovernanceUnitTests is UnitTest {
         maxAssetsLockDuration: Durations.from(365 days)
     });
 
-    DualGovernance internal _dualGovernance =
-        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+    DualGovernance internal _dualGovernance = new DualGovernance({
+        components: _dgComponents,
+        signallingTokens: _signallingTokens,
+        sanityCheckParams: _sanityCheckParams
+    });
 
     Escrow internal _escrow;
 
@@ -122,14 +128,22 @@ contract DualGovernanceUnitTests is UnitTest {
         _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(999);
         _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
 
-        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+        new DualGovernance({
+            components: _dgComponents,
+            signallingTokens: _signallingTokens,
+            sanityCheckParams: _sanityCheckParams
+        });
     }
 
     function test_constructor_min_max_timeout_same() external {
         _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
         _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
 
-        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+        new DualGovernance({
+            components: _dgComponents,
+            signallingTokens: _signallingTokens,
+            sanityCheckParams: _sanityCheckParams
+        });
     }
 
     function test_constructor_RevertsOn_InvalidTiebreakerActivationTimeoutBounds() external {
@@ -138,7 +152,11 @@ contract DualGovernanceUnitTests is UnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidTiebreakerActivationTimeoutBounds.selector));
 
-        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+        new DualGovernance({
+            components: _dgComponents,
+            signallingTokens: _signallingTokens,
+            sanityCheckParams: _sanityCheckParams
+        });
     }
 
     // ---
@@ -160,21 +178,25 @@ contract DualGovernanceUnitTests is UnitTest {
         Duration minTiebreakerActivationTimeout = Durations.from(30 days);
         Duration maxTiebreakerActivationTimeout = Durations.from(180 days);
         uint256 maxSealableWithdrawalBlockersCount = 128;
+        Duration maxAssetsLockDuration = Durations.from(365 days);
 
         DualGovernance dualGovernanceLocal = new DualGovernance({
-            dependencies: DualGovernance.ExternalDependencies({
-                stETH: _STETH_MOCK,
-                wstETH: _WSTETH_STUB,
-                withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
+            components: DualGovernance.DualGovernanceComponents({
                 timelock: _timelock,
                 resealManager: _RESEAL_MANAGER_STUB,
                 configProvider: _configProvider
+            }),
+            signallingTokens: DualGovernance.SignallingTokens({
+                stETH: _STETH_MOCK,
+                wstETH: _WSTETH_STUB,
+                withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK
             }),
             sanityCheckParams: DualGovernance.SanityCheckParams({
                 minWithdrawalsBatchSize: 4,
                 minTiebreakerActivationTimeout: minTiebreakerActivationTimeout,
                 maxTiebreakerActivationTimeout: maxTiebreakerActivationTimeout,
-                maxSealableWithdrawalBlockersCount: maxSealableWithdrawalBlockersCount
+                maxSealableWithdrawalBlockersCount: maxSealableWithdrawalBlockersCount,
+                maxAssetsLockDuration: maxAssetsLockDuration
             })
         });
 
@@ -183,6 +205,7 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(dualGovernanceLocal.MAX_TIEBREAKER_ACTIVATION_TIMEOUT(), maxTiebreakerActivationTimeout);
         assertEq(dualGovernanceLocal.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT(), maxSealableWithdrawalBlockersCount);
         assertEq(address(dualGovernanceLocal.ESCROW_MASTER_COPY()), predictedEscrowCopyAddress);
+        assertEq(dualGovernanceLocal.ESCROW_MASTER_COPY().MAX_ASSETS_LOCK_DURATION(), maxAssetsLockDuration);
     }
 
     // ---

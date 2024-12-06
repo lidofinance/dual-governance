@@ -69,11 +69,13 @@ contract DualGovernance is IDualGovernance {
     /// @param maxSealableWithdrawalBlockersCount The upper bound for the number of sealable withdrawal blockers allowed to be
     ///     registered in the Dual Governance. This parameter prevents filling the sealable withdrawal blockers
     ///     with so many items that tiebreaker calls would revert due to out-of-gas errors.
+    /// @param maxAssetsLockDuration The maximum duration for which assets can be locked in the Rage Quit Escrow contract.
     struct SanityCheckParams {
         uint256 minWithdrawalsBatchSize;
         Duration minTiebreakerActivationTimeout;
         Duration maxTiebreakerActivationTimeout;
         uint256 maxSealableWithdrawalBlockersCount;
+        Duration maxAssetsLockDuration;
     }
 
     /// @notice The lower bound for the time the Dual Governance must spend in the "locked" state
@@ -93,17 +95,21 @@ contract DualGovernance is IDualGovernance {
     // External Dependencies
     // ---
 
-    /// @notice The external dependencies of the Dual Governance system.
+    /// @notice Token addresses tha used in the Dual Governance as signalling tokens.
     /// @param stETH The address of the stETH token.
     /// @param wstETH The address of the wstETH token.
     /// @param withdrawalQueue The address of Lido's Withdrawal Queue and the unstETH token.
-    /// @param timelock The address of the Timelock contract.
-    /// @param resealManager The address of the Reseal Manager.
-    /// @param configProvider The address of the Dual Governance Config Provider.
-    struct ExternalDependencies {
+    struct SignallingTokens {
         IStETH stETH;
         IWstETH wstETH;
         IWithdrawalQueue withdrawalQueue;
+    }
+
+    /// @notice Dependencies required by the Dual Governance contract.
+    /// @param timelock The address of the Timelock contract.
+    /// @param resealManager The address of the Reseal Manager.
+    /// @param configProvider The address of the Dual Governance Config Provider.
+    struct DualGovernanceComponents {
         ITimelock timelock;
         IResealManager resealManager;
         IDualGovernanceConfigProvider configProvider;
@@ -140,12 +146,16 @@ contract DualGovernance is IDualGovernance {
     // Constructor
     // ---
 
-    constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
+    constructor(
+        DualGovernanceComponents memory components,
+        SignallingTokens memory signallingTokens,
+        SanityCheckParams memory sanityCheckParams
+    ) {
         if (sanityCheckParams.minTiebreakerActivationTimeout > sanityCheckParams.maxTiebreakerActivationTimeout) {
             revert InvalidTiebreakerActivationTimeoutBounds();
         }
 
-        TIMELOCK = dependencies.timelock;
+        TIMELOCK = components.timelock;
 
         MIN_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.minTiebreakerActivationTimeout;
         MAX_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.maxTiebreakerActivationTimeout;
@@ -153,15 +163,16 @@ contract DualGovernance is IDualGovernance {
 
         ESCROW_MASTER_COPY = new Escrow({
             dualGovernance: this,
-            stETH: dependencies.stETH,
-            wstETH: dependencies.wstETH,
-            withdrawalQueue: dependencies.withdrawalQueue,
-            minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize
+            stETH: signallingTokens.stETH,
+            wstETH: signallingTokens.wstETH,
+            withdrawalQueue: signallingTokens.withdrawalQueue,
+            minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize,
+            maxAssetsLockDuration: sanityCheckParams.maxAssetsLockDuration
         });
         emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
-        _stateMachine.initialize(dependencies.configProvider, ESCROW_MASTER_COPY);
-        _resealer.setResealManager(address(dependencies.resealManager));
+        _stateMachine.initialize(components.configProvider, ESCROW_MASTER_COPY);
+        _resealer.setResealManager(address(components.resealManager));
     }
 
     // ---

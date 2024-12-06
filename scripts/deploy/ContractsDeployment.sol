@@ -216,13 +216,15 @@ library DGContractsDeployment {
         LidoContracts memory lidoAddresses
     ) internal returns (DualGovernance) {
         return new DualGovernance({
-            dependencies: DualGovernance.ExternalDependencies({
-                stETH: lidoAddresses.stETH,
-                wstETH: lidoAddresses.wstETH,
-                withdrawalQueue: lidoAddresses.withdrawalQueue,
+            components: DualGovernance.DualGovernanceComponents({
                 timelock: timelock,
                 resealManager: resealManager,
                 configProvider: configProvider
+            }),
+            signallingTokens: DualGovernance.SignallingTokens({
+                stETH: lidoAddresses.stETH,
+                wstETH: lidoAddresses.wstETH,
+                withdrawalQueue: lidoAddresses.withdrawalQueue
             }),
             sanityCheckParams: DualGovernance.SanityCheckParams({
                 minWithdrawalsBatchSize: dgDeployConfig.MIN_WITHDRAWALS_BATCH_SIZE,
