@@ -26,12 +26,7 @@ contract TimelockMock is ITimelock {
 
     address internal governance;
 
-    function submit(
-        address,
-        address,
-        ExternalCall[] calldata,
-        string calldata
-    ) external returns (uint256 newProposalId) {
+    function submit(address, ExternalCall[] calldata) external returns (uint256 newProposalId) {
         newProposalId = submittedProposals.length + OFFSET;
         submittedProposals.push(newProposalId);
         canScheduleProposal[newProposalId] = false;

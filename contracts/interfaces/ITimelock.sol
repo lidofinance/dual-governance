@@ -16,12 +16,7 @@ interface ITimelock {
         ProposalStatus status;
     }
 
-    function submit(
-        address proposer,
-        address executor,
-        ExternalCall[] calldata calls,
-        string calldata metadata
-    ) external returns (uint256 newProposalId);
+    function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId);
     function schedule(uint256 proposalId) external;
     function execute(uint256 proposalId) external;
     function cancelAllNonExecutedProposals() external;
