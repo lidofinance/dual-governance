@@ -200,7 +200,7 @@ contract DualGovernanceUnitTests is UnitTest {
         string memory metadata = "New proposal description";
 
         vm.expectEmit();
-        emit IGovernance.ProposalReported(proposer.account, expectedProposalId, metadata);
+        emit IGovernance.ProposalSubmitted(proposer.account, expectedProposalId, metadata);
 
         uint256 proposalId = _dualGovernance.submitProposal(calls, metadata);
         uint256[] memory submittedProposals = _timelock.getSubmittedProposals();

@@ -48,7 +48,7 @@ contract TimelockedGovernanceUnitTests is UnitTest {
         string memory metadata = "proposal description";
 
         vm.expectEmit();
-        emit IGovernance.ProposalReported(_governance, expectedProposalId, metadata);
+        emit IGovernance.ProposalSubmitted(_governance, expectedProposalId, metadata);
 
         vm.prank(_governance);
         _timelockedGovernance.submitProposal(_getMockTargetRegularStaffCalls(address(0x1)), metadata);

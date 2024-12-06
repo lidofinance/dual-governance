@@ -190,7 +190,7 @@ contract DualGovernance is IDualGovernance {
         Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
         proposalId = TIMELOCK.submit(proposer.executor, calls);
 
-        emit ProposalReported(proposer.account, proposalId, metadata);
+        emit ProposalSubmitted(proposer.account, proposalId, metadata);
     }
 
     /// @notice Schedules a previously submitted proposal for execution in the Dual Governance system.
