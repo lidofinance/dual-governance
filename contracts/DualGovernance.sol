@@ -7,7 +7,7 @@ import {Timestamp} from "./types/Timestamp.sol";
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
-import {IEscrow} from "./interfaces/IEscrow.sol";
+import {IEscrowBase} from "./interfaces/IEscrowBase.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
@@ -52,8 +52,8 @@ contract DualGovernance is IDualGovernance {
 
     event CancelAllPendingProposalsSkipped();
     event CancelAllPendingProposalsExecuted();
-    event EscrowMasterCopyDeployed(IEscrow escrowMasterCopy);
     event ProposalsCancellerSet(address proposalsCanceller);
+    event EscrowMasterCopyDeployed(IEscrowBase escrowMasterCopy);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -112,10 +112,6 @@ contract DualGovernance is IDualGovernance {
     /// @notice The address of the Timelock contract.
     ITimelock public immutable TIMELOCK;
 
-    /// @notice The address of the Escrow contract used as the implementation for the Signalling and Rage Quit
-    ///     instances of the Escrows managed by the DualGovernance contract.
-    IEscrow public immutable ESCROW_MASTER_COPY;
-
     // ---
     // Aspects
     // ---
@@ -151,16 +147,17 @@ contract DualGovernance is IDualGovernance {
         MAX_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.maxTiebreakerActivationTimeout;
         MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = sanityCheckParams.maxSealableWithdrawalBlockersCount;
 
-        ESCROW_MASTER_COPY = new Escrow({
+        IEscrowBase escrowMasterCopy = new Escrow({
             dualGovernance: this,
             stETH: dependencies.stETH,
             wstETH: dependencies.wstETH,
             withdrawalQueue: dependencies.withdrawalQueue,
             minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize
         });
-        emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
-        _stateMachine.initialize(dependencies.configProvider, ESCROW_MASTER_COPY);
+        emit EscrowMasterCopyDeployed(escrowMasterCopy);
+
+        _stateMachine.initialize(dependencies.configProvider, escrowMasterCopy);
         _resealer.setResealManager(address(dependencies.resealManager));
     }
 
@@ -183,7 +180,7 @@ contract DualGovernance is IDualGovernance {
         ExternalCall[] calldata calls,
         string calldata metadata
     ) external returns (uint256 proposalId) {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         if (!_stateMachine.canSubmitProposal({useEffectiveState: false})) {
             revert ProposalSubmissionBlocked();
         }
@@ -198,7 +195,7 @@ contract DualGovernance is IDualGovernance {
     /// @param proposalId The unique identifier of the proposal to be scheduled. This ID is obtained when the proposal
     ///     is initially submitted to the Dual Governance system.
     function scheduleProposal(uint256 proposalId) external {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         Timestamp proposalSubmittedAt = TIMELOCK.getProposalDetails(proposalId).submittedAt;
         if (!_stateMachine.canScheduleProposal({useEffectiveState: false, proposalSubmittedAt: proposalSubmittedAt})) {
             revert ProposalSchedulingBlocked(proposalId);
@@ -214,7 +211,7 @@ contract DualGovernance is IDualGovernance {
     /// @return isProposalsCancelled A boolean indicating whether the proposals were successfully canceled (`true`)
     ///     or the cancellation was skipped due to an inappropriate state (`false`).
     function cancelAllPendingProposals() external returns (bool) {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
 
         if (msg.sender != _proposalsCanceller) {
             revert CallerIsNotProposalsCanceller(msg.sender);
@@ -282,7 +279,7 @@ contract DualGovernance is IDualGovernance {
     /// @dev This function should be called when the `persisted` and `effective` states of the system are not equal.
     ///     If the states are already synchronized, the function will complete without making any changes to the system state.
     function activateNextState() external {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
     }
 
     /// @notice Updates the address of the configuration provider for the Dual Governance system.
@@ -472,7 +469,7 @@ contract DualGovernance is IDualGovernance {
     /// @param sealable The address of the sealable contract to be resumed.
     function tiebreakerResumeSealable(address sealable) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         _tiebreaker.checkTie(_stateMachine.getPersistedState(), _stateMachine.normalOrVetoCooldownExitedAt);
         _resealer.resealManager.resume(sealable);
     }
@@ -482,7 +479,7 @@ contract DualGovernance is IDualGovernance {
     /// @param proposalId The unique identifier of the proposal to be scheduled.
     function tiebreakerScheduleProposal(uint256 proposalId) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         _tiebreaker.checkTie(_stateMachine.getPersistedState(), _stateMachine.normalOrVetoCooldownExitedAt);
         TIMELOCK.schedule(proposalId);
     }
@@ -507,7 +504,7 @@ contract DualGovernance is IDualGovernance {
     ///     the ResealManager contract.
     /// @param sealable The address of the sealable contract to be resealed.
     function resealSealable(address sealable) external {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         if (_stateMachine.getPersistedState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }

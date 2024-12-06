@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import {IDualGovernanceConfigProvider} from "./IDualGovernanceConfigProvider.sol";
 import {IGovernance} from "./IGovernance.sol";
-import {IEscrow} from "./IEscrow.sol";
 import {IResealManager} from "./IResealManager.sol";
 import {ITiebreaker} from "./ITiebreaker.sol";
 import {Timestamp} from "../types/Timestamp.sol";
@@ -26,7 +25,6 @@ interface IDualGovernance is IGovernance, ITiebreaker {
     function MIN_TIEBREAKER_ACTIVATION_TIMEOUT() external view returns (Duration);
     function MAX_TIEBREAKER_ACTIVATION_TIMEOUT() external view returns (Duration);
     function MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT() external view returns (uint256);
-    function ESCROW_MASTER_COPY() external view returns (IEscrow);
 
     function canSubmitProposal() external view returns (bool);
     function canCancelAllPendingProposals() external view returns (bool);

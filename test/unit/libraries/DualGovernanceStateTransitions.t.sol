@@ -5,7 +5,9 @@ import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 
-import {IEscrow} from "contracts/interfaces/IEscrow.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "contracts/interfaces/IRageQuitEscrow.sol";
 
 import {
     State,
@@ -50,7 +52,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
                 rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             })
         );
-        DualGovernanceStateMachine.initialize(_stateMachine, _configProvider, IEscrow(_escrowMasterCopyMock));
+        DualGovernanceStateMachine.initialize(_stateMachine, _configProvider, IEscrowBase(_escrowMasterCopyMock));
         _setMockRageQuitSupportInBP(0);
     }
 
@@ -353,13 +355,13 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function _setupRageQuitState() internal {
         _stateMachine.state = State.RageQuit;
         _stateMachine.enteredAt = Timestamps.now();
-        _stateMachine.rageQuitEscrow = IEscrow(_escrowMasterCopyMock);
+        _stateMachine.rageQuitEscrow = IRageQuitEscrow(_escrowMasterCopyMock);
     }
 
     function _setMockRageQuitSupportInBP(uint256 bpValue) internal {
         vm.mockCall(
             address(_stateMachine.signallingEscrow),
-            abi.encodeWithSelector(IEscrow.getRageQuitSupport.selector),
+            abi.encodeWithSelector(ISignallingEscrow.getRageQuitSupport.selector),
             abi.encode(PercentsD16.fromBasisPoints(bpValue))
         );
     }
@@ -367,7 +369,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function _setMockIsRageQuitFinalized(bool isRageQuitFinalized) internal {
         vm.mockCall(
             address(_stateMachine.rageQuitEscrow),
-            abi.encodeWithSelector(IEscrow.isRageQuitFinalized.selector),
+            abi.encodeWithSelector(IRageQuitEscrow.isRageQuitFinalized.selector),
             abi.encode(isRageQuitFinalized)
         );
     }

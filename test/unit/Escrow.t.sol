@@ -16,7 +16,9 @@ import {EscrowState as EscrowStateLib, State as EscrowState} from "contracts/lib
 import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
-import {IEscrow} from "contracts/interfaces/IEscrow.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "contracts/interfaces/IRageQuitEscrow.sol";
+
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
@@ -27,6 +29,8 @@ import {WstETHMock} from "test/mocks/WstETHMock.sol";
 import {WithdrawalQueueMock} from "test/mocks/WithdrawalQueueMock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 import {Random} from "test/utils/random.sol";
+
+interface IEscrow is ISignallingEscrow, IRageQuitEscrow {}
 
 contract EscrowUnitTests is UnitTest {
     Random.Context private _random;
@@ -129,11 +133,23 @@ contract EscrowUnitTests is UnitTest {
 
     function testFuzz_initialize_RevertOn_CalledNotFromDualGovernance(address stranger) external {
         vm.assume(stranger != _dualGovernance);
-        IEscrow instance = _createEscrowProxy(100);
+        IEscrow instance = IEscrow(address(_createEscrowProxy(100)));
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(Escrow.CallerIsNotDualGovernance.selector, stranger));
         instance.initialize(Durations.ZERO);
+    }
+
+    // ---
+    // getEscrowState()
+    // ---
+
+    function test_getEscrowState_HappyPath() external {
+        assertTrue(_masterCopy.getEscrowState() == EscrowState.NotInitialized);
+        assertTrue(_escrow.getEscrowState() == EscrowState.SignallingEscrow);
+
+        _transitToRageQuit();
+        assertTrue(_escrow.getEscrowState() == EscrowState.RageQuitEscrow);
     }
 
     // ---
@@ -164,19 +180,19 @@ contract EscrowUnitTests is UnitTest {
         assertEq(vetoerBalanceAfter, vetoerBalanceBefore - amount);
         assertEq(escrowBalanceAfter, escrowBalanceBefore + amount);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, lockedStETHShares);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), lockedStETHShares);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 0);
-        assertEq(state.stETHLockedShares, lockedStETHShares);
-        assertEq(state.unstETHLockedShares, 0);
-        assertEq(state.lastAssetsLockTimestamp, Timestamps.now().toSeconds());
+        assertEq(state.stETHLockedShares.toUint256(), lockedStETHShares);
+        assertEq(state.unstETHLockedShares.toUint256(), 0);
+        assertEq(state.lastAssetsLockTimestamp, Timestamps.now());
     }
 
     function test_lockStETH_RevertOn_UnexpectedEscrowState() external {
@@ -216,18 +232,18 @@ contract EscrowUnitTests is UnitTest {
         assertEq(vetoerBalanceAfter, vetoerBalanceBefore + amount);
         assertEq(escrowBalanceAfter, escrowBalanceBefore - amount);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 0);
-        assertEq(state.stETHLockedShares, 0);
-        assertEq(state.unstETHLockedShares, 0);
+        assertEq(state.stETHLockedShares.toUint256(), 0);
+        assertEq(state.unstETHLockedShares.toUint256(), 0);
     }
 
     function test_unlockStETH_RevertOn_UnexpectedEscrowState() external {
@@ -283,19 +299,19 @@ contract EscrowUnitTests is UnitTest {
         assertEq(vetoerWStBalanceAfter, vetoerWStBalanceBefore - lockedStETHShares);
         assertEq(escrowBalanceAfter, escrowBalanceBefore + lockedStETHShares);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, lockedStETHShares);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), lockedStETHShares);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 0);
-        assertEq(state.stETHLockedShares, lockedStETHShares);
-        assertEq(state.unstETHLockedShares, 0);
-        assertEq(state.lastAssetsLockTimestamp, Timestamps.now().toSeconds());
+        assertEq(state.stETHLockedShares.toUint256(), lockedStETHShares);
+        assertEq(state.unstETHLockedShares.toUint256(), 0);
+        assertEq(state.lastAssetsLockTimestamp, Timestamps.now());
     }
 
     function test_lockWstETH_RevertOn_UnexpectedEscrowState() external {
@@ -336,18 +352,18 @@ contract EscrowUnitTests is UnitTest {
         assertEq(vetoerWStBalanceAfter, vetoerWStBalanceBefore + unlockedStETHShares);
         assertEq(escrowBalanceAfter, escrowBalanceBefore - unlockedStETHShares);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 0);
-        assertEq(state.stETHLockedShares, 0);
-        assertEq(state.unstETHLockedShares, 0);
+        assertEq(state.stETHLockedShares.toUint256(), 0);
+        assertEq(state.unstETHLockedShares.toUint256(), 0);
     }
 
     function test_unlockWstETH_RevertOn_UnexpectedEscrowState() external {
@@ -413,18 +429,21 @@ contract EscrowUnitTests is UnitTest {
         vm.prank(_vetoer);
         _escrow.lockUnstETH(unstethIds);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, statuses[0].amountOfShares + statuses[1].amountOfShares);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(
+            signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(),
+            statuses[0].amountOfShares + statuses[1].amountOfShares
+        );
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 2);
-        assertEq(state.stETHLockedShares, 0);
-        assertEq(state.unstETHLockedShares, statuses[0].amountOfShares + statuses[1].amountOfShares);
+        assertEq(state.stETHLockedShares.toUint256(), 0);
+        assertEq(state.unstETHLockedShares.toUint256(), statuses[0].amountOfShares + statuses[1].amountOfShares);
     }
 
     function test_lockUnstETH_RevertOn_EmptyUnstETHIds() external {
@@ -470,18 +489,18 @@ contract EscrowUnitTests is UnitTest {
         vm.prank(_vetoer);
         _escrow.unlockUnstETH(unstethIds);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 0);
-        assertEq(state.stETHLockedShares, 0);
-        assertEq(state.unstETHLockedShares, 0);
+        assertEq(state.stETHLockedShares.toUint256(), 0);
+        assertEq(state.unstETHLockedShares.toUint256(), 0);
     }
 
     function test_unlockUnstETH_EmptyUnstETHIds() external {
@@ -651,12 +670,12 @@ contract EscrowUnitTests is UnitTest {
     // ---
 
     function test_claimNextWithdrawalsBatch_2_HappyPath() external {
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
         uint256[] memory unstEthIds = _getUnstEthIdsFromWQ();
 
@@ -678,18 +697,18 @@ contract EscrowUnitTests is UnitTest {
         emit AssetsAccounting.ETHClaimed(ETHValues.from(stethAmount));
         _escrow.claimNextWithdrawalsBatch(unstEthIds[0], new uint256[](unstEthIds.length));
 
-        escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, stethAmount);
-        assertEq(escrowLockedAssets.stETHClaimedETH, stethAmount);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), stethAmount);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), stethAmount);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 0);
-        assertEq(state.stETHLockedShares, stethAmount);
-        assertEq(state.unstETHLockedShares, 0);
+        assertEq(state.stETHLockedShares.toUint256(), stethAmount);
+        assertEq(state.unstETHLockedShares.toUint256(), 0);
     }
 
     function test_claimNextWithdrawalsBatch_2_RevertOn_UnexpectedState() external {
@@ -753,12 +772,12 @@ contract EscrowUnitTests is UnitTest {
     // ---
 
     function test_claimNextWithdrawalsBatch_1_HappyPath() external {
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
         uint256[] memory unstEthIds = _getUnstEthIdsFromWQ();
 
@@ -769,26 +788,26 @@ contract EscrowUnitTests is UnitTest {
 
         _ensureUnstEthAddedToWithdrawalsBatchesQueue(unstEthIds, stethAmount);
 
-        IEscrow.VetoerState memory vetoerState = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory vetoerState = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(vetoerState.unstETHIdsCount, 0);
-        assertEq(vetoerState.stETHLockedShares, stethAmount);
-        assertEq(vetoerState.unstETHLockedShares, 0);
+        assertEq(vetoerState.stETHLockedShares.toUint256(), stethAmount);
+        assertEq(vetoerState.unstETHLockedShares.toUint256(), 0);
 
         _claimStEthViaWQ(unstEthIds, stethAmount);
 
-        escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, stethAmount);
-        assertEq(escrowLockedAssets.stETHClaimedETH, stethAmount);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), stethAmount);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), stethAmount);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        vetoerState = _escrow.getVetoerState(_vetoer);
+        vetoerState = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(vetoerState.unstETHIdsCount, 0);
-        assertEq(vetoerState.stETHLockedShares, stethAmount);
-        assertEq(vetoerState.unstETHLockedShares, 0);
+        assertEq(vetoerState.stETHLockedShares.toUint256(), stethAmount);
+        assertEq(vetoerState.unstETHLockedShares.toUint256(), 0);
     }
 
     function test_claimNextWithdrawalsBatch_1_RevertOn_UnexpectedState() external {
@@ -892,18 +911,18 @@ contract EscrowUnitTests is UnitTest {
 
         _claimUnstEthFromEscrow(unstEthAmounts, unstEthIds, hints);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, unstEthAmounts[0]);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), unstEthAmounts[0]);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 1);
-        assertEq(state.stETHLockedShares, 0);
-        assertEq(state.unstETHLockedShares, unstEthAmounts[0]);
+        assertEq(state.stETHLockedShares.toUint256(), 0);
+        assertEq(state.unstETHLockedShares.toUint256(), unstEthAmounts[0]);
     }
 
     function test_claimUnstETH_RevertOn_UnexpectedEscrowState() external {
@@ -999,7 +1018,7 @@ contract EscrowUnitTests is UnitTest {
         _ensureUnstEthAddedToWithdrawalsBatchesQueue(unstEthIds, stethAmount);
         _claimStEthViaWQ(unstEthIds, stethAmount);
         _ensureRageQuitExtensionPeriodStartedNow();
-        assertTrue(_escrow.isRageQuitExtensionPeriodStarted());
+        assertTrue(_escrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
 
         _wait(Durations.from(1));
 
@@ -1011,18 +1030,18 @@ contract EscrowUnitTests is UnitTest {
 
         assertEq(_vetoer.balance, balanceBefore + stethAmount);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, stethAmount);
-        assertEq(escrowLockedAssets.stETHClaimedETH, stethAmount);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), stethAmount);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), stethAmount);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 0);
-        assertEq(state.stETHLockedShares, 0);
-        assertEq(state.unstETHLockedShares, 0);
+        assertEq(state.stETHLockedShares.toUint256(), 0);
+        assertEq(state.unstETHLockedShares.toUint256(), 0);
     }
 
     function test_withdrawETH_RevertOn_UnexpectedEscrowState() external {
@@ -1049,7 +1068,7 @@ contract EscrowUnitTests is UnitTest {
         _ensureUnstEthAddedToWithdrawalsBatchesQueue(unstEthIds, stethAmount);
         _claimStEthViaWQ(unstEthIds, stethAmount);
         _ensureRageQuitExtensionPeriodStartedNow();
-        assertTrue(_escrow.isRageQuitExtensionPeriodStarted());
+        assertTrue(_escrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
 
         vm.startPrank(_vetoer);
         vm.expectRevert(EscrowStateLib.EthWithdrawalsDelayNotPassed.selector);
@@ -1084,7 +1103,7 @@ contract EscrowUnitTests is UnitTest {
         _ensureUnstEthAddedToWithdrawalsBatchesQueue(unstEthIds, stethAmount);
         _claimStEthViaWQ(unstEthIds, stethAmount);
         _ensureRageQuitExtensionPeriodStartedNow();
-        assertTrue(_escrow.isRageQuitExtensionPeriodStarted());
+        assertTrue(_escrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
 
         _wait(_minLockAssetDuration);
 
@@ -1116,7 +1135,7 @@ contract EscrowUnitTests is UnitTest {
         _ensureWithdrawalsBatchesQueueClosed();
 
         _ensureRageQuitExtensionPeriodStartedNow();
-        assertTrue(_escrow.isRageQuitExtensionPeriodStarted());
+        assertTrue(_escrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
 
         _wait(Durations.from(1));
 
@@ -1128,18 +1147,18 @@ contract EscrowUnitTests is UnitTest {
 
         assertEq(_vetoer.balance, balanceBefore + sum);
 
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, unstEthAmounts[0] + unstEthAmounts[1]);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), unstEthAmounts[0] + unstEthAmounts[1]);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 2);
-        assertEq(state.stETHLockedShares, 0);
-        assertEq(state.unstETHLockedShares, unstEthAmounts[0] + unstEthAmounts[1]);
+        assertEq(state.stETHLockedShares.toUint256(), 0);
+        assertEq(state.unstETHLockedShares.toUint256(), unstEthAmounts[0] + unstEthAmounts[1]);
     }
 
     function test_withdrawETH_2_RevertOn_EmptyUnstETHIds() external {
@@ -1175,7 +1194,7 @@ contract EscrowUnitTests is UnitTest {
         _ensureWithdrawalsBatchesQueueClosed();
 
         _ensureRageQuitExtensionPeriodStartedNow();
-        assertTrue(_escrow.isRageQuitExtensionPeriodStarted());
+        assertTrue(_escrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
 
         _wait(Durations.from(1));
 
@@ -1201,7 +1220,7 @@ contract EscrowUnitTests is UnitTest {
         _ensureWithdrawalsBatchesQueueClosed();
 
         _ensureRageQuitExtensionPeriodStartedNow();
-        assertTrue(_escrow.isRageQuitExtensionPeriodStarted());
+        assertTrue(_escrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
 
         _wait(Durations.from(1));
 
@@ -1222,12 +1241,12 @@ contract EscrowUnitTests is UnitTest {
     // ---
 
     function test_getLockedAssetsTotals() external view {
-        IEscrow.LockedAssetsTotals memory escrowLockedAssets = _escrow.getLockedAssetsTotals();
+        IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = _escrow.getSignallingEscrowDetails();
 
-        assertEq(escrowLockedAssets.stETHLockedShares, 0);
-        assertEq(escrowLockedAssets.stETHClaimedETH, 0);
-        assertEq(escrowLockedAssets.unstETHUnfinalizedShares, 0);
-        assertEq(escrowLockedAssets.unstETHFinalizedETH, 0);
+        assertEq(signallingEscrowDetails.totalStETHLockedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalStETHClaimedETH.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256(), 0);
+        assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
     }
 
     // ---
@@ -1237,12 +1256,12 @@ contract EscrowUnitTests is UnitTest {
     function test_getVetoerState() external {
         _vetoerLockedStEth(stethAmount);
 
-        IEscrow.VetoerState memory state = _escrow.getVetoerState(_vetoer);
+        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
 
         assertEq(state.unstETHIdsCount, 0);
-        assertEq(state.stETHLockedShares, _stETH.getSharesByPooledEth(stethAmount));
-        assertEq(state.unstETHLockedShares, 0);
-        assertEq(state.lastAssetsLockTimestamp, Timestamps.now().toSeconds());
+        assertEq(state.stETHLockedShares.toUint256(), _stETH.getSharesByPooledEth(stethAmount));
+        assertEq(state.unstETHLockedShares.toUint256(), 0);
+        assertEq(state.lastAssetsLockTimestamp, Timestamps.now());
     }
 
     // ---
@@ -1284,22 +1303,47 @@ contract EscrowUnitTests is UnitTest {
     }
 
     // ---
-    // getUnclaimedUnstETHIdsCount()
+    // getLockedUnstETHDetails()
     // ---
 
-    function test_getUnclaimedUnstETHIdsCount() external {
-        _transitToRageQuit();
-        assertEq(_escrow.getUnclaimedUnstETHIdsCount(), 0);
+    function test_getLockedUnstETHDetails_HappyPath() external {
+        uint256[] memory unstEthAmounts = new uint256[](2);
+        unstEthAmounts[0] = 1 ether;
+        unstEthAmounts[1] = 10 ether;
+
+        assertEq(_escrow.getVetoerUnstETHIds(_vetoer).length, 0);
+
+        uint256[] memory unstEthIds = _vetoerLockedUnstEth(unstEthAmounts);
+
+        IEscrow.LockedUnstETHDetails[] memory unstETHDetails = _escrow.getLockedUnstETHDetails(unstEthIds);
+
+        assertEq(unstETHDetails.length, unstEthIds.length);
+
+        assertEq(unstETHDetails[0].id, unstEthIds[0]);
+        assertEq(unstETHDetails[0].lockedBy, _vetoer);
+        assertTrue(unstETHDetails[0].status == UnstETHRecordStatus.Locked);
+        assertEq(unstETHDetails[0].shares.toUint256(), unstEthAmounts[0]);
+        assertEq(unstETHDetails[0].claimableAmount.toUint256(), 0);
+
+        assertEq(unstETHDetails[1].id, unstEthIds[1]);
+        assertEq(unstETHDetails[1].lockedBy, _vetoer);
+        assertTrue(unstETHDetails[1].status == UnstETHRecordStatus.Locked);
+        assertEq(unstETHDetails[1].shares.toUint256(), unstEthAmounts[1]);
+        assertEq(unstETHDetails[1].claimableAmount.toUint256(), 0);
     }
 
-    function test_getUnclaimedUnstETHIdsCount_RevertOn_UnexpectedState_Signaling() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
-        _escrow.getUnclaimedUnstETHIdsCount();
-    }
+    function test_getLockedUnstETHDetails_RevertOn_unstETHNotLocked() external {
+        uint256 notLockedUnstETHId = 42;
 
-    function test_getUnclaimedUnstETHIdsCount_RevertOn_UnexpectedState_NotInitialized() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
-        _masterCopy.getUnclaimedUnstETHIdsCount();
+        uint256[] memory notLockedUnstETHIds = new uint256[](1);
+        notLockedUnstETHIds[0] = notLockedUnstETHId;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetsAccounting.InvalidUnstETHStatus.selector, notLockedUnstETHId, UnstETHRecordStatus.NotLocked
+            )
+        );
+        _escrow.getLockedUnstETHDetails(notLockedUnstETHIds);
     }
 
     // ---
@@ -1385,25 +1429,36 @@ contract EscrowUnitTests is UnitTest {
     // ---
 
     function test_isRageQuitExtensionPeriodStarted() external {
-        assertFalse(_escrow.isRageQuitExtensionPeriodStarted());
-
         _transitToRageQuit();
+
+        assertFalse(_escrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
 
         _ensureWithdrawalsBatchesQueueClosed();
 
         _ensureRageQuitExtensionPeriodStartedNow();
 
-        assertTrue(_escrow.isRageQuitExtensionPeriodStarted());
+        assertTrue(_escrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
 
-        assertEq(_escrow.getRageQuitExtensionPeriodStartedAt(), Timestamps.now());
+        assertEq(_escrow.getRageQuitEscrowDetails().rageQuitExtensionPeriodStartedAt, Timestamps.now());
     }
 
     // ---
     // getRageQuitExtensionPeriodStartedAt()
     // ---
 
-    function test_getRageQuitExtensionPeriodStartedAt() external view {
-        Timestamp res = _escrow.getRageQuitExtensionPeriodStartedAt();
+    function test_getRageQuitExtensionPeriodStartedAt_RevertOn_NotInitializedState() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        _masterCopy.getRageQuitEscrowDetails();
+    }
+
+    function test_getRageQuitExtensionPeriodStartedAt_RevertOn_SignallingState() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        _escrow.getRageQuitEscrowDetails().rageQuitExtensionPeriodStartedAt;
+    }
+
+    function test_getRageQuitExtensionPeriodStartedAt() external {
+        _transitToRageQuit();
+        Timestamp res = _escrow.getRageQuitEscrowDetails().rageQuitExtensionPeriodStartedAt;
         assertEq(res.toSeconds(), Timestamps.ZERO.toSeconds());
     }
 
@@ -1461,6 +1516,20 @@ contract EscrowUnitTests is UnitTest {
         _wait(Durations.from(1));
 
         assertTrue(_escrow.isRageQuitFinalized());
+    }
+
+    // ---
+    // getRageQuitEscrowDetails()
+    // ---
+
+    function test_getRageQuitEscrowDetails_RevertOn_UnexpectedState_Signaling() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        _escrow.getRageQuitEscrowDetails();
+    }
+
+    function test_getRageQuitEscrowDetails_RevertOn_UnexpectedState_NotInitialized() external {
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        _masterCopy.getRageQuitEscrowDetails();
     }
 
     // ---
