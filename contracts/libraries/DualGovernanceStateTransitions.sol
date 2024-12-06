@@ -48,7 +48,7 @@ library DualGovernanceStateTransitions {
         DualGovernanceStateMachine.Context storage self,
         DualGovernanceConfig.Context memory config
     ) private view returns (State) {
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
+        return config.isFirstSealRageQuitSupportReached(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
             : State.Normal;
     }
@@ -63,7 +63,7 @@ library DualGovernanceStateTransitions {
             return State.VetoSignalling;
         }
 
-        if (config.isSecondSealRageQuitSupportCrossed(rageQuitSupport)) {
+        if (config.isSecondSealRageQuitSupportReached(rageQuitSupport)) {
             return State.RageQuit;
         }
 
@@ -82,7 +82,7 @@ library DualGovernanceStateTransitions {
             return State.VetoSignalling;
         }
 
-        if (config.isSecondSealRageQuitSupportCrossed(rageQuitSupport)) {
+        if (config.isSecondSealRageQuitSupportReached(rageQuitSupport)) {
             return State.RageQuit;
         }
 
@@ -100,7 +100,7 @@ library DualGovernanceStateTransitions {
         if (!config.isVetoCooldownDurationPassed(self.enteredAt)) {
             return State.VetoCooldown;
         }
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
+        return config.isFirstSealRageQuitSupportReached(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
             : State.Normal;
     }
@@ -112,7 +112,7 @@ library DualGovernanceStateTransitions {
         if (!self.rageQuitEscrow.isRageQuitFinalized()) {
             return State.RageQuit;
         }
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
+        return config.isFirstSealRageQuitSupportReached(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
             : State.VetoCooldown;
     }

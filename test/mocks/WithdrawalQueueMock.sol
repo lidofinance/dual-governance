@@ -1,18 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-// import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol"; /*, ERC721("test", "test")*/
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {ETHValues, sendTo} from "contracts/types/ETHValue.sol";
 
 /* solhint-disable no-unused-vars,custom-errors */
 contract WithdrawalQueueMock is IWithdrawalQueue {
+    error InvalidRequestId();
+    error ArraysLengthMismatch();
+
+    uint256 public immutable REVERT_ON_ID = type(uint256).max;
+
     uint256 private _lastRequestId;
     uint256 private _lastFinalizedRequestId;
     uint256 private _minStETHWithdrawalAmount;
     uint256 private _maxStETHWithdrawalAmount;
+    uint256 private _claimableAmount;
+    uint256 private _requestWithdrawalsTransferAmount;
+    uint256 private _lastCheckpointIndex;
+    uint256[] private _getClaimableEtherResult;
     uint256[] private _requestWithdrawalsResult;
+    IERC20 private _stETH;
+    uint256[] private _checkpointHints;
+    WithdrawalRequestStatus[] private _withdrawalRequestsStatuses;
 
-    constructor() {}
+    constructor(IERC20 stETH) {
+        _stETH = stETH;
+    }
 
     function MIN_STETH_WITHDRAWAL_AMOUNT() external view returns (uint256) {
         return _minStETHWithdrawalAmount;
@@ -23,7 +38,17 @@ contract WithdrawalQueueMock is IWithdrawalQueue {
     }
 
     function claimWithdrawals(uint256[] calldata requestIds, uint256[] calldata hints) external {
-        revert("Not Implemented");
+        if (requestIds.length != hints.length) {
+            revert ArraysLengthMismatch();
+        }
+
+        if (_claimableAmount == 0) {
+            return;
+        }
+
+        ETHValues.from(_claimableAmount).sendTo(payable(msg.sender));
+
+        setClaimableAmount(0);
     }
 
     function getLastRequestId() external view returns (uint256) {
@@ -34,82 +59,104 @@ contract WithdrawalQueueMock is IWithdrawalQueue {
         return _lastFinalizedRequestId;
     }
 
-    function getWithdrawalStatus(uint256[] calldata _requestIds)
+    function getWithdrawalStatus(uint256[] calldata /* _requestIds */ )
         external
         view
-        returns (IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses)
+        returns (WithdrawalRequestStatus[] memory)
     {
-        revert("Not Implemented");
+        return _withdrawalRequestsStatuses;
     }
 
-    /// @notice Returns amount of ether available for claim for each provided request id
-    /// @param _requestIds array of request ids
-    /// @param _hints checkpoint hints. can be found with `findCheckpointHints(_requestIds, 1, getLastCheckpointIndex())`
-    /// @return claimableEthValues amount of claimable ether for each request, amount is equal to 0 if request
-    ///  is not finalized or already claimed
     function getClaimableEther(
         uint256[] calldata _requestIds,
-        uint256[] calldata _hints
-    ) external view returns (uint256[] memory claimableEthValues) {
-        revert("Not Implemented");
+        uint256[] calldata /* _hints */
+    ) external view returns (uint256[] memory) {
+        if (_requestIds.length > 0 && REVERT_ON_ID == _requestIds[0]) {
+            revert InvalidRequestId();
+        }
+
+        return _getClaimableEtherResult;
     }
 
     function findCheckpointHints(
-        uint256[] calldata _requestIds,
-        uint256 _firstIndex,
-        uint256 _lastIndex
-    ) external view returns (uint256[] memory hintIds) {
-        revert("Not Implemented");
+        uint256[] calldata, /* _requestIds */
+        uint256, /* _firstIndex */
+        uint256 /* _lastIndex */
+    ) external view returns (uint256[] memory) {
+        return _checkpointHints;
     }
 
     function getLastCheckpointIndex() external view returns (uint256) {
-        revert("Not Implemented");
+        return _lastCheckpointIndex;
     }
 
     function requestWithdrawals(
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds) {
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < _amounts.length; i++) {
+            if (_amounts[i] < _minStETHWithdrawalAmount) {
+                revert("Amount is less than MIN_STETH_WITHDRAWAL_AMOUNT");
+            }
+            if (_amounts[i] > _maxStETHWithdrawalAmount) {
+                revert("Amount is more than MAX_STETH_WITHDRAWAL_AMOUNT");
+            }
+            totalAmount += _amounts[i];
+        }
+
+        if (_requestWithdrawalsTransferAmount > 0) {
+            _stETH.transferFrom(_owner, address(this), _requestWithdrawalsTransferAmount);
+            setRequestWithdrawalsTransferAmount(0);
+        } else {
+            if (totalAmount > 0) {
+                _stETH.transferFrom(_owner, address(this), totalAmount);
+            }
+        }
+
         return _requestWithdrawalsResult;
     }
 
-    function balanceOf(address owner) external view returns (uint256 balance) {
+    function balanceOf(address /* owner */ ) external pure returns (uint256 /* balance */ ) {
         revert("Not Implemented");
     }
 
-    function ownerOf(uint256 tokenId) external view returns (address owner) {
+    function ownerOf(uint256 /* tokenId */ ) external pure returns (address /* owner */ ) {
         revert("Not Implemented");
     }
 
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external {
+    function safeTransferFrom(
+        address, /* from */
+        address, /* to */
+        uint256, /* tokenId */
+        bytes calldata /* data */
+    ) external pure {
         revert("Not Implemented");
     }
 
-    function safeTransferFrom(address from, address to, uint256 tokenId) external {
+    function safeTransferFrom(address, /* from */ address, /* to */ uint256 /* tokenId */ ) external pure {
         revert("Not Implemented");
     }
 
-    function transferFrom(address from, address to, uint256 tokenId) external {
+    function transferFrom(address, /* from */ address, /* to */ uint256 /* tokenId */ ) external pure {}
+
+    function approve(address, /* to */ uint256 /* tokenId */ ) external pure {
         revert("Not Implemented");
     }
 
-    function approve(address to, uint256 tokenId) external {
+    function setApprovalForAll(address, /* operator */ bool /* approved */ ) external pure {
         revert("Not Implemented");
     }
 
-    function setApprovalForAll(address operator, bool approved) external {
+    function getApproved(uint256 /* tokenId */ ) external pure returns (address /* operator */ ) {
         revert("Not Implemented");
     }
 
-    function getApproved(uint256 tokenId) external view returns (address operator) {
+    function isApprovedForAll(address, /* owner */ address /* operator */ ) external pure returns (bool) {
         revert("Not Implemented");
     }
 
-    function isApprovedForAll(address owner, address operator) external view returns (bool) {
-        revert("Not Implemented");
-    }
-
-    function supportsInterface(bytes4 interfaceId) external view returns (bool) {
+    function supportsInterface(bytes4 /* interfaceId */ ) external pure returns (bool) {
         revert("Not Implemented");
     }
 
@@ -131,5 +178,33 @@ contract WithdrawalQueueMock is IWithdrawalQueue {
 
     function setRequestWithdrawalsResult(uint256[] memory requestIds) public {
         _requestWithdrawalsResult = requestIds;
+    }
+
+    function setClaimableAmount(uint256 claimableAmount) public {
+        _claimableAmount = claimableAmount;
+    }
+
+    function setRequestWithdrawalsTransferAmount(uint256 requestWithdrawalsTransferAmount) public {
+        _requestWithdrawalsTransferAmount = requestWithdrawalsTransferAmount;
+    }
+
+    function setWithdrawalRequestsStatuses(WithdrawalRequestStatus[] memory statuses) public {
+        delete _withdrawalRequestsStatuses;
+
+        for (uint256 i = 0; i < statuses.length; ++i) {
+            _withdrawalRequestsStatuses.push(statuses[i]);
+        }
+    }
+
+    function setClaimableEtherResult(uint256[] memory claimableEther) public {
+        _getClaimableEtherResult = claimableEther;
+    }
+
+    function setLastCheckpointIndex(uint256 index) public {
+        _lastCheckpointIndex = index;
+    }
+
+    function setCheckpointHints(uint256[] memory hints) public {
+        _checkpointHints = hints;
     }
 }

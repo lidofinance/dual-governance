@@ -89,21 +89,21 @@ library Proposers {
     /// @notice Updates the executor for a registered proposer.
     /// @param self The context storage of the Proposers library.
     /// @param proposerAccount The address of the proposer to update.
-    /// @param executor The new executor address to assign to the proposer.
-    function setProposerExecutor(Context storage self, address proposerAccount, address executor) internal {
+    /// @param newExecutor The new executor address to assign to the proposer.
+    function setProposerExecutor(Context storage self, address proposerAccount, address newExecutor) internal {
         ExecutorData memory executorData = self.executors[proposerAccount];
         _checkRegisteredProposer(proposerAccount, executorData);
 
-        if (executor == address(0) || executorData.executor == executor) {
-            revert InvalidExecutor(executor);
+        if (newExecutor == address(0) || executorData.executor == newExecutor) {
+            revert InvalidExecutor(newExecutor);
         }
 
-        self.executors[proposerAccount].executor = executor;
+        self.executors[proposerAccount].executor = newExecutor;
 
-        self.executorRefsCounts[executor] += 1;
+        self.executorRefsCounts[newExecutor] += 1;
         self.executorRefsCounts[executorData.executor] -= 1;
 
-        emit ProposerExecutorSet(proposerAccount, executor);
+        emit ProposerExecutorSet(proposerAccount, newExecutor);
     }
 
     /// @notice Unregisters a proposer, removing its association with an executor.

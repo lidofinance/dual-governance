@@ -17,11 +17,11 @@ interface IEmergencyProtectedTimelock is ITimelock {
     function MAX_EMERGENCY_MODE_DURATION() external view returns (Duration);
     function MAX_EMERGENCY_PROTECTION_DURATION() external view returns (Duration);
 
-    function setEmergencyProtectionActivationCommittee(address emergencyActivationCommittee) external;
-    function setEmergencyProtectionExecutionCommittee(address emergencyExecutionCommittee) external;
-    function setEmergencyProtectionEndDate(Timestamp emergencyProtectionEndDate) external;
-    function setEmergencyModeDuration(Duration emergencyModeDuration) external;
-    function setEmergencyGovernance(address emergencyGovernance) external;
+    function setEmergencyProtectionActivationCommittee(address newEmergencyActivationCommittee) external;
+    function setEmergencyProtectionExecutionCommittee(address newEmergencyExecutionCommittee) external;
+    function setEmergencyProtectionEndDate(Timestamp newEmergencyProtectionEndDate) external;
+    function setEmergencyModeDuration(Duration newEmergencyModeDuration) external;
+    function setEmergencyGovernance(address newEmergencyGovernance) external;
 
     function activateEmergencyMode() external;
     function emergencyExecute(uint256 proposalId) external;

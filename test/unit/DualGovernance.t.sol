@@ -43,7 +43,7 @@ contract DualGovernanceUnitTests is UnitTest {
     address private proposalsCanceller = makeAddr("proposalsCanceller");
 
     StETHMock private immutable _STETH_MOCK = new StETHMock();
-    IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock();
+    IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock(_STETH_MOCK);
 
     // TODO: Replace with mocks
     IWstETH private immutable _WSTETH_STUB = IWstETH(makeAddr("WSTETH_STUB"));
@@ -540,7 +540,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
 
-        // The RageQuit second seal threshold wasn't crossed, the system should enter Deactivation state
+        // The RageQuit second seal threshold wasn't reached, the system should enter Deactivation state
         // where the proposals submission is not allowed
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
@@ -757,7 +757,7 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encode(true)
         );
 
-        // The RageQuit second seal threshold wasn't crossed, the system should enter Deactivation state
+        // The RageQuit second seal threshold wasn't reached, the system should enter Deactivation state
         // where the proposals submission is not allowed
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
@@ -1378,8 +1378,8 @@ contract DualGovernanceUnitTests is UnitTest {
         address newProposer = makeAddr("NEW_PROPOSER");
         address newExecutor = makeAddr("NEW_EXECUTOR");
 
-        assertFalse(_dualGovernance.isRegisteredProposer(newProposer));
-        assertFalse(_dualGovernance.isRegisteredExecutor(newExecutor));
+        assertFalse(_dualGovernance.isProposer(newProposer));
+        assertFalse(_dualGovernance.isExecutor(newExecutor));
 
         _executor.execute(
             address(_dualGovernance),
@@ -1387,8 +1387,8 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encodeWithSelector(DualGovernance.registerProposer.selector, newProposer, newExecutor)
         );
 
-        assertTrue(_dualGovernance.isRegisteredProposer(newProposer));
-        assertTrue(_dualGovernance.isRegisteredExecutor(newExecutor));
+        assertTrue(_dualGovernance.isProposer(newProposer));
+        assertTrue(_dualGovernance.isExecutor(newExecutor));
 
         Proposers.Proposer memory proposer = _dualGovernance.getProposer(newProposer);
         assertEq(proposer.account, newProposer);
@@ -1414,20 +1414,20 @@ contract DualGovernanceUnitTests is UnitTest {
         address newExecutor = makeAddr("NEW_EXECUTOR");
 
         assertEq(_dualGovernance.getProposers().length, 1);
-        assertFalse(_dualGovernance.isRegisteredProposer(newProposer));
+        assertFalse(_dualGovernance.isProposer(newProposer));
 
         vm.prank(address(_executor));
         _dualGovernance.registerProposer(newProposer, newExecutor);
 
         assertEq(_dualGovernance.getProposers().length, 2);
-        assertTrue(_dualGovernance.isRegisteredProposer(newProposer));
+        assertTrue(_dualGovernance.isProposer(newProposer));
 
         vm.prank(address(_executor));
         _dualGovernance.setProposerExecutor(newProposer, address(_executor));
 
         assertEq(_dualGovernance.getProposers().length, 2);
-        assertTrue(_dualGovernance.isRegisteredProposer(newProposer));
-        assertFalse(_dualGovernance.isRegisteredExecutor(newExecutor));
+        assertTrue(_dualGovernance.isProposer(newProposer));
+        assertFalse(_dualGovernance.isExecutor(newExecutor));
     }
 
     function testFuzz_setProposerExecutor_RevertOn_CalledNotByAdminExecutor(address notAllowedCaller) external {
@@ -1440,7 +1440,7 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.registerProposer(newProposer, newExecutor);
 
         assertEq(_dualGovernance.getProposers().length, 2);
-        assertTrue(_dualGovernance.isRegisteredProposer(newProposer));
+        assertTrue(_dualGovernance.isProposer(newProposer));
 
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, notAllowedCaller));
 
@@ -1453,8 +1453,8 @@ contract DualGovernanceUnitTests is UnitTest {
 
         assertEq(_dualGovernance.getProposers().length, 1);
 
-        assertTrue(_dualGovernance.isRegisteredProposer(address(this)));
-        assertTrue(_dualGovernance.isRegisteredExecutor(address(_executor)));
+        assertTrue(_dualGovernance.isProposer(address(this)));
+        assertTrue(_dualGovernance.isExecutor(address(_executor)));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ExecutorNotRegistered.selector, address(_executor)));
 
@@ -1476,15 +1476,15 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor)
         );
 
-        assertTrue(_dualGovernance.isRegisteredProposer(proposer));
-        assertTrue(_dualGovernance.isRegisteredExecutor(proposerExecutor));
+        assertTrue(_dualGovernance.isProposer(proposer));
+        assertTrue(_dualGovernance.isExecutor(proposerExecutor));
 
         _executor.execute(
             address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.unregisterProposer.selector, proposer)
         );
 
-        assertFalse(_dualGovernance.isRegisteredProposer(proposer));
-        assertFalse(_dualGovernance.isRegisteredExecutor(proposerExecutor));
+        assertFalse(_dualGovernance.isProposer(proposer));
+        assertFalse(_dualGovernance.isExecutor(proposerExecutor));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, proposer));
         _dualGovernance.getProposer(proposer);
@@ -1517,8 +1517,8 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encodeWithSelector(DualGovernance.unregisterProposer.selector, address(this))
         );
 
-        assertTrue(_dualGovernance.isRegisteredProposer(address(this)));
-        assertTrue(_dualGovernance.isRegisteredExecutor(adminExecutor));
+        assertTrue(_dualGovernance.isProposer(address(this)));
+        assertTrue(_dualGovernance.isExecutor(adminExecutor));
     }
 
     // ---
@@ -1529,8 +1529,8 @@ contract DualGovernanceUnitTests is UnitTest {
         address proposer = makeAddr("PROPOSER");
         address proposerExecutor = makeAddr("PROPOSER_EXECUTOR");
 
-        assertFalse(_dualGovernance.isRegisteredProposer(proposer));
-        assertFalse(_dualGovernance.isRegisteredExecutor(proposerExecutor));
+        assertFalse(_dualGovernance.isProposer(proposer));
+        assertFalse(_dualGovernance.isExecutor(proposerExecutor));
 
         _executor.execute(
             address(_dualGovernance),
@@ -1538,14 +1538,14 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor)
         );
 
-        assertTrue(_dualGovernance.isRegisteredProposer(proposer));
-        assertTrue(_dualGovernance.isRegisteredExecutor(proposerExecutor));
+        assertTrue(_dualGovernance.isProposer(proposer));
+        assertTrue(_dualGovernance.isExecutor(proposerExecutor));
     }
 
     function testFuzz_isProposer_UnregisteredProposer(address proposer) external {
         vm.assume(proposer != address(this));
 
-        assertFalse(_dualGovernance.isRegisteredProposer(proposer));
+        assertFalse(_dualGovernance.isProposer(proposer));
     }
 
     // ---
@@ -1621,7 +1621,7 @@ contract DualGovernanceUnitTests is UnitTest {
     function test_isExecutor_HappyPath() external {
         address executor = makeAddr("EXECUTOR1");
 
-        assertFalse(_dualGovernance.isRegisteredExecutor(executor));
+        assertFalse(_dualGovernance.isExecutor(executor));
 
         _executor.execute(
             address(_dualGovernance),
@@ -1629,14 +1629,14 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encodeWithSelector(DualGovernance.registerProposer.selector, address(0x123), executor)
         );
 
-        assertTrue(_dualGovernance.isRegisteredExecutor(executor));
-        assertTrue(_dualGovernance.isRegisteredExecutor(address(_executor)));
+        assertTrue(_dualGovernance.isExecutor(executor));
+        assertTrue(_dualGovernance.isExecutor(address(_executor)));
     }
 
     function testFuzz_isExecutor_UnregisteredExecutor(address executor) external {
         vm.assume(executor != address(_executor));
 
-        assertFalse(_dualGovernance.isRegisteredExecutor(executor));
+        assertFalse(_dualGovernance.isExecutor(executor));
     }
 
     // ---
@@ -2315,6 +2315,7 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function testFuzz_setResealCommittee_RevertOn_InvalidResealCommittee(address newResealCommittee) external {
+        vm.assume(_dualGovernance.getResealCommittee() != newResealCommittee);
         _executor.execute(
             address(_dualGovernance),
             0,

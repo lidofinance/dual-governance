@@ -373,10 +373,10 @@ contract DualGovernance is IDualGovernance {
     /// @dev Ensures that at least one proposer remains assigned to the `adminExecutor` following the update.
     ///     Reverts if updating the proposer’s executor would leave the `adminExecutor` without any associated proposer.
     /// @param proposerAccount The address of the proposer whose executor is being updated.
-    /// @param executor The new executor address to assign to the proposer.
-    function setProposerExecutor(address proposerAccount, address executor) external {
+    /// @param newExecutor The new executor address to assign to the proposer.
+    function setProposerExecutor(address proposerAccount, address newExecutor) external {
         _checkCallerIsAdminExecutor();
-        _proposers.setProposerExecutor(proposerAccount, executor);
+        _proposers.setProposerExecutor(proposerAccount, newExecutor);
 
         /// @dev after update of the proposer, check that admin executor still belongs to some proposer
         _proposers.checkRegisteredExecutor(TIMELOCK.getAdminExecutor());
@@ -413,7 +413,7 @@ contract DualGovernance is IDualGovernance {
     /// @param proposerAccount The address to check.
     /// @return isProposer A boolean value indicating whether the `proposerAccount` is a registered
     ///     proposer (`true`) or not (`false`).
-    function isRegisteredProposer(address proposerAccount) external view returns (bool) {
+    function isProposer(address proposerAccount) external view returns (bool) {
         return _proposers.isRegisteredProposer(proposerAccount);
     }
 
@@ -421,7 +421,7 @@ contract DualGovernance is IDualGovernance {
     /// @param executor The address to check.
     /// @return isExecutor A boolean value indicating whether the `executor` is a registered
     ///     executor (`true`) or not (`false`).
-    function isRegisteredExecutor(address executor) external view returns (bool) {
+    function isExecutor(address executor) external view returns (bool) {
         return _proposers.isRegisteredExecutor(executor);
     }
 
@@ -447,21 +447,21 @@ contract DualGovernance is IDualGovernance {
     }
 
     /// @notice Sets the new address of the tiebreaker committee in the system.
-    /// @param tiebreakerCommittee The address of the new tiebreaker committee.
-    function setTiebreakerCommittee(address tiebreakerCommittee) external {
+    /// @param newTiebreakerCommittee The address of the new tiebreaker committee.
+    function setTiebreakerCommittee(address newTiebreakerCommittee) external {
         _checkCallerIsAdminExecutor();
-        _tiebreaker.setTiebreakerCommittee(tiebreakerCommittee);
+        _tiebreaker.setTiebreakerCommittee(newTiebreakerCommittee);
     }
 
     /// @notice Sets the new value for the tiebreaker activation timeout.
     /// @dev If the Dual Governance system remains out of the `Normal` or `VetoCooldown` state for longer than
     ///     the `tiebreakerActivationTimeout` duration, the tiebreaker committee is allowed to schedule
     ///     submitted proposals.
-    /// @param tiebreakerActivationTimeout The new duration for the tiebreaker activation timeout.
-    function setTiebreakerActivationTimeout(Duration tiebreakerActivationTimeout) external {
+    /// @param newTiebreakerActivationTimeout The new duration for the tiebreaker activation timeout.
+    function setTiebreakerActivationTimeout(Duration newTiebreakerActivationTimeout) external {
         _checkCallerIsAdminExecutor();
         _tiebreaker.setTiebreakerActivationTimeout(
-            MIN_TIEBREAKER_ACTIVATION_TIMEOUT, tiebreakerActivationTimeout, MAX_TIEBREAKER_ACTIVATION_TIMEOUT
+            MIN_TIEBREAKER_ACTIVATION_TIMEOUT, newTiebreakerActivationTimeout, MAX_TIEBREAKER_ACTIVATION_TIMEOUT
         );
     }
 
@@ -513,17 +513,17 @@ contract DualGovernance is IDualGovernance {
     }
 
     /// @notice Sets the address of the reseal committee.
-    /// @param resealCommittee The address of the new reseal committee.
-    function setResealCommittee(address resealCommittee) external {
+    /// @param newResealCommittee The address of the new reseal committee.
+    function setResealCommittee(address newResealCommittee) external {
         _checkCallerIsAdminExecutor();
-        _resealer.setResealCommittee(resealCommittee);
+        _resealer.setResealCommittee(newResealCommittee);
     }
 
     /// @notice Sets the address of the Reseal Manager.
-    /// @param resealManager The address of the new Reseal Manager.
-    function setResealManager(address resealManager) external {
+    /// @param newResealManager The address of the new Reseal Manager.
+    function setResealManager(address newResealManager) external {
         _checkCallerIsAdminExecutor();
-        _resealer.setResealManager(resealManager);
+        _resealer.setResealManager(newResealManager);
     }
 
     /// @notice Gets the address of the Reseal Manager.

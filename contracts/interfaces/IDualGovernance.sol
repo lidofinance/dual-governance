@@ -38,15 +38,16 @@ interface IDualGovernance is IGovernance, ITiebreaker {
     function getStateDetails() external view returns (StateDetails memory stateDetails);
 
     function registerProposer(address proposer, address executor) external;
+    function setProposerExecutor(address proposerAccount, address newExecutor) external;
     function unregisterProposer(address proposer) external;
-    function isRegisteredProposer(address account) external view returns (bool);
+    function isProposer(address account) external view returns (bool);
     function getProposer(address account) external view returns (Proposers.Proposer memory proposer);
     function getProposers() external view returns (Proposers.Proposer[] memory proposers);
-    function isRegisteredExecutor(address account) external view returns (bool);
+    function isExecutor(address account) external view returns (bool);
 
     function resealSealable(address sealable) external;
-    function setResealCommittee(address resealCommittee) external;
-    function setResealManager(address resealManager) external;
+    function setResealCommittee(address newResealCommittee) external;
+    function setResealManager(address newResealManager) external;
     function getResealManager() external view returns (IResealManager);
     function getResealCommittee() external view returns (address);
 }
