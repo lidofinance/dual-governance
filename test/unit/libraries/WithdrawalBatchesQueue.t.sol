@@ -294,7 +294,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         _batchesQueue.claimNextBatch(1);
     }
 
-    function test_claimNextBatch_RevertWOn_NothingToClaim() external {
+    function test_claimNextBatch_RevertOn_NothingToClaim() external {
         _openBatchesQueue();
 
         uint256 unstETHIdsCount = 5;
@@ -424,7 +424,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         }
     }
 
-    function test_calcRequestAmounts_RevertOn_DivisionByZero() external {
+    function test_calcRequestAmounts_RevertOn_MaxRequestAmountIsZero() external {
         _openBatchesQueue();
 
         vm.expectRevert(stdError.divisionError);
@@ -599,7 +599,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         _batchesQueue.info.totalUnstETHIdsCount = count;
 
         bool res = _batchesQueue.isAllBatchesClaimed();
-        assert(res == true);
+        assertTrue(res);
     }
 
     function testFuzz_isAllBatchesClaimed_HappyPath_ReturnsFalse(
@@ -611,7 +611,7 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         _batchesQueue.info.totalUnstETHIdsCount = totalUnstETHCount;
 
         bool res = _batchesQueue.isAllBatchesClaimed();
-        assert(res == false);
+        assertFalse(res);
     }
 
     // ---
