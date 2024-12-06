@@ -392,7 +392,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             new IWithdrawalQueue.WithdrawalRequestStatus[](1);
         uint256[] memory unstETHIds = new uint256[](0);
 
-        vm.expectRevert();
+        vm.expectRevert(stdError.assertionError);
 
         AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
     }
@@ -464,7 +464,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         withdrawalRequestStatuses[withdrawalRequestStatuses.length - 1].isClaimed = true;
 
-        vm.expectRevert();
+        vm.expectRevert(stdError.assertionError);
 
         AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
     }
