@@ -2312,6 +2312,7 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function testFuzz_setResealCommittee_RevertOn_InvalidResealCommittee(address newResealCommittee) external {
+        vm.assume(_dualGovernance.getResealCommittee() != newResealCommittee);
         _executor.execute(
             address(_dualGovernance),
             0,
