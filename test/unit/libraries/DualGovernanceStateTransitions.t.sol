@@ -315,11 +315,11 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     }
 
     // ---
-    // Unset -> assert(false)
+    // NotInitialized -> assert(false)
     // ---
 
-    function test_getStateTransition_RevertOn_UnsetState() external {
-        _stateMachine.state = State.Unset;
+    function test_getStateTransition_RevertOn_NotInitializedState() external {
+        _stateMachine.state = State.NotInitialized;
 
         vm.expectRevert(stdError.assertionError);
         this.external__getStateTransition();

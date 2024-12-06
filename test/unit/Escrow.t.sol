@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {stdError} from "forge-std/StdError.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -198,7 +197,9 @@ contract EscrowUnitTests is UnitTest {
     function test_lockStETH_RevertOn_UnexpectedEscrowState() external {
         _transitToRageQuit();
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
         vm.prank(_vetoer);
         _escrow.lockStETH(1 ether);
 
@@ -252,7 +253,9 @@ contract EscrowUnitTests is UnitTest {
 
         _transitToRageQuit();
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
         vm.prank(_vetoer);
         _escrow.unlockStETH();
     }
@@ -317,7 +320,9 @@ contract EscrowUnitTests is UnitTest {
     function test_lockWstETH_RevertOn_UnexpectedEscrowState() external {
         _transitToRageQuit();
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
         vm.prank(_vetoer);
         _escrow.lockWstETH(1 ether);
     }
@@ -376,7 +381,9 @@ contract EscrowUnitTests is UnitTest {
 
         _transitToRageQuit();
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
         vm.prank(_vetoer);
         _escrow.unlockWstETH();
     }
@@ -459,7 +466,9 @@ contract EscrowUnitTests is UnitTest {
 
         _transitToRageQuit();
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
         _escrow.lockUnstETH(unstethIds);
     }
 
@@ -532,7 +541,9 @@ contract EscrowUnitTests is UnitTest {
         _transitToRageQuit();
 
         uint256[] memory unstethIds = new uint256[](1);
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
         vm.prank(_vetoer);
         _escrow.unlockUnstETH(unstethIds);
     }
@@ -569,7 +580,9 @@ contract EscrowUnitTests is UnitTest {
         uint256[] memory unstethIds = new uint256[](0);
         uint256[] memory hints = new uint256[](0);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.SignallingEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
         _escrow.markUnstETHFinalized(unstethIds, hints);
     }
 
@@ -630,7 +643,9 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function test_requestNextWithdrawalsBatch_RevertOn_UnexpectedEscrowState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.requestNextWithdrawalsBatch(1);
     }
 
@@ -711,8 +726,10 @@ contract EscrowUnitTests is UnitTest {
         assertEq(state.unstETHLockedShares.toUint256(), 0);
     }
 
-    function test_claimNextWithdrawalsBatch_2_RevertOn_UnexpectedState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, 2));
+    function test_claimNextWithdrawalsBatch_2_RevertOn_UnexpectedEscrowState() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.claimNextWithdrawalsBatch(1, new uint256[](1));
     }
 
@@ -733,7 +750,7 @@ contract EscrowUnitTests is UnitTest {
         _escrow.claimNextWithdrawalsBatch(1, new uint256[](1));
     }
 
-    function test_claimNextWithdrawalsBatch_2_RevertOn_UnexpectedUnstETHId() external {
+    function test_claimNextWithdrawalsBatch_2_RevertOn_InvalidFromUnstETHId() external {
         uint256[] memory unstEthIds = _getUnstEthIdsFromWQ();
 
         _vetoerLockedStEth(stethAmount);
@@ -746,7 +763,7 @@ contract EscrowUnitTests is UnitTest {
         _withdrawalQueue.setClaimableAmount(stethAmount);
         vm.deal(address(_withdrawalQueue), stethAmount);
 
-        vm.expectRevert(Escrow.UnexpectedUnstETHId.selector);
+        vm.expectRevert(abi.encodeWithSelector(Escrow.InvalidFromUnstETHId.selector, unstEthIds[0] + 10));
         _escrow.claimNextWithdrawalsBatch(unstEthIds[0] + 10, new uint256[](1));
     }
 
@@ -810,8 +827,10 @@ contract EscrowUnitTests is UnitTest {
         assertEq(vetoerState.unstETHLockedShares.toUint256(), 0);
     }
 
-    function test_claimNextWithdrawalsBatch_1_RevertOn_UnexpectedState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, 2));
+    function test_claimNextWithdrawalsBatch_1_RevertOn_UnexpectedEscrowState() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.claimNextWithdrawalsBatch(1);
     }
 
@@ -926,12 +945,13 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function test_claimUnstETH_RevertOn_UnexpectedEscrowState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.claimUnstETH(new uint256[](1), new uint256[](1));
     }
 
     function test_claimUnstETH_RevertOn_InvalidRequestId() external {
-        bytes memory wqInvalidRequestIdError = abi.encode("WithdrawalQueue.InvalidRequestId");
         uint256[] memory unstETHIds = new uint256[](1);
         unstETHIds[0] = _withdrawalQueue.REVERT_ON_ID();
         uint256[] memory hints = new uint256[](1);
@@ -943,7 +963,6 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function test_claimUnstETH_RevertOn_ArraysLengthMismatch() external {
-        bytes memory wqArraysLengthMismatchError = abi.encode("WithdrawalQueue.ArraysLengthMismatch");
         uint256[] memory unstETHIds = new uint256[](2);
         uint256[] memory hints = new uint256[](1);
         uint256[] memory responses = new uint256[](1);
@@ -1045,7 +1064,9 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function test_withdrawETH_RevertOn_UnexpectedEscrowState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.withdrawETH();
     }
 
@@ -1167,7 +1188,9 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function test_withdrawETH_2_RevertOn_UnexpectedEscrowState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.withdrawETH(new uint256[](1));
     }
 
@@ -1383,19 +1406,25 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function test_getNextWithdrawalBatch_RevertOn_RageQuit_IsNotStarted() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.getNextWithdrawalBatch(100);
     }
 
-    function test_getNextWithdrawalBatch_RevertOn_UnexpectedState_Signaling() external {
+    function test_getNextWithdrawalBatch_RevertOn_UnexpectedEscrowState_Signaling() external {
         uint256 batchLimit = 10;
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.getNextWithdrawalBatch(batchLimit);
     }
 
-    function test_getNextWithdrawalBatch_RevertOn_UnexpectedState_NotInitialized() external {
+    function test_getNextWithdrawalBatch_RevertOn_UnexpectedEscrowState_NotInitialized() external {
         uint256 batchLimit = 10;
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.NotInitialized)
+        );
         _masterCopy.getNextWithdrawalBatch(batchLimit);
     }
 
@@ -1414,14 +1443,36 @@ contract EscrowUnitTests is UnitTest {
         assertTrue(_escrow.isWithdrawalsBatchesClosed());
     }
 
-    function test_isWithdrawalsBatchesClosed_RevertOn_UnexpectedState_Signaling() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+    function test_isWithdrawalsBatchesClosed_RevertOn_UnexpectedEscrowState_Signaling() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.isWithdrawalsBatchesClosed();
     }
 
-    function test_isWithdrawalsBatchesClosed_RevertOn_UnexpectedState_NotInitialized() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+    function test_isWithdrawalsBatchesClosed_RevertOn_UnexpectedEscrowState_NotInitialized() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.NotInitialized)
+        );
         _masterCopy.isWithdrawalsBatchesClosed();
+    }
+
+    // ---
+    // getUnclaimedUnstETHIdsCount()
+    // ---
+
+    function test_getUnclaimedUnstETHIdsCount_RevertOn_UnexpectedEscrowState_Signaling() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
+        _escrow.getUnclaimedUnstETHIdsCount();
+    }
+
+    function test_getUnclaimedUnstETHIdsCount_RevertOn_UnexpectedEscrowState_NotInitialized() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.NotInitialized)
+        );
+        _masterCopy.getUnclaimedUnstETHIdsCount();
     }
 
     // ---
@@ -1447,12 +1498,16 @@ contract EscrowUnitTests is UnitTest {
     // ---
 
     function test_getRageQuitExtensionPeriodStartedAt_RevertOn_NotInitializedState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.NotInitialized)
+        );
         _masterCopy.getRageQuitEscrowDetails();
     }
 
     function test_getRageQuitExtensionPeriodStartedAt_RevertOn_SignallingState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.getRageQuitEscrowDetails().rageQuitExtensionPeriodStartedAt;
     }
 
@@ -1522,13 +1577,17 @@ contract EscrowUnitTests is UnitTest {
     // getRageQuitEscrowDetails()
     // ---
 
-    function test_getRageQuitEscrowDetails_RevertOn_UnexpectedState_Signaling() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+    function test_getRageQuitEscrowDetails_RevertOn_UnexpectedEscrowState_Signaling() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.SignallingEscrow)
+        );
         _escrow.getRageQuitEscrowDetails();
     }
 
-    function test_getRageQuitEscrowDetails_RevertOn_UnexpectedState_NotInitialized() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.UnexpectedState.selector, EscrowState.RageQuitEscrow));
+    function test_getRageQuitEscrowDetails_RevertOn_UnexpectedEscrowState_NotInitialized() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.NotInitialized)
+        );
         _masterCopy.getRageQuitEscrowDetails();
     }
 

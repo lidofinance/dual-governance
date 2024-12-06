@@ -232,7 +232,7 @@ This contract is a singleton, meaning that any DG deployment includes exactly on
 
 ```solidity
 enum State {
-    Unset, // Indicates an uninitialized state during the contract creation
+    NotInitialized, // Indicates an uninitialized state during the contract creation
     Normal,
     VetoSignalling,
     VetoSignallingDeactivation,

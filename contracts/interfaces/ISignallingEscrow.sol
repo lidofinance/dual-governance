@@ -9,7 +9,6 @@ import {SharesValue} from "../types/SharesValue.sol";
 import {UnstETHRecordStatus} from "../libraries/AssetsAccounting.sol";
 
 import {IEscrowBase} from "./IEscrowBase.sol";
-import {IRageQuitEscrow} from "./IRageQuitEscrow.sol";
 
 interface ISignallingEscrow is IEscrowBase {
     struct VetoerDetails {

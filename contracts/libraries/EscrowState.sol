@@ -26,7 +26,7 @@ library EscrowState {
     // ---
 
     error ClaimingIsFinished();
-    error UnexpectedState(State value);
+    error UnexpectedEscrowState(State state);
     error EthWithdrawalsDelayNotPassed();
     error RageQuitExtensionPeriodNotStarted();
     error InvalidMinAssetsLockDuration(Duration newMinAssetsLockDuration);
@@ -184,7 +184,7 @@ library EscrowState {
     /// @param state The expected state.
     function _checkState(Context storage self, State state) private view {
         if (self.state != state) {
-            revert UnexpectedState(state);
+            revert UnexpectedEscrowState(self.state);
         }
     }
 

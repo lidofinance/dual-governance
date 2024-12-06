@@ -101,7 +101,11 @@ contract ExecutableProposalsUnitTests is UnitTest {
     function testFuzz_cannot_schedule_unsubmitted_proposal(uint256 proposalId) external {
         vm.assume(proposalId > 0);
 
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotSubmitted.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.NotExist
+            )
+        );
         _proposals.schedule(proposalId, Durations.ZERO);
     }
 
@@ -110,7 +114,11 @@ contract ExecutableProposalsUnitTests is UnitTest {
         uint256 proposalId = 1;
         _proposals.schedule(proposalId, Durations.ZERO);
 
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotSubmitted.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Scheduled
+            )
+        );
         _proposals.schedule(proposalId, Durations.ZERO);
     }
 
@@ -133,7 +141,11 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
         uint256 proposalId = _proposals.getProposalsCount();
 
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotSubmitted.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Cancelled
+            )
+        );
         _proposals.schedule(proposalId, Durations.ZERO);
     }
 
@@ -171,7 +183,11 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
     function testFuzz_cannot_execute_unsubmitted_proposal(uint256 proposalId) external {
         vm.assume(proposalId > 0);
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.NotExist
+            )
+        );
         _proposals.execute(proposalId, Durations.ZERO);
     }
 
@@ -179,7 +195,11 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.submit(proposer, address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)), "");
         uint256 proposalId = _proposals.getProposalsCount();
 
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Submitted
+            )
+        );
         _proposals.execute(proposalId, Durations.ZERO);
     }
 
@@ -189,7 +209,11 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.schedule(proposalId, Durations.ZERO);
         _proposals.execute(proposalId, Durations.ZERO);
 
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Executed
+            )
+        );
         _proposals.execute(proposalId, Durations.ZERO);
     }
 
@@ -199,7 +223,11 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.schedule(proposalId, Durations.ZERO);
         _proposals.cancelAll();
 
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Cancelled
+            )
+        );
         _proposals.execute(proposalId, Durations.ZERO);
     }
 
@@ -336,10 +364,18 @@ contract ExecutableProposalsUnitTests is UnitTest {
     }
 
     function testFuzz_get_not_existing_proposal(uint256 proposalId) external {
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotFound.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.NotExist
+            )
+        );
         _proposals.getProposalDetails(proposalId);
 
-        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.ProposalNotFound.selector, proposalId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.NotExist
+            )
+        );
         _proposals.getProposalCalls(proposalId);
     }
 
