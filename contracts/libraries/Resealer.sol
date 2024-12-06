@@ -9,7 +9,7 @@ library Resealer {
     // ---
     // Errors
     // ---
-    error InvalidResealManager(address resealManager);
+    error InvalidResealManager(IResealManager resealManager);
     error InvalidResealCommittee(address resealCommittee);
     error CallerIsNotResealCommittee(address caller);
 
@@ -17,7 +17,7 @@ library Resealer {
     // Events
     // ---
     event ResealCommitteeSet(address resealCommittee);
-    event ResealManagerSet(address resealManager);
+    event ResealManagerSet(IResealManager resealManager);
 
     // ---
     // Data Types
@@ -35,11 +35,11 @@ library Resealer {
     /// @dev Sets a new Reseal Manager contract address.
     /// @param self The context struct containing the current state.
     /// @param newResealManager The address of the new Reseal Manager.
-    function setResealManager(Context storage self, address newResealManager) internal {
-        if (newResealManager == address(self.resealManager) || newResealManager == address(0)) {
+    function setResealManager(Context storage self, IResealManager newResealManager) internal {
+        if (newResealManager == self.resealManager || address(newResealManager) == address(0)) {
             revert InvalidResealManager(newResealManager);
         }
-        self.resealManager = IResealManager(newResealManager);
+        self.resealManager = newResealManager;
         emit ResealManagerSet(newResealManager);
     }
 

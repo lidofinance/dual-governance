@@ -173,7 +173,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.EscrowMasterCopyDeployed(IEscrowBase(predictedEscrowCopyAddress));
         vm.expectEmit();
-        emit Resealer.ResealManagerSet(address(_RESEAL_MANAGER_STUB));
+        emit Resealer.ResealManagerSet(_RESEAL_MANAGER_STUB);
 
         Duration minTiebreakerActivationTimeout = Durations.from(30 days);
         Duration maxTiebreakerActivationTimeout = Durations.from(180 days);
@@ -2371,10 +2371,11 @@ contract DualGovernanceUnitTests is UnitTest {
 
     function test_setResealManger_RevertOn_CallerIsNotAdminExecutor(address stranger) external {
         vm.assume(stranger != address(_executor));
+        address newResealManager = makeAddr("NEW_RESEAL_MANAGER");
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, stranger));
-        _dualGovernance.setResealManager(address(0x123));
+        _dualGovernance.setResealManager(IResealManager(newResealManager));
     }
 
     // ---

@@ -169,7 +169,7 @@ contract DualGovernance is IDualGovernance {
         emit EscrowMasterCopyDeployed(escrowMasterCopy);
 
         _stateMachine.initialize(components.configProvider, escrowMasterCopy);
-        _resealer.setResealManager(address(components.resealManager));
+        _resealer.setResealManager(components.resealManager);
     }
 
     // ---
@@ -532,7 +532,7 @@ contract DualGovernance is IDualGovernance {
 
     /// @notice Sets the address of the Reseal Manager.
     /// @param newResealManager The address of the new Reseal Manager.
-    function setResealManager(address newResealManager) external {
+    function setResealManager(IResealManager newResealManager) external {
         _checkCallerIsAdminExecutor();
         _resealer.setResealManager(newResealManager);
     }
