@@ -1073,11 +1073,11 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernanceStateMachine.ConfigProviderSet(IDualGovernanceConfigProvider(address(newConfigProvider)));
         vm.expectEmit();
-        emit Executor.Execute(
-            address(this),
+        emit Executor.Executed(
             address(_dualGovernance),
             0,
-            abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(newConfigProvider))
+            abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(newConfigProvider)),
+            new bytes(0)
         );
 
         vm.expectCall(

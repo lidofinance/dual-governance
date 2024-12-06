@@ -14,7 +14,7 @@ contract Executor is IExternalExecutor, Ownable {
     // Events
     // ---
 
-    event Execute(address indexed sender, address indexed target, uint256 ethValue, bytes data);
+    event Executed(address indexed target, uint256 ethValue, bytes data, bytes result);
 
     // ---
     // Constructor
@@ -32,8 +32,8 @@ contract Executor is IExternalExecutor, Ownable {
     /// @param payload The calldata for the function call.
     function execute(address target, uint256 value, bytes calldata payload) external payable {
         _checkOwner();
-        Address.functionCallWithValue(target, payload, value);
-        emit Execute(msg.sender, target, value, payload);
+        bytes memory result = Address.functionCallWithValue(target, payload, value);
+        emit Executed(target, value, payload, result);
     }
 
     /// @notice Allows the contract to receive ether.
