@@ -393,7 +393,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         escrow.requestNextWithdrawalsBatch(96);
 
-        vm.expectRevert();
+        vm.expectRevert(WithdrawalsBatchesQueue.EmptyBatch.selector);
         escrow.claimNextWithdrawalsBatch(0, new uint256[](0));
 
         escrow.startRageQuitExtensionPeriod();
