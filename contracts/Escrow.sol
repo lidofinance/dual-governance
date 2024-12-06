@@ -19,13 +19,7 @@ import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
 
 import {EscrowState, State} from "./libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "./libraries/WithdrawalsBatchesQueue.sol";
-import {
-    HolderAssets,
-    UnstETHRecord,
-    StETHAccounting,
-    UnstETHAccounting,
-    AssetsAccounting
-} from "./libraries/AssetsAccounting.sol";
+import {HolderAssets, StETHAccounting, UnstETHAccounting, AssetsAccounting} from "./libraries/AssetsAccounting.sol";
 
 /// @notice This contract is used to accumulate stETH, wstETH, unstETH, and withdrawn ETH from vetoers during the
 ///     veto signalling and rage quit processes.
@@ -38,6 +32,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     // ---
     // Errors
     // ---
+
     error EmptyUnstETHIds();
     error UnclaimedBatches();
     error UnexpectedUnstETHId();
@@ -185,7 +180,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Lock & Unlock wstETH
+    // Signalling Escrow: Lock & Unlock wstETH
     // ---
 
     /// @notice Locks the vetoer's specified `amount` of wstETH in the Veto Signalling Escrow, thereby increasing
@@ -394,12 +389,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         unstETHDetails = new LockedUnstETHDetails[](unstETHIds.length);
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            UnstETHRecord memory unstETHRecord = _accounting.unstETHRecords[unstETHIds[i]];
-
-            unstETHDetails[i].status = unstETHRecord.status;
-            unstETHDetails[i].lockedBy = unstETHRecord.lockedBy;
-            unstETHDetails[i].shares = unstETHRecord.shares;
-            unstETHDetails[i].claimableAmount = unstETHRecord.claimableAmount;
+            unstETHDetails[i] = _accounting.getLockedUnstETHDetails(unstETHIds[i]);
         }
     }
 
@@ -568,13 +558,14 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     }
 
     // ---
-    // Rage Quit Escrow Getters
+    // Rage Quit Escrow: Getters
     // ---
 
     /// @notice Returns whether the Rage Quit process has been finalized.
     /// @return A boolean value indicating whether the Rage Quit process has been finalized (`true`) or not (`false`).
     function isRageQuitFinalized() external view returns (bool) {
-        return _escrowState.isRageQuitEscrow() && _escrowState.isRageQuitExtensionPeriodPassed();
+        _escrowState.checkRageQuitEscrow();
+        return _escrowState.isRageQuitExtensionPeriodPassed();
     }
 
     /// @notice Retrieves the unstETH NFT ids of the next batch available for claiming.
@@ -585,22 +576,31 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         unstETHIds = _batchesQueue.getNextWithdrawalsBatches(limit);
     }
 
+    /// @notice Returns whether all withdrawal batches have been closed.
+    /// @return isWithdrawalsBatchesClosed A boolean value indicating whether all withdrawal batches have been
+    ///     closed (`true`) or not (`false`).
+    function isWithdrawalsBatchesClosed() external view returns (bool) {
+        _escrowState.checkRageQuitEscrow();
+        return _batchesQueue.isClosed();
+    }
+
+    /// @notice Returns the total count of unstETH NFTs that have not been claimed yet.
+    /// @return unclaimedUnstETHIdsCount The total number of unclaimed unstETH NFTs.
+    function getUnclaimedUnstETHIdsCount() external view returns (uint256) {
+        _escrowState.checkRageQuitEscrow();
+        return _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
+    }
+
     /// @notice Retrieves details about the current state of the rage quit escrow.
     /// @return details A `RageQuitEscrowDetails` struct containing the following fields:
-    /// - `isWithdrawalsBatchesClosed`: Indicates whether the withdrawals batches are closed.
     /// - `isRageQuitExtensionPeriodStarted`: Indicates whether the rage quit extension period has started.
-    /// - `unclaimedUnstETHIdsCount`: The total count of unstETH NFTs that have not been claimed yet.
     /// - `rageQuitEthWithdrawalsDelay`: The delay period for ETH withdrawals during rage quit.
     /// - `rageQuitExtensionPeriodDuration`: The duration of the rage quit extension period.
     /// - `rageQuitExtensionPeriodStartedAt`: The timestamp when the rage quit extension period started.
     function getRageQuitEscrowDetails() external view returns (RageQuitEscrowDetails memory details) {
         _escrowState.checkRageQuitEscrow();
 
-        details.isWithdrawalsBatchesClosed = _batchesQueue.isClosed();
         details.isRageQuitExtensionPeriodStarted = _escrowState.isRageQuitExtensionPeriodStarted();
-
-        details.unclaimedUnstETHIdsCount = _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
-
         details.rageQuitEthWithdrawalsDelay = _escrowState.rageQuitEthWithdrawalsDelay;
         details.rageQuitExtensionPeriodDuration = _escrowState.rageQuitExtensionPeriodDuration;
         details.rageQuitExtensionPeriodStartedAt = _escrowState.rageQuitExtensionPeriodStartedAt;

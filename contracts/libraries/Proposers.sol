@@ -154,8 +154,10 @@ library Proposers {
     /// @param self The context of the Proposers library.
     /// @return proposers An array of `Proposer` structs representing all registered proposers.
     function getAllProposers(Context storage self) internal view returns (Proposer[] memory proposers) {
-        proposers = new Proposer[](self.proposers.length);
-        for (uint256 i = 0; i < proposers.length; ++i) {
+        uint256 proposersCount = self.proposers.length;
+        proposers = new Proposer[](proposersCount);
+
+        for (uint256 i = 0; i < proposersCount; ++i) {
             proposers[i] = getProposer(self, self.proposers[i]);
         }
     }

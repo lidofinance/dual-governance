@@ -316,7 +316,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         assertEq(_lido.withdrawalQueue.balanceOf(address(escrow)), 20);
 
-        while (!escrow.getRageQuitEscrowDetails().isWithdrawalsBatchesClosed) {
+        while (!escrow.isWithdrawalsBatchesClosed()) {
             escrow.requestNextWithdrawalsBatch(96);
         }
 
@@ -340,7 +340,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
             unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
         );
 
-        while (escrow.getRageQuitEscrowDetails().unclaimedUnstETHIdsCount > 0) {
+        while (escrow.getUnclaimedUnstETHIdsCount() > 0) {
             escrow.claimNextWithdrawalsBatch(32);
         }
 
@@ -607,7 +607,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         escrow.claimUnstETH(unstETHIdsToClaim, hints);
 
         // The rage quit process can be successfully finished
-        while (escrow.getRageQuitEscrowDetails().unclaimedUnstETHIdsCount > 0) {
+        while (escrow.getUnclaimedUnstETHIdsCount() > 0) {
             escrow.claimNextWithdrawalsBatch(batchSizeLimit);
         }
 

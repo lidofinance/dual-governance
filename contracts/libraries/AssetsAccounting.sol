@@ -8,6 +8,7 @@ import {SharesValue, SharesValues} from "../types/SharesValue.sol";
 import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
 import {IWithdrawalQueue} from "../interfaces/IWithdrawalQueue.sol";
+import {ISignallingEscrow} from "../interfaces/ISignallingEscrow.sol";
 
 /// @notice Tracks the stETH and unstETH tokens associated with users.
 /// @param stETHLockedShares Total number of stETH shares held by the user.
@@ -339,6 +340,29 @@ library AssetsAccounting {
             amountWithdrawn = amountWithdrawn + _withdrawUnstETHRecord(self, holder, unstETHIds[i]);
         }
         emit UnstETHWithdrawn(unstETHIds, amountWithdrawn);
+    }
+
+    // ---
+    // Getters
+    // ---
+
+    /// @notice Retrieves details of locked unstETH record for the given id.
+    /// @param unstETHId The id for the locked unstETH record to retrieve.
+    /// @return unstETHDetails A `LockedUnstETHDetails` struct containing the details for provided unstETH id.
+    function getLockedUnstETHDetails(
+        Context storage self,
+        uint256 unstETHId
+    ) internal view returns (ISignallingEscrow.LockedUnstETHDetails memory unstETHDetails) {
+        UnstETHRecord memory unstETHRecord = self.unstETHRecords[unstETHId];
+
+        if (unstETHRecord.status == UnstETHRecordStatus.NotLocked) {
+            revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.NotLocked);
+        }
+
+        unstETHDetails.status = unstETHRecord.status;
+        unstETHDetails.lockedBy = unstETHRecord.lockedBy;
+        unstETHDetails.shares = unstETHRecord.shares;
+        unstETHDetails.claimableAmount = unstETHRecord.claimableAmount;
     }
 
     // ---

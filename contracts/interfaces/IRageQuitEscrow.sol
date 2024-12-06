@@ -8,10 +8,7 @@ import {IEscrowBase} from "./IEscrowBase.sol";
 
 interface IRageQuitEscrow is IEscrowBase {
     struct RageQuitEscrowDetails {
-        bool isRageQuitFinalized;
-        bool isWithdrawalsBatchesClosed;
         bool isRageQuitExtensionPeriodStarted;
-        uint256 unclaimedUnstETHIdsCount;
         Duration rageQuitEthWithdrawalsDelay;
         Duration rageQuitExtensionPeriodDuration;
         Timestamp rageQuitExtensionPeriodStartedAt;
@@ -30,5 +27,7 @@ interface IRageQuitEscrow is IEscrowBase {
 
     function isRageQuitFinalized() external view returns (bool);
     function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds);
+    function isWithdrawalsBatchesClosed() external view returns (bool);
+    function getUnclaimedUnstETHIdsCount() external view returns (uint256);
     function getRageQuitEscrowDetails() external view returns (RageQuitEscrowDetails memory);
 }

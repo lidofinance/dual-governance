@@ -65,13 +65,13 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             // request withdrawals batches
             Escrow rageQuitEscrow = _getRageQuitEscrow();
 
-            while (!rageQuitEscrow.getRageQuitEscrowDetails().isWithdrawalsBatchesClosed) {
+            while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
             }
 
             _lido.finalizeWithdrawalQueue();
 
-            while (rageQuitEscrow.getRageQuitEscrowDetails().unclaimedUnstETHIdsCount > 0) {
+            while (rageQuitEscrow.getUnclaimedUnstETHIdsCount() > 0) {
                 rageQuitEscrow.claimNextWithdrawalsBatch(128);
             }
 
