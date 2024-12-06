@@ -1433,8 +1433,8 @@ contract AssetsAccountingUnitTests is UnitTest {
 
             _accountingContext.unstETHRecords[unstETHIds[i]].lockedBy = holder;
             _accountingContext.unstETHRecords[unstETHIds[i]].status = UnstETHRecordStatus(i + 1);
-            _accountingContext.unstETHRecords[unstETHIds[i]].shares = SharesValues.from(i * 1 ether);
-            _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from(i * 10 ether);
+            _accountingContext.unstETHRecords[unstETHIds[i]].shares = SharesValues.from((i + 1) * 1 ether);
+            _accountingContext.unstETHRecords[unstETHIds[i]].claimableAmount = ETHValues.from((i + 1) * 10 ether);
 
             _accountingContext.assets[holder].unstETHIds.push(unstETHIds[i]);
         }
@@ -1446,8 +1446,8 @@ contract AssetsAccountingUnitTests is UnitTest {
             assertEq(unstETHDetails.id, unstETHIds[i]);
             assertEq(unstETHDetails.status, UnstETHRecordStatus(i + 1));
             assertEq(unstETHDetails.lockedBy, address(uint160(uint256(keccak256(abi.encode(i))))));
-            assertEq(unstETHDetails.shares, SharesValues.from(i * 1 ether));
-            assertEq(unstETHDetails.claimableAmount, ETHValues.from(i * 10 ether));
+            assertEq(unstETHDetails.shares, SharesValues.from((i + 1) * 1 ether));
+            assertEq(unstETHDetails.claimableAmount, ETHValues.from((i + 1) * 10 ether));
         }
     }
 

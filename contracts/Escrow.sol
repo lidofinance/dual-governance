@@ -387,9 +387,9 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         view
         returns (LockedUnstETHDetails[] memory unstETHDetails)
     {
-        unstETHDetails = new LockedUnstETHDetails[](unstETHIds.length);
-
         uint256 unstETHIdsCount = unstETHIds.length;
+        unstETHDetails = new LockedUnstETHDetails[](unstETHIdsCount);
+
         for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             unstETHDetails[i] = _accounting.getLockedUnstETHDetails(unstETHIds[i]);
         }
@@ -563,13 +563,6 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     // Rage Quit Escrow: Getters
     // ---
 
-    /// @notice Returns whether the Rage Quit process has been finalized.
-    /// @return A boolean value indicating whether the Rage Quit process has been finalized (`true`) or not (`false`).
-    function isRageQuitFinalized() external view returns (bool) {
-        _escrowState.checkRageQuitEscrow();
-        return _escrowState.isRageQuitExtensionPeriodPassed();
-    }
-
     /// @notice Retrieves the unstETH NFT ids of the next batch available for claiming.
     /// @param limit The maximum number of unstETH NFTs to return in the batch.
     /// @return unstETHIds An array of unstETH NFT ids available for the next withdrawal batch.
@@ -593,6 +586,13 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         return _batchesQueue.getTotalUnclaimedUnstETHIdsCount();
     }
 
+    /// @notice Returns whether the Rage Quit process has been finalized.
+    /// @return A boolean value indicating whether the Rage Quit process has been finalized (`true`) or not (`false`).
+    function isRageQuitFinalized() external view returns (bool) {
+        _escrowState.checkRageQuitEscrow();
+        return _escrowState.isRageQuitExtensionPeriodPassed();
+    }
+
     /// @notice Retrieves details about the current state of the rage quit escrow.
     /// @return details A `RageQuitEscrowDetails` struct containing the following fields:
     /// - `isRageQuitExtensionPeriodStarted`: Indicates whether the rage quit extension period has started.
@@ -602,10 +602,10 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     function getRageQuitEscrowDetails() external view returns (RageQuitEscrowDetails memory details) {
         _escrowState.checkRageQuitEscrow();
 
-        details.isRageQuitExtensionPeriodStarted = _escrowState.isRageQuitExtensionPeriodStarted();
         details.rageQuitEthWithdrawalsDelay = _escrowState.rageQuitEthWithdrawalsDelay;
         details.rageQuitExtensionPeriodDuration = _escrowState.rageQuitExtensionPeriodDuration;
         details.rageQuitExtensionPeriodStartedAt = _escrowState.rageQuitExtensionPeriodStartedAt;
+        details.isRageQuitExtensionPeriodStarted = _escrowState.isRageQuitExtensionPeriodStarted();
     }
 
     // ---
