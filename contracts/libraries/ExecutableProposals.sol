@@ -194,21 +194,6 @@ library ExecutableProposals {
     // Getters
     // ---
 
-    /// @notice Determines whether a proposal is eligible for execution based on its status and delay requirements.
-    /// @param self The context of the Executable Proposal library.
-    /// @param proposalId The id of the proposal to check for execution eligibility.
-    /// @param afterScheduleDelay The required delay duration after scheduling before the proposal can be executed.
-    /// @return bool `true` if the proposal is eligible for execution, otherwise `false`.
-    function canExecute(
-        Context storage self,
-        uint256 proposalId,
-        Duration afterScheduleDelay
-    ) internal view returns (bool) {
-        ProposalData memory proposalData = self.proposals[proposalId].data;
-        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled
-            && Timestamps.now() >= afterScheduleDelay.addTo(proposalData.scheduledAt);
-    }
-
     /// @notice Determines whether a proposal is eligible to be scheduled based on its status and required delay.
     /// @param self The context of the Executable Proposal library.
     /// @param proposalId The id of the proposal to check for scheduling eligibility.
@@ -222,6 +207,21 @@ library ExecutableProposals {
         ProposalData memory proposalData = self.proposals[proposalId].data;
         return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted
             && Timestamps.now() >= afterSubmitDelay.addTo(proposalData.submittedAt);
+    }
+
+    /// @notice Determines whether a proposal is eligible for execution based on its status and delay requirements.
+    /// @param self The context of the Executable Proposal library.
+    /// @param proposalId The id of the proposal to check for execution eligibility.
+    /// @param afterScheduleDelay The required delay duration after scheduling before the proposal can be executed.
+    /// @return bool `true` if the proposal is eligible for execution, otherwise `false`.
+    function canExecute(
+        Context storage self,
+        uint256 proposalId,
+        Duration afterScheduleDelay
+    ) internal view returns (bool) {
+        ProposalData memory proposalData = self.proposals[proposalId].data;
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled
+            && Timestamps.now() >= afterScheduleDelay.addTo(proposalData.scheduledAt);
     }
 
     /// @notice Returns the total count of submitted proposals.
