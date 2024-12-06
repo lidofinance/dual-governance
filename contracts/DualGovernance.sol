@@ -44,7 +44,9 @@ contract DualGovernance is IDualGovernance {
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
-    error InvalidTiebreakerActivationTimeoutBounds();
+    error InvalidTiebreakerActivationTimeoutBounds(
+        Duration minTiebreakerActivationTimeout, Duration maxTiebreakerActivationTimeout
+    );
 
     // ---
     // Events
@@ -69,11 +71,13 @@ contract DualGovernance is IDualGovernance {
     /// @param maxSealableWithdrawalBlockersCount The upper bound for the number of sealable withdrawal blockers allowed to be
     ///     registered in the Dual Governance. This parameter prevents filling the sealable withdrawal blockers
     ///     with so many items that tiebreaker calls would revert due to out-of-gas errors.
+    /// @param maxMinAssetsLockDuration The upper bound for the minimum duration of assets lock in the Escrow.
     struct SanityCheckParams {
         uint256 minWithdrawalsBatchSize;
         Duration minTiebreakerActivationTimeout;
         Duration maxTiebreakerActivationTimeout;
         uint256 maxSealableWithdrawalBlockersCount;
+        Duration maxMinAssetsLockDuration;
     }
 
     /// @notice The lower bound for the time the Dual Governance must spend in the "locked" state
@@ -93,17 +97,21 @@ contract DualGovernance is IDualGovernance {
     // External Dependencies
     // ---
 
-    /// @notice The external dependencies of the Dual Governance system.
+    /// @notice Token addresses that used in the Dual Governance as signalling tokens.
     /// @param stETH The address of the stETH token.
     /// @param wstETH The address of the wstETH token.
     /// @param withdrawalQueue The address of Lido's Withdrawal Queue and the unstETH token.
-    /// @param timelock The address of the Timelock contract.
-    /// @param resealManager The address of the Reseal Manager.
-    /// @param configProvider The address of the Dual Governance Config Provider.
-    struct ExternalDependencies {
+    struct SignallingTokens {
         IStETH stETH;
         IWstETH wstETH;
         IWithdrawalQueue withdrawalQueue;
+    }
+
+    /// @notice Dependencies required by the Dual Governance contract.
+    /// @param timelock The address of the Timelock contract.
+    /// @param resealManager The address of the Reseal Manager.
+    /// @param configProvider The address of the Dual Governance Config Provider.
+    struct DualGovernanceComponents {
         ITimelock timelock;
         IResealManager resealManager;
         IDualGovernanceConfigProvider configProvider;
@@ -136,12 +144,18 @@ contract DualGovernance is IDualGovernance {
     // Constructor
     // ---
 
-    constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
+    constructor(
+        DualGovernanceComponents memory components,
+        SignallingTokens memory signallingTokens,
+        SanityCheckParams memory sanityCheckParams
+    ) {
         if (sanityCheckParams.minTiebreakerActivationTimeout > sanityCheckParams.maxTiebreakerActivationTimeout) {
-            revert InvalidTiebreakerActivationTimeoutBounds();
+            revert InvalidTiebreakerActivationTimeoutBounds(
+                sanityCheckParams.minTiebreakerActivationTimeout, sanityCheckParams.maxTiebreakerActivationTimeout
+            );
         }
 
-        TIMELOCK = dependencies.timelock;
+        TIMELOCK = components.timelock;
 
         MIN_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.minTiebreakerActivationTimeout;
         MAX_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.maxTiebreakerActivationTimeout;
@@ -149,16 +163,17 @@ contract DualGovernance is IDualGovernance {
 
         IEscrowBase escrowMasterCopy = new Escrow({
             dualGovernance: this,
-            stETH: dependencies.stETH,
-            wstETH: dependencies.wstETH,
-            withdrawalQueue: dependencies.withdrawalQueue,
-            minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize
+            stETH: signallingTokens.stETH,
+            wstETH: signallingTokens.wstETH,
+            withdrawalQueue: signallingTokens.withdrawalQueue,
+            minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize,
+            maxMinAssetsLockDuration: sanityCheckParams.maxMinAssetsLockDuration
         });
 
         emit EscrowMasterCopyDeployed(escrowMasterCopy);
 
-        _stateMachine.initialize(dependencies.configProvider, escrowMasterCopy);
-        _resealer.setResealManager(address(dependencies.resealManager));
+        _stateMachine.initialize(components.configProvider, escrowMasterCopy);
+        _resealer.setResealManager(components.resealManager);
     }
 
     // ---
@@ -521,7 +536,7 @@ contract DualGovernance is IDualGovernance {
 
     /// @notice Sets the address of the Reseal Manager.
     /// @param newResealManager The address of the new Reseal Manager.
-    function setResealManager(address newResealManager) external {
+    function setResealManager(IResealManager newResealManager) external {
         _checkCallerIsAdminExecutor();
         _resealer.setResealManager(newResealManager);
     }

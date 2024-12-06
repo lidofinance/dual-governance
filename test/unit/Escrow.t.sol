@@ -45,6 +45,7 @@ contract EscrowUnitTests is UnitTest {
     WithdrawalQueueMock private _withdrawalQueue;
 
     Duration private _minLockAssetDuration = Durations.from(1 days);
+    Duration private _maxMinAssetsLockDuration = Durations.from(100 days);
     uint256 private stethAmount = 100 ether;
 
     function setUp() external {
@@ -53,7 +54,7 @@ contract EscrowUnitTests is UnitTest {
         _wstETH = new WstETHMock(_stETH);
         _withdrawalQueue = new WithdrawalQueueMock(_stETH);
         _withdrawalQueue.setMaxStETHWithdrawalAmount(1_000 ether);
-        _masterCopy = _createEscrow(100);
+        _masterCopy = _createEscrow(100, _maxMinAssetsLockDuration);
         _escrow =
             _createInitializedEscrowProxy({minWithdrawalsBatchSize: 100, minAssetsLockDuration: _minLockAssetDuration});
 
@@ -92,10 +93,16 @@ contract EscrowUnitTests is UnitTest {
         address wsteth,
         address withdrawalQueue,
         address dualGovernance,
-        uint256 size
+        uint256 size,
+        Duration maxMinAssetsLockDuration
     ) external {
         Escrow instance = new Escrow(
-            IStETH(steth), IWstETH(wsteth), IWithdrawalQueue(withdrawalQueue), IDualGovernance(dualGovernance), size
+            IStETH(steth),
+            IWstETH(wsteth),
+            IWithdrawalQueue(withdrawalQueue),
+            IDualGovernance(dualGovernance),
+            size,
+            maxMinAssetsLockDuration
         );
 
         assertEq(address(instance.ST_ETH()), address(steth));
@@ -103,6 +110,7 @@ contract EscrowUnitTests is UnitTest {
         assertEq(address(instance.WITHDRAWAL_QUEUE()), address(withdrawalQueue));
         assertEq(address(instance.DUAL_GOVERNANCE()), address(dualGovernance));
         assertEq(instance.MIN_WITHDRAWALS_BATCH_SIZE(), size);
+        assertEq(instance.MAX_MIN_ASSETS_LOCK_DURATION(), maxMinAssetsLockDuration);
     }
 
     // ---
@@ -124,7 +132,7 @@ contract EscrowUnitTests is UnitTest {
     }
 
     function test_initialize_RevertOn_CalledNotViaProxy() external {
-        Escrow instance = _createEscrow(100);
+        Escrow instance = _createEscrow(100, _maxMinAssetsLockDuration);
 
         vm.expectRevert(Escrow.NonProxyCallsForbidden.selector);
         instance.initialize(Durations.ZERO);
@@ -1744,12 +1752,14 @@ contract EscrowUnitTests is UnitTest {
     // helper methods
     // ---
 
-    function _createEscrow(uint256 size) internal returns (Escrow) {
-        return new Escrow(_stETH, _wstETH, _withdrawalQueue, IDualGovernance(_dualGovernance), size);
+    function _createEscrow(uint256 size, Duration maxMinAssetsLockDuration) internal returns (Escrow) {
+        return new Escrow(
+            _stETH, _wstETH, _withdrawalQueue, IDualGovernance(_dualGovernance), size, maxMinAssetsLockDuration
+        );
     }
 
     function _createEscrowProxy(uint256 minWithdrawalsBatchSize) internal returns (Escrow) {
-        Escrow masterCopy = _createEscrow(minWithdrawalsBatchSize);
+        Escrow masterCopy = _createEscrow(minWithdrawalsBatchSize, _maxMinAssetsLockDuration);
         return Escrow(payable(Clones.clone(address(masterCopy))));
     }
 

@@ -102,13 +102,17 @@ contract EscrowStateUnitTests is UnitTest {
     // setMinAssetsLockDuration()
     // ---
 
-    function test_setMinAssetsLockDuration_happyPath(Duration minAssetsLockDuration) external {
+    function testFuzz_setMinAssetsLockDuration_happyPath(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
         vm.assume(minAssetsLockDuration != Durations.ZERO);
+        vm.assume(minAssetsLockDuration <= maxMinAssetsLockDuration);
 
         vm.expectEmit();
         emit EscrowState.MinAssetsLockDurationSet(minAssetsLockDuration);
 
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
 
         checkContext({
             state: State.NotInitialized,
@@ -119,13 +123,25 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
         _context.minAssetsLockDuration = minAssetsLockDuration;
 
         vm.expectRevert(
             abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
         );
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, Durations.from(MAX_DURATION_VALUE));
+    }
+
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationGreaterThenMaxMinAssetsLockDuration(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(minAssetsLockDuration > maxMinAssetsLockDuration);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
+        );
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
     }
 
     // ---

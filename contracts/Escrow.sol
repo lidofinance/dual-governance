@@ -61,6 +61,9 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     ///     the `Escrow.requestNextWithdrawalsBatch(batchSize)` method.
     uint256 public immutable MIN_WITHDRAWALS_BATCH_SIZE;
 
+    /// @notice The maximum duration that can be set as the minimum assets lock duration.
+    Duration public immutable MAX_MIN_ASSETS_LOCK_DURATION;
+
     // ---
     // Dependencies Immutables
     // ---
@@ -109,7 +112,8 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         IWstETH wstETH,
         IWithdrawalQueue withdrawalQueue,
         IDualGovernance dualGovernance,
-        uint256 minWithdrawalsBatchSize
+        uint256 minWithdrawalsBatchSize,
+        Duration maxMinAssetsLockDuration
     ) {
         ESCROW_MASTER_COPY = this;
         DUAL_GOVERNANCE = dualGovernance;
@@ -119,6 +123,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         WITHDRAWAL_QUEUE = withdrawalQueue;
 
         MIN_WITHDRAWALS_BATCH_SIZE = minWithdrawalsBatchSize;
+        MAX_MIN_ASSETS_LOCK_DURATION = maxMinAssetsLockDuration;
     }
 
     // ---
@@ -304,7 +309,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
         _checkCallerIsDualGovernance();
-        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration);
+        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration, MAX_MIN_ASSETS_LOCK_DURATION);
     }
 
     // ---
