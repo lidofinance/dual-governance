@@ -105,15 +105,15 @@ contract EscrowStateUnitTests is UnitTest {
 
     function testFuzz_setMinAssetsLockDuration_happyPath(
         Duration minAssetsLockDuration,
-        Duration maxAssetsLockDuration
+        Duration maxMinAssetsLockDuration
     ) external {
         vm.assume(minAssetsLockDuration != Durations.ZERO);
-        vm.assume(minAssetsLockDuration <= maxAssetsLockDuration);
+        vm.assume(minAssetsLockDuration <= maxMinAssetsLockDuration);
 
         vm.expectEmit();
         emit EscrowState.MinAssetsLockDurationSet(minAssetsLockDuration);
 
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
 
         checkContext({
             state: State.NotInitialized,
@@ -133,16 +133,16 @@ contract EscrowStateUnitTests is UnitTest {
         EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, Durations.from(type(uint16).max));
     }
 
-    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationGreaterThenMaxAssetsLockDuration(
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationGreaterThenmaxMinAssetsLockDuration(
         Duration minAssetsLockDuration,
-        Duration maxAssetsLockDuration
+        Duration maxMinAssetsLockDuration
     ) external {
-        vm.assume(minAssetsLockDuration > maxAssetsLockDuration);
+        vm.assume(minAssetsLockDuration > maxMinAssetsLockDuration);
 
         vm.expectRevert(
             abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
         );
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
     }
 
     // ---

@@ -69,13 +69,13 @@ contract DualGovernance is IDualGovernance {
     /// @param maxSealableWithdrawalBlockersCount The upper bound for the number of sealable withdrawal blockers allowed to be
     ///     registered in the Dual Governance. This parameter prevents filling the sealable withdrawal blockers
     ///     with so many items that tiebreaker calls would revert due to out-of-gas errors.
-    /// @param maxAssetsLockDuration The maximum duration for which assets can be locked in the Rage Quit Escrow contract.
+    /// @param maxMinAssetsLockDuration The upper bound for the minimum duration of assets lock in the Escrow.
     struct SanityCheckParams {
         uint256 minWithdrawalsBatchSize;
         Duration minTiebreakerActivationTimeout;
         Duration maxTiebreakerActivationTimeout;
         uint256 maxSealableWithdrawalBlockersCount;
-        Duration maxAssetsLockDuration;
+        Duration maxMinAssetsLockDuration;
     }
 
     /// @notice The lower bound for the time the Dual Governance must spend in the "locked" state
@@ -95,7 +95,7 @@ contract DualGovernance is IDualGovernance {
     // External Dependencies
     // ---
 
-    /// @notice Token addresses tha used in the Dual Governance as signalling tokens.
+    /// @notice Token addresses that used in the Dual Governance as signalling tokens.
     /// @param stETH The address of the stETH token.
     /// @param wstETH The address of the wstETH token.
     /// @param withdrawalQueue The address of Lido's Withdrawal Queue and the unstETH token.
@@ -167,7 +167,7 @@ contract DualGovernance is IDualGovernance {
             wstETH: signallingTokens.wstETH,
             withdrawalQueue: signallingTokens.withdrawalQueue,
             minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize,
-            maxAssetsLockDuration: sanityCheckParams.maxAssetsLockDuration
+            maxMinAssetsLockDuration: sanityCheckParams.maxMinAssetsLockDuration
         });
         emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 

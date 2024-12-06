@@ -32,8 +32,6 @@ interface IEscrow {
 
     function initialize(Duration minAssetsLockDuration) external;
 
-    function MAX_ASSETS_LOCK_DURATION() external view returns (Duration);
-
     function lockStETH(uint256 amount) external returns (uint256 lockedStETHShares);
     function unlockStETH() external returns (uint256 unlockedStETHShares);
     function lockWstETH(uint256 amount) external returns (uint256 lockedStETHShares);

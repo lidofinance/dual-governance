@@ -59,7 +59,7 @@ contract Escrow is IEscrow {
     uint256 public immutable MIN_WITHDRAWALS_BATCH_SIZE;
 
     /// @notice The maximum duration that can be set as the minimum assets lock duration.
-    Duration public immutable MAX_ASSETS_LOCK_DURATION;
+    Duration public immutable MAX_MIN_ASSETS_LOCK_DURATION;
 
     // ---
     // Dependencies Immutables
@@ -108,7 +108,7 @@ contract Escrow is IEscrow {
         IWithdrawalQueue withdrawalQueue,
         IDualGovernance dualGovernance,
         uint256 minWithdrawalsBatchSize,
-        Duration maxAssetsLockDuration
+        Duration maxMinAssetsLockDuration
     ) {
         _SELF = address(this);
         DUAL_GOVERNANCE = dualGovernance;
@@ -118,7 +118,7 @@ contract Escrow is IEscrow {
         WITHDRAWAL_QUEUE = withdrawalQueue;
 
         MIN_WITHDRAWALS_BATCH_SIZE = minWithdrawalsBatchSize;
-        MAX_ASSETS_LOCK_DURATION = maxAssetsLockDuration;
+        MAX_MIN_ASSETS_LOCK_DURATION = maxMinAssetsLockDuration;
     }
 
     /// @notice Initializes the proxy instance with the specified minimum assets lock duration.
@@ -437,7 +437,7 @@ contract Escrow is IEscrow {
     /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
         _checkCallerIsDualGovernance();
-        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration, MAX_ASSETS_LOCK_DURATION);
+        _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration, MAX_MIN_ASSETS_LOCK_DURATION);
     }
 
     // ---

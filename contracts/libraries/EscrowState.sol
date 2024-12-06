@@ -103,14 +103,16 @@ library EscrowState {
     /// @notice Sets the minimum assets lock duration.
     /// @param self The context of the Escrow State library.
     /// @param newMinAssetsLockDuration The new minimum assets lock duration.
-    /// @param maxAssetsLockDuration Sanity check for max assets lock duration.
+    /// @param maxMinAssetsLockDuration Sanity check for max assets lock duration.
     function setMinAssetsLockDuration(
         Context storage self,
         Duration newMinAssetsLockDuration,
-        Duration maxAssetsLockDuration
+        Duration maxMinAssetsLockDuration
     ) internal {
-        if (self.minAssetsLockDuration == newMinAssetsLockDuration || newMinAssetsLockDuration > maxAssetsLockDuration)
-        {
+        if (
+            self.minAssetsLockDuration == newMinAssetsLockDuration
+                || newMinAssetsLockDuration > maxMinAssetsLockDuration
+        ) {
             revert InvalidMinAssetsLockDuration(newMinAssetsLockDuration);
         }
         _setMinAssetsLockDuration(self, newMinAssetsLockDuration);

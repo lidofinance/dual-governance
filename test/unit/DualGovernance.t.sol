@@ -88,7 +88,7 @@ contract DualGovernanceUnitTests is UnitTest {
         minTiebreakerActivationTimeout: Durations.from(30 days),
         maxTiebreakerActivationTimeout: Durations.from(180 days),
         maxSealableWithdrawalBlockersCount: 128,
-        maxAssetsLockDuration: Durations.from(365 days)
+        maxMinAssetsLockDuration: Durations.from(365 days)
     });
 
     DualGovernance internal _dualGovernance = new DualGovernance({
@@ -178,7 +178,7 @@ contract DualGovernanceUnitTests is UnitTest {
         Duration minTiebreakerActivationTimeout = Durations.from(30 days);
         Duration maxTiebreakerActivationTimeout = Durations.from(180 days);
         uint256 maxSealableWithdrawalBlockersCount = 128;
-        Duration maxAssetsLockDuration = Durations.from(365 days);
+        Duration maxMinAssetsLockDuration = Durations.from(365 days);
 
         DualGovernance dualGovernanceLocal = new DualGovernance({
             components: DualGovernance.DualGovernanceComponents({
@@ -196,7 +196,7 @@ contract DualGovernanceUnitTests is UnitTest {
                 minTiebreakerActivationTimeout: minTiebreakerActivationTimeout,
                 maxTiebreakerActivationTimeout: maxTiebreakerActivationTimeout,
                 maxSealableWithdrawalBlockersCount: maxSealableWithdrawalBlockersCount,
-                maxAssetsLockDuration: maxAssetsLockDuration
+                maxMinAssetsLockDuration: maxMinAssetsLockDuration
             })
         });
 
@@ -205,7 +205,9 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(dualGovernanceLocal.MAX_TIEBREAKER_ACTIVATION_TIMEOUT(), maxTiebreakerActivationTimeout);
         assertEq(dualGovernanceLocal.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT(), maxSealableWithdrawalBlockersCount);
         assertEq(address(dualGovernanceLocal.ESCROW_MASTER_COPY()), predictedEscrowCopyAddress);
-        assertEq(dualGovernanceLocal.ESCROW_MASTER_COPY().MAX_ASSETS_LOCK_DURATION(), maxAssetsLockDuration);
+
+        address payable escrowMasterCopyAddress = payable(address(dualGovernanceLocal.ESCROW_MASTER_COPY()));
+        assertEq(Escrow(escrowMasterCopyAddress).MAX_MIN_ASSETS_LOCK_DURATION(), maxMinAssetsLockDuration);
     }
 
     // ---
