@@ -141,6 +141,18 @@ contract EscrowUnitTests is UnitTest {
     }
 
     // ---
+    // getEscrowState()
+    // ---
+
+    function test_getEscrowState_HappyPath() external {
+        assertTrue(_masterCopy.getEscrowState() == EscrowState.NotInitialized);
+        assertTrue(_escrow.getEscrowState() == EscrowState.SignallingEscrow);
+
+        _transitToRageQuit();
+        assertTrue(_escrow.getEscrowState() == EscrowState.RageQuitEscrow);
+    }
+
+    // ---
     // lockStETH()
     // ---
 

@@ -389,7 +389,8 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     {
         unstETHDetails = new LockedUnstETHDetails[](unstETHIds.length);
 
-        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+        uint256 unstETHIdsCount = unstETHIds.length;
+        for (uint256 i = 0; i < unstETHIdsCount; ++i) {
             unstETHDetails[i] = _accounting.getLockedUnstETHDetails(unstETHIds[i]);
         }
     }
