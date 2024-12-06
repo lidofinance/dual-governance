@@ -14,8 +14,8 @@ import {
 } from "../utils/scenario-test-blueprint.sol";
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
-import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
+import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 
 contract PlanBSetup is ScenarioTestBlueprint {
     function setUp() external {
@@ -380,12 +380,18 @@ contract PlanBSetup is ScenarioTestBlueprint {
             _assertProposalCancelled(anotherMaliciousProposalId);
 
             vm.expectRevert(
-                abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, maliciousProposalId)
+                abi.encodeWithSelector(
+                    ExecutableProposals.UnexpectedProposalStatus.selector, maliciousProposalId, ProposalStatus.Cancelled
+                )
             );
             _executeProposal(maliciousProposalId);
 
             vm.expectRevert(
-                abi.encodeWithSelector(ExecutableProposals.ProposalNotScheduled.selector, anotherMaliciousProposalId)
+                abi.encodeWithSelector(
+                    ExecutableProposals.UnexpectedProposalStatus.selector,
+                    anotherMaliciousProposalId,
+                    ProposalStatus.Cancelled
+                )
             );
             _executeProposal(anotherMaliciousProposalId);
         }

@@ -79,9 +79,7 @@ library ExecutableProposals {
     // ---
 
     error EmptyCalls();
-    error ProposalNotFound(uint256 proposalId);
-    error ProposalNotScheduled(uint256 proposalId);
-    error ProposalNotSubmitted(uint256 proposalId);
+    error UnexpectedProposalStatus(uint256 proposalId, Status status);
     error AfterSubmitDelayNotPassed(uint256 proposalId);
     error AfterScheduleDelayNotPassed(uint256 proposalId);
 
@@ -141,19 +139,21 @@ library ExecutableProposals {
     /// @param afterSubmitDelay The required delay duration after submission before the proposal can be scheduled.
     ///
     function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
-        ProposalData memory proposalState = self.proposals[proposalId].data;
+        ProposalData memory proposalData = self.proposals[proposalId].data;
 
-        if (!_isProposalSubmitted(self, proposalId, proposalState)) {
-            revert ProposalNotSubmitted(proposalId);
+        _checkProposalNotCancelled(self, proposalId, proposalData);
+
+        if (proposalData.status != Status.Submitted) {
+            revert UnexpectedProposalStatus(proposalId, proposalData.status);
         }
 
-        if (afterSubmitDelay.addTo(proposalState.submittedAt) > Timestamps.now()) {
+        if (afterSubmitDelay.addTo(proposalData.submittedAt) > Timestamps.now()) {
             revert AfterSubmitDelayNotPassed(proposalId);
         }
 
-        proposalState.status = Status.Scheduled;
-        proposalState.scheduledAt = Timestamps.now();
-        self.proposals[proposalId].data = proposalState;
+        proposalData.status = Status.Scheduled;
+        proposalData.scheduledAt = Timestamps.now();
+        self.proposals[proposalId].data = proposalData;
 
         emit ProposalScheduled(proposalId);
     }
@@ -166,8 +166,10 @@ library ExecutableProposals {
     function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
-        if (!_isProposalScheduled(self, proposalId, proposal.data)) {
-            revert ProposalNotScheduled(proposalId);
+        _checkProposalNotCancelled(self, proposalId, proposal.data);
+
+        if (proposal.data.status != Status.Scheduled) {
+            revert UnexpectedProposalStatus(proposalId, proposal.data.status);
         }
 
         if (afterScheduleDelay.addTo(proposal.data.scheduledAt) > Timestamps.now()) {
@@ -202,9 +204,9 @@ library ExecutableProposals {
         uint256 proposalId,
         Duration afterScheduleDelay
     ) internal view returns (bool) {
-        ProposalData memory proposalState = self.proposals[proposalId].data;
-        return _isProposalScheduled(self, proposalId, proposalState)
-            && Timestamps.now() >= afterScheduleDelay.addTo(proposalState.scheduledAt);
+        ProposalData memory proposalData = self.proposals[proposalId].data;
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled
+            && Timestamps.now() >= afterScheduleDelay.addTo(proposalData.scheduledAt);
     }
 
     /// @notice Determines whether a proposal is eligible to be scheduled based on its status and required delay.
@@ -217,9 +219,9 @@ library ExecutableProposals {
         uint256 proposalId,
         Duration afterSubmitDelay
     ) internal view returns (bool) {
-        ProposalData memory proposalState = self.proposals[proposalId].data;
-        return _isProposalSubmitted(self, proposalId, proposalState)
-            && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
+        ProposalData memory proposalData = self.proposals[proposalId].data;
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted
+            && Timestamps.now() >= afterSubmitDelay.addTo(proposalData.submittedAt);
     }
 
     /// @notice Returns the total count of submitted proposals.
@@ -268,24 +270,18 @@ library ExecutableProposals {
 
     function _checkProposalExists(uint256 proposalId, ProposalData memory proposalData) private pure {
         if (proposalData.status == Status.NotExist) {
-            revert ProposalNotFound(proposalId);
+            revert UnexpectedProposalStatus(proposalId, Status.NotExist);
         }
     }
 
-    function _isProposalSubmitted(
+    function _checkProposalNotCancelled(
         Context storage self,
         uint256 proposalId,
         ProposalData memory proposalData
-    ) private view returns (bool) {
-        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted;
-    }
-
-    function _isProposalScheduled(
-        Context storage self,
-        uint256 proposalId,
-        ProposalData memory proposalData
-    ) private view returns (bool) {
-        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled;
+    ) private view {
+        if (_isProposalCancelled(self, proposalId, proposalData)) {
+            revert UnexpectedProposalStatus(proposalId, Status.Cancelled);
+        }
     }
 
     function _isProposalCancelled(

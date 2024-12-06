@@ -197,7 +197,9 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
         _step("7. After the update malicious proposal is cancelled and can't be executed via new DualGovernance");
         {
             vm.expectRevert(
-                abi.encodeWithSelector(ExecutableProposals.ProposalNotSubmitted.selector, maliciousProposalId)
+                abi.encodeWithSelector(
+                    ExecutableProposals.UnexpectedProposalStatus.selector, maliciousProposalId, ProposalStatus.Cancelled
+                )
             );
             newDualGovernanceInstance.scheduleProposal(maliciousProposalId);
 
