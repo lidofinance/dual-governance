@@ -104,14 +104,14 @@ abstract contract HashConsensus is Ownable {
 
     /// @notice Sets the timelock duration
     /// @dev Only callable by the owner
-    /// @param timelock The new timelock duration in seconds
-    function setTimelockDuration(Duration timelock) external {
+    /// @param newTimelock The new timelock duration in seconds
+    function setTimelockDuration(Duration newTimelock) external {
         _checkOwner();
-        if (timelock == _timelockDuration) {
-            revert InvalidTimelockDuration(timelock);
+        if (newTimelock == _timelockDuration) {
+            revert InvalidTimelockDuration(newTimelock);
         }
-        _timelockDuration = timelock;
-        emit TimelockDurationSet(timelock);
+        _timelockDuration = newTimelock;
+        emit TimelockDurationSet(newTimelock);
     }
 
     /// @notice Gets the quorum value
