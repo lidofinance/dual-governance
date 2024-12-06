@@ -216,7 +216,7 @@ library WithdrawalsBatchesQueue {
         return self.info.totalUnstETHIdsCount - self.info.totalUnstETHIdsClaimed;
     }
 
-    /// @notice Returns the ID of the boundary unstETH.
+    /// @notice Returns the id of the boundary unstETH.
     /// @dev Reverts with an index OOB error if called when the `WithdrawalsBatchesQueue` is in the
     ///     `NotInitialized` state.
     /// @param self The context of the Withdrawals Batches Queue library.

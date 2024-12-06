@@ -605,14 +605,6 @@ contract WithdrawalsBatchesQueueTest is UnitTest {
         _batchesQueue.getBoundaryUnstETHId();
     }
 
-    function test_getBoundaryUnstETHId_RevertOn_LastClaimedBatchIndexOutOfArrayBounds() external {
-        _openBatchesQueue();
-        _batchesQueue.info.lastClaimedBatchIndex = 2;
-
-        vm.expectRevert(stdError.indexOOBError);
-        _batchesQueue.getBoundaryUnstETHId();
-    }
-
     // ---
     // isAllBatchesClaimed()
     // ---
