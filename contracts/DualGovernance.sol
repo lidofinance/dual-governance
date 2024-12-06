@@ -416,7 +416,7 @@ contract DualGovernance is IDualGovernance {
     /// @param proposerAccount The address to check.
     /// @return isProposer A boolean value indicating whether the `proposerAccount` is a registered
     ///     proposer (`true`) or not (`false`).
-    function isRegisteredProposer(address proposerAccount) external view returns (bool) {
+    function isProposer(address proposerAccount) external view returns (bool) {
         return _proposers.isRegisteredProposer(proposerAccount);
     }
 
@@ -424,7 +424,7 @@ contract DualGovernance is IDualGovernance {
     /// @param executor The address to check.
     /// @return isExecutor A boolean value indicating whether the `executor` is a registered
     ///     executor (`true`) or not (`false`).
-    function isRegisteredExecutor(address executor) external view returns (bool) {
+    function isExecutor(address executor) external view returns (bool) {
         return _proposers.isRegisteredExecutor(executor);
     }
 
