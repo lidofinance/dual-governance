@@ -14,7 +14,10 @@ import {Tiebreaker} from "contracts/libraries/Tiebreaker.sol";
 import {Resealer} from "contracts/libraries/Resealer.sol";
 import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
+
+import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 import {IResealManager} from "contracts/interfaces/IResealManager.sol";
+
 import {
     DualGovernanceConfig,
     IDualGovernanceConfigProvider,
@@ -191,13 +194,15 @@ contract DualGovernanceUnitTests is UnitTest {
     function test_submitProposal_HappyPath() external {
         ExternalCall[] memory calls = _generateExternalCalls();
         Proposers.Proposer memory proposer = _dualGovernance.getProposer(address(this));
-        vm.expectCall(
-            address(_timelock),
-            0,
-            abi.encodeWithSelector(TimelockMock.submit.selector, address(this), proposer.executor, calls, "")
-        );
+        vm.expectCall(address(_timelock), 0, abi.encodeCall(TimelockMock.submit, (proposer.executor, calls)));
 
-        uint256 proposalId = _dualGovernance.submitProposal(calls, "");
+        uint256 expectedProposalId = 1;
+        string memory metadata = "New proposal description";
+
+        vm.expectEmit();
+        emit IGovernance.ProposalReported(proposer.account, expectedProposalId, metadata);
+
+        uint256 proposalId = _dualGovernance.submitProposal(calls, metadata);
         uint256[] memory submittedProposals = _timelock.getSubmittedProposals();
 
         assertEq(submittedProposals.length, 1);
@@ -2384,8 +2389,7 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function _submitMockProposal() internal {
-        // mock timelock doesn't uses proposal data
-        _timelock.submit(msg.sender, address(0), new ExternalCall[](0), "");
+        _timelock.submit(address(0), new ExternalCall[](0));
     }
 
     function _scheduleProposal(uint256 proposalId, Timestamp submittedAt) internal {

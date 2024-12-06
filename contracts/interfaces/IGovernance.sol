@@ -6,6 +6,8 @@ import {ITimelock} from "./ITimelock.sol";
 import {ExternalCall} from "../libraries/ExternalCalls.sol";
 
 interface IGovernance {
+    event ProposalReported(address indexed proposerAccount, uint256 indexed proposalId, string metadata);
+
     function TIMELOCK() external view returns (ITimelock);
     function submitProposal(
         ExternalCall[] calldata calls,

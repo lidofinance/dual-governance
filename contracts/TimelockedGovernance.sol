@@ -51,7 +51,8 @@ contract TimelockedGovernance is IGovernance {
         string calldata metadata
     ) external returns (uint256 proposalId) {
         _checkCallerIsGovernance();
-        return TIMELOCK.submit(msg.sender, TIMELOCK.getAdminExecutor(), calls, metadata);
+        proposalId = TIMELOCK.submit(TIMELOCK.getAdminExecutor(), calls);
+        emit ProposalReported(msg.sender, proposalId, metadata);
     }
 
     /// @notice Schedules a submitted proposal.

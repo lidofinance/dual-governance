@@ -89,9 +89,7 @@ library ExecutableProposals {
     // Events
     // ---
 
-    event ProposalSubmitted(
-        uint256 indexed id, address indexed proposer, address indexed executor, ExternalCall[] calls, string metadata
-    );
+    event ProposalSubmitted(uint256 indexed id, address indexed executor, ExternalCall[] calls);
     event ProposalScheduled(uint256 indexed id);
     event ProposalExecuted(uint256 indexed id);
     event ProposalsCancelledTill(uint256 proposalId);
@@ -102,17 +100,13 @@ library ExecutableProposals {
 
     /// @notice Submits a new proposal with the specified executor and external calls.
     /// @param self The context of the Executable Proposal library.
-    /// @param proposer The address of the proposer submitting the proposal.
     /// @param executor The address authorized to execute the proposal.
     /// @param calls The list of external calls to include in the proposal.
-    /// @param metadata Metadata describing the proposal.
     /// @return newProposalId The id of the newly submitted proposal.
     function submit(
         Context storage self,
-        address proposer,
         address executor,
-        ExternalCall[] memory calls,
-        string memory metadata
+        ExternalCall[] memory calls
     ) internal returns (uint256 newProposalId) {
         if (calls.length == 0) {
             revert EmptyCalls();
@@ -131,7 +125,7 @@ library ExecutableProposals {
             newProposal.calls.push(calls[i]);
         }
 
-        emit ProposalSubmitted(newProposalId, proposer, executor, calls, metadata);
+        emit ProposalSubmitted(newProposalId, executor, calls);
     }
 
     /// @notice Marks a previously submitted proposal as scheduled for execution if the required delay period
