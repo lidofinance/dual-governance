@@ -7,12 +7,13 @@ import {Duration, Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
-
-import {IEscrow} from "contracts/interfaces/IEscrow.sol";
-import {Escrow, WithdrawalsBatchesQueue} from "contracts/Escrow.sol";
+import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
+
+import {Escrow} from "contracts/Escrow.sol";
 
 import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
 
@@ -220,22 +221,22 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        IEscrow.VetoerState memory vetoerState = escrow.getVetoerState(_VETOER_1);
-        assertEq(vetoerState.unstETHIdsCount, 2);
+        Escrow.VetoerDetails memory vetoerDetails = escrow.getVetoerDetails(_VETOER_1);
+        assertEq(vetoerDetails.unstETHIdsCount, 2);
 
-        IEscrow.LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
-        assertEq(totals.unstETHFinalizedETH, 0);
-        assertEq(totals.unstETHUnfinalizedShares, totalSharesLocked);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetails = escrow.getSignallingEscrowDetails();
+        assertEq(escrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
+        assertEq(escrowDetails.totalUnstETHUnfinalizedShares.toUint256(), totalSharesLocked);
 
         _finalizeWithdrawalQueue(unstETHIds[0]);
         uint256[] memory hints =
             _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
         escrow.markUnstETHFinalized(unstETHIds, hints);
 
-        totals = escrow.getLockedAssetsTotals();
-        assertEq(totals.unstETHUnfinalizedShares, statuses[0].amountOfShares);
+        escrowDetails = escrow.getSignallingEscrowDetails();
+        assertEq(escrowDetails.totalUnstETHUnfinalizedShares.toUint256(), statuses[0].amountOfShares);
         uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(totals.unstETHFinalizedETH, ethAmountFinalized, 1);
+        assertApproxEqAbs(escrowDetails.totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, 1);
     }
 
     function test_get_rage_quit_support() public {
@@ -257,8 +258,8 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         uint256 totalSupply = _lido.stETH.totalSupply();
 
         // epsilon is 2 here, because the wstETH unwrap may produce 1 wei error and stETH transfer 1 wei
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).stETHLockedShares, 2 * sharesToLock, 2);
-        assertEq(escrow.getVetoerState(_VETOER_1).unstETHIdsCount, 2);
+        assertApproxEqAbs(escrow.getVetoerDetails(_VETOER_1).stETHLockedShares.toUint256(), 2 * sharesToLock, 2);
+        assertEq(escrow.getVetoerDetails(_VETOER_1).unstETHIdsCount, 2);
 
         assertEq(escrow.getRageQuitSupport(), PercentsD16.fromFraction({numerator: 4 ether, denominator: totalSupply}));
 
@@ -267,10 +268,12 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
             _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
         escrow.markUnstETHFinalized(unstETHIds, hints);
 
-        assertEq(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, sharesToLock);
+        assertEq(escrow.getSignallingEscrowDetails().totalUnstETHUnfinalizedShares.toUint256(), sharesToLock);
 
         uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHFinalizedETH, ethAmountFinalized, 1);
+        assertApproxEqAbs(
+            escrow.getSignallingEscrowDetails().totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, 1
+        );
 
         assertEq(
             escrow.getRageQuitSupport(),

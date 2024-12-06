@@ -26,7 +26,7 @@ import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
-import {IEscrow} from "contracts/interfaces/IEscrow.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {StETHMock} from "test/mocks/StETHMock.sol";
@@ -171,7 +171,7 @@ contract DualGovernanceUnitTests is UnitTest {
         address predictedEscrowCopyAddress = computeAddress(predictedDualGovernanceAddress, 1);
 
         vm.expectEmit();
-        emit DualGovernance.EscrowMasterCopyDeployed(IEscrow(predictedEscrowCopyAddress));
+        emit DualGovernance.EscrowMasterCopyDeployed(IEscrowBase(predictedEscrowCopyAddress));
         vm.expectEmit();
         emit Resealer.ResealManagerSet(address(_RESEAL_MANAGER_STUB));
 
@@ -200,13 +200,15 @@ contract DualGovernanceUnitTests is UnitTest {
             })
         });
 
+        address payable escrowMasterCopyAddress =
+            payable(address(IEscrowBase(dualGovernanceLocal.getVetoSignallingEscrow()).ESCROW_MASTER_COPY()));
+
         assertEq(address(dualGovernanceLocal.TIMELOCK()), address(_timelock));
         assertEq(dualGovernanceLocal.MIN_TIEBREAKER_ACTIVATION_TIMEOUT(), minTiebreakerActivationTimeout);
         assertEq(dualGovernanceLocal.MAX_TIEBREAKER_ACTIVATION_TIMEOUT(), maxTiebreakerActivationTimeout);
         assertEq(dualGovernanceLocal.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT(), maxSealableWithdrawalBlockersCount);
-        assertEq(address(dualGovernanceLocal.ESCROW_MASTER_COPY()), predictedEscrowCopyAddress);
+        assertEq(escrowMasterCopyAddress, predictedEscrowCopyAddress);
 
-        address payable escrowMasterCopyAddress = payable(address(dualGovernanceLocal.ESCROW_MASTER_COPY()));
         assertEq(Escrow(escrowMasterCopyAddress).MAX_MIN_ASSETS_LOCK_DURATION(), maxMinAssetsLockDuration);
     }
 
@@ -2338,6 +2340,7 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     function testFuzz_setResealCommittee_RevertOn_InvalidResealCommittee(address newResealCommittee) external {
+        vm.assume(_dualGovernance.getResealCommittee() != newResealCommittee);
         _executor.execute(
             address(_dualGovernance),
             0,

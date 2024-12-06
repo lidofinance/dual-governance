@@ -1139,7 +1139,7 @@ Returns if an address is a member.
 ### Function: HashConsensus.setTimelockDuration
 
 ```solidity
-function setTimelockDuration(uint256 timelock)
+function setTimelockDuration(uint256 newTimelock)
 ```
 
 Sets the timelock duration.

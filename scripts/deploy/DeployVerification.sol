@@ -6,6 +6,7 @@ import {Durations} from "contracts/types/Duration.sol";
 import {Executor} from "contracts/Executor.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
@@ -178,7 +179,7 @@ library DeployVerification {
             "Incorrect parameter MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"
         );
 
-        Escrow escrowTemplate = Escrow(payable(address(dg.ESCROW_MASTER_COPY())));
+        Escrow escrowTemplate = Escrow(payable(address(IEscrowBase(dg.getVetoSignallingEscrow()).ESCROW_MASTER_COPY())));
         require(escrowTemplate.DUAL_GOVERNANCE() == dg, "Escrow has incorrect DualGovernance address");
         require(escrowTemplate.ST_ETH() == lidoAddresses.stETH, "Escrow has incorrect StETH address");
         require(escrowTemplate.WST_ETH() == lidoAddresses.wstETH, "Escrow has incorrect WstETH address");
