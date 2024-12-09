@@ -22,7 +22,7 @@ library EmergencyProtection {
     error InvalidEmergencyExecutionCommittee(address committee);
     error InvalidEmergencyModeDuration(Duration value);
     error InvalidEmergencyProtectionEndDate(Timestamp value);
-    error UnexpectedEmergencyModeState(bool value);
+    error UnexpectedEmergencyModeState(bool state);
 
     // ---
     // Events
@@ -197,7 +197,7 @@ library EmergencyProtection {
     /// @param isActive The expected value of the emergency mode.
     function checkEmergencyMode(Context storage self, bool isActive) internal view {
         if (isEmergencyModeActive(self) != isActive) {
-            revert UnexpectedEmergencyModeState(isActive);
+            revert UnexpectedEmergencyModeState(!isActive);
         }
     }
 

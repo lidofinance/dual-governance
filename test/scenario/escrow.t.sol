@@ -6,11 +6,14 @@ import {console} from "forge-std/Test.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
-import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
+import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
+import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
-import {Escrow, VetoerState, LockedAssetsTotals, WithdrawalsBatchesQueue} from "contracts/Escrow.sol";
+import {Escrow} from "contracts/Escrow.sol";
 
 import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
 
@@ -210,29 +213,30 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         uint256[] memory unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
 
         uint256 totalSharesLocked;
-        WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             totalSharesLocked += statuses[i].amountOfShares;
         }
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        VetoerState memory vetoerState = escrow.getVetoerState(_VETOER_1);
-        assertEq(vetoerState.unstETHIdsCount, 2);
+        Escrow.VetoerDetails memory vetoerDetails = escrow.getVetoerDetails(_VETOER_1);
+        assertEq(vetoerDetails.unstETHIdsCount, 2);
 
-        LockedAssetsTotals memory totals = escrow.getLockedAssetsTotals();
-        assertEq(totals.unstETHFinalizedETH, 0);
-        assertEq(totals.unstETHUnfinalizedShares, totalSharesLocked);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetails = escrow.getSignallingEscrowDetails();
+        assertEq(escrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
+        assertEq(escrowDetails.totalUnstETHUnfinalizedShares.toUint256(), totalSharesLocked);
 
         _finalizeWithdrawalQueue(unstETHIds[0]);
         uint256[] memory hints =
             _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
         escrow.markUnstETHFinalized(unstETHIds, hints);
 
-        totals = escrow.getLockedAssetsTotals();
-        assertEq(totals.unstETHUnfinalizedShares, statuses[0].amountOfShares);
+        escrowDetails = escrow.getSignallingEscrowDetails();
+        assertEq(escrowDetails.totalUnstETHUnfinalizedShares.toUint256(), statuses[0].amountOfShares);
         uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(totals.unstETHFinalizedETH, ethAmountFinalized, 1);
+        assertApproxEqAbs(escrowDetails.totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, 1);
     }
 
     function test_get_rage_quit_support() public {
@@ -254,8 +258,8 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         uint256 totalSupply = _lido.stETH.totalSupply();
 
         // epsilon is 2 here, because the wstETH unwrap may produce 1 wei error and stETH transfer 1 wei
-        assertApproxEqAbs(escrow.getVetoerState(_VETOER_1).stETHLockedShares, 2 * sharesToLock, 2);
-        assertEq(escrow.getVetoerState(_VETOER_1).unstETHIdsCount, 2);
+        assertApproxEqAbs(escrow.getVetoerDetails(_VETOER_1).stETHLockedShares.toUint256(), 2 * sharesToLock, 2);
+        assertEq(escrow.getVetoerDetails(_VETOER_1).unstETHIdsCount, 2);
 
         assertEq(escrow.getRageQuitSupport(), PercentsD16.fromFraction({numerator: 4 ether, denominator: totalSupply}));
 
@@ -264,10 +268,12 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
             _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
         escrow.markUnstETHFinalized(unstETHIds, hints);
 
-        assertEq(escrow.getLockedAssetsTotals().unstETHUnfinalizedShares, sharesToLock);
+        assertEq(escrow.getSignallingEscrowDetails().totalUnstETHUnfinalizedShares.toUint256(), sharesToLock);
 
         uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(escrow.getLockedAssetsTotals().unstETHFinalizedETH, ethAmountFinalized, 1);
+        assertApproxEqAbs(
+            escrow.getSignallingEscrowDetails().totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, 1
+        );
 
         assertEq(
             escrow.getRageQuitSupport(),
@@ -322,7 +328,8 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         uint256[] memory unstETHIdsToClaim = escrow.getNextWithdrawalBatch(expectedWithdrawalsBatchesCount);
         // assertEq(total, expectedWithdrawalsBatchesCount);
 
-        WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIdsToClaim);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIdsToClaim);
 
         for (uint256 i = 0; i < statuses.length; ++i) {
             assertTrue(statuses[i].isFinalized);
@@ -389,7 +396,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         escrow.requestNextWithdrawalsBatch(96);
 
-        vm.expectRevert();
+        vm.expectRevert(WithdrawalsBatchesQueue.EmptyBatch.selector);
         escrow.claimNextWithdrawalsBatch(0, new uint256[](0));
 
         escrow.startRageQuitExtensionPeriod();
@@ -481,22 +488,22 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         // After the Escrow enters RageQuitEscrow state, lock/unlock of tokens is forbidden
         // ---
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalLockStETH(_VETOER_1, 1 ether);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalLockWstETH(_VETOER_1, 1 ether);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalLockUnstETH(_VETOER_1, notLockedWithdrawalNfts);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockStETH(_VETOER_1);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockWstETH(_VETOER_1);
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockUnstETH(_VETOER_1, lockedWithdrawalNfts);
     }
 
@@ -540,8 +547,82 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         vm.revertTo(snapshotId);
 
         // The attempt to unlock funds from Escrow will fail
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockStETH(_VETOER_1);
+    }
+
+    function testFork_EdgeCase_frontRunningClaimUnStethFromBatchIsForbidden() external {
+        // Prepare vetoer1 unstETH nft to lock in Escrow
+        uint256 requestAmount = 10 * 1e18;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = requestAmount;
+        vm.prank(_VETOER_1);
+        uint256[] memory unstETHIdsVetoer1 = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
+
+        // Should be the same as vetoer1 unstETH nft
+        uint256 lastRequestIdBeforeBatch = _lido.withdrawalQueue.getLastRequestId();
+
+        // Lock unstETH nfts
+        _lockUnstETH(_VETOER_1, unstETHIdsVetoer1);
+        // Lock stETH to generate batch
+        _lockStETH(_VETOER_1, 20 * requestAmount);
+
+        vm.prank(address(_dualGovernance));
+        escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
+
+        uint256 batchSizeLimit = 16;
+        // Generate batch with stETH locked in Escrow
+        escrow.requestNextWithdrawalsBatch(batchSizeLimit);
+
+        uint256[] memory nextWithdrawalBatch = escrow.getNextWithdrawalBatch(batchSizeLimit);
+        assertEq(nextWithdrawalBatch.length, 1);
+        assertEq(nextWithdrawalBatch[0], _lido.withdrawalQueue.getLastRequestId());
+
+        // Should be the id of unstETH nft in the batch
+        uint256 requestIdFromBatch = nextWithdrawalBatch[0];
+
+        // validate that the new unstEth nft is created
+        assertEq(requestIdFromBatch, lastRequestIdBeforeBatch + 1);
+
+        _finalizeWithdrawalQueue();
+
+        // Check that unstETH nft of vetoer1 could be claimed
+        uint256[] memory unstETHIdsToClaim = new uint256[](1);
+        unstETHIdsToClaim[0] = lastRequestIdBeforeBatch;
+        uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
+            unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
+        );
+        escrow.claimUnstETH(unstETHIdsToClaim, hints);
+
+        // The attempt to claim funds of untEth from Escrow generated batch will fail
+        unstETHIdsToClaim[0] = requestIdFromBatch;
+        hints = _lido.withdrawalQueue.findCheckpointHints(
+            unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetsAccounting.InvalidUnstETHStatus.selector, requestIdFromBatch, UnstETHRecordStatus.NotLocked
+            )
+        );
+        escrow.claimUnstETH(unstETHIdsToClaim, hints);
+
+        // The rage quit process can be successfully finished
+        while (escrow.getUnclaimedUnstETHIdsCount() > 0) {
+            escrow.claimNextWithdrawalsBatch(batchSizeLimit);
+        }
+
+        escrow.startRageQuitExtensionPeriod();
+        assertEq(escrow.isRageQuitFinalized(), false);
+
+        _wait(_RAGE_QUIT_EXTRA_TIMELOCK.plusSeconds(1));
+        assertEq(escrow.isRageQuitFinalized(), true);
+
+        _wait(_RAGE_QUIT_WITHDRAWALS_TIMELOCK.plusSeconds(1));
+
+        vm.startPrank(_VETOER_1);
+        escrow.withdrawETH();
+        escrow.withdrawETH(unstETHIdsVetoer1);
+        vm.stopPrank();
     }
 
     // ---

@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
@@ -43,8 +44,14 @@ contract TimelockedGovernanceUnitTests is UnitTest {
     function test_submit_proposal() external {
         assertEq(_timelock.getSubmittedProposals().length, 0);
 
+        uint256 expectedProposalId = 1;
+        string memory metadata = "proposal description";
+
+        vm.expectEmit();
+        emit IGovernance.ProposalSubmitted(_governance, expectedProposalId, metadata);
+
         vm.prank(_governance);
-        _timelockedGovernance.submitProposal(_getMockTargetRegularStaffCalls(address(0x1)), "");
+        _timelockedGovernance.submitProposal(_getMockTargetRegularStaffCalls(address(0x1)), metadata);
 
         assertEq(_timelock.getSubmittedProposals().length, 1);
     }
@@ -82,6 +89,7 @@ contract TimelockedGovernanceUnitTests is UnitTest {
         _timelock.setSchedule(1);
         _timelockedGovernance.scheduleProposal(1);
 
+        _timelock.setExecutable(1);
         _timelock.execute(1);
 
         assertEq(_timelock.getExecutedProposals().length, 1);

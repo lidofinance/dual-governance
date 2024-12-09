@@ -35,8 +35,6 @@ enum Status {
 /// @notice Manages a collection of proposals with associated external calls stored as Proposal struct.
 ///     Proposals are uniquely identified by sequential ids, starting from one.
 library ExecutableProposals {
-    using ExternalCalls for ExternalCall[];
-
     // ---
     // Data Types
     // ---
@@ -81,9 +79,7 @@ library ExecutableProposals {
     // ---
 
     error EmptyCalls();
-    error ProposalNotFound(uint256 proposalId);
-    error ProposalNotScheduled(uint256 proposalId);
-    error ProposalNotSubmitted(uint256 proposalId);
+    error UnexpectedProposalStatus(uint256 proposalId, Status status);
     error AfterSubmitDelayNotPassed(uint256 proposalId);
     error AfterScheduleDelayNotPassed(uint256 proposalId);
 
@@ -91,11 +87,9 @@ library ExecutableProposals {
     // Events
     // ---
 
-    event ProposalSubmitted(
-        uint256 indexed id, address indexed proposer, address indexed executor, ExternalCall[] calls, string metadata
-    );
+    event ProposalSubmitted(uint256 indexed id, address indexed executor, ExternalCall[] calls);
     event ProposalScheduled(uint256 indexed id);
-    event ProposalExecuted(uint256 indexed id, bytes[] callResults);
+    event ProposalExecuted(uint256 indexed id);
     event ProposalsCancelledTill(uint256 proposalId);
 
     // ---
@@ -104,17 +98,13 @@ library ExecutableProposals {
 
     /// @notice Submits a new proposal with the specified executor and external calls.
     /// @param self The context of the Executable Proposal library.
-    /// @param proposer The address of the proposer submitting the proposal.
     /// @param executor The address authorized to execute the proposal.
     /// @param calls The list of external calls to include in the proposal.
-    /// @param metadata Metadata describing the proposal.
     /// @return newProposalId The id of the newly submitted proposal.
     function submit(
         Context storage self,
-        address proposer,
         address executor,
-        ExternalCall[] memory calls,
-        string memory metadata
+        ExternalCall[] memory calls
     ) internal returns (uint256 newProposalId) {
         if (calls.length == 0) {
             revert EmptyCalls();
@@ -133,7 +123,7 @@ library ExecutableProposals {
             newProposal.calls.push(calls[i]);
         }
 
-        emit ProposalSubmitted(newProposalId, proposer, executor, calls, metadata);
+        emit ProposalSubmitted(newProposalId, executor, calls);
     }
 
     /// @notice Marks a previously submitted proposal as scheduled for execution if the required delay period
@@ -143,19 +133,21 @@ library ExecutableProposals {
     /// @param afterSubmitDelay The required delay duration after submission before the proposal can be scheduled.
     ///
     function schedule(Context storage self, uint256 proposalId, Duration afterSubmitDelay) internal {
-        ProposalData memory proposalState = self.proposals[proposalId].data;
+        ProposalData memory proposalData = self.proposals[proposalId].data;
 
-        if (!_isProposalSubmitted(self, proposalId, proposalState)) {
-            revert ProposalNotSubmitted(proposalId);
+        _checkProposalNotCancelled(self, proposalId, proposalData);
+
+        if (proposalData.status != Status.Submitted) {
+            revert UnexpectedProposalStatus(proposalId, proposalData.status);
         }
 
-        if (afterSubmitDelay.addTo(proposalState.submittedAt) > Timestamps.now()) {
+        if (afterSubmitDelay.addTo(proposalData.submittedAt) > Timestamps.now()) {
             revert AfterSubmitDelayNotPassed(proposalId);
         }
 
-        proposalState.status = Status.Scheduled;
-        proposalState.scheduledAt = Timestamps.now();
-        self.proposals[proposalId].data = proposalState;
+        proposalData.status = Status.Scheduled;
+        proposalData.scheduledAt = Timestamps.now();
+        self.proposals[proposalId].data = proposalData;
 
         emit ProposalScheduled(proposalId);
     }
@@ -168,8 +160,10 @@ library ExecutableProposals {
     function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
-        if (!_isProposalScheduled(self, proposalId, proposal.data)) {
-            revert ProposalNotScheduled(proposalId);
+        _checkProposalNotCancelled(self, proposalId, proposal.data);
+
+        if (proposal.data.status != Status.Scheduled) {
+            revert UnexpectedProposalStatus(proposalId, proposal.data.status);
         }
 
         if (afterScheduleDelay.addTo(proposal.data.scheduledAt) > Timestamps.now()) {
@@ -178,12 +172,8 @@ library ExecutableProposals {
 
         self.proposals[proposalId].data.status = Status.Executed;
 
-        address executor = proposal.data.executor;
-        ExternalCall[] memory calls = proposal.calls;
-
-        bytes[] memory results = calls.execute(IExternalExecutor(executor));
-
-        emit ProposalExecuted(proposalId, results);
+        ExternalCalls.execute(IExternalExecutor(proposal.data.executor), proposal.calls);
+        emit ProposalExecuted(proposalId);
     }
 
     /// @notice Marks all non-executed proposals up to the most recently submitted as canceled, preventing their execution.
@@ -198,21 +188,6 @@ library ExecutableProposals {
     // Getters
     // ---
 
-    /// @notice Determines whether a proposal is eligible for execution based on its status and delay requirements.
-    /// @param self The context of the Executable Proposal library.
-    /// @param proposalId The id of the proposal to check for execution eligibility.
-    /// @param afterScheduleDelay The required delay duration after scheduling before the proposal can be executed.
-    /// @return bool `true` if the proposal is eligible for execution, otherwise `false`.
-    function canExecute(
-        Context storage self,
-        uint256 proposalId,
-        Duration afterScheduleDelay
-    ) internal view returns (bool) {
-        ProposalData memory proposalState = self.proposals[proposalId].data;
-        return _isProposalScheduled(self, proposalId, proposalState)
-            && Timestamps.now() >= afterScheduleDelay.addTo(proposalState.scheduledAt);
-    }
-
     /// @notice Determines whether a proposal is eligible to be scheduled based on its status and required delay.
     /// @param self The context of the Executable Proposal library.
     /// @param proposalId The id of the proposal to check for scheduling eligibility.
@@ -223,9 +198,24 @@ library ExecutableProposals {
         uint256 proposalId,
         Duration afterSubmitDelay
     ) internal view returns (bool) {
-        ProposalData memory proposalState = self.proposals[proposalId].data;
-        return _isProposalSubmitted(self, proposalId, proposalState)
-            && Timestamps.now() >= afterSubmitDelay.addTo(proposalState.submittedAt);
+        ProposalData memory proposalData = self.proposals[proposalId].data;
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted
+            && Timestamps.now() >= afterSubmitDelay.addTo(proposalData.submittedAt);
+    }
+
+    /// @notice Determines whether a proposal is eligible for execution based on its status and delay requirements.
+    /// @param self The context of the Executable Proposal library.
+    /// @param proposalId The id of the proposal to check for execution eligibility.
+    /// @param afterScheduleDelay The required delay duration after scheduling before the proposal can be executed.
+    /// @return bool `true` if the proposal is eligible for execution, otherwise `false`.
+    function canExecute(
+        Context storage self,
+        uint256 proposalId,
+        Duration afterScheduleDelay
+    ) internal view returns (bool) {
+        ProposalData memory proposalData = self.proposals[proposalId].data;
+        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled
+            && Timestamps.now() >= afterScheduleDelay.addTo(proposalData.scheduledAt);
     }
 
     /// @notice Returns the total count of submitted proposals.
@@ -274,24 +264,18 @@ library ExecutableProposals {
 
     function _checkProposalExists(uint256 proposalId, ProposalData memory proposalData) private pure {
         if (proposalData.status == Status.NotExist) {
-            revert ProposalNotFound(proposalId);
+            revert UnexpectedProposalStatus(proposalId, Status.NotExist);
         }
     }
 
-    function _isProposalSubmitted(
+    function _checkProposalNotCancelled(
         Context storage self,
         uint256 proposalId,
         ProposalData memory proposalData
-    ) private view returns (bool) {
-        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Submitted;
-    }
-
-    function _isProposalScheduled(
-        Context storage self,
-        uint256 proposalId,
-        ProposalData memory proposalData
-    ) private view returns (bool) {
-        return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled;
+    ) private view {
+        if (_isProposalCancelled(self, proposalId, proposalData)) {
+            revert UnexpectedProposalStatus(proposalId, Status.Cancelled);
+        }
     }
 
     function _isProposalCancelled(

@@ -106,31 +106,32 @@ contract DualGovernanceConfigTest is UnitTest {
     }
 
     // ---
-    // isFirstSealRageQuitSupportCrossed()
+    // isFirstSealRageQuitSupportReached()
     // ---
 
-    function testFuzz_isFirstSealRageQuitSupportCrossed_HappyPath(
+    function testFuzz_isFirstSealRageQuitSupportReached_HappyPath(
         DualGovernanceConfig.Context memory config,
         PercentD16 rageQuitSupport
     ) external {
         _assumeConfigParams(config);
         assertEq(
-            config.isFirstSealRageQuitSupportCrossed(rageQuitSupport), rageQuitSupport > config.firstSealRageQuitSupport
+            config.isFirstSealRageQuitSupportReached(rageQuitSupport),
+            rageQuitSupport >= config.firstSealRageQuitSupport
         );
     }
 
     // ---
-    // isSecondSealRageQuitSupportCrossed()
+    // isSecondSealRageQuitSupportReached()
     // ---
 
-    function testFuzz_isSecondSealRageQuitSupportCrossed_HappyPath(
+    function testFuzz_isSecondSealRageQuitSupportReached_HappyPath(
         DualGovernanceConfig.Context memory config,
         PercentD16 rageQuitSupport
     ) external {
         _assumeConfigParams(config);
         assertEq(
-            config.isSecondSealRageQuitSupportCrossed(rageQuitSupport),
-            rageQuitSupport > config.secondSealRageQuitSupport
+            config.isSecondSealRageQuitSupportReached(rageQuitSupport),
+            rageQuitSupport >= config.secondSealRageQuitSupport
         );
     }
 
@@ -264,12 +265,12 @@ contract DualGovernanceConfigTest is UnitTest {
     // calcVetoSignallingDuration()
     // ---
 
-    function testFuzz_calcVetoSignallingDuration_HappyPath_RageQuitSupportLessOrEqualThanFirstSeal(
+    function testFuzz_calcVetoSignallingDuration_HappyPath_RageQuitSupportLessThanFirstSeal(
         DualGovernanceConfig.Context memory config,
         PercentD16 rageQuitSupport
     ) external {
         _assumeConfigParams(config);
-        vm.assume(rageQuitSupport <= config.firstSealRageQuitSupport);
+        vm.assume(rageQuitSupport < config.firstSealRageQuitSupport);
         assertEq(config.calcVetoSignallingDuration(rageQuitSupport), Durations.ZERO);
     }
 
@@ -287,7 +288,7 @@ contract DualGovernanceConfigTest is UnitTest {
         PercentD16 rageQuitSupport
     ) external {
         _assumeConfigParams(config);
-        vm.assume(rageQuitSupport > config.firstSealRageQuitSupport);
+        vm.assume(rageQuitSupport >= config.firstSealRageQuitSupport);
         vm.assume(rageQuitSupport < config.secondSealRageQuitSupport);
 
         PercentD16 rageQuitSupportFirstSealDelta = rageQuitSupport - config.firstSealRageQuitSupport;

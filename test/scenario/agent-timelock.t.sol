@@ -1,11 +1,157 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ExternalCall, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {Proposers} from "contracts/libraries/Proposers.sol";
+
+import {ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {LidoUtils} from "../utils/lido-utils.sol";
+
+interface IRegularContract {
+    function regularMethod() external;
+}
 
 contract AgentTimelockTest is ScenarioTestBlueprint {
+    using LidoUtils for LidoUtils.Context;
+
     function setUp() external {
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
+    }
+
+    function testFork_AragonAgentAsExecutor_HappyPath() external {
+        _step("0. Grant EXECUTE_ROLE permission to the timelock on the Agent contract");
+        {
+            _grantAgentExecutorRoleToTimelock();
+        }
+
+        address agentProposer = makeAddr("AGENT_PROPOSER");
+        _step("1. Submit proposal to register Aragon as the executor");
+        {
+            _addAragonAgentProposer(agentProposer);
+        }
+
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
+
+        uint256 agentActionsProposalId;
+        _step("2. Submit proposal via the Agent proposer");
+        {
+            vm.prank(agentProposer);
+            agentActionsProposalId =
+                _dualGovernance.submitProposal(regularStaffCalls, "Make regular staff using Agent as executor");
+
+            _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), regularStaffCalls);
+        }
+
+        _step("3. Execute the proposal");
+        {
+            _assertProposalSubmitted(agentActionsProposalId);
+            _waitAfterSubmitDelayPassed();
+
+            _scheduleProposalViaDualGovernance(agentActionsProposalId);
+            _assertProposalScheduled(agentActionsProposalId);
+
+            _waitAfterScheduleDelayPassed();
+            _executeProposal(agentActionsProposalId);
+            _assertProposalExecuted(agentActionsProposalId);
+
+            _assertTargetMockCalls(address(_lido.agent), regularStaffCalls);
+        }
+    }
+
+    function testFork_AragonAgentAsExecutor_RevertOn_FailedCall() external {
+        _step("0. Grant EXECUTE_ROLE permission to the timelock on the Agent contract");
+        {
+            _grantAgentExecutorRoleToTimelock();
+        }
+
+        address agentProposer = makeAddr("AGENT_PROPOSER");
+        _step("1. Submit proposal to register Aragon as the executor");
+        {
+            _addAragonAgentProposer(agentProposer);
+        }
+
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
+        vm.mockCallRevert(regularStaffCalls[0].target, regularStaffCalls[0].payload, "INVALID TARGET");
+
+        uint256 agentActionsProposalId;
+        _step("2. Submit proposal which should revert via the Agent proposer");
+        {
+            vm.prank(agentProposer);
+            agentActionsProposalId =
+                _dualGovernance.submitProposal(regularStaffCalls, "Make regular staff using Agent as executor");
+
+            _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), regularStaffCalls);
+        }
+
+        _step("3. The execution of the proposal fails");
+        {
+            _assertProposalSubmitted(agentActionsProposalId);
+            _waitAfterSubmitDelayPassed();
+
+            _scheduleProposalViaDualGovernance(agentActionsProposalId);
+            _assertProposalScheduled(agentActionsProposalId);
+
+            _waitAfterScheduleDelayPassed();
+
+            vm.expectRevert("INVALID TARGET");
+            _executeProposal(agentActionsProposalId);
+
+            _assertNoTargetMockCalls();
+        }
+    }
+
+    function testFork_AgentAsExecutor_SucceedOnEmptyAccountCalls() external {
+        _step("0. Grant EXECUTE_ROLE permission to the timelock on the Agent contract");
+        {
+            _grantAgentExecutorRoleToTimelock();
+        }
+
+        address agentProposer = makeAddr("AGENT_PROPOSER");
+        _step("1. Submit proposal to register Aragon as the executor");
+        {
+            _addAragonAgentProposer(agentProposer);
+        }
+
+        uint256 callValue = 1 ether;
+        address nonContractAccount = makeAddr("NOT_CONTRACT");
+        ExternalCall[] memory callsToEmptyAccount = ExternalCallHelpers.create(
+            [
+                ExternalCall({value: 0, target: nonContractAccount, payload: new bytes(0)}),
+                ExternalCall({
+                    value: 0,
+                    target: nonContractAccount,
+                    payload: abi.encodeCall(IRegularContract.regularMethod, ())
+                }),
+                ExternalCall({value: uint96(callValue), target: nonContractAccount, payload: new bytes(0)})
+            ]
+        );
+        uint256 agentBalanceBefore = address(_lido.agent).balance;
+        vm.deal(address(_lido.agent), agentBalanceBefore + callValue);
+
+        uint256 agentActionsProposalId;
+        _step("2. Submit proposal via the Agent proposer");
+        {
+            vm.prank(agentProposer);
+            agentActionsProposalId =
+                _dualGovernance.submitProposal(callsToEmptyAccount, "Make different calls to EOA account");
+
+            _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), callsToEmptyAccount);
+        }
+
+        _step("3. Execute the proposal");
+        {
+            _assertProposalSubmitted(agentActionsProposalId);
+            _waitAfterSubmitDelayPassed();
+
+            _scheduleProposalViaDualGovernance(agentActionsProposalId);
+            _assertProposalScheduled(agentActionsProposalId);
+
+            _waitAfterScheduleDelayPassed();
+            _executeProposal(agentActionsProposalId);
+            _assertProposalExecuted(agentActionsProposalId);
+
+            assertEq(nonContractAccount.balance, 1 ether);
+            assertEq(address(_lido.agent).balance, agentBalanceBefore);
+        }
     }
 
     function testFork_AgentTimelockHappyPath() external {
@@ -109,5 +255,44 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _assertCanExecute(proposalId, false);
             _assertProposalCancelled(proposalId);
         }
+    }
+
+    // ---
+    // Helper Methods
+    // ---
+
+    function _grantAgentExecutorRoleToTimelock() internal {
+        _lido.grantPermission(address(_lido.agent), _lido.agent.EXECUTE_ROLE(), address(_timelock));
+        assertTrue(_lido.acl.hasPermission(address(_timelock), address(_lido.agent), _lido.agent.EXECUTE_ROLE()));
+    }
+
+    function _addAragonAgentProposer(address agentProposer) internal {
+        ExternalCall[] memory externalCalls = ExternalCallHelpers.create(
+            [
+                ExternalCall({
+                    value: 0,
+                    target: address(_dualGovernance),
+                    payload: abi.encodeCall(_dualGovernance.registerProposer, (agentProposer, address(_lido.agent)))
+                })
+            ]
+        );
+        uint256 addAgentProposerProposalId =
+            _submitProposalViaDualGovernance("Add Aragon Agent as proposer to the Dual Governance", externalCalls);
+
+        _assertProposalSubmitted(addAgentProposerProposalId);
+        _waitAfterSubmitDelayPassed();
+
+        _scheduleProposalViaDualGovernance(addAgentProposerProposalId);
+        _assertProposalScheduled(addAgentProposerProposalId);
+
+        _waitAfterScheduleDelayPassed();
+        _executeProposal(addAgentProposerProposalId);
+        _assertProposalExecuted(addAgentProposerProposalId);
+
+        Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
+
+        assertEq(proposers.length, 2);
+        assertEq(proposers[1].account, agentProposer);
+        assertEq(proposers[1].executor, address(_lido.agent));
     }
 }

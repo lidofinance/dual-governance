@@ -38,8 +38,7 @@ contract EscrowStateUnitTests is UnitTest {
     function testFuzz_initialize_RevertOn_InvalidState(Duration minAssetsLockDuration) external {
         _context.state = State.SignallingEscrow;
 
-        // TODO: not very informative, maybe need to change to `revert UnexpectedState(self.state);`: UnexpectedState(NotInitialized)[current implementation] => UnexpectedState(SignallingEscrow)[proposed]
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.NotInitialized));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.SignallingEscrow));
 
         EscrowState.initialize(_context, minAssetsLockDuration);
     }
@@ -75,7 +74,7 @@ contract EscrowStateUnitTests is UnitTest {
     ) external {
         _context.state = State.NotInitialized;
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
 
         EscrowState.startRageQuit(_context, rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
     }
@@ -103,13 +102,17 @@ contract EscrowStateUnitTests is UnitTest {
     // setMinAssetsLockDuration()
     // ---
 
-    function test_setMinAssetsLockDuration_happyPath(Duration minAssetsLockDuration) external {
+    function testFuzz_setMinAssetsLockDuration_happyPath(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
         vm.assume(minAssetsLockDuration != Durations.ZERO);
+        vm.assume(minAssetsLockDuration <= maxMinAssetsLockDuration);
 
         vm.expectEmit();
         emit EscrowState.MinAssetsLockDurationSet(minAssetsLockDuration);
 
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
 
         checkContext({
             state: State.NotInitialized,
@@ -120,13 +123,25 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
         _context.minAssetsLockDuration = minAssetsLockDuration;
 
         vm.expectRevert(
             abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
         );
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, Durations.from(MAX_DURATION_VALUE));
+    }
+
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationGreaterThenMaxMinAssetsLockDuration(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(minAssetsLockDuration > maxMinAssetsLockDuration);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
+        );
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
     }
 
     // ---
@@ -139,8 +154,11 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkSignallingEscrow_RevertOn_InvalidState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
+        EscrowState.checkSignallingEscrow(_context);
 
+        _context.state = State.RageQuitEscrow;
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         EscrowState.checkSignallingEscrow(_context);
     }
 
@@ -154,8 +172,11 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkRageQuitEscrow_RevertOn_InvalidState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
+        EscrowState.checkRageQuitEscrow(_context);
 
+        _context.state = State.SignallingEscrow;
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.SignallingEscrow));
         EscrowState.checkRageQuitEscrow(_context);
     }
 

@@ -12,7 +12,7 @@ Additionally, there is a Gate Seal emergency committee that allows pausing certa
 
 The Dual governance mechanism (DG) is an iteration on the protocol governance that gives stakers a say by allowing them to block DAO decisions and providing a negotiation device between stakers and the DAO.
 
-Another way of looking at dual governance is that it implements: 
+Another way of looking at dual governance is that it implements:
 1) a dynamic user-extensible timelock on DAO decisions
 2) a rage quit mechanism for stakers taking into account the specifics of how Ethereum withdrawals work.
 
@@ -137,7 +137,7 @@ The Normal state is the state the mechanism is designed to spend the most time w
 **Transition to Veto Signalling**. If, while the state is active, the following expression becomes true:
 
 ```math
-R > R_1
+R \geq R_1
 ```
 
 where $R_1$ is `FirstSealRageQuitSupport`, the Normal state is exited and the Veto Signalling state is entered.
@@ -171,8 +171,8 @@ The **dynamic timelock duration** $T_{lock}(R)$ depends on the current rage quit
 ```math
 T_{lock}(R) =
 \left\{ \begin{array}{lr}
-    0, & \text{if } R \leq R_1 \\
-    L(R), & \text{if } R_1 < R < R_2 \\
+    0, & \text{if } R < R_1 \\
+    L(R), & \text{if } R_1 \leq R < R_2 \\
     L_{max}, & \text{if } R \geq R_2
 \end{array} \right.
 ```
@@ -183,7 +183,8 @@ L(R) = L_{min} + \frac{(R - R_1)} {R_2 - R_1} (L_{max} - L_{min})
 
 where $R_1$ is `FirstSealRageQuitSupport`, $R_2$ is `SecondSealRageQuitSupport`, $L_{min}$ is `DynamicTimelockMinDuration`, $L_{max}$ is `DynamicTimelockMaxDuration`. The dependence of the dynamic timelock on the rage quit support $R$ can be illustrated by the following graph:
 
-![image](https://github.com/lidofinance/dual-governance/assets/1699593/b98dd9f1-1e55-4b5d-8ce1-56539f4cc3f8)
+![image](https://github.com/user-attachments/assets/15cb6cdb-68a6-41ce-8d47-c34da19b84f1)
+
 
 When the current rage quit support changes due to stakers locking or unlocking tokens into/out of the signalling escrow or the total stETH supply changing, the dynamic timelock duration is re-evaluated.
 
@@ -192,7 +193,7 @@ Let's now define the outgoing transitions.
 **Transition to Rage Quit**. If, while Veto Signalling is active and the Deactivation sub-state is not active, the following expression becomes true:
 
 ```math
-\big( t - t^S_{act} > L_{max} \big) \, \land \, \big( R > R_2 \big)
+\big( t - t^S_{act} > L_{max} \big) \, \land \, \big( R \geq R_2 \big)
 ```
 
 the Veto Signalling state is exited and the Rage Quit state is entered.
@@ -229,7 +230,7 @@ then the Deactivation sub-state is exited so only the parent Veto Signalling sta
 
 **Transition to Rage Quit**. If, while the sub-state is active, the following condition becomes true:
 ```math
-\big( t - t^S_{act} > L_{max} \big) \, \land \, \big( R > R_2 \big)
+\big( t - t^S_{act} > L_{max} \big) \, \land \, \big( R \geq R_2 \big)
 ```
 then the Deactivation sub-state is exited along with its parent Veto Signalling state and the Rage Quit state is entered.
 
@@ -253,7 +254,7 @@ In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can ex
 **Transition to Veto Signalling**. If, while the state is active, the following condition becomes true:
 
 ```math
-\big( t - t^C_{act} > T^C \big) \,\land\, \big( R(t) > R_1 \big)
+\big( t - t^C_{act} > T^C \big) \,\land\, \big( R(t) \geq R_1 \big)
 ```
 
 where $t^{C}_{act}$ is the time the Veto Cooldown state was entered and $T^{C}$ is `VetoCooldownDuration`, then the Veto Cooldown state is exited and the Veto Signalling state is entered.
@@ -261,7 +262,7 @@ where $t^{C}_{act}$ is the time the Veto Cooldown state was entered and $T^{C}$ 
 **Transition to Normal**. If, while the state is active, the following condition becomes true:
 
 ```math
-\big( t - t^C_{act} > T^C \big) \,\land\, \big( R(t) \leq R_1 \big)
+\big( t - t^C_{act} > T^C \big) \,\land\, \big( R(t) < R_1 \big)
 ```
 
 then the Veto Cooldown state is exited and the Normal state is entered.
@@ -295,9 +296,9 @@ When the withdrawal is complete and the extension period elapses, two things hap
 1. A timelock lasting $W(i)$ days is started, during which the withdrawn ETH remains locked in the rage quit escrow. After the timelock elapses, stakers who participated in the rage quit can obtain their ETH from the rage quit escrow.
 2. The Rage Quit state is exited.
 
-**Transition to Veto Signalling**. If, at the moment of the Rage Quit state exit, $R(t) > R_1$, the Veto Signalling state is entered.
+**Transition to Veto Signalling**. If, at the moment of the Rage Quit state exit, $R(t) \geq R_1$, the Veto Signalling state is entered.
 
-**Transition to Veto Cooldown**. If, at the moment of the Rage Quit state exit, $R(t) \leq R_1$, the Veto Cooldown state is entered.
+**Transition to Veto Cooldown**. If, at the moment of the Rage Quit state exit, $R(t) < R_1$, the Veto Cooldown state is entered.
 
 The duration of the ETH withdraw timelock $W(i)$ is a linear function that depends on the rage quit sequence number $i$ (see below):
 
@@ -307,7 +308,7 @@ W(i) =  \min \left\{ W_{min} + i * W_{growth} \,,\, W_{max}  \right\}
 
 where $W_{min}$ is `RageQuitEthWithdrawalsMinDelay`, $W_{max}$ is `RageQuitEthWithdrawalsMaxDelay`, $W_{growth}$ is `rageQuitEthWithdrawalsDelayGrowth`.
 
-The rage quit sequence number is calculated as follows: each time the Normal state is entered, the sequence number is set to 0; each time the Rage Quit state is entered, the number is incremented by 1.
+The rage quit sequence number is calculated as follows: each time the VetoCooldown state is entered, the sequence number is set to 0; each time the Rage Quit state is entered, the number is incremented by 1.
 
 ```env
 # Proposed values, to be modeled and refined
@@ -398,6 +399,11 @@ Dual governance should not cover:
 
 
 ## Changelog
+### 2024-12-04
+- Updated calculations of Rage Quit support first/second threshold's reaching. The transition to VetoSignalling state now starts when the amount of locked funds reaches the first seal threshold (including the exact threshold value), and the transition to RageQuit state appropriately starts when the amount of locked funds reaches the second seal threshold (including the exact threshold value; the appropriate duration of time in VetoSignalling state still should pass).
+
+### 2024-11-15
+- The rage quit sequence number is now reset in the `VetoCooldown` state instead of the `Normal` state. This adjustment ensures that the ETH withdrawal timelock does not increase unnecessarily in cases where, after a Rage Quit, Dual Governance cycles through `VetoSignalling` → `VetoSignallingDeactivation` → `VetoCooldown` without entering the `Normal` state, as the DAO remains operational and can continue submitting and executing proposals in this scenario.
 
 ### 2024-09-12
 - Explicitly described the `VetoSignallingDeactivation` -> `RageQuit` state transition.

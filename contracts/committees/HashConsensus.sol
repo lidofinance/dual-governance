@@ -104,14 +104,14 @@ abstract contract HashConsensus is Ownable {
 
     /// @notice Sets the timelock duration
     /// @dev Only callable by the owner
-    /// @param timelock The new timelock duration in seconds
-    function setTimelockDuration(Duration timelock) external {
+    /// @param newTimelock The new timelock duration in seconds
+    function setTimelockDuration(Duration newTimelock) external {
         _checkOwner();
-        if (timelock == _timelockDuration) {
-            revert InvalidTimelockDuration(timelock);
+        if (newTimelock == _timelockDuration) {
+            revert InvalidTimelockDuration(newTimelock);
         }
-        _timelockDuration = timelock;
-        emit TimelockDurationSet(timelock);
+        _timelockDuration = newTimelock;
+        emit TimelockDurationSet(newTimelock);
     }
 
     /// @notice Gets the quorum value
@@ -250,7 +250,9 @@ abstract contract HashConsensus is Ownable {
     /// @param newMembers The array of addresses to be added as new members.
     /// @param executionQuorum The minimum number of members required for executing certain operations.
     function _addMembers(address[] memory newMembers, uint256 executionQuorum) internal {
-        for (uint256 i = 0; i < newMembers.length; ++i) {
+        uint256 membersCount = newMembers.length;
+
+        for (uint256 i = 0; i < membersCount; ++i) {
             if (newMembers[i] == address(0)) {
                 revert InvalidMemberAccount(newMembers[i]);
             }
@@ -270,7 +272,9 @@ abstract contract HashConsensus is Ownable {
     /// @param membersToRemove The array of addresses to be removed from the members list.
     /// @param executionQuorum The updated minimum number of members required for executing certain operations.
     function _removeMembers(address[] memory membersToRemove, uint256 executionQuorum) internal {
-        for (uint256 i = 0; i < membersToRemove.length; ++i) {
+        uint256 membersCount = membersToRemove.length;
+
+        for (uint256 i = 0; i < membersCount; ++i) {
             if (!_members.remove(membersToRemove[i])) {
                 revert AccountIsNotMember(membersToRemove[i]);
             }
@@ -285,7 +289,9 @@ abstract contract HashConsensus is Ownable {
     /// @param hash The hash to check
     /// @return support The number of votes in support of the hash
     function _getSupport(bytes32 hash) internal view returns (uint256 support) {
-        for (uint256 i = 0; i < _members.length(); ++i) {
+        uint256 membersCount = _members.length();
+
+        for (uint256 i = 0; i < membersCount; ++i) {
             if (approves[_members.at(i)][hash]) {
                 support++;
             }

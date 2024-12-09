@@ -7,7 +7,8 @@ import {Timestamps, Timestamp} from "../types/Timestamp.sol";
 import {SharesValue, SharesValues} from "../types/SharesValue.sol";
 import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
-import {WithdrawalRequestStatus} from "../interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "../interfaces/IWithdrawalQueue.sol";
+import {ISignallingEscrow} from "../interfaces/ISignallingEscrow.sol";
 
 /// @notice Tracks the stETH and unstETH tokens associated with users.
 /// @param stETHLockedShares Total number of stETH shares held by the user.
@@ -223,7 +224,7 @@ library AssetsAccounting {
         Context storage self,
         address holder,
         uint256[] memory unstETHIds,
-        WithdrawalRequestStatus[] memory statuses
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses
     ) internal {
         assert(unstETHIds.length == statuses.length);
 
@@ -345,13 +346,24 @@ library AssetsAccounting {
     // Getters
     // ---
 
-    function getLockedAssetsTotals(Context storage self)
-        internal
-        view
-        returns (SharesValue unfinalizedShares, ETHValue finalizedETH)
-    {
-        finalizedETH = self.unstETHTotals.finalizedETH;
-        unfinalizedShares = self.stETHTotals.lockedShares + self.unstETHTotals.unfinalizedShares;
+    /// @notice Retrieves details of locked unstETH record for the given id.
+    /// @param unstETHId The id for the locked unstETH record to retrieve.
+    /// @return unstETHDetails A `LockedUnstETHDetails` struct containing the details for provided unstETH id.
+    function getLockedUnstETHDetails(
+        Context storage self,
+        uint256 unstETHId
+    ) internal view returns (ISignallingEscrow.LockedUnstETHDetails memory unstETHDetails) {
+        UnstETHRecord memory unstETHRecord = self.unstETHRecords[unstETHId];
+
+        if (unstETHRecord.status == UnstETHRecordStatus.NotLocked) {
+            revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.NotLocked);
+        }
+
+        unstETHDetails.id = unstETHId;
+        unstETHDetails.status = unstETHRecord.status;
+        unstETHDetails.lockedBy = unstETHRecord.lockedBy;
+        unstETHDetails.shares = unstETHRecord.shares;
+        unstETHDetails.claimableAmount = unstETHRecord.claimableAmount;
     }
 
     // ---
@@ -384,7 +396,7 @@ library AssetsAccounting {
         Context storage self,
         address holder,
         uint256 unstETHId,
-        WithdrawalRequestStatus memory status
+        IWithdrawalQueue.WithdrawalRequestStatus memory status
     ) private returns (SharesValue shares) {
         if (status.isFinalized) {
             revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.Finalized);

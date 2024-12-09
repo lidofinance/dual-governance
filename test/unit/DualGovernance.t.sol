@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Duration, Durations, lte} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
-import {PercentsD16, PercentD16} from "contracts/types/PercentD16.sol";
+import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
@@ -11,9 +11,13 @@ import {Escrow} from "contracts/Escrow.sol";
 import {Executor} from "contracts/Executor.sol";
 import {DualGovernance, State, DualGovernanceStateMachine} from "contracts/DualGovernance.sol";
 import {Tiebreaker} from "contracts/libraries/Tiebreaker.sol";
+import {Resealer} from "contracts/libraries/Resealer.sol";
 import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
+
+import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 import {IResealManager} from "contracts/interfaces/IResealManager.sol";
+
 import {
     DualGovernanceConfig,
     IDualGovernanceConfigProvider,
@@ -24,22 +28,25 @@ import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
-import {ISealable} from "contracts/interfaces/ISealable.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {StETHMock} from "test/mocks/StETHMock.sol";
 import {TimelockMock} from "test/mocks/TimelockMock.sol";
 import {WithdrawalQueueMock} from "test/mocks/WithdrawalQueueMock.sol";
 import {SealableMock} from "test/mocks/SealableMock.sol";
+import {computeAddress} from "test/utils/addresses.sol";
 
 contract DualGovernanceUnitTests is UnitTest {
     Executor private _executor = new Executor(address(this));
 
     address private vetoer = makeAddr("vetoer");
+    address private resealCommittee = makeAddr("resealCommittee");
+    address private proposalsCanceller = makeAddr("proposalsCanceller");
 
     StETHMock private immutable _STETH_MOCK = new StETHMock();
-    IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock();
+    IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock(_STETH_MOCK);
 
     // TODO: Replace with mocks
     IWstETH private immutable _WSTETH_STUB = IWstETH(makeAddr("WSTETH_STUB"));
@@ -67,10 +74,13 @@ contract DualGovernanceUnitTests is UnitTest {
         })
     );
 
-    DualGovernance.ExternalDependencies internal _externalDependencies = DualGovernance.ExternalDependencies({
+    DualGovernance.SignallingTokens internal _signallingTokens = DualGovernance.SignallingTokens({
         stETH: _STETH_MOCK,
         wstETH: _WSTETH_STUB,
-        withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK,
+        withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK
+    });
+
+    DualGovernance.DualGovernanceComponents internal _dgComponents = DualGovernance.DualGovernanceComponents({
         timelock: _timelock,
         resealManager: _RESEAL_MANAGER_STUB,
         configProvider: _configProvider
@@ -80,11 +90,15 @@ contract DualGovernanceUnitTests is UnitTest {
         minWithdrawalsBatchSize: 4,
         minTiebreakerActivationTimeout: Durations.from(30 days),
         maxTiebreakerActivationTimeout: Durations.from(180 days),
-        maxSealableWithdrawalBlockersCount: 128
+        maxSealableWithdrawalBlockersCount: 128,
+        maxMinAssetsLockDuration: Durations.from(365 days)
     });
 
-    DualGovernance internal _dualGovernance =
-        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+    DualGovernance internal _dualGovernance = new DualGovernance({
+        components: _dgComponents,
+        signallingTokens: _signallingTokens,
+        sanityCheckParams: _sanityCheckParams
+    });
 
     Escrow internal _escrow;
 
@@ -93,6 +107,18 @@ contract DualGovernanceUnitTests is UnitTest {
             address(_dualGovernance),
             0,
             abi.encodeWithSelector(DualGovernance.registerProposer.selector, address(this), address(_executor))
+        );
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setProposalsCanceller.selector, proposalsCanceller)
+        );
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
         );
 
         _escrow = Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
@@ -105,23 +131,94 @@ contract DualGovernanceUnitTests is UnitTest {
         _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(999);
         _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
 
-        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+        new DualGovernance({
+            components: _dgComponents,
+            signallingTokens: _signallingTokens,
+            sanityCheckParams: _sanityCheckParams
+        });
     }
 
     function test_constructor_min_max_timeout_same() external {
         _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
         _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(1000);
 
-        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+        new DualGovernance({
+            components: _dgComponents,
+            signallingTokens: _signallingTokens,
+            sanityCheckParams: _sanityCheckParams
+        });
     }
 
     function test_constructor_RevertsOn_InvalidTiebreakerActivationTimeoutBounds() external {
         _sanityCheckParams.minTiebreakerActivationTimeout = Durations.from(1000);
         _sanityCheckParams.maxTiebreakerActivationTimeout = Durations.from(999);
 
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidTiebreakerActivationTimeoutBounds.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DualGovernance.InvalidTiebreakerActivationTimeoutBounds.selector,
+                _sanityCheckParams.minTiebreakerActivationTimeout,
+                _sanityCheckParams.maxTiebreakerActivationTimeout
+            )
+        );
 
-        new DualGovernance({dependencies: _externalDependencies, sanityCheckParams: _sanityCheckParams});
+        new DualGovernance({
+            components: _dgComponents,
+            signallingTokens: _signallingTokens,
+            sanityCheckParams: _sanityCheckParams
+        });
+    }
+
+    // ---
+    // constructor()
+    // ---
+
+    function test_constructor_HappyPath() external {
+        address testDeployerAddress = address(this);
+        uint256 testDeployerNonce = vm.getNonce(testDeployerAddress);
+        address predictedDualGovernanceAddress = computeAddress(testDeployerAddress, testDeployerNonce);
+
+        address predictedEscrowCopyAddress = computeAddress(predictedDualGovernanceAddress, 1);
+
+        vm.expectEmit();
+        emit DualGovernance.EscrowMasterCopyDeployed(IEscrowBase(predictedEscrowCopyAddress));
+        vm.expectEmit();
+        emit Resealer.ResealManagerSet(_RESEAL_MANAGER_STUB);
+
+        Duration minTiebreakerActivationTimeout = Durations.from(30 days);
+        Duration maxTiebreakerActivationTimeout = Durations.from(180 days);
+        uint256 maxSealableWithdrawalBlockersCount = 128;
+        Duration maxMinAssetsLockDuration = Durations.from(365 days);
+
+        DualGovernance dualGovernanceLocal = new DualGovernance({
+            components: DualGovernance.DualGovernanceComponents({
+                timelock: _timelock,
+                resealManager: _RESEAL_MANAGER_STUB,
+                configProvider: _configProvider
+            }),
+            signallingTokens: DualGovernance.SignallingTokens({
+                stETH: _STETH_MOCK,
+                wstETH: _WSTETH_STUB,
+                withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK
+            }),
+            sanityCheckParams: DualGovernance.SanityCheckParams({
+                minWithdrawalsBatchSize: 4,
+                minTiebreakerActivationTimeout: minTiebreakerActivationTimeout,
+                maxTiebreakerActivationTimeout: maxTiebreakerActivationTimeout,
+                maxSealableWithdrawalBlockersCount: maxSealableWithdrawalBlockersCount,
+                maxMinAssetsLockDuration: maxMinAssetsLockDuration
+            })
+        });
+
+        address payable escrowMasterCopyAddress =
+            payable(address(IEscrowBase(dualGovernanceLocal.getVetoSignallingEscrow()).ESCROW_MASTER_COPY()));
+
+        assertEq(address(dualGovernanceLocal.TIMELOCK()), address(_timelock));
+        assertEq(dualGovernanceLocal.MIN_TIEBREAKER_ACTIVATION_TIMEOUT(), minTiebreakerActivationTimeout);
+        assertEq(dualGovernanceLocal.MAX_TIEBREAKER_ACTIVATION_TIMEOUT(), maxTiebreakerActivationTimeout);
+        assertEq(dualGovernanceLocal.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT(), maxSealableWithdrawalBlockersCount);
+        assertEq(escrowMasterCopyAddress, predictedEscrowCopyAddress);
+
+        assertEq(Escrow(escrowMasterCopyAddress).MAX_MIN_ASSETS_LOCK_DURATION(), maxMinAssetsLockDuration);
     }
 
     // ---
@@ -131,13 +228,15 @@ contract DualGovernanceUnitTests is UnitTest {
     function test_submitProposal_HappyPath() external {
         ExternalCall[] memory calls = _generateExternalCalls();
         Proposers.Proposer memory proposer = _dualGovernance.getProposer(address(this));
-        vm.expectCall(
-            address(_timelock),
-            0,
-            abi.encodeWithSelector(TimelockMock.submit.selector, address(this), proposer.executor, calls, "")
-        );
+        vm.expectCall(address(_timelock), 0, abi.encodeCall(TimelockMock.submit, (proposer.executor, calls)));
 
-        uint256 proposalId = _dualGovernance.submitProposal(calls, "");
+        uint256 expectedProposalId = 1;
+        string memory metadata = "New proposal description";
+
+        vm.expectEmit();
+        emit IGovernance.ProposalSubmitted(proposer.account, expectedProposalId, metadata);
+
+        uint256 proposalId = _dualGovernance.submitProposal(calls, metadata);
         uint256[] memory submittedProposals = _timelock.getSubmittedProposals();
 
         assertEq(submittedProposals.length, 1);
@@ -278,6 +377,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertFalse(isProposalsCancelled);
@@ -314,6 +414,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertFalse(isProposalsCancelled);
@@ -341,6 +442,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsSkipped();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertFalse(isProposalsCancelled);
@@ -363,6 +465,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertTrue(isProposalsCancelled);
@@ -392,6 +495,7 @@ contract DualGovernanceUnitTests is UnitTest {
         vm.expectEmit();
         emit DualGovernance.CancelAllPendingProposalsExecuted();
 
+        vm.prank(proposalsCanceller);
         bool isProposalsCancelled = _dualGovernance.cancelAllPendingProposals();
 
         assertTrue(isProposalsCancelled);
@@ -399,19 +503,16 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_timelock.lastCancelledProposalId(), 1);
     }
 
-    function test_cancelAllPendingProposals_RevertOn_NotAdminProposer() external {
-        address nonAdminProposer = makeAddr("NON_ADMIN_PROPOSER");
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.registerProposer.selector, nonAdminProposer, address(0x123))
-        );
+    function test_cancelAllPendingProposals_RevertOn_CallerNotProposalsCanceller() external {
+        address notProposalsCanceller = makeAddr("NON_PROPOSALS_CANCELLER");
         _submitMockProposal();
 
         assertEq(_timelock.getProposalsCount(), 1);
 
-        vm.prank(nonAdminProposer);
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.NotAdminProposer.selector));
+        vm.prank(notProposalsCanceller);
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernance.CallerIsNotProposalsCanceller.selector, notProposalsCanceller)
+        );
         _dualGovernance.cancelAllPendingProposals();
 
         assertEq(_timelock.getProposalsCount(), 1);
@@ -475,7 +576,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
         _wait(_configProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
 
-        // The RageQuit second seal threshold wasn't crossed, the system should enter Deactivation state
+        // The RageQuit second seal threshold wasn't reached, the system should enter Deactivation state
         // where the proposals submission is not allowed
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
@@ -692,7 +793,7 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encode(true)
         );
 
-        // The RageQuit second seal threshold wasn't crossed, the system should enter Deactivation state
+        // The RageQuit second seal threshold wasn't reached, the system should enter Deactivation state
         // where the proposals submission is not allowed
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
         assertEq(_dualGovernance.getEffectiveState(), State.VetoSignallingDeactivation);
@@ -984,6 +1085,58 @@ contract DualGovernanceUnitTests is UnitTest {
         assertTrue(address(_dualGovernance.getConfigProvider()) != address(oldConfigProvider));
     }
 
+    function test_setConfigProvider_same_minAssetsLockDuration() external {
+        Duration newMinAssetsLockDuration = Durations.from(5 hours);
+        ImmutableDualGovernanceConfigProvider newConfigProvider = new ImmutableDualGovernanceConfigProvider(
+            DualGovernanceConfig.Context({
+                firstSealRageQuitSupport: PercentsD16.fromBasisPoints(5_00), // 5%
+                secondSealRageQuitSupport: PercentsD16.fromBasisPoints(20_00), // 20%
+                //
+                minAssetsLockDuration: newMinAssetsLockDuration,
+                //
+                vetoSignallingMinDuration: Durations.from(4 days),
+                vetoSignallingMaxDuration: Durations.from(35 days),
+                vetoSignallingMinActiveDuration: Durations.from(6 hours),
+                vetoSignallingDeactivationMaxDuration: Durations.from(6 days),
+                vetoCooldownDuration: Durations.from(5 days),
+                //
+                rageQuitExtensionPeriodDuration: Durations.from(8 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
+            })
+        );
+
+        IDualGovernanceConfigProvider oldConfigProvider = _dualGovernance.getConfigProvider();
+
+        vm.expectEmit();
+        emit DualGovernanceStateMachine.ConfigProviderSet(IDualGovernanceConfigProvider(address(newConfigProvider)));
+        vm.expectEmit();
+        emit Executor.Executed(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(newConfigProvider)),
+            new bytes(0)
+        );
+
+        vm.expectCall(
+            address(_escrow),
+            0,
+            abi.encodeWithSelector(Escrow.setMinAssetsLockDuration.selector, newMinAssetsLockDuration),
+            0
+        );
+        vm.recordLogs();
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(newConfigProvider))
+        );
+        assertEq(vm.getRecordedLogs().length, 2);
+
+        assertEq(address(_dualGovernance.getConfigProvider()), address(newConfigProvider));
+        assertTrue(address(_dualGovernance.getConfigProvider()) != address(oldConfigProvider));
+    }
+
     function testFuzz_setConfigProvider_RevertOn_NotAdminExecutor(address stranger) external {
         vm.assume(stranger != address(_executor));
         ImmutableDualGovernanceConfigProvider newConfigProvider = new ImmutableDualGovernanceConfigProvider(
@@ -1029,6 +1182,66 @@ contract DualGovernanceUnitTests is UnitTest {
             0,
             abi.encodeWithSelector(DualGovernance.setConfigProvider.selector, address(_configProvider))
         );
+    }
+
+    // ---
+    // setProposalsCanceller()
+    // ---
+
+    function test_setProposalsCanceller_HappyPath() external {
+        address newProposalsCanceller = makeAddr("newProposalsCanceller");
+
+        assertNotEq(newProposalsCanceller, _dualGovernance.getProposalsCanceller());
+
+        vm.expectEmit();
+        emit DualGovernance.ProposalsCancellerSet(newProposalsCanceller);
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposalsCanceller(newProposalsCanceller);
+
+        assertEq(newProposalsCanceller, _dualGovernance.getProposalsCanceller());
+    }
+
+    function testFuzz_setProposalsCanceller_HappyPath(address newProposalsCanceller) external {
+        vm.assume(
+            newProposalsCanceller != address(0) && newProposalsCanceller != _dualGovernance.getProposalsCanceller()
+        );
+
+        vm.expectEmit();
+        emit DualGovernance.ProposalsCancellerSet(newProposalsCanceller);
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposalsCanceller(newProposalsCanceller);
+
+        assertEq(newProposalsCanceller, _dualGovernance.getProposalsCanceller());
+    }
+
+    function test_setProposalsCanceller_RevertOn_CancellerIsZeroAddress() external {
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidProposalsCanceller.selector, address(0)));
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposalsCanceller(address(0));
+    }
+
+    function test_setProposalsCanceller_RevertOn_NewCancellerAddressIsTheSame() external {
+        address prevProposalsCanceller = _dualGovernance.getProposalsCanceller();
+        assertNotEq(prevProposalsCanceller, address(0));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(DualGovernance.InvalidProposalsCanceller.selector, prevProposalsCanceller)
+        );
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposalsCanceller(prevProposalsCanceller);
+    }
+
+    function testFuzz_setProposalsCanceller_RevertOn_CalledNotByAdminExecutor(address notAllowedCaller) external {
+        vm.assume(notAllowedCaller != address(_executor));
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, notAllowedCaller));
+
+        vm.prank(notAllowedCaller);
+        _dualGovernance.setProposalsCanceller(notAllowedCaller);
     }
 
     // ---
@@ -1229,6 +1442,63 @@ contract DualGovernanceUnitTests is UnitTest {
     }
 
     // ---
+    // setProposerExecutor()
+    // ---
+
+    function test_setProposerExecutor_HappyPath() external {
+        address newProposer = makeAddr("NEW_PROPOSER");
+        address newExecutor = makeAddr("NEW_EXECUTOR");
+
+        assertEq(_dualGovernance.getProposers().length, 1);
+        assertFalse(_dualGovernance.isProposer(newProposer));
+
+        vm.prank(address(_executor));
+        _dualGovernance.registerProposer(newProposer, newExecutor);
+
+        assertEq(_dualGovernance.getProposers().length, 2);
+        assertTrue(_dualGovernance.isProposer(newProposer));
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposerExecutor(newProposer, address(_executor));
+
+        assertEq(_dualGovernance.getProposers().length, 2);
+        assertTrue(_dualGovernance.isProposer(newProposer));
+        assertFalse(_dualGovernance.isExecutor(newExecutor));
+    }
+
+    function testFuzz_setProposerExecutor_RevertOn_CalledNotByAdminExecutor(address notAllowedCaller) external {
+        vm.assume(notAllowedCaller != address(_executor));
+
+        address newProposer = makeAddr("NEW_PROPOSER");
+        address newExecutor = makeAddr("NEW_EXECUTOR");
+
+        vm.prank(address(_executor));
+        _dualGovernance.registerProposer(newProposer, newExecutor);
+
+        assertEq(_dualGovernance.getProposers().length, 2);
+        assertTrue(_dualGovernance.isProposer(newProposer));
+
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, notAllowedCaller));
+
+        vm.prank(notAllowedCaller);
+        _dualGovernance.setProposerExecutor(newProposer, address(_executor));
+    }
+
+    function test_setProposerExecutor_RevertOn_AttemptToRemoveLastAdminProposer() external {
+        address newExecutor = makeAddr("NEW_EXECUTOR");
+
+        assertEq(_dualGovernance.getProposers().length, 1);
+
+        assertTrue(_dualGovernance.isProposer(address(this)));
+        assertTrue(_dualGovernance.isExecutor(address(_executor)));
+
+        vm.expectRevert(abi.encodeWithSelector(Proposers.ExecutorNotRegistered.selector, address(_executor)));
+
+        vm.prank(address(_executor));
+        _dualGovernance.setProposerExecutor(address(this), address(newExecutor));
+    }
+
+    // ---
     // unregisterProposer()
     // ---
 
@@ -1276,7 +1546,7 @@ contract DualGovernanceUnitTests is UnitTest {
             abi.encodeWithSelector(DualGovernance.registerProposer.selector, proposer, proposerExecutor)
         );
 
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.UnownedAdminExecutor.selector));
+        vm.expectRevert(abi.encodeWithSelector(Proposers.ExecutorNotRegistered.selector, (adminExecutor)));
         _executor.execute(
             address(_dualGovernance),
             0,
@@ -2009,14 +2279,7 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function test_resealSealable_HappyPath() external {
-        address resealCommittee = makeAddr("RESEAL_COMMITTEE");
         address sealable = address(new SealableMock());
-
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
-        );
 
         vm.startPrank(vetoer);
         _escrow.lockStETH(5 ether);
@@ -2051,19 +2314,12 @@ contract DualGovernanceUnitTests is UnitTest {
         assertEq(_dualGovernance.getPersistedState(), State.VetoSignalling);
 
         vm.prank(notResealCommittee);
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotResealCommittee.selector, notResealCommittee));
+        vm.expectRevert(abi.encodeWithSelector(Resealer.CallerIsNotResealCommittee.selector, notResealCommittee));
         _dualGovernance.resealSealable(sealable);
     }
 
     function test_resealSealable_RevertOn_NormalState() external {
-        address resealCommittee = makeAddr("RESEAL_COMMITTEE");
         address sealable = address(new SealableMock());
-
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
-        );
 
         assertEq(_dualGovernance.getPersistedState(), State.Normal);
 
@@ -2077,23 +2333,13 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function testFuzz_setResealCommittee_HappyPath(address newResealCommittee) external {
-        address resealCommittee = makeAddr("RESEAL_COMMITTEE");
         vm.assume(newResealCommittee != resealCommittee);
-
-        _executor.execute(
-            address(_dualGovernance),
-            0,
-            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, resealCommittee)
-        );
-
-        vm.expectEmit();
-        emit DualGovernance.ResealCommitteeSet(newResealCommittee);
-
         _executor.execute(
             address(_dualGovernance),
             0,
             abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
         );
+        assertEq(newResealCommittee, address(_dualGovernance.getResealCommittee()));
     }
 
     function testFuzz_setResealCommittee_RevertOn_NotAdminExecutor(address stranger) external {
@@ -2104,11 +2350,74 @@ contract DualGovernanceUnitTests is UnitTest {
         _dualGovernance.setResealCommittee(makeAddr("NEW_RESEAL_COMMITTEE"));
     }
 
-    function test_setResealCommittee_RevertOn_SameAddress() external {
-        vm.expectRevert(abi.encodeWithSelector(DualGovernance.InvalidResealCommittee.selector, address(0)));
+    function testFuzz_setResealCommittee_RevertOn_InvalidResealCommittee(address newResealCommittee) external {
+        vm.assume(_dualGovernance.getResealCommittee() != newResealCommittee);
         _executor.execute(
-            address(_dualGovernance), 0, abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, address(0))
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
         );
+
+        vm.expectRevert(abi.encodeWithSelector(Resealer.InvalidResealCommittee.selector, newResealCommittee));
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
+        );
+    }
+
+    // ---
+    // setResealManager()
+    // ---
+
+    function testFuzz_setResealManager_HappyPath(address newResealManager) external {
+        vm.assume(newResealManager != address(0) && newResealManager != address(_RESEAL_MANAGER_STUB));
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealManager.selector, newResealManager)
+        );
+    }
+
+    function test_setResealManger_RevertOn_CallerIsNotAdminExecutor(address stranger) external {
+        vm.assume(stranger != address(_executor));
+        address newResealManager = makeAddr("NEW_RESEAL_MANAGER");
+
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(DualGovernance.CallerIsNotAdminExecutor.selector, stranger));
+        _dualGovernance.setResealManager(IResealManager(newResealManager));
+    }
+
+    // ---
+    // getResealManager()
+    // ---
+
+    function testFuzz_getResealManager_HappyPath(address newResealManager) external {
+        vm.assume(newResealManager != address(_RESEAL_MANAGER_STUB));
+        vm.assume(newResealManager != address(0));
+
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealManager.selector, newResealManager)
+        );
+
+        assertEq(newResealManager, address(_dualGovernance.getResealManager()));
+    }
+
+    // ---
+    // getResealCommittee()
+    // ---
+
+    function testFuzz_getResealCommittee_HappyPath(address newResealCommittee) external {
+        vm.assume(newResealCommittee != resealCommittee);
+        _executor.execute(
+            address(_dualGovernance),
+            0,
+            abi.encodeWithSelector(DualGovernance.setResealCommittee.selector, newResealCommittee)
+        );
+        assertEq(newResealCommittee, address(_dualGovernance.getResealCommittee()));
     }
 
     // ---
@@ -2116,8 +2425,27 @@ contract DualGovernanceUnitTests is UnitTest {
     // ---
 
     function _submitMockProposal() internal {
-        // mock timelock doesn't uses proposal data
-        _timelock.submit(msg.sender, address(0), new ExternalCall[](0), "");
+        _timelock.submit(address(0), new ExternalCall[](0));
+    }
+
+    function _scheduleProposal(uint256 proposalId, Timestamp submittedAt) internal {
+        _timelock.setSchedule(proposalId);
+
+        vm.mockCall(
+            address(_timelock),
+            abi.encodeWithSelector(TimelockMock.getProposalDetails.selector, proposalId),
+            abi.encode(
+                ITimelock.ProposalDetails({
+                    id: proposalId,
+                    status: ProposalStatus.Submitted,
+                    executor: address(_executor),
+                    submittedAt: submittedAt,
+                    scheduledAt: Timestamps.from(0)
+                })
+            )
+        );
+        vm.expectCall(address(_timelock), 0, abi.encodeWithSelector(TimelockMock.schedule.selector, proposalId));
+        _dualGovernance.scheduleProposal(proposalId);
     }
 
     function _generateExternalCalls() internal pure returns (ExternalCall[] memory calls) {

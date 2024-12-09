@@ -18,7 +18,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
     function test_signalling_state_min_duration() public {
         _assertNormalState();
 
-        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT());
+        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
         _assertNormalState();
 
         _lockStETH(_VETOER, 1 gwei);
@@ -63,7 +63,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
     function test_signalling_to_normal() public {
         _assertNormalState();
 
-        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT());
+        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
 
         _assertNormalState();
 
@@ -93,7 +93,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
     function test_signalling_non_stop() public {
         _assertNormalState();
 
-        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT());
+        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
         _assertNormalState();
 
         _lockStETH(_VETOER, 1 gwei);

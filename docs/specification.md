@@ -34,11 +34,8 @@ This document provides the system description on the code architecture level. A 
 * Committees:
   * [Contract: ProposalsList.sol](#contract-proposalslistsol)
   * [Contract: HashConsensus.sol](#contract-hashconsensussol)
-  * [Contract: ResealCommittee.sol](#contract-resealcommitteesol)
   * [Contract: TiebreakerCoreCommittee.sol](#contract-tiebreakercorecommitteesol)
   * [Contract: TiebreakerSubCommittee.sol](#contract-tiebreakersubcommitteesol)
-  * [Contract: EmergencyActivationCommittee.sol](#contract-emergencyactivationcommitteesol)
-  * [Contract: EmergencyExecutionCommittee.sol](#contract-emergencyexecutioncommitteesol)
 * [Upgrade flow description](#upgrade-flow-description)
 
 
@@ -58,11 +55,8 @@ The system is composed of the following main contracts:
 
 Additionally, the system uses several committee contracts that allow members to  execute, acquiring quorum, a narrow set of actions while protecting management of the committees by the Dual Governance mechanism:
 
-* [`ResealCommittee.sol`](#contract-resealcommitteesol) is a committee contract that allows members to obtain a quorum and reseal contracts temporarily paused by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals).
 * [`TiebreakerCoreCommittee.sol`](#contract-tiebreakercorecommitteesol) is a committee contract designed to approve proposals for execution in extreme situations where the Dual Governance system is deadlocked. This includes scenarios such as the inability to finalize user withdrawal requests during ongoing `RageQuit` or when the system is held in a locked state for an extended period. The `TiebreakerCoreCommittee` consists of multiple `TiebreakerSubCommittee` contracts appointed by the DAO.
 * [`TiebreakerSubCommittee.sol`](#contract-tiebreakersubcommitteesol) is a committee contracts that provides ability to participate in `TiebreakerCoreCommittee` for external actors.
-* [`EmergencyActivationCommittee`](#contract-emergencyactivationcommitteesol) is a committee contract responsible for activating Emergency Mode by acquiring quorum. Only the EmergencyExecutionCommittee can execute proposals. This committee is expected to be active for a limited period following the initial deployment or update of the DualGovernance system.
-* [`EmergencyExecutionCommittee`](#contract-emergencyexecutioncommitteesol) is  a committee contract that enables quorum-based execution of proposals during Emergency Mode or disabling the DualGovernance mechanism by assigning the EmergencyProtectedTimelock to Aragon Voting. Like the EmergencyActivationCommittee, this committee is also intended for short-term use after the system’s deployment or update.
 
 
 ## Proposal flow
@@ -238,7 +232,7 @@ This contract is a singleton, meaning that any DG deployment includes exactly on
 
 ```solidity
 enum State {
-    Unset, // Indicates an uninitialized state during the contract creation
+    NotInitialized, // Indicates an uninitialized state during the contract creation
     Normal,
     VetoSignalling,
     VetoSignallingDeactivation,
@@ -271,6 +265,116 @@ The id of the successfully registered proposal.
 * The current governance state MUST be either of: `Normal`, `VetoSignalling`, `RageQuit`.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
+
+### Function: DualGovernance.scheduleProposal
+
+[`DualGovernance.scheduleProposal`]: #Function-DualGovernancescheduleProposal
+
+```solidity
+function scheduleProposal(uint256 proposalId) external
+```
+
+Schedules a previously submitted proposal for execution in the Dual Governance system. The function ensures that the proposal meets specific conditions before it can be scheduled. If the conditions are met, the proposal is registered for execution in the `EmergencyProtectedTimelock` singleton instance.
+
+Preconditions
+
+- The proposal with the specified proposalId MUST exist in the system.
+- The required delay since submission (`EmergencyProtectedTimelock.getAfterSubmitDelay()`) MUST have elapsed.
+- The Dual Governance system MUST BE in the `Normal` or `VetoCooldown` state
+- If the system is in the `VetoCooldown` state, the proposal MUST have been submitted not later than the `VetoSignalling` state was entered.
+- The proposal MUST NOT have been cancelled.
+- The proposal MUST NOT already be scheduled.
+
+Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
+
+### Function: DualGovernance.cancelAllPendingProposals
+
+```solidity
+function cancelAllPendingProposals() returns (bool)
+```
+
+Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
+
+If the current governance state is neither `VetoSignalling` nor `VetoSignallingDeactivation`, the function will exit early without canceling any proposals, emitting the `CancelAllPendingProposalsSkipped` event and returning `false`. If proposals are successfully canceled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
+
+#### Preconditions
+
+- MUST be called by an authorized `proposalsCanceller`
+
+Triggers a transition of the current governance state, if one is possible.
+
+### Function: DualGovernance.activateNextState
+
+```solidity
+function activateNextState()
+```
+
+Triggers a transition of the [global governance state](#Governance-state), if one is possible; does nothing otherwise.
+
+
+### Function: DualGovernance.getPersistedState
+
+```solidity
+function getPersistedState() view returns (State persistedState)
+```
+
+Returns the most recently persisted state of the DualGovernance.
+
+### Function: DualGovernance.getEffectiveState
+
+```solidity
+function getEffectiveState() view returns (State persistedState)
+```
+
+Returns the effective state of the DualGovernance. The effective state refers to the state the DualGovernance would transition to upon calling `DualGovernance.activateNextState()`.
+
+### Function DualGovernance.getStateDetails
+
+```solidity
+function getStateDetails() view returns (StateDetails)
+```
+
+This function returns detailed information about the current state of the `DualGovernance`, comprising the following data:
+
+- **`State effectiveState`**: The state that the `DualGovernance` would transition to upon calling `DualGovernance.activateNextState()`.
+- **`State persistedState`**: The current stored state of the `DualGovernance`.
+- **`Timestamp persistedStateEnteredAt`**: The timestamp when the `persistedState` was entered.
+- **`Timestamp vetoSignallingActivatedAt`**: The timestamp when the `VetoSignalling` state was last activated.
+- **`Timestamp vetoSignallingReactivationTime`**: The timestamp when the `VetoSignalling` state was last re-activated.
+- **`Timestamp normalOrVetoCooldownExitedAt`**: The timestamp when the `Normal` or `VetoCooldown` state was last exited.
+- **`uint256 rageQuitRound`**: The number of continuous RageQuit rounds.
+- **`Duration vetoSignallingDuration`**: The duration of the `VetoSignalling` state, calculated based on the RageQuit support in the Veto Signalling `Escrow`.
+
+
+### Function: DualGovernance.registerProposer
+
+```solidity
+function registerProposer(address proposer, address executor)
+```
+
+Registers the `proposer` address in the system as a valid proposer and associates it with the `executor` contract address (which is expected to be an instance of [`Executor.sol`](#Contract-Executorsol)) as an executor.
+
+#### Preconditions
+
+* MUST be called by the admin executor contract.
+* The `proposer` address MUST NOT be already registered in the system.
+* The `executor` instance SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
+
+
+### Function: DualGovernance.unregisterProposer
+
+```solidity
+function unregisterProposer(address proposer)
+```
+
+Removes the registered `proposer` address from the list of valid proposers and dissociates it with the executor contract address.
+
+#### Preconditions
+
+* MUST be called by the admin executor contract.
+* The `proposer` address MUST be registered in the system as proposer.
+* The `proposer` address MUST NOT be the only one assigned to the admin executor.
+
 
 ### Function: DualGovernance.tiebreakerScheduleProposal
 
@@ -307,52 +411,6 @@ Calls the `ResealManager.resumeSealable(address sealable)` if all preconditions 
 * Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
 
 
-### Function: DualGovernance.cancelAllPendingProposals
-
-```solidity
-function cancelAllPendingProposals() returns (bool)
-```
-
-Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
-
-If the current governance state is neither `VetoSignalling` nor `VetoSignallingDeactivation`, the function will exit early without canceling any proposals, emitting the `CancelAllPendingProposalsSkipped` event and returning `false`. If proposals are successfully canceled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
-
-Triggers a transition of the current governance state, if one is possible.
-
-#### Preconditions
-
-- MUST be called by an [admin proposer](#Administrative-actions).
-
-### Function: DualGovernance.registerProposer
-
-```solidity
-function registerProposer(address proposer, address executor)
-```
-
-Registers the `proposer` address in the system as a valid proposer and associates it with the `executor` contract address (which is expected to be an instance of [`Executor.sol`](#Contract-Executorsol)) as an executor.
-
-#### Preconditions
-
-* MUST be called by the admin executor contract.
-* The `proposer` address MUST NOT be already registered in the system.
-* The `executor` instance SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
-
-
-### Function: DualGovernance.unregisterProposer
-
-```solidity
-function unregisterProposer(address proposer)
-```
-
-Removes the registered `proposer` address from the list of valid proposers and dissociates it with the executor contract address.
-
-#### Preconditions
-
-* MUST be called by the admin executor contract.
-* The `proposer` address MUST be registered in the system as proposer.
-* The `proposer` address MUST NOT be the only one assigned to the admin executor.
-
-
 ### Function: DualGovernance.setTiebreakerCommittee
 
 ```solidity
@@ -368,67 +426,23 @@ Updates the address of the [Tiebreaker committee](#Tiebreaker-committee).
 * The `newTiebreaker` address MUST be different from the current tiebreaker address.
 
 
-### Function: DualGovernance.activateNextState
-
-```solidity
-function activateNextState()
-```
-
-Triggers a transition of the [global governance state](#Governance-state), if one is possible; does nothing otherwise.
-
-### Function: DualGovernance.getPersistedState
-
-```solidity
-function getPersistedState() view returns (State persistedState)
-```
-
-Returns the most recently persisted state of the DualGovernance.
-
-### Function: DualGovernance.getEffectiveState
-
-```solidity
-function getEffectiveState() view returns (State persistedState)
-```
-
-Returns the effective state of the DualGovernance. The effective state refers to the state the DualGovernance would transition to upon calling `DualGovernance.activateNextState()`.
-
-### Function DualGovernance.getStateDetails
-
-```solidity
-function getStateDetails() view returns (StateDetails)
-```
-
-This function returns detailed information about the current state of the `DualGovernance`, comprising the following data:
-
-- **`State effectiveState`**: The state that the `DualGovernance` would transition to upon calling `DualGovernance.activateNextState()`.
-- **`State persistedState`**: The current stored state of the `DualGovernance`.
-- **`Timestamp persistedStateEnteredAt`**: The timestamp when the `persistedState` was entered.
-- **`Timestamp vetoSignallingActivatedAt`**: The timestamp when the `VetoSignalling` state was last activated.
-- **`Timestamp vetoSignallingReactivationTime`**: The timestamp when the `VetoSignalling` state was last re-activated.
-- **`Timestamp normalOrVetoCooldownExitedAt`**: The timestamp when the `Normal` or `VetoCooldown` state was last exited.
-- **`uint256 rageQuitRound`**: The number of continuous RageQuit rounds.
-- **`Duration vetoSignallingDuration`**: The duration of the `VetoSignalling` state, calculated based on the RageQuit support in the Veto Signalling `Escrow`.
-
 ## Contract: Executor.sol
 
 Issues calls resulting from governance proposals' execution. Every protocol permission or role protected by the DG, as well as the permission to manage this role/permission, should be assigned exclusively to the instances of this contract.
 
 The system supports multiple instances of this contract, but all instances SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
 
+
 ### Function: execute
 
 ```solidity
-function execute(address target, uint256 value, bytes payload)
-  payable returns (bytes result)
+function execute(address target, uint256 value, bytes payload) payable
 ```
 
 Issues a EVM call to the `target` address with the `payload` calldata, optionally sending `value` wei ETH.
 
 Reverts if the call was unsuccessful.
 
-#### Returns
-
-The result of the call.
 
 #### Preconditions
 
@@ -927,7 +941,7 @@ The governance reset entails the following steps:
 ### Function: EmergencyProtectedTimelock.submit
 
 ```solidity
-function submit(address proposer, address executor, ExecutorCall[] calls, string calldata metadata)
+function submit(address executor, ExecutorCall[] calls)
   returns (uint256 proposalId)
 ```
 
@@ -1145,7 +1159,7 @@ Returns if an address is a member.
 ### Function: HashConsensus.setTimelockDuration
 
 ```solidity
-function setTimelockDuration(uint256 timelock)
+function setTimelockDuration(uint256 newTimelock)
 ```
 
 Sets the timelock duration.
@@ -1167,42 +1181,6 @@ Sets the quorum required for decision execution.
 
 * Only the owner can call this function.
 * `newQuorum` MUST be greater than 0, less than or equal to the number of members, and not equal to the current `quorum` value.
-
-## Contract: ResealCommittee.sol
-
-`ResealCommittee` is a smart contract that extends the `HashConsensus` and `PropsoalsList` contracts and allows members to obtain a quorum and reseal contracts temporarily paused by the [GateSeal emergency protection mechanism](https://github.com/lidofinance/gate-seals). It interacts with a DualGovernance contract to execute decisions once consensus is reached.
-
-### Function: ResealCommittee.voteReseal
-
-```solidity
-function voteReseal(address sealable, bool support)
-```
-
-Reseals sealable by voting on it and adding it to the proposal list.
-
-#### Preconditions
-* MUST be called by a member.
-
-### Function: ResealCommittee.getResealState
-
-```solidity
-function getResealState(address sealable)
-    view
-    returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt)
-```
-
-Returns the state of the sealable resume proposal including support count, quorum, and execution status.
-
-### Function: ResealCommittee.executeReseal
-
-```solidity
-function executeReseal(address sealable)
-```
-
-Executes a reseal of the sealable contract by calling the `resealSealable` method on the `DualGovernance` contract
-
-#### Preconditions
-* Proposal MUST be scheduled for execution and passed the timelock duration.
 
 
 ## Contract: TiebreakerCoreCommittee.sol
@@ -1358,116 +1336,6 @@ Executes a sealable resume request by calling the sealableResume function on the
 
 * Resume request MUST have reached quorum and passed the timelock duration.
 
-## Contract: EmergencyActivationCommittee.sol
-
-`EmergencyActivationCommittee` is a smart contract that extends the functionalities of `HashConsensus` to manage the emergency activation process. It allows committee members to vote on and execute the activation of emergency protocols in the `HashConsensus` contract.
-
-### Function: EmergencyActivationCommittee.approveActivateEmergencyMode
-
-```solidity
-function approveActivateEmergencyMode()
-```
-
-Approves the emergency activation by voting on the `EMERGENCY_ACTIVATION_HASH`.
-
-#### Preconditions
-
-* MUST be called by a member.
-
-### Function: EmergencyActivationCommittee.getActivateEmergencyModeState
-
-```solidity
-function getActivateEmergencyModeState()
-    view
-    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
-```
-
-Returns the state of the emergency activation proposal including support count, quorum, and execution status.
-
-### Function: EmergencyActivationCommittee.executeActivateEmergencyMode
-
-```solidity
-function executeActivateEmergencyMode() external
-```
-
-Executes the emergency activation by calling the `activateEmergencyMode` function on the `EmergencyProtectedTimelock` contract.
-
-#### Preconditions
-
-* Emergency activation proposal MUST have reached quorum and passed the timelock duration.
-
-
-## Contract: EmergencyExecutionCommittee.sol
-
-`EmergencyExecutionCommittee` is a smart contract that extends the functionalities of `HashConsensus` and `ProposalsList` to manage emergency execution and governance reset proposals through a consensus mechanism. It interacts with the `EmergencyProtectedTimelock` contract to execute critical emergency proposals.
-
-### Function: EmergencyExecutionCommittee.voteEmergencyExecute
-
-```solidity
-function voteEmergencyExecute(uint256 proposalId, bool _support)
-```
-
-Allows committee members to vote on an emergency execution proposal.
-
-#### Preconditions
-
-* MUST be called by a member.
-
-### Function: EmergencyExecutionCommittee.getEmergencyExecuteState
-
-```solidity
-function getEmergencyExecuteState(uint256 proposalId)
-    view
-    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
-```
-
-Returns the state of an emergency execution proposal including support count, quorum, and execution status.
-
-### Function: EmergencyExecutionCommittee.executeEmergencyExecute
-
-```solidity
-function executeEmergencyExecute(uint256 proposalId)
-```
-
-Executes an emergency execution proposal by calling the `emergencyExecute` function on the `EmergencyProtectedTimelock` contract.
-
-#### Preconditions
-* Emergency execution proposal MUST have reached quorum and passed the timelock duration.
-
-
-### Function: EmergencyExecutionCommittee.approveEmergencyReset
-
-```solidity
-function approveEmergencyReset()
-```
-
-Approves the governance reset by voting on the reset proposal.
-
-#### Preconditions
-
-* MUST be called by a member.
-
-### Function: EmergencyExecutionCommittee.getEmergencyResetState
-
-```solidity
-function getEmergencyResetState()
-    view
-    returns (uint256 support, uint256 executionQuorum, bool isExecuted)
-```
-
-Returns the state of the governance reset proposal including support count, quorum, and execution status.
-
-### Function: EmergencyExecutionCommittee.executeEmergencyReset
-
-```solidity
-function executeEmergencyReset() external
-```
-
-Executes the governance reset by calling the `emergencyReset` function on the `EmergencyProtectedTimelock` contract.
-
-#### Preconditions
-
-* Governance reset proposal MUST have reached quorum and passed the timelock duration.
 
 ## Upgrade flow description
 

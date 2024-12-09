@@ -194,7 +194,7 @@ contract EmergencyProtectionTest is UnitTest {
     }
 
     function test_checkEmergencyMode_RevertOn_NotInEmergencyMode() external {
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
         EmergencyProtection.checkEmergencyMode(ctx, true);
     }
 

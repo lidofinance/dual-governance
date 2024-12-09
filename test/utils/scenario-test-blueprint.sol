@@ -12,7 +12,8 @@ import {PercentD16} from "contracts/types/PercentD16.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
-import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
+import {Escrow} from "contracts/Escrow.sol";
 
 // ---
 // Interfaces
@@ -20,7 +21,7 @@ import {Escrow, VetoerState, LockedAssetsTotals} from "contracts/Escrow.sol";
 
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
-import {WithdrawalRequestStatus} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
 
 // ---
@@ -198,7 +199,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     function _unlockWstETH(address vetoer) internal {
         Escrow escrow = _getVetoSignallingEscrow();
         uint256 wstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
-        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
 
         vm.startPrank(vetoer);
         uint256 wstETHUnlocked = escrow.unlockWstETH();
@@ -206,17 +207,21 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
         // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
         // sending funds to the user
-        assertApproxEqAbs(wstETHUnlocked, vetoerStateBefore.stETHLockedShares, 1);
-        assertApproxEqAbs(_lido.wstETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerStateBefore.stETHLockedShares, 1);
+        assertApproxEqAbs(wstETHUnlocked, vetoerDetailsBefore.stETHLockedShares.toUint256(), 1);
+        assertApproxEqAbs(
+            _lido.wstETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerDetailsBefore.stETHLockedShares.toUint256(), 1
+        );
     }
 
     function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
-        LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsBefore =
+            escrow.getSignallingEscrowDetails();
 
         uint256 unstETHTotalSharesLocked = 0;
-        WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             unstETHTotalSharesLocked += statuses[i].amountOfShares;
         }
@@ -231,23 +236,26 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
             assertEq(_lido.withdrawalQueue.ownerOf(unstETHIds[i]), address(escrow));
         }
 
-        VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
-        assertEq(vetoerStateAfter.unstETHIdsCount, vetoerStateBefore.unstETHIdsCount + unstETHIds.length);
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        assertEq(vetoerDetailsAfter.unstETHIdsCount, vetoerDetailsBefore.unstETHIdsCount + unstETHIds.length);
 
-        LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsAfter =
+            escrow.getSignallingEscrowDetails();
         assertEq(
-            lockedAssetsTotalsAfter.unstETHUnfinalizedShares,
-            lockedAssetsTotalsBefore.unstETHUnfinalizedShares + unstETHTotalSharesLocked
+            signallingEscrowDetailsAfter.totalUnstETHUnfinalizedShares.toUint256(),
+            signallingEscrowDetailsBefore.totalUnstETHUnfinalizedShares.toUint256() + unstETHTotalSharesLocked
         );
     }
 
     function _unlockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
         Escrow escrow = _getVetoSignallingEscrow();
-        VetoerState memory vetoerStateBefore = escrow.getVetoerState(vetoer);
-        LockedAssetsTotals memory lockedAssetsTotalsBefore = escrow.getLockedAssetsTotals();
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsBefore =
+            escrow.getSignallingEscrowDetails();
 
         uint256 unstETHTotalSharesUnlocked = 0;
-        WithdrawalRequestStatus[] memory statuses = _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
             unstETHTotalSharesUnlocked += statuses[i].amountOfShares;
         }
@@ -260,14 +268,15 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
             assertEq(_lido.withdrawalQueue.ownerOf(unstETHIds[i]), vetoer);
         }
 
-        VetoerState memory vetoerStateAfter = escrow.getVetoerState(vetoer);
-        assertEq(vetoerStateAfter.unstETHIdsCount, vetoerStateBefore.unstETHIdsCount - unstETHIds.length);
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        assertEq(vetoerDetailsAfter.unstETHIdsCount, vetoerDetailsBefore.unstETHIdsCount - unstETHIds.length);
 
         // TODO: implement correct assert. It must consider was unstETH finalized or not
-        LockedAssetsTotals memory lockedAssetsTotalsAfter = escrow.getLockedAssetsTotals();
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsAfter =
+            escrow.getSignallingEscrowDetails();
         assertEq(
-            lockedAssetsTotalsAfter.unstETHUnfinalizedShares,
-            lockedAssetsTotalsBefore.unstETHUnfinalizedShares - unstETHTotalSharesUnlocked
+            signallingEscrowDetailsAfter.totalUnstETHUnfinalizedShares.toUint256(),
+            signallingEscrowDetailsBefore.totalUnstETHUnfinalizedShares.toUint256() - unstETHTotalSharesUnlocked
         );
     }
 
@@ -549,30 +558,18 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _executeActivateEmergencyMode() internal {
-        address[] memory members = _emergencyActivationCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyActivationCommittee.getQuorum(); ++i) {
-            vm.prank(members[i]);
-            _emergencyActivationCommittee.approveActivateEmergencyMode();
-        }
-        _emergencyActivationCommittee.executeActivateEmergencyMode();
+        vm.prank(_emergencyActivationCommittee);
+        _timelock.activateEmergencyMode();
     }
 
     function _executeEmergencyExecute(uint256 proposalId) internal {
-        address[] memory members = _emergencyExecutionCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyExecutionCommittee.getQuorum(); ++i) {
-            vm.prank(members[i]);
-            _emergencyExecutionCommittee.voteEmergencyExecute(proposalId, true);
-        }
-        _emergencyExecutionCommittee.executeEmergencyExecute(proposalId);
+        vm.prank(_emergencyExecutionCommittee);
+        _timelock.emergencyExecute(proposalId);
     }
 
     function _executeEmergencyReset() internal {
-        address[] memory members = _emergencyExecutionCommittee.getMembers();
-        for (uint256 i = 0; i < _emergencyExecutionCommittee.getQuorum(); ++i) {
-            vm.prank(members[i]);
-            _emergencyExecutionCommittee.approveEmergencyReset();
-        }
-        _emergencyExecutionCommittee.executeEmergencyReset();
+        vm.prank(_emergencyExecutionCommittee);
+        _timelock.emergencyReset();
     }
 
     struct DurationStruct {
