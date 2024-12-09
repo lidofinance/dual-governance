@@ -266,6 +266,116 @@ The id of the successfully registered proposal.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
+### Function: DualGovernance.scheduleProposal
+
+[`DualGovernance.scheduleProposal`]: #Function-DualGovernancescheduleProposal
+
+```solidity
+function scheduleProposal(uint256 proposalId) external
+```
+
+Schedules a previously submitted proposal for execution in the Dual Governance system. The function ensures that the proposal meets specific conditions before it can be scheduled. If the conditions are met, the proposal is registered for execution in the `EmergencyProtectedTimelock` singleton instance.
+
+Preconditions
+
+- The proposal with the specified proposalId MUST exist in the system.
+- The required delay since submission (`EmergencyProtectedTimelock.getAfterSubmitDelay()`) MUST have elapsed.
+- The Dual Governance system MUST BE in the `Normal` or `VetoCooldown` state
+- If the system is in the `VetoCooldown` state, the proposal MUST have been submitted not later than the `VetoSignalling` state was entered.
+- The proposal MUST NOT have been cancelled.
+- The proposal MUST NOT already be scheduled.
+
+Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
+
+### Function: DualGovernance.cancelAllPendingProposals
+
+```solidity
+function cancelAllPendingProposals() returns (bool)
+```
+
+Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
+
+If the current governance state is neither `VetoSignalling` nor `VetoSignallingDeactivation`, the function will exit early without canceling any proposals, emitting the `CancelAllPendingProposalsSkipped` event and returning `false`. If proposals are successfully canceled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
+
+#### Preconditions
+
+- MUST be called by an authorized `proposalsCanceller`
+
+Triggers a transition of the current governance state, if one is possible.
+
+### Function: DualGovernance.activateNextState
+
+```solidity
+function activateNextState()
+```
+
+Triggers a transition of the [global governance state](#Governance-state), if one is possible; does nothing otherwise.
+
+
+### Function: DualGovernance.getPersistedState
+
+```solidity
+function getPersistedState() view returns (State persistedState)
+```
+
+Returns the most recently persisted state of the DualGovernance.
+
+### Function: DualGovernance.getEffectiveState
+
+```solidity
+function getEffectiveState() view returns (State persistedState)
+```
+
+Returns the effective state of the DualGovernance. The effective state refers to the state the DualGovernance would transition to upon calling `DualGovernance.activateNextState()`.
+
+### Function DualGovernance.getStateDetails
+
+```solidity
+function getStateDetails() view returns (StateDetails)
+```
+
+This function returns detailed information about the current state of the `DualGovernance`, comprising the following data:
+
+- **`State effectiveState`**: The state that the `DualGovernance` would transition to upon calling `DualGovernance.activateNextState()`.
+- **`State persistedState`**: The current stored state of the `DualGovernance`.
+- **`Timestamp persistedStateEnteredAt`**: The timestamp when the `persistedState` was entered.
+- **`Timestamp vetoSignallingActivatedAt`**: The timestamp when the `VetoSignalling` state was last activated.
+- **`Timestamp vetoSignallingReactivationTime`**: The timestamp when the `VetoSignalling` state was last re-activated.
+- **`Timestamp normalOrVetoCooldownExitedAt`**: The timestamp when the `Normal` or `VetoCooldown` state was last exited.
+- **`uint256 rageQuitRound`**: The number of continuous RageQuit rounds.
+- **`Duration vetoSignallingDuration`**: The duration of the `VetoSignalling` state, calculated based on the RageQuit support in the Veto Signalling `Escrow`.
+
+
+### Function: DualGovernance.registerProposer
+
+```solidity
+function registerProposer(address proposer, address executor)
+```
+
+Registers the `proposer` address in the system as a valid proposer and associates it with the `executor` contract address (which is expected to be an instance of [`Executor.sol`](#Contract-Executorsol)) as an executor.
+
+#### Preconditions
+
+* MUST be called by the admin executor contract.
+* The `proposer` address MUST NOT be already registered in the system.
+* The `executor` instance SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
+
+
+### Function: DualGovernance.unregisterProposer
+
+```solidity
+function unregisterProposer(address proposer)
+```
+
+Removes the registered `proposer` address from the list of valid proposers and dissociates it with the executor contract address.
+
+#### Preconditions
+
+* MUST be called by the admin executor contract.
+* The `proposer` address MUST be registered in the system as proposer.
+* The `proposer` address MUST NOT be the only one assigned to the admin executor.
+
+
 ### Function: DualGovernance.tiebreakerScheduleProposal
 
 [`DualGovernance.tiebreakerScheduleProposal`]: #Function-DualGovernancetiebreakerScheduleProposal
@@ -301,52 +411,6 @@ Calls the `ResealManager.resumeSealable(address sealable)` if all preconditions 
 * Either the Tiebreaker Condition A or the Tiebreaker Condition B MUST be met (see the [mechanism design document][mech design - tiebreaker]).
 
 
-### Function: DualGovernance.cancelAllPendingProposals
-
-```solidity
-function cancelAllPendingProposals() returns (bool)
-```
-
-Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
-
-If the current governance state is neither `VetoSignalling` nor `VetoSignallingDeactivation`, the function will exit early without canceling any proposals, emitting the `CancelAllPendingProposalsSkipped` event and returning `false`. If proposals are successfully canceled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
-
-Triggers a transition of the current governance state, if one is possible.
-
-#### Preconditions
-
-- MUST be called by an [admin proposer](#Administrative-actions).
-
-### Function: DualGovernance.registerProposer
-
-```solidity
-function registerProposer(address proposer, address executor)
-```
-
-Registers the `proposer` address in the system as a valid proposer and associates it with the `executor` contract address (which is expected to be an instance of [`Executor.sol`](#Contract-Executorsol)) as an executor.
-
-#### Preconditions
-
-* MUST be called by the admin executor contract.
-* The `proposer` address MUST NOT be already registered in the system.
-* The `executor` instance SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
-
-
-### Function: DualGovernance.unregisterProposer
-
-```solidity
-function unregisterProposer(address proposer)
-```
-
-Removes the registered `proposer` address from the list of valid proposers and dissociates it with the executor contract address.
-
-#### Preconditions
-
-* MUST be called by the admin executor contract.
-* The `proposer` address MUST be registered in the system as proposer.
-* The `proposer` address MUST NOT be the only one assigned to the admin executor.
-
-
 ### Function: DualGovernance.setTiebreakerCommittee
 
 ```solidity
@@ -362,67 +426,23 @@ Updates the address of the [Tiebreaker committee](#Tiebreaker-committee).
 * The `newTiebreaker` address MUST be different from the current tiebreaker address.
 
 
-### Function: DualGovernance.activateNextState
-
-```solidity
-function activateNextState()
-```
-
-Triggers a transition of the [global governance state](#Governance-state), if one is possible; does nothing otherwise.
-
-### Function: DualGovernance.getPersistedState
-
-```solidity
-function getPersistedState() view returns (State persistedState)
-```
-
-Returns the most recently persisted state of the DualGovernance.
-
-### Function: DualGovernance.getEffectiveState
-
-```solidity
-function getEffectiveState() view returns (State persistedState)
-```
-
-Returns the effective state of the DualGovernance. The effective state refers to the state the DualGovernance would transition to upon calling `DualGovernance.activateNextState()`.
-
-### Function DualGovernance.getStateDetails
-
-```solidity
-function getStateDetails() view returns (StateDetails)
-```
-
-This function returns detailed information about the current state of the `DualGovernance`, comprising the following data:
-
-- **`State effectiveState`**: The state that the `DualGovernance` would transition to upon calling `DualGovernance.activateNextState()`.
-- **`State persistedState`**: The current stored state of the `DualGovernance`.
-- **`Timestamp persistedStateEnteredAt`**: The timestamp when the `persistedState` was entered.
-- **`Timestamp vetoSignallingActivatedAt`**: The timestamp when the `VetoSignalling` state was last activated.
-- **`Timestamp vetoSignallingReactivationTime`**: The timestamp when the `VetoSignalling` state was last re-activated.
-- **`Timestamp normalOrVetoCooldownExitedAt`**: The timestamp when the `Normal` or `VetoCooldown` state was last exited.
-- **`uint256 rageQuitRound`**: The number of continuous RageQuit rounds.
-- **`Duration vetoSignallingDuration`**: The duration of the `VetoSignalling` state, calculated based on the RageQuit support in the Veto Signalling `Escrow`.
-
 ## Contract: Executor.sol
 
 Issues calls resulting from governance proposals' execution. Every protocol permission or role protected by the DG, as well as the permission to manage this role/permission, should be assigned exclusively to the instances of this contract.
 
 The system supports multiple instances of this contract, but all instances SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
 
+
 ### Function: execute
 
 ```solidity
-function execute(address target, uint256 value, bytes payload)
-  payable returns (bytes result)
+function execute(address target, uint256 value, bytes payload) payable
 ```
 
 Issues a EVM call to the `target` address with the `payload` calldata, optionally sending `value` wei ETH.
 
 Reverts if the call was unsuccessful.
 
-#### Returns
-
-The result of the call.
 
 #### Preconditions
 
@@ -921,7 +941,7 @@ The governance reset entails the following steps:
 ### Function: EmergencyProtectedTimelock.submit
 
 ```solidity
-function submit(address proposer, address executor, ExecutorCall[] calls, string calldata metadata)
+function submit(address executor, ExecutorCall[] calls)
   returns (uint256 proposalId)
 ```
 
