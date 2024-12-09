@@ -34,7 +34,7 @@
     "hardhat": "^2.17.2",
     "hardhat-gas-reporter": "^1.0.8",
     "husky": "^9.0.10",
-    "lint-staged": "^15.2.2",
+    "lint-staged": "^15.2.10",
     "solhint": "^4.1.1",
     "solhint-plugin-lido": "^0.0.4",
     "solidity-coverage": "^0.8.4"
