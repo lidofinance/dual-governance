@@ -121,7 +121,7 @@ library DeployVerification {
         require(
             timelockInstance.isEmergencyModeActive() == false, "EmergencyMode is Active in EmergencyProtectedTimelock"
         );
-        require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 0 in EmergencyProtectedTimelock");
+        require(timelockInstance.getProposalsCount() == 1, "ProposalsCount > 1 in EmergencyProtectedTimelock");
     }
 
     function checkEmergencyActivationCommittee(DeployConfig memory dgDeployConfig) internal pure {

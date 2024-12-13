@@ -35,6 +35,7 @@ struct DeployedContracts {
     DualGovernance dualGovernance;
     TiebreakerCoreCommittee tiebreakerCoreCommittee;
     TiebreakerSubCommittee[] tiebreakerSubCommittees;
+    TimelockedGovernance temporaryEmergencyGovernance;
 }
 
 library DGContractsDeployment {
@@ -114,6 +115,11 @@ library DGContractsDeployment {
         contracts.emergencyGovernance =
             deployTimelockedGovernance({governance: lidoAddresses.voting, timelock: timelock});
 
+        contracts.temporaryEmergencyGovernance = deployTimelockedGovernance({
+            governance: dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER,
+            timelock: timelock
+        });
+
         adminExecutor.execute(
             address(timelock),
             0,
@@ -146,7 +152,7 @@ library DGContractsDeployment {
         adminExecutor.execute(
             address(timelock),
             0,
-            abi.encodeCall(timelock.setEmergencyGovernance, (address(contracts.emergencyGovernance)))
+            abi.encodeCall(timelock.setEmergencyGovernance, (address(contracts.temporaryEmergencyGovernance)))
         );
     }
 
