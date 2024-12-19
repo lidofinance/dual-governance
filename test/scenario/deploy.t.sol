@@ -120,9 +120,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         _dgContracts = DGContractsDeployment.deployDualGovernanceSetup(_config, _lidoAddresses, address(this));
 
         // Verify deployment
-        // Expect to revert because of temporary emergencyGovernance address in EmergencyProtectedTimelock set
-        vm.expectRevert("Incorrect emergencyGovernance address in EmergencyProtectedTimelock");
-        _verifier.verify(_config, _lidoAddresses, _dgContracts);
+        _verifier.verify(_config, _lidoAddresses, _dgContracts, false);
 
         // Activate Dual Governance Emergency Mode
         vm.prank(_emergencyActivationCommitteeMultisig);
@@ -318,7 +316,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                 ExternalCall({
                     target: address(_verifier),
                     value: 0,
-                    payload: abi.encodeWithSelector(DeployVerifier.verify.selector, _config, _lidoAddresses, _dgContracts)
+                    payload: abi.encodeWithSelector(DeployVerifier.verify.selector, _config, _lidoAddresses, _dgContracts, true)
                 }),
                 // TODO: Draft of role verification
                 ExternalCall({
@@ -352,7 +350,8 @@ contract DeployVerifier {
     function verify(
         DeployConfig memory config,
         LidoContracts memory lidoAddresses,
-        DeployedContracts memory _dgContracts
+        DeployedContracts memory _dgContracts,
+        bool onchainVotingCheck
     ) external view {
         address[] memory _tiebreakerSubCommittees = new address[](_dgContracts.tiebreakerSubCommittees.length);
         for (uint256 i = 0; i < _dgContracts.tiebreakerSubCommittees.length; ++i) {
@@ -370,7 +369,7 @@ contract DeployVerifier {
             temporaryEmergencyGovernance: address(_dgContracts.temporaryEmergencyGovernance)
         });
 
-        dgDeployedAddresses.verify(config, lidoAddresses);
+        dgDeployedAddresses.verify(config, lidoAddresses, onchainVotingCheck);
     }
 }
 

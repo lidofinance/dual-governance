@@ -17,8 +17,11 @@ contract DeployVerifier {
         _lidoAddresses = lidoAddresses;
     }
 
-    function verify(DeployVerification.DeployedAddresses memory dgDeployedAddresses) external {
-        dgDeployedAddresses.verify(_config, _lidoAddresses);
+    function verify(
+        DeployVerification.DeployedAddresses memory dgDeployedAddresses,
+        bool onchainVotingCheck
+    ) external {
+        dgDeployedAddresses.verify(_config, _lidoAddresses, onchainVotingCheck);
 
         emit Verified();
     }
