@@ -40,7 +40,7 @@ abstract contract DeployBase is Script {
 
         console.log("Verifying deploy");
 
-        res.verify(config, lidoAddresses);
+        res.verify(config, lidoAddresses, false);
 
         console.log(unicode"Verified ✅");
     }
