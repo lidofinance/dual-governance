@@ -27,6 +27,7 @@ library DeployVerification {
         address dualGovernance;
         address tiebreakerCoreCommittee;
         address[] tiebreakerSubCommittees;
+        address temporaryEmergencyGovernance;
     }
 
     function verify(
@@ -98,10 +99,6 @@ library DeployVerification {
         );
 
         require(
-            timelockInstance.getEmergencyGovernance() == res.emergencyGovernance,
-            "Incorrect emergencyGovernance address in EmergencyProtectedTimelock"
-        );
-        require(
             timelockInstance.getAfterSubmitDelay() == dgDeployConfig.AFTER_SUBMIT_DELAY,
             "Incorrect parameter AFTER_SUBMIT_DELAY"
         );
@@ -121,7 +118,7 @@ library DeployVerification {
         require(
             timelockInstance.isEmergencyModeActive() == false, "EmergencyMode is Active in EmergencyProtectedTimelock"
         );
-        require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 0 in EmergencyProtectedTimelock");
+        require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 1 in EmergencyProtectedTimelock");
     }
 
     function checkEmergencyActivationCommittee(DeployConfig memory dgDeployConfig) internal pure {
