@@ -13,7 +13,8 @@ contract DeployVerifier {
     function verify(
         DeployConfig memory config,
         LidoContracts memory lidoAddresses,
-        DeployedContracts memory _dgContracts
+        DeployedContracts memory _dgContracts,
+        bool onchainVotingCheck
     ) external {
         address[] memory _tiebreakerSubCommittees = new address[](_dgContracts.tiebreakerSubCommittees.length);
         for (uint256 i = 0; i < _dgContracts.tiebreakerSubCommittees.length; ++i) {
@@ -31,7 +32,7 @@ contract DeployVerifier {
             temporaryEmergencyGovernance: address(_dgContracts.temporaryEmergencyGovernance)
         });
 
-        dgDeployedAddresses.verify(config, lidoAddresses);
+        dgDeployedAddresses.verify(config, lidoAddresses, onchainVotingCheck);
 
         emit Verified();
     }
