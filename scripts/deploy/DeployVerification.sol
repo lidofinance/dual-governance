@@ -27,6 +27,7 @@ library DeployVerification {
         address dualGovernance;
         address tiebreakerCoreCommittee;
         address[] tiebreakerSubCommittees;
+        address temporaryEmergencyGovernance;
     }
 
     function verify(
