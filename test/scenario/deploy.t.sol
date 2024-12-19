@@ -191,6 +191,17 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                 })
             ]
         );
+        console.log("Calls to set DG state:");
+        console.logBytes(abi.encode(calls));
+
+        console.log("Submit proposal to set DG state calldata");
+        console.logBytes(
+            abi.encodeWithSelector(
+                _dgContracts.temporaryEmergencyGovernance.submitProposal.selector,
+                calls,
+                "Reset emergency mode and set original DG as governance"
+            )
+        );
         vm.prank(_temporaryEmergencyGovernanceProposer);
         uint256 proposalId = _dgContracts.temporaryEmergencyGovernance.submitProposal(
             calls, "Reset emergency mode and set original DG as governance"
@@ -320,6 +331,8 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         // Create and execute vote to activate Dual Governance
         uint256 voteId = lidoUtils.adoptVote("Dual Governance activation vote", _encodeExternalCalls(activateCalls));
         lidoUtils.executeVote(voteId);
+
+        // TODO: Check that voting cant call Agent forward
     }
 
     function _encodeExternalCalls(ExternalCall[] memory calls) internal pure returns (bytes memory result) {
