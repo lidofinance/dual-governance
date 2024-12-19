@@ -51,7 +51,8 @@ contract Verify is Script {
             resealManager: stdJson.readAddress(deployedAddressesJson, ".RESEAL_MANAGER"),
             dualGovernance: stdJson.readAddress(deployedAddressesJson, ".DUAL_GOVERNANCE"),
             tiebreakerCoreCommittee: stdJson.readAddress(deployedAddressesJson, ".TIEBREAKER_CORE_COMMITTEE"),
-            tiebreakerSubCommittees: stdJson.readAddressArray(deployedAddressesJson, ".TIEBREAKER_SUB_COMMITTEES")
+            tiebreakerSubCommittees: stdJson.readAddressArray(deployedAddressesJson, ".TIEBREAKER_SUB_COMMITTEES"),
+            temporaryEmergencyGovernance: stdJson.readAddress(deployedAddressesJson, ".TEMPORARY_EMERGENCY_GOVERNANCE")
         });
     }
 

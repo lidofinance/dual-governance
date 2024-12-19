@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
+/* solhint-disable no-console */
 
 import {DeployConfig, LidoContracts} from "scripts/deploy/Config.sol";
 import {DGContractsDeployment, DeployedContracts} from "scripts/deploy/ContractsDeployment.sol";
@@ -365,7 +366,8 @@ contract DeployVerifier {
             resealManager: address(_dgContracts.resealManager),
             dualGovernance: address(_dgContracts.dualGovernance),
             tiebreakerCoreCommittee: address(_dgContracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: _tiebreakerSubCommittees
+            tiebreakerSubCommittees: _tiebreakerSubCommittees,
+            temporaryEmergencyGovernance: address(_dgContracts.temporaryEmergencyGovernance)
         });
 
         dgDeployedAddresses.verify(config, lidoAddresses);

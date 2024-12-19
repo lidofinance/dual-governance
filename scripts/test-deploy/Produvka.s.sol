@@ -57,7 +57,7 @@ contract Produvka is Script {
         console.log("========= Step ", step, " =========");
         IEmergencyProtectedTimelock timelock = IEmergencyProtectedTimelock(res.timelock);
 
-        uint256 proposalId;
+        uint256 proposalId = 1;
         RolesVerifier _rolesVerifier;
 
         // if (step < 1) {
@@ -208,10 +208,6 @@ contract Produvka is Script {
                 details.emergencyModeDuration == config.EMERGENCY_MODE_DURATION,
                 "Incorrect emergencyModeDuration in EmergencyProtectedTimelock"
             );
-            require(
-                details.emergencyModeEndsAfter.toSeconds() == 0,
-                "Incorrect emergencyModeEndsAfter in EmergencyProtectedTimelock"
-            );
             // require(
             //     details.emergencyProtectionEndsAfter.toSeconds() == config.EMERGENCY_PROTECTION_DURATION + block.timestamp,
             //     "Incorrect emergencyProtectionEndsAfter in EmergencyProtectedTimelock"
@@ -263,6 +259,7 @@ contract Produvka is Script {
             //                 address(res.resealManager)
             //             )
             //         })
+            // Grant agent forward to DG Executor
             //         // TODO: Add more role granting calls here
             //     ]
             // );
@@ -290,6 +287,8 @@ contract Produvka is Script {
             //             value: 0,
             //             payload: abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector)
             //         })
+
+            // DG.submit(revokeAgentForwardRoleFromVoting)
             //     ]
             // );
 
