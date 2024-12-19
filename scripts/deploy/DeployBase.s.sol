@@ -62,7 +62,8 @@ abstract contract DeployBase is Script {
             resealManager: address(contracts.resealManager),
             dualGovernance: address(contracts.dualGovernance),
             tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: tiebreakerSubCommittees
+            tiebreakerSubCommittees: tiebreakerSubCommittees,
+            temporaryEmergencyGovernance: address(contracts.temporaryEmergencyGovernance)
         });
     }
 
