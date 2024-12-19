@@ -80,5 +80,6 @@ abstract contract DeployBase is Script {
         console.log("AdminExecutor address", res.adminExecutor);
         console.log("EmergencyProtectedTimelock address", res.timelock);
         console.log("EmergencyGovernance address", res.emergencyGovernance);
+        console.log("TemporaryEmergencyGovernance address", res.temporaryEmergencyGovernance);
     }
 }
