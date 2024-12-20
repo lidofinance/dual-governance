@@ -65,12 +65,12 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
     The Escrow contract is deployed internally by DualGovernance contract, so it can't be verified automatically during the initial deployment and requires manual verification afterward. To run Etherscan verification:
 
-    a. Query the deployed DualGovernance contract instance for ESCROW_MASTER_COPY address.
+    a. Search the deployed DualGovernance contract events for `EscrowMasterCopyDeployed` event with a single argument - ESCROW_MASTER_COPY address.
 
     b. Run Etherscan verification (for example on a Holesky testnet)
 
     ```
-    forge verify-contract --chain holesky --verifier-url https://api-holesky.etherscan.io/api --watch --constructor-args $(cast abi-encode "Escrow(address,address,address,address,uint256)" <ST_ETH_ADDRESS> <WST_ETH_ADDRESS> <WITHDRAWAL_QUEUE_ADDRESS> <DUAL_GOVERNANCE_ADDRESS> <MIN_WITHDRAWALS_BATCH_SIZE>) <ESCROW_MASTER_COPY> contracts/Escrow.sol:Escrow
+    forge verify-contract --chain holesky --verifier-url https://api-holesky.etherscan.io/api --watch --constructor-args $(cast abi-encode "Escrow(address,address,address,address,uint256,uint32)" <ST_ETH_ADDRESS> <WST_ETH_ADDRESS> <WITHDRAWAL_QUEUE_ADDRESS> <DUAL_GOVERNANCE_ADDRESS> <MIN_WITHDRAWALS_BATCH_SIZE> <MAX_MIN_ASSETS_LOCK_DURATION>) <ESCROW_MASTER_COPY> contracts/Escrow.sol:Escrow
     ```
 
 ### Running the verification script
