@@ -110,6 +110,7 @@ abstract contract SetupDeployment is Test {
     TimelockedGovernance internal _emergencyGovernance;
     address internal _emergencyActivationCommittee;
     address internal _emergencyExecutionCommittee;
+    address internal _temporaryEmergencyGovernanceProposer;
 
     // ---
     // Dual Governance Contracts
@@ -145,6 +146,7 @@ abstract contract SetupDeployment is Test {
         _emergencyActivationCommittee = makeAddr("EMERGENCY_ACTIVATION_COMMITTEE");
         _emergencyExecutionCommittee = makeAddr("EMERGENCY_EXECUTION_COMMITTEE");
         _resealCommittee = makeAddr("RESEAL_COMMITTEE");
+        _temporaryEmergencyGovernanceProposer = makeAddr("TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER");
 
         dgDeployConfig.MIN_EXECUTION_DELAY = dgDeployConfig.AFTER_SUBMIT_DELAY = _AFTER_SUBMIT_DELAY;
         dgDeployConfig.MAX_AFTER_SUBMIT_DELAY = _MAX_AFTER_SUBMIT_DELAY;
@@ -188,6 +190,8 @@ abstract contract SetupDeployment is Test {
         dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY = Durations.from(180 days);
         dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH = Durations.from(15 days);
         dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = address(_lido.voting);
+
+        dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = _temporaryEmergencyGovernanceProposer;
 
         lidoAddresses.stETH = _lido.stETH;
         lidoAddresses.wstETH = _lido.wstETH;
@@ -259,13 +263,19 @@ abstract contract SetupDeployment is Test {
     // ---
 
     function _deployEmergencyProtectedTimelockContracts(bool isEmergencyProtectionEnabled) internal {
-        contracts = DGContractsDeployment.deployAdminExecutorAndTimelock(dgDeployConfig, address(this));
-        _adminExecutor = contracts.adminExecutor;
-        _timelock = contracts.timelock;
+        // TODO: use _ prefix for the storage internal variables _contracts
+        DeployedContracts memory memContracts =
+            DGContractsDeployment.deployAdminExecutorAndTimelock(dgDeployConfig, address(this));
+        _adminExecutor = memContracts.adminExecutor;
+        _timelock = memContracts.timelock;
 
         if (isEmergencyProtectionEnabled) {
-            DGContractsDeployment.deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, contracts);
+            DGContractsDeployment.deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, memContracts);
+            _emergencyGovernance = memContracts.emergencyGovernance;
         }
+        contracts.timelock = _timelock;
+        contracts.adminExecutor = _adminExecutor;
+        contracts.emergencyGovernance = _emergencyGovernance;
     }
 
     function _deployEmergencyProtectedTimelock(Executor adminExecutor) internal returns (EmergencyProtectedTimelock) {

@@ -49,12 +49,12 @@ contract DeployHappyPath is ScenarioTestBlueprint {
     DeployVerification.DeployedAddresses internal _deployedAddresses;
     address _emergencyActivationCommitteeMultisig = makeAddr("emergencyActivationCommittee");
     address _emergencyExecutionCommitteeMultisig = makeAddr("emergencyExecutionCommittee");
-    address _temporaryEmergencyGovernanceProposer = makeAddr("temporaryEmergencyGovernanceProposer");
 
     LidoUtils.Context internal lidoUtils = LidoUtils.mainnet();
     address _ldoHolder = address(0xF977814e90dA44bFA03b6295A0616a897441aceC);
 
     function setUp() external {
+        _temporaryEmergencyGovernanceProposer = makeAddr("temporaryEmergencyGovernanceProposer");
         _tiebreakerSubCommitteeMembers[0] = makeAddr("tiebreakerSubCommitteeMember");
         _tiebreakerSubCommitteeQuorums[0] = 1;
 
