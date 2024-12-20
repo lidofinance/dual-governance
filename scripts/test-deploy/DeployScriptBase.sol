@@ -117,6 +117,7 @@ contract DeployScriptBase is Script {
         console.log("AdminExecutor address", res.adminExecutor);
         console.log("EmergencyProtectedTimelock address", res.timelock);
         console.log("EmergencyGovernance address", res.emergencyGovernance);
+        console.log("TemporaryEmergencyGovernance address", res.temporaryEmergencyGovernance);
     }
 
     function _loadDeployedAddressesFile(string memory deployedAddressesFilePath)
