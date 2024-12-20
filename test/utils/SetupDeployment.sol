@@ -187,6 +187,7 @@ abstract contract SetupDeployment is Test {
         dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY = Durations.from(30 days);
         dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY = Durations.from(180 days);
         dgDeployConfig.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH = Durations.from(15 days);
+        dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = address(_lido.voting);
 
         lidoAddresses.stETH = _lido.stETH;
         lidoAddresses.wstETH = _lido.wstETH;
@@ -263,11 +264,7 @@ abstract contract SetupDeployment is Test {
         _timelock = contracts.timelock;
 
         if (isEmergencyProtectionEnabled) {
-            _emergencyGovernance = _deployTimelockedGovernance({governance: address(_lido.voting), timelock: _timelock});
-
             DGContractsDeployment.deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, contracts);
-
-            _emergencyGovernance = contracts.emergencyGovernance;
         }
     }
 

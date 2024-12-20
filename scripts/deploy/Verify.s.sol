@@ -21,6 +21,7 @@ contract Verify is Script {
         string memory chainName = vm.envString("CHAIN");
         string memory configFilePath = vm.envString("DEPLOY_CONFIG_FILE_PATH");
         string memory deployedAddressesFilePath = vm.envString("DEPLOYED_ADDRESSES_FILE_PATH");
+        bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
         DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(configFilePath);
         config = configProvider.loadAndValidate();
@@ -32,7 +33,7 @@ contract Verify is Script {
 
         console.log("Verifying deploy");
 
-        res.verify(config, lidoAddresses);
+        res.verify(config, lidoAddresses, onchainVotingCheck);
 
         console.log(unicode"Verified ✅");
     }
@@ -51,7 +52,8 @@ contract Verify is Script {
             resealManager: stdJson.readAddress(deployedAddressesJson, ".RESEAL_MANAGER"),
             dualGovernance: stdJson.readAddress(deployedAddressesJson, ".DUAL_GOVERNANCE"),
             tiebreakerCoreCommittee: stdJson.readAddress(deployedAddressesJson, ".TIEBREAKER_CORE_COMMITTEE"),
-            tiebreakerSubCommittees: stdJson.readAddressArray(deployedAddressesJson, ".TIEBREAKER_SUB_COMMITTEES")
+            tiebreakerSubCommittees: stdJson.readAddressArray(deployedAddressesJson, ".TIEBREAKER_SUB_COMMITTEES"),
+            temporaryEmergencyGovernance: stdJson.readAddress(deployedAddressesJson, ".TEMPORARY_EMERGENCY_GOVERNANCE")
         });
     }
 
@@ -68,6 +70,7 @@ contract Verify is Script {
         console.log("AdminExecutor address", res.adminExecutor);
         console.log("EmergencyProtectedTimelock address", res.timelock);
         console.log("EmergencyGovernance address", res.emergencyGovernance);
+        console.log("TemporaryEmergencyGovernance address", res.temporaryEmergencyGovernance);
     }
 
     function loadDeployedAddressesFile(string memory deployedAddressesFilePath)

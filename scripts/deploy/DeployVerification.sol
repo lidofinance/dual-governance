@@ -27,15 +27,17 @@ library DeployVerification {
         address dualGovernance;
         address tiebreakerCoreCommittee;
         address[] tiebreakerSubCommittees;
+        address temporaryEmergencyGovernance;
     }
 
     function verify(
         DeployedAddresses memory res,
         DeployConfig memory dgDeployConfig,
-        LidoContracts memory lidoAddresses
+        LidoContracts memory lidoAddresses,
+        bool onchainVotingCheck
     ) internal view {
         checkAdminExecutor(res.adminExecutor, res.timelock);
-        checkTimelock(res, dgDeployConfig);
+        checkTimelock(res, dgDeployConfig, onchainVotingCheck);
         checkEmergencyActivationCommittee(dgDeployConfig);
         checkEmergencyExecutionCommittee(dgDeployConfig);
         checkTimelockedGovernance(res, lidoAddresses);
@@ -54,7 +56,11 @@ library DeployVerification {
         require(Executor(executor).owner() == timelock, "AdminExecutor owner != EmergencyProtectedTimelock");
     }
 
-    function checkTimelock(DeployedAddresses memory res, DeployConfig memory dgDeployConfig) internal view {
+    function checkTimelock(
+        DeployedAddresses memory res,
+        DeployConfig memory dgDeployConfig,
+        bool onchainVotingCheck
+    ) internal view {
         IEmergencyProtectedTimelock timelockInstance = IEmergencyProtectedTimelock(res.timelock);
         require(
             timelockInstance.getAdminExecutor() == res.adminExecutor,
@@ -97,10 +103,13 @@ library DeployVerification {
             "Incorrect value for emergencyModeDuration"
         );
 
-        require(
-            timelockInstance.getEmergencyGovernance() == res.emergencyGovernance,
-            "Incorrect emergencyGovernance address in EmergencyProtectedTimelock"
-        );
+        if (onchainVotingCheck) {
+            require(
+                timelockInstance.getEmergencyGovernance() == res.emergencyGovernance,
+                "Incorrect emergencyGovernance address in EmergencyProtectedTimelock"
+            );
+        }
+
         require(
             timelockInstance.getAfterSubmitDelay() == dgDeployConfig.AFTER_SUBMIT_DELAY,
             "Incorrect parameter AFTER_SUBMIT_DELAY"
@@ -121,7 +130,12 @@ library DeployVerification {
         require(
             timelockInstance.isEmergencyModeActive() == false, "EmergencyMode is Active in EmergencyProtectedTimelock"
         );
-        require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 0 in EmergencyProtectedTimelock");
+
+        if (onchainVotingCheck) {
+            require(timelockInstance.getProposalsCount() == 1, "ProposalsCount != 1 in EmergencyProtectedTimelock");
+        } else {
+            require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 1 in EmergencyProtectedTimelock");
+        }
     }
 
     function checkEmergencyActivationCommittee(DeployConfig memory dgDeployConfig) internal pure {

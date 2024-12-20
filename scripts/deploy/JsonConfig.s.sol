@@ -217,6 +217,9 @@ contract DGDeployJSONConfigProvider is Script {
                 stdJson.readUintOr(
                     jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH", DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH
                 )
+            ),
+            TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: stdJson.readAddress(
+                jsonConfig, ".TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
             )
         });
 
