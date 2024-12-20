@@ -120,7 +120,17 @@ contract SealableCallsTest is UnitTest {
     }
 
     function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part2() external {
-        for (uint160 i = 8; i < 12; ++i) {
+        for (uint160 i = 8; i < 10; ++i) {
+            _assertGetResumeSinceTimestampCallResult({
+                sealable: address(i),
+                isCallSucceed: false,
+                resumeSinceTimestamp: 0
+            });
+        }
+    }
+
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part3() external {
+        for (uint160 i = 10; i < 12; ++i) {
             _assertGetResumeSinceTimestampCallResult({
                 sealable: address(i),
                 isCallSucceed: false,
