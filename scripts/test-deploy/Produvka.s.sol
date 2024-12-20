@@ -3,59 +3,15 @@ pragma solidity 0.8.26;
 
 /* solhint-disable no-console */
 
-import {Script} from "forge-std/Script.sol";
-import {stdJson} from "forge-std/StdJson.sol";
-import {console} from "forge-std/console.sol";
+import {DeployScriptBase} from "./DeployScriptBase.sol";
 
-import {Timestamps} from "contracts/types/Timestamp.sol";
-import {Durations} from "contracts/types/Duration.sol";
-import {Executor} from "contracts/Executor.sol";
-import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
-import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
-import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
-import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
-import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
-import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
-import {ResealManager} from "contracts/ResealManager.sol";
-import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
-import {DualGovernance} from "contracts/DualGovernance.sol";
-import {Escrow} from "contracts/Escrow.sol";
-import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
-import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
-import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
-
-import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
-
-import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
-import {DGDeployJSONConfigProvider} from "../deploy/JsonConfig.s.sol";
-import {DeployVerification} from "../deploy/DeployVerification.sol";
-
-import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
-import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
-
-contract Produvka is Script {
-    using DeployVerification for DeployVerification.DeployedAddresses;
-
-    DeployConfig internal config;
-    LidoContracts internal lidoAddresses;
-
+contract Produvka is DeployScriptBase {
     function run() external {
-        string memory chainName = vm.envString("CHAIN");
-        string memory configFilePath = vm.envString("DEPLOY_CONFIG_FILE_PATH");
-        string memory deployedAddressesFilePath = vm.envString("DEPLOYED_ADDRESSES_FILE_PATH");
+        _loadEnv();
         uint256 step = vm.envUint("STEP");
 
-        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(configFilePath);
-        config = configProvider.loadAndValidate();
-        lidoAddresses = configProvider.getLidoAddresses(chainName);
-
-        DeployVerification.DeployedAddresses memory res = loadDeployedAddresses(deployedAddressesFilePath);
-
-        printAddresses(res);
-
         console.log("========= Step ", step, " =========");
-        IEmergencyProtectedTimelock timelock = IEmergencyProtectedTimelock(res.timelock);
+        IEmergencyProtectedTimelock timelock = IEmergencyProtectedTimelock(_dgContracts.timelock);
 
         uint256 proposalId = 1;
         RolesVerifier _rolesVerifier;
@@ -64,7 +20,7 @@ contract Produvka is Script {
         //     // Verify deployment
         //     // Expect to revert because of temporary emergencyGovernance address in EmergencyProtectedTimelock set
         //     vm.expectRevert("Incorrect emergencyGovernance address in EmergencyProtectedTimelock");
-        //     res.verify(config, lidoAddresses);
+        //     dgContracts.verify(config, lidoAddresses);
         // }
 
         if (step < 2) {
@@ -91,7 +47,7 @@ contract Produvka is Script {
         if (step < 4) {
             console.log("STEP 3 - Set DG state");
             require(
-                timelock.getGovernance() == res.temporaryEmergencyGovernance,
+                timelock.getGovernance() == _dgContracts.temporaryEmergencyGovernance,
                 "Incorrect governance address in EmergencyProtectedTimelock"
             );
             require(timelock.isEmergencyModeActive() == false, "Emergency mode is active");
@@ -104,13 +60,13 @@ contract Produvka is Script {
                     ExternalCall({
                         target: address(timelock),
                         value: 0,
-                        payload: abi.encodeWithSelector(timelock.setGovernance.selector, address(res.dualGovernance))
+                        payload: abi.encodeWithSelector(timelock.setGovernance.selector, _dgContracts.dualGovernance)
                     }),
                     ExternalCall({
                         target: address(timelock),
                         value: 0,
                         payload: abi.encodeWithSelector(
-                            timelock.setEmergencyGovernance.selector, address(res.emergencyGovernance)
+                            timelock.setEmergencyGovernance.selector, _dgContracts.emergencyGovernance
                         )
                     }),
                     ExternalCall({
@@ -162,7 +118,7 @@ contract Produvka is Script {
             }
 
             vm.prank(config.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER);
-            proposalId = TimelockedGovernance(res.temporaryEmergencyGovernance).submitProposal(
+            proposalId = TimelockedGovernance(dgContracts.temporaryEmergencyGovernance).submitProposal(
                 calls, "Reset emergency mode and set original DG as governance"
             );
 
@@ -175,7 +131,7 @@ contract Produvka is Script {
             console.log("STEP 4 - Execute proposal");
             // Schedule and execute the proposal
             vm.warp(block.timestamp + config.AFTER_SUBMIT_DELAY.toSeconds());
-            TimelockedGovernance(res.temporaryEmergencyGovernance).scheduleProposal(proposalId);
+            TimelockedGovernance(dgContracts.temporaryEmergencyGovernance).scheduleProposal(proposalId);
             vm.warp(block.timestamp + config.AFTER_SCHEDULE_DELAY.toSeconds());
             timelock.execute(proposalId);
 
@@ -186,11 +142,11 @@ contract Produvka is Script {
             console.log("STEP 5 - Verify DG state");
             // Verify state after proposal execution
             require(
-                timelock.getGovernance() == res.dualGovernance,
+                timelock.getGovernance() == dgContracts.dualGovernance,
                 "Incorrect governance address in EmergencyProtectedTimelock"
             );
             require(
-                timelock.getEmergencyGovernance() == res.emergencyGovernance,
+                timelock.getEmergencyGovernance() == dgContracts.emergencyGovernance,
                 "Incorrect governance address in EmergencyProtectedTimelock"
             );
             require(timelock.isEmergencyModeActive() == false, "Emergency mode is not active");
@@ -215,157 +171,88 @@ contract Produvka is Script {
 
             // Activate Dual Governance with DAO Voting
 
-            // // Prepare RolesVerifier
-            // address[] memory ozContracts = new address[](1);
-            // RolesVerifier.OZRoleInfo[] memory roles = new RolesVerifier.OZRoleInfo[](2);
-            // address[] memory pauseRoleHolders = new address[](2);
-            // pauseRoleHolders[0] = address(0x79243345eDbe01A7E42EDfF5900156700d22611c);
-            // pauseRoleHolders[1] = address(res.resealManager);
-            // address[] memory resumeRoleHolders = new address[](1);
-            // resumeRoleHolders[0] = address(res.resealManager);
+            // Prepare RolesVerifier
+            address[] memory ozContracts = new address[](1);
+            RolesVerifier.OZRoleInfo[] memory roles = new RolesVerifier.OZRoleInfo[](2);
+            address[] memory pauseRoleHolders = new address[](2);
+            pauseRoleHolders[0] = address(0x79243345eDbe01A7E42EDfF5900156700d22611c);
+            pauseRoleHolders[1] = address(dgContracts.resealManager);
+            address[] memory resumeRoleHolders = new address[](1);
+            resumeRoleHolders[0] = address(dgContracts.resealManager);
 
-            // ozContracts[0] = address(lidoAddresses.withdrawalQueue);
+            ozContracts[0] = address(lidoAddresses.withdrawalQueue);
 
-            // roles[0] = RolesVerifier.OZRoleInfo({
-            //     role: IWithdrawalQueue(address(lidoAddresses.withdrawalQueue)).PAUSE_ROLE(),
-            //     accounts: pauseRoleHolders
-            // });
-            // roles[1] = RolesVerifier.OZRoleInfo({
-            //     role: IWithdrawalQueue(address(lidoAddresses.withdrawalQueue)).RESUME_ROLE(),
-            //     accounts: resumeRoleHolders
-            // });
+            roles[0] = RolesVerifier.OZRoleInfo({
+                role: IWithdrawalQueue(address(lidoAddresses.withdrawalQueue)).PAUSE_ROLE(),
+                accounts: pauseRoleHolders
+            });
+            roles[1] = RolesVerifier.OZRoleInfo({
+                role: IWithdrawalQueue(address(lidoAddresses.withdrawalQueue)).RESUME_ROLE(),
+                accounts: resumeRoleHolders
+            });
 
-            // _rolesVerifier = new RolesVerifier(ozContracts, roles);
+            _rolesVerifier = new RolesVerifier(ozContracts, roles);
 
-            // // Prepare calls to execute by Agent
-            // ExternalCall[] memory roleGrantingCalls;
-            // roleGrantingCalls = ExternalCallHelpers.create(
-            //     [
-            //         ExternalCall({
-            //             target: address(_lidoAddresses.withdrawalQueue),
-            //             value: 0,
-            //             payload: abi.encodeWithSelector(
-            //                 IAccessControl.grantRole.selector,
-            //                 IWithdrawalQueue(WITHDRAWAL_QUEUE).PAUSE_ROLE(),
-            //                 address(res.resealManager)
-            //             )
-            //         }),
-            //         ExternalCall({
-            //             target: address(_lidoAddresses.withdrawalQueue),
-            //             value: 0,
-            //             payload: abi.encodeWithSelector(
-            //                 IAccessControl.grantRole.selector,
-            //                 IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(),
-            //                 address(res.resealManager)
-            //             )
-            //         })
-            // Grant agent forward to DG Executor
-            //         // TODO: Add more role granting calls here
-            //     ]
-            // );
+            // Prepare calls to execute by Agent
+            ExternalCall[] memory roleGrantingCalls;
+            roleGrantingCalls = ExternalCallHelpers.create(
+                [
+                    ExternalCall({
+                        target: address(_lidoAddresses.withdrawalQueue),
+                        value: 0,
+                        payload: abi.encodeWithSelector(
+                            IAccessControl.grantRole.selector,
+                            IWithdrawalQueue(WITHDRAWAL_QUEUE).PAUSE_ROLE(),
+                            address(dgContracts.resealManager)
+                        )
+                    }),
+                    ExternalCall({
+                        target: address(_lidoAddresses.withdrawalQueue),
+                        value: 0,
+                        payload: abi.encodeWithSelector(
+                            IAccessControl.grantRole.selector,
+                            IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(),
+                            address(dgContracts.resealManager)
+                        )
+                    })
+                    // Grant agent forward to DG Executor
+                    // TODO: Add more role granting calls here
+                ]
+            );
 
-            // // Prepare calls to execute Voting
-            // ExternalCall[] memory activateCalls;
-            // activateCalls = ExternalCallHelpers.create(
-            //     [
-            //         ExternalCall({
-            //             target: address(lidoUtils.agent),
-            //             value: 0,
-            //             payload: abi.encodeWithSelector(
-            //                 IAragonForwarder.forward.selector, _encodeExternalCalls(roleGrantingCalls)
-            //             )
-            //         }),
-            //         // Call verifier to verify deployment at the end of the vote
-            //         // ExternalCall({
-            //         //     target: address(_verifier),
-            //         //     value: 0,
-            //         //     payload: abi.encodeWithSelector(DeployVerifier.verify.selector, _config, _lidoAddresses, _dgContracts)
-            //         // }),
-            //         // TODO: Draft of role verification
-            //         ExternalCall({
-            //             target: address(_rolesVerifier),
-            //             value: 0,
-            //             payload: abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector)
-            //         })
+            // Prepare calls to execute Voting
+            ExternalCall[] memory activateCalls;
+            activateCalls = ExternalCallHelpers.create(
+                [
+                    ExternalCall({
+                        target: address(lidoUtils.agent),
+                        value: 0,
+                        payload: abi.encodeWithSelector(
+                            IAragonForwarder.forward.selector, _encodeExternalCalls(roleGrantingCalls)
+                        )
+                    }),
+                    // Call verifier to verify deployment at the end of the vote
+                    // ExternalCall({
+                    //     target: address(_verifier),
+                    //     value: 0,
+                    //     payload: abi.encodeWithSelector(DeployVerifier.verify.selector, _config, _lidoAddresses, _dgContracts)
+                    // }),
+                    // TODO: Draft of role verification
+                    ExternalCall({
+                        target: address(_rolesVerifier),
+                        value: 0,
+                        payload: abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector)
+                    })
+                    // DG.submit(revokeAgentForwardRoleFromVoting)
+                ]
+            );
 
-            // DG.submit(revokeAgentForwardRoleFromVoting)
-            //     ]
-            // );
-
-            // // Create and execute vote to activate Dual Governance
-            // uint256 voteId = lidoUtils.adoptVote("Dual Governance activation vote", _encodeExternalCalls(activateCalls));
-            // lidoUtils.executeVote(voteId);
+            // Create and execute vote to activate Dual Governance
+            uint256 voteId = lidoUtils.adoptVote("Dual Governance activation vote", _encodeExternalCalls(activateCalls));
+            lidoUtils.executeVote(voteId);
 
             // TODO: Check that voting cant call Agent forward
         }
-    }
-
-    function printExternalCalls(ExternalCall[] memory calls) internal pure {
-        console.log("[");
-        for (uint256 i = 0; i < calls.length; i++) {
-            string memory hexPayload = toHexString(calls[i].payload);
-
-            if (i < calls.length - 1) {
-                console.log("[\"%s\", %s, \"0x%s\"],", calls[i].target, calls[i].value, hexPayload);
-            } else {
-                console.log("[\"%s\", %s, \"0x%s\"]", calls[i].target, calls[i].value, hexPayload);
-            }
-        }
-        console.log("]");
-    }
-
-    function toHexString(bytes memory data) internal pure returns (string memory) {
-        bytes memory alphabet = "0123456789abcdef";
-        bytes memory str = new bytes(2 + data.length * 2);
-        for (uint256 i = 0; i < data.length; i++) {
-            str[i * 2] = alphabet[uint256(uint8(data[i] >> 4))];
-            str[1 + i * 2] = alphabet[uint256(uint8(data[i] & 0x0f))];
-        }
-        return string(str);
-    }
-
-    function loadDeployedAddresses(string memory deployedAddressesFilePath)
-        internal
-        view
-        returns (DeployVerification.DeployedAddresses memory)
-    {
-        string memory deployedAddressesJson = loadDeployedAddressesFile(deployedAddressesFilePath);
-
-        return DeployVerification.DeployedAddresses({
-            adminExecutor: payable(stdJson.readAddress(deployedAddressesJson, ".ADMIN_EXECUTOR")),
-            timelock: stdJson.readAddress(deployedAddressesJson, ".TIMELOCK"),
-            emergencyGovernance: stdJson.readAddress(deployedAddressesJson, ".EMERGENCY_GOVERNANCE"),
-            resealManager: stdJson.readAddress(deployedAddressesJson, ".RESEAL_MANAGER"),
-            dualGovernance: stdJson.readAddress(deployedAddressesJson, ".DUAL_GOVERNANCE"),
-            tiebreakerCoreCommittee: stdJson.readAddress(deployedAddressesJson, ".TIEBREAKER_CORE_COMMITTEE"),
-            tiebreakerSubCommittees: stdJson.readAddressArray(deployedAddressesJson, ".TIEBREAKER_SUB_COMMITTEES"),
-            temporaryEmergencyGovernance: stdJson.readAddress(deployedAddressesJson, ".TEMPORARY_EMERGENCY_GOVERNANCE")
-        });
-    }
-
-    function printAddresses(DeployVerification.DeployedAddresses memory res) internal pure {
-        console.log("Using the following DG contracts addresses");
-        console.log("DualGovernance address", res.dualGovernance);
-        console.log("ResealManager address", res.resealManager);
-        console.log("TiebreakerCoreCommittee address", res.tiebreakerCoreCommittee);
-
-        for (uint256 i = 0; i < res.tiebreakerSubCommittees.length; ++i) {
-            console.log("TiebreakerSubCommittee #", i, "address", res.tiebreakerSubCommittees[i]);
-        }
-
-        console.log("AdminExecutor address", res.adminExecutor);
-        console.log("EmergencyProtectedTimelock address", res.timelock);
-        console.log("EmergencyGovernance address", res.emergencyGovernance);
-    }
-
-    function loadDeployedAddressesFile(string memory deployedAddressesFilePath)
-        internal
-        view
-        returns (string memory deployedAddressesJson)
-    {
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", deployedAddressesFilePath);
-        deployedAddressesJson = vm.readFile(path);
     }
 }
 

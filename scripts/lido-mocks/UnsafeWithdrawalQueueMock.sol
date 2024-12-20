@@ -268,6 +268,14 @@ contract UnsafeWithdrawalQueueMock is IWithdrawalQueue, IERC721Metadata {
         return _resumeSinceTimestamp;
     }
 
+    function PAUSE_ROLE() external pure returns (bytes32) {
+        return keccak256("PAUSE_ROLE");
+    }
+
+    function RESUME_ROLE() external pure returns (bytes32) {
+        return keccak256("PAUSE_ROLE");
+    }
+
     ///////////////////////////////
 
     function _requestWithdrawal(uint256 _amountOfStETH, address _owner) internal returns (uint256 requestId) {
