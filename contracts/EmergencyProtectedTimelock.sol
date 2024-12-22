@@ -134,7 +134,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // Timelock Management
     // ---
 
-    /// @notice Updates the address of the governance contract.
+    /// @notice Updates the address of the governance contract  and cancels all non-executed proposals.
     /// @param newGovernance The address of the new governance contract to be set.
     function setGovernance(address newGovernance) external {
         _timelockState.checkCallerIsAdminExecutor();
@@ -308,7 +308,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         return _timelockState.getAfterScheduleDelay();
     }
 
-    /// @notice Retrieves the details of a proposal.
+    /// @notice Returns the details of a proposal.
     /// @param proposalId The id of the proposal.
     /// @return proposalDetails The Proposal struct containing the details of the proposal.
     /// @return calls An array of ExternalCall structs representing the sequence of calls to be executed for the proposal.
@@ -321,12 +321,11 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         calls = _proposals.getProposalCalls(proposalId);
     }
 
-    /// @notice Retrieves information about a proposal, excluding the external calls associated with it.
-    /// @param proposalId The id of the proposal to retrieve information for.
+    /// @notice Returns information about a proposal, excluding the external calls associated with it.
+    /// @param proposalId The id of the proposal to return information for.
     /// @return proposalDetails A ProposalDetails struct containing the details of the proposal, with the following data:
     ///     - `id`: The id of the proposal.
     ///     - `status`: The current status of the proposal. Possible values are:
-    ///         0 - The proposal does not exist.
     ///         1 - The proposal was submitted but not scheduled.
     ///         2 - The proposal was submitted and scheduled but not yet executed.
     ///         3 - The proposal was submitted, scheduled, and executed. This is the final state of the proposal lifecycle.
@@ -340,14 +339,14 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         return _proposals.getProposalDetails(proposalId);
     }
 
-    /// @notice Retrieves the external calls associated with the specified proposal.
-    /// @param proposalId The id of the proposal to retrieve external calls for.
+    /// @notice Returns the external calls associated with the specified proposal.
+    /// @param proposalId The id of the proposal to return external calls for.
     /// @return calls An array of ExternalCall structs representing the sequence of calls to be executed for the proposal.
     function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls) {
         calls = _proposals.getProposalCalls(proposalId);
     }
 
-    /// @notice Retrieves the total number of proposals.
+    /// @notice Returns the total number of proposals.
     /// @return count The total number of proposals.
     function getProposalsCount() external view returns (uint256 count) {
         count = _proposals.getProposalsCount();

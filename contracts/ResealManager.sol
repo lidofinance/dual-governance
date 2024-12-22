@@ -40,7 +40,7 @@ contract ResealManager is IResealManager {
 
     /// @notice Extends the pause of the specified sealable contract.
     /// @dev Works only if conditions are met:
-    /// - ResealManager has PAUSE_ROLE for target contract;
+    /// - ResealManager has PAUSE_ROLE and RESUME_ROLE for target contract;
     /// - Contract are paused until timestamp after current timestamp and not for infinite time;
     /// - The DAO governance is blocked by DualGovernance;
     /// - Function is called by the governance contract.

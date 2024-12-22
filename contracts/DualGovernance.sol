@@ -319,7 +319,7 @@ contract DualGovernance is IDualGovernance {
         emit ProposalsCancellerSet(newProposalsCanceller);
     }
 
-    /// @notice Retrieves the current proposals canceller address.
+    /// @notice Returns the current proposals canceller address.
     /// @return address The address of the current proposals canceller.
     function getProposalsCanceller() external view returns (address) {
         return _proposalsCanceller;
@@ -412,7 +412,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     /// @notice Returns the proposer data if the given `proposerAccount` is a registered proposer.
-    /// @param proposerAccount The address of the proposer to retrieve information for.
+    /// @param proposerAccount The address of the proposer to return information for.
     /// @return proposer A Proposer struct containing the data of the registered proposer, including:
     ///     - `account`: The address of the registered proposer.
     ///     - `executor`: The address of the executor associated with the proposer.
@@ -426,7 +426,7 @@ contract DualGovernance is IDualGovernance {
         proposers = _proposers.getAllProposers();
     }
 
-    /// @notice Checks whether the given `proposerAccount` is a registered proposer.
+    /// @notice Returns whether the given `proposerAccount` is a registered proposer.
     /// @param proposerAccount The address to check.
     /// @return isProposer A boolean value indicating whether the `proposerAccount` is a registered
     ///     proposer (`true`) or not (`false`).
@@ -434,7 +434,7 @@ contract DualGovernance is IDualGovernance {
         return _proposers.isRegisteredProposer(proposerAccount);
     }
 
-    /// @notice Checks whether the given `executor` address is associated with an executor contract in the system.
+    /// @notice Returns whether the given `executor` address is associated with an executor contract in the system.
     /// @param executor The address to check.
     /// @return isExecutor A boolean value indicating whether the `executor` is a registered
     ///     executor (`true`) or not (`false`).
@@ -543,13 +543,13 @@ contract DualGovernance is IDualGovernance {
         _resealer.setResealManager(newResealManager);
     }
 
-    /// @notice Gets the address of the Reseal Manager.
+    /// @notice Returns the address of the Reseal Manager.
     /// @return resealManager The address of the Reseal Manager.
     function getResealManager() external view returns (IResealManager) {
         return _resealer.resealManager;
     }
 
-    /// @notice Gets the address of the reseal committee.
+    /// @notice Returns the address of the reseal committee.
     /// @return resealCommittee The address of the reseal committee.
     function getResealCommittee() external view returns (address) {
         return _resealer.resealCommittee;
