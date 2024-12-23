@@ -158,6 +158,7 @@ If the Emergency Committees are set up and active, the governance proposal under
 
 While active, the Emergency Activation Committee can enable Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. Once the **Emergency Duration** has ended, the Emergency Execution Committee or anyone else may disable the emergency mode, canceling all pending proposals. After the emergency mode is deactivated or the Emergency Period has elapsed, the Emergency Committees lose their power.
 
+---
 
 ### Function: `EmergencyProtectedTimelock.submit`
 
@@ -378,8 +379,8 @@ Activates the Emergency Mode.
 
 #### Preconditions
 
-* MUST be called by the Emergency Activation Committee address.
-* The Emergency Mode MUST NOT be active.
+- MUST be called by the Emergency Activation Committee address.
+- The Emergency Mode MUST NOT be active.
 
 ---
 
@@ -393,8 +394,8 @@ Executes the scheduled proposal, bypassing the post-schedule delay.
 
 #### Preconditions
 
-* MUST be called by the Emergency Execution Committee address.
-* The Emergency Mode MUST be active.
+- MUST be called by the Emergency Execution Committee address.
+- The Emergency Mode MUST be active.
 
 ---
 
@@ -408,8 +409,8 @@ Deactivates the Emergency Activation and Emergency Execution Committees (setting
 
 #### Preconditions
 
-* The Emergency Mode MUST be active.
-* If the Emergency Mode was activated less than the `emergency mode max duration` ago, MUST be called by the [Admin Executor](#Administrative-actions) address.
+- The Emergency Mode MUST be active.
+- If the Emergency Mode was activated less than the `emergency mode max duration` ago, MUST be called by the [Admin Executor](#Administrative-actions) address.
 
 ---
 
@@ -423,8 +424,8 @@ Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in t
 
 #### Preconditions
 
-* The Emergency Mode MUST be active.
-* MUST be called by the Emergency Execution Committee address.
+- The Emergency Mode MUST be active.
+- MUST be called by the Emergency Execution Committee address.
 
 ---
 
@@ -642,6 +643,7 @@ Handles calls resulting from governance proposals' execution. Every protocol per
 
 The timelocked governance setup is designed to use a single admin instance of the `Executor`, which is owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) singleton instance.
 
+---
 
 ### Function: `Executor.execute`
 
@@ -653,3 +655,4 @@ Performs an EVM call to the `target` address with the specified `payload` callda
 
 Reverts if the call fails.
 
+---
