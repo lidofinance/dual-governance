@@ -15,9 +15,12 @@ import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
 import {IAragonVoting} from "test/utils/interfaces/IAragonVoting.sol";
-import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
+import {IAragonAgent, IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
+import {IAragonACL} from "test/utils/interfaces/IAragonACL.sol";
 
-import {ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, DAO_VOTING} from "addresses/mainnet-addresses.sol";
+import {IGovernance} from "contracts/interfaces/IDualGovernance.sol";
+
+import {ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, DAO_VOTING, DAO_ACL, DAO_AGENT} from "addresses/mainnet-addresses.sol";
 
 import {LidoUtils} from "test/utils/lido-utils.sol";
 import {EvmScriptUtils} from "test/utils/evm-script-utils.sol";
@@ -298,8 +301,44 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                         IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(),
                         address(_dgContracts.resealManager)
                     )
+                }),
+                ExternalCall({
+                    target: address(DAO_ACL),
+                    value: 0,
+                    payload: abi.encodeWithSelector(
+                        IAragonACL.grantPermission.selector,
+                        _dgContracts.adminExecutor,
+                        DAO_AGENT,
+                        IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                    )
                 })
-                // TODO: Add more role granting calls here
+            ]
+        );
+
+        // Propose to revoke Agent forward permission from Voting
+        ExternalCall[] memory revokeAgentForwardCall;
+        revokeAgentForwardCall = ExternalCallHelpers.create(
+            [
+                ExternalCall({
+                    target: address(DAO_ACL),
+                    value: 0,
+                    payload: abi.encodeWithSelector(
+                        IAragonACL.revokePermission.selector, DAO_VOTING, DAO_AGENT, IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                    )
+                })
+            ]
+        );
+
+        ExternalCall[] memory revokeAgentForwardCallDualGovernanceProposal;
+        revokeAgentForwardCallDualGovernanceProposal = ExternalCallHelpers.create(
+            [
+                ExternalCall({
+                    target: address(lidoUtils.agent),
+                    value: 0,
+                    payload: abi.encodeWithSelector(
+                        IAragonForwarder.forward.selector, _encodeExternalCalls(revokeAgentForwardCall)
+                    )
+                })
             ]
         );
 
@@ -307,6 +346,16 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         ExternalCall[] memory activateCalls;
         activateCalls = ExternalCallHelpers.create(
             [
+                ExternalCall({
+                    target: address(DAO_ACL),
+                    value: 0,
+                    payload: abi.encodeWithSelector(
+                        IAragonACL.setPermissionManager.selector,
+                        DAO_AGENT,
+                        DAO_AGENT,
+                        IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                    )
+                }),
                 ExternalCall({
                     target: address(lidoUtils.agent),
                     value: 0,
@@ -323,6 +372,15 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                     target: address(_rolesVerifier),
                     value: 0,
                     payload: abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector)
+                }),
+                ExternalCall({
+                    target: address(_dgContracts.dualGovernance),
+                    value: 0,
+                    payload: abi.encodeWithSelector(
+                        IGovernance.submitProposal.selector,
+                        revokeAgentForwardCallDualGovernanceProposal,
+                        "Revoke Agent forward permission from Voting"
+                    )
                 })
             ]
         );
@@ -331,7 +389,34 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         uint256 voteId = lidoUtils.adoptVote("Dual Governance activation vote", _encodeExternalCalls(activateCalls));
         lidoUtils.executeVote(voteId);
 
-        // TODO: Check that voting cant call Agent forward
+        uint256 expectedProposalId = 2;
+
+        // Schedule and execute the proposal
+        _wait(_config.AFTER_SUBMIT_DELAY);
+        _dgContracts.dualGovernance.scheduleProposal(expectedProposalId);
+        _wait(_config.AFTER_SCHEDULE_DELAY);
+        _dgContracts.timelock.execute(expectedProposalId);
+
+        // Verify that Voting has no permission to forward to Agent
+        ExternalCall[] memory someAgentForwardCall;
+        someAgentForwardCall = ExternalCallHelpers.create(
+            [
+                ExternalCall({
+                    target: address(DAO_ACL),
+                    value: 0,
+                    payload: abi.encodeWithSelector(
+                        IAragonACL.revokePermission.selector,
+                        _dgContracts.adminExecutor,
+                        DAO_AGENT,
+                        IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                    )
+                })
+            ]
+        );
+
+        vm.expectRevert("AGENT_CAN_NOT_FORWARD");
+        vm.prank(DAO_VOTING);
+        IAragonForwarder(DAO_AGENT).forward(_encodeExternalCalls(someAgentForwardCall));
     }
 
     function _encodeExternalCalls(ExternalCall[] memory calls) internal pure returns (bytes memory result) {
