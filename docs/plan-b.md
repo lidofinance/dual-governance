@@ -7,14 +7,14 @@ Timelocked Governance (TG) is a governance subsystem positioned between the Lido
 
 ## Navigation
 
-* [System overview](#system-overview)
-* [Proposal flow](#proposal-flow)
-* [Proposal execution](#proposal-execution)
-* [Common types](#common-types)
-* Contracts:
-    * [Contract: `TimelockedGovernance`](#contract-timelockedgovernance)
-    * [Contract: `EmergencyProtectedTimelock`](#contract-emergencyprotectedtimelock)
-    * [Contract: `Executor`](#contract-executor)
+- [System overview](#system-overview)
+- [Proposal flow](#proposal-flow)
+- [Proposal execution](#proposal-execution)
+- [Common types](#common-types)
+- Contracts:
+    - [Contract: `TimelockedGovernance`](#Contract-TimelockedGovernance)
+    - [Contract: `EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock)
+    - [Contract: `Executor`](#Contract-Executor)
 
 
 ## System Overview
@@ -22,9 +22,9 @@ Timelocked Governance (TG) is a governance subsystem positioned between the Lido
 <img width="1289" alt="image" src="https://github.com/lidofinance/dual-governance/assets/14151334/905bac24-dfb2-4eca-a113-1b82ead93752"/>
 
 The system comprises the following primary contracts:
-- [`TimelockedGovernance`](#contract-timelockedgovernance): A singleton contract that serves as the interface for submitting and scheduling the execution of governance proposals.
-- [`EmergencyProtectedTimelock`](#contract-emergencyprotectedtimelock): A singleton contract that stores submitted proposals and provides an execution interface. In addition, it implements an optional protection from a malicious proposals submitted by the DAO. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and suspend the execution of the proposals.
-- [`Executor`](#contract-executor): A contract instance responsible for executing calls resulting from governance proposals. All protocol permissions or roles protected by TG, as well as the authority to manage these roles/permissions, should be controlled exclusively by instance of this contract, rather than being assigned directly to the DAO voting system.
+- [`TimelockedGovernance`](#Contract-TimelockedGovernance): A singleton contract that serves as the interface for submitting and scheduling the execution of governance proposals.
+- [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock): A singleton contract that stores submitted proposals and provides an execution interface. In addition, it implements an optional protection from a malicious proposals submitted by the DAO. The protection is implemented as a timelock on proposal execution combined with two emergency committees that have the right to cooperate and suspend the execution of the proposals.
+- [`Executor`](#Contract-Executor): A contract instance responsible for executing calls resulting from governance proposals. All protocol permissions or roles protected by TG, as well as the authority to manage these roles/permissions, should be controlled exclusively by instance of this contract, rather than being assigned directly to the DAO voting system.
 
 
 ## Proposal flow
@@ -32,9 +32,9 @@ The system comprises the following primary contracts:
 <img width="567" alt="image" src="https://github.com/lidofinance/dual-governance/assets/14151334/f6f2efc1-7bd7-4e03-9c8b-6cd12cdfede8"/>
 
 The general proposal flow is as follows:
-1. **Proposal Submission**: The Lido DAO submits a proposal via the admin voting system. This involves a set of external calls (represented by an array of [`ExecutorCall`] structs) to be executed by the [Admin Executor], by calling the [`TimelockedGovernance.submitProposal`] function.
-2. **After Submit Delay**: This initiates a preconfigured `AfterSubmitDelay` timelock period. Depending on the configuration, this period may be set to 0. If set to 0, the submitted proposal can be scheduled for execution immediately by anyone using the `TimelockGovernance.scheduleProposal` method.
-3. **Optional Proposal Cancellation**: At any moment before the proposal is executed, the Lido DAO may cancel all pending proposals using the `TimelockedGovernance.cancelAllPendingProposals` method.
+1. **Proposal Submission**: The Lido DAO submits a proposal via the admin voting system. This involves a set of external calls (represented by an array of [`ExternalCall`](#Struct-ExternalCall) structs) to be executed by the **admin executor**, by calling the [`TimelockedGovernance.submitProposal`](#Function-TimelockedGovernancesubmitProposal) function.
+2. **After Submit Delay**: This initiates a preconfigured `AfterSubmitDelay` timelock period. Depending on the configuration, this period may be set to 0. If set to 0, the submitted proposal can be scheduled for execution immediately by anyone using the [`TimelockGovernance.scheduleProposal`](#Function-TimelockedGovernancescheduleProposal) method.
+3. **Optional Proposal Cancellation**: At any moment before the proposal is executed, the Lido DAO may cancel all pending proposals using the [`TimelockedGovernance.cancelAllPendingProposals`](#function-TimelockedGovernancecancelAllPendingProposals) method.
 4. **Proposal Execution**: After the configured timelock has passed, the proposal may be executed, resulting in the proposal's calls being issued by the admin executor contract.
 
 
@@ -44,14 +44,13 @@ The general proposal flow is as follows:
 
 The proposal execution flow begins after the proposal is scheduled for execution and the `AfterScheduleDelay` has passed.
 
-If emergency protection is enabled on the `EmergencyProtectedTimelock` instance, an **emergency activation committee** has a one-off, time-limited right to activate an adversarial **emergency mode** if they detect a malicious proposal submitted by the Lido DAO.
+If emergency protection is enabled on the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) instance, an **emergency activation committee** has a one-off, time-limited right to activate an adversarial **emergency mode** if they detect a malicious proposal submitted by the Lido DAO.
 
 - Once the emergency mode is activated, the emergency activation committee is disabled, meaning it loses the ability to activate the emergency mode again. If the emergency activation committee doesn't activate the emergency mode within the **emergency protection duration** since the committee was configured, it gets automatically disabled as well.
 - The emergency mode lasts up to the **emergency mode max duration** from the moment of its activation. While it's active, only the **emergency execution committee** has the right to execute scheduled proposals. This committee also has a one-off right to **disable the emergency mode**.
 - If the emergency execution committee doesn't disable the emergency mode before the emergency mode max duration elapses, anyone can deactivate the emergency mode, allowing proposals to proceed and disabling the emergency committee. Once the emergency mode is disabled, all pending proposals will be marked as cancelled and cannot be executed.
 
 ## Common types
-
 
 ### Struct: `ExternalCall`
 
@@ -65,10 +64,13 @@ struct ExternalCall {
 
 Encodes an external call from an executor contract to the `target` address with the specified `value` and the calldata being set to `payload`.
 
+---
+
 ## Contract: `TimelockedGovernance`
 
-The main entry point to the timelocked governance system, which provides an interface for submitting and canceling governance proposals in the `EmergencyProtectedTimelock` contract. This contract is a singleton, meaning that any TG deployment includes exactly one instance of this contract.
+The main entry point to the timelocked governance system, which provides an interface for submitting and canceling governance proposals in the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) contract. This contract is a singleton, meaning that any TG deployment includes exactly one instance of this contract.
 
+---
 
 ### Function: `TimelockedGovernance.submitProposal`
 
@@ -77,9 +79,9 @@ function submitProposal(ExecutorCall[] calls, string metadata)
   returns (uint256 proposalId)
 ```
 
-Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance to register a new governance proposal composed of one or more external `calls`, along with the attached metadata text, to be made by an admin executor contract. Initiates a timelock on scheduling the proposal for execution.
+Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) singleton instance to register a new governance proposal composed of one or more external `calls`, along with the attached metadata text, to be made by an admin executor contract. Initiates a timelock on scheduling the proposal for execution.
 
-See: [`EmergencyProtectedTimelock.submit`](#Function-EmergencyProtectedTimelocksubmit)
+See: [`EmergencyProtectedTimelock.submit`](#Function-EmergencyProtectedTimelockSubmit)
 
 #### Returns
 
@@ -89,6 +91,7 @@ The id of the successfully registered proposal.
 
 - The `msg.sender` MUST be the address of the admin voting system
 
+---
 
 ### Function: `TimelockedGovernance.scheduleProposal`
 
@@ -98,12 +101,13 @@ function scheduleProposal(uint256 proposalId)
 
 Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) singleton instance to schedule the proposal with id `proposalId` for execution.
 
-See: [`EmergencyProtectedTimelock.schedule`](#Function-EmergencyProtectedTimelockschedule)
+See: [`EmergencyProtectedTimelock.schedule`](#Function-EmergencyProtectedTimelockSchedule)
 
 #### Preconditions
 
 - The proposal with the given id MUST be in the `Submitted` state.
 
+---
 
 ### Function: `TimelockedGovernance.executeProposal`
 
@@ -113,12 +117,13 @@ function executeProposal(uint256 proposalId)
 
 Instructs the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) singleton instance to execute the proposal with id `proposalId`.
 
-See: [`EmergencyProtectedTimelock.execute`](#Function-EmergencyProtectedTimelockexecute)
+See: [`EmergencyProtectedTimelock.execute`](#Function-EmergencyProtectedTimelockExecute)
 
 #### Preconditions
 
 - The proposal with the given id MUST be in the `Scheduled` state.
 
+---
 
 ### Function: `TimelockedGovernance.cancelAllPendingProposals`
 
@@ -128,34 +133,33 @@ function cancelAllPendingProposals() returns (bool)
 
 Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
 
-The function will return `true` if all proposals are successfully canceled. If the subsequent call to the `EmergencyProtectedTimelock.cancelAllNonExecutedProposals()` method fails, the function will revert with an error.
-
-See: [`EmergencyProtectedTimelock.cancelAllNonExecutedProposals`](##Function-EmergencyProtectedTimelockcancelAllNonExecutedProposals)
+The function will return `true` if all proposals are successfully canceled. If the subsequent call to the [`EmergencyProtectedTimelock.cancelAllNonExecutedProposals`](#Function-EmergencyProtectedTimelockcancelAllNonExecutedProposals) method fails, the function will revert with an error.
 
 #### Preconditions
 
 - MUST be called by an admin voting system
 
+---
 
 ## Contract: `EmergencyProtectedTimelock`
 
 `EmergencyProtectedTimelock` is a singleton instance that stores and manages the lifecycle of proposals submitted by the DAO via the `TimelockedGovernance` contract. It can be configured with time-bound **Emergency Activation Committee** and **Emergency Execution Committee**, which act as safeguards against the execution of malicious proposals.
 
 For a proposal to be executed, the following steps have to be performed in order:
-1. The proposal must be submitted using the `EmergencyProtectedTimelock.submit()` function.
-2. The configured post-submit timelock (`EmergencyProtectedTimelock.getAfterSubmitDelay()`) must elapse.
-3. The proposal must be scheduled using the `EmergencyProtectedTimelock.schedule()` function.
-4. The configured emergency protection delay (`Configuration.getAfterScheduleDelay()`) must elapse (can be zero, see below).
-5. The proposal must be executed using the `EmergencyProtectedTimelock.execute()` function.
+1. The proposal must be submitted using the `EmergencyProtectedTimelock.submit` function.
+2. The configured post-submit timelock (`EmergencyProtectedTimelock.getAfterSubmitDelay`) must elapse.
+3. The proposal must be scheduled using the `EmergencyProtectedTimelock.schedule` function.
+4. The configured emergency protection delay (`Configuration.getAfterScheduleDelay`) must elapse (can be zero, see below).
+5. The proposal must be executed using the `EmergencyProtectedTimelock.execute` function.
 
-The contract only allows proposal submission and scheduling by the `governance` address. Normally, this address points to the [`TimelockedGovernance`](#Contract-TimelockedGovernancesol) singleton instance. Proposal execution is permissionless, unless Emergency Mode is activated.
+The contract only allows proposal submission and scheduling by the `governance` address. Normally, this address points to the [`TimelockedGovernance`](#Contract-TimelockedGovernance) singleton instance. Proposal execution is permissionless, unless Emergency Mode is activated.
 
 If the Emergency Committees are set up and active, the governance proposal undergoes a separate emergency protection delay between submission and scheduling. This additional timelock is implemented to protect against the execution of malicious proposals submitted by the DAO. If the Emergency Committees aren't set, the proposal flow remains the same, but the timelock duration is zero.
 
 While active, the Emergency Activation Committee can enable Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. Once the **Emergency Duration** has ended, the Emergency Execution Committee or anyone else may disable the emergency mode, canceling all pending proposals. After the emergency mode is deactivated or the Emergency Period has elapsed, the Emergency Committees lose their power.
 
 
-### Function: EmergencyProtectedTimelock.submit
+### Function: `EmergencyProtectedTimelock.submit`
 
 ```solidity
 function submit(address executor, ExternalCall[] calls)
@@ -173,8 +177,9 @@ The id of the successfully registered proposal.
 - MUST be called by the `governance` address.
 - The `calls` array length MUST be greater than zero.
 
+---
 
-### Function: EmergencyProtectedTimelock.schedule
+### Function: `EmergencyProtectedTimelock.schedule`
 
 ```solidity
 function schedule(uint256 proposalId)
@@ -188,8 +193,9 @@ Schedules a previously submitted and non-cancelled proposal for execution after 
 - The proposal MUST already be submitted.
 - The post-submit timelock MUST have elapsed since the proposal submission.
 
+---
 
-### Function: EmergencyProtectedTimelock.execute
+### Function: `EmergencyProtectedTimelock.execute`
 
 ```solidity
 function execute(uint256 proposalId)
@@ -203,8 +209,9 @@ Instructs the executor contract associated with the proposal to issue the propos
 - The proposal MUST be already submitted & scheduled for execution.
 - The emergency protection delay MUST already elapse since the moment the proposal was scheduled.
 
+---
 
-### Function: EmergencyProtectedTimelock.cancelAllNonExecutedProposals
+### Function: `EmergencyProtectedTimelock.cancelAllNonExecutedProposals`
 
 ```solidity
 function cancelAllNonExecutedProposals()
@@ -216,8 +223,9 @@ Cancels all non-executed proposal, making them forever non-executable.
 
 - MUST be called by the `governance` address.
 
+---
 
-### Function: EmergencyProtectedTimelock.setGovernance
+### Function: `EmergencyProtectedTimelock.setGovernance`
 
 ```solidity
 function setGovernance(address newGovernance)
@@ -231,8 +239,9 @@ Updates the address of the `governance` and cancels all non-executed proposals.
 - The `newGovernance` address MUST NOT be the zero address.
 - The `newGovernance` address MUST NOT be the same as the current value.
 
+---
 
-### Function: EmergencyProtectedTimelock.setAfterSubmitDelay
+### Function: `EmergencyProtectedTimelock.setAfterSubmitDelay`
 
 ```solidity
 function setAfterSubmitDelay(Duration newAfterSubmitDelay)
@@ -247,8 +256,9 @@ Sets the delay required between the submission of a proposal and its scheduling 
 - The `newAfterSubmitDelay` duration MUST NOT be the same as the current value.
 - After the update, the sum of `afterSubmitDelay` and `afterScheduleDelay` MUST NOT be less than the `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY`.
 
+---
 
-### Function: EmergencyProtectedTimelock.setAfterScheduleDelay
+### Function: `EmergencyProtectedTimelock.setAfterScheduleDelay`
 
 ```solidity
 function setAfterScheduleDelay(Duration newAfterScheduleDelay)
@@ -263,8 +273,9 @@ Sets the delay required to pass from the scheduling of a proposal before it can 
 - The `newAfterScheduleDelay` duration MUST NOT be the same as the current value.
 - After the update, the sum of `afterSubmitDelay` and `afterScheduleDelay` MUST NOT be less than the `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY`.
 
+---
 
-### Function: EmergencyProtectedTimelock.transferExecutorOwnership
+### Function: `EmergencyProtectedTimelock.transferExecutorOwnership`
 
 ```solidity
 function transferExecutorOwnership(address executor, address owner)
@@ -278,8 +289,9 @@ Transfers ownership of the specified executor contract to a new owner.
 - The `executor` MUST implement the `IOwnable` interface.
 - The current owner of the `executor` (`executor.owner`) MUST be the address of the `EmergencyProtectedTimelock` instance.
 
+---
 
-### Function: EmergencyProtectedTimelock.setEmergencyProtectionActivationCommittee
+### Function: `EmergencyProtectedTimelock.setEmergencyProtectionActivationCommittee`
 
 ```solidity
 function setEmergencyProtectionActivationCommittee(address newEmergencyActivationCommittee)
@@ -292,7 +304,9 @@ Sets the address of the emergency activation committee.
 - MUST be called by the admin executor contract.
 - The `newEmergencyActivationCommittee` duration MUST NOT be the same as the current value.
 
-### Function: EmergencyProtectedTimelock.setEmergencyProtectionExecutionCommittee
+---
+
+### Function: `EmergencyProtectedTimelock.setEmergencyProtectionExecutionCommittee`
 
 ```solidity
 function setEmergencyProtectionExecutionCommittee(address newEmergencyExecutionCommittee)
@@ -305,8 +319,9 @@ Sets the address of the emergency execution committee.
 - MUST be called by the admin executor contract.
 - The `newEmergencyExecutionCommittee` address MUST NOT be the same as the current value.
 
+---
 
-### Function: EmergencyProtectedTimelock.setEmergencyProtectionEndDate
+### Function: `EmergencyProtectedTimelock.setEmergencyProtectionEndDate`
 
 ```solidity
 function setEmergencyProtectionEndDate(Timestamp newEmergencyProtectionEndDate)
@@ -320,7 +335,9 @@ Sets the end date for the emergency protection period.
 - The `newEmergencyProtectionEndDate` MUST NOT be farther in the future than `EmergencyProtectedTimelock.MAX_EMERGENCY_PROTECTION_DURATION` from the `block.timestamp` at the time of method invocation.
 - The `newEmergencyProtectionEndDate` MUST NOT be the same as the current value.
 
-### Function: EmergencyProtectedTimelock.setEmergencyModeDuration
+---
+
+### Function: `EmergencyProtectedTimelock.setEmergencyModeDuration`
 
 ```solidity
 function setEmergencyModeDuration(Duration newEmergencyModeDuration)
@@ -334,8 +351,9 @@ Sets the duration of the emergency mode.
 - The `newEmergencyModeDuration` MUST NOT exceed the `EmergencyProtectedTimelock.MAX_EMERGENCY_MODE_DURATION` duration.
 - The `newEmergencyModeDuration` MUST NOT be the same as the current value.
 
+---
 
-### Function: EmergencyProtectedTimelock.setEmergencyGovernance
+### Function: `EmergencyProtectedTimelock.setEmergencyGovernance`
 
 ```solidity
 function setEmergencyGovernance(address newEmergencyGovernance)
@@ -348,8 +366,9 @@ Sets the address of the emergency governance contract.
 - MUST be called by the admin executor contract.
 - The `newEmergencyGovernance` address MUST NOT be the same as the current value.
 
+---
 
-### Function: EmergencyProtectedTimelock.activateEmergencyMode
+### Function: `EmergencyProtectedTimelock.activateEmergencyMode`
 
 ```solidity
 function activateEmergencyMode()
@@ -362,7 +381,9 @@ Activates the Emergency Mode.
 * MUST be called by the Emergency Activation Committee address.
 * The Emergency Mode MUST NOT be active.
 
-### Function: EmergencyProtectedTimelock.emergencyExecute
+---
+
+### Function: `EmergencyProtectedTimelock.emergencyExecute`
 
 ```solidity
 function emergencyExecute(uint256 proposalId)
@@ -375,7 +396,9 @@ Executes the scheduled proposal, bypassing the post-schedule delay.
 * MUST be called by the Emergency Execution Committee address.
 * The Emergency Mode MUST be active.
 
-### Function: EmergencyProtectedTimelock.deactivateEmergencyMode
+---
+
+### Function: `EmergencyProtectedTimelock.deactivateEmergencyMode`
 
 ```solidity
 function deactivateEmergencyMode()
@@ -388,7 +411,9 @@ Deactivates the Emergency Activation and Emergency Execution Committees (setting
 * The Emergency Mode MUST be active.
 * If the Emergency Mode was activated less than the `emergency mode max duration` ago, MUST be called by the [Admin Executor](#Administrative-actions) address.
 
-### Function: EmergencyProtectedTimelock.emergencyReset
+---
+
+### Function: `EmergencyProtectedTimelock.emergencyReset`
 
 ```solidity
 function emergencyReset()
@@ -401,8 +426,9 @@ Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in t
 * The Emergency Mode MUST be active.
 * MUST be called by the Emergency Execution Committee address.
 
+---
 
-### Function: EmergencyProtectedTimelock.isEmergencyProtectionEnabled
+### Function: `EmergencyProtectedTimelock.isEmergencyProtectionEnabled`
 
 ```solidity
 function isEmergencyProtectionEnabled() view returns (bool)
@@ -410,8 +436,9 @@ function isEmergencyProtectionEnabled() view returns (bool)
 
 Returns whether emergency protection is currently enabled.
 
+---
 
-### Function: EmergencyProtectedTimelock.isEmergencyModeActive
+### Function: `EmergencyProtectedTimelock.isEmergencyModeActive`
 
 ```solidity
 function isEmergencyModeActive() view returns (bool)
@@ -419,8 +446,9 @@ function isEmergencyModeActive() view returns (bool)
 
 Returns whether the system is currently in Emergency Mode.
 
+---
 
-### Function: EmergencyProtectedTimelock.getEmergencyProtectionDetails
+### Function: `EmergencyProtectedTimelock.getEmergencyProtectionDetails`
 
 ```solidity
 function getEmergencyProtectionDetails() view returns (EmergencyProtectionDetails memory details)
@@ -432,8 +460,9 @@ Returns details about the current state of emergency protection. The `EmergencyP
 - `emergencyModeEndsAfter`: The timestamp indicating when the current emergency mode will end.
 - `emergencyProtectionEndsAfter`: The timestamp indicating when the overall emergency protection period will expire.
 
+---
 
-### Function: EmergencyProtectedTimelock.getEmergencyGovernance
+### Function: `EmergencyProtectedTimelock.getEmergencyGovernance`
 
 ```solidity
 function getEmergencyGovernance() view returns (address)
@@ -441,8 +470,9 @@ function getEmergencyGovernance() view returns (address)
 
 Returns the address of the emergency governance contract.
 
+---
 
-### Function: EmergencyProtectedTimelock.getEmergencyActivationCommittee
+### Function: `EmergencyProtectedTimelock.getEmergencyActivationCommittee`
 
 ```solidity
 function getEmergencyActivationCommittee() view returns (address)
@@ -450,8 +480,9 @@ function getEmergencyActivationCommittee() view returns (address)
 
 Returns the address of the emergency activation committee.
 
+---
 
-### Function: EmergencyProtectedTimelock.getEmergencyExecutionCommittee
+### Function: `EmergencyProtectedTimelock.getEmergencyExecutionCommittee`
 
 ```solidity
 function getEmergencyExecutionCommittee() view returns (address)
@@ -459,8 +490,9 @@ function getEmergencyExecutionCommittee() view returns (address)
 
 Returns the address of the emergency execution committee.
 
+---
 
-### Function: EmergencyProtectedTimelock.getGovernance
+### Function: `EmergencyProtectedTimelock.getGovernance`
 
 ```solidity
 function getGovernance() view returns (address)
@@ -468,8 +500,9 @@ function getGovernance() view returns (address)
 
 Returns the address of the current governance contract.
 
+---
 
-### Function: EmergencyProtectedTimelock.getAdminExecutor
+### Function: `EmergencyProtectedTimelock.getAdminExecutor`
 
 ```solidity
 function getAdminExecutor() view returns (address)
@@ -477,8 +510,9 @@ function getAdminExecutor() view returns (address)
 
 Returns the address of the admin executor contract.
 
+---
 
-### Function: EmergencyProtectedTimelock.getAfterSubmitDelay
+### Function: `EmergencyProtectedTimelock.getAfterSubmitDelay`
 
 ```solidity
 function getAfterSubmitDelay() view returns (Duration)
@@ -488,7 +522,7 @@ Returns the configured delay duration required before a submitted proposal can b
 
 ---
 
-### Function: EmergencyProtectedTimelock.getAfterScheduleDelay
+### Function: `EmergencyProtectedTimelock.getAfterScheduleDelay`
 
 ```solidity
 function getAfterScheduleDelay() view returns (Duration)
@@ -496,8 +530,9 @@ function getAfterScheduleDelay() view returns (Duration)
 
 Returns the configured delay duration required before a scheduled proposal can be executed.
 
+---
 
-### Function: EmergencyProtectedTimelock.getProposalDetails
+### Function: `EmergencyProtectedTimelock.getProposalDetails`
 
 ```solidity
 function getProposalDetails(uint256 proposalId) view returns (ProposalDetails memory details)
@@ -519,8 +554,9 @@ Returns information about a proposal, excluding the external calls associated wi
 
 - The proposal with the `proposalId` MUST have been previously submitted into the `EmergencyProtectedTimelock` instance.
 
+---
 
-### Function: EmergencyProtectedTimelock.getProposalCalls
+### Function: `EmergencyProtectedTimelock.getProposalCalls`
 
 ```solidity
 function getProposalCalls(uint256 proposalId) view returns (ExternalCall[] memory calls)
@@ -532,8 +568,9 @@ Returns the EVM calls associated with the specified proposal. See the [Struct: E
 
 - The proposal with the `proposalId` MUST have been previously submitted into the `EmergencyProtectedTimelock` instance.
 
+---
 
-### Function: EmergencyProtectedTimelock.getProposal
+### Function: `EmergencyProtectedTimelock.getProposal`
 
 ```solidity
 function getProposal(uint256 proposalId) view returns
@@ -551,8 +588,9 @@ Retrieves the details of a proposal, including the associated calls to be execut
 
 - The proposal with the `proposalId` MUST have been previously submitted into the `EmergencyProtectedTimelock` instance.
 
+---
 
-### Function: EmergencyProtectedTimelock.getProposalsCount
+### Function: `EmergencyProtectedTimelock.getProposalsCount`
 
 ```solidity
 function getProposalsCount() view returns (uint256 count)
@@ -560,8 +598,9 @@ function getProposalsCount() view returns (uint256 count)
 
 Returns the total number of proposals submitted to the system.
 
+---
 
-### Function: EmergencyProtectedTimelock.canExecute
+### Function: `EmergencyProtectedTimelock.canExecute`
 
 ```solidity
 function canExecute(uint256 proposalId) view returns (bool)
@@ -569,8 +608,9 @@ function canExecute(uint256 proposalId) view returns (bool)
 
 Checks whether the specified proposal can be executed.
 
+---
 
-### Function: EmergencyProtectedTimelock.canSchedule
+### Function: `EmergencyProtectedTimelock.canSchedule`
 
 ```solidity
 function canSchedule(uint256 proposalId) view returns (bool)
@@ -578,8 +618,9 @@ function canSchedule(uint256 proposalId) view returns (bool)
 
 Checks whether the specified proposal can be scheduled.
 
+---
 
-### Function: EmergencyProtectedTimelock.setAdminExecutor
+### Function: `EmergencyProtectedTimelock.setAdminExecutor`
 
 ```solidity
 function setAdminExecutor(address newAdminExecutor)
@@ -593,9 +634,22 @@ Sets a new address for the admin executor contract.
 - The `newAdminExecutor` address MUST NOT be the zero address.
 - The `newAdminExecutor` address MUST NOT be the same as the current value.
 
+---
 
-## Contract: Executor
+## Contract: `Executor`
 
 Handles calls resulting from governance proposals' execution. Every protocol permission or role protected by the TG, as well as the permission to manage these roles or permissions, must be controlled exclusively by instances of this contract.
 
-The timelocked governance setup is designed to use a single admin instance of the `Executor`, which is owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelocksol) singleton instance.
+The timelocked governance setup is designed to use a single admin instance of the `Executor`, which is owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) singleton instance.
+
+
+### Function: `Executor.execute`
+
+```solidity
+function execute(address target, uint256 value, bytes payload) payable
+```
+
+Performs an EVM call to the `target` address with the specified `payload` calldata, optionally transferring `value` wei in ETH.
+
+Reverts if the call fails.
+
