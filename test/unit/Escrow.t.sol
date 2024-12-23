@@ -32,6 +32,8 @@ import {UnitTest} from "test/utils/unit-test.sol";
 import {Random} from "test/utils/random.sol";
 
 uint256 constant ACCURACY = 2 wei;
+uint256 constant ONE_PERCENT_D16 = 10 ** 16;
+uint256 constant TWENTY_PERCENTS_D16 = 20 * ONE_PERCENT_D16;
 
 interface IEscrow is ISignallingEscrow, IRageQuitEscrow {}
 
@@ -54,7 +56,12 @@ contract EscrowUnitTests is UnitTest {
     uint256 private stethInitialEthAmount = 100 wei + stethAmount;
 
     function setUp() external {
-        _random = Random.create(vm.unixTime());
+        uint256 randomSeed = vm.unixTime();
+        _random = Random.create(randomSeed);
+
+        // solhint-disable-next-line no-console
+        console.log("Using random seed:", randomSeed);
+
         _stETH = new StETHMock();
         _wstETH = new WstETHMock(_stETH);
         _withdrawalQueue = new WithdrawalQueueMock(_stETH);
@@ -80,12 +87,14 @@ contract EscrowUnitTests is UnitTest {
         _withdrawalQueue.setMinStETHWithdrawalAmount(100);
         _withdrawalQueue.setMaxStETHWithdrawalAmount(1000 * 1e18);
 
-        uint256 rebaseFactor = 50_00 + Random.nextUint256(_random, 100_00);
-        uint256 residue = rebaseFactor % 100;
-        // solhint-disable-next-line no-console
-        console.log("Using ST_ETH rebase factor (%%): %d.%d", rebaseFactor / 100, residue);
+        uint256 variablePercent = Random.nextUint256(_random, TWENTY_PERCENTS_D16);
+        uint256 rebaseFactor = 90 * ONE_PERCENT_D16 + variablePercent;
+        PercentD16 rebaseFactorD16 = PercentsD16.from(rebaseFactor);
 
-        _stETH.rebaseTotalPooledEther(PercentsD16.fromBasisPoints(rebaseFactor));
+        // solhint-disable-next-line no-console
+        console.log("Using ST_ETH rebase factor (%%):", _percentD16ToString(rebaseFactorD16));
+
+        _stETH.rebaseTotalPooledEther(rebaseFactorD16);
 
         vm.label(address(_escrow), "Escrow");
         vm.label(address(_stETH), "StETHMock");
@@ -2047,5 +2056,20 @@ contract EscrowUnitTests is UnitTest {
 
         unstEthIds = new uint256[](1);
         unstEthIds[0] = lri + 1;
+    }
+
+    function _percentD16ToString(PercentD16 number) internal view returns (string memory) {
+        uint256 intPart = number.toUint256() / ONE_PERCENT_D16;
+        uint256 fractionalPart = number.toUint256() - intPart * ONE_PERCENT_D16;
+
+        string memory fractionalChars;
+        for (uint256 i = 0; i < 16; ++i) {
+            uint256 divider = 10 ** (15 - i);
+            uint256 char = fractionalPart / divider;
+            fractionalChars = string.concat(fractionalChars, vm.toString(char));
+            fractionalPart -= char * divider;
+        }
+
+        return string.concat(vm.toString(intPart), ".", fractionalChars);
     }
 }
