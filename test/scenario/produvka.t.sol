@@ -29,6 +29,8 @@ import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtec
 import {IAccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
+import {DeployVerifier} from "scripts/test-deploy/DeployVerifier.sol";
+
 import {console} from "hardhat/console.sol";
 
 contract DeployHappyPath is ScenarioTestBlueprint {
@@ -114,7 +116,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             voting: DAO_VOTING
         });
 
-        _verifier = new DeployVerifier();
+        _verifier = new DeployVerifier(_config, _lidoAddresses);
     }
 
     function testFork_dualGovernance_deployment_and_activation() external {
@@ -122,8 +124,10 @@ contract DeployHappyPath is ScenarioTestBlueprint {
 
         _dgContracts = DGContractsDeployment.deployDualGovernanceSetup(_config, _lidoAddresses, address(this));
 
+        _deployedAddresses = getDeployedAddresses(_dgContracts);
+
         // Verify deployment
-        _verifier.verify(_config, _lidoAddresses, _dgContracts, false);
+        _verifier.verify(_deployedAddresses, false);
 
         // Activate Dual Governance Emergency Mode
         vm.prank(_emergencyActivationCommitteeMultisig);
@@ -365,7 +369,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                 ExternalCall({
                     target: address(_verifier),
                     value: 0,
-                    payload: abi.encodeWithSelector(DeployVerifier.verify.selector, _config, _lidoAddresses, _dgContracts, true)
+                    payload: abi.encodeWithSelector(DeployVerifier.verify.selector, _deployedAddresses, true)
                 }),
                 // TODO: Draft of role verification
                 ExternalCall({
@@ -427,34 +431,27 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             result = abi.encodePacked(result, bytes20(call.target), bytes4(uint32(call.payload.length)), call.payload);
         }
     }
-}
 
-contract DeployVerifier {
-    using DeployVerification for DeployVerification.DeployedAddresses;
-
-    function verify(
-        DeployConfig memory config,
-        LidoContracts memory lidoAddresses,
-        DeployedContracts memory _dgContracts,
-        bool onchainVotingCheck
-    ) external view {
-        address[] memory _tiebreakerSubCommittees = new address[](_dgContracts.tiebreakerSubCommittees.length);
-        for (uint256 i = 0; i < _dgContracts.tiebreakerSubCommittees.length; ++i) {
-            _tiebreakerSubCommittees[i] = address(_dgContracts.tiebreakerSubCommittees[i]);
+    function getDeployedAddresses(DeployedContracts memory contracts)
+        internal
+        pure
+        returns (DeployVerification.DeployedAddresses memory)
+    {
+        address[] memory tiebreakerSubCommittees = new address[](contracts.tiebreakerSubCommittees.length);
+        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
+            tiebreakerSubCommittees[i] = address(contracts.tiebreakerSubCommittees[i]);
         }
 
-        DeployVerification.DeployedAddresses memory dgDeployedAddresses = DeployVerification.DeployedAddresses({
-            adminExecutor: payable(address(_dgContracts.adminExecutor)),
-            timelock: address(_dgContracts.timelock),
-            emergencyGovernance: address(_dgContracts.emergencyGovernance),
-            resealManager: address(_dgContracts.resealManager),
-            dualGovernance: address(_dgContracts.dualGovernance),
-            tiebreakerCoreCommittee: address(_dgContracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: _tiebreakerSubCommittees,
-            temporaryEmergencyGovernance: address(_dgContracts.temporaryEmergencyGovernance)
+        return DeployVerification.DeployedAddresses({
+            adminExecutor: payable(address(contracts.adminExecutor)),
+            timelock: address(contracts.timelock),
+            emergencyGovernance: address(contracts.emergencyGovernance),
+            resealManager: address(contracts.resealManager),
+            dualGovernance: address(contracts.dualGovernance),
+            tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
+            tiebreakerSubCommittees: tiebreakerSubCommittees,
+            temporaryEmergencyGovernance: address(contracts.temporaryEmergencyGovernance)
         });
-
-        dgDeployedAddresses.verify(config, lidoAddresses, onchainVotingCheck);
     }
 }
 
