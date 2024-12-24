@@ -12,10 +12,25 @@ import {TimelockState} from "./libraries/TimelockState.sol";
 import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 
-/// @title EmergencyProtectedTimelock
-/// @dev A timelock contract with emergency protection functionality. The contract allows for submitting, scheduling,
-///     and executing proposals, while providing emergency protection features to prevent unauthorized execution during
-///     emergency situations.
+/// @notice Timelock contract facilitating the submission, scheduling, and execution of governance proposals.
+///     It provides time-limited Emergency Protection to prevent the execution of proposals submitted by
+///     a compromised or misbehaving (including those caused by code vulnerabilities) governance entity.
+/// @dev The proposal lifecycle:
+///
+///                                         afterSubmitDelay          afterScheduleDelay
+///                                              passed                     passed
+///     ┌──────────┐            ┌───────────┐              ┌───────────┐             ╔══════════╗
+///     │ NotExist ├ submit() ─>│ Submitted ├ schedule() ─>│ Scheduled ├ execute() ─>║ Executed ║
+///     └──────────┘            └────────┬──┘              └──┬────────┘             ╚══════════╝
+///                                  cancelAllNonExecutedProposals()
+///                                      │   ╔═══════════╗    │
+///                                      └──>║ Cancelled ║<───┘
+///                                          ╚═══════════╝
+///
+///     The afterSubmit and afterSchedule delays must be configured appropriately to provide the Emergency Activation
+///     Committee sufficient time to activate Emergency Mode if a malicious proposal has been submitted or was
+///     unexpectedly scheduled for execution due to governance capture or a vulnerability in the governance contract.
+///     While Emergency Mode is active, the execution of proposals is restricted to the Emergency Execution Committee.
 contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     using TimelockState for TimelockState.Context;
     using ExecutableProposals for ExecutableProposals.Context;
