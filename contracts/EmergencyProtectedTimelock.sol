@@ -27,7 +27,7 @@ import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 ///                                      └──>║ Cancelled ║<───┘
 ///                                          ╚═══════════╝
 ///
-///     The afterSubmit and afterSchedule delays must be configured appropriately to provide the Emergency Activation
+///     The afterSubmit and afterSchedule delays should be configured appropriately to provide the Emergency Activation
 ///     Committee sufficient time to activate Emergency Mode if a malicious proposal has been submitted or was
 ///     unexpectedly scheduled for execution due to governance capture or a vulnerability in the governance contract.
 ///     While Emergency Mode is active, the execution of proposals is restricted to the Emergency Execution Committee.
