@@ -6,6 +6,8 @@ import {ISealable, SealableCalls} from "contracts/libraries/SealableCalls.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 
+uint256 constant BLOCK_GAS_LIMIT = 30_000_000;
+
 error CustomSealableError(string message);
 
 contract SealableCallsTest is UnitTest {
@@ -104,33 +106,13 @@ contract SealableCallsTest is UnitTest {
     }
 
     // ---
-    // Other Precompiles (Split in 2 parts because of out of gas)
+    // Other Precompile Calls Are Not Successful
     // ---
 
-    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part1() external {
-        for (uint160 i = 1; i < 8; ++i) {
+    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles() external {
+        for (uint160 i = 1; i < 12; ++i) {
             // Skip SHA-256 and RIPEMD-160 precompiles which lead to false positive results
             if (i == 0x2 || i == 0x3) continue;
-            _assertGetResumeSinceTimestampCallResult({
-                sealable: address(i),
-                isCallSucceed: false,
-                resumeSinceTimestamp: 0
-            });
-        }
-    }
-
-    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part2() external {
-        for (uint160 i = 8; i < 10; ++i) {
-            _assertGetResumeSinceTimestampCallResult({
-                sealable: address(i),
-                isCallSucceed: false,
-                resumeSinceTimestamp: 0
-            });
-        }
-    }
-
-    function test_callGetResumeSinceTimestamp_IsCallSucceed_CorrectResult_On_Other_Precompiles_Part3() external {
-        for (uint160 i = 10; i < 12; ++i) {
             _assertGetResumeSinceTimestampCallResult({
                 sealable: address(i),
                 isCallSucceed: false,
@@ -157,7 +139,8 @@ contract SealableCallsTest is UnitTest {
         uint256 resumeSinceTimestamp
     ) internal {
         (bool isCallSucceedActual, uint256 resumeSinceTimestampActual) =
-            SealableCalls.callGetResumeSinceTimestamp(sealable);
+        // Limit the maximum gas cost for the call to mimic mainnet behavior
+         this.external__getResumeSinceTimestampCall{gas: BLOCK_GAS_LIMIT}(sealable);
 
         assertEq(isCallSucceedActual, isCallSucceed, "Unexpected isCallSucceed value");
         assertEq(resumeSinceTimestampActual, resumeSinceTimestamp, "Unexpected resumeSinceTimestamp value");
@@ -165,5 +148,9 @@ contract SealableCallsTest is UnitTest {
 
     function _mockSealableResumeSinceTimestampReverts(address sealable, bytes memory revertReason) internal {
         vm.mockCallRevert(sealable, abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector), revertReason);
+    }
+
+    function external__getResumeSinceTimestampCall(address sealable) external returns (bool, uint256) {
+        return SealableCalls.callGetResumeSinceTimestamp(sealable);
     }
 }
