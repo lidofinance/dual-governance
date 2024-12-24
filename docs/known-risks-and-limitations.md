@@ -18,7 +18,7 @@ If the DAO itself is hostile, the only remaining solution will be the implementa
 
 ## 2. L2 & Side-Chains Bridges Pause
 
-The wstETH token is widely available on [many L2s and side-chains] (https://docs.lido.fi/deployed-contracts/#lido-multichain).
+The wstETH token is widely available on [many L2s and side-chains](https://docs.lido.fi/deployed-contracts/#lido-multichain).
 
 One recommended practice for these bridges is to implement [pausable deposits and withdrawals](https://docs.lido.fi/token-guides/wsteth-bridging-guide#r-7-pausable-deposits-and-withdrawals).
 
@@ -39,7 +39,7 @@ The implementation of Dual Governance assumes that the first seal RageQuit thres
 
 **Possible Mitigation:**
 
-The initial Dual Governance parameters were chosen based on a several analytical researches. The choosen parameter values should be periodically recalibrated to reflect current market realities, guided by high-level models derived from these analyses.
+The initial Dual Governance parameters were chosen based on a several analytical researches. The chosen parameter values should be periodically recalibrated to reflect current market realities, guided by high-level models derived from these analyses.
 
 
 ## 4. Low TVL Periods
@@ -77,7 +77,7 @@ The main mitigation lies in educating users about the Signalling Escrow’s inte
 For deliberate misuse, no absolute protection exists. However, even in such cases, the DAO remains functional and can still operate, albeit more slowly.
 
 
-## 6. The Undertermined Proposals Launch Time
+## 6. The Undetermined Proposals Launch Time
 
 Due to variable Veto Signalling durations, DAO proposal execution times may vary, complicating time-sensitive actions.
 
