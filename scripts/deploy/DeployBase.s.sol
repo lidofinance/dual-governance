@@ -40,7 +40,7 @@ abstract contract DeployBase is Script {
 
         console.log("Verifying deploy");
 
-        res.verify(config, lidoAddresses);
+        res.verify(config, lidoAddresses, false);
 
         console.log(unicode"Verified ✅");
     }
@@ -62,7 +62,8 @@ abstract contract DeployBase is Script {
             resealManager: address(contracts.resealManager),
             dualGovernance: address(contracts.dualGovernance),
             tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: tiebreakerSubCommittees
+            tiebreakerSubCommittees: tiebreakerSubCommittees,
+            temporaryEmergencyGovernance: address(contracts.temporaryEmergencyGovernance)
         });
     }
 
@@ -79,5 +80,6 @@ abstract contract DeployBase is Script {
         console.log("AdminExecutor address", res.adminExecutor);
         console.log("EmergencyProtectedTimelock address", res.timelock);
         console.log("EmergencyGovernance address", res.emergencyGovernance);
+        console.log("TemporaryEmergencyGovernance address", res.temporaryEmergencyGovernance);
     }
 }
