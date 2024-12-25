@@ -9,7 +9,25 @@ import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
 import {State, DualGovernanceStateMachine} from "./DualGovernanceStateMachine.sol";
 
 /// @title Dual Governance State Transitions Library
-/// @notice Library containing the transitions logic for the Dual Governance system
+/// @notice Library containing the transition logic for the Dual Governance system.
+/// @dev The graph of the state transitions:
+///
+///        ┌─────────────┐     ┌──────────────────┐
+///        │    Normal   ├────>│  VetoSignalling  │<───────┐
+///     ┌─>│  [SUB, EXE] │     │      [SUB]       │<────┐  │
+///     │  └─────────────┘     │ ┌──────────────┐ │     │  │
+///     │                   ┌──┼─┤ Deactivation ├─┼──┐  │  │
+///     │                   │  │ │     [ ]      │ │  │  │  │
+///     │                   │  │ └──────────────┘ │  │  │  │
+///     │                   │  └──────────────────┘  │  │  │
+///     │  ┌──────────────┐ │     ┌──────────┐       │  │  │
+///     └──┤ VetoCooldown │<┘     │ RageQuit │<──────┘  │  │
+///        │     [EXE]    │<──────┤   [SUB]  │<─────────┘  │
+///        └──────┬───────┘       └──────────┘             │
+///               └────────────────────────────────────────┘
+///
+///     SUB - Allows proposals submission while the state is active.
+///     EXE - Allows scheduling proposals for execution while the state is active.
 library DualGovernanceStateTransitions {
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
