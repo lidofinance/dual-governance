@@ -108,17 +108,11 @@ library DGContractsDeployment {
         LidoContracts memory lidoAddresses,
         DeployConfig memory dgDeployConfig,
         DeployedContracts memory contracts
-    ) internal {
+    ) internal returns (TimelockedGovernance emergencyGovernance, TimelockedGovernance temporaryEmergencyGovernance) {
         Executor adminExecutor = contracts.adminExecutor;
         EmergencyProtectedTimelock timelock = contracts.timelock;
 
-        contracts.emergencyGovernance =
-            deployTimelockedGovernance({governance: lidoAddresses.voting, timelock: timelock});
-
-        contracts.temporaryEmergencyGovernance = deployTimelockedGovernance({
-            governance: dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER,
-            timelock: timelock
-        });
+        emergencyGovernance = deployTimelockedGovernance({governance: lidoAddresses.voting, timelock: timelock});
 
         adminExecutor.execute(
             address(timelock),
@@ -149,11 +143,21 @@ library DGContractsDeployment {
             abi.encodeCall(timelock.setEmergencyModeDuration, (dgDeployConfig.EMERGENCY_MODE_DURATION))
         );
 
-        adminExecutor.execute(
-            address(timelock),
-            0,
-            abi.encodeCall(timelock.setEmergencyGovernance, (address(contracts.temporaryEmergencyGovernance)))
-        );
+        if (dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER != address(0)) {
+            temporaryEmergencyGovernance = deployTimelockedGovernance({
+                governance: dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER,
+                timelock: timelock
+            });
+            adminExecutor.execute(
+                address(timelock),
+                0,
+                abi.encodeCall(timelock.setEmergencyGovernance, (address(temporaryEmergencyGovernance)))
+            );
+        } else {
+            adminExecutor.execute(
+                address(timelock), 0, abi.encodeCall(timelock.setEmergencyGovernance, (address(emergencyGovernance)))
+            );
+        }
     }
 
     function deployExecutor(address owner) internal returns (Executor) {

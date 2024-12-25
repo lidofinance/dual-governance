@@ -13,10 +13,6 @@ contract DGLaunchTest is ScenarioTestBlueprint {
 
     function setUp() external {
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
-
-        // Tweak the setup, and replace temporary emergency governance value
-        vm.prank(address(_adminExecutor));
-        _timelock.setEmergencyGovernance(address(_emergencyGovernance));
     }
 
     function testFork_DualGovernanceLaunchFromAragonVote() external {

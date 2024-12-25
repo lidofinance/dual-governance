@@ -8,7 +8,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {console} from "forge-std/console.sol";
 
 import {Timestamps} from "contracts/types/Timestamp.sol";
-import {Durations} from "contracts/types/Duration.sol";
+import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Executor} from "contracts/Executor.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
@@ -29,10 +29,10 @@ import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
 import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
 import {DGDeployJSONConfigProvider} from "../deploy/JsonConfig.s.sol";
 import {DeployVerification} from "../deploy/DeployVerification.sol";
+import {DeployVerifier} from "./DeployVerifier.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
-import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
 contract DeployScriptBase is Script {
     using DeployVerification for DeployVerification.DeployedAddresses;
@@ -43,6 +43,7 @@ contract DeployScriptBase is Script {
     string internal _chainName;
     string internal _configFilePath;
     string internal _deployedAddressesFilePath;
+    DeployVerifier internal _deployVerifier;
 
     function _loadEnv() internal {
         _chainName = vm.envString("CHAIN");
@@ -59,6 +60,8 @@ contract DeployScriptBase is Script {
         console.log("=====================================");
         _printAddresses(_dgContracts);
         console.log("=====================================");
+
+        _deployVerifier = new DeployVerifier(_config, _lidoAddresses);
     }
 
     function _printExternalCalls(ExternalCall[] memory calls) internal pure {
@@ -128,5 +131,18 @@ contract DeployScriptBase is Script {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", deployedAddressesFilePath);
         deployedAddressesJson = vm.readFile(path);
+    }
+
+    function _encodeExternalCalls(ExternalCall[] memory calls) internal pure returns (bytes memory result) {
+        result = abi.encodePacked(bytes4(uint32(1)));
+
+        for (uint256 i = 0; i < calls.length; ++i) {
+            ExternalCall memory call = calls[i];
+            result = abi.encodePacked(result, bytes20(call.target), bytes4(uint32(call.payload.length)), call.payload);
+        }
+    }
+
+    function _wait(Duration duration) internal {
+        vm.warp(block.timestamp + Duration.unwrap(duration));
     }
 }

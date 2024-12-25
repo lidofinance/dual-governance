@@ -9,32 +9,47 @@ import {DeployScriptBase} from "./DeployScriptBase.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
+import {LidoUtils} from "test/utils/lido-utils.sol";
 
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IAragonForwarder} from "test/utils/interfaces/IAragonForwarder.sol";
 import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
+import {IAragonACL} from "test/utils/interfaces/IAragonACL.sol";
+import {IAragonAgent} from "test/utils/interfaces/IAragonAgent.sol";
+import {IGovernance} from "contracts/interfaces/IDualGovernance.sol";
 
-import {WITHDRAWAL_QUEUE} from "addresses/mainnet-addresses.sol";
+import {DualGovernance} from "contracts/DualGovernance.sol";
+
+import {DeployVerifier} from "./DeployVerifier.sol";
+
+import {WITHDRAWAL_QUEUE, DAO_AGENT, DAO_VOTING, DAO_ACL} from "addresses/mainnet-addresses.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
-contract Produvka is DeployScriptBase {
+contract LaunchAcceptance is DeployScriptBase {
+    using LidoUtils for LidoUtils.Context;
+
+    LidoUtils.Context internal lidoUtils = LidoUtils.mainnet();
+
     function run() external {
         _loadEnv();
+
+        //Emergency committee
         uint256 step = vm.envUint("STEP");
 
         console.log("========= Step ", step, " =========");
+
         IEmergencyProtectedTimelock timelock = IEmergencyProtectedTimelock(_dgContracts.timelock);
 
         uint256 proposalId = 1;
         RolesVerifier _rolesVerifier;
 
-        // if (step < 1) {
-        //     // Verify deployment
-        //     // Expect to revert because of temporary emergencyGovernance address in EmergencyProtectedTimelock set
-        //     vm.expectRevert("Incorrect emergencyGovernance address in EmergencyProtectedTimelock");
-        //     dgContracts.verify(_config, _lidoAddresses);
-        // }
+        if (step < 1) {
+            // Verify deployment of all contracts before proceeding
+            _deployVerifier.verify(_dgContracts, false);
+        } else {
+            console.log("STEP 0 SKIPPED - All contracts are deployed");
+        }
 
         if (step < 2) {
             console.log("STEP 1 - Activate Emergency Mode");
@@ -43,6 +58,8 @@ contract Produvka is DeployScriptBase {
             timelock.activateEmergencyMode();
 
             console.log("Emergency mode activated");
+        } else {
+            console.log("STEP 1 SKIPPED - Emergency Mode already activated");
         }
 
         if (step < 3) {
@@ -55,6 +72,8 @@ contract Produvka is DeployScriptBase {
             timelock.emergencyReset();
 
             console.log("Emergency mode reset");
+        } else {
+            console.log("STEP 2 SKIPPED - Emergency Mode already reset");
         }
 
         if (step < 4) {
@@ -138,6 +157,8 @@ contract Produvka is DeployScriptBase {
             console.log("Proposal submitted");
 
             console.log("Proposal ID", proposalId);
+        } else {
+            console.log("STEP 3 SKIPPED - DG state proposal already submitted");
         }
 
         if (step < 5) {
@@ -149,6 +170,8 @@ contract Produvka is DeployScriptBase {
             timelock.execute(proposalId);
 
             console.log("Proposal executed");
+        } else {
+            console.log("STEP 4 SKIPPED - Proposal to set DG state already executed");
         }
 
         if (step < 6) {
@@ -184,7 +207,17 @@ contract Produvka is DeployScriptBase {
 
             // Activate Dual Governance with DAO Voting
 
+            // Verify deployment
+            _deployVerifier.verify(_dgContracts, true);
+        } else {
+            console.log("STEP 5 SKIPPED - DG state already verified");
+        }
+
+        if (step < 7) {
+            console.log("STEP 6 - Submitting DAO Voting proposal to activate Dual Governance");
+
             // Prepare RolesVerifier
+            // TODO: Sync with the actual voting script roles checker
             address[] memory ozContracts = new address[](1);
             RolesVerifier.OZRoleInfo[] memory roles = new RolesVerifier.OZRoleInfo[](2);
             address[] memory pauseRoleHolders = new address[](2);
@@ -206,6 +239,7 @@ contract Produvka is DeployScriptBase {
 
             _rolesVerifier = new RolesVerifier(ozContracts, roles);
 
+            // DAO Voting to activate Dual Governance
             // Prepare calls to execute by Agent
             ExternalCall[] memory roleGrantingCalls;
             roleGrantingCalls = ExternalCallHelpers.create(
@@ -227,44 +261,134 @@ contract Produvka is DeployScriptBase {
                             IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(),
                             address(_dgContracts.resealManager)
                         )
+                    }),
+                    ExternalCall({
+                        target: address(DAO_ACL),
+                        value: 0,
+                        payload: abi.encodeWithSelector(
+                            IAragonACL.grantPermission.selector,
+                            _dgContracts.adminExecutor,
+                            DAO_AGENT,
+                            IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                        )
                     })
-                    // Grant agent forward to DG Executor
-                    // TODO: Add more role granting calls here
                 ]
             );
 
-            // // Prepare calls to execute Voting
-            // ExternalCall[] memory activateCalls;
-            // activateCalls = ExternalCallHelpers.create(
-            //     [
-            //         ExternalCall({
-            //             target: address(lidoUtils.agent),
-            //             value: 0,
-            //             payload: abi.encodeWithSelector(
-            //                 IAragonForwarder.forward.selector, _encodeExternalCalls(roleGrantingCalls)
-            //             )
-            //         }),
-            //         // Call verifier to verify deployment at the end of the vote
-            //         // ExternalCall({
-            //         //     target: address(_verifier),
-            //         //     value: 0,
-            //         //     payload: abi.encodeWithSelector(DeployVerifier.verify.selector, __config, _lidoAddresses, _dgContracts)
-            //         // }),
-            //         // TODO: Draft of role verification
-            //         ExternalCall({
-            //             target: address(_rolesVerifier),
-            //             value: 0,
-            //             payload: abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector)
-            //         })
-            //         // DG.submit(revokeAgentForwardRoleFromVoting)
-            //     ]
-            // );
+            // Propose to revoke Agent forward permission from Voting
+            ExternalCall[] memory revokeAgentForwardCall;
+            revokeAgentForwardCall = ExternalCallHelpers.create(
+                [
+                    ExternalCall({
+                        target: address(DAO_ACL),
+                        value: 0,
+                        payload: abi.encodeWithSelector(
+                            IAragonACL.revokePermission.selector,
+                            DAO_VOTING,
+                            DAO_AGENT,
+                            IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                        )
+                    })
+                ]
+            );
 
-            // // Create and execute vote to activate Dual Governance
-            // uint256 voteId = lidoUtils.adoptVote("Dual Governance activation vote", _encodeExternalCalls(activateCalls));
-            // lidoUtils.executeVote(voteId);
+            ExternalCall[] memory revokeAgentForwardCallDualGovernanceProposal;
+            revokeAgentForwardCallDualGovernanceProposal = ExternalCallHelpers.create(
+                [
+                    ExternalCall({
+                        target: address(lidoUtils.agent),
+                        value: 0,
+                        payload: abi.encodeWithSelector(
+                            IAragonForwarder.forward.selector, _encodeExternalCalls(revokeAgentForwardCall)
+                        )
+                    })
+                ]
+            );
 
-            // // TODO: Check that voting cant call Agent forward
+            // Prepare calls to execute Voting
+            bytes memory setPermissionPayload = abi.encodeWithSelector(
+                IAragonACL.setPermissionManager.selector,
+                DAO_AGENT,
+                DAO_AGENT,
+                IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+            );
+
+            bytes memory forwardRolePayload =
+                abi.encodeWithSelector(IAragonForwarder.forward.selector, _encodeExternalCalls(roleGrantingCalls));
+
+            bytes memory verifyPayload = abi.encodeWithSelector(DeployVerifier.verify.selector, _dgContracts, true);
+
+            bytes memory verifyOZRolesPayload = abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector);
+
+            bytes memory submitProposalPayload = abi.encodeWithSelector(
+                IGovernance.submitProposal.selector,
+                revokeAgentForwardCallDualGovernanceProposal,
+                "Revoke Agent forward permission from Voting"
+            );
+
+            ExternalCall[] memory activateCalls = ExternalCallHelpers.create(
+                [
+                    ExternalCall({target: address(DAO_ACL), value: 0, payload: setPermissionPayload}),
+                    ExternalCall({target: address(DAO_AGENT), value: 0, payload: forwardRolePayload}),
+                    ExternalCall({target: address(_deployVerifier), value: 0, payload: verifyPayload}),
+                    // TODO: set real RolesVerifier contract address
+                    // ExternalCall({target: address(_rolesVerifier), value: 0, payload: verifyOZRolesPayload}),
+                    ExternalCall({target: address(_dgContracts.dualGovernance), value: 0, payload: submitProposalPayload})
+                ]
+            );
+            uint256 voteId = lidoUtils.adoptVote("Dual Governance activation vote", _encodeExternalCalls(activateCalls));
+            console.log("Vote ID", voteId);
+        } else {
+            console.log("STEP 6 SKIPPED - Dual Governance activation vote already submitted");
+        }
+
+        if (step < 8) {
+            uint256 voteId = 0;
+            require(voteId != 0);
+            console.log("STEP 7 - Enacting DAO Voting proposal to activate Dual Governance");
+            lidoUtils.executeVote(voteId);
+        } else {
+            console.log("STEP 7 SKIPPED - Dual Governance activation vote already executed");
+        }
+
+        if (step < 9) {
+            console.log("STEP 8 - Wait for Dual Governance after submit delay and envacting proposal");
+
+            uint256 expectedProposalId = 2;
+
+            // Schedule and execute the proposal
+            _wait(_config.AFTER_SUBMIT_DELAY);
+            DualGovernance(_dgContracts.dualGovernance).scheduleProposal(expectedProposalId);
+            _wait(_config.AFTER_SCHEDULE_DELAY);
+            timelock.execute(expectedProposalId);
+        } else {
+            console.log("STEP 8 SKIPPED - Dual Governance proposal already executed");
+        }
+
+        if (step < 10) {
+            console.log("STEP 9 - Verify DAO has no agent forward permission from Voting");
+            // Verify that Voting has no permission to forward to Agent
+            ExternalCall[] memory someAgentForwardCall;
+            someAgentForwardCall = ExternalCallHelpers.create(
+                [
+                    ExternalCall({
+                        target: address(DAO_ACL),
+                        value: 0,
+                        payload: abi.encodeWithSelector(
+                            IAragonACL.revokePermission.selector,
+                            _dgContracts.adminExecutor,
+                            DAO_AGENT,
+                            IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                        )
+                    })
+                ]
+            );
+
+            vm.expectRevert("AGENT_CAN_NOT_FORWARD");
+            vm.prank(DAO_VOTING);
+            IAragonForwarder(DAO_AGENT).forward(_encodeExternalCalls(someAgentForwardCall));
+        } else {
+            console.log("STEP 9 SKIPPED - Agent forward permission already revoked");
         }
     }
 }
