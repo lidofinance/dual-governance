@@ -321,7 +321,7 @@ Triggers a transition of the [global governance state](#Governance-state), if on
 function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider)
 ```
 
-Updates the address of the configuration provider for the Dual Governance system.
+Sets the configuration provider for the Dual Governance system.
 
 #### Preconditions
 - MUST be called by the admin executor.
@@ -367,7 +367,7 @@ Returns the address of the current proposals canceller.
 function getConfigProvider() view returns (IDualGovernanceConfigProvider)
 ```
 
-Returns the address of the current configuration provider for the Dual Governance system.
+Returns the current configuration provider for the Dual Governance system.
 
 ---
 
@@ -691,7 +691,7 @@ Sets the address of the reseal committee.
 function setResealManager(IResealManager newResealManager)
 ```
 
-Sets the address of the reseal manager.
+Sets the address of the Reseal Manager contract.
 
 #### Preconditions
 
@@ -707,7 +707,7 @@ Sets the address of the reseal manager.
 function getResealManager() view returns (IResealManager)
 ```
 
-Returns the address of the reseal manager.
+Returns the address of the Reseal Manager contract.
 
 ---
 

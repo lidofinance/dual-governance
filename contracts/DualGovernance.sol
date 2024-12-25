@@ -299,8 +299,8 @@ contract DualGovernance is IDualGovernance {
         _stateMachine.activateNextState();
     }
 
-    /// @notice Updates the address of the configuration provider for the Dual Governance system.
-    /// @param newConfigProvider The address of the new configuration provider contract.
+    /// @notice Sets the configuration provider for the Dual Governance system.
+    /// @param newConfigProvider The contract implementing the `IDualGovernanceConfigProvider` interface.
     function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external {
         _checkCallerIsAdminExecutor();
         _stateMachine.setConfigProvider(newConfigProvider);
@@ -325,8 +325,8 @@ contract DualGovernance is IDualGovernance {
         return _proposalsCanceller;
     }
 
-    /// @notice Returns the current configuration provider address for the Dual Governance system.
-    /// @return configProvider The address of the current configuration provider contract.
+    /// @notice Returns the current configuration provider for the Dual Governance system.
+    /// @return configProvider The contract implementing the `IDualGovernanceConfigProvider` interface.
     function getConfigProvider() external view returns (IDualGovernanceConfigProvider) {
         return _stateMachine.configProvider;
     }
@@ -536,15 +536,15 @@ contract DualGovernance is IDualGovernance {
         _resealer.setResealCommittee(newResealCommittee);
     }
 
-    /// @notice Sets the address of the Reseal Manager.
-    /// @param newResealManager The address of the new Reseal Manager.
+    /// @notice Sets the address of the Reseal Manager contract.
+    /// @param newResealManager The contract implementing the `IResealManager` interface.
     function setResealManager(IResealManager newResealManager) external {
         _checkCallerIsAdminExecutor();
         _resealer.setResealManager(newResealManager);
     }
 
-    /// @notice Returns the address of the Reseal Manager.
-    /// @return resealManager The address of the Reseal Manager.
+    /// @notice Returns the address of the Reseal Manager contract.
+    /// @return resealManager The contract implementing the `IResealManager` interface.
     function getResealManager() external view returns (IResealManager) {
         return _resealer.resealManager;
     }
