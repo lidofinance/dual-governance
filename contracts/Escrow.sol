@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -145,7 +146,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
     }
 
-    /// @notice Retrieves the current state of the Escrow.
+    /// @notice Returns the current state of the Escrow.
     /// @return State The current state of the Escrow.
     function getEscrowState() external view returns (State) {
         return _escrowState.state;
@@ -305,7 +306,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     // ---
 
     /// @notice Sets the minimum duration that must elapse after the last stETH, wstETH, or unstETH lock
-    ///     by a vetoer before they are permitted to unlock their assets from the Escrow.
+    ///     by a vetoer before they are permitted to unlock their assets from the Signalling Escrow.
     /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
         _checkCallerIsDualGovernance();
@@ -353,7 +354,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         details.lastAssetsLockTimestamp = assets.lastAssetsLockTimestamp;
     }
 
-    // @notice Retrieves the unstETH NFT ids of the specified vetoer.
+    /// @notice Returns the unstETH NFT ids of the specified vetoer.
     /// @param vetoer The address of the vetoer whose unstETH NFTs are being queried.
     /// @return unstETHIds An array of unstETH NFT ids locked by the vetoer.
     function getVetoerUnstETHIds(address vetoer) external view returns (uint256[] memory unstETHIds) {
@@ -376,8 +377,8 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         details.totalUnstETHFinalizedETH = unstETHTotals.finalizedETH;
     }
 
-    /// @notice Retrieves details of locked unstETH records for the given ids.
-    /// @param unstETHIds The array of ids for the unstETH records to retrieve.
+    /// @notice Returns details of locked unstETH records for the given ids.
+    /// @param unstETHIds The array of ids for the unstETH records to return.
     /// @return unstETHDetails An array of `LockedUnstETHDetails` containing the details for each provided unstETH id.
     ///
     /// The details include:
@@ -568,7 +569,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     // Rage Quit Escrow: Getters
     // ---
 
-    /// @notice Retrieves the unstETH NFT ids of the next batch available for claiming.
+    /// @notice Returns the unstETH NFT ids of the next batch available for claiming.
     /// @param limit The maximum number of unstETH NFTs to return in the batch.
     /// @return unstETHIds An array of unstETH NFT ids available for the next withdrawal batch.
     function getNextWithdrawalBatch(uint256 limit) external view returns (uint256[] memory unstETHIds) {
@@ -598,7 +599,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         return _escrowState.isRageQuitExtensionPeriodPassed();
     }
 
-    /// @notice Retrieves details about the current state of the rage quit escrow.
+    /// @notice Returns details about the current state of the rage quit escrow.
     /// @return details A `RageQuitEscrowDetails` struct containing the following fields:
     /// - `isRageQuitExtensionPeriodStarted`: Indicates whether the rage quit extension period has started.
     /// - `rageQuitEthWithdrawalsDelay`: The delay period for ETH withdrawals during rage quit.

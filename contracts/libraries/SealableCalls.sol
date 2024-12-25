@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -19,7 +20,7 @@ library SealableCalls {
     ///     If the value is less than `block.timestamp`, it indicates the contract resumed in the past;
     ///     if `type(uint256).max`, the contract is paused indefinitely.
     function callGetResumeSinceTimestamp(address sealable)
-        external
+        internal
         view
         returns (bool success, uint256 resumeSinceTimestamp)
     {

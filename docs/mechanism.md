@@ -1,7 +1,3 @@
-**Working draft**
-
----
-
 # Dual Governance mechanism design
 
 A proposal by [sam](https://twitter.com/_skozin), [pshe](https://twitter.com/PsheEth), [kadmil](https://twitter.com/kadmil_eth), [sacha](https://twitter.com/sachayve), [psirex](https://twitter.com/psirex_), [Hasu](https://twitter.com/hasufl), [Izzy](https://twitter.com/IsdrsP), and [Vasiliy](https://twitter.com/_vshapovalov).
