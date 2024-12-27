@@ -7,63 +7,54 @@ import {Executor} from "contracts/Executor.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 import {ResealManager} from "contracts/ResealManager.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
-import {DualGovernance} from "contracts/DualGovernance.sol";
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
+import {State as EscrowState} from "contracts/libraries/EscrowState.sol";
 import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
+import {DeployedContracts} from "./DeployedContractsSet.sol";
 
 library DeployVerification {
-    struct DeployedAddresses {
-        address payable adminExecutor;
-        address timelock;
-        address emergencyGovernance;
-        address resealManager;
-        address dualGovernance;
-        address tiebreakerCoreCommittee;
-        address[] tiebreakerSubCommittees;
-        address temporaryEmergencyGovernance;
-    }
-
     function verify(
-        DeployedAddresses memory res,
+        DeployedContracts memory contracts,
         DeployConfig memory dgDeployConfig,
         LidoContracts memory lidoAddresses,
         bool onchainVotingCheck
     ) internal view {
-        checkAdminExecutor(res.adminExecutor, res.timelock);
-        checkTimelock(res, dgDeployConfig, onchainVotingCheck);
+        checkAdminExecutor(contracts.adminExecutor, contracts.timelock);
+        checkTimelock(contracts, dgDeployConfig, onchainVotingCheck);
         checkEmergencyActivationCommittee(dgDeployConfig);
         checkEmergencyExecutionCommittee(dgDeployConfig);
-        checkTimelockedGovernance(res, lidoAddresses);
-        checkResealManager(res);
-        checkDualGovernance(res, dgDeployConfig, lidoAddresses);
-        checkTiebreakerCoreCommittee(res, dgDeployConfig);
+        checkTimelockedGovernance(contracts, lidoAddresses);
+        checkResealManager(contracts);
+        checkDualGovernance(contracts, dgDeployConfig, lidoAddresses);
+        checkTiebreakerCoreCommittee(contracts, dgDeployConfig);
 
         for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
-            checkTiebreakerSubCommittee(res, dgDeployConfig, i);
+            checkTiebreakerSubCommittee(contracts, dgDeployConfig, i);
         }
 
         checkResealCommittee(dgDeployConfig);
     }
 
-    function checkAdminExecutor(address payable executor, address timelock) internal view {
-        require(Executor(executor).owner() == timelock, "AdminExecutor owner != EmergencyProtectedTimelock");
+    function checkAdminExecutor(Executor executor, IEmergencyProtectedTimelock timelock) internal view {
+        require(executor.owner() == address(timelock), "AdminExecutor owner != EmergencyProtectedTimelock");
     }
 
     function checkTimelock(
-        DeployedAddresses memory res,
+        DeployedContracts memory contracts,
         DeployConfig memory dgDeployConfig,
         bool onchainVotingCheck
     ) internal view {
-        IEmergencyProtectedTimelock timelockInstance = IEmergencyProtectedTimelock(res.timelock);
+        IEmergencyProtectedTimelock timelockInstance = contracts.timelock;
         require(
-            timelockInstance.getAdminExecutor() == res.adminExecutor,
+            timelockInstance.getAdminExecutor() == address(contracts.adminExecutor),
             "Incorrect adminExecutor address in EmergencyProtectedTimelock"
         );
         require(
@@ -103,9 +94,16 @@ library DeployVerification {
             "Incorrect value for emergencyModeDuration"
         );
 
+        if (!onchainVotingCheck) {
+            require(
+                details.emergencyModeEndsAfter == Timestamps.ZERO,
+                "Incorrect value for emergencyModeEndsAfter (Emergency mode is activated)"
+            );
+        }
+
         if (onchainVotingCheck) {
             require(
-                timelockInstance.getEmergencyGovernance() == res.emergencyGovernance,
+                timelockInstance.getEmergencyGovernance() == address(contracts.emergencyGovernance),
                 "Incorrect emergencyGovernance address in EmergencyProtectedTimelock"
             );
         }
@@ -119,7 +117,7 @@ library DeployVerification {
             "Incorrect parameter AFTER_SCHEDULE_DELAY"
         );
         require(
-            timelockInstance.getGovernance() == res.dualGovernance,
+            timelockInstance.getGovernance() == address(contracts.dualGovernance),
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
         require(
@@ -149,36 +147,43 @@ library DeployVerification {
     }
 
     function checkTimelockedGovernance(
-        DeployedAddresses memory res,
+        DeployedContracts memory contracts,
         LidoContracts memory lidoAddresses
     ) internal view {
-        TimelockedGovernance emergencyTimelockedGovernance = TimelockedGovernance(res.emergencyGovernance);
+        TimelockedGovernance emergencyTimelockedGovernance = contracts.emergencyGovernance;
         require(
             emergencyTimelockedGovernance.GOVERNANCE() == lidoAddresses.voting,
             "TimelockedGovernance governance != Lido voting"
         );
         require(
-            address(emergencyTimelockedGovernance.TIMELOCK()) == res.timelock,
+            address(emergencyTimelockedGovernance.TIMELOCK()) == address(contracts.timelock),
             "Incorrect address for timelock in TimelockedGovernance"
         );
     }
 
-    function checkResealManager(DeployedAddresses memory res) internal view {
+    function checkResealManager(DeployedContracts memory contracts) internal view {
         require(
-            address(ResealManager(res.resealManager).EMERGENCY_PROTECTED_TIMELOCK()) == res.timelock,
+            address(contracts.resealManager.EMERGENCY_PROTECTED_TIMELOCK()) == address(contracts.timelock),
             "Incorrect address for EMERGENCY_PROTECTED_TIMELOCK in ResealManager"
         );
     }
 
     function checkDualGovernance(
-        DeployedAddresses memory res,
+        DeployedContracts memory contracts,
         DeployConfig memory dgDeployConfig,
         LidoContracts memory lidoAddresses
     ) internal view {
-        DualGovernance dg = DualGovernance(res.dualGovernance);
-        require(address(dg.TIMELOCK()) == res.timelock, "Incorrect address for timelock in DualGovernance");
+        IDualGovernance dg = contracts.dualGovernance;
         require(
-            address(dg.getResealManager()) == res.resealManager, "Incorrect address for resealManager in DualGovernance"
+            address(dg.TIMELOCK()) == address(contracts.timelock), "Incorrect address for timelock in DualGovernance"
+        );
+        require(
+            address(dg.getResealManager()) == address(contracts.resealManager),
+            "Incorrect address for resealManager in DualGovernance"
+        );
+        require(
+            address(dg.getResealCommittee()) == address(dgDeployConfig.RESEAL_COMMITTEE),
+            "Incorrect address for resealCommittee in DualGovernance"
         );
         require(
             dg.MIN_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.MIN_TIEBREAKER_ACTIVATION_TIMEOUT,
@@ -204,6 +209,45 @@ library DeployVerification {
         require(
             escrowTemplate.MIN_WITHDRAWALS_BATCH_SIZE() == dgDeployConfig.MIN_WITHDRAWALS_BATCH_SIZE,
             "Incorrect parameter MIN_WITHDRAWALS_BATCH_SIZE"
+        );
+        require(
+            escrowTemplate.MAX_MIN_ASSETS_LOCK_DURATION() == dgDeployConfig.MAX_MIN_ASSETS_LOCK_DURATION,
+            "Incorrect parameter MAX_MIN_ASSETS_LOCK_DURATION"
+        );
+
+        ISignallingEscrow vetoSignallingEscrow = ISignallingEscrow(dg.getVetoSignallingEscrow());
+
+        require(
+            vetoSignallingEscrow.getEscrowState() == EscrowState.SignallingEscrow,
+            "Incorrect state of VetoSignallingEscrow"
+        );
+        require(
+            vetoSignallingEscrow.getRageQuitSupport().toUint256() == 0,
+            "Incorrect rageQuitSupport value in VetoSignallingEscrow"
+        );
+        require(
+            vetoSignallingEscrow.getMinAssetsLockDuration() == dgDeployConfig.MIN_ASSETS_LOCK_DURATION,
+            "Incorrect value of minAssetsLockDuration in VetoSignallingEscrow"
+        );
+
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetails =
+            vetoSignallingEscrow.getSignallingEscrowDetails();
+
+        require(
+            signallingEscrowDetails.totalStETHClaimedETH.toUint256() == 0,
+            "Incorrect SignallingEscrowDetails.totalStETHClaimedETH"
+        );
+        require(
+            signallingEscrowDetails.totalStETHLockedShares.toUint256() == 0,
+            "Incorrect SignallingEscrowDetails.totalStETHLockedShares"
+        );
+        require(
+            signallingEscrowDetails.totalUnstETHUnfinalizedShares.toUint256() == 0,
+            "Incorrect SignallingEscrowDetails.totalUnstETHUnfinalizedShares"
+        );
+        require(
+            signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256() == 0,
+            "Incorrect SignallingEscrowDetails.totalUnstETHFinalizedETH"
         );
 
         DualGovernanceConfig.Context memory dgConfig = dg.getConfigProvider().getDualGovernanceConfig();
@@ -260,7 +304,12 @@ library DeployVerification {
         require(dg.getEffectiveState() == State.Normal, "Incorrect DualGovernance effective state");
         require(dg.getProposers().length == 1, "Incorrect amount of proposers");
         require(dg.isProposer(address(lidoAddresses.voting)) == true, "Lido voting is not set as a proposers[0]");
-        require(dg.isExecutor(res.adminExecutor) == true, "adminExecutor is not set as a proposers[0].executor");
+        require(
+            dg.isExecutor(address(contracts.adminExecutor)) == true,
+            "adminExecutor is not set as a proposers[0].executor"
+        );
+        require(dg.canSubmitProposal() == true, "DG is in incorrect state - can't submit proposal");
+        require(dg.getRageQuitEscrow() == address(0), "DG is in incorrect state - RageQuit started");
 
         IDualGovernance.StateDetails memory stateDetails = dg.getStateDetails();
         require(stateDetails.effectiveState == State.Normal, "Incorrect DualGovernance effectiveState");
@@ -291,7 +340,9 @@ library DeployVerification {
             ts.tiebreakerActivationTimeout == dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT,
             "Incorrect parameter TIEBREAKER_ACTIVATION_TIMEOUT"
         );
-        require(ts.tiebreakerCommittee == res.tiebreakerCoreCommittee, "Incorrect tiebreakerCoreCommittee");
+        require(
+            ts.tiebreakerCommittee == address(contracts.tiebreakerCoreCommittee), "Incorrect tiebreakerCoreCommittee"
+        );
         require(ts.sealableWithdrawalBlockers.length == 1, "Incorrect amount of sealableWithdrawalBlockers");
         require(
             ts.sealableWithdrawalBlockers[0] == address(lidoAddresses.withdrawalQueue),
@@ -300,29 +351,33 @@ library DeployVerification {
     }
 
     function checkTiebreakerCoreCommittee(
-        DeployedAddresses memory res,
+        DeployedContracts memory contracts,
         DeployConfig memory dgDeployConfig
     ) internal view {
-        TiebreakerCoreCommittee tcc = TiebreakerCoreCommittee(res.tiebreakerCoreCommittee);
-        require(tcc.owner() == res.adminExecutor, "TiebreakerCoreCommittee owner != adminExecutor");
+        TiebreakerCoreCommittee tcc = contracts.tiebreakerCoreCommittee;
+        require(tcc.owner() == address(contracts.adminExecutor), "TiebreakerCoreCommittee owner != adminExecutor");
         require(
             tcc.getTimelockDuration() == dgDeployConfig.TIEBREAKER_EXECUTION_DELAY,
             "Incorrect parameter TIEBREAKER_EXECUTION_DELAY"
         );
 
         for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
-            require(tcc.isMember(res.tiebreakerSubCommittees[i]) == true, "Incorrect member of TiebreakerCoreCommittee");
+            require(
+                tcc.isMember(address(contracts.tiebreakerSubCommittees[i])) == true,
+                "Incorrect member of TiebreakerCoreCommittee"
+            );
         }
         require(tcc.getQuorum() == dgDeployConfig.TIEBREAKER_CORE_QUORUM, "Incorrect quorum in TiebreakerCoreCommittee");
+        require(tcc.getProposalsLength() == 0, "Incorrect proposals count in TiebreakerCoreCommittee");
     }
 
     function checkTiebreakerSubCommittee(
-        DeployedAddresses memory res,
+        DeployedContracts memory contracts,
         DeployConfig memory dgDeployConfig,
         uint256 index
     ) internal view {
-        TiebreakerSubCommittee tsc = TiebreakerSubCommittee(res.tiebreakerSubCommittees[index]);
-        require(tsc.owner() == res.adminExecutor, "TiebreakerSubCommittee owner != adminExecutor");
+        TiebreakerSubCommittee tsc = contracts.tiebreakerSubCommittees[index];
+        require(tsc.owner() == address(contracts.adminExecutor), "TiebreakerSubCommittee owner != adminExecutor");
         require(tsc.getTimelockDuration() == Durations.from(0), "TiebreakerSubCommittee timelock should be 0");
 
         (uint256 quorum, address[] memory members) = getSubCommitteeData(index, dgDeployConfig);
@@ -331,6 +386,7 @@ library DeployVerification {
             require(tsc.isMember(members[i]) == true, "Incorrect member of TiebreakerSubCommittee");
         }
         require(tsc.getQuorum() == quorum, "Incorrect quorum in TiebreakerSubCommittee");
+        require(tsc.getProposalsLength() == 0, "Incorrect proposals count in TiebreakerSubCommittee");
     }
 
     function checkResealCommittee(DeployConfig memory dgDeployConfig) internal pure {

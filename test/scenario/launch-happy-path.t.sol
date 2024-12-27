@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
 import {DeployConfig, LidoContracts} from "scripts/deploy/Config.sol";
-import {DGContractsDeployment, DeployedContracts} from "scripts/deploy/ContractsDeployment.sol";
+import {DGContractsDeployment, DeployedContracts} from "scripts/deploy/ContractsDeployment.sol"; // TODO: fix import
 import {DeployVerification} from "scripts/deploy/DeployVerification.sol";
 import {DeployVerifier} from "scripts/launch/DeployVerifier.sol";
 
@@ -56,19 +56,8 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             tiebreakerSubCommittees[i] = address(contracts.tiebreakerSubCommittees[i]);
         }
 
-        DeployVerification.DeployedAddresses memory deployedAddresses = DeployVerification.DeployedAddresses({
-            adminExecutor: payable(contracts.adminExecutor),
-            timelock: address(contracts.timelock),
-            emergencyGovernance: address(contracts.emergencyGovernance),
-            resealManager: address(_resealManager),
-            dualGovernance: address(contracts.dualGovernance),
-            tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: tiebreakerSubCommittees,
-            temporaryEmergencyGovernance: address(contracts.temporaryEmergencyGovernance)
-        });
-
         // Verify deployment
-        _verifier.verify(deployedAddresses, false);
+        _verifier.verify(contracts, false);
 
         // Activate Dual Governance Emergency Mode
         vm.prank(_emergencyActivationCommittee);
@@ -302,7 +291,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             bytes memory forwardRolePayload =
                 abi.encodeWithSelector(IAragonForwarder.forward.selector, _encodeExternalCalls(roleGrantingCalls));
 
-            bytes memory verifyPayload = abi.encodeWithSelector(DeployVerifier.verify.selector, deployedAddresses, true);
+            bytes memory verifyPayload = abi.encodeWithSelector(DeployVerifier.verify.selector, contracts, true);
 
             bytes memory verifyOZRolesPayload = abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector);
 
@@ -364,28 +353,6 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             ExternalCall memory call = calls[i];
             result = abi.encodePacked(result, bytes20(call.target), bytes4(uint32(call.payload.length)), call.payload);
         }
-    }
-
-    function getDeployedAddresses(DeployedContracts memory contracts)
-        internal
-        pure
-        returns (DeployVerification.DeployedAddresses memory)
-    {
-        address[] memory tiebreakerSubCommittees = new address[](contracts.tiebreakerSubCommittees.length);
-        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
-            tiebreakerSubCommittees[i] = address(contracts.tiebreakerSubCommittees[i]);
-        }
-
-        return DeployVerification.DeployedAddresses({
-            adminExecutor: payable(address(contracts.adminExecutor)),
-            timelock: address(contracts.timelock),
-            emergencyGovernance: address(contracts.emergencyGovernance),
-            resealManager: address(contracts.resealManager),
-            dualGovernance: address(contracts.dualGovernance),
-            tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: tiebreakerSubCommittees,
-            temporaryEmergencyGovernance: address(contracts.temporaryEmergencyGovernance)
-        });
     }
 }
 

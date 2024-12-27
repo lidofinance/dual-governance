@@ -42,7 +42,8 @@ import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommitte
 import {Random} from "./random.sol";
 import {LidoUtils} from "./lido-utils.sol";
 import {DeployConfig, LidoContracts} from "../../scripts/deploy/Config.sol";
-import {DeployedContracts, DGContractsDeployment} from "../../scripts/deploy/ContractsDeployment.sol";
+import {DeployedContracts} from "../../scripts/deploy/DeployedContractsSet.sol";
+import {DGContractsDeployment} from "../../scripts/deploy/ContractsDeployment.sol";
 
 // ---
 // Lido Addresses
@@ -280,7 +281,7 @@ abstract contract SetupDeployment is Test {
         DeployedContracts memory memContracts =
             DGContractsDeployment.deployAdminExecutorAndTimelock(dgDeployConfig, address(this));
         _adminExecutor = memContracts.adminExecutor;
-        _timelock = memContracts.timelock;
+        _timelock = EmergencyProtectedTimelock(address(memContracts.timelock));
 
         if (useTemporaryEmergencyGovernance == false) {
             dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = address(0);
@@ -297,7 +298,9 @@ abstract contract SetupDeployment is Test {
     }
 
     function _deployEmergencyProtectedTimelock(Executor adminExecutor) internal returns (EmergencyProtectedTimelock) {
-        return DGContractsDeployment.deployEmergencyProtectedTimelock(address(adminExecutor), dgDeployConfig);
+        return EmergencyProtectedTimelock(
+            address(DGContractsDeployment.deployEmergencyProtectedTimelock(address(adminExecutor), dgDeployConfig))
+        );
     }
 
     // ---

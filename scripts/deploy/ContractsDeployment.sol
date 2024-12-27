@@ -24,19 +24,10 @@ import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommit
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {IResealManager} from "contracts/interfaces/IResealManager.sol";
+import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 
+import {DeployedContracts} from "./DeployedContractsSet.sol";
 import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
-
-struct DeployedContracts {
-    Executor adminExecutor;
-    EmergencyProtectedTimelock timelock;
-    TimelockedGovernance emergencyGovernance;
-    ResealManager resealManager;
-    DualGovernance dualGovernance;
-    TiebreakerCoreCommittee tiebreakerCoreCommittee;
-    TiebreakerSubCommittee[] tiebreakerSubCommittees;
-    TimelockedGovernance temporaryEmergencyGovernance;
-}
 
 library DGContractsDeployment {
     function deployDualGovernanceSetup(
@@ -98,7 +89,7 @@ library DGContractsDeployment {
         address deployer
     ) internal returns (DeployedContracts memory contracts) {
         Executor adminExecutor = deployExecutor({owner: deployer});
-        EmergencyProtectedTimelock timelock = deployEmergencyProtectedTimelock(address(adminExecutor), dgDeployConfig);
+        IEmergencyProtectedTimelock timelock = deployEmergencyProtectedTimelock(address(adminExecutor), dgDeployConfig);
 
         contracts.adminExecutor = adminExecutor;
         contracts.timelock = timelock;
@@ -110,9 +101,10 @@ library DGContractsDeployment {
         DeployedContracts memory contracts
     ) internal returns (TimelockedGovernance emergencyGovernance, TimelockedGovernance temporaryEmergencyGovernance) {
         Executor adminExecutor = contracts.adminExecutor;
-        EmergencyProtectedTimelock timelock = contracts.timelock;
+        IEmergencyProtectedTimelock timelock = contracts.timelock;
 
         emergencyGovernance = deployTimelockedGovernance({governance: lidoAddresses.voting, timelock: timelock});
+        contracts.emergencyGovernance = emergencyGovernance;
 
         adminExecutor.execute(
             address(timelock),
@@ -153,6 +145,7 @@ library DGContractsDeployment {
                 0,
                 abi.encodeCall(timelock.setEmergencyGovernance, (address(temporaryEmergencyGovernance)))
             );
+            contracts.temporaryEmergencyGovernance = temporaryEmergencyGovernance;
         } else {
             adminExecutor.execute(
                 address(timelock), 0, abi.encodeCall(timelock.setEmergencyGovernance, (address(emergencyGovernance)))
@@ -167,19 +160,21 @@ library DGContractsDeployment {
     function deployEmergencyProtectedTimelock(
         address adminExecutor,
         DeployConfig memory dgDeployConfig
-    ) internal returns (EmergencyProtectedTimelock) {
-        return new EmergencyProtectedTimelock({
-            adminExecutor: address(adminExecutor),
-            sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
-                minExecutionDelay: dgDeployConfig.MIN_EXECUTION_DELAY,
-                maxAfterSubmitDelay: dgDeployConfig.MAX_AFTER_SUBMIT_DELAY,
-                maxAfterScheduleDelay: dgDeployConfig.MAX_AFTER_SCHEDULE_DELAY,
-                maxEmergencyModeDuration: dgDeployConfig.MAX_EMERGENCY_MODE_DURATION,
-                maxEmergencyProtectionDuration: dgDeployConfig.MAX_EMERGENCY_PROTECTION_DURATION
-            }),
-            afterSubmitDelay: dgDeployConfig.AFTER_SUBMIT_DELAY,
-            afterScheduleDelay: dgDeployConfig.AFTER_SCHEDULE_DELAY
-        });
+    ) internal returns (IEmergencyProtectedTimelock) {
+        return IEmergencyProtectedTimelock(
+            new EmergencyProtectedTimelock({
+                adminExecutor: address(adminExecutor),
+                sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
+                    minExecutionDelay: dgDeployConfig.MIN_EXECUTION_DELAY,
+                    maxAfterSubmitDelay: dgDeployConfig.MAX_AFTER_SUBMIT_DELAY,
+                    maxAfterScheduleDelay: dgDeployConfig.MAX_AFTER_SCHEDULE_DELAY,
+                    maxEmergencyModeDuration: dgDeployConfig.MAX_EMERGENCY_MODE_DURATION,
+                    maxEmergencyProtectionDuration: dgDeployConfig.MAX_EMERGENCY_PROTECTION_DURATION
+                }),
+                afterSubmitDelay: dgDeployConfig.AFTER_SUBMIT_DELAY,
+                afterScheduleDelay: dgDeployConfig.AFTER_SCHEDULE_DELAY
+            })
+        );
     }
 
     function deployTimelockedGovernance(
@@ -338,7 +333,7 @@ library DGContractsDeployment {
 
     function finalizeEmergencyProtectedTimelockDeploy(
         Executor adminExecutor,
-        EmergencyProtectedTimelock timelock,
+        IEmergencyProtectedTimelock timelock,
         address dualGovernance,
         DeployConfig memory dgDeployConfig
     ) internal {

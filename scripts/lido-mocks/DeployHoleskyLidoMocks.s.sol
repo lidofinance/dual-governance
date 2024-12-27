@@ -9,7 +9,7 @@ import {StETHMock} from "./StETHMock.sol";
 import {WstETHMock} from "./WstETHMock.sol";
 import {UnsafeWithdrawalQueueMock} from "./UnsafeWithdrawalQueueMock.sol";
 
-struct DeployedContracts {
+struct DeployedMockContracts {
     address stETH;
     address wstETH;
     address withdrawalQueue;
@@ -30,29 +30,29 @@ contract DeployHoleskyLidoMocks is Script {
 
         vm.startBroadcast();
 
-        DeployedContracts memory res = deployLidoMockContracts();
+        DeployedMockContracts memory mockContracts = deployLidoMockContracts();
 
         vm.stopBroadcast();
 
-        printAddresses(res);
+        printAddresses(mockContracts);
     }
 
-    function deployLidoMockContracts() internal returns (DeployedContracts memory res) {
+    function deployLidoMockContracts() internal returns (DeployedMockContracts memory mockContracts) {
         StETHMock stETH = new StETHMock();
         WstETHMock wstETH = new WstETHMock(stETH);
         UnsafeWithdrawalQueueMock withdrawalQueue = new UnsafeWithdrawalQueueMock(address(stETH), payable(deployer));
 
         stETH.mint(deployer, 100 gwei);
 
-        res.stETH = address(stETH);
-        res.wstETH = address(wstETH);
-        res.withdrawalQueue = address(withdrawalQueue);
+        mockContracts.stETH = address(stETH);
+        mockContracts.wstETH = address(wstETH);
+        mockContracts.withdrawalQueue = address(withdrawalQueue);
     }
 
-    function printAddresses(DeployedContracts memory res) internal pure {
+    function printAddresses(DeployedMockContracts memory mockContracts) internal pure {
         console.log("Lido mocks deployed successfully");
-        console.log("StETH address", res.stETH);
-        console.log("WstETH address", res.wstETH);
-        console.log("WithdrawalQueue address", res.withdrawalQueue);
+        console.log("StETH address", mockContracts.stETH);
+        console.log("WstETH address", mockContracts.wstETH);
+        console.log("WithdrawalQueue address", mockContracts.withdrawalQueue);
     }
 }
