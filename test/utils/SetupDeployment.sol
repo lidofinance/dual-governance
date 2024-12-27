@@ -209,7 +209,7 @@ abstract contract SetupDeployment is Test {
         _timelockedGovernance =
             DGContractsDeployment.deployTimelockedGovernance({governance: address(_lido.voting), timelock: _timelock});
         DGContractsDeployment.finalizeEmergencyProtectedTimelockDeploy(
-            _adminExecutor, _timelock, address(_timelockedGovernance), dgDeployConfig
+            _adminExecutor, _timelock, address(_timelockedGovernance)
         );
     }
 
@@ -253,7 +253,7 @@ abstract contract SetupDeployment is Test {
 
         DGContractsDeployment.configureDualGovernance(dgDeployConfig, lidoAddresses, contracts);
         DGContractsDeployment.finalizeEmergencyProtectedTimelockDeploy(
-            _adminExecutor, _timelock, address(_dualGovernance), dgDeployConfig
+            _adminExecutor, _timelock, address(_dualGovernance)
         );
 
         // ---

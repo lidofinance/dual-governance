@@ -11,7 +11,6 @@ import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
-import {ResealManager} from "contracts/ResealManager.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";

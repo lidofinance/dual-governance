@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
 import {Script} from "forge-std/Script.sol";
-import {stdJson} from "forge-std/StdJson.sol";
 import {console} from "forge-std/console.sol";
 
 import {DeployConfig, LidoContracts} from "./Config.sol";

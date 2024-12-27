@@ -26,36 +26,6 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {
     DeployConfig,
     LidoContracts,
-    DEFAULT_MIN_EXECUTION_DELAY,
-    DEFAULT_AFTER_SUBMIT_DELAY,
-    DEFAULT_MAX_AFTER_SUBMIT_DELAY,
-    DEFAULT_AFTER_SCHEDULE_DELAY,
-    DEFAULT_MAX_AFTER_SCHEDULE_DELAY,
-    DEFAULT_EMERGENCY_MODE_DURATION,
-    DEFAULT_MAX_EMERGENCY_MODE_DURATION,
-    DEFAULT_EMERGENCY_PROTECTION_DURATION,
-    DEFAULT_MAX_EMERGENCY_PROTECTION_DURATION,
-    DEFAULT_TIEBREAKER_CORE_QUORUM,
-    DEFAULT_TIEBREAKER_EXECUTION_DELAY,
-    DEFAULT_TIEBREAKER_SUB_COMMITTEES_COUNT,
-    DEFAULT_MIN_WITHDRAWALS_BATCH_SIZE,
-    DEFAULT_MIN_TIEBREAKER_ACTIVATION_TIMEOUT,
-    DEFAULT_TIEBREAKER_ACTIVATION_TIMEOUT,
-    DEFAULT_MAX_TIEBREAKER_ACTIVATION_TIMEOUT,
-    DEFAULT_MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT,
-    DEFAULT_FIRST_SEAL_RAGE_QUIT_SUPPORT,
-    DEFAULT_SECOND_SEAL_RAGE_QUIT_SUPPORT,
-    DEFAULT_MIN_ASSETS_LOCK_DURATION,
-    DEFAULT_MAX_MIN_ASSETS_LOCK_DURATION,
-    DEFAULT_VETO_SIGNALLING_MIN_DURATION,
-    DEFAULT_VETO_SIGNALLING_MAX_DURATION,
-    DEFAULT_VETO_SIGNALLING_MIN_ACTIVE_DURATION,
-    DEFAULT_VETO_SIGNALLING_DEACTIVATION_MAX_DURATION,
-    DEFAULT_VETO_COOLDOWN_DURATION,
-    DEFAULT_RAGE_QUIT_EXTENSION_PERIOD_DURATION,
-    DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY,
-    DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY,
-    DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH,
     CHAIN_NAME_MAINNET_HASH,
     CHAIN_NAME_HOLESKY_HASH,
     CHAIN_NAME_HOLESKY_MOCKS_HASH
@@ -76,147 +46,73 @@ contract DGDeployJSONConfigProvider is Script {
         string memory jsonConfig = loadConfigFile();
 
         config = DeployConfig({
-            MIN_EXECUTION_DELAY: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".MIN_EXECUTION_DELAY", DEFAULT_MIN_EXECUTION_DELAY)
-            ),
-            AFTER_SUBMIT_DELAY: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".AFTER_SUBMIT_DELAY", DEFAULT_AFTER_SUBMIT_DELAY)
-            ),
-            MAX_AFTER_SUBMIT_DELAY: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".MAX_AFTER_SUBMIT_DELAY", DEFAULT_MAX_AFTER_SUBMIT_DELAY)
-            ),
-            AFTER_SCHEDULE_DELAY: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".AFTER_SCHEDULE_DELAY", DEFAULT_AFTER_SCHEDULE_DELAY)
-            ),
-            MAX_AFTER_SCHEDULE_DELAY: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".MAX_AFTER_SCHEDULE_DELAY", DEFAULT_MAX_AFTER_SCHEDULE_DELAY)
-            ),
-            EMERGENCY_MODE_DURATION: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".EMERGENCY_MODE_DURATION", DEFAULT_EMERGENCY_MODE_DURATION)
-            ),
-            MAX_EMERGENCY_MODE_DURATION: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".MAX_EMERGENCY_MODE_DURATION", DEFAULT_MAX_EMERGENCY_MODE_DURATION)
-            ),
-            EMERGENCY_PROTECTION_DURATION: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".EMERGENCY_PROTECTION_DURATION", DEFAULT_EMERGENCY_PROTECTION_DURATION)
-            ),
+            MIN_EXECUTION_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".MIN_EXECUTION_DELAY")),
+            AFTER_SUBMIT_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".AFTER_SUBMIT_DELAY")),
+            MAX_AFTER_SUBMIT_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".MAX_AFTER_SUBMIT_DELAY")),
+            AFTER_SCHEDULE_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".AFTER_SCHEDULE_DELAY")),
+            MAX_AFTER_SCHEDULE_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".MAX_AFTER_SCHEDULE_DELAY")),
+            EMERGENCY_MODE_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".EMERGENCY_MODE_DURATION")),
+            MAX_EMERGENCY_MODE_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".MAX_EMERGENCY_MODE_DURATION")),
+            EMERGENCY_PROTECTION_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".EMERGENCY_PROTECTION_DURATION")),
             MAX_EMERGENCY_PROTECTION_DURATION: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig, ".MAX_EMERGENCY_PROTECTION_DURATION", DEFAULT_MAX_EMERGENCY_PROTECTION_DURATION
-                )
+                stdJson.readUint(jsonConfig, ".MAX_EMERGENCY_PROTECTION_DURATION")
             ),
             EMERGENCY_ACTIVATION_COMMITTEE: stdJson.readAddress(jsonConfig, ".EMERGENCY_ACTIVATION_COMMITTEE"),
             EMERGENCY_EXECUTION_COMMITTEE: stdJson.readAddress(jsonConfig, ".EMERGENCY_EXECUTION_COMMITTEE"),
-            TIEBREAKER_CORE_QUORUM: stdJson.readUintOr(
-                jsonConfig, ".TIEBREAKER_CORE_QUORUM", DEFAULT_TIEBREAKER_CORE_QUORUM
-            ),
-            TIEBREAKER_EXECUTION_DELAY: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".TIEBREAKER_EXECUTION_DELAY", DEFAULT_TIEBREAKER_EXECUTION_DELAY)
-            ),
-            TIEBREAKER_SUB_COMMITTEES_COUNT: stdJson.readUintOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEES_COUNT", DEFAULT_TIEBREAKER_SUB_COMMITTEES_COUNT
-            ),
+            TIEBREAKER_CORE_QUORUM: stdJson.readUint(jsonConfig, ".TIEBREAKER_CORE_QUORUM"),
+            TIEBREAKER_EXECUTION_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_EXECUTION_DELAY")),
+            TIEBREAKER_SUB_COMMITTEES_COUNT: stdJson.readUint(jsonConfig, ".TIEBREAKER_SUB_COMMITTEES_COUNT"),
             TIEBREAKER_SUB_COMMITTEE_1_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_1_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_2_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_2_MEMBERS", new address[](0)
-            ),
-            TIEBREAKER_SUB_COMMITTEE_3_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_3_MEMBERS", new address[](0)
-            ),
-            TIEBREAKER_SUB_COMMITTEE_4_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_4_MEMBERS", new address[](0)
-            ),
-            TIEBREAKER_SUB_COMMITTEE_5_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_5_MEMBERS", new address[](0)
-            ),
-            TIEBREAKER_SUB_COMMITTEE_6_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_6_MEMBERS", new address[](0)
-            ),
-            TIEBREAKER_SUB_COMMITTEE_7_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_7_MEMBERS", new address[](0)
-            ),
-            TIEBREAKER_SUB_COMMITTEE_8_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_8_MEMBERS", new address[](0)
-            ),
-            TIEBREAKER_SUB_COMMITTEE_9_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_9_MEMBERS", new address[](0)
-            ),
-            TIEBREAKER_SUB_COMMITTEE_10_MEMBERS: stdJson.readAddressArrayOr(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_10_MEMBERS", new address[](0)
+            TIEBREAKER_SUB_COMMITTEE_2_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_2_MEMBERS"),
+            TIEBREAKER_SUB_COMMITTEE_3_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_3_MEMBERS"),
+            TIEBREAKER_SUB_COMMITTEE_4_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_4_MEMBERS"),
+            TIEBREAKER_SUB_COMMITTEE_5_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_5_MEMBERS"),
+            TIEBREAKER_SUB_COMMITTEE_6_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_6_MEMBERS"),
+            TIEBREAKER_SUB_COMMITTEE_7_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_7_MEMBERS"),
+            TIEBREAKER_SUB_COMMITTEE_8_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_8_MEMBERS"),
+            TIEBREAKER_SUB_COMMITTEE_9_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_9_MEMBERS"),
+            TIEBREAKER_SUB_COMMITTEE_10_MEMBERS: stdJson.readAddressArray(
+                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_10_MEMBERS"
             ),
             TIEBREAKER_SUB_COMMITTEES_QUORUMS: stdJson.readUintArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEES_QUORUMS"),
             RESEAL_COMMITTEE: stdJson.readAddress(jsonConfig, ".RESEAL_COMMITTEE"),
-            MIN_WITHDRAWALS_BATCH_SIZE: stdJson.readUintOr(
-                jsonConfig, ".MIN_WITHDRAWALS_BATCH_SIZE", DEFAULT_MIN_WITHDRAWALS_BATCH_SIZE
-            ),
+            MIN_WITHDRAWALS_BATCH_SIZE: stdJson.readUint(jsonConfig, ".MIN_WITHDRAWALS_BATCH_SIZE"),
             MIN_TIEBREAKER_ACTIVATION_TIMEOUT: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig, ".MIN_TIEBREAKER_ACTIVATION_TIMEOUT", DEFAULT_MIN_TIEBREAKER_ACTIVATION_TIMEOUT
-                )
+                stdJson.readUint(jsonConfig, ".MIN_TIEBREAKER_ACTIVATION_TIMEOUT")
             ),
-            TIEBREAKER_ACTIVATION_TIMEOUT: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".TIEBREAKER_ACTIVATION_TIMEOUT", DEFAULT_TIEBREAKER_ACTIVATION_TIMEOUT)
-            ),
+            TIEBREAKER_ACTIVATION_TIMEOUT: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_ACTIVATION_TIMEOUT")),
             MAX_TIEBREAKER_ACTIVATION_TIMEOUT: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig, ".MAX_TIEBREAKER_ACTIVATION_TIMEOUT", DEFAULT_MAX_TIEBREAKER_ACTIVATION_TIMEOUT
-                )
+                stdJson.readUint(jsonConfig, ".MAX_TIEBREAKER_ACTIVATION_TIMEOUT")
             ),
-            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: stdJson.readUintOr(
-                jsonConfig, ".MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT", DEFAULT_MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT
-            ),
+            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: stdJson.readUint(jsonConfig, ".MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"),
             FIRST_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
-                stdJson.readUintOr(jsonConfig, ".FIRST_SEAL_RAGE_QUIT_SUPPORT", DEFAULT_FIRST_SEAL_RAGE_QUIT_SUPPORT)
+                stdJson.readUint(jsonConfig, ".FIRST_SEAL_RAGE_QUIT_SUPPORT")
             ),
             SECOND_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
-                stdJson.readUintOr(jsonConfig, ".SECOND_SEAL_RAGE_QUIT_SUPPORT", DEFAULT_SECOND_SEAL_RAGE_QUIT_SUPPORT)
+                stdJson.readUint(jsonConfig, ".SECOND_SEAL_RAGE_QUIT_SUPPORT")
             ),
-            MIN_ASSETS_LOCK_DURATION: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".MIN_ASSETS_LOCK_DURATION", DEFAULT_MIN_ASSETS_LOCK_DURATION)
-            ),
-            MAX_MIN_ASSETS_LOCK_DURATION: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".MAX_MIN_ASSETS_LOCK_DURATION", DEFAULT_MAX_MIN_ASSETS_LOCK_DURATION)
-            ),
-            VETO_SIGNALLING_MIN_DURATION: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".VETO_SIGNALLING_MIN_DURATION", DEFAULT_VETO_SIGNALLING_MIN_DURATION)
-            ),
-            VETO_SIGNALLING_MAX_DURATION: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".VETO_SIGNALLING_MAX_DURATION", DEFAULT_VETO_SIGNALLING_MAX_DURATION)
-            ),
+            MIN_ASSETS_LOCK_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".MIN_ASSETS_LOCK_DURATION")),
+            MAX_MIN_ASSETS_LOCK_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".MAX_MIN_ASSETS_LOCK_DURATION")),
+            VETO_SIGNALLING_MIN_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".VETO_SIGNALLING_MIN_DURATION")),
+            VETO_SIGNALLING_MAX_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".VETO_SIGNALLING_MAX_DURATION")),
             VETO_SIGNALLING_MIN_ACTIVE_DURATION: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig, ".VETO_SIGNALLING_MIN_ACTIVE_DURATION", DEFAULT_VETO_SIGNALLING_MIN_ACTIVE_DURATION
-                )
+                stdJson.readUint(jsonConfig, ".VETO_SIGNALLING_MIN_ACTIVE_DURATION")
             ),
             VETO_SIGNALLING_DEACTIVATION_MAX_DURATION: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig,
-                    ".VETO_SIGNALLING_DEACTIVATION_MAX_DURATION",
-                    DEFAULT_VETO_SIGNALLING_DEACTIVATION_MAX_DURATION
-                )
+                stdJson.readUint(jsonConfig, ".VETO_SIGNALLING_DEACTIVATION_MAX_DURATION")
             ),
-            VETO_COOLDOWN_DURATION: Durations.from(
-                stdJson.readUintOr(jsonConfig, ".VETO_COOLDOWN_DURATION", DEFAULT_VETO_COOLDOWN_DURATION)
-            ),
+            VETO_COOLDOWN_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".VETO_COOLDOWN_DURATION")),
             RAGE_QUIT_EXTENSION_PERIOD_DURATION: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig, ".RAGE_QUIT_EXTENSION_PERIOD_DURATION", DEFAULT_RAGE_QUIT_EXTENSION_PERIOD_DURATION
-                )
+                stdJson.readUint(jsonConfig, ".RAGE_QUIT_EXTENSION_PERIOD_DURATION")
             ),
             RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY", DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY
-                )
+                stdJson.readUint(jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY")
             ),
             RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY", DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY
-                )
+                stdJson.readUint(jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY")
             ),
             RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: Durations.from(
-                stdJson.readUintOr(
-                    jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH", DEFAULT_RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH
-                )
+                stdJson.readUint(jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH")
             ),
             TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: stdJson.readAddress(
                 jsonConfig, ".TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"

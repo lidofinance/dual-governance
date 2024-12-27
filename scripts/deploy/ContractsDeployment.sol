@@ -66,9 +66,7 @@ library DGContractsDeployment {
         // ---
         configureDualGovernance(dgDeployConfig, lidoAddresses, contracts);
 
-        finalizeEmergencyProtectedTimelockDeploy(
-            contracts.adminExecutor, contracts.timelock, address(dualGovernance), dgDeployConfig
-        );
+        finalizeEmergencyProtectedTimelockDeploy(contracts.adminExecutor, contracts.timelock, address(dualGovernance));
 
         // ---
         // TODO: Use this in voting script
@@ -334,8 +332,7 @@ library DGContractsDeployment {
     function finalizeEmergencyProtectedTimelockDeploy(
         Executor adminExecutor,
         IEmergencyProtectedTimelock timelock,
-        address dualGovernance,
-        DeployConfig memory dgDeployConfig
+        address dualGovernance
     ) internal {
         adminExecutor.execute(address(timelock), 0, abi.encodeCall(timelock.setGovernance, (dualGovernance)));
         adminExecutor.transferOwnership(address(timelock));
