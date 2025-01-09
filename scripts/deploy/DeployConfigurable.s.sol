@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+/* solhint-disable no-console */
+
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {stdJson} from "forge-std/StdJson.sol";
-import {DGDeployJSONConfigProvider} from "./JsonConfig.s.sol";
+import {console} from "forge-std/console.sol";
+import {CONFIG_FILES_DIR, DGDeployJSONConfigProvider} from "./JsonConfig.s.sol";
 import {DeployBase} from "./DeployBase.s.sol";
 import {DGContractsSet} from "./DeployedContractsSet.sol";
 import {SerializedJson} from "../utils/SerializedJson.sol";
@@ -27,8 +31,7 @@ contract DeployConfigurable is DeployBase {
         SerializedJson memory addrsJson = _serializeDeployedContracts();
 
         _configProvider.writeDeployedAddressesToConfigFile(addrsJson.str);
-        // TODO: log
-        // TODO: write to deployed-addrs-timestamp.json
+        _saveDeployedAddressesToFile(addrsJson.str);
     }
 
     function _serializeDeployedContracts() internal returns (SerializedJson memory addrsJson) {
@@ -40,5 +43,15 @@ contract DeployConfigurable is DeployBase {
         addrsJson.str = stdJson.serialize(addrsJson.ref, "RESEAL_COMMITTEE", _config.RESEAL_COMMITTEE);
         addrsJson.str = stdJson.serialize(addrsJson.ref, "chainName", _chainName);
         addrsJson.str = stdJson.serialize(addrsJson.ref, "timestamp", block.timestamp);
+    }
+
+    function _saveDeployedAddressesToFile(string memory deployedAddrsJson) internal {
+        string memory addressesFileName = string.concat("deployed-addrs-", Strings.toString(block.timestamp), ".json");
+        string memory root = vm.projectRoot();
+        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", addressesFileName);
+
+        stdJson.write(deployedAddrsJson, path);
+
+        console.log("The deployed contracts' addresses are saved to file", path);
     }
 }

@@ -396,5 +396,10 @@ contract DGDeployJSONConfigProvider is Script {
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", _configFileName);
 
         stdJson.write(deployedAddrsJson, path, ".deployedContracts");
+        console.log(
+            "The deployed contracts' addresses are written in the _config_ file",
+            path,
+            "to the 'deployedContracts' section"
+        );
     }
 }
