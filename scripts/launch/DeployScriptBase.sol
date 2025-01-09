@@ -27,7 +27,7 @@ import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
 import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
 
 import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
-import {DGDeployJSONConfigProvider} from "../deploy/JsonConfig.s.sol";
+import {CONFIG_FILES_DIR, DGDeployJSONConfigProvider} from "../deploy/JsonConfig.s.sol";
 import {DeployedContracts, DGContractsSet} from "../deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "../deploy/DeployVerification.sol";
 import {DeployVerifier} from "./DeployVerifier.sol";
@@ -40,20 +40,20 @@ contract DeployScriptBase is Script {
     LidoContracts internal _lidoAddresses;
     DeployedContracts internal _dgContracts;
     string internal _chainName;
-    string internal _configFilePath;
-    string internal _deployedAddressesFilePath;
+    string internal _configFileName;
+    string internal _deployedAddressesFileName;
     DeployVerifier internal _deployVerifier;
 
     function _loadEnv() internal {
         _chainName = vm.envString("CHAIN");
-        _configFilePath = vm.envString("DEPLOY_CONFIG_FILE_PATH");
-        _deployedAddressesFilePath = vm.envString("DEPLOYED_ADDRESSES_FILE_PATH");
+        _configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
+        _deployedAddressesFileName = vm.envString("DEPLOYED_ADDRESSES_FILE_NAME");
 
-        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(_configFilePath);
+        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(_configFileName);
 
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(_chainName);
-        _dgContracts = DGContractsSet.loadFromFile(_loadDeployedAddressesFile(_deployedAddressesFilePath));
+        _dgContracts = DGContractsSet.loadFromFile(_loadDeployedAddressesFile(_deployedAddressesFileName));
 
         console.log("Using the following DG contracts addresses");
         console.log("=====================================");
@@ -87,13 +87,13 @@ contract DeployScriptBase is Script {
         return string(str);
     }
 
-    function _loadDeployedAddressesFile(string memory deployedAddressesFilePath)
+    function _loadDeployedAddressesFile(string memory deployedAddressesFileName)
         internal
         view
         returns (string memory deployedAddressesJson)
     {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", deployedAddressesFilePath);
+        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", deployedAddressesFileName);
         deployedAddressesJson = vm.readFile(path);
     }
 

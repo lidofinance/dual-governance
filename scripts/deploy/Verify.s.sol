@@ -7,7 +7,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {DeployConfig, LidoContracts} from "./Config.sol";
-import {DGDeployJSONConfigProvider} from "./JsonConfig.s.sol";
+import {CONFIG_FILES_DIR, DGDeployJSONConfigProvider} from "./JsonConfig.s.sol";
 import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
 import {DeployVerification} from "./DeployVerification.sol";
 
@@ -17,16 +17,16 @@ contract Verify is Script {
 
     function run() external {
         string memory chainName = vm.envString("CHAIN");
-        string memory _configFilePath = vm.envString("DEPLOY_CONFIG_FILE_PATH");
-        string memory deployedAddressesFilePath = vm.envString("DEPLOYED_ADDRESSES_FILE_PATH");
+        string memory configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
+        string memory deployedAddressesFileName = vm.envString("DEPLOYED_ADDRESSES_FILE_NAME");
         bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
-        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(_configFilePath);
+        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(configFileName);
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(chainName);
 
         DeployedContracts memory contracts =
-            DGContractsSet.loadFromFile(loadDeployedAddressesFile(deployedAddressesFilePath));
+            DGContractsSet.loadFromFile(loadDeployedAddressesFile(deployedAddressesFileName));
 
         console.log("Using the following DG contracts addresses");
         DGContractsSet.print(contracts);
@@ -38,13 +38,13 @@ contract Verify is Script {
         console.log(unicode"Verified ✅");
     }
 
-    function loadDeployedAddressesFile(string memory deployedAddressesFilePath)
+    function loadDeployedAddressesFile(string memory deployedAddressesFileName)
         internal
         view
         returns (string memory deployedAddressesJson)
     {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", deployedAddressesFilePath);
+        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", deployedAddressesFileName);
         deployedAddressesJson = vm.readFile(path);
     }
 }

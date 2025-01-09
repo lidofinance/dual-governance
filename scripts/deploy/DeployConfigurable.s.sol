@@ -10,13 +10,13 @@ import {SerializedJson} from "../utils/SerializedJson.sol";
 contract DeployConfigurable is DeployBase {
     DGDeployJSONConfigProvider internal _configProvider;
     string internal _chainName;
-    string internal _configFilePath;
+    string internal _configFileName;
 
     constructor() {
         _chainName = vm.envString("CHAIN");
-        _configFilePath = vm.envString("DEPLOY_CONFIG_FILE_PATH");
+        _configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
 
-        _configProvider = new DGDeployJSONConfigProvider(_configFilePath);
+        _configProvider = new DGDeployJSONConfigProvider(_configFileName);
         _config = _configProvider.loadAndValidate();
         _lidoAddresses = _configProvider.getLidoAddresses(_chainName);
     }
@@ -27,6 +27,7 @@ contract DeployConfigurable is DeployBase {
         SerializedJson memory addrsJson = _serializeDeployedContracts();
 
         _configProvider.writeDeployedAddressesToConfigFile(addrsJson.str);
+        // TODO: log
         // TODO: write to deployed-addrs-timestamp.json
     }
 

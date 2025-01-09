@@ -31,15 +31,17 @@ import {
     CHAIN_NAME_HOLESKY_MOCKS_HASH
 } from "./Config.sol";
 
+string constant CONFIG_FILES_DIR = "deploy-config";
+
 contract DGDeployJSONConfigProvider is Script {
     error InvalidQuorum(string committee, uint256 quorum);
     error InvalidParameter(string parameter);
     error InvalidChain(string chainName);
 
-    string private _configFilePath;
+    string private _configFileName;
 
-    constructor(string memory configFilePath) {
-        _configFilePath = configFilePath;
+    constructor(string memory configFileName) {
+        _configFileName = configFileName;
     }
 
     function loadAndValidate() external view returns (DeployConfig memory config) {
@@ -385,13 +387,13 @@ contract DGDeployJSONConfigProvider is Script {
 
     function loadConfigFile() internal view returns (string memory jsonConfig) {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", _configFilePath);
+        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", _configFileName);
         jsonConfig = vm.readFile(path);
     }
 
     function writeDeployedAddressesToConfigFile(string memory deployedAddrsJson) external {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", _configFilePath);
+        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", _configFileName);
 
         stdJson.write(deployedAddrsJson, path, ".deployedContracts");
     }

@@ -20,10 +20,10 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     ```
     CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
     ETHERSCAN_MAINNET_KEY=...
-    DEPLOY_CONFIG_FILE_PATH=... (for example: "deploy-config/deploy-config.json")
+    DEPLOY_CONFIG_FILE_NAME=... (in the deploy-config folder, for example: "deploy-config.json")
     ```
 
-3. Create a deploy config JSON file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_PATH):
+3. Create a deploy config JSON file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_NAME):
     ```
     {
         "MIN_EXECUTION_DELAY": 0,
@@ -75,7 +75,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     }
     ```
 
-    When using `CHAIN="holesky-mocks"` you will need to provide in addition already deployed mock contracts addresses in the same JSON config file (at DEPLOY_CONFIG_FILE_PATH):
+    When using `CHAIN="holesky-mocks"` you will need to provide in addition already deployed mock contracts addresses in the same JSON config file (at DEPLOY_CONFIG_FILE_NAME):
     
     ```
     {
@@ -118,11 +118,11 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
     ```
     CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
-    DEPLOYED_ADDRESSES_FILE_PATH=... (for example: "deploy-config/deployed-addrs.json")
+    DEPLOYED_ADDRESSES_FILE_NAME=... (in the deploy-config folder, for example: "deployed-addrs.json")
     ONCHAIN_VOTING_CHECK_MODE=false
     ```
 
-2. Create a deployed addresses list JSON file with all the required values (at the location specified in DEPLOYED_ADDRESSES_FILE_PATH):
+2. Create a deployed addresses list JSON file with all the required values (at the location specified in DEPLOYED_ADDRESSES_FILE_NAME):
 
     ```
     {
