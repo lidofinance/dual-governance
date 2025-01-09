@@ -388,4 +388,11 @@ contract DGDeployJSONConfigProvider is Script {
         string memory path = string.concat(root, "/", configFilePath);
         jsonConfig = vm.readFile(path);
     }
+
+    function writeDeployedAddressesToConfigFile(string memory deployedAddrsJson) external {
+        string memory root = vm.projectRoot();
+        string memory path = string.concat(root, "/", configFilePath);
+
+        stdJson.write(deployedAddrsJson, path, ".deployedContracts");
+    }
 }

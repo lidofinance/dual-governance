@@ -14,31 +14,31 @@ import {DeployVerification} from "./DeployVerification.sol";
 abstract contract DeployBase is Script {
     error ChainIdMismatch(uint256 actual, uint256 expected);
 
-    DeployConfig internal config;
-    LidoContracts internal lidoAddresses;
-    address private deployer;
+    DeployConfig internal _config;
+    LidoContracts internal _lidoAddresses;
+    address internal _deployer;
+    DeployedContracts internal _contracts;
 
-    function run() external {
-        if (lidoAddresses.chainId != block.chainid) {
-            revert ChainIdMismatch({actual: block.chainid, expected: lidoAddresses.chainId});
+    function run() public virtual {
+        if (_lidoAddresses.chainId != block.chainid) {
+            revert ChainIdMismatch({actual: block.chainid, expected: _lidoAddresses.chainId});
         }
 
-        deployer = msg.sender;
-        vm.label(deployer, "DEPLOYER");
+        _deployer = msg.sender;
+        vm.label(_deployer, "DEPLOYER");
 
         vm.startBroadcast();
 
-        DeployedContracts memory contracts =
-            DGContractsDeployment.deployDualGovernanceSetup(config, lidoAddresses, deployer);
+        _contracts = DGContractsDeployment.deployDualGovernanceSetup(_config, _lidoAddresses, _deployer);
 
         vm.stopBroadcast();
 
         console.log("DG deployed successfully");
-        DGContractsSet.print(contracts);
+        DGContractsSet.print(_contracts);
 
         console.log("Verifying deploy");
 
-        DeployVerification.verify(contracts, config, lidoAddresses, false);
+        DeployVerification.verify(_contracts, _config, _lidoAddresses, false);
 
         console.log(unicode"Verified ✅");
     }

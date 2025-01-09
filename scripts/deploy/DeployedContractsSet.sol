@@ -12,6 +12,7 @@ import {ResealManager} from "contracts/ResealManager.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
+import {SerializedJson, SerializedJsonLib} from "../utils/SerializedJson.sol";
 
 struct DeployedContracts {
     Executor adminExecutor;
@@ -58,5 +59,31 @@ library DGContractsSet {
             tiebreakerSubCommittees: tiebreakerSubCommittees,
             temporaryEmergencyGovernance: TimelockedGovernance(stdJson.readAddress(file, ".TEMPORARY_EMERGENCY_GOVERNANCE"))
         });
+    }
+
+    function serialize(DeployedContracts memory contracts) internal returns (SerializedJson memory) {
+        SerializedJson memory addressesJson = SerializedJsonLib.newObj();
+        address[] memory tiebreakerSubCommitteesAddresses = new address[](contracts.tiebreakerSubCommittees.length);
+
+        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
+            tiebreakerSubCommitteesAddresses[i] = address(contracts.tiebreakerSubCommittees[i]);
+        }
+
+        addressesJson.str = stdJson.serialize(addressesJson.ref, "ADMIN_EXECUTOR", address(contracts.adminExecutor));
+        addressesJson.str = stdJson.serialize(addressesJson.ref, "TIMELOCK", address(contracts.timelock));
+        addressesJson.str =
+            stdJson.serialize(addressesJson.ref, "EMERGENCY_GOVERNANCE", address(contracts.emergencyGovernance));
+        addressesJson.str = stdJson.serialize(addressesJson.ref, "RESEAL_MANAGER", address(contracts.resealManager));
+        addressesJson.str = stdJson.serialize(addressesJson.ref, "DUAL_GOVERNANCE", address(contracts.dualGovernance));
+        addressesJson.str = stdJson.serialize(
+            addressesJson.ref, "TIEBREAKER_CORE_COMMITTEE", address(contracts.tiebreakerCoreCommittee)
+        );
+        addressesJson.str =
+            stdJson.serialize(addressesJson.ref, "TIEBREAKER_SUB_COMMITTEES", tiebreakerSubCommitteesAddresses);
+        addressesJson.str = stdJson.serialize(
+            addressesJson.ref, "TEMPORARY_EMERGENCY_GOVERNANCE", address(contracts.temporaryEmergencyGovernance)
+        );
+
+        return addressesJson;
     }
 }

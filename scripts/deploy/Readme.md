@@ -70,7 +70,8 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
         "RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY": 2592000, // 30 days
         "RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY": 15552000, // 180 days
         "RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH": 1296000, // 15 days
-        "TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER": <address>
+        "TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER": <address>,
+        "deployedContracts": {}
     }
     ```
 
