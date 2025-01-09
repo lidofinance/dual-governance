@@ -41,7 +41,7 @@ library DGContractsSet {
         console.log("TemporaryEmergencyGovernance address", address(contracts.temporaryEmergencyGovernance));
     }
 
-    function loadFromFile(string memory file) internal view returns (DeployedContracts memory) {
+    function loadFromFile(string memory file) internal pure returns (DeployedContracts memory) {
         address[] memory tiebreakerSubCommitteesAddresses = stdJson.readAddressArray(file, ".TIEBREAKER_SUB_COMMITTEES");
         TiebreakerSubCommittee[] memory tiebreakerSubCommittees =
             new TiebreakerSubCommittee[](tiebreakerSubCommitteesAddresses.length);

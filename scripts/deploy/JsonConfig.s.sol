@@ -45,7 +45,7 @@ contract DGDeployJSONConfigProvider is Script {
     }
 
     function loadAndValidate() external view returns (DeployConfig memory config) {
-        string memory jsonConfig = loadConfigFile();
+        string memory jsonConfig = _loadConfigFile();
 
         config = DeployConfig({
             MIN_EXECUTION_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".MIN_EXECUTION_DELAY")),
@@ -121,8 +121,8 @@ contract DGDeployJSONConfigProvider is Script {
             )
         });
 
-        validateConfig(config);
-        printCommittees(config);
+        _validateConfig(config);
+        _printCommittees(config);
     }
 
     function getLidoAddresses(string memory chainName) external view returns (LidoContracts memory) {
@@ -145,7 +145,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (keccak256(bytes(chainName)) == CHAIN_NAME_HOLESKY_MOCKS_HASH) {
-            string memory jsonConfig = loadConfigFile();
+            string memory jsonConfig = _loadConfigFile();
 
             return LidoContracts({
                 chainId: 17000,
@@ -165,7 +165,7 @@ contract DGDeployJSONConfigProvider is Script {
         });
     }
 
-    function validateConfig(DeployConfig memory config) internal pure {
+    function _validateConfig(DeployConfig memory config) internal pure {
         if (
             config.TIEBREAKER_CORE_QUORUM == 0 || config.TIEBREAKER_CORE_QUORUM > config.TIEBREAKER_SUB_COMMITTEES_COUNT
         ) {
@@ -180,14 +180,14 @@ contract DGDeployJSONConfigProvider is Script {
             revert InvalidParameter("TIEBREAKER_SUB_COMMITTEES_QUORUMS");
         }
 
-        checkCommitteeQuorum(
+        _checkCommitteeQuorum(
             config.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS,
             config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[0],
             "TIEBREAKER_SUB_COMMITTEE_1"
         );
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 2) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[1],
                 "TIEBREAKER_SUB_COMMITTEE_2"
@@ -195,7 +195,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 3) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_3_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[2],
                 "TIEBREAKER_SUB_COMMITTEE_3"
@@ -203,7 +203,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 4) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_4_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[3],
                 "TIEBREAKER_SUB_COMMITTEE_4"
@@ -211,7 +211,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 5) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_5_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[4],
                 "TIEBREAKER_SUB_COMMITTEE_5"
@@ -219,7 +219,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 6) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_6_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[5],
                 "TIEBREAKER_SUB_COMMITTEE_6"
@@ -227,7 +227,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 7) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_7_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[6],
                 "TIEBREAKER_SUB_COMMITTEE_7"
@@ -235,7 +235,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 8) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_8_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[7],
                 "TIEBREAKER_SUB_COMMITTEE_8"
@@ -243,7 +243,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 9) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_9_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[8],
                 "TIEBREAKER_SUB_COMMITTEE_9"
@@ -251,7 +251,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 10) {
-            checkCommitteeQuorum(
+            _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_10_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[9],
                 "TIEBREAKER_SUB_COMMITTEE_10"
@@ -287,24 +287,24 @@ contract DGDeployJSONConfigProvider is Script {
         }
     }
 
-    function checkCommitteeQuorum(address[] memory committee, uint256 quorum, string memory message) internal pure {
+    function _checkCommitteeQuorum(address[] memory committee, uint256 quorum, string memory message) internal pure {
         if (quorum == 0 || quorum > committee.length) {
             revert InvalidQuorum(message, quorum);
         }
     }
 
-    function printCommittees(DeployConfig memory config) internal pure {
+    function _printCommittees(DeployConfig memory config) internal pure {
         console.log("=================================================");
         console.log("Loaded valid config with the following committees:");
 
-        printCommittee(
+        _printCommittee(
             config.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS,
             config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[0],
             "TiebreakerSubCommittee #1 members, quorum"
         );
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 2) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[1],
                 "TiebreakerSubCommittee #2 members, quorum"
@@ -312,7 +312,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 3) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_3_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[2],
                 "TiebreakerSubCommittee #3 members, quorum"
@@ -320,7 +320,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 4) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_4_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[3],
                 "TiebreakerSubCommittee #4 members, quorum"
@@ -328,7 +328,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 5) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_5_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[4],
                 "TiebreakerSubCommittee #5 members, quorum"
@@ -336,7 +336,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 6) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_6_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[5],
                 "TiebreakerSubCommittee #6 members, quorum"
@@ -344,7 +344,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 7) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_7_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[6],
                 "TiebreakerSubCommittee #7 members, quorum"
@@ -352,7 +352,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 8) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_8_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[7],
                 "TiebreakerSubCommittee #8 members, quorum"
@@ -360,7 +360,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 9) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_9_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[8],
                 "TiebreakerSubCommittee #9 members, quorum"
@@ -368,7 +368,7 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 10) {
-            printCommittee(
+            _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_10_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[9],
                 "TiebreakerSubCommittee #10 members, quorum"
@@ -378,14 +378,14 @@ contract DGDeployJSONConfigProvider is Script {
         console.log("=================================================");
     }
 
-    function printCommittee(address[] memory committee, uint256 quorum, string memory message) internal pure {
+    function _printCommittee(address[] memory committee, uint256 quorum, string memory message) internal pure {
         console.log(message, quorum, "of", committee.length);
         for (uint256 k = 0; k < committee.length; ++k) {
             console.log(">> #", k, address(committee[k]));
         }
     }
 
-    function loadConfigFile() internal view returns (string memory jsonConfig) {
+    function _loadConfigFile() internal view returns (string memory jsonConfig) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", _configFileName);
         jsonConfig = vm.readFile(path);

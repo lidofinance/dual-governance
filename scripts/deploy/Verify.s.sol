@@ -26,7 +26,7 @@ contract Verify is Script {
         _lidoAddresses = configProvider.getLidoAddresses(chainName);
 
         DeployedContracts memory contracts =
-            DGContractsSet.loadFromFile(loadDeployedAddressesFile(deployedAddressesFileName));
+            DGContractsSet.loadFromFile(_loadDeployedAddressesFile(deployedAddressesFileName));
 
         console.log("Using the following DG contracts addresses");
         DGContractsSet.print(contracts);
@@ -38,7 +38,7 @@ contract Verify is Script {
         console.log(unicode"Verified ✅");
     }
 
-    function loadDeployedAddressesFile(string memory deployedAddressesFileName)
+    function _loadDeployedAddressesFile(string memory deployedAddressesFileName)
         internal
         view
         returns (string memory deployedAddressesJson)
