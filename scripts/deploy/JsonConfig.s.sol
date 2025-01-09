@@ -36,10 +36,10 @@ contract DGDeployJSONConfigProvider is Script {
     error InvalidParameter(string parameter);
     error InvalidChain(string chainName);
 
-    string private configFilePath;
+    string private _configFilePath;
 
-    constructor(string memory _configFilePath) {
-        configFilePath = _configFilePath;
+    constructor(string memory configFilePath) {
+        _configFilePath = configFilePath;
     }
 
     function loadAndValidate() external view returns (DeployConfig memory config) {
@@ -385,13 +385,13 @@ contract DGDeployJSONConfigProvider is Script {
 
     function loadConfigFile() internal view returns (string memory jsonConfig) {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", configFilePath);
+        string memory path = string.concat(root, "/", _configFilePath);
         jsonConfig = vm.readFile(path);
     }
 
     function writeDeployedAddressesToConfigFile(string memory deployedAddrsJson) external {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", configFilePath);
+        string memory path = string.concat(root, "/", _configFilePath);
 
         stdJson.write(deployedAddrsJson, path, ".deployedContracts");
     }

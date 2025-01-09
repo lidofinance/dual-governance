@@ -12,18 +12,18 @@ import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
 import {DeployVerification} from "./DeployVerification.sol";
 
 contract Verify is Script {
-    DeployConfig internal config;
-    LidoContracts internal lidoAddresses;
+    DeployConfig internal _config;
+    LidoContracts internal _lidoAddresses;
 
     function run() external {
         string memory chainName = vm.envString("CHAIN");
-        string memory configFilePath = vm.envString("DEPLOY_CONFIG_FILE_PATH");
+        string memory _configFilePath = vm.envString("DEPLOY_CONFIG_FILE_PATH");
         string memory deployedAddressesFilePath = vm.envString("DEPLOYED_ADDRESSES_FILE_PATH");
         bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
-        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(configFilePath);
-        config = configProvider.loadAndValidate();
-        lidoAddresses = configProvider.getLidoAddresses(chainName);
+        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(_configFilePath);
+        _config = configProvider.loadAndValidate();
+        _lidoAddresses = configProvider.getLidoAddresses(chainName);
 
         DeployedContracts memory contracts =
             DGContractsSet.loadFromFile(loadDeployedAddressesFile(deployedAddressesFilePath));
@@ -33,7 +33,7 @@ contract Verify is Script {
 
         console.log("Verifying deploy");
 
-        DeployVerification.verify(contracts, config, lidoAddresses, onchainVotingCheck);
+        DeployVerification.verify(contracts, _config, _lidoAddresses, onchainVotingCheck);
 
         console.log(unicode"Verified ✅");
     }
