@@ -67,15 +67,6 @@ contract DGDeployJSONConfigProvider is Script {
             TIEBREAKER_SUB_COMMITTEE_1_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_1_MEMBERS"),
             TIEBREAKER_SUB_COMMITTEE_2_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_2_MEMBERS"),
             TIEBREAKER_SUB_COMMITTEE_3_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_3_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_4_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_4_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_5_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_5_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_6_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_6_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_7_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_7_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_8_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_8_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_9_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_9_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_10_MEMBERS: stdJson.readAddressArray(
-                jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_10_MEMBERS"
-            ),
             TIEBREAKER_SUB_COMMITTEES_QUORUMS: stdJson.readUintArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEES_QUORUMS"),
             RESEAL_COMMITTEE: stdJson.readAddress(jsonConfig, ".RESEAL_COMMITTEE"),
             MIN_WITHDRAWALS_BATCH_SIZE: stdJson.readUint(jsonConfig, ".MIN_WITHDRAWALS_BATCH_SIZE"),
@@ -122,7 +113,7 @@ contract DGDeployJSONConfigProvider is Script {
         });
 
         _validateConfig(config);
-        _printCommittees(config);
+        _printConfigAndCommittees(config, jsonConfig);
     }
 
     function getLidoAddresses(string memory chainName) external view returns (LidoContracts memory) {
@@ -172,7 +163,7 @@ contract DGDeployJSONConfigProvider is Script {
             revert InvalidQuorum("TIEBREAKER_CORE", config.TIEBREAKER_CORE_QUORUM);
         }
 
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 0 || config.TIEBREAKER_SUB_COMMITTEES_COUNT > 10) {
+        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 0 || config.TIEBREAKER_SUB_COMMITTEES_COUNT > 3) {
             revert InvalidParameter("TIEBREAKER_SUB_COMMITTEES_COUNT");
         }
 
@@ -194,67 +185,11 @@ contract DGDeployJSONConfigProvider is Script {
             );
         }
 
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 3) {
+        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 3) {
             _checkCommitteeQuorum(
                 config.TIEBREAKER_SUB_COMMITTEE_3_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[2],
                 "TIEBREAKER_SUB_COMMITTEE_3"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 4) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_4_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[3],
-                "TIEBREAKER_SUB_COMMITTEE_4"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 5) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_5_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[4],
-                "TIEBREAKER_SUB_COMMITTEE_5"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 6) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_6_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[5],
-                "TIEBREAKER_SUB_COMMITTEE_6"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 7) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_7_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[6],
-                "TIEBREAKER_SUB_COMMITTEE_7"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 8) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_8_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[7],
-                "TIEBREAKER_SUB_COMMITTEE_8"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 9) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_9_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[8],
-                "TIEBREAKER_SUB_COMMITTEE_9"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 10) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_10_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[9],
-                "TIEBREAKER_SUB_COMMITTEE_10"
             );
         }
 
@@ -293,9 +228,12 @@ contract DGDeployJSONConfigProvider is Script {
         }
     }
 
-    function _printCommittees(DeployConfig memory config) internal pure {
+    function _printConfigAndCommittees(DeployConfig memory config, string memory jsonConfig) internal pure {
         console.log("=================================================");
-        console.log("Loaded valid config with the following committees:");
+        console.log("Loaded valid config file:");
+        console.log(jsonConfig);
+        console.log("=================================================");
+        console.log("The Tiebreaker committee in the config consists of the following subcommittees:");
 
         _printCommittee(
             config.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS,
@@ -311,67 +249,11 @@ contract DGDeployJSONConfigProvider is Script {
             );
         }
 
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 3) {
+        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 3) {
             _printCommittee(
                 config.TIEBREAKER_SUB_COMMITTEE_3_MEMBERS,
                 config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[2],
                 "TiebreakerSubCommittee #3 members, quorum"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 4) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_4_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[3],
-                "TiebreakerSubCommittee #4 members, quorum"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 5) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_5_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[4],
-                "TiebreakerSubCommittee #5 members, quorum"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 6) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_6_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[5],
-                "TiebreakerSubCommittee #6 members, quorum"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 7) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_7_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[6],
-                "TiebreakerSubCommittee #7 members, quorum"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 8) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_8_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[7],
-                "TiebreakerSubCommittee #8 members, quorum"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 9) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_9_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[8],
-                "TiebreakerSubCommittee #9 members, quorum"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 10) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_10_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[9],
-                "TiebreakerSubCommittee #10 members, quorum"
             );
         }
 

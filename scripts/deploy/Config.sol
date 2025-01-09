@@ -31,13 +31,6 @@ struct DeployConfig {
     address[] TIEBREAKER_SUB_COMMITTEE_1_MEMBERS;
     address[] TIEBREAKER_SUB_COMMITTEE_2_MEMBERS;
     address[] TIEBREAKER_SUB_COMMITTEE_3_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_4_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_5_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_6_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_7_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_8_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_9_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_10_MEMBERS;
     uint256[] TIEBREAKER_SUB_COMMITTEES_QUORUMS;
     address RESEAL_COMMITTEE;
     uint256 MIN_WITHDRAWALS_BATCH_SIZE;
@@ -73,7 +66,7 @@ function getSubCommitteeData(
     uint256 index,
     DeployConfig memory dgDeployConfig
 ) pure returns (uint256 quorum, address[] memory members) {
-    assert(index <= 10);
+    assert(index < 3);
 
     if (index == 0) {
         quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[0];
@@ -88,34 +81,5 @@ function getSubCommitteeData(
     if (index == 2) {
         quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[2];
         members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_3_MEMBERS;
-    }
-
-    if (index == 3) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[3];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_4_MEMBERS;
-    }
-    if (index == 4) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[4];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_5_MEMBERS;
-    }
-    if (index == 5) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[5];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_6_MEMBERS;
-    }
-    if (index == 6) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[6];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_7_MEMBERS;
-    }
-    if (index == 7) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[7];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_8_MEMBERS;
-    }
-    if (index == 8) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[8];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_9_MEMBERS;
-    }
-    if (index == 9) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[9];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_10_MEMBERS;
     }
 }
