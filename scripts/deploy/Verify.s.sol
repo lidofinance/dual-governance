@@ -7,7 +7,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {DeployConfig, LidoContracts} from "./Config.sol";
-import {CONFIG_FILES_DIR, DGDeployJSONConfigProvider} from "./JsonConfig.s.sol";
+import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "./TomlConfig.s.sol";
 import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
 import {DeployVerification} from "./DeployVerification.sol";
 
@@ -21,7 +21,7 @@ contract Verify is Script {
         string memory deployedAddressesFileName = vm.envString("DEPLOYED_ADDRESSES_FILE_NAME");
         bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
-        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(configFileName);
+        DGDeployTOMLConfigProvider configProvider = new DGDeployTOMLConfigProvider(configFileName);
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(chainName);
 

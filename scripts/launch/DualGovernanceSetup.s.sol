@@ -4,7 +4,6 @@
 pragma solidity 0.8.26;
 
 import {DeployScriptBase} from "./DeployScriptBase.sol";
-import {DGDeployJSONConfigProvider} from "../deploy/JsonConfig.s.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";

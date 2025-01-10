@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console, var-name-mixedcase */
 
 import {Script} from "forge-std/Script.sol";
-import {stdJson} from "forge-std/StdJson.sol";
+import {stdToml} from "forge-std/StdToml.sol";
 import {console} from "forge-std/console.sol";
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
@@ -36,7 +36,7 @@ import {
 
 string constant CONFIG_FILES_DIR = "deploy-config";
 
-contract DGDeployJSONConfigProvider is Script {
+contract DGDeployTOMLConfigProvider is Script {
     error InvalidQuorum(string committee, uint256 quorum);
     error InvalidParameter(string parameter);
     error InvalidChain(string chainName);
@@ -48,88 +48,88 @@ contract DGDeployJSONConfigProvider is Script {
     }
 
     function loadAndValidate() external view returns (DeployConfig memory config) {
-        string memory jsonConfig = _loadConfigFile();
+        string memory tomlConfig = _loadConfigFile();
 
         TiebreakerSubCommitteeDeployConfig memory influencersSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_CONFIG.INFLUENCERS.MEMBERS"),
-            quorum: stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.INFLUENCERS.QUORUM")
+            members: stdToml.readAddressArray(tomlConfig, ".TIEBREAKER_CONFIG.INFLUENCERS.MEMBERS"),
+            quorum: stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.INFLUENCERS.QUORUM")
         });
 
         TiebreakerSubCommitteeDeployConfig memory nodeOperatorsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_CONFIG.NODE_OPERATORS.MEMBERS"),
-            quorum: stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.NODE_OPERATORS.QUORUM")
+            members: stdToml.readAddressArray(tomlConfig, ".TIEBREAKER_CONFIG.NODE_OPERATORS.MEMBERS"),
+            quorum: stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.NODE_OPERATORS.QUORUM")
         });
 
         TiebreakerSubCommitteeDeployConfig memory protocolsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_CONFIG.PROTOCOLS.MEMBERS"),
-            quorum: stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.PROTOCOLS.QUORUM")
+            members: stdToml.readAddressArray(tomlConfig, ".TIEBREAKER_CONFIG.PROTOCOLS.MEMBERS"),
+            quorum: stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.PROTOCOLS.QUORUM")
         });
 
         TiebreakerDeployConfig memory tiebreakerConfig = TiebreakerDeployConfig({
-            activationTimeout: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT")),
-            minActivationTimeout: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT")),
-            maxActivationTimeout: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.MAX_ACTIVATION_TIMEOUT")),
-            executionDelay: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.EXECUTION_DELAY")),
+            activationTimeout: Durations.from(stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT")),
+            minActivationTimeout: Durations.from(stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT")),
+            maxActivationTimeout: Durations.from(stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.MAX_ACTIVATION_TIMEOUT")),
+            executionDelay: Durations.from(stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.EXECUTION_DELAY")),
             influencers: influencersSubCommitteeConfig,
             nodeOperators: nodeOperatorsSubCommitteeConfig,
             protocols: protocolsSubCommitteeConfig,
-            quorum: stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.QUORUM")
+            quorum: stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.QUORUM")
         });
 
         config = DeployConfig({
-            MIN_EXECUTION_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".MIN_EXECUTION_DELAY")),
-            AFTER_SUBMIT_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".AFTER_SUBMIT_DELAY")),
-            MAX_AFTER_SUBMIT_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".MAX_AFTER_SUBMIT_DELAY")),
-            AFTER_SCHEDULE_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".AFTER_SCHEDULE_DELAY")),
-            MAX_AFTER_SCHEDULE_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".MAX_AFTER_SCHEDULE_DELAY")),
-            EMERGENCY_MODE_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".EMERGENCY_MODE_DURATION")),
-            MAX_EMERGENCY_MODE_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".MAX_EMERGENCY_MODE_DURATION")),
-            EMERGENCY_PROTECTION_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".EMERGENCY_PROTECTION_DURATION")),
+            MIN_EXECUTION_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".MIN_EXECUTION_DELAY")),
+            AFTER_SUBMIT_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".AFTER_SUBMIT_DELAY")),
+            MAX_AFTER_SUBMIT_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".MAX_AFTER_SUBMIT_DELAY")),
+            AFTER_SCHEDULE_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".AFTER_SCHEDULE_DELAY")),
+            MAX_AFTER_SCHEDULE_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".MAX_AFTER_SCHEDULE_DELAY")),
+            EMERGENCY_MODE_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".EMERGENCY_MODE_DURATION")),
+            MAX_EMERGENCY_MODE_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".MAX_EMERGENCY_MODE_DURATION")),
+            EMERGENCY_PROTECTION_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTION_DURATION")),
             MAX_EMERGENCY_PROTECTION_DURATION: Durations.from(
-                stdJson.readUint(jsonConfig, ".MAX_EMERGENCY_PROTECTION_DURATION")
+                stdToml.readUint(tomlConfig, ".MAX_EMERGENCY_PROTECTION_DURATION")
             ),
-            EMERGENCY_ACTIVATION_COMMITTEE: stdJson.readAddress(jsonConfig, ".EMERGENCY_ACTIVATION_COMMITTEE"),
-            EMERGENCY_EXECUTION_COMMITTEE: stdJson.readAddress(jsonConfig, ".EMERGENCY_EXECUTION_COMMITTEE"),
+            EMERGENCY_ACTIVATION_COMMITTEE: stdToml.readAddress(tomlConfig, ".EMERGENCY_ACTIVATION_COMMITTEE"),
+            EMERGENCY_EXECUTION_COMMITTEE: stdToml.readAddress(tomlConfig, ".EMERGENCY_EXECUTION_COMMITTEE"),
             tiebreakerConfig: tiebreakerConfig,
-            RESEAL_COMMITTEE: stdJson.readAddress(jsonConfig, ".RESEAL_COMMITTEE"),
-            MIN_WITHDRAWALS_BATCH_SIZE: stdJson.readUint(jsonConfig, ".MIN_WITHDRAWALS_BATCH_SIZE"),
-            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: stdJson.readUint(jsonConfig, ".MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"),
+            RESEAL_COMMITTEE: stdToml.readAddress(tomlConfig, ".RESEAL_COMMITTEE"),
+            MIN_WITHDRAWALS_BATCH_SIZE: stdToml.readUint(tomlConfig, ".MIN_WITHDRAWALS_BATCH_SIZE"),
+            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: stdToml.readUint(tomlConfig, ".MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"),
             FIRST_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
-                stdJson.readUint(jsonConfig, ".FIRST_SEAL_RAGE_QUIT_SUPPORT")
+                stdToml.readUint(tomlConfig, ".FIRST_SEAL_RAGE_QUIT_SUPPORT")
             ),
             SECOND_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
-                stdJson.readUint(jsonConfig, ".SECOND_SEAL_RAGE_QUIT_SUPPORT")
+                stdToml.readUint(tomlConfig, ".SECOND_SEAL_RAGE_QUIT_SUPPORT")
             ),
-            MIN_ASSETS_LOCK_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".MIN_ASSETS_LOCK_DURATION")),
-            MAX_MIN_ASSETS_LOCK_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".MAX_MIN_ASSETS_LOCK_DURATION")),
-            VETO_SIGNALLING_MIN_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".VETO_SIGNALLING_MIN_DURATION")),
-            VETO_SIGNALLING_MAX_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".VETO_SIGNALLING_MAX_DURATION")),
+            MIN_ASSETS_LOCK_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".MIN_ASSETS_LOCK_DURATION")),
+            MAX_MIN_ASSETS_LOCK_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".MAX_MIN_ASSETS_LOCK_DURATION")),
+            VETO_SIGNALLING_MIN_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".VETO_SIGNALLING_MIN_DURATION")),
+            VETO_SIGNALLING_MAX_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".VETO_SIGNALLING_MAX_DURATION")),
             VETO_SIGNALLING_MIN_ACTIVE_DURATION: Durations.from(
-                stdJson.readUint(jsonConfig, ".VETO_SIGNALLING_MIN_ACTIVE_DURATION")
+                stdToml.readUint(tomlConfig, ".VETO_SIGNALLING_MIN_ACTIVE_DURATION")
             ),
             VETO_SIGNALLING_DEACTIVATION_MAX_DURATION: Durations.from(
-                stdJson.readUint(jsonConfig, ".VETO_SIGNALLING_DEACTIVATION_MAX_DURATION")
+                stdToml.readUint(tomlConfig, ".VETO_SIGNALLING_DEACTIVATION_MAX_DURATION")
             ),
-            VETO_COOLDOWN_DURATION: Durations.from(stdJson.readUint(jsonConfig, ".VETO_COOLDOWN_DURATION")),
+            VETO_COOLDOWN_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".VETO_COOLDOWN_DURATION")),
             RAGE_QUIT_EXTENSION_PERIOD_DURATION: Durations.from(
-                stdJson.readUint(jsonConfig, ".RAGE_QUIT_EXTENSION_PERIOD_DURATION")
+                stdToml.readUint(tomlConfig, ".RAGE_QUIT_EXTENSION_PERIOD_DURATION")
             ),
             RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY: Durations.from(
-                stdJson.readUint(jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY")
+                stdToml.readUint(tomlConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY")
             ),
             RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY: Durations.from(
-                stdJson.readUint(jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY")
+                stdToml.readUint(tomlConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY")
             ),
             RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: Durations.from(
-                stdJson.readUint(jsonConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH")
+                stdToml.readUint(tomlConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH")
             ),
-            TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: stdJson.readAddress(
-                jsonConfig, ".TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
+            TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: stdToml.readAddress(
+                tomlConfig, ".TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
             )
         });
 
         _validateConfig(config);
-        _printConfigAndCommittees(config, jsonConfig);
+        _printConfigAndCommittees(config, tomlConfig);
     }
 
     function getLidoAddresses(string memory chainName) external view returns (LidoContracts memory) {
@@ -152,14 +152,14 @@ contract DGDeployJSONConfigProvider is Script {
         }
 
         if (keccak256(bytes(chainName)) == CHAIN_NAME_HOLESKY_MOCKS_HASH) {
-            string memory jsonConfig = _loadConfigFile();
+            string memory tomlConfig = _loadConfigFile();
 
             return LidoContracts({
                 chainId: 17000,
-                stETH: IStETH(stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_ST_ETH")),
-                wstETH: IWstETH(stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_WST_ETH")),
-                withdrawalQueue: IWithdrawalQueue(stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_WITHDRAWAL_QUEUE")),
-                voting: stdJson.readAddress(jsonConfig, ".HOLESKY_MOCK_DAO_VOTING")
+                stETH: IStETH(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_ST_ETH")),
+                wstETH: IWstETH(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_WST_ETH")),
+                withdrawalQueue: IWithdrawalQueue(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_WITHDRAWAL_QUEUE")),
+                voting: stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_DAO_VOTING")
             });
         }
 
@@ -221,10 +221,10 @@ contract DGDeployJSONConfigProvider is Script {
         }
     }
 
-    function _printConfigAndCommittees(DeployConfig memory config, string memory jsonConfig) internal pure {
+    function _printConfigAndCommittees(DeployConfig memory config, string memory tomlConfig) internal pure {
         console.log("=================================================");
         console.log("Loaded valid config file:");
-        console.log(jsonConfig);
+        console.log(tomlConfig);
         console.log("=================================================");
         console.log("The Tiebreaker committee in the config consists of the following subcommittees:");
 
@@ -249,17 +249,17 @@ contract DGDeployJSONConfigProvider is Script {
         }
     }
 
-    function _loadConfigFile() internal view returns (string memory jsonConfig) {
+    function _loadConfigFile() internal view returns (string memory tomlConfig) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", _configFileName);
-        jsonConfig = vm.readFile(path);
+        tomlConfig = vm.readFile(path);
     }
 
     function writeDeployedAddressesToConfigFile(string memory deployedAddrsJson) external {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", _configFileName);
 
-        stdJson.write(deployedAddrsJson, path, ".deployedContracts");
+        stdToml.write(deployedAddrsJson, path, ".deployedContracts");
         console.log(
             "The deployed contracts' addresses are written in the _config_ file",
             path,

@@ -27,7 +27,7 @@ import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
 import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
 
 import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
-import {CONFIG_FILES_DIR, DGDeployJSONConfigProvider} from "../deploy/JsonConfig.s.sol";
+import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "../deploy/TomlConfig.s.sol";
 import {DeployedContracts, DGContractsSet} from "../deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "../deploy/DeployVerification.sol";
 import {DeployVerifier} from "./DeployVerifier.sol";
@@ -49,7 +49,7 @@ contract DeployScriptBase is Script {
         _configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
         _deployedAddressesFileName = vm.envString("DEPLOYED_ADDRESSES_FILE_NAME");
 
-        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(_configFileName);
+        DGDeployTOMLConfigProvider configProvider = new DGDeployTOMLConfigProvider(_configFileName);
 
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(_chainName);

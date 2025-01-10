@@ -20,74 +20,72 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     ```
     CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
     ETHERSCAN_MAINNET_KEY=...
-    DEPLOY_CONFIG_FILE_NAME=... (in the deploy-config folder, for example: "deploy-config.json")
+    DEPLOY_CONFIG_FILE_NAME=... (in the deploy-config folder, for example: "deploy-config.toml")
     ```
 
-3. Create a deploy config JSON file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_NAME):
+3. Create a deploy config TOML file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_NAME):
     ```
-    {
-        "MIN_EXECUTION_DELAY": 0,
-        "AFTER_SUBMIT_DELAY": 259200, // 3 days
-        "MAX_AFTER_SUBMIT_DELAY": 3888000, // 45 days
-        "AFTER_SCHEDULE_DELAY": 259200, // 3 days
-        "MAX_AFTER_SCHEDULE_DELAY": 3888000, // 45 days
-        "EMERGENCY_MODE_DURATION": 15552000, // 180 days
-        "MAX_EMERGENCY_MODE_DURATION": 31536000, // 365 days
-        "EMERGENCY_PROTECTION_DURATION": 7776000, // 90 days
-        "MAX_EMERGENCY_PROTECTION_DURATION": 31536000, // 365 days
-        "EMERGENCY_ACTIVATION_COMMITTEE": <address>,
-        "EMERGENCY_EXECUTION_COMMITTEE": <address>,
-        "TIEBREAKER_CONFIG": {
-            "EXECUTION_DELAY": 2592000, // 30 days
-            "INFLUENCERS": {
-                "MEMBERS": [<address1>,<address2>,<address3>],
-                "QUORUM": 3
-            },
-            "NODE_OPERATORS": {
-                "MEMBERS": [<address1>,<address2>,<address3>],
-                "QUORUM": 2
-            },
-            "PROTOCOLS": {
-                "MEMBERS": [<address1>,<address2>,<address3>],
-                "QUORUM": 1
-            },
-            "MIN_ACTIVATION_TIMEOUT": 7776000, // 90 days
-            "ACTIVATION_TIMEOUT": 31536000, // 365 days
-            "MAX_ACTIVATION_TIMEOUT": 63072000, // 730 days
-            "QUORUM": 1
-        },
-        "RESEAL_COMMITTEE": <address>
-        "MIN_WITHDRAWALS_BATCH_SIZE": 4,
-        "MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT": 255,
-        "FIRST_SEAL_RAGE_QUIT_SUPPORT": 300, // 3%
-        "SECOND_SEAL_RAGE_QUIT_SUPPORT": 1500, // 15%
-        "MIN_ASSETS_LOCK_DURATION": 18000, // 5 hours
-        "MAX_MIN_ASSETS_LOCK_DURATION": 31536000, // 365 days
-        "VETO_SIGNALLING_MIN_DURATION": 259200, // 3 days
-        "VETO_SIGNALLING_MIN_ACTIVE_DURATION":18000, // 5 hours
-        "VETO_SIGNALLING_MAX_DURATION": 2592000, // 30 days
-        "VETO_SIGNALLING_DEACTIVATION_MAX_DURATION": 432000, // 5 days
-        "VETO_COOLDOWN_DURATION": 345600, // 4 days
-        "RAGE_QUIT_EXTENSION_PERIOD_DURATION": 604800, // 7 days
-        "RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY": 2592000, // 30 days
-        "RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY": 15552000, // 180 days
-        "RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH": 1296000, // 15 days
-        "TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER": <address>,
-        "deployedContracts": {} // If this section is present in the config file, the deployment script will write there the deployed contracts addresses, overwriting all previous content.
-    }
+    MIN_EXECUTION_DELAY = 0
+    AFTER_SUBMIT_DELAY = 259200                           # 3 days
+    MAX_AFTER_SUBMIT_DELAY = 3888000                      # 45 days
+    AFTER_SCHEDULE_DELAY = 259200                         # 3 days
+    MAX_AFTER_SCHEDULE_DELAY = 3888000                    # 45 days
+    EMERGENCY_MODE_DURATION = 15552000                    # 180 days
+    MAX_EMERGENCY_MODE_DURATION = 31536000                # 365 days
+    EMERGENCY_PROTECTION_DURATION = 7776000               # 90 days
+    MAX_EMERGENCY_PROTECTION_DURATION = 31536000          # 365 days
+    EMERGENCY_ACTIVATION_COMMITTEE = <address>
+    EMERGENCY_EXECUTION_COMMITTEE = <address>
+    RESEAL_COMMITTEE = <address>
+    MIN_WITHDRAWALS_BATCH_SIZE = 4
+    MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = 255
+    FIRST_SEAL_RAGE_QUIT_SUPPORT = 300                    # 3%
+    SECOND_SEAL_RAGE_QUIT_SUPPORT = 1500                  # 15%
+    MIN_ASSETS_LOCK_DURATION = 18000                      # 5 hours
+    MAX_MIN_ASSETS_LOCK_DURATION = 31536000               # 365 days
+    VETO_SIGNALLING_MIN_DURATION = 259200                 # 3 days
+    VETO_SIGNALLING_MIN_ACTIVE_DURATION = 18000           # 5 hours
+    VETO_SIGNALLING_MAX_DURATION = 2592000                # 30 days
+    VETO_SIGNALLING_DEACTIVATION_MAX_DURATION = 432000    # 5 days
+    VETO_COOLDOWN_DURATION = 345600                       # 4 days
+    RAGE_QUIT_EXTENSION_PERIOD_DURATION = 604800          # 7 days
+    RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY = 2592000         # 30 days
+    RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY = 15552000        # 180 days
+    RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH = 1296000      # 15 days
+    TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = <address>
+
+    [TIEBREAKER_CONFIG]
+    EXECUTION_DELAY = 2592000         # 30 days
+    MIN_ACTIVATION_TIMEOUT = 7776000  # 90 days
+    ACTIVATION_TIMEOUT = 31536000     # 365 days
+    MAX_ACTIVATION_TIMEOUT = 63072000 # 730 days
+    QUORUM = 1
+
+    [TIEBREAKER_CONFIG.INFLUENCERS]
+    MEMBERS = [<address1>,<address2>,<address3>]
+    QUORUM = 3
+
+    [TIEBREAKER_CONFIG.NODE_OPERATORS]
+    MEMBERS = [<address1>,<address2>,<address3>]
+    QUORUM = 2
+
+    [TIEBREAKER_CONFIG.PROTOCOLS]
+    MEMBERS = [<address1>,<address2>,<address3>]
+    QUORUM = 1
+
+    [deployedContracts]
+    # If this section is present in the config file the deployment script will write here the deployed contracts addresses overwriting all previous content.
     ```
 
-    When using `CHAIN="holesky-mocks"` you will need to provide in addition already deployed mock contracts addresses in the same JSON config file (at DEPLOY_CONFIG_FILE_NAME):
+    When using `CHAIN="holesky-mocks"` you will need to provide in addition already deployed mock contracts addresses in the same TOML config file (at DEPLOY_CONFIG_FILE_NAME):
     
     ```
-    {
-        ...
-        "HOLESKY_MOCK_ST_ETH": ...,
-        "HOLESKY_MOCK_WST_ETH": ...,
-        "HOLESKY_MOCK_WITHDRAWAL_QUEUE": ...,
-        "HOLESKY_MOCK_DAO_VOTING": ...,
-        ...
-    }
+    ...
+    HOLESKY_MOCK_ST_ETH = <address>
+    HOLESKY_MOCK_WST_ETH = <address>
+    HOLESKY_MOCK_WITHDRAWAL_QUEUE = <address>
+    HOLESKY_MOCK_DAO_VOTING = <address>
+    ...
     ```
 
 4. Run the deployment script

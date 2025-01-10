@@ -6,13 +6,13 @@ pragma solidity 0.8.26;
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console} from "forge-std/console.sol";
-import {CONFIG_FILES_DIR, DGDeployJSONConfigProvider} from "./JsonConfig.s.sol";
+import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "./TomlConfig.s.sol";
 import {DeployBase} from "./DeployBase.s.sol";
 import {DGContractsSet} from "./DeployedContractsSet.sol";
 import {SerializedJson} from "../utils/SerializedJson.sol";
 
 contract DeployConfigurable is DeployBase {
-    DGDeployJSONConfigProvider internal _configProvider;
+    DGDeployTOMLConfigProvider internal _configProvider;
     string internal _chainName;
     string internal _configFileName;
 
@@ -20,7 +20,7 @@ contract DeployConfigurable is DeployBase {
         _chainName = vm.envString("CHAIN");
         _configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
 
-        _configProvider = new DGDeployJSONConfigProvider(_configFileName);
+        _configProvider = new DGDeployTOMLConfigProvider(_configFileName);
         _config = _configProvider.loadAndValidate();
         _lidoAddresses = _configProvider.getLidoAddresses(_chainName);
     }
