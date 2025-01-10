@@ -28,7 +28,7 @@ contract Verify is Script {
         DeployedContracts memory contracts =
             DGContractsSet.loadFromFile(_loadDeployedAddressesFile(deployedAddressesFileName));
 
-        console.log("Using the following DG contracts addresses");
+        console.log("Using the following DG contracts addresses (from file", deployedAddressesFileName, "):");
         DGContractsSet.print(contracts);
 
         console.log("Verifying deploy");

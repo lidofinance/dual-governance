@@ -55,7 +55,7 @@ contract DeployScriptBase is Script {
         _lidoAddresses = configProvider.getLidoAddresses(_chainName);
         _dgContracts = DGContractsSet.loadFromFile(_loadDeployedAddressesFile(_deployedAddressesFileName));
 
-        console.log("Using the following DG contracts addresses");
+        console.log("Using the following DG contracts addresses (from file", _deployedAddressesFileName, "):");
         console.log("=====================================");
         DGContractsSet.print(_dgContracts);
         console.log("=====================================");
