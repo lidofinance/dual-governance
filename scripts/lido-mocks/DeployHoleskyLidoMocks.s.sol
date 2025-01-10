@@ -60,12 +60,14 @@ contract DeployHoleskyLidoMocks is Script {
     }
 
     function _serializeAddresses(DeployedMockContracts memory mockContracts) internal returns (string memory) {
-        SerializedJson memory addressesJson = SerializedJsonLib.newObj();
+        SerializedJson memory addressesJson = SerializedJsonLib.getInstance();
 
-        addressesJson.str = stdJson.serialize(addressesJson.ref, "HOLESKY_MOCK_ST_ETH", address(mockContracts.stETH));
-        addressesJson.str = stdJson.serialize(addressesJson.ref, "HOLESKY_MOCK_WST_ETH", address(mockContracts.wstETH));
+        addressesJson.str =
+            stdJson.serialize(addressesJson.serializationId, "HOLESKY_MOCK_ST_ETH", address(mockContracts.stETH));
+        addressesJson.str =
+            stdJson.serialize(addressesJson.serializationId, "HOLESKY_MOCK_WST_ETH", address(mockContracts.wstETH));
         addressesJson.str = stdJson.serialize(
-            addressesJson.ref, "HOLESKY_MOCK_WITHDRAWAL_QUEUE", address(mockContracts.withdrawalQueue)
+            addressesJson.serializationId, "HOLESKY_MOCK_WITHDRAWAL_QUEUE", address(mockContracts.withdrawalQueue)
         );
 
         return addressesJson.str;

@@ -36,13 +36,15 @@ contract DeployConfigurable is DeployBase {
 
     function _serializeDeployedContracts() internal returns (SerializedJson memory addrsJson) {
         addrsJson = DGContractsSet.serialize(_contracts);
-        addrsJson.str =
-            stdJson.serialize(addrsJson.ref, "EMERGENCY_ACTIVATION_COMMITTEE", _config.EMERGENCY_ACTIVATION_COMMITTEE);
-        addrsJson.str =
-            stdJson.serialize(addrsJson.ref, "EMERGENCY_EXECUTION_COMMITTEE", _config.EMERGENCY_EXECUTION_COMMITTEE);
-        addrsJson.str = stdJson.serialize(addrsJson.ref, "RESEAL_COMMITTEE", _config.RESEAL_COMMITTEE);
-        addrsJson.str = stdJson.serialize(addrsJson.ref, "chainName", _chainName);
-        addrsJson.str = stdJson.serialize(addrsJson.ref, "timestamp", block.timestamp);
+        addrsJson.str = stdJson.serialize(
+            addrsJson.serializationId, "EMERGENCY_ACTIVATION_COMMITTEE", _config.EMERGENCY_ACTIVATION_COMMITTEE
+        );
+        addrsJson.str = stdJson.serialize(
+            addrsJson.serializationId, "EMERGENCY_EXECUTION_COMMITTEE", _config.EMERGENCY_EXECUTION_COMMITTEE
+        );
+        addrsJson.str = stdJson.serialize(addrsJson.serializationId, "RESEAL_COMMITTEE", _config.RESEAL_COMMITTEE);
+        addrsJson.str = stdJson.serialize(addrsJson.serializationId, "chainName", _chainName);
+        addrsJson.str = stdJson.serialize(addrsJson.serializationId, "timestamp", block.timestamp);
     }
 
     function _saveDeployedAddressesToFile(string memory deployedAddrsJson) internal {

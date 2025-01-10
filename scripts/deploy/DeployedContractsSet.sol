@@ -62,26 +62,33 @@ library DGContractsSet {
     }
 
     function serialize(DeployedContracts memory contracts) internal returns (SerializedJson memory) {
-        SerializedJson memory addressesJson = SerializedJsonLib.newObj();
+        SerializedJson memory addressesJson = SerializedJsonLib.getInstance();
         address[] memory tiebreakerSubCommitteesAddresses = new address[](contracts.tiebreakerSubCommittees.length);
 
         for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
             tiebreakerSubCommitteesAddresses[i] = address(contracts.tiebreakerSubCommittees[i]);
         }
 
-        addressesJson.str = stdJson.serialize(addressesJson.ref, "ADMIN_EXECUTOR", address(contracts.adminExecutor));
-        addressesJson.str = stdJson.serialize(addressesJson.ref, "TIMELOCK", address(contracts.timelock));
         addressesJson.str =
-            stdJson.serialize(addressesJson.ref, "EMERGENCY_GOVERNANCE", address(contracts.emergencyGovernance));
-        addressesJson.str = stdJson.serialize(addressesJson.ref, "RESEAL_MANAGER", address(contracts.resealManager));
-        addressesJson.str = stdJson.serialize(addressesJson.ref, "DUAL_GOVERNANCE", address(contracts.dualGovernance));
+            stdJson.serialize(addressesJson.serializationId, "ADMIN_EXECUTOR", address(contracts.adminExecutor));
+        addressesJson.str = stdJson.serialize(addressesJson.serializationId, "TIMELOCK", address(contracts.timelock));
         addressesJson.str = stdJson.serialize(
-            addressesJson.ref, "TIEBREAKER_CORE_COMMITTEE", address(contracts.tiebreakerCoreCommittee)
+            addressesJson.serializationId, "EMERGENCY_GOVERNANCE", address(contracts.emergencyGovernance)
         );
         addressesJson.str =
-            stdJson.serialize(addressesJson.ref, "TIEBREAKER_SUB_COMMITTEES", tiebreakerSubCommitteesAddresses);
+            stdJson.serialize(addressesJson.serializationId, "RESEAL_MANAGER", address(contracts.resealManager));
+        addressesJson.str =
+            stdJson.serialize(addressesJson.serializationId, "DUAL_GOVERNANCE", address(contracts.dualGovernance));
         addressesJson.str = stdJson.serialize(
-            addressesJson.ref, "TEMPORARY_EMERGENCY_GOVERNANCE", address(contracts.temporaryEmergencyGovernance)
+            addressesJson.serializationId, "TIEBREAKER_CORE_COMMITTEE", address(contracts.tiebreakerCoreCommittee)
+        );
+        addressesJson.str = stdJson.serialize(
+            addressesJson.serializationId, "TIEBREAKER_SUB_COMMITTEES", tiebreakerSubCommitteesAddresses
+        );
+        addressesJson.str = stdJson.serialize(
+            addressesJson.serializationId,
+            "TEMPORARY_EMERGENCY_GOVERNANCE",
+            address(contracts.temporaryEmergencyGovernance)
         );
 
         return addressesJson;

@@ -278,7 +278,6 @@ abstract contract SetupDeployment is Test {
         bool isEmergencyProtectionEnabled,
         bool useTemporaryEmergencyGovernance
     ) internal {
-        // TODO: use _ prefix for the storage internal variables _contracts
         DeployedContracts memory memContracts =
             DGContractsDeployment.deployAdminExecutorAndTimelock(_dgDeployConfig, address(this));
         _adminExecutor = memContracts.adminExecutor;
