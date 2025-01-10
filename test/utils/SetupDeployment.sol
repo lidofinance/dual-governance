@@ -89,10 +89,9 @@ abstract contract SetupDeployment is Test {
     // ---
     // Dual Governance Deployment Parameters
     // ---
-    uint256 internal immutable TIEBREAKER_CORE_QUORUM = 1;
+    uint256 internal immutable TIEBREAKER_CORE_QUORUM = 2;
     Duration internal immutable TIEBREAKER_EXECUTION_DELAY = Durations.from(30 days);
 
-    uint256 internal immutable TIEBREAKER_SUB_COMMITTEES_COUNT = 2;
     uint256 internal immutable TIEBREAKER_SUB_COMMITTEE_MEMBERS_COUNT = 5;
     uint256 internal immutable TIEBREAKER_SUB_COMMITTEE_QUORUM = 5;
 
@@ -161,22 +160,24 @@ abstract contract SetupDeployment is Test {
         dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE = _emergencyActivationCommittee;
         dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE = _emergencyExecutionCommittee;
 
-        dgDeployConfig.TIEBREAKER_CORE_QUORUM = TIEBREAKER_SUB_COMMITTEES_COUNT;
-        dgDeployConfig.TIEBREAKER_EXECUTION_DELAY = TIEBREAKER_EXECUTION_DELAY;
-        dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT = TIEBREAKER_SUB_COMMITTEES_COUNT;
-        dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS =
+        dgDeployConfig.tiebreakerConfig.quorum = TIEBREAKER_CORE_QUORUM;
+        dgDeployConfig.tiebreakerConfig.executionDelay = TIEBREAKER_EXECUTION_DELAY;
+        dgDeployConfig.tiebreakerConfig.influencers.members =
             _generateRandomAddresses(TIEBREAKER_SUB_COMMITTEE_MEMBERS_COUNT);
-        dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS =
+        dgDeployConfig.tiebreakerConfig.influencers.quorum = TIEBREAKER_SUB_COMMITTEE_QUORUM;
+        dgDeployConfig.tiebreakerConfig.nodeOperators.members =
             _generateRandomAddresses(TIEBREAKER_SUB_COMMITTEE_MEMBERS_COUNT);
-        dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS =
-            [TIEBREAKER_SUB_COMMITTEE_QUORUM, TIEBREAKER_SUB_COMMITTEE_QUORUM];
+        dgDeployConfig.tiebreakerConfig.nodeOperators.quorum = TIEBREAKER_SUB_COMMITTEE_QUORUM;
+        dgDeployConfig.tiebreakerConfig.protocols.members =
+            _generateRandomAddresses(TIEBREAKER_SUB_COMMITTEE_MEMBERS_COUNT);
+        dgDeployConfig.tiebreakerConfig.protocols.quorum = TIEBREAKER_SUB_COMMITTEE_QUORUM;
 
         dgDeployConfig.RESEAL_COMMITTEE = _resealCommittee;
 
         dgDeployConfig.MIN_WITHDRAWALS_BATCH_SIZE = 4;
-        dgDeployConfig.MIN_TIEBREAKER_ACTIVATION_TIMEOUT = MIN_TIEBREAKER_ACTIVATION_TIMEOUT;
-        dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT = TIEBREAKER_ACTIVATION_TIMEOUT;
-        dgDeployConfig.MAX_TIEBREAKER_ACTIVATION_TIMEOUT = MAX_TIEBREAKER_ACTIVATION_TIMEOUT;
+        dgDeployConfig.tiebreakerConfig.minActivationTimeout = MIN_TIEBREAKER_ACTIVATION_TIMEOUT;
+        dgDeployConfig.tiebreakerConfig.activationTimeout = TIEBREAKER_ACTIVATION_TIMEOUT;
+        dgDeployConfig.tiebreakerConfig.maxActivationTimeout = MAX_TIEBREAKER_ACTIVATION_TIMEOUT;
         dgDeployConfig.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT;
         dgDeployConfig.FIRST_SEAL_RAGE_QUIT_SUPPORT = PercentsD16.fromBasisPoints(3_00); // 3%
         dgDeployConfig.SECOND_SEAL_RAGE_QUIT_SUPPORT = PercentsD16.fromBasisPoints(15_00); // 15%

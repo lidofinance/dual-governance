@@ -12,6 +12,23 @@ import {PercentD16} from "contracts/types/PercentD16.sol";
 bytes32 constant CHAIN_NAME_MAINNET_HASH = keccak256(bytes("mainnet"));
 bytes32 constant CHAIN_NAME_HOLESKY_HASH = keccak256(bytes("holesky"));
 bytes32 constant CHAIN_NAME_HOLESKY_MOCKS_HASH = keccak256(bytes("holesky-mocks"));
+uint256 constant TIEBREAKER_SUB_COMMITTEES_COUNT = 3;
+
+struct TiebreakerSubCommitteeDeployConfig {
+    address[] members;
+    uint256 quorum;
+}
+
+struct TiebreakerDeployConfig {
+    Duration activationTimeout;
+    Duration minActivationTimeout;
+    Duration maxActivationTimeout;
+    Duration executionDelay;
+    TiebreakerSubCommitteeDeployConfig influencers;
+    TiebreakerSubCommitteeDeployConfig nodeOperators;
+    TiebreakerSubCommitteeDeployConfig protocols;
+    uint256 quorum;
+}
 
 struct DeployConfig {
     Duration MIN_EXECUTION_DELAY;
@@ -25,18 +42,9 @@ struct DeployConfig {
     Duration MAX_EMERGENCY_PROTECTION_DURATION;
     address EMERGENCY_ACTIVATION_COMMITTEE;
     address EMERGENCY_EXECUTION_COMMITTEE;
-    uint256 TIEBREAKER_CORE_QUORUM;
-    Duration TIEBREAKER_EXECUTION_DELAY;
-    uint256 TIEBREAKER_SUB_COMMITTEES_COUNT;
-    address[] TIEBREAKER_SUB_COMMITTEE_1_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_2_MEMBERS;
-    address[] TIEBREAKER_SUB_COMMITTEE_3_MEMBERS;
-    uint256[] TIEBREAKER_SUB_COMMITTEES_QUORUMS;
     address RESEAL_COMMITTEE;
     uint256 MIN_WITHDRAWALS_BATCH_SIZE;
-    Duration MIN_TIEBREAKER_ACTIVATION_TIMEOUT;
-    Duration TIEBREAKER_ACTIVATION_TIMEOUT;
-    Duration MAX_TIEBREAKER_ACTIVATION_TIMEOUT;
+    TiebreakerDeployConfig tiebreakerConfig;
     uint256 MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT;
     PercentD16 FIRST_SEAL_RAGE_QUIT_SUPPORT;
     PercentD16 SECOND_SEAL_RAGE_QUIT_SUPPORT;
@@ -66,20 +74,20 @@ function getSubCommitteeData(
     uint256 index,
     DeployConfig memory dgDeployConfig
 ) pure returns (uint256 quorum, address[] memory members) {
-    assert(index < 3);
+    assert(index < TIEBREAKER_SUB_COMMITTEES_COUNT);
 
     if (index == 0) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[0];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS;
+        quorum = dgDeployConfig.tiebreakerConfig.influencers.quorum;
+        members = dgDeployConfig.tiebreakerConfig.influencers.members;
     }
 
     if (index == 1) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[1];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS;
+        quorum = dgDeployConfig.tiebreakerConfig.nodeOperators.quorum;
+        members = dgDeployConfig.tiebreakerConfig.nodeOperators.members;
     }
 
     if (index == 2) {
-        quorum = dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_QUORUMS[2];
-        members = dgDeployConfig.TIEBREAKER_SUB_COMMITTEE_3_MEMBERS;
+        quorum = dgDeployConfig.tiebreakerConfig.protocols.quorum;
+        members = dgDeployConfig.tiebreakerConfig.protocols.members;
     }
 }

@@ -27,7 +27,7 @@ import {IResealManager} from "contracts/interfaces/IResealManager.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 
 import {DeployedContracts} from "./DeployedContractsSet.sol";
-import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
+import {DeployConfig, LidoContracts, getSubCommitteeData, TIEBREAKER_SUB_COMMITTEES_COUNT} from "./Config.sol";
 
 library DGContractsDeployment {
     function deployDualGovernanceSetup(
@@ -52,7 +52,7 @@ library DGContractsDeployment {
         contracts.tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
             owner: deployer, // temporary set owner to deployer, to add sub committees manually
             dualGovernance: address(dualGovernance),
-            executionDelay: dgDeployConfig.TIEBREAKER_EXECUTION_DELAY
+            executionDelay: dgDeployConfig.tiebreakerConfig.executionDelay
         });
 
         contracts.tiebreakerSubCommittees = deployTiebreakerSubCommittees(
@@ -231,8 +231,8 @@ library DGContractsDeployment {
             }),
             sanityCheckParams: DualGovernance.SanityCheckParams({
                 minWithdrawalsBatchSize: dgDeployConfig.MIN_WITHDRAWALS_BATCH_SIZE,
-                minTiebreakerActivationTimeout: dgDeployConfig.MIN_TIEBREAKER_ACTIVATION_TIMEOUT,
-                maxTiebreakerActivationTimeout: dgDeployConfig.MAX_TIEBREAKER_ACTIVATION_TIMEOUT,
+                minTiebreakerActivationTimeout: dgDeployConfig.tiebreakerConfig.minActivationTimeout,
+                maxTiebreakerActivationTimeout: dgDeployConfig.tiebreakerConfig.maxActivationTimeout,
                 maxSealableWithdrawalBlockersCount: dgDeployConfig.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT,
                 maxMinAssetsLockDuration: dgDeployConfig.MAX_MIN_ASSETS_LOCK_DURATION
             })
@@ -252,10 +252,10 @@ library DGContractsDeployment {
         TiebreakerCoreCommittee tiebreakerCoreCommittee,
         DeployConfig memory dgDeployConfig
     ) internal returns (TiebreakerSubCommittee[] memory tiebreakerSubCommittees) {
-        tiebreakerSubCommittees = new TiebreakerSubCommittee[](dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT);
-        address[] memory coreCommitteeMembers = new address[](dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT);
+        tiebreakerSubCommittees = new TiebreakerSubCommittee[](TIEBREAKER_SUB_COMMITTEES_COUNT);
+        address[] memory coreCommitteeMembers = new address[](TIEBREAKER_SUB_COMMITTEES_COUNT);
 
-        for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
+        for (uint256 i = 0; i < TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
             (uint256 quorum, address[] memory members) = getSubCommitteeData(i, dgDeployConfig);
 
             tiebreakerSubCommittees[i] = deployTiebreakerSubCommittee({
@@ -267,7 +267,7 @@ library DGContractsDeployment {
             coreCommitteeMembers[i] = address(tiebreakerSubCommittees[i]);
         }
 
-        tiebreakerCoreCommittee.addMembers(coreCommitteeMembers, dgDeployConfig.TIEBREAKER_CORE_QUORUM);
+        tiebreakerCoreCommittee.addMembers(coreCommitteeMembers, dgDeployConfig.tiebreakerConfig.quorum);
 
         return tiebreakerSubCommittees;
     }
@@ -307,7 +307,8 @@ library DGContractsDeployment {
             address(contracts.dualGovernance),
             0,
             abi.encodeCall(
-                contracts.dualGovernance.setTiebreakerActivationTimeout, dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT
+                contracts.dualGovernance.setTiebreakerActivationTimeout,
+                dgDeployConfig.tiebreakerConfig.activationTimeout
             )
         );
         contracts.adminExecutor.execute(

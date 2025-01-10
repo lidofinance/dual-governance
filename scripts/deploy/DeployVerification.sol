@@ -16,7 +16,7 @@ import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
 import {State as EscrowState} from "contracts/libraries/EscrowState.sol";
-import {DeployConfig, LidoContracts, getSubCommitteeData} from "./Config.sol";
+import {DeployConfig, LidoContracts, getSubCommitteeData, TIEBREAKER_SUB_COMMITTEES_COUNT} from "./Config.sol";
 import {DeployedContracts} from "./DeployedContractsSet.sol";
 
 library DeployVerification {
@@ -35,7 +35,7 @@ library DeployVerification {
         checkDualGovernance(contracts, dgDeployConfig, lidoAddresses);
         checkTiebreakerCoreCommittee(contracts, dgDeployConfig);
 
-        for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
+        for (uint256 i = 0; i < TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
             checkTiebreakerSubCommittee(contracts, dgDeployConfig, i);
         }
 
@@ -185,12 +185,12 @@ library DeployVerification {
             "Incorrect address for resealCommittee in DualGovernance"
         );
         require(
-            dg.MIN_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.MIN_TIEBREAKER_ACTIVATION_TIMEOUT,
-            "Incorrect parameter MIN_TIEBREAKER_ACTIVATION_TIMEOUT"
+            dg.MIN_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.tiebreakerConfig.minActivationTimeout,
+            "Incorrect parameter TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT"
         );
         require(
-            dg.MAX_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.MAX_TIEBREAKER_ACTIVATION_TIMEOUT,
-            "Incorrect parameter MAX_TIEBREAKER_ACTIVATION_TIMEOUT"
+            dg.MAX_TIEBREAKER_ACTIVATION_TIMEOUT() == dgDeployConfig.tiebreakerConfig.maxActivationTimeout,
+            "Incorrect parameter TIEBREAKER_CONFIG.MAX_ACTIVATION_TIMEOUT"
         );
         require(
             dg.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT() == dgDeployConfig.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT,
@@ -336,8 +336,8 @@ library DeployVerification {
 
         ITiebreaker.TiebreakerDetails memory ts = dg.getTiebreakerDetails();
         require(
-            ts.tiebreakerActivationTimeout == dgDeployConfig.TIEBREAKER_ACTIVATION_TIMEOUT,
-            "Incorrect parameter TIEBREAKER_ACTIVATION_TIMEOUT"
+            ts.tiebreakerActivationTimeout == dgDeployConfig.tiebreakerConfig.activationTimeout,
+            "Incorrect parameter TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT"
         );
         require(
             ts.tiebreakerCommittee == address(contracts.tiebreakerCoreCommittee), "Incorrect tiebreakerCoreCommittee"
@@ -356,17 +356,19 @@ library DeployVerification {
         TiebreakerCoreCommittee tcc = contracts.tiebreakerCoreCommittee;
         require(tcc.owner() == address(contracts.adminExecutor), "TiebreakerCoreCommittee owner != adminExecutor");
         require(
-            tcc.getTimelockDuration() == dgDeployConfig.TIEBREAKER_EXECUTION_DELAY,
-            "Incorrect parameter TIEBREAKER_EXECUTION_DELAY"
+            tcc.getTimelockDuration() == dgDeployConfig.tiebreakerConfig.executionDelay,
+            "Incorrect parameter TIEBREAKER_CONFIG.EXECUTION_DELAY"
         );
 
-        for (uint256 i = 0; i < dgDeployConfig.TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
+        for (uint256 i = 0; i < TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
             require(
                 tcc.isMember(address(contracts.tiebreakerSubCommittees[i])) == true,
                 "Incorrect member of TiebreakerCoreCommittee"
             );
         }
-        require(tcc.getQuorum() == dgDeployConfig.TIEBREAKER_CORE_QUORUM, "Incorrect quorum in TiebreakerCoreCommittee");
+        require(
+            tcc.getQuorum() == dgDeployConfig.tiebreakerConfig.quorum, "Incorrect quorum in TiebreakerCoreCommittee"
+        );
         require(tcc.getProposalsLength() == 0, "Incorrect proposals count in TiebreakerCoreCommittee");
     }
 

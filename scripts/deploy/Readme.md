@@ -37,18 +37,27 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
         "MAX_EMERGENCY_PROTECTION_DURATION": 31536000, // 365 days
         "EMERGENCY_ACTIVATION_COMMITTEE": <address>,
         "EMERGENCY_EXECUTION_COMMITTEE": <address>,
-        "TIEBREAKER_CORE_QUORUM": 1,
-        "TIEBREAKER_SUB_COMMITTEES_COUNT": 2,
-        "TIEBREAKER_EXECUTION_DELAY": 2592000, // 30 days
-        "TIEBREAKER_SUB_COMMITTEE_1_MEMBERS": [addr1,addr2,addr3],
-        "TIEBREAKER_SUB_COMMITTEE_2_MEMBERS": [addr1,addr2,addr3],
-        "TIEBREAKER_SUB_COMMITTEE_3_MEMBERS": [],
-        "TIEBREAKER_SUB_COMMITTEES_QUORUMS": [3,2],
+        "TIEBREAKER_CONFIG": {
+            "EXECUTION_DELAY": 2592000, // 30 days
+            "INFLUENCERS": {
+                "MEMBERS": [<address1>,<address2>,<address3>],
+                "QUORUM": 3
+            },
+            "NODE_OPERATORS": {
+                "MEMBERS": [<address1>,<address2>,<address3>],
+                "QUORUM": 2
+            },
+            "PROTOCOLS": {
+                "MEMBERS": [<address1>,<address2>,<address3>],
+                "QUORUM": 1
+            },
+            "MIN_ACTIVATION_TIMEOUT": 7776000, // 90 days
+            "ACTIVATION_TIMEOUT": 31536000, // 365 days
+            "MAX_ACTIVATION_TIMEOUT": 63072000, // 730 days
+            "QUORUM": 1
+        },
         "RESEAL_COMMITTEE": <address>
         "MIN_WITHDRAWALS_BATCH_SIZE": 4,
-        "MIN_TIEBREAKER_ACTIVATION_TIMEOUT": 7776000, // 90 days
-        "TIEBREAKER_ACTIVATION_TIMEOUT": 31536000, // 365 days
-        "MAX_TIEBREAKER_ACTIVATION_TIMEOUT": 63072000, // 730 days
         "MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT": 255,
         "FIRST_SEAL_RAGE_QUIT_SUPPORT": 300, // 3%
         "SECOND_SEAL_RAGE_QUIT_SUPPORT": 1500, // 15%
@@ -64,7 +73,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
         "RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY": 15552000, // 180 days
         "RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH": 1296000, // 15 days
         "TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER": <address>,
-        "deployedContracts": {}
+        "deployedContracts": {} // If this section is present in the config file, the deployment script will write there the deployed contracts addresses, overwriting all previous content.
     }
     ```
 
@@ -111,11 +120,11 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
     ```
     CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
-    DEPLOYED_ADDRESSES_FILE_NAME=... (in the deploy-config folder, for example: "deployed-addrs.json")
+    DEPLOYED_ADDRESSES_FILE_NAME=... (in the deploy-config folder, for example: "deployed-addrs-<timestamp>.json")
     ONCHAIN_VOTING_CHECK_MODE=false
     ```
 
-2. Create a deployed addresses list JSON file with all the required values (at the location specified in DEPLOYED_ADDRESSES_FILE_NAME):
+2. Create (if it is not created already by the deployment script) a deployed addresses list JSON file with all the required values (at the location specified in DEPLOYED_ADDRESSES_FILE_NAME):
 
     ```
     {

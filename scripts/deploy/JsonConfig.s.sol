@@ -26,9 +26,12 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {
     DeployConfig,
     LidoContracts,
+    TiebreakerDeployConfig,
+    TiebreakerSubCommitteeDeployConfig,
     CHAIN_NAME_MAINNET_HASH,
     CHAIN_NAME_HOLESKY_HASH,
-    CHAIN_NAME_HOLESKY_MOCKS_HASH
+    CHAIN_NAME_HOLESKY_MOCKS_HASH,
+    TIEBREAKER_SUB_COMMITTEES_COUNT
 } from "./Config.sol";
 
 string constant CONFIG_FILES_DIR = "deploy-config";
@@ -47,6 +50,32 @@ contract DGDeployJSONConfigProvider is Script {
     function loadAndValidate() external view returns (DeployConfig memory config) {
         string memory jsonConfig = _loadConfigFile();
 
+        TiebreakerSubCommitteeDeployConfig memory influencersSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
+            members: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_CONFIG.INFLUENCERS.MEMBERS"),
+            quorum: stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.INFLUENCERS.QUORUM")
+        });
+
+        TiebreakerSubCommitteeDeployConfig memory nodeOperatorsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
+            members: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_CONFIG.NODE_OPERATORS.MEMBERS"),
+            quorum: stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.NODE_OPERATORS.QUORUM")
+        });
+
+        TiebreakerSubCommitteeDeployConfig memory protocolsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
+            members: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_CONFIG.PROTOCOLS.MEMBERS"),
+            quorum: stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.PROTOCOLS.QUORUM")
+        });
+
+        TiebreakerDeployConfig memory tiebreakerConfig = TiebreakerDeployConfig({
+            activationTimeout: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT")),
+            minActivationTimeout: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT")),
+            maxActivationTimeout: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.MAX_ACTIVATION_TIMEOUT")),
+            executionDelay: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.EXECUTION_DELAY")),
+            influencers: influencersSubCommitteeConfig,
+            nodeOperators: nodeOperatorsSubCommitteeConfig,
+            protocols: protocolsSubCommitteeConfig,
+            quorum: stdJson.readUint(jsonConfig, ".TIEBREAKER_CONFIG.QUORUM")
+        });
+
         config = DeployConfig({
             MIN_EXECUTION_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".MIN_EXECUTION_DELAY")),
             AFTER_SUBMIT_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".AFTER_SUBMIT_DELAY")),
@@ -61,22 +90,9 @@ contract DGDeployJSONConfigProvider is Script {
             ),
             EMERGENCY_ACTIVATION_COMMITTEE: stdJson.readAddress(jsonConfig, ".EMERGENCY_ACTIVATION_COMMITTEE"),
             EMERGENCY_EXECUTION_COMMITTEE: stdJson.readAddress(jsonConfig, ".EMERGENCY_EXECUTION_COMMITTEE"),
-            TIEBREAKER_CORE_QUORUM: stdJson.readUint(jsonConfig, ".TIEBREAKER_CORE_QUORUM"),
-            TIEBREAKER_EXECUTION_DELAY: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_EXECUTION_DELAY")),
-            TIEBREAKER_SUB_COMMITTEES_COUNT: stdJson.readUint(jsonConfig, ".TIEBREAKER_SUB_COMMITTEES_COUNT"),
-            TIEBREAKER_SUB_COMMITTEE_1_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_1_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_2_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_2_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEE_3_MEMBERS: stdJson.readAddressArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEE_3_MEMBERS"),
-            TIEBREAKER_SUB_COMMITTEES_QUORUMS: stdJson.readUintArray(jsonConfig, ".TIEBREAKER_SUB_COMMITTEES_QUORUMS"),
+            tiebreakerConfig: tiebreakerConfig,
             RESEAL_COMMITTEE: stdJson.readAddress(jsonConfig, ".RESEAL_COMMITTEE"),
             MIN_WITHDRAWALS_BATCH_SIZE: stdJson.readUint(jsonConfig, ".MIN_WITHDRAWALS_BATCH_SIZE"),
-            MIN_TIEBREAKER_ACTIVATION_TIMEOUT: Durations.from(
-                stdJson.readUint(jsonConfig, ".MIN_TIEBREAKER_ACTIVATION_TIMEOUT")
-            ),
-            TIEBREAKER_ACTIVATION_TIMEOUT: Durations.from(stdJson.readUint(jsonConfig, ".TIEBREAKER_ACTIVATION_TIMEOUT")),
-            MAX_TIEBREAKER_ACTIVATION_TIMEOUT: Durations.from(
-                stdJson.readUint(jsonConfig, ".MAX_TIEBREAKER_ACTIVATION_TIMEOUT")
-            ),
             MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: stdJson.readUint(jsonConfig, ".MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"),
             FIRST_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
                 stdJson.readUint(jsonConfig, ".FIRST_SEAL_RAGE_QUIT_SUPPORT")
@@ -157,41 +173,15 @@ contract DGDeployJSONConfigProvider is Script {
     }
 
     function _validateConfig(DeployConfig memory config) internal pure {
-        if (
-            config.TIEBREAKER_CORE_QUORUM == 0 || config.TIEBREAKER_CORE_QUORUM > config.TIEBREAKER_SUB_COMMITTEES_COUNT
-        ) {
-            revert InvalidQuorum("TIEBREAKER_CORE", config.TIEBREAKER_CORE_QUORUM);
+        if (config.tiebreakerConfig.quorum == 0 || config.tiebreakerConfig.quorum > TIEBREAKER_SUB_COMMITTEES_COUNT) {
+            revert InvalidQuorum("TIEBREAKER_CORE", config.tiebreakerConfig.quorum);
         }
 
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 0 || config.TIEBREAKER_SUB_COMMITTEES_COUNT > 3) {
-            revert InvalidParameter("TIEBREAKER_SUB_COMMITTEES_COUNT");
-        }
+        _checkCommitteeQuorum(config.tiebreakerConfig.influencers, "TIEBREAKER_CONFIG.INFLUENCERS");
 
-        if (config.TIEBREAKER_SUB_COMMITTEES_QUORUMS.length != config.TIEBREAKER_SUB_COMMITTEES_COUNT) {
-            revert InvalidParameter("TIEBREAKER_SUB_COMMITTEES_QUORUMS");
-        }
+        _checkCommitteeQuorum(config.tiebreakerConfig.nodeOperators, "TIEBREAKER_CONFIG.NODE_OPERATORS");
 
-        _checkCommitteeQuorum(
-            config.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS,
-            config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[0],
-            "TIEBREAKER_SUB_COMMITTEE_1"
-        );
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 2) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[1],
-                "TIEBREAKER_SUB_COMMITTEE_2"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 3) {
-            _checkCommitteeQuorum(
-                config.TIEBREAKER_SUB_COMMITTEE_3_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[2],
-                "TIEBREAKER_SUB_COMMITTEE_3"
-            );
-        }
+        _checkCommitteeQuorum(config.tiebreakerConfig.protocols, "TIEBREAKER_CONFIG.PROTOCOLS");
 
         if (config.AFTER_SUBMIT_DELAY > config.MAX_AFTER_SUBMIT_DELAY) {
             revert InvalidParameter("AFTER_SUBMIT_DELAY");
@@ -205,12 +195,12 @@ contract DGDeployJSONConfigProvider is Script {
             revert InvalidParameter("EMERGENCY_MODE_DURATION");
         }
 
-        if (config.MIN_TIEBREAKER_ACTIVATION_TIMEOUT > config.TIEBREAKER_ACTIVATION_TIMEOUT) {
-            revert InvalidParameter("MIN_TIEBREAKER_ACTIVATION_TIMEOUT");
+        if (config.tiebreakerConfig.minActivationTimeout > config.tiebreakerConfig.activationTimeout) {
+            revert InvalidParameter("TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT");
         }
 
-        if (config.TIEBREAKER_ACTIVATION_TIMEOUT > config.MAX_TIEBREAKER_ACTIVATION_TIMEOUT) {
-            revert InvalidParameter("TIEBREAKER_ACTIVATION_TIMEOUT");
+        if (config.tiebreakerConfig.activationTimeout > config.tiebreakerConfig.maxActivationTimeout) {
+            revert InvalidParameter("TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT");
         }
 
         if (config.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT == 0) {
@@ -222,9 +212,12 @@ contract DGDeployJSONConfigProvider is Script {
         }
     }
 
-    function _checkCommitteeQuorum(address[] memory committee, uint256 quorum, string memory message) internal pure {
-        if (quorum == 0 || quorum > committee.length) {
-            revert InvalidQuorum(message, quorum);
+    function _checkCommitteeQuorum(
+        TiebreakerSubCommitteeDeployConfig memory committee,
+        string memory message
+    ) internal pure {
+        if (committee.quorum == 0 || committee.quorum > committee.members.length) {
+            revert InvalidQuorum(message, committee.quorum);
         }
     }
 
@@ -235,35 +228,24 @@ contract DGDeployJSONConfigProvider is Script {
         console.log("=================================================");
         console.log("The Tiebreaker committee in the config consists of the following subcommittees:");
 
+        _printCommittee(config.tiebreakerConfig.influencers, "TiebreakerSubCommittee #1 (influencers) members, quorum");
+
         _printCommittee(
-            config.TIEBREAKER_SUB_COMMITTEE_1_MEMBERS,
-            config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[0],
-            "TiebreakerSubCommittee #1 members, quorum"
+            config.tiebreakerConfig.nodeOperators, "TiebreakerSubCommittee #2 (nodeOperators) members, quorum"
         );
 
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT >= 2) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_2_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[1],
-                "TiebreakerSubCommittee #2 members, quorum"
-            );
-        }
-
-        if (config.TIEBREAKER_SUB_COMMITTEES_COUNT == 3) {
-            _printCommittee(
-                config.TIEBREAKER_SUB_COMMITTEE_3_MEMBERS,
-                config.TIEBREAKER_SUB_COMMITTEES_QUORUMS[2],
-                "TiebreakerSubCommittee #3 members, quorum"
-            );
-        }
+        _printCommittee(config.tiebreakerConfig.protocols, "TiebreakerSubCommittee #3 (protocols) members, quorum");
 
         console.log("=================================================");
     }
 
-    function _printCommittee(address[] memory committee, uint256 quorum, string memory message) internal pure {
-        console.log(message, quorum, "of", committee.length);
-        for (uint256 k = 0; k < committee.length; ++k) {
-            console.log(">> #", k, address(committee[k]));
+    function _printCommittee(
+        TiebreakerSubCommitteeDeployConfig memory committee,
+        string memory message
+    ) internal pure {
+        console.log(message, committee.quorum, "of", committee.members.length);
+        for (uint256 k = 0; k < committee.members.length; ++k) {
+            console.log(">> #", k, address(committee.members[k]));
         }
     }
 
