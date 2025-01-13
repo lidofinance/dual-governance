@@ -17,4 +17,4 @@ out/
 /broadcast/**/dry-run/
 .vscode/
 deploy-config/*
-!deploy-config/.gitkeep
+!deploy-config/deploy-config-holesky-testnet.toml

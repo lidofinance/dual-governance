@@ -17,8 +17,8 @@ contract DeployConfigurable is DeployBase {
     string internal _configFileName;
 
     constructor() {
-        _chainName = vm.envString("CHAIN");
-        _configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
+        _chainName = _getChainName();
+        _configFileName = _getConfigFileName();
 
         _configProvider = new DGDeployTOMLConfigProvider(_configFileName);
         _config = _configProvider.loadAndValidate();
@@ -48,12 +48,21 @@ contract DeployConfigurable is DeployBase {
     }
 
     function _saveDeployedAddressesToFile(string memory deployedAddrsJson) internal {
-        string memory addressesFileName = string.concat("deployed-addrs-", Strings.toString(block.timestamp), ".json");
+        string memory addressesFileName =
+            string.concat("deployed-addrs-", _chainName, "-", Strings.toString(block.timestamp), ".json");
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", addressesFileName);
 
         stdJson.write(deployedAddrsJson, path);
 
         console.log("The deployed contracts' addresses are saved to file", path);
+    }
+
+    function _getChainName() internal virtual returns (string memory) {
+        return vm.envString("CHAIN");
+    }
+
+    function _getConfigFileName() internal virtual returns (string memory) {
+        return vm.envString("DEPLOY_CONFIG_FILE_NAME");
     }
 }
