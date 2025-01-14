@@ -136,12 +136,10 @@ library DeployVerification {
     }
 
     function checkEmergencyActivationCommittee(DeployConfig memory dgDeployConfig) internal pure {
-        // TODO: implement!
         require(dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE != address(0), "Incorrect emergencyActivationCommittee");
     }
 
     function checkEmergencyExecutionCommittee(DeployConfig memory dgDeployConfig) internal pure {
-        // TODO: implement!
         require(dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE != address(0), "Incorrect emergencyExecutionCommittee");
     }
 
@@ -391,7 +389,6 @@ library DeployVerification {
     }
 
     function checkResealCommittee(DeployConfig memory dgDeployConfig) internal pure {
-        // TODO: implement!
         require(dgDeployConfig.RESEAL_COMMITTEE != address(0), "Incorrect resealCommittee");
     }
 }

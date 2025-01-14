@@ -67,19 +67,6 @@ library DGContractsDeployment {
         configureDualGovernance(dgDeployConfig, lidoAddresses, contracts);
 
         finalizeEmergencyProtectedTimelockDeploy(contracts.adminExecutor, contracts.timelock, address(dualGovernance));
-
-        // ---
-        // TODO: Use this in voting script
-        // Grant Reseal Manager Roles
-        // ---
-        /* vm.startPrank(address(_lido.agent));
-        _lido.withdrawalQueue.grantRole(
-            0x139c2898040ef16910dc9f44dc697df79363da767d8bc92f2e310312b816e46d, address(resealManager)
-        );
-        _lido.withdrawalQueue.grantRole(
-            0x2fc10cc8ae19568712f7a176fb4978616a610650813c9d05326c34abb62749c7, address(resealManager)
-        );
-        vm.stopPrank(); */
     }
 
     function deployAdminExecutorAndTimelock(

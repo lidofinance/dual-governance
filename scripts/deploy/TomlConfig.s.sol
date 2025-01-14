@@ -77,54 +77,88 @@ contract DGDeployTOMLConfigProvider is Script {
         });
 
         config = DeployConfig({
-            MIN_EXECUTION_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".MIN_EXECUTION_DELAY")),
-            AFTER_SUBMIT_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".AFTER_SUBMIT_DELAY")),
-            MAX_AFTER_SUBMIT_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".MAX_AFTER_SUBMIT_DELAY")),
-            AFTER_SCHEDULE_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".AFTER_SCHEDULE_DELAY")),
-            MAX_AFTER_SCHEDULE_DELAY: Durations.from(stdToml.readUint(tomlConfig, ".MAX_AFTER_SCHEDULE_DELAY")),
-            EMERGENCY_MODE_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".EMERGENCY_MODE_DURATION")),
-            MAX_EMERGENCY_MODE_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".MAX_EMERGENCY_MODE_DURATION")),
-            EMERGENCY_PROTECTION_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTION_DURATION")),
+            // EMERGENCY_PROTECTED_TIMELOCK_CONFIG
+            MIN_EXECUTION_DELAY: Durations.from(
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MIN_EXECUTION_DELAY")
+            ),
+            AFTER_SUBMIT_DELAY: Durations.from(
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.AFTER_SUBMIT_DELAY")
+            ),
+            MAX_AFTER_SUBMIT_DELAY: Durations.from(
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_AFTER_SUBMIT_DELAY")
+            ),
+            AFTER_SCHEDULE_DELAY: Durations.from(
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.AFTER_SCHEDULE_DELAY")
+            ),
+            MAX_AFTER_SCHEDULE_DELAY: Durations.from(
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_AFTER_SCHEDULE_DELAY")
+            ),
+            EMERGENCY_MODE_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_MODE_DURATION")
+            ),
+            MAX_EMERGENCY_MODE_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_MODE_DURATION")
+            ),
+            EMERGENCY_PROTECTION_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_PROTECTION_DURATION")
+            ),
             MAX_EMERGENCY_PROTECTION_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".MAX_EMERGENCY_PROTECTION_DURATION")
-            ),
-            EMERGENCY_ACTIVATION_COMMITTEE: stdToml.readAddress(tomlConfig, ".EMERGENCY_ACTIVATION_COMMITTEE"),
-            EMERGENCY_EXECUTION_COMMITTEE: stdToml.readAddress(tomlConfig, ".EMERGENCY_EXECUTION_COMMITTEE"),
-            tiebreakerConfig: tiebreakerConfig,
-            RESEAL_COMMITTEE: stdToml.readAddress(tomlConfig, ".RESEAL_COMMITTEE"),
-            MIN_WITHDRAWALS_BATCH_SIZE: stdToml.readUint(tomlConfig, ".MIN_WITHDRAWALS_BATCH_SIZE"),
-            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: stdToml.readUint(tomlConfig, ".MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"),
-            FIRST_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
-                stdToml.readUint(tomlConfig, ".FIRST_SEAL_RAGE_QUIT_SUPPORT")
-            ),
-            SECOND_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
-                stdToml.readUint(tomlConfig, ".SECOND_SEAL_RAGE_QUIT_SUPPORT")
-            ),
-            MIN_ASSETS_LOCK_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".MIN_ASSETS_LOCK_DURATION")),
-            MAX_MIN_ASSETS_LOCK_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".MAX_MIN_ASSETS_LOCK_DURATION")),
-            VETO_SIGNALLING_MIN_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".VETO_SIGNALLING_MIN_DURATION")),
-            VETO_SIGNALLING_MAX_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".VETO_SIGNALLING_MAX_DURATION")),
-            VETO_SIGNALLING_MIN_ACTIVE_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".VETO_SIGNALLING_MIN_ACTIVE_DURATION")
-            ),
-            VETO_SIGNALLING_DEACTIVATION_MAX_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".VETO_SIGNALLING_DEACTIVATION_MAX_DURATION")
-            ),
-            VETO_COOLDOWN_DURATION: Durations.from(stdToml.readUint(tomlConfig, ".VETO_COOLDOWN_DURATION")),
-            RAGE_QUIT_EXTENSION_PERIOD_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".RAGE_QUIT_EXTENSION_PERIOD_DURATION")
-            ),
-            RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY")
-            ),
-            RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY")
-            ),
-            RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: Durations.from(
-                stdToml.readUint(tomlConfig, ".RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH")
+                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_PROTECTION_DURATION")
             ),
             TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: stdToml.readAddress(
-                tomlConfig, ".TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
+                tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
+            ),
+            // DUAL_GOVERNANCE_CONFIG
+            EMERGENCY_ACTIVATION_COMMITTEE: stdToml.readAddress(
+                tomlConfig, ".DUAL_GOVERNANCE_CONFIG.EMERGENCY_ACTIVATION_COMMITTEE"
+            ),
+            EMERGENCY_EXECUTION_COMMITTEE: stdToml.readAddress(
+                tomlConfig, ".DUAL_GOVERNANCE_CONFIG.EMERGENCY_EXECUTION_COMMITTEE"
+            ),
+            tiebreakerConfig: tiebreakerConfig,
+            RESEAL_COMMITTEE: stdToml.readAddress(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RESEAL_COMMITTEE"),
+            MIN_WITHDRAWALS_BATCH_SIZE: stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.MIN_WITHDRAWALS_BATCH_SIZE"),
+            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: stdToml.readUint(
+                tomlConfig, ".DUAL_GOVERNANCE_CONFIG.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"
+            ),
+            FIRST_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.FIRST_SEAL_RAGE_QUIT_SUPPORT")
+            ),
+            SECOND_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.SECOND_SEAL_RAGE_QUIT_SUPPORT")
+            ),
+            MIN_ASSETS_LOCK_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.MIN_ASSETS_LOCK_DURATION")
+            ),
+            MAX_MIN_ASSETS_LOCK_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.MAX_MIN_ASSETS_LOCK_DURATION")
+            ),
+            VETO_SIGNALLING_MIN_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MIN_DURATION")
+            ),
+            VETO_SIGNALLING_MAX_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MAX_DURATION")
+            ),
+            VETO_SIGNALLING_MIN_ACTIVE_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MIN_ACTIVE_DURATION")
+            ),
+            VETO_SIGNALLING_DEACTIVATION_MAX_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION")
+            ),
+            VETO_COOLDOWN_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_COOLDOWN_DURATION")
+            ),
+            RAGE_QUIT_EXTENSION_PERIOD_DURATION: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_EXTENSION_PERIOD_DURATION")
+            ),
+            RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY")
+            ),
+            RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY")
+            ),
+            RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: Durations.from(
+                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH")
             )
         });
 
@@ -156,10 +190,12 @@ contract DGDeployTOMLConfigProvider is Script {
 
             return LidoContracts({
                 chainId: 17000,
-                stETH: IStETH(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_ST_ETH")),
-                wstETH: IWstETH(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_WST_ETH")),
-                withdrawalQueue: IWithdrawalQueue(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_WITHDRAWAL_QUEUE")),
-                voting: stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_DAO_VOTING")
+                stETH: IStETH(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_CONTRACTS.ST_ETH")),
+                wstETH: IWstETH(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_CONTRACTS.WST_ETH")),
+                withdrawalQueue: IWithdrawalQueue(
+                    stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_CONTRACTS.WITHDRAWAL_QUEUE")
+                ),
+                voting: stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_CONTRACTS.DAO_VOTING")
             });
         }
 
@@ -259,11 +295,11 @@ contract DGDeployTOMLConfigProvider is Script {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", _configFileName);
 
-        stdToml.write(deployedAddrsJson, path, ".deployedContracts");
+        stdToml.write(deployedAddrsJson, path, ".DEPLOYED_CONTRACTS");
         console.log(
             "The deployed contracts' addresses are written in the _config_ file",
             path,
-            "to the 'deployedContracts' section"
+            "to the 'DEPLOYED_CONTRACTS' section"
         );
     }
 }

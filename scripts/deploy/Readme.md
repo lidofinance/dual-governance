@@ -25,6 +25,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
 3. Create a deploy config TOML file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_NAME):
     ```
+    [EMERGENCY_PROTECTED_TIMELOCK_CONFIG]
     MIN_EXECUTION_DELAY = 0
     AFTER_SUBMIT_DELAY = 259200                           # 3 days
     MAX_AFTER_SUBMIT_DELAY = 3888000                      # 45 days
@@ -34,6 +35,9 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     MAX_EMERGENCY_MODE_DURATION = 31536000                # 365 days
     EMERGENCY_PROTECTION_DURATION = 7776000               # 90 days
     MAX_EMERGENCY_PROTECTION_DURATION = 31536000          # 365 days
+    TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = <address>
+
+    [DUAL_GOVERNANCE_CONFIG]
     EMERGENCY_ACTIVATION_COMMITTEE = <address>
     EMERGENCY_EXECUTION_COMMITTEE = <address>
     RESEAL_COMMITTEE = <address>
@@ -52,7 +56,6 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY = 2592000         # 30 days
     RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY = 15552000        # 180 days
     RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH = 1296000      # 15 days
-    TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = <address>
 
     [TIEBREAKER_CONFIG]
     EXECUTION_DELAY = 2592000         # 30 days
@@ -73,7 +76,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     MEMBERS = [<address1>,<address2>,<address3>]
     QUORUM = 1
 
-    [deployedContracts]
+    [DEPLOYED_CONTRACTS]
     # If this section is present in the config file the deployment script will write here the deployed contracts addresses overwriting all previous content.
     ```
 
@@ -81,10 +84,11 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     
     ```
     ...
-    HOLESKY_MOCK_ST_ETH = <address>
-    HOLESKY_MOCK_WST_ETH = <address>
-    HOLESKY_MOCK_WITHDRAWAL_QUEUE = <address>
-    HOLESKY_MOCK_DAO_VOTING = <address>
+    [HOLESKY_MOCK_CONTRACTS]
+    ST_ETH = <address>
+    WST_ETH = <address>
+    WITHDRAWAL_QUEUE = <address>
+    DAO_VOTING = <address>
     ...
     ```
 
@@ -118,7 +122,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
     ```
     CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
-    DEPLOYED_ADDRESSES_FILE_NAME=... (in the deploy-config folder, for example: "deployed-addrs-<timestamp>.json")
+    DEPLOYED_ADDRESSES_FILE_NAME=... (in the deploy-config folder, for example: "deployed-addrs-<chain_name>-<timestamp>.json")
     ONCHAIN_VOTING_CHECK_MODE=false
     ```
 

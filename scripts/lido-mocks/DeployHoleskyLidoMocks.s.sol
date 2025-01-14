@@ -3,13 +3,12 @@ pragma solidity 0.8.26;
 
 /* solhint-disable no-console */
 
-import {stdJson} from "forge-std/StdJson.sol";
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {StETHMock} from "./StETHMock.sol";
 import {WstETHMock} from "./WstETHMock.sol";
 import {UnsafeWithdrawalQueueMock} from "./UnsafeWithdrawalQueueMock.sol";
-import {SerializedJson, SerializedJsonLib} from "../utils/SerializedJson.sol";
 
 struct DeployedMockContracts {
     address stETH;
@@ -56,20 +55,21 @@ contract DeployHoleskyLidoMocks is Script {
         console.log("StETH address", mockContracts.stETH);
         console.log("WstETH address", mockContracts.wstETH);
         console.log("WithdrawalQueue address", mockContracts.withdrawalQueue);
-        console.log("Copy these lines to your JSON deploy config", _serializeAddresses(mockContracts));
+        console.log("Copy these lines to your TOML deploy config", _serializeAddresses(mockContracts));
     }
 
     function _serializeAddresses(DeployedMockContracts memory mockContracts) internal returns (string memory) {
-        SerializedJson memory addressesJson = SerializedJsonLib.getInstance();
-
-        addressesJson.str =
-            stdJson.serialize(addressesJson.serializationId, "HOLESKY_MOCK_ST_ETH", address(mockContracts.stETH));
-        addressesJson.str =
-            stdJson.serialize(addressesJson.serializationId, "HOLESKY_MOCK_WST_ETH", address(mockContracts.wstETH));
-        addressesJson.str = stdJson.serialize(
-            addressesJson.serializationId, "HOLESKY_MOCK_WITHDRAWAL_QUEUE", address(mockContracts.withdrawalQueue)
+        string memory addressesToml =
+            string.concat("\n[HOLESKY_MOCK_CONTRACTS]\nST_ETH = \"", Strings.toHexString(address(mockContracts.stETH)));
+        addressesToml =
+            string.concat(addressesToml, "\"\nWST_ETH = \"", Strings.toHexString(address(mockContracts.wstETH)));
+        addressesToml = string.concat(
+            addressesToml,
+            "\"\nWITHDRAWAL_QUEUE = \"",
+            Strings.toHexString(address(mockContracts.withdrawalQueue)),
+            "\""
         );
 
-        return addressesJson.str;
+        return addressesToml;
     }
 }
