@@ -6,12 +6,14 @@ pragma solidity 0.8.26;
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console} from "forge-std/console.sol";
-import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "./TomlConfig.s.sol";
+import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "./TomlConfig.sol";
 import {DeployBase} from "./DeployBase.s.sol";
 import {DGContractsSet} from "./DeployedContractsSet.sol";
-import {SerializedJson} from "../utils/SerializedJson.sol";
+import {SerializedJson, SerializedJsonLib} from "../utils/SerializedJson.sol";
 
 contract DeployConfigurable is DeployBase {
+    using SerializedJsonLib for SerializedJson;
+
     DGDeployTOMLConfigProvider internal _configProvider;
     string internal _chainName;
     string internal _configFileName;
@@ -36,15 +38,11 @@ contract DeployConfigurable is DeployBase {
 
     function _serializeDeployedContracts() internal returns (SerializedJson memory addrsJson) {
         addrsJson = DGContractsSet.serialize(_contracts);
-        addrsJson.str = stdJson.serialize(
-            addrsJson.serializationId, "EMERGENCY_ACTIVATION_COMMITTEE", _config.EMERGENCY_ACTIVATION_COMMITTEE
-        );
-        addrsJson.str = stdJson.serialize(
-            addrsJson.serializationId, "EMERGENCY_EXECUTION_COMMITTEE", _config.EMERGENCY_EXECUTION_COMMITTEE
-        );
-        addrsJson.str = stdJson.serialize(addrsJson.serializationId, "RESEAL_COMMITTEE", _config.RESEAL_COMMITTEE);
-        addrsJson.str = stdJson.serialize(addrsJson.serializationId, "chainName", _chainName);
-        addrsJson.str = stdJson.serialize(addrsJson.serializationId, "timestamp", block.timestamp);
+        addrsJson.set("EMERGENCY_ACTIVATION_COMMITTEE", _config.EMERGENCY_ACTIVATION_COMMITTEE);
+        addrsJson.set("EMERGENCY_EXECUTION_COMMITTEE", _config.EMERGENCY_EXECUTION_COMMITTEE);
+        addrsJson.set("RESEAL_COMMITTEE", _config.RESEAL_COMMITTEE);
+        addrsJson.set("chainName", _chainName);
+        addrsJson.set("timestamp", block.timestamp);
     }
 
     function _saveDeployedAddressesToFile(string memory deployedAddrsJson) internal {

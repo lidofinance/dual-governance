@@ -27,7 +27,7 @@ import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
 import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
 
 import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
-import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "../deploy/TomlConfig.s.sol";
+import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "../deploy/TomlConfig.sol";
 import {DeployedContracts, DGContractsSet} from "../deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "../deploy/DeployVerification.sol";
 import {DeployVerifier} from "./DeployVerifier.sol";

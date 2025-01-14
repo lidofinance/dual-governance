@@ -147,5 +147,5 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 3. Run the script (with the local Anvil as an example)
 
     ```
-    forge script scripts/deploy/Verify.s.sol:Verify --fork-url http://localhost:8545 --broadcast
+    forge script scripts/deploy/Verify.s.sol:Verify --fork-url http://localhost:8545
     ```

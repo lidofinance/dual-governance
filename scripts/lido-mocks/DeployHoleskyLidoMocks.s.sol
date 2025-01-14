@@ -50,7 +50,7 @@ contract DeployHoleskyLidoMocks is Script {
         mockContracts.withdrawalQueue = address(withdrawalQueue);
     }
 
-    function _printAddresses(DeployedMockContracts memory mockContracts) internal {
+    function _printAddresses(DeployedMockContracts memory mockContracts) internal pure {
         console.log("Lido mocks deployed successfully");
         console.log("StETH address", mockContracts.stETH);
         console.log("WstETH address", mockContracts.wstETH);
@@ -58,7 +58,7 @@ contract DeployHoleskyLidoMocks is Script {
         console.log("Copy these lines to your TOML deploy config", _serializeAddresses(mockContracts));
     }
 
-    function _serializeAddresses(DeployedMockContracts memory mockContracts) internal returns (string memory) {
+    function _serializeAddresses(DeployedMockContracts memory mockContracts) internal pure returns (string memory) {
         string memory addressesToml =
             string.concat("\n[HOLESKY_MOCK_CONTRACTS]\nST_ETH = \"", Strings.toHexString(address(mockContracts.stETH)));
         addressesToml =
