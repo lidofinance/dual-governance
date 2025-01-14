@@ -3,9 +3,9 @@ pragma solidity 0.8.26;
 
 /* solhint-disable no-console, var-name-mixedcase */
 
-import {Script} from "forge-std/Script.sol";
 import {stdToml} from "forge-std/StdToml.sol";
 import {console} from "forge-std/console.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
@@ -21,8 +21,7 @@ import {
     WITHDRAWAL_QUEUE as HOLESKY_WITHDRAWAL_QUEUE,
     DAO_VOTING as HOLESKY_DAO_VOTING
 } from "addresses/holesky-addresses.sol";
-import {Durations} from "contracts/types/Duration.sol";
-import {PercentsD16} from "contracts/types/PercentD16.sol";
+import {TomlParser} from "../utils/TomlParser.sol";
 import {
     DeployConfig,
     LidoContracts,
@@ -36,7 +35,13 @@ import {
 
 string constant CONFIG_FILES_DIR = "deploy-config";
 
-contract DGDeployTOMLConfigProvider is Script {
+contract DGDeployTOMLConfigProvider {
+    using stdToml for string;
+    using TomlParser for string;
+
+    // solhint-disable-next-line const-name-snakecase
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
     error InvalidQuorum(string committee, uint256 quorum);
     error InvalidParameter(string parameter);
     error InvalidChain(string chainName);
@@ -51,114 +56,94 @@ contract DGDeployTOMLConfigProvider is Script {
         string memory tomlConfig = _loadConfigFile();
 
         TiebreakerSubCommitteeDeployConfig memory influencersSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: stdToml.readAddressArray(tomlConfig, ".TIEBREAKER_CONFIG.INFLUENCERS.MEMBERS"),
-            quorum: stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.INFLUENCERS.QUORUM")
+            members: tomlConfig.readAddressArray(".TIEBREAKER_CONFIG.INFLUENCERS.MEMBERS"),
+            quorum: tomlConfig.readUint(".TIEBREAKER_CONFIG.INFLUENCERS.QUORUM")
         });
 
         TiebreakerSubCommitteeDeployConfig memory nodeOperatorsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: stdToml.readAddressArray(tomlConfig, ".TIEBREAKER_CONFIG.NODE_OPERATORS.MEMBERS"),
-            quorum: stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.NODE_OPERATORS.QUORUM")
+            members: tomlConfig.readAddressArray(".TIEBREAKER_CONFIG.NODE_OPERATORS.MEMBERS"),
+            quorum: tomlConfig.readUint(".TIEBREAKER_CONFIG.NODE_OPERATORS.QUORUM")
         });
 
         TiebreakerSubCommitteeDeployConfig memory protocolsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: stdToml.readAddressArray(tomlConfig, ".TIEBREAKER_CONFIG.PROTOCOLS.MEMBERS"),
-            quorum: stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.PROTOCOLS.QUORUM")
+            members: tomlConfig.readAddressArray(".TIEBREAKER_CONFIG.PROTOCOLS.MEMBERS"),
+            quorum: tomlConfig.readUint(".TIEBREAKER_CONFIG.PROTOCOLS.QUORUM")
         });
 
         TiebreakerDeployConfig memory tiebreakerConfig = TiebreakerDeployConfig({
-            activationTimeout: Durations.from(stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT")),
-            minActivationTimeout: Durations.from(stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT")),
-            maxActivationTimeout: Durations.from(stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.MAX_ACTIVATION_TIMEOUT")),
-            executionDelay: Durations.from(stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.EXECUTION_DELAY")),
+            activationTimeout: tomlConfig.readDuration(".TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT"),
+            minActivationTimeout: tomlConfig.readDuration(".TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT"),
+            maxActivationTimeout: tomlConfig.readDuration(".TIEBREAKER_CONFIG.MAX_ACTIVATION_TIMEOUT"),
+            executionDelay: tomlConfig.readDuration(".TIEBREAKER_CONFIG.EXECUTION_DELAY"),
             influencers: influencersSubCommitteeConfig,
             nodeOperators: nodeOperatorsSubCommitteeConfig,
             protocols: protocolsSubCommitteeConfig,
-            quorum: stdToml.readUint(tomlConfig, ".TIEBREAKER_CONFIG.QUORUM")
+            quorum: tomlConfig.readUint(".TIEBREAKER_CONFIG.QUORUM")
         });
 
         config = DeployConfig({
+            //
             // EMERGENCY_PROTECTED_TIMELOCK_CONFIG
-            MIN_EXECUTION_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MIN_EXECUTION_DELAY")
+            //
+            MIN_EXECUTION_DELAY: tomlConfig.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MIN_EXECUTION_DELAY"),
+            AFTER_SUBMIT_DELAY: tomlConfig.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.AFTER_SUBMIT_DELAY"),
+            MAX_AFTER_SUBMIT_DELAY: tomlConfig.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_AFTER_SUBMIT_DELAY"),
+            AFTER_SCHEDULE_DELAY: tomlConfig.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.AFTER_SCHEDULE_DELAY"),
+            MAX_AFTER_SCHEDULE_DELAY: tomlConfig.readDuration(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_AFTER_SCHEDULE_DELAY"
             ),
-            AFTER_SUBMIT_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.AFTER_SUBMIT_DELAY")
+            EMERGENCY_MODE_DURATION: tomlConfig.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_MODE_DURATION"),
+            MAX_EMERGENCY_MODE_DURATION: tomlConfig.readDuration(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_MODE_DURATION"
             ),
-            MAX_AFTER_SUBMIT_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_AFTER_SUBMIT_DELAY")
+            EMERGENCY_PROTECTION_DURATION: tomlConfig.readDuration(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_PROTECTION_DURATION"
             ),
-            AFTER_SCHEDULE_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.AFTER_SCHEDULE_DELAY")
+            MAX_EMERGENCY_PROTECTION_DURATION: tomlConfig.readDuration(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_PROTECTION_DURATION"
             ),
-            MAX_AFTER_SCHEDULE_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_AFTER_SCHEDULE_DELAY")
+            TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: tomlConfig.readAddress(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
             ),
-            EMERGENCY_MODE_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_MODE_DURATION")
-            ),
-            MAX_EMERGENCY_MODE_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_MODE_DURATION")
-            ),
-            EMERGENCY_PROTECTION_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_PROTECTION_DURATION")
-            ),
-            MAX_EMERGENCY_PROTECTION_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_PROTECTION_DURATION")
-            ),
-            TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: stdToml.readAddress(
-                tomlConfig, ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
-            ),
+            //
             // DUAL_GOVERNANCE_CONFIG
-            EMERGENCY_ACTIVATION_COMMITTEE: stdToml.readAddress(
-                tomlConfig, ".DUAL_GOVERNANCE_CONFIG.EMERGENCY_ACTIVATION_COMMITTEE"
-            ),
-            EMERGENCY_EXECUTION_COMMITTEE: stdToml.readAddress(
-                tomlConfig, ".DUAL_GOVERNANCE_CONFIG.EMERGENCY_EXECUTION_COMMITTEE"
-            ),
+            //
+            EMERGENCY_ACTIVATION_COMMITTEE: tomlConfig.readAddress(".DUAL_GOVERNANCE_CONFIG.EMERGENCY_ACTIVATION_COMMITTEE"),
+            EMERGENCY_EXECUTION_COMMITTEE: tomlConfig.readAddress(".DUAL_GOVERNANCE_CONFIG.EMERGENCY_EXECUTION_COMMITTEE"),
             tiebreakerConfig: tiebreakerConfig,
-            RESEAL_COMMITTEE: stdToml.readAddress(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RESEAL_COMMITTEE"),
-            MIN_WITHDRAWALS_BATCH_SIZE: stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.MIN_WITHDRAWALS_BATCH_SIZE"),
-            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: stdToml.readUint(
-                tomlConfig, ".DUAL_GOVERNANCE_CONFIG.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"
+            RESEAL_COMMITTEE: tomlConfig.readAddress(".DUAL_GOVERNANCE_CONFIG.RESEAL_COMMITTEE"),
+            MIN_WITHDRAWALS_BATCH_SIZE: tomlConfig.readUint(".DUAL_GOVERNANCE_CONFIG.MIN_WITHDRAWALS_BATCH_SIZE"),
+            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: tomlConfig.readUint(
+                ".DUAL_GOVERNANCE_CONFIG.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"
             ),
-            FIRST_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.FIRST_SEAL_RAGE_QUIT_SUPPORT")
+            FIRST_SEAL_RAGE_QUIT_SUPPORT: tomlConfig.readPercentD16BP(
+                ".DUAL_GOVERNANCE_CONFIG.FIRST_SEAL_RAGE_QUIT_SUPPORT"
             ),
-            SECOND_SEAL_RAGE_QUIT_SUPPORT: PercentsD16.fromBasisPoints(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.SECOND_SEAL_RAGE_QUIT_SUPPORT")
+            SECOND_SEAL_RAGE_QUIT_SUPPORT: tomlConfig.readPercentD16BP(
+                ".DUAL_GOVERNANCE_CONFIG.SECOND_SEAL_RAGE_QUIT_SUPPORT"
             ),
-            MIN_ASSETS_LOCK_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.MIN_ASSETS_LOCK_DURATION")
+            MIN_ASSETS_LOCK_DURATION: tomlConfig.readDuration(".DUAL_GOVERNANCE_CONFIG.MIN_ASSETS_LOCK_DURATION"),
+            MAX_MIN_ASSETS_LOCK_DURATION: tomlConfig.readDuration(".DUAL_GOVERNANCE_CONFIG.MAX_MIN_ASSETS_LOCK_DURATION"),
+            VETO_SIGNALLING_MIN_DURATION: tomlConfig.readDuration(".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MIN_DURATION"),
+            VETO_SIGNALLING_MAX_DURATION: tomlConfig.readDuration(".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MAX_DURATION"),
+            VETO_SIGNALLING_MIN_ACTIVE_DURATION: tomlConfig.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MIN_ACTIVE_DURATION"
             ),
-            MAX_MIN_ASSETS_LOCK_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.MAX_MIN_ASSETS_LOCK_DURATION")
+            VETO_SIGNALLING_DEACTIVATION_MAX_DURATION: tomlConfig.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION"
             ),
-            VETO_SIGNALLING_MIN_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MIN_DURATION")
+            VETO_COOLDOWN_DURATION: tomlConfig.readDuration(".DUAL_GOVERNANCE_CONFIG.VETO_COOLDOWN_DURATION"),
+            RAGE_QUIT_EXTENSION_PERIOD_DURATION: tomlConfig.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_EXTENSION_PERIOD_DURATION"
             ),
-            VETO_SIGNALLING_MAX_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MAX_DURATION")
+            RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY: tomlConfig.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY"
             ),
-            VETO_SIGNALLING_MIN_ACTIVE_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MIN_ACTIVE_DURATION")
+            RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY: tomlConfig.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY"
             ),
-            VETO_SIGNALLING_DEACTIVATION_MAX_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION")
-            ),
-            VETO_COOLDOWN_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.VETO_COOLDOWN_DURATION")
-            ),
-            RAGE_QUIT_EXTENSION_PERIOD_DURATION: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_EXTENSION_PERIOD_DURATION")
-            ),
-            RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY")
-            ),
-            RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY")
-            ),
-            RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: Durations.from(
-                stdToml.readUint(tomlConfig, ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH")
+            RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: tomlConfig.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH"
             )
         });
 
@@ -190,12 +175,10 @@ contract DGDeployTOMLConfigProvider is Script {
 
             return LidoContracts({
                 chainId: 17000,
-                stETH: IStETH(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_CONTRACTS.ST_ETH")),
-                wstETH: IWstETH(stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_CONTRACTS.WST_ETH")),
-                withdrawalQueue: IWithdrawalQueue(
-                    stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_CONTRACTS.WITHDRAWAL_QUEUE")
-                ),
-                voting: stdToml.readAddress(tomlConfig, ".HOLESKY_MOCK_CONTRACTS.DAO_VOTING")
+                stETH: IStETH(tomlConfig.readAddress(".HOLESKY_MOCK_CONTRACTS.ST_ETH")),
+                wstETH: IWstETH(tomlConfig.readAddress(".HOLESKY_MOCK_CONTRACTS.WST_ETH")),
+                withdrawalQueue: IWithdrawalQueue(tomlConfig.readAddress(".HOLESKY_MOCK_CONTRACTS.WITHDRAWAL_QUEUE")),
+                voting: tomlConfig.readAddress(".HOLESKY_MOCK_CONTRACTS.DAO_VOTING")
             });
         }
 
