@@ -4,16 +4,25 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console} from "forge-std/console.sol";
+import {DeployConfig, LidoContracts} from "./Config.sol";
 import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "./TomlConfig.sol";
-import {DeployBase} from "./DeployBase.s.sol";
-import {DGContractsSet} from "./DeployedContractsSet.sol";
+import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
+import {DGContractsDeployment} from "./ContractsDeployment.sol";
+import {DeployVerification} from "./DeployVerification.sol";
 import {SerializedJson, SerializedJsonLib} from "../utils/SerializedJson.sol";
 
-contract DeployConfigurable is DeployBase {
+contract DeployConfigurable is Script {
     using SerializedJsonLib for SerializedJson;
 
+    error ChainIdMismatch(uint256 actual, uint256 expected);
+
+    DeployConfig internal _config;
+    LidoContracts internal _lidoAddresses;
+    address internal _deployer;
+    DeployedContracts internal _contracts;
     DGDeployTOMLConfigProvider internal _configProvider;
     string internal _chainName;
     string internal _configFileName;
@@ -27,8 +36,28 @@ contract DeployConfigurable is DeployBase {
         _lidoAddresses = _configProvider.getLidoAddresses(_chainName);
     }
 
-    function run() public override {
-        super.run();
+    function run() public {
+        if (_lidoAddresses.chainId != block.chainid) {
+            revert ChainIdMismatch({actual: block.chainid, expected: _lidoAddresses.chainId});
+        }
+
+        _deployer = msg.sender;
+        vm.label(_deployer, "DEPLOYER");
+
+        vm.startBroadcast();
+
+        _contracts = DGContractsDeployment.deployDualGovernanceSetup(_config, _lidoAddresses, _deployer);
+
+        vm.stopBroadcast();
+
+        console.log("DG deployed successfully");
+        DGContractsSet.print(_contracts);
+
+        console.log("Verifying deploy");
+
+        DeployVerification.verify(_contracts, _config, _lidoAddresses, false);
+
+        console.log(unicode"Verified ✅");
 
         SerializedJson memory addrsJson = _serializeDeployedContracts();
 
