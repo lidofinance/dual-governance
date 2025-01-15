@@ -28,6 +28,7 @@ struct TiebreakerDeployConfig {
     TiebreakerSubCommitteeDeployConfig nodeOperators;
     TiebreakerSubCommitteeDeployConfig protocols;
     uint256 quorum;
+    address[] sealableWithdrawalBlockers;
 }
 
 struct DeployConfig {

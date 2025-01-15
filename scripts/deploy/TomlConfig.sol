@@ -78,7 +78,8 @@ contract DGDeployTOMLConfigProvider {
             influencers: influencersSubCommitteeConfig,
             nodeOperators: nodeOperatorsSubCommitteeConfig,
             protocols: protocolsSubCommitteeConfig,
-            quorum: tomlConfig.readUint(".TIEBREAKER_CONFIG.QUORUM")
+            quorum: tomlConfig.readUint(".TIEBREAKER_CONFIG.QUORUM"),
+            sealableWithdrawalBlockers: tomlConfig.readAddressArray(".TIEBREAKER_CONFIG.SEALABLE_WITHDRAWAL_BLOCKERS")
         });
 
         config = DeployConfig({
@@ -224,6 +225,10 @@ contract DGDeployTOMLConfigProvider {
 
         if (config.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT == 0) {
             revert InvalidParameter("MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT");
+        }
+
+        if (config.tiebreakerConfig.sealableWithdrawalBlockers.length > config.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT) {
+            revert InvalidParameter("TIEBREAKER_CONFIG.SEALABLE_WITHDRAWAL_BLOCKERS");
         }
 
         if (config.VETO_SIGNALLING_MIN_DURATION > config.VETO_SIGNALLING_MAX_DURATION) {

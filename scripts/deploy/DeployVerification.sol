@@ -340,11 +340,17 @@ library DeployVerification {
         require(
             ts.tiebreakerCommittee == address(contracts.tiebreakerCoreCommittee), "Incorrect tiebreakerCoreCommittee"
         );
-        require(ts.sealableWithdrawalBlockers.length == 1, "Incorrect amount of sealableWithdrawalBlockers");
         require(
-            ts.sealableWithdrawalBlockers[0] == address(lidoAddresses.withdrawalQueue),
-            "Lido withdrawalQueue is not set as a sealableWithdrawalBlockers[0]"
+            ts.sealableWithdrawalBlockers.length == dgDeployConfig.tiebreakerConfig.sealableWithdrawalBlockers.length,
+            "Incorrect amount of sealableWithdrawalBlockers"
         );
+
+        for (uint256 i = 0; i < dgDeployConfig.tiebreakerConfig.sealableWithdrawalBlockers.length; ++i) {
+            require(
+                ts.sealableWithdrawalBlockers[i] == dgDeployConfig.tiebreakerConfig.sealableWithdrawalBlockers[i],
+                "Incorrect sealableWithdrawalBlocker"
+            );
+        }
     }
 
     function checkTiebreakerCoreCommittee(

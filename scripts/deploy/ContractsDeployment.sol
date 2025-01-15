@@ -303,13 +303,17 @@ library DGContractsDeployment {
             0,
             abi.encodeCall(contracts.dualGovernance.setTiebreakerCommittee, address(contracts.tiebreakerCoreCommittee))
         );
-        contracts.adminExecutor.execute(
-            address(contracts.dualGovernance),
-            0,
-            abi.encodeCall(
-                contracts.dualGovernance.addTiebreakerSealableWithdrawalBlocker, address(lidoAddresses.withdrawalQueue)
-            )
-        );
+
+        for (uint256 i = 0; i < dgDeployConfig.tiebreakerConfig.sealableWithdrawalBlockers.length; ++i) {
+            contracts.adminExecutor.execute(
+                address(contracts.dualGovernance),
+                0,
+                abi.encodeCall(
+                    contracts.dualGovernance.addTiebreakerSealableWithdrawalBlocker,
+                    dgDeployConfig.tiebreakerConfig.sealableWithdrawalBlockers[i]
+                )
+            );
+        }
         contracts.adminExecutor.execute(
             address(contracts.dualGovernance),
             0,

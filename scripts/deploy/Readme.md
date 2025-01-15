@@ -63,6 +63,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     ACTIVATION_TIMEOUT = 31536000     # 365 days
     MAX_ACTIVATION_TIMEOUT = 63072000 # 730 days
     QUORUM = 1
+    SEALABLE_WITHDRAWAL_BLOCKERS = [<Lido WITHDRAWAL_QUEUE address>, ...]
 
     [TIEBREAKER_CONFIG.INFLUENCERS]
     MEMBERS = [<address1>,<address2>,<address3>]
