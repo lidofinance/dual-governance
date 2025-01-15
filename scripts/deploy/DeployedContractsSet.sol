@@ -21,7 +21,9 @@ struct DeployedContracts {
     ResealManager resealManager;
     DualGovernance dualGovernance;
     TiebreakerCoreCommittee tiebreakerCoreCommittee;
-    TiebreakerSubCommittee[] tiebreakerSubCommittees;
+    TiebreakerSubCommittee tiebreakerSubCommitteeInfluencers;
+    TiebreakerSubCommittee tiebreakerSubCommitteeNodeOperators;
+    TiebreakerSubCommittee tiebreakerSubCommitteeProtocols;
     TimelockedGovernance temporaryEmergencyGovernance;
 }
 
@@ -34,9 +36,13 @@ library DGContractsSet {
         console.log("ResealManager address", address(contracts.resealManager));
         console.log("TiebreakerCoreCommittee address", address(contracts.tiebreakerCoreCommittee));
 
-        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
-            console.log("TiebreakerSubCommittee #", i, "address", address(contracts.tiebreakerSubCommittees[i]));
-        }
+        console.log(
+            "TiebreakerSubCommittee - Influencers address", address(contracts.tiebreakerSubCommitteeInfluencers)
+        );
+        console.log(
+            "TiebreakerSubCommittee - NodeOperators address", address(contracts.tiebreakerSubCommitteeNodeOperators)
+        );
+        console.log("TiebreakerSubCommittee - Protocols address", address(contracts.tiebreakerSubCommitteeProtocols));
 
         console.log("AdminExecutor address", address(contracts.adminExecutor));
         console.log("EmergencyProtectedTimelock address", address(contracts.timelock));
@@ -45,13 +51,6 @@ library DGContractsSet {
     }
 
     function loadFromFile(string memory file) internal pure returns (DeployedContracts memory) {
-        address[] memory tiebreakerSubCommitteesAddresses = file.readAddressArray(".TIEBREAKER_SUB_COMMITTEES");
-        TiebreakerSubCommittee[] memory tiebreakerSubCommittees =
-            new TiebreakerSubCommittee[](tiebreakerSubCommitteesAddresses.length);
-        for (uint256 i = 0; i < tiebreakerSubCommitteesAddresses.length; ++i) {
-            tiebreakerSubCommittees[i] = TiebreakerSubCommittee(tiebreakerSubCommitteesAddresses[i]);
-        }
-
         return DeployedContracts({
             adminExecutor: Executor(payable(file.readAddress(".ADMIN_EXECUTOR"))),
             timelock: IEmergencyProtectedTimelock(file.readAddress(".TIMELOCK")),
@@ -59,18 +58,19 @@ library DGContractsSet {
             resealManager: ResealManager(file.readAddress(".RESEAL_MANAGER")),
             dualGovernance: DualGovernance(file.readAddress(".DUAL_GOVERNANCE")),
             tiebreakerCoreCommittee: TiebreakerCoreCommittee(file.readAddress(".TIEBREAKER_CORE_COMMITTEE")),
-            tiebreakerSubCommittees: tiebreakerSubCommittees,
+            tiebreakerSubCommitteeInfluencers: TiebreakerSubCommittee(
+                file.readAddress(".TIEBREAKER_SUB_COMMITTEE_INFLUENCERS")
+            ),
+            tiebreakerSubCommitteeNodeOperators: TiebreakerSubCommittee(
+                file.readAddress(".TIEBREAKER_SUB_COMMITTEE_NODE_OPERATORS")
+            ),
+            tiebreakerSubCommitteeProtocols: TiebreakerSubCommittee(file.readAddress(".TIEBREAKER_SUB_COMMITTEE_PROTOCOLS")),
             temporaryEmergencyGovernance: TimelockedGovernance(file.readAddress(".TEMPORARY_EMERGENCY_GOVERNANCE"))
         });
     }
 
     function serialize(DeployedContracts memory contracts) internal returns (SerializedJson memory) {
         SerializedJson memory addressesJson = SerializedJsonLib.getInstance();
-        address[] memory tiebreakerSubCommitteesAddresses = new address[](contracts.tiebreakerSubCommittees.length);
-
-        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
-            tiebreakerSubCommitteesAddresses[i] = address(contracts.tiebreakerSubCommittees[i]);
-        }
 
         addressesJson.set("ADMIN_EXECUTOR", address(contracts.adminExecutor));
         addressesJson.set("TIMELOCK", address(contracts.timelock));
@@ -78,7 +78,11 @@ library DGContractsSet {
         addressesJson.set("RESEAL_MANAGER", address(contracts.resealManager));
         addressesJson.set("DUAL_GOVERNANCE", address(contracts.dualGovernance));
         addressesJson.set("TIEBREAKER_CORE_COMMITTEE", address(contracts.tiebreakerCoreCommittee));
-        addressesJson.set("TIEBREAKER_SUB_COMMITTEES", tiebreakerSubCommitteesAddresses);
+        addressesJson.set("TIEBREAKER_SUB_COMMITTEE_INFLUENCERS", address(contracts.tiebreakerSubCommitteeInfluencers));
+        addressesJson.set(
+            "TIEBREAKER_SUB_COMMITTEE_NODE_OPERATORS", address(contracts.tiebreakerSubCommitteeNodeOperators)
+        );
+        addressesJson.set("TIEBREAKER_SUB_COMMITTEE_PROTOCOLS", address(contracts.tiebreakerSubCommitteeProtocols));
         addressesJson.set("TEMPORARY_EMERGENCY_GOVERNANCE", address(contracts.temporaryEmergencyGovernance));
 
         return addressesJson;

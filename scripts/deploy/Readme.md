@@ -140,7 +140,9 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
         "DUAL_GOVERNANCE": <address>,
         "RESEAL_COMMITTEE": <address>,
         "TIEBREAKER_CORE_COMMITTEE": <address>,
-        "TIEBREAKER_SUB_COMMITTEES": [<address>, <address>],
+        "TIEBREAKER_SUB_COMMITTEE_INFLUENCERS": <address>,
+        "TIEBREAKER_SUB_COMMITTEE_NODE_OPERATORS": <address>,
+        "TIEBREAKER_SUB_COMMITTEE_PROTOCOLS": <address>,
         "TEMPORARY_EMERGENCY_GOVERNANCE": <address>
     }
     ```

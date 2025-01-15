@@ -51,11 +51,6 @@ contract DeployHappyPath is ScenarioTestBlueprint {
 
         _verifier = new DeployVerifier(_dgDeployConfig, _lidoAddresses);
 
-        address[] memory tiebreakerSubCommittees = new address[](_contracts.tiebreakerSubCommittees.length);
-        for (uint256 i = 0; i < _contracts.tiebreakerSubCommittees.length; ++i) {
-            tiebreakerSubCommittees[i] = address(_contracts.tiebreakerSubCommittees[i]);
-        }
-
         // Verify deployment
         _verifier.verify(_contracts, false);
 

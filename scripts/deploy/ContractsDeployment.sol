@@ -27,7 +27,7 @@ import {IResealManager} from "contracts/interfaces/IResealManager.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 
 import {DeployedContracts} from "./DeployedContractsSet.sol";
-import {DeployConfig, LidoContracts, getSubCommitteeData, TIEBREAKER_SUB_COMMITTEES_COUNT} from "./Config.sol";
+import {DeployConfig, LidoContracts, TIEBREAKER_SUB_COMMITTEES_COUNT} from "./Config.sol";
 
 library DGContractsDeployment {
     function deployDualGovernanceSetup(
@@ -55,9 +55,13 @@ library DGContractsDeployment {
             executionDelay: dgDeployConfig.tiebreakerConfig.executionDelay
         });
 
-        contracts.tiebreakerSubCommittees = deployTiebreakerSubCommittees(
+        (TiebreakerSubCommittee influencers, TiebreakerSubCommittee nodeOperators, TiebreakerSubCommittee protocols) =
+        deployTiebreakerSubCommittees(
             address(contracts.adminExecutor), contracts.tiebreakerCoreCommittee, dgDeployConfig
         );
+        contracts.tiebreakerSubCommitteeInfluencers = influencers;
+        contracts.tiebreakerSubCommitteeNodeOperators = nodeOperators;
+        contracts.tiebreakerSubCommitteeProtocols = protocols;
 
         contracts.tiebreakerCoreCommittee.transferOwnership(address(contracts.adminExecutor));
 
@@ -238,25 +242,41 @@ library DGContractsDeployment {
         address owner,
         TiebreakerCoreCommittee tiebreakerCoreCommittee,
         DeployConfig memory dgDeployConfig
-    ) internal returns (TiebreakerSubCommittee[] memory tiebreakerSubCommittees) {
-        tiebreakerSubCommittees = new TiebreakerSubCommittee[](TIEBREAKER_SUB_COMMITTEES_COUNT);
+    )
+        internal
+        returns (
+            TiebreakerSubCommittee influencers,
+            TiebreakerSubCommittee nodeOperators,
+            TiebreakerSubCommittee protocols
+        )
+    {
+        influencers = deployTiebreakerSubCommittee({
+            owner: owner,
+            quorum: dgDeployConfig.tiebreakerConfig.influencers.quorum,
+            members: dgDeployConfig.tiebreakerConfig.influencers.members,
+            tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
+        });
+
+        nodeOperators = deployTiebreakerSubCommittee({
+            owner: owner,
+            quorum: dgDeployConfig.tiebreakerConfig.nodeOperators.quorum,
+            members: dgDeployConfig.tiebreakerConfig.nodeOperators.members,
+            tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
+        });
+
+        protocols = deployTiebreakerSubCommittee({
+            owner: owner,
+            quorum: dgDeployConfig.tiebreakerConfig.protocols.quorum,
+            members: dgDeployConfig.tiebreakerConfig.protocols.members,
+            tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
+        });
+
         address[] memory coreCommitteeMembers = new address[](TIEBREAKER_SUB_COMMITTEES_COUNT);
-
-        for (uint256 i = 0; i < TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
-            (uint256 quorum, address[] memory members) = getSubCommitteeData(i, dgDeployConfig);
-
-            tiebreakerSubCommittees[i] = deployTiebreakerSubCommittee({
-                owner: owner,
-                quorum: quorum,
-                members: members,
-                tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
-            });
-            coreCommitteeMembers[i] = address(tiebreakerSubCommittees[i]);
-        }
+        coreCommitteeMembers[0] = address(influencers);
+        coreCommitteeMembers[1] = address(nodeOperators);
+        coreCommitteeMembers[2] = address(protocols);
 
         tiebreakerCoreCommittee.addMembers(coreCommitteeMembers, dgDeployConfig.tiebreakerConfig.quorum);
-
-        return tiebreakerSubCommittees;
     }
 
     function deployTiebreakerSubCommittee(

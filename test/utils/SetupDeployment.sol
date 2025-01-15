@@ -240,11 +240,18 @@ abstract contract SetupDeployment is Test {
         });
         _contracts.tiebreakerCoreCommittee = _tiebreakerCoreCommittee;
 
-        _tiebreakerSubCommittees = DGContractsDeployment.deployTiebreakerSubCommittees(
+        (TiebreakerSubCommittee influencers, TiebreakerSubCommittee nodeOperators, TiebreakerSubCommittee protocols) =
+        DGContractsDeployment.deployTiebreakerSubCommittees(
             address(_adminExecutor), _tiebreakerCoreCommittee, _dgDeployConfig
         );
+        _contracts.tiebreakerSubCommitteeInfluencers = influencers;
+        _contracts.tiebreakerSubCommitteeNodeOperators = nodeOperators;
+        _contracts.tiebreakerSubCommitteeProtocols = protocols;
 
-        _contracts.tiebreakerSubCommittees = _tiebreakerSubCommittees;
+        _tiebreakerSubCommittees = new TiebreakerSubCommittee[](3);
+        _tiebreakerSubCommittees[0] = influencers;
+        _tiebreakerSubCommittees[1] = nodeOperators;
+        _tiebreakerSubCommittees[2] = protocols;
 
         _tiebreakerCoreCommittee.transferOwnership(address(_adminExecutor));
 

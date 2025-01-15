@@ -70,25 +70,3 @@ struct LidoContracts {
     IWithdrawalQueue withdrawalQueue;
     address voting;
 }
-
-function getSubCommitteeData(
-    uint256 index,
-    DeployConfig memory dgDeployConfig
-) pure returns (uint256 quorum, address[] memory members) {
-    assert(index < TIEBREAKER_SUB_COMMITTEES_COUNT);
-
-    if (index == 0) {
-        quorum = dgDeployConfig.tiebreakerConfig.influencers.quorum;
-        members = dgDeployConfig.tiebreakerConfig.influencers.members;
-    }
-
-    if (index == 1) {
-        quorum = dgDeployConfig.tiebreakerConfig.nodeOperators.quorum;
-        members = dgDeployConfig.tiebreakerConfig.nodeOperators.members;
-    }
-
-    if (index == 2) {
-        quorum = dgDeployConfig.tiebreakerConfig.protocols.quorum;
-        members = dgDeployConfig.tiebreakerConfig.protocols.members;
-    }
-}

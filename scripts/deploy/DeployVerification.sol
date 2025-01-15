@@ -16,7 +16,7 @@ import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
 import {State as EscrowState} from "contracts/libraries/EscrowState.sol";
-import {DeployConfig, LidoContracts, getSubCommitteeData, TIEBREAKER_SUB_COMMITTEES_COUNT} from "./Config.sol";
+import {DeployConfig, LidoContracts, TiebreakerSubCommitteeDeployConfig} from "./Config.sol";
 import {DeployedContracts} from "./DeployedContractsSet.sol";
 
 library DeployVerification {
@@ -35,9 +35,15 @@ library DeployVerification {
         checkDualGovernance(contracts, dgDeployConfig, lidoAddresses);
         checkTiebreakerCoreCommittee(contracts, dgDeployConfig);
 
-        for (uint256 i = 0; i < TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
-            checkTiebreakerSubCommittee(contracts, dgDeployConfig, i);
-        }
+        checkTiebreakerSubCommittee(
+            contracts, dgDeployConfig.tiebreakerConfig.influencers, contracts.tiebreakerSubCommitteeInfluencers
+        );
+        checkTiebreakerSubCommittee(
+            contracts, dgDeployConfig.tiebreakerConfig.nodeOperators, contracts.tiebreakerSubCommitteeNodeOperators
+        );
+        checkTiebreakerSubCommittee(
+            contracts, dgDeployConfig.tiebreakerConfig.protocols, contracts.tiebreakerSubCommitteeProtocols
+        );
 
         checkResealCommittee(dgDeployConfig);
     }
@@ -364,12 +370,21 @@ library DeployVerification {
             "Incorrect parameter TIEBREAKER_CONFIG.EXECUTION_DELAY"
         );
 
-        for (uint256 i = 0; i < TIEBREAKER_SUB_COMMITTEES_COUNT; ++i) {
-            require(
-                tcc.isMember(address(contracts.tiebreakerSubCommittees[i])) == true,
-                "Incorrect member of TiebreakerCoreCommittee"
-            );
-        }
+        require(
+            tcc.isMember(address(contracts.tiebreakerSubCommitteeInfluencers)) == true,
+            "Influencers sub committee is not a member of TiebreakerCoreCommittee"
+        );
+
+        require(
+            tcc.isMember(address(contracts.tiebreakerSubCommitteeNodeOperators)) == true,
+            "NodeOperators sub committee is not a member of TiebreakerCoreCommittee"
+        );
+
+        require(
+            tcc.isMember(address(contracts.tiebreakerSubCommitteeProtocols)) == true,
+            "Protocols sub committee is not a member of TiebreakerCoreCommittee"
+        );
+
         require(
             tcc.getQuorum() == dgDeployConfig.tiebreakerConfig.quorum, "Incorrect quorum in TiebreakerCoreCommittee"
         );
@@ -378,19 +393,20 @@ library DeployVerification {
 
     function checkTiebreakerSubCommittee(
         DeployedContracts memory contracts,
-        DeployConfig memory dgDeployConfig,
-        uint256 index
+        TiebreakerSubCommitteeDeployConfig memory dgTiebreakerSubCommitteeDeployConfig,
+        TiebreakerSubCommittee tsc
     ) internal view {
-        TiebreakerSubCommittee tsc = contracts.tiebreakerSubCommittees[index];
         require(tsc.owner() == address(contracts.adminExecutor), "TiebreakerSubCommittee owner != adminExecutor");
         require(tsc.getTimelockDuration() == Durations.from(0), "TiebreakerSubCommittee timelock should be 0");
 
-        (uint256 quorum, address[] memory members) = getSubCommitteeData(index, dgDeployConfig);
+        address[] memory members = dgTiebreakerSubCommitteeDeployConfig.members;
 
         for (uint256 i = 0; i < members.length; ++i) {
             require(tsc.isMember(members[i]) == true, "Incorrect member of TiebreakerSubCommittee");
         }
-        require(tsc.getQuorum() == quorum, "Incorrect quorum in TiebreakerSubCommittee");
+        require(
+            tsc.getQuorum() == dgTiebreakerSubCommitteeDeployConfig.quorum, "Incorrect quorum in TiebreakerSubCommittee"
+        );
         require(tsc.getProposalsLength() == 0, "Incorrect proposals count in TiebreakerSubCommittee");
     }
 
