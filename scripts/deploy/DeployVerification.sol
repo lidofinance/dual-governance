@@ -16,7 +16,7 @@ import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
 import {State as EscrowState} from "contracts/libraries/EscrowState.sol";
-import {DeployConfig, LidoContracts, TiebreakerSubCommitteeDeployConfig} from "./Config.sol";
+import {DeployConfig, LidoContracts, TiebreakerSubCommitteeDeployConfig} from "./config/Config.sol";
 import {DeployedContracts} from "./DeployedContractsSet.sol";
 
 library DeployVerification {

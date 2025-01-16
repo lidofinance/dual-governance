@@ -7,8 +7,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console} from "forge-std/console.sol";
-import {DeployConfig, LidoContracts} from "./Config.sol";
-import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "./TomlConfig.sol";
+import {DeployConfig, LidoContracts} from "./config/Config.sol";
+import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "./config/ConfigProvider.sol";
 import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
 import {DGContractsDeployment} from "./ContractsDeployment.sol";
 import {DeployVerification} from "./DeployVerification.sol";
@@ -23,7 +23,7 @@ contract DeployConfigurable is Script {
     LidoContracts internal _lidoAddresses;
     address internal _deployer;
     DeployedContracts internal _contracts;
-    DGDeployTOMLConfigProvider internal _configProvider;
+    DGDeployConfigProvider internal _configProvider;
     string internal _chainName;
     string internal _configFileName;
 
@@ -31,7 +31,7 @@ contract DeployConfigurable is Script {
         _chainName = _getChainName();
         _configFileName = _getConfigFileName();
 
-        _configProvider = new DGDeployTOMLConfigProvider(_configFileName);
+        _configProvider = new DGDeployConfigProvider(_configFileName, true);
         _config = _configProvider.loadAndValidate();
         _lidoAddresses = _configProvider.getLidoAddresses(_chainName);
     }
@@ -59,24 +59,27 @@ contract DeployConfigurable is Script {
 
         console.log(unicode"Verified ✅");
 
-        SerializedJson memory addrsJson = _serializeDeployedContracts();
-
-        _configProvider.writeDeployedAddressesToConfigFile(addrsJson.str);
-        _saveDeployedAddressesToFile(addrsJson.str);
+        SerializedJson memory deployArtifactJson = SerializedJsonLib.getInstance();
+        deployArtifactJson = _serializeDeployedContracts(deployArtifactJson);
+        deployArtifactJson = _configProvider.serialize(_config, deployArtifactJson);
+        deployArtifactJson = _configProvider.serializeLidoAddresses(_chainName, _lidoAddresses, deployArtifactJson);
+        _saveDeployArtifact(deployArtifactJson.str);
     }
 
-    function _serializeDeployedContracts() internal returns (SerializedJson memory addrsJson) {
-        addrsJson = DGContractsSet.serialize(_contracts);
+    function _serializeDeployedContracts(SerializedJson memory json) internal returns (SerializedJson memory) {
+        SerializedJson memory addrsJson = DGContractsSet.serialize(_contracts);
         addrsJson.set("EMERGENCY_ACTIVATION_COMMITTEE", _config.EMERGENCY_ACTIVATION_COMMITTEE);
         addrsJson.set("EMERGENCY_EXECUTION_COMMITTEE", _config.EMERGENCY_EXECUTION_COMMITTEE);
         addrsJson.set("RESEAL_COMMITTEE", _config.RESEAL_COMMITTEE);
         addrsJson.set("chainName", _chainName);
         addrsJson.set("timestamp", block.timestamp);
+
+        return json.set("DEPLOYED_CONTRACTS", addrsJson.str);
     }
 
-    function _saveDeployedAddressesToFile(string memory deployedAddrsJson) internal {
+    function _saveDeployArtifact(string memory deployedAddrsJson) internal {
         string memory addressesFileName =
-            string.concat("deployed-addrs-", _chainName, "-", Strings.toString(block.timestamp), ".json");
+            string.concat("deploy-artifact-", _chainName, "-", Strings.toString(block.timestamp), ".json");
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", addressesFileName);
 

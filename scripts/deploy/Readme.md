@@ -76,9 +76,6 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     [TIEBREAKER_CONFIG.PROTOCOLS]
     MEMBERS = [<address1>,<address2>,<address3>]
     QUORUM = 1
-
-    [DEPLOYED_CONTRACTS]
-    # If this section is present in the config file the deployment script will write here the deployed contracts addresses overwriting all previous content.
     ```
 
     When using `CHAIN="holesky-mocks"` you will need to provide in addition already deployed mock contracts addresses in the same TOML config file (at DEPLOY_CONFIG_FILE_NAME):
@@ -123,27 +120,31 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
     ```
     CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
-    DEPLOYED_ADDRESSES_FILE_NAME=... (in the deploy-config folder, for example: "deployed-addrs-<chain_name>-<timestamp>.json")
+    DEPLOY_ARTIFACT_FILE_NAME=... (in the deploy-config folder, for example: "deploy-artifact-<chain_name>-<timestamp>.json")
     ONCHAIN_VOTING_CHECK_MODE=false
     ```
 
-2. Create (if it is not created already by the deployment script) a deployed addresses list JSON file with all the required values (at the location specified in DEPLOYED_ADDRESSES_FILE_NAME):
+2. The deployed addresses list JSON file should be produced by the deployment script, and should contain the section "DEPLOYED_CONTRACTS" with all the required values:
 
     ```
     {
-        "ADMIN_EXECUTOR": <address>,
-        "TIMELOCK": <address>,
-        "EMERGENCY_GOVERNANCE": <address>,
-        "EMERGENCY_ACTIVATION_COMMITTEE": <address>,
-        "EMERGENCY_EXECUTION_COMMITTEE": <address>,
-        "RESEAL_MANAGER": <address>,
-        "DUAL_GOVERNANCE": <address>,
-        "RESEAL_COMMITTEE": <address>,
-        "TIEBREAKER_CORE_COMMITTEE": <address>,
-        "TIEBREAKER_SUB_COMMITTEE_INFLUENCERS": <address>,
-        "TIEBREAKER_SUB_COMMITTEE_NODE_OPERATORS": <address>,
-        "TIEBREAKER_SUB_COMMITTEE_PROTOCOLS": <address>,
-        "TEMPORARY_EMERGENCY_GOVERNANCE": <address>
+        "DEPLOYED_CONTRACTS": {
+            "ADMIN_EXECUTOR": <address>,
+            "TIMELOCK": <address>,
+            "EMERGENCY_GOVERNANCE": <address>,
+            "EMERGENCY_ACTIVATION_COMMITTEE": <address>,
+            "EMERGENCY_EXECUTION_COMMITTEE": <address>,
+            "RESEAL_MANAGER": <address>,
+            "DUAL_GOVERNANCE": <address>,
+            "RESEAL_COMMITTEE": <address>,
+            "TIEBREAKER_CORE_COMMITTEE": <address>,
+            "TIEBREAKER_SUB_COMMITTEE_INFLUENCERS": <address>,
+            "TIEBREAKER_SUB_COMMITTEE_NODE_OPERATORS": <address>,
+            "TIEBREAKER_SUB_COMMITTEE_PROTOCOLS": <address>,
+            "TEMPORARY_EMERGENCY_GOVERNANCE": <address>
+        },
+        ...
+        <deployment config values>
     }
     ```
 

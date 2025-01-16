@@ -41,7 +41,7 @@ import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommitte
 
 import {Random} from "./random.sol";
 import {LidoUtils} from "./lido-utils.sol";
-import {DeployConfig, LidoContracts} from "../../scripts/deploy/Config.sol";
+import {DeployConfig, LidoContracts} from "../../scripts/deploy/config/Config.sol";
 import {DeployedContracts} from "../../scripts/deploy/DeployedContractsSet.sol";
 import {DGContractsDeployment} from "../../scripts/deploy/ContractsDeployment.sol";
 

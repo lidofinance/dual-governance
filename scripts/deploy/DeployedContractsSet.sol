@@ -52,20 +52,26 @@ library DGContractsSet {
 
     function loadFromFile(string memory file) internal pure returns (DeployedContracts memory) {
         return DeployedContracts({
-            adminExecutor: Executor(payable(file.readAddress(".ADMIN_EXECUTOR"))),
-            timelock: IEmergencyProtectedTimelock(file.readAddress(".TIMELOCK")),
-            emergencyGovernance: TimelockedGovernance(file.readAddress(".EMERGENCY_GOVERNANCE")),
-            resealManager: ResealManager(file.readAddress(".RESEAL_MANAGER")),
-            dualGovernance: DualGovernance(file.readAddress(".DUAL_GOVERNANCE")),
-            tiebreakerCoreCommittee: TiebreakerCoreCommittee(file.readAddress(".TIEBREAKER_CORE_COMMITTEE")),
+            adminExecutor: Executor(payable(file.readAddress(".DEPLOYED_CONTRACTS.ADMIN_EXECUTOR"))),
+            timelock: IEmergencyProtectedTimelock(file.readAddress(".DEPLOYED_CONTRACTS.TIMELOCK")),
+            emergencyGovernance: TimelockedGovernance(file.readAddress(".DEPLOYED_CONTRACTS.EMERGENCY_GOVERNANCE")),
+            resealManager: ResealManager(file.readAddress(".DEPLOYED_CONTRACTS.RESEAL_MANAGER")),
+            dualGovernance: DualGovernance(file.readAddress(".DEPLOYED_CONTRACTS.DUAL_GOVERNANCE")),
+            tiebreakerCoreCommittee: TiebreakerCoreCommittee(
+                file.readAddress(".DEPLOYED_CONTRACTS.TIEBREAKER_CORE_COMMITTEE")
+            ),
             tiebreakerSubCommitteeInfluencers: TiebreakerSubCommittee(
-                file.readAddress(".TIEBREAKER_SUB_COMMITTEE_INFLUENCERS")
+                file.readAddress(".DEPLOYED_CONTRACTS.TIEBREAKER_SUB_COMMITTEE_INFLUENCERS")
             ),
             tiebreakerSubCommitteeNodeOperators: TiebreakerSubCommittee(
-                file.readAddress(".TIEBREAKER_SUB_COMMITTEE_NODE_OPERATORS")
+                file.readAddress(".DEPLOYED_CONTRACTS.TIEBREAKER_SUB_COMMITTEE_NODE_OPERATORS")
             ),
-            tiebreakerSubCommitteeProtocols: TiebreakerSubCommittee(file.readAddress(".TIEBREAKER_SUB_COMMITTEE_PROTOCOLS")),
-            temporaryEmergencyGovernance: TimelockedGovernance(file.readAddress(".TEMPORARY_EMERGENCY_GOVERNANCE"))
+            tiebreakerSubCommitteeProtocols: TiebreakerSubCommittee(
+                file.readAddress(".DEPLOYED_CONTRACTS.TIEBREAKER_SUB_COMMITTEE_PROTOCOLS")
+            ),
+            temporaryEmergencyGovernance: TimelockedGovernance(
+                file.readAddress(".DEPLOYED_CONTRACTS.TEMPORARY_EMERGENCY_GOVERNANCE")
+            )
         });
     }
 

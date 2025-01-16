@@ -26,8 +26,8 @@ import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
 
 import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
 
-import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
-import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "../deploy/TomlConfig.sol";
+import {DeployConfig, LidoContracts} from "../deploy/config/Config.sol";
+import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "../deploy/config/ConfigProvider.sol";
 import {DeployedContracts, DGContractsSet} from "../deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "../deploy/DeployVerification.sol";
 import {DeployVerifier} from "./DeployVerifier.sol";
@@ -40,22 +40,20 @@ contract DeployScriptBase is Script {
     LidoContracts internal _lidoAddresses;
     DeployedContracts internal _dgContracts;
     string internal _chainName;
-    string internal _configFileName;
-    string internal _deployedAddressesFileName;
+    string internal _deployArtifactFileName;
     DeployVerifier internal _deployVerifier;
 
     function _loadEnv() internal {
         _chainName = vm.envString("CHAIN");
-        _configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
-        _deployedAddressesFileName = vm.envString("DEPLOYED_ADDRESSES_FILE_NAME");
+        _deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
 
-        DGDeployTOMLConfigProvider configProvider = new DGDeployTOMLConfigProvider(_configFileName);
+        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(_deployArtifactFileName, false);
 
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(_chainName);
-        _dgContracts = DGContractsSet.loadFromFile(_loadDeployedAddressesFile(_deployedAddressesFileName));
+        _dgContracts = DGContractsSet.loadFromFile(_loadDeployedAddressesFile(_deployArtifactFileName));
 
-        console.log("Using the following DG contracts addresses (from file", _deployedAddressesFileName, "):");
+        console.log("Using the following DG contracts addresses (from file", _deployArtifactFileName, "):");
         console.log("=====================================");
         DGContractsSet.print(_dgContracts);
         console.log("=====================================");

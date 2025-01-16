@@ -6,8 +6,8 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {DeployConfig, LidoContracts} from "./Config.sol";
-import {CONFIG_FILES_DIR, DGDeployTOMLConfigProvider} from "./TomlConfig.sol";
+import {DeployConfig, LidoContracts} from "./config/Config.sol";
+import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "./config/ConfigProvider.sol";
 import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
 import {DeployVerification} from "./DeployVerification.sol";
 
@@ -17,18 +17,17 @@ contract Verify is Script {
 
     function run() external {
         string memory chainName = vm.envString("CHAIN");
-        string memory configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
-        string memory deployedAddressesFileName = vm.envString("DEPLOYED_ADDRESSES_FILE_NAME");
+        string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
         bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
-        DGDeployTOMLConfigProvider configProvider = new DGDeployTOMLConfigProvider(configFileName);
+        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(deployArtifactFileName, false);
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(chainName);
 
         DeployedContracts memory contracts =
-            DGContractsSet.loadFromFile(_loadDeployedAddressesFile(deployedAddressesFileName));
+            DGContractsSet.loadFromFile(_loadDeployArtifactFile(deployArtifactFileName));
 
-        console.log("Using the following DG contracts addresses (from file", deployedAddressesFileName, "):");
+        console.log("Using the following DG contracts addresses (from file", deployArtifactFileName, "):");
         DGContractsSet.print(contracts);
 
         console.log("Verifying deploy");
@@ -38,13 +37,13 @@ contract Verify is Script {
         console.log(unicode"Verified ✅");
     }
 
-    function _loadDeployedAddressesFile(string memory deployedAddressesFileName)
+    function _loadDeployArtifactFile(string memory deployArtifactFileName)
         internal
         view
         returns (string memory deployedAddressesJson)
     {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", deployedAddressesFileName);
+        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", deployArtifactFileName);
         deployedAddressesJson = vm.readFile(path);
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
-import {DeployConfig, LidoContracts} from "scripts/deploy/Config.sol";
+import {DeployConfig, LidoContracts} from "scripts/deploy/config/Config.sol";
 import {DeployedContracts} from "scripts/deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "scripts/deploy/DeployVerification.sol";
 import {DeployVerifier} from "scripts/launch/DeployVerifier.sol";

@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {DeployedContracts} from "../deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "../deploy/DeployVerification.sol";
-import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
+import {DeployConfig, LidoContracts} from "../deploy/config/Config.sol";
 
 contract DeployVerifier {
     event Verified();

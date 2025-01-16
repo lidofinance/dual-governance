@@ -27,7 +27,7 @@ import {IResealManager} from "contracts/interfaces/IResealManager.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 
 import {DeployedContracts} from "./DeployedContractsSet.sol";
-import {DeployConfig, LidoContracts, TIEBREAKER_SUB_COMMITTEES_COUNT} from "./Config.sol";
+import {DeployConfig, LidoContracts, TIEBREAKER_SUB_COMMITTEES_COUNT} from "./config/Config.sol";
 
 library DGContractsDeployment {
     function deployDualGovernanceSetup(
