@@ -18,3 +18,10 @@ out/
 .vscode/
 deploy-config/*
 !deploy-config/deploy-config-holesky-testnet.toml
+
+# dev/testnet deployment on Jan 16 2025
+!deploy-config/deploy-config-holesky-mocks-1737023280.toml
+!deploy-config/deploy-artifact-holesky-mocks-1737023280.json
+!deploy-config/broadcast-DeployHoleskyLidoMocks-17000-run-1737023028.json
+!deploy-config/broadcast-DeployConfigurable-17000-run-1737023568.json
+!deploy-config/broadcast-DeployDeployVerifier-17000-run-1737024357.json
