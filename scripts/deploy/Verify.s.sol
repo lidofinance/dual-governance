@@ -20,7 +20,7 @@ contract Verify is Script {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
         bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
-        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(deployArtifactFileName, false);
+        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(deployArtifactFileName);
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(chainName);
 

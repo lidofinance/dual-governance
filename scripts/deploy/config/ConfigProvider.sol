@@ -24,18 +24,19 @@ import {SerializedJson, SerializedJsonLib} from "../../utils/SerializedJson.sol"
 import {
     DeployConfig,
     LidoContracts,
+    TiebreakerDeployConfig,
     TiebreakerSubCommitteeDeployConfig,
     CHAIN_NAME_MAINNET_HASH,
     CHAIN_NAME_HOLESKY_HASH,
     CHAIN_NAME_HOLESKY_MOCKS_HASH,
     TIEBREAKER_SUB_COMMITTEES_COUNT
 } from "./Config.sol";
-import {JsonDeployConfigParser} from "./JsonConfigParser.sol";
-import {TomlDeployConfigParser} from "./TomlConfigParser.sol";
+import {ConfigFileReader} from "./ConfigFileReader.sol";
 
 string constant CONFIG_FILES_DIR = "deploy-config";
 
 contract DGDeployConfigProvider {
+    using ConfigFileReader for ConfigFileReader.Context;
     using SerializedJsonLib for SerializedJson;
 
     // solhint-disable-next-line const-name-snakecase
@@ -45,24 +46,22 @@ contract DGDeployConfigProvider {
     error InvalidParameter(string parameter);
     error InvalidChain(string chainName);
 
-    bool private _configFileFormatIsToml;
     string private _configFileName;
 
-    constructor(string memory configFileName, bool configFileFormatIsToml) {
+    constructor(string memory configFileName) {
         _configFileName = configFileName;
-        _configFileFormatIsToml = configFileFormatIsToml;
     }
 
-    function loadAndValidate() external returns (DeployConfig memory config) {
-        string memory configFile = _loadConfigFile();
+    function loadAndValidate() external view returns (DeployConfig memory config) {
+        ConfigFileReader.Context memory configFile = _loadConfigFile();
 
         config = _parse(configFile);
 
         _validateConfig(config);
-        _printConfigAndCommittees(config, configFile);
+        _printConfigAndCommittees(config, configFile.content);
     }
 
-    function getLidoAddresses(string memory chainName) external returns (LidoContracts memory) {
+    function getLidoAddresses(string memory chainName) external view returns (LidoContracts memory) {
         bytes32 chainNameHash = keccak256(bytes(chainName));
         if (
             chainNameHash != CHAIN_NAME_MAINNET_HASH && chainNameHash != CHAIN_NAME_HOLESKY_HASH
@@ -82,7 +81,7 @@ contract DGDeployConfigProvider {
         }
 
         if (keccak256(bytes(chainName)) == CHAIN_NAME_HOLESKY_MOCKS_HASH) {
-            string memory configFile = _loadConfigFile();
+            ConfigFileReader.Context memory configFile = _loadConfigFile();
 
             return _getHoleskyMockLidoAddresses(configFile);
         }
@@ -96,24 +95,113 @@ contract DGDeployConfigProvider {
         });
     }
 
-    function _parse(string memory configFile) internal returns (DeployConfig memory) {
-        if (_configFileFormatIsToml) {
-            TomlDeployConfigParser parser = new TomlDeployConfigParser();
-            return parser.parse(configFile);
-        } else {
-            JsonDeployConfigParser parser = new JsonDeployConfigParser();
-            return parser.parse(configFile);
-        }
+    function _parse(ConfigFileReader.Context memory configFile) internal pure returns (DeployConfig memory config) {
+        TiebreakerSubCommitteeDeployConfig memory influencersSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
+            members: configFile.readAddressArray(".TIEBREAKER_CONFIG.INFLUENCERS.MEMBERS"),
+            quorum: configFile.readUint(".TIEBREAKER_CONFIG.INFLUENCERS.QUORUM")
+        });
+
+        TiebreakerSubCommitteeDeployConfig memory nodeOperatorsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
+            members: configFile.readAddressArray(".TIEBREAKER_CONFIG.NODE_OPERATORS.MEMBERS"),
+            quorum: configFile.readUint(".TIEBREAKER_CONFIG.NODE_OPERATORS.QUORUM")
+        });
+
+        TiebreakerSubCommitteeDeployConfig memory protocolsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
+            members: configFile.readAddressArray(".TIEBREAKER_CONFIG.PROTOCOLS.MEMBERS"),
+            quorum: configFile.readUint(".TIEBREAKER_CONFIG.PROTOCOLS.QUORUM")
+        });
+
+        TiebreakerDeployConfig memory tiebreakerConfig = TiebreakerDeployConfig({
+            activationTimeout: configFile.readDuration(".TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT"),
+            minActivationTimeout: configFile.readDuration(".TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT"),
+            maxActivationTimeout: configFile.readDuration(".TIEBREAKER_CONFIG.MAX_ACTIVATION_TIMEOUT"),
+            executionDelay: configFile.readDuration(".TIEBREAKER_CONFIG.EXECUTION_DELAY"),
+            influencers: influencersSubCommitteeConfig,
+            nodeOperators: nodeOperatorsSubCommitteeConfig,
+            protocols: protocolsSubCommitteeConfig,
+            quorum: configFile.readUint(".TIEBREAKER_CONFIG.QUORUM"),
+            sealableWithdrawalBlockers: configFile.readAddressArray(".TIEBREAKER_CONFIG.SEALABLE_WITHDRAWAL_BLOCKERS")
+        });
+
+        config = DeployConfig({
+            //
+            // EMERGENCY_PROTECTED_TIMELOCK_CONFIG
+            //
+            MIN_EXECUTION_DELAY: configFile.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MIN_EXECUTION_DELAY"),
+            AFTER_SUBMIT_DELAY: configFile.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.AFTER_SUBMIT_DELAY"),
+            MAX_AFTER_SUBMIT_DELAY: configFile.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_AFTER_SUBMIT_DELAY"),
+            AFTER_SCHEDULE_DELAY: configFile.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.AFTER_SCHEDULE_DELAY"),
+            MAX_AFTER_SCHEDULE_DELAY: configFile.readDuration(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_AFTER_SCHEDULE_DELAY"
+            ),
+            EMERGENCY_MODE_DURATION: configFile.readDuration(".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_MODE_DURATION"),
+            MAX_EMERGENCY_MODE_DURATION: configFile.readDuration(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_MODE_DURATION"
+            ),
+            EMERGENCY_PROTECTION_DURATION: configFile.readDuration(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_PROTECTION_DURATION"
+            ),
+            MAX_EMERGENCY_PROTECTION_DURATION: configFile.readDuration(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_PROTECTION_DURATION"
+            ),
+            TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: configFile.readAddress(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
+            ),
+            //
+            // DUAL_GOVERNANCE_CONFIG
+            //
+            EMERGENCY_ACTIVATION_COMMITTEE: configFile.readAddress(".DUAL_GOVERNANCE_CONFIG.EMERGENCY_ACTIVATION_COMMITTEE"),
+            EMERGENCY_EXECUTION_COMMITTEE: configFile.readAddress(".DUAL_GOVERNANCE_CONFIG.EMERGENCY_EXECUTION_COMMITTEE"),
+            tiebreakerConfig: tiebreakerConfig,
+            RESEAL_COMMITTEE: configFile.readAddress(".DUAL_GOVERNANCE_CONFIG.RESEAL_COMMITTEE"),
+            MIN_WITHDRAWALS_BATCH_SIZE: configFile.readUint(".DUAL_GOVERNANCE_CONFIG.MIN_WITHDRAWALS_BATCH_SIZE"),
+            MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT: configFile.readUint(
+                ".DUAL_GOVERNANCE_CONFIG.MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT"
+            ),
+            FIRST_SEAL_RAGE_QUIT_SUPPORT: configFile.readPercentD16BP(
+                ".DUAL_GOVERNANCE_CONFIG.FIRST_SEAL_RAGE_QUIT_SUPPORT"
+            ),
+            SECOND_SEAL_RAGE_QUIT_SUPPORT: configFile.readPercentD16BP(
+                ".DUAL_GOVERNANCE_CONFIG.SECOND_SEAL_RAGE_QUIT_SUPPORT"
+            ),
+            MIN_ASSETS_LOCK_DURATION: configFile.readDuration(".DUAL_GOVERNANCE_CONFIG.MIN_ASSETS_LOCK_DURATION"),
+            MAX_MIN_ASSETS_LOCK_DURATION: configFile.readDuration(".DUAL_GOVERNANCE_CONFIG.MAX_MIN_ASSETS_LOCK_DURATION"),
+            VETO_SIGNALLING_MIN_DURATION: configFile.readDuration(".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MIN_DURATION"),
+            VETO_SIGNALLING_MAX_DURATION: configFile.readDuration(".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MAX_DURATION"),
+            VETO_SIGNALLING_MIN_ACTIVE_DURATION: configFile.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_MIN_ACTIVE_DURATION"
+            ),
+            VETO_SIGNALLING_DEACTIVATION_MAX_DURATION: configFile.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION"
+            ),
+            VETO_COOLDOWN_DURATION: configFile.readDuration(".DUAL_GOVERNANCE_CONFIG.VETO_COOLDOWN_DURATION"),
+            RAGE_QUIT_EXTENSION_PERIOD_DURATION: configFile.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_EXTENSION_PERIOD_DURATION"
+            ),
+            RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY: configFile.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY"
+            ),
+            RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY: configFile.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY"
+            ),
+            RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: configFile.readDuration(
+                ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH"
+            )
+        });
     }
 
-    function _getHoleskyMockLidoAddresses(string memory configFile) internal returns (LidoContracts memory) {
-        if (_configFileFormatIsToml) {
-            TomlDeployConfigParser parser = new TomlDeployConfigParser();
-            return parser.getHoleskyMockLidoAddresses(configFile);
-        } else {
-            JsonDeployConfigParser parser = new JsonDeployConfigParser();
-            return parser.getHoleskyMockLidoAddresses(configFile);
-        }
+    function _getHoleskyMockLidoAddresses(ConfigFileReader.Context memory configFile)
+        internal
+        pure
+        returns (LidoContracts memory)
+    {
+        return LidoContracts({
+            chainId: 17000,
+            stETH: IStETH(configFile.readAddress(".HOLESKY_MOCK_CONTRACTS.ST_ETH")),
+            wstETH: IWstETH(configFile.readAddress(".HOLESKY_MOCK_CONTRACTS.WST_ETH")),
+            withdrawalQueue: IWithdrawalQueue(configFile.readAddress(".HOLESKY_MOCK_CONTRACTS.WITHDRAWAL_QUEUE")),
+            voting: configFile.readAddress(".HOLESKY_MOCK_CONTRACTS.DAO_VOTING")
+        });
     }
 
     function _validateConfig(DeployConfig memory config) internal pure {
@@ -197,10 +285,10 @@ contract DGDeployConfigProvider {
         }
     }
 
-    function _loadConfigFile() internal view returns (string memory configFile) {
+    function _loadConfigFile() internal view returns (ConfigFileReader.Context memory configFile) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", _configFileName);
-        configFile = vm.readFile(path);
+        configFile = ConfigFileReader.load(path);
     }
 
     function serialize(

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+/* solhint-disable custom-errors, reason-string */
+
 import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {Executor} from "contracts/Executor.sol";
