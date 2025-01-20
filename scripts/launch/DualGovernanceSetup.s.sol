@@ -4,7 +4,6 @@
 pragma solidity 0.8.26;
 
 import {DeployScriptBase} from "./DeployScriptBase.sol";
-import {DGDeployJSONConfigProvider} from "../deploy/JsonConfig.s.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
@@ -23,21 +22,21 @@ contract DualGovernanceSetup is DeployScriptBase {
         calls = ExternalCallHelpers.create(
             [
                 ExternalCall({
-                    target: _dgContracts.timelock,
+                    target: address(_dgContracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        IEmergencyProtectedTimelock.setGovernance.selector, _dgContracts.dualGovernance
+                        IEmergencyProtectedTimelock.setGovernance.selector, address(_dgContracts.dualGovernance)
                     )
                 }),
                 ExternalCall({
-                    target: _dgContracts.timelock,
+                    target: address(_dgContracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        IEmergencyProtectedTimelock.setEmergencyGovernance.selector, _dgContracts.emergencyGovernance
+                        IEmergencyProtectedTimelock.setEmergencyGovernance.selector, address(_dgContracts.emergencyGovernance)
                     )
                 }),
                 ExternalCall({
-                    target: _dgContracts.timelock,
+                    target: address(_dgContracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
                         IEmergencyProtectedTimelock.setEmergencyProtectionActivationCommittee.selector,
@@ -45,7 +44,7 @@ contract DualGovernanceSetup is DeployScriptBase {
                     )
                 }),
                 ExternalCall({
-                    target: _dgContracts.timelock,
+                    target: address(_dgContracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
                         IEmergencyProtectedTimelock.setEmergencyProtectionExecutionCommittee.selector,
@@ -53,14 +52,14 @@ contract DualGovernanceSetup is DeployScriptBase {
                     )
                 }),
                 ExternalCall({
-                    target: _dgContracts.timelock,
+                    target: address(_dgContracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
                         IEmergencyProtectedTimelock.setEmergencyProtectionEndDate.selector, emergencyProtectionEndsAfter
                     )
                 }),
                 ExternalCall({
-                    target: _dgContracts.timelock,
+                    target: address(_dgContracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
                         IEmergencyProtectedTimelock.setEmergencyModeDuration.selector, _config.EMERGENCY_MODE_DURATION

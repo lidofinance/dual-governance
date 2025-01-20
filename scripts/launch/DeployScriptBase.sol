@@ -26,8 +26,9 @@ import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
 
 import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
 
-import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
-import {DGDeployJSONConfigProvider} from "../deploy/JsonConfig.s.sol";
+import {DeployConfig, LidoContracts} from "../deploy/config/Config.sol";
+import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "../deploy/config/ConfigProvider.sol";
+import {DeployedContracts, DGContractsSet} from "../deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "../deploy/DeployVerification.sol";
 import {DeployVerifier} from "./DeployVerifier.sol";
 
@@ -35,30 +36,26 @@ import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 
 contract DeployScriptBase is Script {
-    using DeployVerification for DeployVerification.DeployedAddresses;
-
     DeployConfig internal _config;
     LidoContracts internal _lidoAddresses;
-    DeployVerification.DeployedAddresses internal _dgContracts;
+    DeployedContracts internal _dgContracts;
     string internal _chainName;
-    string internal _configFilePath;
-    string internal _deployedAddressesFilePath;
+    string internal _deployArtifactFileName;
     DeployVerifier internal _deployVerifier;
 
     function _loadEnv() internal {
         _chainName = vm.envString("CHAIN");
-        _configFilePath = vm.envString("DEPLOY_CONFIG_FILE_PATH");
-        _deployedAddressesFilePath = vm.envString("DEPLOYED_ADDRESSES_FILE_PATH");
+        _deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
 
-        DGDeployJSONConfigProvider configProvider = new DGDeployJSONConfigProvider(_configFilePath);
+        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(_deployArtifactFileName);
 
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(_chainName);
-        _dgContracts = _loadDeployedAddresses(_deployedAddressesFilePath);
+        _dgContracts = DGContractsSet.loadFromFile(_loadDeployedAddressesFile(_deployArtifactFileName));
 
-        console.log("Deployed DG contracts");
+        console.log("Using the following DG contracts addresses (from file", _deployArtifactFileName, "):");
         console.log("=====================================");
-        _printAddresses(_dgContracts);
+        DGContractsSet.print(_dgContracts);
         console.log("=====================================");
 
         _deployVerifier = new DeployVerifier(_config, _lidoAddresses);
@@ -88,48 +85,13 @@ contract DeployScriptBase is Script {
         return string(str);
     }
 
-    function _loadDeployedAddresses(string memory deployedAddressesFilePath)
-        internal
-        view
-        returns (DeployVerification.DeployedAddresses memory)
-    {
-        string memory deployedAddressesJson = _loadDeployedAddressesFile(deployedAddressesFilePath);
-
-        return DeployVerification.DeployedAddresses({
-            adminExecutor: payable(stdJson.readAddress(deployedAddressesJson, ".ADMIN_EXECUTOR")),
-            timelock: stdJson.readAddress(deployedAddressesJson, ".TIMELOCK"),
-            emergencyGovernance: stdJson.readAddress(deployedAddressesJson, ".EMERGENCY_GOVERNANCE"),
-            resealManager: stdJson.readAddress(deployedAddressesJson, ".RESEAL_MANAGER"),
-            dualGovernance: stdJson.readAddress(deployedAddressesJson, ".DUAL_GOVERNANCE"),
-            tiebreakerCoreCommittee: stdJson.readAddress(deployedAddressesJson, ".TIEBREAKER_CORE_COMMITTEE"),
-            tiebreakerSubCommittees: stdJson.readAddressArray(deployedAddressesJson, ".TIEBREAKER_SUB_COMMITTEES"),
-            temporaryEmergencyGovernance: stdJson.readAddress(deployedAddressesJson, ".TEMPORARY_EMERGENCY_GOVERNANCE")
-        });
-    }
-
-    function _printAddresses(DeployVerification.DeployedAddresses memory res) internal pure {
-        console.log("Using the following DG contracts addresses");
-        console.log("DualGovernance address", res.dualGovernance);
-        console.log("ResealManager address", res.resealManager);
-        console.log("TiebreakerCoreCommittee address", res.tiebreakerCoreCommittee);
-
-        for (uint256 i = 0; i < res.tiebreakerSubCommittees.length; ++i) {
-            console.log("TiebreakerSubCommittee #", i, "address", res.tiebreakerSubCommittees[i]);
-        }
-
-        console.log("AdminExecutor address", res.adminExecutor);
-        console.log("EmergencyProtectedTimelock address", res.timelock);
-        console.log("EmergencyGovernance address", res.emergencyGovernance);
-        console.log("TemporaryEmergencyGovernance address", res.temporaryEmergencyGovernance);
-    }
-
-    function _loadDeployedAddressesFile(string memory deployedAddressesFilePath)
+    function _loadDeployedAddressesFile(string memory deployedAddressesFileName)
         internal
         view
         returns (string memory deployedAddressesJson)
     {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", deployedAddressesFilePath);
+        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", deployedAddressesFileName);
         deployedAddressesJson = vm.readFile(path);
     }
 

@@ -2,8 +2,8 @@
 pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
-import {DeployConfig, LidoContracts} from "scripts/deploy/Config.sol";
-import {DGContractsDeployment, DeployedContracts} from "scripts/deploy/ContractsDeployment.sol";
+import {DeployConfig, LidoContracts} from "scripts/deploy/config/Config.sol";
+import {DeployedContracts} from "scripts/deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "scripts/deploy/DeployVerification.sol";
 import {DeployVerifier} from "scripts/launch/DeployVerifier.sol";
 
@@ -49,90 +49,74 @@ contract DeployHappyPath is ScenarioTestBlueprint {
     function testFork_dualGovernance_deployment_and_activation() external {
         // Deploy Dual Governance contracts
 
-        _verifier = new DeployVerifier(dgDeployConfig, lidoAddresses);
-
-        address[] memory tiebreakerSubCommittees = new address[](contracts.tiebreakerSubCommittees.length);
-        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
-            tiebreakerSubCommittees[i] = address(contracts.tiebreakerSubCommittees[i]);
-        }
-
-        DeployVerification.DeployedAddresses memory deployedAddresses = DeployVerification.DeployedAddresses({
-            adminExecutor: payable(contracts.adminExecutor),
-            timelock: address(contracts.timelock),
-            emergencyGovernance: address(contracts.emergencyGovernance),
-            resealManager: address(_resealManager),
-            dualGovernance: address(contracts.dualGovernance),
-            tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: tiebreakerSubCommittees,
-            temporaryEmergencyGovernance: address(contracts.temporaryEmergencyGovernance)
-        });
+        _verifier = new DeployVerifier(_dgDeployConfig, _lidoAddresses);
 
         // Verify deployment
-        _verifier.verify(deployedAddresses, false);
+        _verifier.verify(_contracts, false);
 
         // Activate Dual Governance Emergency Mode
         vm.prank(_emergencyActivationCommittee);
-        contracts.timelock.activateEmergencyMode();
+        _contracts.timelock.activateEmergencyMode();
 
-        assertEq(contracts.timelock.isEmergencyModeActive(), true, "Emergency mode is not active");
+        assertEq(_contracts.timelock.isEmergencyModeActive(), true, "Emergency mode is not active");
 
         // Emergency Committee execute emergencyReset()
 
         vm.prank(_emergencyExecutionCommittee);
-        contracts.timelock.emergencyReset();
+        _contracts.timelock.emergencyReset();
 
         assertEq(
-            contracts.timelock.getGovernance(),
-            address(contracts.temporaryEmergencyGovernance),
+            _contracts.timelock.getGovernance(),
+            address(_contracts.temporaryEmergencyGovernance),
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
 
         // Propose to set Governance, Activation Committee, Execution Committee,  Emergency Mode End Date and Emergency Mode Duration
         ExternalCall[] memory calls;
         uint256 emergencyProtectionEndsAfter =
-            block.timestamp + dgDeployConfig.EMERGENCY_PROTECTION_DURATION.toSeconds();
+            block.timestamp + _dgDeployConfig.EMERGENCY_PROTECTION_DURATION.toSeconds();
         calls = ExternalCallHelpers.create(
             [
                 ExternalCall({
-                    target: address(contracts.timelock),
+                    target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        contracts.timelock.setGovernance.selector, address(contracts.dualGovernance)
+                        _contracts.timelock.setGovernance.selector, address(_contracts.dualGovernance)
                     )
                 }),
                 ExternalCall({
-                    target: address(contracts.timelock),
+                    target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        contracts.timelock.setEmergencyGovernance.selector, address(contracts.emergencyGovernance)
+                        _contracts.timelock.setEmergencyGovernance.selector, address(_contracts.emergencyGovernance)
                     )
                 }),
                 ExternalCall({
-                    target: address(contracts.timelock),
+                    target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        contracts.timelock.setEmergencyProtectionActivationCommittee.selector, _emergencyActivationCommittee
+                        _contracts.timelock.setEmergencyProtectionActivationCommittee.selector, _emergencyActivationCommittee
                     )
                 }),
                 ExternalCall({
-                    target: address(contracts.timelock),
+                    target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        contracts.timelock.setEmergencyProtectionExecutionCommittee.selector, _emergencyExecutionCommittee
+                        _contracts.timelock.setEmergencyProtectionExecutionCommittee.selector, _emergencyExecutionCommittee
                     )
                 }),
                 ExternalCall({
-                    target: address(contracts.timelock),
+                    target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        contracts.timelock.setEmergencyProtectionEndDate.selector, emergencyProtectionEndsAfter
+                        _contracts.timelock.setEmergencyProtectionEndDate.selector, emergencyProtectionEndsAfter
                     )
                 }),
                 ExternalCall({
-                    target: address(contracts.timelock),
+                    target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        contracts.timelock.setEmergencyModeDuration.selector, dgDeployConfig.EMERGENCY_MODE_DURATION
+                        _contracts.timelock.setEmergencyModeDuration.selector, _dgDeployConfig.EMERGENCY_MODE_DURATION
                     )
                 })
             ]
@@ -143,50 +127,50 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         console.log("Submit proposal to set DG state calldata");
         console.logBytes(
             abi.encodeWithSelector(
-                contracts.temporaryEmergencyGovernance.submitProposal.selector,
+                _contracts.temporaryEmergencyGovernance.submitProposal.selector,
                 calls,
                 "Reset emergency mode and set original DG as governance"
             )
         );
         vm.prank(_temporaryEmergencyGovernanceProposer);
-        uint256 proposalId = contracts.temporaryEmergencyGovernance.submitProposal(
+        uint256 proposalId = _contracts.temporaryEmergencyGovernance.submitProposal(
             calls, "Reset emergency mode and set original DG as governance"
         );
 
         // Schedule and execute the proposal
-        _wait(dgDeployConfig.AFTER_SUBMIT_DELAY);
-        contracts.temporaryEmergencyGovernance.scheduleProposal(proposalId);
-        _wait(dgDeployConfig.AFTER_SCHEDULE_DELAY);
-        contracts.timelock.execute(proposalId);
+        _wait(_dgDeployConfig.AFTER_SUBMIT_DELAY);
+        _contracts.temporaryEmergencyGovernance.scheduleProposal(proposalId);
+        _wait(_dgDeployConfig.AFTER_SCHEDULE_DELAY);
+        _contracts.timelock.execute(proposalId);
 
         // Verify state after proposal execution
         assertEq(
-            contracts.timelock.getGovernance(),
-            address(contracts.dualGovernance),
+            _contracts.timelock.getGovernance(),
+            address(_contracts.dualGovernance),
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
         assertEq(
-            contracts.timelock.getEmergencyGovernance(),
-            address(contracts.emergencyGovernance),
+            _contracts.timelock.getEmergencyGovernance(),
+            address(_contracts.emergencyGovernance),
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
-        assertEq(contracts.timelock.isEmergencyModeActive(), false, "Emergency mode is not active");
+        assertEq(_contracts.timelock.isEmergencyModeActive(), false, "Emergency mode is not active");
         assertEq(
-            contracts.timelock.getEmergencyActivationCommittee(),
+            _contracts.timelock.getEmergencyActivationCommittee(),
             _emergencyActivationCommittee,
             "Incorrect emergencyActivationCommittee address in EmergencyProtectedTimelock"
         );
         assertEq(
-            contracts.timelock.getEmergencyExecutionCommittee(),
+            _contracts.timelock.getEmergencyExecutionCommittee(),
             _emergencyExecutionCommittee,
             "Incorrect emergencyExecutionCommittee address in EmergencyProtectedTimelock"
         );
 
         IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details =
-            contracts.timelock.getEmergencyProtectionDetails();
+            _contracts.timelock.getEmergencyProtectionDetails();
         assertEq(
             details.emergencyModeDuration,
-            dgDeployConfig.EMERGENCY_MODE_DURATION,
+            _dgDeployConfig.EMERGENCY_MODE_DURATION,
             "Incorrect emergencyModeDuration in EmergencyProtectedTimelock"
         );
         assertEq(
@@ -207,9 +191,9 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         RolesVerifier.OZRoleInfo[] memory roles = new RolesVerifier.OZRoleInfo[](2);
         address[] memory pauseRoleHolders = new address[](2);
         pauseRoleHolders[0] = address(0x79243345eDbe01A7E42EDfF5900156700d22611c);
-        pauseRoleHolders[1] = address(contracts.resealManager);
+        pauseRoleHolders[1] = address(_contracts.resealManager);
         address[] memory resumeRoleHolders = new address[](1);
-        resumeRoleHolders[0] = address(contracts.resealManager);
+        resumeRoleHolders[0] = address(_contracts.resealManager);
 
         ozContracts[0] = WITHDRAWAL_QUEUE;
 
@@ -231,21 +215,21 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             roleGrantingCalls = ExternalCallHelpers.create(
                 [
                     ExternalCall({
-                        target: address(lidoAddresses.withdrawalQueue),
+                        target: address(_lidoAddresses.withdrawalQueue),
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAccessControl.grantRole.selector,
                             IWithdrawalQueue(WITHDRAWAL_QUEUE).PAUSE_ROLE(),
-                            address(contracts.resealManager)
+                            address(_contracts.resealManager)
                         )
                     }),
                     ExternalCall({
-                        target: address(lidoAddresses.withdrawalQueue),
+                        target: address(_lidoAddresses.withdrawalQueue),
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAccessControl.grantRole.selector,
                             IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(),
-                            address(contracts.resealManager)
+                            address(_contracts.resealManager)
                         )
                     }),
                     ExternalCall({
@@ -253,7 +237,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAragonACL.grantPermission.selector,
-                            contracts.adminExecutor,
+                            _contracts.adminExecutor,
                             DAO_AGENT,
                             IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
                         )
@@ -302,7 +286,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             bytes memory forwardRolePayload =
                 abi.encodeWithSelector(IAragonForwarder.forward.selector, _encodeExternalCalls(roleGrantingCalls));
 
-            bytes memory verifyPayload = abi.encodeWithSelector(DeployVerifier.verify.selector, deployedAddresses, true);
+            bytes memory verifyPayload = abi.encodeWithSelector(DeployVerifier.verify.selector, _contracts, true);
 
             bytes memory verifyOZRolesPayload = abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector);
 
@@ -318,7 +302,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                     ExternalCall({target: address(lidoUtils.agent), value: 0, payload: forwardRolePayload}),
                     ExternalCall({target: address(_verifier), value: 0, payload: verifyPayload}),
                     ExternalCall({target: address(_rolesVerifier), value: 0, payload: verifyOZRolesPayload}),
-                    ExternalCall({target: address(contracts.dualGovernance), value: 0, payload: submitProposalPayload})
+                    ExternalCall({target: address(_contracts.dualGovernance), value: 0, payload: submitProposalPayload})
                 ]
             );
 
@@ -329,10 +313,10 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             uint256 expectedProposalId = 2;
 
             // Schedule and execute the proposal
-            _wait(dgDeployConfig.AFTER_SUBMIT_DELAY);
-            contracts.dualGovernance.scheduleProposal(expectedProposalId);
-            _wait(dgDeployConfig.AFTER_SCHEDULE_DELAY);
-            contracts.timelock.execute(expectedProposalId);
+            _wait(_dgDeployConfig.AFTER_SUBMIT_DELAY);
+            _contracts.dualGovernance.scheduleProposal(expectedProposalId);
+            _wait(_dgDeployConfig.AFTER_SCHEDULE_DELAY);
+            _contracts.timelock.execute(expectedProposalId);
 
             // Verify that Voting has no permission to forward to Agent
             ExternalCall[] memory someAgentForwardCall;
@@ -343,7 +327,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAragonACL.revokePermission.selector,
-                            contracts.adminExecutor,
+                            _contracts.adminExecutor,
                             DAO_AGENT,
                             IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
                         )
@@ -364,28 +348,6 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             ExternalCall memory call = calls[i];
             result = abi.encodePacked(result, bytes20(call.target), bytes4(uint32(call.payload.length)), call.payload);
         }
-    }
-
-    function getDeployedAddresses(DeployedContracts memory contracts)
-        internal
-        pure
-        returns (DeployVerification.DeployedAddresses memory)
-    {
-        address[] memory tiebreakerSubCommittees = new address[](contracts.tiebreakerSubCommittees.length);
-        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; ++i) {
-            tiebreakerSubCommittees[i] = address(contracts.tiebreakerSubCommittees[i]);
-        }
-
-        return DeployVerification.DeployedAddresses({
-            adminExecutor: payable(address(contracts.adminExecutor)),
-            timelock: address(contracts.timelock),
-            emergencyGovernance: address(contracts.emergencyGovernance),
-            resealManager: address(contracts.resealManager),
-            dualGovernance: address(contracts.dualGovernance),
-            tiebreakerCoreCommittee: address(contracts.tiebreakerCoreCommittee),
-            tiebreakerSubCommittees: tiebreakerSubCommittees,
-            temporaryEmergencyGovernance: address(contracts.temporaryEmergencyGovernance)
-        });
     }
 }
 

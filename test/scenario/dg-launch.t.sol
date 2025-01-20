@@ -69,13 +69,13 @@ contract DGLaunchTest is ScenarioTestBlueprint {
                         target: address(_timelock),
                         payload: abi.encodeCall(
                             _timelock.setEmergencyProtectionEndDate,
-                            (dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
+                            (_dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
                         )
                     }),
                     ExternalCall({
                         value: 0,
                         target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setEmergencyModeDuration, (dgDeployConfig.EMERGENCY_MODE_DURATION))
+                        payload: abi.encodeCall(_timelock.setEmergencyModeDuration, (_dgDeployConfig.EMERGENCY_MODE_DURATION))
                     })
                 ]
             );

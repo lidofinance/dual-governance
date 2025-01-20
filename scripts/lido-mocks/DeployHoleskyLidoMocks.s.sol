@@ -5,11 +5,12 @@ pragma solidity 0.8.26;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {StETHMock} from "./StETHMock.sol";
 import {WstETHMock} from "./WstETHMock.sol";
 import {UnsafeWithdrawalQueueMock} from "./UnsafeWithdrawalQueueMock.sol";
 
-struct DeployedContracts {
+struct DeployedMockContracts {
     address stETH;
     address wstETH;
     address withdrawalQueue;
@@ -30,29 +31,45 @@ contract DeployHoleskyLidoMocks is Script {
 
         vm.startBroadcast();
 
-        DeployedContracts memory res = deployLidoMockContracts();
+        DeployedMockContracts memory mockContracts = _deployLidoMockContracts();
 
         vm.stopBroadcast();
 
-        printAddresses(res);
+        _printAddresses(mockContracts);
     }
 
-    function deployLidoMockContracts() internal returns (DeployedContracts memory res) {
+    function _deployLidoMockContracts() internal returns (DeployedMockContracts memory mockContracts) {
         StETHMock stETH = new StETHMock();
         WstETHMock wstETH = new WstETHMock(stETH);
         UnsafeWithdrawalQueueMock withdrawalQueue = new UnsafeWithdrawalQueueMock(address(stETH), payable(deployer));
 
         stETH.mint(deployer, 100 gwei);
 
-        res.stETH = address(stETH);
-        res.wstETH = address(wstETH);
-        res.withdrawalQueue = address(withdrawalQueue);
+        mockContracts.stETH = address(stETH);
+        mockContracts.wstETH = address(wstETH);
+        mockContracts.withdrawalQueue = address(withdrawalQueue);
     }
 
-    function printAddresses(DeployedContracts memory res) internal pure {
+    function _printAddresses(DeployedMockContracts memory mockContracts) internal pure {
         console.log("Lido mocks deployed successfully");
-        console.log("StETH address", res.stETH);
-        console.log("WstETH address", res.wstETH);
-        console.log("WithdrawalQueue address", res.withdrawalQueue);
+        console.log("StETH address", mockContracts.stETH);
+        console.log("WstETH address", mockContracts.wstETH);
+        console.log("WithdrawalQueue address", mockContracts.withdrawalQueue);
+        console.log("Copy these lines to your TOML deploy config", _serializeAddresses(mockContracts));
+    }
+
+    function _serializeAddresses(DeployedMockContracts memory mockContracts) internal pure returns (string memory) {
+        string memory addressesToml =
+            string.concat("\n[HOLESKY_MOCK_CONTRACTS]\nST_ETH = \"", Strings.toHexString(address(mockContracts.stETH)));
+        addressesToml =
+            string.concat(addressesToml, "\"\nWST_ETH = \"", Strings.toHexString(address(mockContracts.wstETH)));
+        addressesToml = string.concat(
+            addressesToml,
+            "\"\nWITHDRAWAL_QUEUE = \"",
+            Strings.toHexString(address(mockContracts.withdrawalQueue)),
+            "\""
+        );
+
+        return addressesToml;
     }
 }

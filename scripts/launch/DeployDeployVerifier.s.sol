@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 /* solhint-disable no-console */
 
-import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {DeployScriptBase} from "./DeployScriptBase.sol";
 import {DeployVerifier} from "./DeployVerifier.sol";

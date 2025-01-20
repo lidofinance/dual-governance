@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {DeployedContracts} from "../deploy/DeployedContractsSet.sol";
 import {DeployVerification} from "../deploy/DeployVerification.sol";
-import {DeployConfig, LidoContracts} from "../deploy/Config.sol";
+import {DeployConfig, LidoContracts} from "../deploy/config/Config.sol";
 
 contract DeployVerifier {
-    using DeployVerification for DeployVerification.DeployedAddresses;
-
     event Verified();
 
     DeployConfig internal _config;
@@ -17,11 +16,8 @@ contract DeployVerifier {
         _lidoAddresses = lidoAddresses;
     }
 
-    function verify(
-        DeployVerification.DeployedAddresses memory dgDeployedAddresses,
-        bool onchainVotingCheck
-    ) external {
-        dgDeployedAddresses.verify(_config, _lidoAddresses, onchainVotingCheck);
+    function verify(DeployedContracts memory dgContracts, bool onchainVotingCheck) external {
+        DeployVerification.verify(dgContracts, _config, _lidoAddresses, onchainVotingCheck);
 
         emit Verified();
     }

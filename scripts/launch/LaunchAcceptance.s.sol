@@ -8,18 +8,16 @@ import {console} from "forge-std/Test.sol";
 import {DeployScriptBase} from "./DeployScriptBase.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
+import {Timestamps} from "contracts/types/Timestamp.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
-import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IAragonForwarder} from "test/utils/interfaces/IAragonForwarder.sol";
 import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
 import {IAragonACL} from "test/utils/interfaces/IAragonACL.sol";
 import {IAragonAgent} from "test/utils/interfaces/IAragonAgent.sol";
 import {IGovernance} from "contracts/interfaces/IDualGovernance.sol";
-
-import {DualGovernance} from "contracts/DualGovernance.sol";
 
 import {DeployVerifier} from "./DeployVerifier.sol";
 
@@ -34,12 +32,11 @@ contract LaunchAcceptance is DeployScriptBase {
     function run() external {
         _loadEnv();
 
-        //Emergency committee
         uint256 step = vm.envUint("STEP");
 
         console.log("========= Step ", step, " =========");
 
-        IEmergencyProtectedTimelock timelock = IEmergencyProtectedTimelock(_dgContracts.timelock);
+        IEmergencyProtectedTimelock timelock = _dgContracts.timelock;
 
         uint256 proposalId = 1;
         RolesVerifier _rolesVerifier;
@@ -79,7 +76,7 @@ contract LaunchAcceptance is DeployScriptBase {
         if (step < 4) {
             console.log("STEP 3 - Set DG state");
             require(
-                timelock.getGovernance() == _dgContracts.temporaryEmergencyGovernance,
+                timelock.getGovernance() == address(_dgContracts.temporaryEmergencyGovernance),
                 "Incorrect governance address in EmergencyProtectedTimelock"
             );
             require(timelock.isEmergencyModeActive() == false, "Emergency mode is active");
@@ -92,13 +89,13 @@ contract LaunchAcceptance is DeployScriptBase {
                     ExternalCall({
                         target: address(timelock),
                         value: 0,
-                        payload: abi.encodeWithSelector(timelock.setGovernance.selector, _dgContracts.dualGovernance)
+                        payload: abi.encodeWithSelector(timelock.setGovernance.selector, address(_dgContracts.dualGovernance))
                     }),
                     ExternalCall({
                         target: address(timelock),
                         value: 0,
                         payload: abi.encodeWithSelector(
-                            timelock.setEmergencyGovernance.selector, _dgContracts.emergencyGovernance
+                            timelock.setEmergencyGovernance.selector, address(_dgContracts.emergencyGovernance)
                         )
                     }),
                     ExternalCall({
@@ -142,7 +139,7 @@ contract LaunchAcceptance is DeployScriptBase {
                 console.log("Submit proposal to set DG state calldata");
                 console.logBytes(
                     abi.encodeWithSelector(
-                        TimelockedGovernance.submitProposal.selector,
+                        IGovernance.submitProposal.selector,
                         calls,
                         "Reset emergency mode and set original DG as governance"
                     )
@@ -150,7 +147,7 @@ contract LaunchAcceptance is DeployScriptBase {
             }
 
             vm.prank(_config.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER);
-            proposalId = TimelockedGovernance(_dgContracts.temporaryEmergencyGovernance).submitProposal(
+            proposalId = _dgContracts.temporaryEmergencyGovernance.submitProposal(
                 calls, "Reset emergency mode and set original DG as governance"
             );
 
@@ -165,7 +162,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 4 - Execute proposal");
             // Schedule and execute the proposal
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY.toSeconds());
-            TimelockedGovernance(_dgContracts.temporaryEmergencyGovernance).scheduleProposal(proposalId);
+            _dgContracts.temporaryEmergencyGovernance.scheduleProposal(proposalId);
             vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY.toSeconds());
             timelock.execute(proposalId);
 
@@ -178,11 +175,11 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 5 - Verify DG state");
             // Verify state after proposal execution
             require(
-                timelock.getGovernance() == _dgContracts.dualGovernance,
+                timelock.getGovernance() == address(_dgContracts.dualGovernance),
                 "Incorrect governance address in EmergencyProtectedTimelock"
             );
             require(
-                timelock.getEmergencyGovernance() == _dgContracts.emergencyGovernance,
+                timelock.getEmergencyGovernance() == address(_dgContracts.emergencyGovernance),
                 "Incorrect governance address in EmergencyProtectedTimelock"
             );
             require(timelock.isEmergencyModeActive() == false, "Emergency mode is not active");
@@ -267,7 +264,7 @@ contract LaunchAcceptance is DeployScriptBase {
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAragonACL.grantPermission.selector,
-                            _dgContracts.adminExecutor,
+                            address(_dgContracts.adminExecutor),
                             DAO_AGENT,
                             IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
                         )
@@ -358,7 +355,7 @@ contract LaunchAcceptance is DeployScriptBase {
 
             // Schedule and execute the proposal
             _wait(_config.AFTER_SUBMIT_DELAY);
-            DualGovernance(_dgContracts.dualGovernance).scheduleProposal(expectedProposalId);
+            _dgContracts.dualGovernance.scheduleProposal(expectedProposalId);
             _wait(_config.AFTER_SCHEDULE_DELAY);
             timelock.execute(expectedProposalId);
         } else {
@@ -376,7 +373,7 @@ contract LaunchAcceptance is DeployScriptBase {
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAragonACL.revokePermission.selector,
-                            _dgContracts.adminExecutor,
+                            address(_dgContracts.adminExecutor),
                             DAO_AGENT,
                             IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
                         )
