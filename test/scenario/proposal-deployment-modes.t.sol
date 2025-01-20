@@ -3,9 +3,14 @@ pragma solidity 0.8.26;
 
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
-import {ScenarioTestBlueprint, ExternalCall} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCall} from "../utils/test-utils.sol";
 
 contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
+    function setUp() external {
+        _setUpEnvironment();
+    }
+
     function test_regular_deployment_mode() external {
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
 

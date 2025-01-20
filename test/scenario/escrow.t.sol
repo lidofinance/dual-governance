@@ -15,7 +15,7 @@ import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsA
 
 import {Escrow} from "contracts/Escrow.sol";
 
-import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint, LidoUtils} from "../utils/scenario-test-blueprint.sol";
 
 contract EscrowHappyPath is ScenarioTestBlueprint {
     using LidoUtils for LidoUtils.Context;
@@ -29,6 +29,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
     address internal immutable _VETOER_2 = makeAddr("VETOER_2");
 
     function setUp() external {
+        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
 
         escrow = _getVetoSignallingEscrow();

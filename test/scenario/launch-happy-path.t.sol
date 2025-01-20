@@ -22,7 +22,8 @@ import {IAragonVoting} from "test/utils/interfaces/IAragonVoting.sol";
 import {IAragonAgent, IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
 import {IAragonACL} from "test/utils/interfaces/IAragonACL.sol";
 
-import {ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "test/utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint} from "test/utils/scenario-test-blueprint.sol";
+import {ExternalCall, ExternalCallHelpers} from "test/utils/test-utils.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 import {EvmScriptUtils} from "test/utils/evm-script-utils.sol";
 
@@ -43,6 +44,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
     RolesVerifier internal _rolesVerifier;
 
     function setUp() external {
+        _setUpEnvironment();
         _deployDualGovernanceSetup(true, true);
     }
 

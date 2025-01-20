@@ -4,7 +4,8 @@ pragma solidity 0.8.26;
 import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
-import {ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCall, ExternalCallHelpers} from "../utils/test-utils.sol";
 
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
@@ -14,6 +15,7 @@ contract HappyPathTest is ScenarioTestBlueprint {
     using LidoUtils for LidoUtils.Context;
 
     function setUp() external {
+        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
     }
 

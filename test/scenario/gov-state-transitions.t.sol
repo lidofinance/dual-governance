@@ -9,6 +9,7 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
     address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
+        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
         _setupStETHBalance(
             _VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)

@@ -18,6 +18,8 @@ import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
 
 import {EvmScriptUtils} from "./evm-script-utils.sol";
 
+import {StETHMock} from "../mocks/StETHMock.sol";
+
 import {
     ST_ETH,
     WST_ETH,
@@ -125,7 +127,14 @@ library LidoUtils {
         vm.deal(account, balance + 0.1 ether);
 
         vm.prank(account);
-        sharesMinted = self.stETH.submit{value: balance}(address(0));
+        // TODO: update mock to support `submit` function
+
+        if (keccak256(bytes(vm.envString("CHAIN"))) == keccak256("holesky-mocks")) {
+            StETHMock(address(self.stETH)).mint(account, balance);
+            sharesMinted = self.stETH.getSharesByPooledEth(balance);
+        } else {
+            sharesMinted = self.stETH.submit{value: balance}(address(0));
+        }
     }
 
     function submitWstETH(

@@ -4,14 +4,8 @@ pragma solidity 0.8.26;
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
-import {
-    ScenarioTestBlueprint,
-    ExternalCall,
-    ExternalCallHelpers,
-    Timestamp,
-    Timestamps,
-    Durations
-} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCall, ExternalCallHelpers, Timestamp, Timestamps, Durations} from "../utils/test-utils.sol";
+import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
@@ -19,6 +13,7 @@ import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries
 
 contract PlanBSetup is ScenarioTestBlueprint {
     function setUp() external {
+        _setUpEnvironment();
         _deployTimelockedGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 

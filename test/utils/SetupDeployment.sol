@@ -16,6 +16,16 @@ import {Durations, Duration} from "contracts/types/Duration.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {IResealManager} from "contracts/interfaces/IResealManager.sol";
 
+import {IStETH} from "./interfaces/IStETH.sol";
+import {IWstETH} from "./interfaces/IWstETH.sol";
+import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
+
+import {IAragonACL} from "./interfaces/IAragonACL.sol";
+import {IAragonAgent} from "./interfaces/IAragonAgent.sol";
+import {IAragonVoting} from "./interfaces/IAragonVoting.sol";
+import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 // ---
 // Contracts
 // ---
@@ -42,12 +52,21 @@ import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommitte
 import {Random} from "./random.sol";
 import {LidoUtils} from "./lido-utils.sol";
 import {DeployConfig, LidoContracts} from "../../scripts/deploy/config/Config.sol";
-import {DeployedContracts} from "../../scripts/deploy/DeployedContractsSet.sol";
+import {DeployedContracts, DGContractsSet} from "../../scripts/deploy/DeployedContractsSet.sol";
 import {DGContractsDeployment} from "../../scripts/deploy/ContractsDeployment.sol";
 
-// ---
-// Lido Addresses
-// ---
+import {DGDeployConfigProvider, CONFIG_FILES_DIR} from "../../scripts/deploy/config/ConfigProvider.sol";
+
+import {
+    ST_ETH as HOLESKY_ST_ETH,
+    WST_ETH as HOLESKY_WST_ETH,
+    WITHDRAWAL_QUEUE as HOLESKY_WITHDRAWAL_QUEUE,
+    DAO_VOTING as HOLESKY_DAO_VOTING,
+    DAO_ACL as HOLESKY_DAO_ACL,
+    LDO_TOKEN as HOLESKY_LDO_TOKEN,
+    DAO_AGENT as HOLESKY_DAO_AGENT,
+    DAO_TOKEN_MANAGER as HOLESKY_DAO_TOKEN_MANAGER
+} from "addresses/holesky-addresses.sol";
 
 abstract contract SetupDeployment is Test {
     using Random for Random.Context;
@@ -134,12 +153,8 @@ abstract contract SetupDeployment is Test {
 
     TargetMock internal _targetMock;
 
-    // ---
-    // Constructor
-    // ---
-
-    constructor(LidoUtils.Context memory lido, Random.Context memory random) {
-        _lido = lido;
+    function _setUpScenarioEnvironment(Random.Context memory random) internal {
+        _lido = LidoUtils.mainnet();
         _random = random;
         _targetMock = new TargetMock();
 
@@ -199,6 +214,33 @@ abstract contract SetupDeployment is Test {
         _lidoAddresses.wstETH = _lido.wstETH;
         _lidoAddresses.withdrawalQueue = _lido.withdrawalQueue;
         _lidoAddresses.voting = address(_lido.voting);
+    }
+
+    function _setUpRegressionEnvironment() internal {
+        string memory chainName = vm.envString("CHAIN");
+        string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
+
+        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(deployArtifactFileName, false);
+
+        _dgDeployConfig = configProvider.loadAndValidate();
+        _lidoAddresses = configProvider.getLidoAddresses(chainName);
+        _contracts = DGContractsSet.loadFromFile(_loadDeployArtifactFile(deployArtifactFileName));
+        _targetMock = new TargetMock();
+
+        if (keccak256(bytes(chainName)) == keccak256("mainnet")) {
+            _lido = LidoUtils.mainnet();
+        } else {
+            _lido = LidoUtils.Context({
+                stETH: IStETH(address(_lidoAddresses.stETH)),
+                wstETH: IWstETH(address(_lidoAddresses.wstETH)),
+                withdrawalQueue: IWithdrawalQueue(address(_lidoAddresses.withdrawalQueue)),
+                voting: IAragonVoting(_lidoAddresses.voting),
+                acl: IAragonACL(HOLESKY_DAO_ACL),
+                ldoToken: IERC20(HOLESKY_LDO_TOKEN),
+                agent: IAragonAgent(HOLESKY_DAO_AGENT),
+                tokenManager: IAragonForwarder(HOLESKY_DAO_TOKEN_MANAGER)
+            });
+        }
     }
 
     // ---
@@ -352,5 +394,15 @@ abstract contract SetupDeployment is Test {
         for (uint256 i = 0; i < count; ++i) {
             addresses[i] = _random.nextAddress();
         }
+    }
+
+    function _loadDeployArtifactFile(string memory deployArtifactFileName)
+        internal
+        view
+        returns (string memory deployedAddressesJson)
+    {
+        string memory root = vm.projectRoot();
+        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", deployArtifactFileName);
+        deployedAddressesJson = vm.readFile(path);
     }
 }

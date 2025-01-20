@@ -6,7 +6,8 @@ import {Durations} from "contracts/types/Duration.sol";
 import {Ownable, Executor} from "contracts/Executor.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
 
-import {ExternalCall, ScenarioTestBlueprint, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCall, ExternalCallHelpers} from "../utils/test-utils.sol";
 
 interface ISomeContract {
     function someMethod(uint256 someParameter) external;
@@ -19,6 +20,7 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
     Executor private _newAdminExecutor;
 
     function setUp() external {
+        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
         _newAdminExecutor = new Executor({owner: address(this)});
 

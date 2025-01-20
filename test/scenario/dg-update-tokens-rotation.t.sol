@@ -10,12 +10,14 @@ import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries
 import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCall, ExternalCallHelpers} from "../utils/test-utils.sol";
 
 contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
     address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
+        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
         _setupStETHBalance(_VETOER, PercentsD16.fromBasisPoints(30_00));
     }

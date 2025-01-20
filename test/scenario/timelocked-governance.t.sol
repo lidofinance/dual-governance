@@ -8,12 +8,14 @@ import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtec
 import {ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
-import {ScenarioTestBlueprint, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCallHelpers} from "../utils/test-utils.sol";
 
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 contract TimelockedGovernanceScenario is ScenarioTestBlueprint {
     function setUp() external {
+        _setUpEnvironment();
         _deployTimelockedGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 

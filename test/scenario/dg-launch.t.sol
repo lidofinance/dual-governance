@@ -6,12 +6,14 @@ import {Timestamps} from "contracts/types/Timestamp.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 import {EvmScriptUtils} from "test/utils/evm-script-utils.sol";
 
-import {ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
+import {ExternalCall, ExternalCallHelpers} from "../utils/test-utils.sol";
 
 contract DGLaunchTest is ScenarioTestBlueprint {
     using LidoUtils for LidoUtils.Context;
 
     function setUp() external {
+        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 
