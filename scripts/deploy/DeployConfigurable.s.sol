@@ -31,7 +31,7 @@ contract DeployConfigurable is Script {
         _chainName = _getChainName();
         _configFileName = _getConfigFileName();
 
-        _configProvider = new DGDeployConfigProvider(_configFileName, true);
+        _configProvider = new DGDeployConfigProvider(_configFileName);
         _config = _configProvider.loadAndValidate();
         _lidoAddresses = _configProvider.getLidoAddresses(_chainName);
     }

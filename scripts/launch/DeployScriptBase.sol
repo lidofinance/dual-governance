@@ -47,7 +47,7 @@ contract DeployScriptBase is Script {
         _chainName = vm.envString("CHAIN");
         _deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
 
-        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(_deployArtifactFileName, false);
+        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(_deployArtifactFileName);
 
         _config = configProvider.loadAndValidate();
         _lidoAddresses = configProvider.getLidoAddresses(_chainName);
