@@ -21,9 +21,7 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   // Oracle Contracts
   LegacyOracle: {
     address: LIDO_CONTRACTS.LegacyOracle,
-    permissions: {
-      // Has no declared permissions
-    },
+    permissions: {},
   },
 
   // DAO Contracts
@@ -345,169 +343,6 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       UNPAUSE_ROLE: ["Voting"],
     },
   },
-  //   Easy Track Factories for token transfers
-  LOLStETH_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.LOLStETH_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting"],
-    },
-  },
-  RewardsShareStETH_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.RewardsShareStETH_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: [
-        "Voting",
-        "EasyTrackEvmScriptExecutor",
-      ],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: [
-        "Voting",
-        "EasyTrackEvmScriptExecutor",
-      ],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  LegoLDO_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.LegoLDO_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  LegoStablecoins_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.LegoStablecoins_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  RCCStableCoins_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.RCCStableCoins_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  RCCStETH_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.RCCStETH_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  PMLStablecoins_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.PMLStablecoins_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  PMLStETH_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.PMLStETH_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  ATCStablecoins_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.ATCStablecoins_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  ATCStETH_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.ATCStETH_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  TRPLDO_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.TRPLDO_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  GasSupplyStETH_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.GasSupplyStETH_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: [
-        "Voting",
-        "EasyTrackEvmScriptExecutor",
-      ],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: [
-        "Voting",
-        "EasyTrackEvmScriptExecutor",
-      ],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  AllianceOpsStablecoins_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.AllianceOpsStablecoins_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  StonksStETH_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.StonksStETH_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
-  StonksStablecoins_AllowedRecipientsRegistry: {
-    address: LIDO_CONTRACTS.StonksStablecoins_AllowedRecipientsRegistry,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_RECIPIENT_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_RECIPIENT_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-      SET_PARAMETERS_ROLE: ["Voting"],
-      UPDATE_SPENT_AMOUNT_ROLE: ["Voting", "EasyTrackEvmScriptExecutor"],
-    },
-  },
   AllowedTokensRegistry: {
     address: LIDO_CONTRACTS.AllowedTokensRegistry,
     roles: {
@@ -650,7 +485,7 @@ export const MANAGED_CONTRACTS: ManagedContractsConfig = {
     properties: { owner: { property: "owner", managedBy: "Agent" } },
   },
   ScrollProxyAdmin: {
-    address: '0xCC2C53556Bc75217cf698721b29071d6f12628A9',
+    address: "0xCC2C53556Bc75217cf698721b29071d6f12628A9",
     properties: { owner: { property: "owner", managedBy: "Agent" } },
   },
   InsuranceFund: {
@@ -660,6 +495,6 @@ export const MANAGED_CONTRACTS: ManagedContractsConfig = {
   ZKSync_L1Executor: {
     address: LIDO_CONTRACTS.L1Executor_zkSync,
     properties: { owner: { property: "owner", managedBy: "Agent" } },
-  }
+  },
   // TODO: Add missing contracts
 };
