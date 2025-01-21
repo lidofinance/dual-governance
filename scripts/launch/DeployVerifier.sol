@@ -17,7 +17,7 @@ contract DeployVerifier {
     }
 
     function verify(DeployedContracts memory dgContracts, bool onchainVotingCheck) external {
-        DeployVerification.verify(dgContracts, _config, _lidoAddresses, onchainVotingCheck);
+        DeployVerification.checkContractsConfiguration(dgContracts, _config, _lidoAddresses, onchainVotingCheck);
 
         emit Verified();
     }
