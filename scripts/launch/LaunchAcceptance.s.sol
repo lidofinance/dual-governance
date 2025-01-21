@@ -13,7 +13,7 @@ import {LidoUtils} from "test/utils/lido-utils.sol";
 
 import {IAccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IAragonForwarder} from "test/utils/interfaces/IAragonForwarder.sol";
-import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {IAragonACL} from "test/utils/interfaces/IAragonACL.sol";
 import {IAragonAgent} from "test/utils/interfaces/IAragonAgent.sol";
 import {IGovernance} from "contracts/interfaces/IDualGovernance.sol";
@@ -31,23 +31,24 @@ contract LaunchAcceptance is DeployScriptBase {
     function run() external {
         _loadEnv();
 
-        uint256 step = vm.envUint("STEP");
+        uint256 fromStep = vm.envUint("FROM_STEP");
+        require(fromStep < 10, "Invalid value of env variable FROM_STEP, should not exceed 10");
 
-        console.log("========= Step ", step, " =========");
+        console.log("========= Starting from step ", fromStep, " =========");
 
         IEmergencyProtectedTimelock timelock = _dgContracts.timelock;
 
         uint256 proposalId = 1;
         RolesVerifier _rolesVerifier;
 
-        if (step < 1) {
+        if (fromStep == 0) {
             // Verify deployment of all contracts before proceeding
             _deployVerifier.verify(_dgContracts, false);
         } else {
             console.log("STEP 0 SKIPPED - All contracts are deployed");
         }
 
-        if (step < 2) {
+        if (fromStep <= 1) {
             console.log("STEP 1 - Activate Emergency Mode");
             // Activate Dual Governance Emergency Mode
             vm.prank(_config.EMERGENCY_ACTIVATION_COMMITTEE);
@@ -58,7 +59,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 1 SKIPPED - Emergency Mode already activated");
         }
 
-        if (step < 3) {
+        if (fromStep <= 2) {
             console.log("STEP 2 - Reset Emergency Mode");
             // Check pre-conditions for emergency mode reset
             require(timelock.isEmergencyModeActive() == true, "Emergency mode is not active");
@@ -72,7 +73,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 2 SKIPPED - Emergency Mode already reset");
         }
 
-        if (step < 4) {
+        if (fromStep <= 3) {
             console.log("STEP 3 - Set DG state");
             require(
                 timelock.getGovernance() == address(_dgContracts.temporaryEmergencyGovernance),
@@ -128,7 +129,7 @@ contract LaunchAcceptance is DeployScriptBase {
                 ]
             );
 
-            if (step == 3) {
+            if (fromStep == 3) {
                 console.log("Calls to set DG state:");
                 console.logBytes(abi.encode(calls));
 
@@ -157,7 +158,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 3 SKIPPED - DG state proposal already submitted");
         }
 
-        if (step < 5) {
+        if (fromStep <= 4) {
             console.log("STEP 4 - Execute proposal");
             // Schedule and execute the proposal
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY.toSeconds());
@@ -170,7 +171,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 4 SKIPPED - Proposal to set DG state already executed");
         }
 
-        if (step < 6) {
+        if (fromStep <= 5) {
             console.log("STEP 5 - Verify DG state");
             // Verify state after proposal execution
             require(
@@ -209,7 +210,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 5 SKIPPED - DG state already verified");
         }
 
-        if (step < 7) {
+        if (fromStep <= 6) {
             console.log("STEP 6 - Submitting DAO Voting proposal to activate Dual Governance");
 
             // Prepare RolesVerifier
@@ -225,11 +226,11 @@ contract LaunchAcceptance is DeployScriptBase {
             ozContracts[0] = address(_lidoAddresses.withdrawalQueue);
 
             roles[0] = RolesVerifier.OZRoleInfo({
-                role: IWithdrawalQueue(address(_lidoAddresses.withdrawalQueue)).PAUSE_ROLE(),
+                role: _lidoAddresses.withdrawalQueue.PAUSE_ROLE(),
                 accounts: pauseRoleHolders
             });
             roles[1] = RolesVerifier.OZRoleInfo({
-                role: IWithdrawalQueue(address(_lidoAddresses.withdrawalQueue)).RESUME_ROLE(),
+                role: _lidoAddresses.withdrawalQueue.RESUME_ROLE(),
                 accounts: resumeRoleHolders
             });
 
@@ -338,7 +339,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 6 SKIPPED - Dual Governance activation vote already submitted");
         }
 
-        if (step < 8) {
+        if (fromStep <= 7) {
             uint256 voteId = 0;
             require(voteId != 0);
             console.log("STEP 7 - Enacting DAO Voting proposal to activate Dual Governance");
@@ -347,7 +348,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 7 SKIPPED - Dual Governance activation vote already executed");
         }
 
-        if (step < 9) {
+        if (fromStep <= 8) {
             console.log("STEP 8 - Wait for Dual Governance after submit delay and envacting proposal");
 
             uint256 expectedProposalId = 2;
@@ -361,7 +362,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 8 SKIPPED - Dual Governance proposal already executed");
         }
 
-        if (step < 10) {
+        if (fromStep <= 9) {
             console.log("STEP 9 - Verify DAO has no agent forward permission from Voting");
             // Verify that Voting has no permission to forward to Agent
             ExternalCall[] memory someAgentForwardCall;
