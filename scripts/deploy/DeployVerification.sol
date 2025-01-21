@@ -41,7 +41,7 @@ library DeployVerification {
         checkEmergencyActivationCommittee(dgDeployConfig);
         checkEmergencyExecutionCommittee(dgDeployConfig);
         checkTimelockedGovernance(contracts, lidoAddresses);
-        checkTemporaryEmergencyGovernance(contracts, dgDeployConfig, lidoAddresses);
+        checkTemporaryEmergencyGovernance(contracts, dgDeployConfig);
         checkResealManager(contracts);
         checkDualGovernanceAndEscrowImmutables(contracts, dgDeployConfig, lidoAddresses);
     }
@@ -124,7 +124,7 @@ library DeployVerification {
         IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details =
             timelockInstance.getEmergencyProtectionDetails();
         require(
-            details.emergencyProtectionEndsAfter <= dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()),
+            details.emergencyProtectionEndsAfter == dgDeployConfig.EMERGENCY_PROTECTION_END_DATE,
             "Incorrect value for emergencyProtectionEndsAfter"
         );
         require(
@@ -199,8 +199,7 @@ library DeployVerification {
 
     function checkTemporaryEmergencyGovernance(
         DeployedContracts memory contracts,
-        DeployConfig memory dgDeployConfig,
-        LidoContracts memory lidoAddresses
+        DeployConfig memory dgDeployConfig
     ) internal view {
         TimelockedGovernance temporaryEmergencyGovernance = contracts.temporaryEmergencyGovernance;
         require(

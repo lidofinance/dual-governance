@@ -8,7 +8,6 @@ import {console} from "forge-std/Test.sol";
 import {DeployScriptBase} from "./DeployScriptBase.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {Timestamps} from "contracts/types/Timestamp.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
@@ -83,7 +82,7 @@ contract LaunchAcceptance is DeployScriptBase {
 
             // Propose to set Governance, Activation Committee, Execution Committee,  Emergency Mode End Date and Emergency Mode Duration
             ExternalCall[] memory calls;
-            uint256 emergencyProtectionEndsAfter = block.timestamp + _config.EMERGENCY_PROTECTION_DURATION.toSeconds();
+            uint256 emergencyProtectionEndsAfter = _config.EMERGENCY_PROTECTION_END_DATE.toSeconds();
             calls = ExternalCallHelpers.create(
                 [
                     ExternalCall({
@@ -197,10 +196,10 @@ contract LaunchAcceptance is DeployScriptBase {
                 details.emergencyModeDuration == _config.EMERGENCY_MODE_DURATION,
                 "Incorrect emergencyModeDuration in EmergencyProtectedTimelock"
             );
-            // require(
-            //     details.emergencyProtectionEndsAfter.toSeconds() == _config.EMERGENCY_PROTECTION_DURATION + block.timestamp,
-            //     "Incorrect emergencyProtectionEndsAfter in EmergencyProtectedTimelock"
-            // );
+            require(
+                details.emergencyProtectionEndsAfter == _config.EMERGENCY_PROTECTION_END_DATE,
+                "Incorrect emergencyProtectionEndsAfter in EmergencyProtectedTimelock"
+            );
 
             // Activate Dual Governance with DAO Voting
 

@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 // ---
 // Contracts
 // ---
-import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Duration} from "contracts/types/Duration.sol";
 
 import {Executor} from "contracts/Executor.sol";
@@ -113,10 +112,7 @@ library DGContractsDeployment {
         adminExecutor.execute(
             address(timelock),
             0,
-            abi.encodeCall(
-                timelock.setEmergencyProtectionEndDate,
-                (dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
-            )
+            abi.encodeCall(timelock.setEmergencyProtectionEndDate, dgDeployConfig.EMERGENCY_PROTECTION_END_DATE)
         );
         adminExecutor.execute(
             address(timelock),

@@ -33,7 +33,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
     MAX_AFTER_SCHEDULE_DELAY = 3888000                    # 45 days
     EMERGENCY_MODE_DURATION = 15552000                    # 180 days
     MAX_EMERGENCY_MODE_DURATION = 31536000                # 365 days
-    EMERGENCY_PROTECTION_DURATION = 7776000               # 90 days
+    EMERGENCY_PROTECTION_END_DATE = 1765200000            # Mon, 08 Dec 2025 13:20:00 GMT
     MAX_EMERGENCY_PROTECTION_DURATION = 31536000          # 365 days
     TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = <address>
 

@@ -138,8 +138,8 @@ contract DGDeployConfigProvider {
             MAX_EMERGENCY_MODE_DURATION: configFile.readDuration(
                 ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_MODE_DURATION"
             ),
-            EMERGENCY_PROTECTION_DURATION: configFile.readDuration(
-                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_PROTECTION_DURATION"
+            EMERGENCY_PROTECTION_END_DATE: configFile.readTimestamp(
+                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.EMERGENCY_PROTECTION_END_DATE"
             ),
             MAX_EMERGENCY_PROTECTION_DURATION: configFile.readDuration(
                 ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_PROTECTION_DURATION"
@@ -303,7 +303,7 @@ contract DGDeployConfigProvider {
         emergencyProtectedTimelockConfig.set("MAX_AFTER_SCHEDULE_DELAY", config.MAX_AFTER_SCHEDULE_DELAY);
         emergencyProtectedTimelockConfig.set("EMERGENCY_MODE_DURATION", config.EMERGENCY_MODE_DURATION);
         emergencyProtectedTimelockConfig.set("MAX_EMERGENCY_MODE_DURATION", config.MAX_EMERGENCY_MODE_DURATION);
-        emergencyProtectedTimelockConfig.set("EMERGENCY_PROTECTION_DURATION", config.EMERGENCY_PROTECTION_DURATION);
+        emergencyProtectedTimelockConfig.set("EMERGENCY_PROTECTION_END_DATE", config.EMERGENCY_PROTECTION_END_DATE);
         emergencyProtectedTimelockConfig.set(
             "MAX_EMERGENCY_PROTECTION_DURATION", config.MAX_EMERGENCY_PROTECTION_DURATION
         );

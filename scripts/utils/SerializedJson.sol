@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {stdJson} from "forge-std/StdJson.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {Duration} from "contracts/types/Duration.sol";
+import {Timestamp} from "contracts/types/Timestamp.sol";
 import {HUNDRED_PERCENT_BP, HUNDRED_PERCENT_D16, PercentD16} from "contracts/types/PercentD16.sol";
 
 struct SerializedJson {
@@ -60,6 +61,15 @@ library SerializedJsonLib {
         SerializedJson memory json,
         string memory key,
         Duration value
+    ) internal returns (SerializedJson memory) {
+        json.str = stdJson.serialize(json.serializationId, key, value.toSeconds());
+        return json;
+    }
+
+    function set(
+        SerializedJson memory json,
+        string memory key,
+        Timestamp value
     ) internal returns (SerializedJson memory) {
         json.str = stdJson.serialize(json.serializationId, key, value.toSeconds());
         return json;
