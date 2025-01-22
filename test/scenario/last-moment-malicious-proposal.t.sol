@@ -7,12 +7,10 @@ import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDan
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
-import {ExternalCall, ExternalCallHelpers, Durations} from "../utils/test-utils.sol";
+import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers, Durations} from "../utils/scenario-test-blueprint.sol";
 
 contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
     function setUp() external {
-        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
     }
 

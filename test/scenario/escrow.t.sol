@@ -29,7 +29,6 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
     address internal immutable _VETOER_2 = makeAddr("VETOER_2");
 
     function setUp() external {
-        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
 
         escrow = _getVetoSignallingEscrow();

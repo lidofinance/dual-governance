@@ -7,14 +7,12 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 import {LidoUtils} from "../utils/lido-utils.sol";
-import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
-import {Escrow, ExternalCall, ExternalCallHelpers} from "../utils/test-utils.sol";
+import {ScenarioTestBlueprint, Escrow, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
 
 contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
     using LidoUtils for LidoUtils.Context;
 
     function setUp() external {
-        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
     }
 

@@ -4,15 +4,13 @@ pragma solidity 0.8.26;
 import {Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
-import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
-import {ExternalCall, ExternalCallHelpers} from "../utils/test-utils.sol";
+import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
 
 contract TiebreakerScenarioTest is ScenarioTestBlueprint {
     address internal immutable _VETOER = makeAddr("VETOER");
     uint256 public constant PAUSE_INFINITELY = type(uint256).max;
 
     function setUp() external {
-        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
         _setupStETHBalance(
             _VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)

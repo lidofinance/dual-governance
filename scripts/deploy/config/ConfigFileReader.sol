@@ -5,6 +5,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {stdJson} from "forge-std/stdJson.sol";
 import {stdToml} from "forge-std/StdToml.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
+import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 import {PercentsD16, PercentD16} from "contracts/types/PercentD16.sol";
 
 enum ConfigFormat {
@@ -36,6 +37,10 @@ library ConfigFileReader {
 
     function readDuration(Context memory ctx, string memory key) internal pure returns (Duration) {
         return Durations.from(readUint(ctx, key));
+    }
+
+    function readTimestamp(Context memory ctx, string memory key) internal pure returns (Timestamp) {
+        return Timestamps.from(readUint(ctx, key));
     }
 
     function readPercentD16BP(Context memory ctx, string memory key) internal pure returns (PercentD16) {

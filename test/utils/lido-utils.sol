@@ -20,18 +20,35 @@ import {EvmScriptUtils} from "./evm-script-utils.sol";
 
 import {StETHMock} from "../mocks/StETHMock.sol";
 
-import {
-    ST_ETH,
-    WST_ETH,
-    WITHDRAWAL_QUEUE,
-    DAO_ACL,
-    LDO_TOKEN,
-    DAO_AGENT,
-    DAO_VOTING,
-    DAO_TOKEN_MANAGER
-} from "addresses/mainnet-addresses.sol";
-
 uint256 constant ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
+
+// ---
+// Mainnet Addresses
+// ---
+
+address constant MAINNET_ST_ETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+address constant MAINNET_WST_ETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
+address constant MAINNET_WITHDRAWAL_QUEUE = 0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1;
+
+address constant MAINNET_DAO_ACL = 0x9895F0F17cc1d1891b6f18ee0b483B6f221b37Bb;
+address constant MAINNET_LDO_TOKEN = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
+address constant MAINNET_DAO_AGENT = 0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c;
+address constant MAINNET_DAO_VOTING = 0x2e59A20f205bB85a89C53f1936454680651E618e;
+address constant MAINNET_DAO_TOKEN_MANAGER = 0xf73a1260d222f447210581DDf212D915c09a3249;
+
+// ---
+// Holesky Addresses
+// ---
+
+address constant HOLESKY_ST_ETH = 0x3F1c547b21f65e10480dE3ad8E19fAAC46C95034;
+address constant HOLESKY_WST_ETH = 0x8d09a4502Cc8Cf1547aD300E066060D043f6982D;
+address constant HOLESKY_WITHDRAWAL_QUEUE = 0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50;
+
+address constant HOLESKY_DAO_ACL = 0xfd1E42595CeC3E83239bf8dFc535250e7F48E0bC;
+address constant HOLESKY_LDO_TOKEN = 0x14ae7daeecdf57034f3E9db8564e46Dba8D97344;
+address constant HOLESKY_DAO_AGENT = 0xE92329EC7ddB11D25e25b3c21eeBf11f15eB325d;
+address constant HOLESKY_DAO_VOTING = 0xdA7d2573Df555002503F29aA4003e398d28cc00f;
+address constant HOLESKY_DAO_TOKEN_MANAGER = 0xFaa1692c6eea8eeF534e7819749aD93a1420379A;
 
 library LidoUtils {
     struct Context {
@@ -52,15 +69,27 @@ library LidoUtils {
     address internal constant DEFAULT_LDO_WHALE = address(0x1D0_1D0_1D0_1D0_1d0_1D0_1D0_1D0_1D0_1d0_1d0_1d0_1D0_1);
 
     function mainnet() internal pure returns (Context memory ctx) {
-        ctx.stETH = IStETH(ST_ETH);
-        ctx.wstETH = IWstETH(WST_ETH);
-        ctx.withdrawalQueue = IWithdrawalQueue(WITHDRAWAL_QUEUE);
+        ctx.stETH = IStETH(MAINNET_ST_ETH);
+        ctx.wstETH = IWstETH(MAINNET_WST_ETH);
+        ctx.withdrawalQueue = IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE);
 
-        ctx.acl = IAragonACL(DAO_ACL);
-        ctx.agent = IAragonAgent(DAO_AGENT);
-        ctx.voting = IAragonVoting(DAO_VOTING);
-        ctx.ldoToken = IERC20(LDO_TOKEN);
-        ctx.tokenManager = IAragonForwarder(DAO_TOKEN_MANAGER);
+        ctx.acl = IAragonACL(MAINNET_DAO_ACL);
+        ctx.agent = IAragonAgent(MAINNET_DAO_AGENT);
+        ctx.voting = IAragonVoting(MAINNET_DAO_VOTING);
+        ctx.ldoToken = IERC20(MAINNET_LDO_TOKEN);
+        ctx.tokenManager = IAragonForwarder(MAINNET_DAO_TOKEN_MANAGER);
+    }
+
+    function holesky() internal pure returns (Context memory ctx) {
+        ctx.stETH = IStETH(HOLESKY_ST_ETH);
+        ctx.wstETH = IWstETH(HOLESKY_WST_ETH);
+        ctx.withdrawalQueue = IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE);
+
+        ctx.acl = IAragonACL(HOLESKY_DAO_ACL);
+        ctx.agent = IAragonAgent(HOLESKY_DAO_AGENT);
+        ctx.voting = IAragonVoting(HOLESKY_DAO_VOTING);
+        ctx.ldoToken = IERC20(HOLESKY_LDO_TOKEN);
+        ctx.tokenManager = IAragonForwarder(HOLESKY_DAO_TOKEN_MANAGER);
     }
 
     function calcAmountFromPercentageOfTVL(
@@ -127,14 +156,7 @@ library LidoUtils {
         vm.deal(account, balance + 0.1 ether);
 
         vm.prank(account);
-        // TODO: update mock to support `submit` function
-
-        if (keccak256(bytes(vm.envString("CHAIN"))) == keccak256("holesky-mocks")) {
-            StETHMock(address(self.stETH)).mint(account, balance);
-            sharesMinted = self.stETH.getSharesByPooledEth(balance);
-        } else {
-            sharesMinted = self.stETH.submit{value: balance}(address(0));
-        }
+        sharesMinted = self.stETH.submit{value: balance}(address(0));
     }
 
     function submitWstETH(

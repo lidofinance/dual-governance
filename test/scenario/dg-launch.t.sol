@@ -6,14 +6,12 @@ import {Timestamps} from "contracts/types/Timestamp.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 import {EvmScriptUtils} from "test/utils/evm-script-utils.sol";
 
-import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
-import {ExternalCall, ExternalCallHelpers} from "../utils/test-utils.sol";
+import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
 
 contract DGLaunchTest is ScenarioTestBlueprint {
     using LidoUtils for LidoUtils.Context;
 
     function setUp() external {
-        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 
@@ -27,7 +25,7 @@ contract DGLaunchTest is ScenarioTestBlueprint {
         {
             assertFalse(_timelock.isEmergencyModeActive());
 
-            vm.prank(_emergencyActivationCommittee);
+            vm.prank(_deployConfig.timelock.emergencyActivationCommittee);
             _timelock.activateEmergencyMode();
 
             assertTrue(_timelock.isEmergencyModeActive());
@@ -37,7 +35,7 @@ contract DGLaunchTest is ScenarioTestBlueprint {
         {
             assertEq(_timelock.getGovernance(), address(_dualGovernance));
 
-            vm.prank(_emergencyExecutionCommittee);
+            vm.prank(_deployConfig.timelock.emergencyExecutionCommittee);
             _timelock.emergencyReset();
 
             assertEq(_timelock.getGovernance(), address(_emergencyGovernance));
@@ -51,14 +49,16 @@ contract DGLaunchTest is ScenarioTestBlueprint {
                         value: 0,
                         target: address(_timelock),
                         payload: abi.encodeCall(
-                            _timelock.setEmergencyProtectionActivationCommittee, (_emergencyActivationCommittee)
+                            _timelock.setEmergencyProtectionActivationCommittee,
+                            (_deployConfig.timelock.emergencyActivationCommittee)
                         )
                     }),
                     ExternalCall({
                         value: 0,
                         target: address(_timelock),
                         payload: abi.encodeCall(
-                            _timelock.setEmergencyProtectionExecutionCommittee, (_emergencyExecutionCommittee)
+                            _timelock.setEmergencyProtectionExecutionCommittee,
+                            (_deployConfig.timelock.emergencyExecutionCommittee)
                         )
                     }),
                     ExternalCall({
@@ -70,14 +70,15 @@ contract DGLaunchTest is ScenarioTestBlueprint {
                         value: 0,
                         target: address(_timelock),
                         payload: abi.encodeCall(
-                            _timelock.setEmergencyProtectionEndDate,
-                            (_dgDeployConfig.EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
+                            _timelock.setEmergencyProtectionEndDate, (_deployConfig.timelock.emergencyProtectionEndDate)
                         )
                     }),
                     ExternalCall({
                         value: 0,
                         target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setEmergencyModeDuration, (_dgDeployConfig.EMERGENCY_MODE_DURATION))
+                        payload: abi.encodeCall(
+                            _timelock.setEmergencyModeDuration, (_deployConfig.timelock.emergencyModeDuration)
+                        )
                     })
                 ]
             );

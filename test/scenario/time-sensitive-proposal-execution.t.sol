@@ -20,7 +20,6 @@ contract ScheduledProposalExecution is ScenarioTestBlueprint {
     Duration private immutable _EXECUTION_END_DAY_TIME = Durations.from(12 hours); // till the 12:00 UTC
 
     function setUp() external {
-        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
         _timelockConstraints = new TimeConstraints();
     }

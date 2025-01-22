@@ -3,13 +3,10 @@ pragma solidity 0.8.26;
 
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
-import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
-import {ExternalCall} from "../utils/test-utils.sol";
+import {ScenarioTestBlueprint, ExternalCall} from "../utils/scenario-test-blueprint.sol";
 
 contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
-    function setUp() external {
-        _setUpEnvironment();
-    }
+    function setUp() external {}
 
     function test_regular_deployment_mode() external {
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
@@ -79,14 +76,14 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         _assertCanExecute(proposalId, true);
 
-        vm.prank(address(_emergencyActivationCommittee));
+        vm.prank(address(_deployConfig.timelock.emergencyActivationCommittee));
         _timelock.activateEmergencyMode();
 
         assertEq(_timelock.isEmergencyModeActive(), true);
 
         _assertCanExecute(proposalId, false);
 
-        vm.prank(address(_emergencyExecutionCommittee));
+        vm.prank(address(_deployConfig.timelock.emergencyExecutionCommittee));
         _timelock.emergencyExecute(proposalId);
 
         _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
@@ -112,7 +109,7 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         _assertCanExecute(proposalId, true);
 
-        vm.prank(address(_emergencyActivationCommittee));
+        vm.prank(address(_deployConfig.timelock.emergencyActivationCommittee));
         _timelock.activateEmergencyMode();
 
         assertEq(_timelock.isEmergencyModeActive(), true);

@@ -3,8 +3,7 @@ pragma solidity 0.8.26;
 
 import {Proposers} from "contracts/libraries/Proposers.sol";
 
-import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
-import {ExternalCall, ExternalCallHelpers} from "../utils/test-utils.sol";
+import {ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
 import {LidoUtils} from "../utils/lido-utils.sol";
 
 interface IRegularContract {
@@ -15,7 +14,6 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
     using LidoUtils for LidoUtils.Context;
 
     function setUp() external {
-        _setUpEnvironment();
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 
@@ -244,10 +242,10 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
             // committee resets governance
-            vm.prank(address(_emergencyActivationCommittee));
+            vm.prank(address(_deployConfig.timelock.emergencyActivationCommittee));
             _timelock.activateEmergencyMode();
 
-            vm.prank(address(_emergencyExecutionCommittee));
+            vm.prank(address(_deployConfig.timelock.emergencyExecutionCommittee));
             _timelock.emergencyReset();
 
             // proposal is canceled now
