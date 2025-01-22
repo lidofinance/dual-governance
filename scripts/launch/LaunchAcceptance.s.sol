@@ -349,7 +349,7 @@ contract LaunchAcceptance is DeployScriptBase {
         }
 
         if (fromStep <= 8) {
-            console.log("STEP 8 - Wait for Dual Governance after submit delay and envacting proposal");
+            console.log("STEP 8 - Wait for Dual Governance after submit delay and enacting proposal");
 
             uint256 expectedProposalId = 2;
 
