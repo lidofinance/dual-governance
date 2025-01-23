@@ -31,7 +31,7 @@ contract DeployAragonRolesVerifier is Script {
 
         vm.stopBroadcast();
 
-        console.log("AragonRolesVerifier address", address(rolesVerifier));
+        console.log("AragonRolesVerifier deployed successfully at", address(rolesVerifier));
     }
 
     function _loadRolesFile() internal view returns (string memory) {

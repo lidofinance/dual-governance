@@ -5,12 +5,16 @@ pragma solidity 0.8.26;
 
 import {console} from "forge-std/console.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {DeployConfig} from "./Config.sol";
 import {ConfigFileReader} from "../deploy/config/ConfigFileReader.sol";
 
 string constant CONFIG_FILES_DIR = "deploy-config";
 
 contract TimelockedGovernanceConfigProvider {
+    struct DeployConfig {
+        address GOVERNANCE;
+        address TIMELOCK;
+    }
+
     using ConfigFileReader for ConfigFileReader.Context;
 
     // solhint-disable-next-line const-name-snakecase
