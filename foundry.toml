@@ -7,7 +7,10 @@ test = 'test'
 cache_path = 'cache_forge'
 # solc-version = "0.8.26"
 no-match-path = 'test/kontrol/*'
-fs_permissions = [{ access = "read-write", path = "./deploy-config"}]
+fs_permissions = [
+    { access = "read-write", path = "./deploy-config"},
+    { access = "read", path = "./scripts/smoke-checks"},
+]
 
 [profile.kprove]
 src = 'test/kontrol'
