@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/* solhint-disable no-console */
+/* solhint-disable no-console, custom-errors, reason-string */
 
 import {console} from "forge-std/Test.sol";
 
