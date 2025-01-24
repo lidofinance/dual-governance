@@ -7,6 +7,7 @@ import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {Duration} from "contracts/types/Duration.sol";
+import {Timestamp} from "contracts/types/Timestamp.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
 
 bytes32 constant CHAIN_NAME_MAINNET_HASH = keccak256(bytes("mainnet"));
@@ -39,7 +40,7 @@ struct DeployConfig {
     Duration MAX_AFTER_SCHEDULE_DELAY;
     Duration EMERGENCY_MODE_DURATION;
     Duration MAX_EMERGENCY_MODE_DURATION;
-    Duration EMERGENCY_PROTECTION_DURATION;
+    Timestamp EMERGENCY_PROTECTION_END_DATE;
     Duration MAX_EMERGENCY_PROTECTION_DURATION;
     address EMERGENCY_ACTIVATION_COMMITTEE;
     address EMERGENCY_EXECUTION_COMMITTEE;

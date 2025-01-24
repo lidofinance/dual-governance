@@ -55,8 +55,6 @@ import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
 import {SetupDeployment} from "./SetupDeployment.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 
-uint256 constant FORK_BLOCK_NUMBER = 20218312;
-
 contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     using LidoUtils for LidoUtils.Context;
 

@@ -4,36 +4,15 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
 import {Script} from "forge-std/Script.sol";
-import {stdJson} from "forge-std/StdJson.sol";
 import {console} from "forge-std/console.sol";
 
-import {Timestamps} from "contracts/types/Timestamp.sol";
-import {Durations, Duration} from "contracts/types/Duration.sol";
-import {Executor} from "contracts/Executor.sol";
-import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
-import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
-import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
-import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
-import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
-import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
-import {ResealManager} from "contracts/ResealManager.sol";
-import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
-import {DualGovernance} from "contracts/DualGovernance.sol";
-import {Escrow} from "contracts/Escrow.sol";
-import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
-import {State} from "contracts/libraries/DualGovernanceStateMachine.sol";
-import {IWithdrawalQueue} from "test/utils/interfaces/IWithdrawalQueue.sol";
-
-import {IAragonForwarder} from "test/utils/interfaces/IAragonAgent.sol";
-
+import {Duration} from "contracts/types/Duration.sol";
 import {DeployConfig, LidoContracts} from "../deploy/config/Config.sol";
 import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "../deploy/config/ConfigProvider.sol";
 import {DeployedContracts, DGContractsSet} from "../deploy/DeployedContractsSet.sol";
-import {DeployVerification} from "../deploy/DeployVerification.sol";
 import {DeployVerifier} from "./DeployVerifier.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 
 contract DeployScriptBase is Script {
     DeployConfig internal _config;

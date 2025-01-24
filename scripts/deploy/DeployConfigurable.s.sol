@@ -7,6 +7,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console} from "forge-std/console.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 import {DeployConfig, LidoContracts} from "./config/Config.sol";
 import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "./config/ConfigProvider.sol";
 import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
@@ -68,9 +69,11 @@ contract DeployConfigurable is Script {
 
     function _serializeDeployedContracts(SerializedJson memory json) internal returns (SerializedJson memory) {
         SerializedJson memory addrsJson = DGContractsSet.serialize(_contracts);
-        addrsJson.set("EMERGENCY_ACTIVATION_COMMITTEE", _config.EMERGENCY_ACTIVATION_COMMITTEE);
-        addrsJson.set("EMERGENCY_EXECUTION_COMMITTEE", _config.EMERGENCY_EXECUTION_COMMITTEE);
-        addrsJson.set("RESEAL_COMMITTEE", _config.RESEAL_COMMITTEE);
+        addrsJson.set("DUAL_GOVERNANCE_CONFIG_PROVIDER", address(_contracts.dualGovernance.getConfigProvider()));
+        addrsJson.set(
+            "ESCROW_MASTER_COPY",
+            address(ISignallingEscrow(_contracts.dualGovernance.getVetoSignallingEscrow()).ESCROW_MASTER_COPY())
+        );
         addrsJson.set("chainName", _chainName);
         addrsJson.set("timestamp", block.timestamp);
 

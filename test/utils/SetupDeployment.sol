@@ -9,6 +9,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
+import {Timestamps} from "contracts/types/Timestamp.sol";
 
 // ---
 // Interfaces
@@ -100,6 +101,9 @@ abstract contract SetupDeployment is Test {
     Duration internal immutable MAX_TIEBREAKER_ACTIVATION_TIMEOUT = Durations.from(730 days);
     uint256 internal immutable MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = 255;
 
+    uint256 internal FORK_BLOCK_NUMBER = 20218312;
+    uint256 internal FORK_BLOCK_TIMESTAMP = 1719917015;
+
     //
 
     // ---
@@ -154,7 +158,8 @@ abstract contract SetupDeployment is Test {
         _dgDeployConfig.MAX_AFTER_SCHEDULE_DELAY = _MAX_AFTER_SCHEDULE_DELAY;
         _dgDeployConfig.EMERGENCY_MODE_DURATION = _EMERGENCY_MODE_DURATION;
         _dgDeployConfig.MAX_EMERGENCY_MODE_DURATION = _MAX_EMERGENCY_MODE_DURATION;
-        _dgDeployConfig.EMERGENCY_PROTECTION_DURATION = _EMERGENCY_PROTECTION_DURATION;
+        _dgDeployConfig.EMERGENCY_PROTECTION_END_DATE =
+            _EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.from(FORK_BLOCK_TIMESTAMP));
         _dgDeployConfig.MAX_EMERGENCY_PROTECTION_DURATION = _MAX_EMERGENCY_PROTECTION_DURATION;
 
         _dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE = _emergencyActivationCommittee;

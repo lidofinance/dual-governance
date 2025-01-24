@@ -73,8 +73,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
 
         // Propose to set Governance, Activation Committee, Execution Committee,  Emergency Mode End Date and Emergency Mode Duration
         ExternalCall[] memory calls;
-        uint256 emergencyProtectionEndsAfter =
-            block.timestamp + _dgDeployConfig.EMERGENCY_PROTECTION_DURATION.toSeconds();
+        uint256 emergencyProtectionEndsAfter = _dgDeployConfig.EMERGENCY_PROTECTION_END_DATE.toSeconds();
         calls = ExternalCallHelpers.create(
             [
                 ExternalCall({
