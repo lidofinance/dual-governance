@@ -33,6 +33,10 @@ contract TestingAssertEqExtender is Test {
         assertEq(uint256(Timestamp.unwrap(a)), uint256(Timestamp.unwrap(b)));
     }
 
+    function assertEq(Timestamp a, Timestamp b, string memory message) internal {
+        assertEq(uint256(Timestamp.unwrap(a)), uint256(Timestamp.unwrap(b)), message);
+    }
+
     function assertEq(ProposalStatus a, ProposalStatus b) internal {
         assertEq(uint256(a), uint256(b));
     }

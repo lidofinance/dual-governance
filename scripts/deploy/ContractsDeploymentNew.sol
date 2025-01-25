@@ -40,6 +40,24 @@ import {IResealManager} from "contracts/interfaces/IResealManager.sol";
 
 import {ConfigFileReader} from "./config/ConfigFileReader.sol";
 
+Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
+library Path {
+    string constant DEPLOY_CONFIGS_DIR = "deploy-configs";
+    string constant DEPLOY_ARTIFACTS_DIR = "deploy-artifacts";
+
+    function resolveDeployConfig(string memory fileName) internal returns (string memory) {
+        return string.concat(vm.projectRoot(), "/", DEPLOY_CONFIGS_DIR, "/", fileName);
+    }
+
+    function resolveDeployArtifact(string memory fileName) internal returns (string memory) {
+        return string.concat(vm.projectRoot(), "/", DEPLOY_ARTIFACTS_DIR, "/", fileName);
+    }
+}
+
+// solhint-disable-next-line const-name-snakecase
+string constant DEPLOY_ARTIFACTS_DIR = "deploy-artifacts";
+
 struct TiebreakerCommitteeDeployConfig {
     uint256 quorum;
     address[] members;
@@ -50,45 +68,48 @@ struct TiebreakerDeployConfig {
     uint256 committeesCount;
     Duration executionDelay;
     Duration activationTimeout;
-    Duration minActivationTimeout;
-    Duration maxActivationTimeout;
     TiebreakerCommitteeDeployConfig[] committees;
 }
 
 struct DualGovernanceDeployConfig {
-    DualGovernanceConfig.Context dualGovernanceConfig;
-    DualGovernance.SignallingTokens signallingTokens;
-    DualGovernance.SanityCheckParams sanityCheckParams;
     address adminProposer;
     address resealCommittee;
     address proposalsCanceller;
     address[] sealableWithdrawalBlockers;
+    DualGovernance.SignallingTokens signallingTokens;
+    DualGovernance.SanityCheckParams sanityCheckParams;
+    DualGovernanceConfig.Context dualGovernanceConfig;
 }
 
-struct EmergencyProtectedTimelockDeployConfig {
+struct TimelockDeployConfig {
     Duration afterSubmitDelay;
     Duration afterScheduleDelay;
     EmergencyProtectedTimelock.SanityCheckParams sanityCheckParams;
+    Duration emergencyModeDuration;
+    Timestamp emergencyProtectionEndDate;
     address emergencyGovernanceProposer;
     address emergencyActivationCommittee;
     address emergencyExecutionCommittee;
-    Duration emergencyModeDuration;
-    Timestamp emergencyProtectionEndDate;
 }
 
-struct DeployedDualGovernanceContracts {
-    Executor adminExecutor;
-    EmergencyProtectedTimelock timelock;
-    TimelockedGovernance emergencyGovernance;
-    ResealManager resealManager;
-    DualGovernance dualGovernance;
-    ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider;
-    TiebreakerCoreCommittee tiebreakerCoreCommittee;
-    TiebreakerSubCommittee[] tiebreakerSubCommittees;
+library TGDeployedContracts {
+    struct Context {
+        Executor adminExecutor;
+        EmergencyProtectedTimelock timelock;
+        TimelockedGovernance timelockedGovernance;
+    }
 }
 
-library DeployedContracts {
-    using ConfigKeys for ConfigKeys.Context;
+library TGDeployConfig {
+    struct Context {
+        uint256 chainId;
+        address governance;
+        TimelockDeployConfig timelock;
+    }
+}
+
+library DGDeployedContracts {
+    using JsonKeys for string;
     using ConfigFileReader for ConfigFileReader.Context;
     using ConfigFileBuilder for ConfigFileBuilder.Context;
 
@@ -103,21 +124,25 @@ library DeployedContracts {
         TiebreakerSubCommittee[] tiebreakerSubCommittees;
     }
 
-    function load(string memory configFilePath, string memory configPrefix) internal returns (Context memory ctx) {
-        ConfigFileReader.Context memory configFile = ConfigFileReader.load(configFilePath);
-        ConfigKeys.Context memory keys = ConfigKeys.create(configPrefix);
+    function load(
+        string memory deployedContractsFilePath,
+        string memory prefix
+    ) internal returns (Context memory ctx) {
+        string memory $ = prefix.root();
+        ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
 
-        ctx.adminExecutor = Executor(payable(configFile.readAddress(keys.key("ADMIN_EXECUTOR"))));
-        ctx.timelock = EmergencyProtectedTimelock(configFile.readAddress(keys.key("TIMELOCK")));
-        ctx.emergencyGovernance = TimelockedGovernance(configFile.readAddress(keys.key("EMERGENCY_GOVERNANCE")));
-        ctx.resealManager = ResealManager(configFile.readAddress(keys.key("RESEAL_MANAGER")));
-        ctx.dualGovernance = DualGovernance(configFile.readAddress(keys.key("DUAL_GOVERNANCE")));
-        ctx.dualGovernanceConfigProvider =
-            ImmutableDualGovernanceConfigProvider(configFile.readAddress(keys.key("DUAL_GOVERNANCE_CONFIG_PROVIDER")));
+        ctx.adminExecutor = Executor(payable(deployedContract.readAddress($.key("admin_executor"))));
+        ctx.timelock = EmergencyProtectedTimelock(deployedContract.readAddress($.key("timelock")));
+        ctx.emergencyGovernance = TimelockedGovernance(deployedContract.readAddress($.key("emergency_governance")));
+        ctx.resealManager = ResealManager(deployedContract.readAddress($.key("reseal_manager")));
+        ctx.dualGovernance = DualGovernance(deployedContract.readAddress($.key("dual_governance")));
+        ctx.dualGovernanceConfigProvider = ImmutableDualGovernanceConfigProvider(
+            deployedContract.readAddress($.key("dual_governance_config_provider"))
+        );
         ctx.tiebreakerCoreCommittee =
-            TiebreakerCoreCommittee(configFile.readAddress(keys.key("TIEBREAKER_CORE_COMMITTEE")));
+            TiebreakerCoreCommittee(deployedContract.readAddress($.key("tiebreaker_core_committee")));
 
-        address[] memory tiebreakerSubCommittees = configFile.readAddressArray(keys.key("TIEBREAKER_SUB_COMMITTEES"));
+        address[] memory tiebreakerSubCommittees = deployedContract.readAddressArray($.key("tiebreaker_sub_committees"));
         ctx.tiebreakerSubCommittees = new TiebreakerSubCommittee[](tiebreakerSubCommittees.length);
         for (uint256 i = 0; i < tiebreakerSubCommittees.length; ++i) {
             ctx.tiebreakerSubCommittees[i] = TiebreakerSubCommittee(tiebreakerSubCommittees[i]);
@@ -127,285 +152,424 @@ library DeployedContracts {
     function toJSON(Context memory ctx) internal returns (string memory) {
         ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
 
-        address[] memory tiebreakerSubCommittees = new address[](ctx.tiebreakerSubCommittees.length);
+        configBuilder.set("admin_executor", address(ctx.adminExecutor));
+        configBuilder.set("timelock", address(ctx.timelock));
+        configBuilder.set("emergency_governance", address(ctx.emergencyGovernance));
+        configBuilder.set("reseal_manager", address(ctx.resealManager));
+        configBuilder.set("dual_governance", address(ctx.dualGovernance));
+        configBuilder.set("dual_governance_config_provider", address(ctx.dualGovernanceConfigProvider));
+        configBuilder.set("tiebreaker_core_committee", address(ctx.tiebreakerCoreCommittee));
+        configBuilder.set("tiebreaker_sub_committees", _getTiebreakerSubCommitteeAddresses(ctx));
+
+        return configBuilder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("DualGovernance address", address(ctx.dualGovernance));
+        console.log("ResealManager address", address(ctx.resealManager));
+        console.log("TiebreakerCoreCommittee address", address(ctx.tiebreakerCoreCommittee));
+
+        address[] memory tiebreakerSubCommittees = _getTiebreakerSubCommitteeAddresses(ctx);
+
+        for (uint256 i = 0; i < tiebreakerSubCommittees.length; ++i) {
+            console.log("TiebreakerSubCommittee[%d] address %x", i, tiebreakerSubCommittees[i]);
+        }
+
+        console.log("AdminExecutor address", address(ctx.adminExecutor));
+        console.log("EmergencyProtectedTimelock address", address(ctx.timelock));
+        console.log("EmergencyGovernance address", address(ctx.emergencyGovernance));
+    }
+
+    function _getTiebreakerSubCommitteeAddresses(Context memory ctx)
+        private
+        pure
+        returns (address[] memory tiebreakerSubCommittees)
+    {
+        tiebreakerSubCommittees = new address[](ctx.tiebreakerSubCommittees.length);
         for (uint256 i = 0; i < tiebreakerSubCommittees.length; ++i) {
             tiebreakerSubCommittees[i] = address(ctx.tiebreakerSubCommittees[i]);
         }
-
-        // forgefmt: disable-next-item
-        return configBuilder
-            .set("ADMIN_EXECUTOR", address(ctx.adminExecutor))
-            .set("TIMELOCK", address(ctx.timelock))
-            .set("EMERGENCY_GOVERNANCE", address(ctx.emergencyGovernance))
-            .set("RESEAL_MANAGER", address(ctx.emergencyGovernance))
-            .set("DUAL_GOVERNANCE", address(ctx.emergencyGovernance))
-            .set("DUAL_GOVERNANCE_CONFIG_PROVIDER", address(ctx.emergencyGovernance))
-            .set("TIEBREAKER_CORE_COMMITTEE", address(ctx.emergencyGovernance))
-            .set("TIEBREAKER_SUB_COMMITTEES", tiebreakerSubCommittees)
-            .content;
     }
 }
 
-library DeployArtifacts {
-    using DeployConfig for DeployConfig.Context;
-    using DeployConfigKeys for ConfigKeys.Context;
+library DGDeployArtifacts {
+    using DGDeployConfig for DGDeployConfig.Context;
     using ConfigFileBuilder for ConfigFileBuilder.Context;
-    using DeployedContracts for DeployedContracts.Context;
+    using DGDeployedContracts for DGDeployedContracts.Context;
 
     struct Context {
-        DeployConfig.Context deployConfig;
-        DeployedContracts.Context deployedContracts;
+        DGDeployConfig.Context deployConfig;
+        DGDeployedContracts.Context deployedContracts;
     }
 
-    function load(string memory deployArtifactsFilePath) internal returns (Context memory ctx) {
-        ctx.deployConfig = DeployConfig.load(deployArtifactsFilePath, "DEPLOY_CONFIG");
-        ctx.deployedContracts = DeployedContracts.load(deployArtifactsFilePath, "DEPLOYED_CONTRACTS");
+    function load(string memory deployArtifactFilePath) internal returns (Context memory ctx) {
+        ctx.deployConfig = DGDeployConfig.load(deployArtifactFilePath, "deploy_config");
+        ctx.deployedContracts = DGDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
     }
 
     function save(Context memory ctx, string memory deployArtifactsFilePath) internal {
         ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
 
-        configBuilder.set("DEPLOY_CONFIG", ctx.deployConfig.toJSON()).set(
-            "DEPLOYED_CONTRACTS", ctx.deployedContracts.toJSON()
+        configBuilder.set("deploy_config", ctx.deployConfig.toJSON()).set(
+            "deployed_contracts", ctx.deployedContracts.toJSON()
         ).write(deployArtifactsFilePath);
     }
 
     function create(
-        DeployConfig.Context memory deployConfig,
-        DeployedContracts.Context memory deployedContracts
-    ) internal {}
-}
-
-library ConfigKeys {
-    struct Context {
-        string prefix;
-    }
-
-    function create(string memory prefix) internal pure returns (Context memory ctx) {
-        ctx.prefix = prefix;
-    }
-
-    function root(Context memory ctx) internal pure returns (string memory) {
-        return bytes(ctx.prefix).length == 0 ? "$" : string.concat("$", ".", ctx.prefix);
-    }
-
-    function key(Context memory ctx, string memory key) internal pure returns (string memory) {
-        return string.concat(root(ctx), ".", key);
+        DGDeployConfig.Context memory deployConfig,
+        DGDeployedContracts.Context memory deployedContracts
+    ) internal returns (Context memory ctx) {
+        ctx.deployConfig = deployConfig;
+        ctx.deployedContracts = deployedContracts;
     }
 }
 
-library DeployConfigKeys {
-    using ConfigKeys for ConfigKeys.Context;
-
-    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-
-    function dg(ConfigKeys.Context memory ctx, string memory key) internal pure returns (string memory) {
-        return string.concat(ctx.root(), ".", "DUAL_GOVERNANCE", ".", key);
+library JsonKeys {
+    function root(string memory prefix) internal pure returns (string memory) {
+        if (bytes(prefix).length == 0) {
+            return "$";
+        }
+        if (bytes(prefix)[0] == bytes1("$") || bytes(prefix)[0] == bytes1(".")) {
+            return prefix;
+        }
+        return string.concat("$", ".", prefix);
     }
 
-    function tiebreaker(ConfigKeys.Context memory ctx, string memory key) internal pure returns (string memory) {
-        return string.concat(ctx.root(), ".", "TIEBREAKER", ".", key);
+    function key(string memory prefix, string memory key) internal pure returns (string memory) {
+        return string.concat(prefix, ".", key);
     }
 
-    function timelock(ConfigKeys.Context memory ctx, string memory key) internal pure returns (string memory) {
-        return string.concat(ctx.root(), ".", "EMERGENCY_PROTECTED_TIMELOCK", ".", key);
-    }
-
-    function tiebreakerCommittee(
-        ConfigKeys.Context memory ctx,
-        uint256 index,
-        string memory key
-    ) internal pure returns (string memory) {
-        return tiebreaker(ctx, string.concat("COMMITTEES[", vm.toString(index), "]", ".", key));
+    function index(string memory prefix, string memory key, uint256 index) internal pure returns (string memory) {
+        return string.concat(prefix, ".", key, "[", vm.toString(index), "]");
     }
 }
 
-library DeployConfig {
+library DGDeployConfig {
+    using JsonKeys for string;
     using ConfigFileBuilder for ConfigFileBuilder.Context;
     using ConfigFileReader for ConfigFileReader.Context;
-    using ConfigKeys for ConfigKeys.Context;
-    using DeployConfigKeys for ConfigKeys.Context;
 
     struct Context {
         uint256 chainId;
         TiebreakerDeployConfig tiebreaker;
         DualGovernanceDeployConfig dualGovernance;
-        EmergencyProtectedTimelockDeployConfig timelock;
+        TimelockDeployConfig timelock;
     }
 
-    // solhint-disable-next-line const-name-snakecase
-    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    function load(string memory configFilePath) internal returns (Context memory ctx) {
+        return load(configFilePath, "");
+    }
 
-    function load(string memory configFilePath, string memory configPrefix) internal returns (Context memory ctx) {
-        ConfigFileReader.Context memory configFile = ConfigFileReader.load(configFilePath);
-        ConfigKeys.Context memory keys = ConfigKeys.create(configPrefix);
+    function load(string memory configFilePath, string memory prefix) internal returns (Context memory ctx) {
+        string memory $ = prefix.root();
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
-        // ---
-        // Chain ID
-        // ---
+        ctx.chainId = file.readUint($.key("chain_id"));
+        ctx.timelock = _readTimelockDeployConfig(file, $.key("timelock"));
+        ctx.tiebreaker = _readTiebreakerDeployConfig(file, $.key("tiebreaker"));
+        ctx.dualGovernance = _readDualGovernanceDeployConfig(file, $.key("dual_governance"));
+    }
 
-        ctx.chainId = configFile.readUint(keys.key("CHAIN_ID"));
+    function _readTimelockDeployConfig(
+        ConfigFileReader.Context memory file,
+        string memory prefix
+    ) internal returns (TimelockDeployConfig memory) {
+        string memory $ = prefix.root();
+        string memory $sanityCheckParams = $.key("sanity_check_params");
+        string memory $emergencyProtection = $.key("emergency_protection");
 
-        // ---
-        // Tiebreaker
-        // ---
-
-        TiebreakerCommitteeDeployConfig[] memory tiebreakerCommitteeConfigs =
-            new TiebreakerCommitteeDeployConfig[](ctx.tiebreaker.committeesCount);
-
-        for (uint256 i = 0; i < tiebreakerCommitteeConfigs.length; ++i) {
-            tiebreakerCommitteeConfigs[i].quorum = configFile.readUint(keys.tiebreakerCommittee(i, "QUORUM"));
-            tiebreakerCommitteeConfigs[i].members = configFile.readAddressArray(keys.tiebreakerCommittee(i, "MEMBERS"));
-        }
-
-        ctx.tiebreaker = TiebreakerDeployConfig({
-            quorum: configFile.readUint(keys.tiebreaker("QUORUM")),
-            committeesCount: configFile.readUint(keys.tiebreaker("COMMITTEES_COUNT")),
-            executionDelay: configFile.readDuration(keys.tiebreaker("EXECUTION_DELAY")),
-            activationTimeout: configFile.readDuration(keys.tiebreaker("ACTIVATION_TIMEOUT")),
-            minActivationTimeout: configFile.readDuration(keys.tiebreaker("MIN_ACTIVATION_TIMEOUT")),
-            maxActivationTimeout: configFile.readDuration(keys.tiebreaker("MIN_ACTIVATION_TIMEOUT")),
-            committees: tiebreakerCommitteeConfigs
-        });
-
-        // ---
-        // Emergency Protected Timelock
-        // ---
-
-        ctx.timelock = EmergencyProtectedTimelockDeployConfig({
-            afterSubmitDelay: configFile.readDuration(keys.timelock("AFTER_SUBMIT_DELAY")),
-            afterScheduleDelay: configFile.readDuration(keys.timelock("AFTER_SCHEDULE_DELAY")),
+        return TimelockDeployConfig({
+            afterSubmitDelay: file.readDuration($.key("after_submit_delay")),
+            afterScheduleDelay: file.readDuration($.key("after_schedule_delay")),
             sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
-                minExecutionDelay: configFile.readDuration(keys.timelock("MIN_EXECUTION_DELAY")),
-                maxAfterSubmitDelay: configFile.readDuration(keys.timelock("MAX_AFTER_SUBMIT_DELAY")),
-                maxAfterScheduleDelay: configFile.readDuration(keys.timelock("MAX_AFTER_SCHEDULE_DELAY")),
-                maxEmergencyModeDuration: configFile.readDuration(keys.timelock("MAX_EMERGENCY_MODE_DURATION")),
-                maxEmergencyProtectionDuration: configFile.readDuration(keys.timelock("MAX_EMERGENCY_PROTECTION_DURATION"))
+                minExecutionDelay: file.readDuration($sanityCheckParams.key("min_execution_delay")),
+                maxAfterSubmitDelay: file.readDuration($sanityCheckParams.key("max_after_submit_delay")),
+                maxAfterScheduleDelay: file.readDuration($sanityCheckParams.key("max_after_schedule_delay")),
+                maxEmergencyModeDuration: file.readDuration($sanityCheckParams.key("max_emergency_mode_duration")),
+                maxEmergencyProtectionDuration: file.readDuration($sanityCheckParams.key("max_emergency_protection_duration"))
             }),
-            emergencyGovernanceProposer: configFile.readAddress(keys.timelock("EMERGENCY_GOVERNANCE_PROPOSER")),
-            emergencyActivationCommittee: configFile.readAddress(keys.timelock("EMERGENCY_ACTIVATION_COMMITTEE")),
-            emergencyExecutionCommittee: configFile.readAddress(keys.timelock("EMERGENCY_EXECUTION_COMMITTEE")),
-            emergencyModeDuration: configFile.readDuration(keys.timelock("EMERGENCY_MODE_DURATION")),
-            emergencyProtectionEndDate: configFile.readTimestamp(keys.timelock("EMERGENCY_PROTECTION_END_DATE"))
+            emergencyGovernanceProposer: file.readAddress($emergencyProtection.key("emergency_governance_proposer")),
+            emergencyActivationCommittee: file.readAddress($emergencyProtection.key("emergency_activation_committee")),
+            emergencyExecutionCommittee: file.readAddress($emergencyProtection.key("emergency_execution_committee")),
+            emergencyModeDuration: file.readDuration($emergencyProtection.key("emergency_mode_duration")),
+            emergencyProtectionEndDate: file.readTimestamp($emergencyProtection.key("emergency_protection_end_date"))
         });
+    }
 
-        // ---
-        // Dual Governance
-        // ---
+    function _readDualGovernanceDeployConfig(
+        ConfigFileReader.Context memory file,
+        string memory prefix
+    ) internal returns (DualGovernanceDeployConfig memory) {
+        string memory $ = prefix.root();
+        string memory $config = $.key("config");
+        string memory $signalling_tokens = $.key("signalling_tokens");
+        string memory $sanity_check = $.key("sanity_check_params");
 
-        ctx.dualGovernance = DualGovernanceDeployConfig({
+        return DualGovernanceDeployConfig({
+            adminProposer: file.readAddress($.key("admin_proposer")),
+            resealCommittee: file.readAddress($.key("reseal_committee")),
+            proposalsCanceller: file.readAddress($.key("proposals_canceller")),
+            sealableWithdrawalBlockers: file.readAddressArray($.key("sealable_withdrawal_blockers")),
+            //
             dualGovernanceConfig: DualGovernanceConfig.Context({
-                firstSealRageQuitSupport: configFile.readPercentD16BP(keys.dg("FIRST_SEAL_RAGE_QUIT_SUPPORT")),
-                secondSealRageQuitSupport: configFile.readPercentD16BP(keys.dg("SECOND_SEAL_RAGE_QUIT_SUPPORT")),
+                firstSealRageQuitSupport: file.readPercentD16BP($config.key("first_seal_rage_quit_support")),
+                secondSealRageQuitSupport: file.readPercentD16BP($config.key("second_seal_rage_quit_support")),
                 //
-                minAssetsLockDuration: configFile.readDuration(keys.dg("MIN_ASSETS_LOCK_DURATION")),
+                minAssetsLockDuration: file.readDuration($config.key("min_assets_lock_duration")),
                 //
-                vetoSignallingMinDuration: configFile.readDuration(keys.dg("VETO_SIGNALLING_MIN_DURATION")),
-                vetoSignallingMaxDuration: configFile.readDuration(keys.dg("VETO_SIGNALLING_MAX_DURATION")),
-                vetoSignallingMinActiveDuration: configFile.readDuration(keys.dg("VETO_SIGNALLING_MIN_ACTIVE_DURATION")),
-                vetoSignallingDeactivationMaxDuration: configFile.readDuration(keys.dg("VETO_SIGNALLING_MAX_DURATION")),
-                vetoCooldownDuration: configFile.readDuration(keys.dg("VETO_COOLDOWN_DURATION")),
+                vetoSignallingMinDuration: file.readDuration($config.key("veto_signalling_min_duration")),
+                vetoSignallingMaxDuration: file.readDuration($config.key("veto_signalling_max_duration")),
+                vetoSignallingMinActiveDuration: file.readDuration($config.key("veto_signalling_min_active_duration")),
+                vetoSignallingDeactivationMaxDuration: file.readDuration($config.key("veto_signalling_max_duration")),
+                vetoCooldownDuration: file.readDuration($config.key("veto_cooldown_duration")),
                 //
-                rageQuitExtensionPeriodDuration: configFile.readDuration(keys.dg("RAGE_QUIT_EXTENSION_PERIOD_DURATION")),
-                rageQuitEthWithdrawalsMinDelay: configFile.readDuration(keys.dg("RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY")),
-                rageQuitEthWithdrawalsMaxDelay: configFile.readDuration(keys.dg("RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY")),
-                rageQuitEthWithdrawalsDelayGrowth: configFile.readDuration(keys.dg("RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH"))
+                rageQuitExtensionPeriodDuration: file.readDuration($config.key("rage_quit_extension_period_duration")),
+                rageQuitEthWithdrawalsMinDelay: file.readDuration($config.key("rage_quit_eth_withdrawals_min_delay")),
+                rageQuitEthWithdrawalsMaxDelay: file.readDuration($config.key("rage_quit_eth_withdrawals_max_delay")),
+                rageQuitEthWithdrawalsDelayGrowth: file.readDuration($config.key("rage_quit_eth_withdrawals_delay_growth"))
             }),
             signallingTokens: DualGovernance.SignallingTokens({
-                stETH: IStETH(configFile.readAddress(keys.dg("ST_ETH"))),
-                wstETH: IWstETH(configFile.readAddress(keys.dg("WST_ETH"))),
-                withdrawalQueue: IWithdrawalQueue(configFile.readAddress(keys.dg("UNST_ETH")))
+                stETH: IStETH(file.readAddress($signalling_tokens.key("st_eth"))),
+                wstETH: IWstETH(file.readAddress($signalling_tokens.key("wst_eth"))),
+                withdrawalQueue: IWithdrawalQueue(file.readAddress($signalling_tokens.key("withdrawal_queue")))
             }),
             sanityCheckParams: DualGovernance.SanityCheckParams({
-                minWithdrawalsBatchSize: configFile.readUint(keys.dg("MIN_WITHDRAWALS_BATCH_SIZE")),
-                minTiebreakerActivationTimeout: configFile.readDuration(keys.tiebreaker("MIN_ACTIVATION_TIMEOUT")),
-                maxTiebreakerActivationTimeout: configFile.readDuration(keys.tiebreaker("MAX_ACTIVATION_TIMEOUT")),
-                maxSealableWithdrawalBlockersCount: configFile.readUint(keys.dg("MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT")),
-                maxMinAssetsLockDuration: configFile.readDuration(keys.dg("MAX_MIN_ASSETS_LOCK_DURATION"))
-            }),
-            adminProposer: configFile.readAddress(keys.dg("ADMIN_PROPOESER")),
-            resealCommittee: configFile.readAddress(keys.dg("RESEAL_COMMITTEE")),
-            proposalsCanceller: configFile.readAddress(keys.dg("PROPOSALS_CANCELLER")),
-            sealableWithdrawalBlockers: configFile.readAddressArray(keys.dg("SEALABLE_WITHDRAWAL_BLOCKERS"))
+                minWithdrawalsBatchSize: file.readUint($sanity_check.key("min_withdrawals_batch_size")),
+                minTiebreakerActivationTimeout: file.readDuration($sanity_check.key("min_tiebreaker_activation_timeout")),
+                maxTiebreakerActivationTimeout: file.readDuration($sanity_check.key("max_tiebreaker_activation_timeout")),
+                maxSealableWithdrawalBlockersCount: file.readUint($sanity_check.key("max_sealable_withdrawal_blockers_count")),
+                maxMinAssetsLockDuration: file.readDuration($sanity_check.key("max_min_assets_lock_duration"))
+            })
+        });
+    }
+
+    function _readTiebreakerDeployConfig(
+        ConfigFileReader.Context memory file,
+        string memory prefix
+    ) internal returns (TiebreakerDeployConfig memory) {
+        string memory $ = JsonKeys.root(prefix);
+
+        uint256 tiebreakerCommitteesCount = file.readUint($.key("committees_count"));
+
+        TiebreakerCommitteeDeployConfig[] memory tiebreakerCommitteeConfigs =
+            new TiebreakerCommitteeDeployConfig[](tiebreakerCommitteesCount);
+
+        for (uint256 i = 0; i < tiebreakerCommitteeConfigs.length; ++i) {
+            string memory $committees = $.index("committees", i);
+            tiebreakerCommitteeConfigs[i].quorum = file.readUint($committees.key("quorum"));
+            tiebreakerCommitteeConfigs[i].members = file.readAddressArray($committees.key("members"));
+        }
+
+        return TiebreakerDeployConfig({
+            quorum: file.readUint($.key("quorum")),
+            committeesCount: tiebreakerCommitteesCount,
+            executionDelay: file.readDuration($.key("execution_delay")),
+            activationTimeout: file.readDuration($.key("activation_timeout")),
+            committees: tiebreakerCommitteeConfigs
         });
     }
 
     function toJSON(Context memory ctx) internal returns (string memory) {
-        ConfigFileBuilder.Context memory tiebreakerCommitteesConfigBuilder = ConfigFileBuilder.create();
+        ConfigFileBuilder.Context memory timelockConfigBuilder = ConfigFileBuilder.create();
+        // forgefmt: disable-next-item
+        {
+            ConfigFileBuilder.Context memory sanityCheckParamsBuilder = ConfigFileBuilder.create();
 
-        for (uint256 i = 0; i < ctx.tiebreaker.committees.length; ++i) {
-            string memory arrayKey = string.concat("[", vm.toString(i), "]");
-            // forgefmt: disable-next-item
-            tiebreakerCommitteesConfigBuilder
-                .set(string.concat(arrayKey, ".", "QUORUM"), ctx.tiebreaker.committees[i].quorum)
-                .set(string.concat(arrayKey, ".", "MEMBERS"), ctx.tiebreaker.committees[i].members);
+            sanityCheckParamsBuilder.set("min_execution_delay", ctx.timelock.sanityCheckParams.minExecutionDelay);
+            sanityCheckParamsBuilder.set("max_after_submit_delay", ctx.timelock.sanityCheckParams.maxAfterSubmitDelay);
+            sanityCheckParamsBuilder.set("max_after_schedule_delay", ctx.timelock.sanityCheckParams.maxAfterScheduleDelay);
+            sanityCheckParamsBuilder.set("max_emergency_mode_duration", ctx.timelock.sanityCheckParams.maxEmergencyModeDuration);
+            sanityCheckParamsBuilder.set("max_emergency_protection_duration", ctx.timelock.sanityCheckParams.maxEmergencyProtectionDuration);
+
+            ConfigFileBuilder.Context memory emergencyProtectionBuilder = ConfigFileBuilder.create();
+
+            emergencyProtectionBuilder.set("emergency_mode_duration", ctx.timelock.emergencyModeDuration);
+            emergencyProtectionBuilder.set("emergency_protection_end_date", ctx.timelock.emergencyProtectionEndDate);
+            emergencyProtectionBuilder.set("emergency_governance_proposer", ctx.timelock.emergencyGovernanceProposer);
+            emergencyProtectionBuilder.set("emergency_activation_committee", ctx.timelock.emergencyActivationCommittee);
+            emergencyProtectionBuilder.set("emergency_execution_committee", ctx.timelock.emergencyExecutionCommittee);
+
+            timelockConfigBuilder.set("after_schedule_delay", ctx.timelock.afterScheduleDelay);
+            timelockConfigBuilder.set("after_submit_delay", ctx.timelock.afterSubmitDelay);
+            timelockConfigBuilder.set("sanity_check_params", sanityCheckParamsBuilder.content);
+            timelockConfigBuilder.set("emergency_protection", emergencyProtectionBuilder.content);
         }
 
+        string[] memory tiebreakerCommitteesContent = new string[](ctx.tiebreaker.committees.length);
+
+        for (uint256 i = 0; i < tiebreakerCommitteesContent.length; ++i) {
+            // forgefmt: disable-next-item
+            tiebreakerCommitteesContent[i] = ConfigFileBuilder.create()
+                .set("quorum", ctx.tiebreaker.committees[i].quorum)
+                .set("members", ctx.tiebreaker.committees[i].members)
+                .content;
+        }
+
+        ConfigFileBuilder.Context memory tiebreakerConfigBuilder = ConfigFileBuilder.create();
         // forgefmt: disable-next-item
-        return ConfigFileBuilder.create()
-            .set("CHAIN_ID", ctx.chainId)
-            .set("DUAL_GOVERNANCE", ConfigFileBuilder.create()
-                .set("ST_ETH", address(ctx.dualGovernance.signallingTokens.stETH))
-                .set("WST_ETH", address(ctx.dualGovernance.signallingTokens.wstETH))
-                .set("UNST_ETH", address(ctx.dualGovernance.signallingTokens.withdrawalQueue))
+        {
+            tiebreakerConfigBuilder.set("quorum", ctx.tiebreaker.quorum);
+            tiebreakerConfigBuilder.set("committees_count", ctx.tiebreaker.committeesCount);
+            tiebreakerConfigBuilder.set("execution_delay", ctx.tiebreaker.executionDelay);
+            tiebreakerConfigBuilder.set("activation_timeout", ctx.tiebreaker.activationTimeout);
+            tiebreakerConfigBuilder.set("committees", tiebreakerCommitteesContent);
+        }
 
-                .set("ADMIN_PROPOESER", ctx.dualGovernance.adminProposer)
-                .set("RESEAL_COMMITTEE", ctx.dualGovernance.resealCommittee)
-                .set("PROPOSALS_CANCELLER", ctx.dualGovernance.proposalsCanceller)
+        ConfigFileBuilder.Context memory dgConfigBuilder = ConfigFileBuilder.create();
+        // forgefmt: disable-next-item
+        {
+             ConfigFileBuilder.Context memory sanityCheckParamsBuilder = ConfigFileBuilder.create();
 
-                .set("FIRST_SEAL_RAGE_QUIT_SUPPORT", ctx.dualGovernance.dualGovernanceConfig.firstSealRageQuitSupport)
-                .set("SECOND_SEAL_RAGE_QUIT_SUPPORT", ctx.dualGovernance.dualGovernanceConfig.secondSealRageQuitSupport)
-                .set("MIN_ASSETS_LOCK_DURATION", ctx.dualGovernance.dualGovernanceConfig.minAssetsLockDuration)
-                .set("RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH", ctx.dualGovernance.dualGovernanceConfig.rageQuitEthWithdrawalsDelayGrowth)
-                .set("RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY", ctx.dualGovernance.dualGovernanceConfig.rageQuitEthWithdrawalsMaxDelay)
-                .set("RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY",ctx.dualGovernance.dualGovernanceConfig.rageQuitEthWithdrawalsMinDelay)
-                .set("RAGE_QUIT_EXTENSION_PERIOD_DURATION", ctx.dualGovernance.dualGovernanceConfig.rageQuitExtensionPeriodDuration)
-                .set("VETO_COOLDOWN_DURATION", ctx.dualGovernance.dualGovernanceConfig.vetoCooldownDuration)
-                .set("MAX_MIN_ASSETS_LOCK_DURATION", ctx.dualGovernance.sanityCheckParams.maxMinAssetsLockDuration)
-                .set("MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT", ctx.dualGovernance.sanityCheckParams.maxSealableWithdrawalBlockersCount)
-                .set("VETO_SIGNALLING_DEACTIVATION_MAX_DURATION", ctx.dualGovernance.dualGovernanceConfig.vetoSignallingDeactivationMaxDuration)
-                .set("VETO_SIGNALLING_MAX_DURATION", ctx.dualGovernance.dualGovernanceConfig.vetoSignallingMaxDuration)
-                .set("VETO_SIGNALLING_MIN_ACTIVE_DURATION", ctx.dualGovernance.dualGovernanceConfig.vetoSignallingMinActiveDuration)
-                .set("VETO_SIGNALLING_MIN_DURATION", ctx.dualGovernance.dualGovernanceConfig.vetoSignallingMinDuration)
-                .set("SEALABLE_WITHDRAWAL_BLOCKERS", ctx.dualGovernance.sealableWithdrawalBlockers)
-                .content
-            ).set("EMERGENCY_PROTECTED_TIMELOCK", ConfigFileBuilder.create()
-                .set("AFTER_SCHEDULE_DELAY", ctx.timelock.afterScheduleDelay)
-                .set("AFTER_SUBMIT_DELAY", ctx.timelock.afterSubmitDelay)
-                .set("EMERGENCY_MODE_DURATION", ctx.timelock.emergencyModeDuration)
-                .set("EMERGENCY_PROTECTION_END_DATE", ctx.timelock.emergencyProtectionEndDate)
-                .set("MAX_AFTER_SCHEDULE_DELAY", ctx.timelock.sanityCheckParams.maxAfterScheduleDelay)
-                .set("MAX_AFTER_SUBMIT_DELAY", ctx.timelock.sanityCheckParams.maxAfterSubmitDelay)
-                .set("MAX_EMERGENCY_MODE_DURATION", ctx.timelock.sanityCheckParams.maxEmergencyModeDuration)
-                .set("MAX_EMERGENCY_PROTECTION_DURATION", ctx.timelock.sanityCheckParams.maxEmergencyProtectionDuration)
-                .set("MIN_EXECUTION_DELAY", ctx.timelock.sanityCheckParams.minExecutionDelay)
-                .set("EMERGENCY_GOVERNANCE_PROPOSER", ctx.timelock.emergencyGovernanceProposer)
-                .set("EMERGENCY_ACTIVATION_COMMITTEE", ctx.timelock.emergencyActivationCommittee)
-                .set("EMERGENCY_EXECUTION_COMMITTEE", ctx.timelock.emergencyExecutionCommittee)
-                .content
-            )
-            .set("TIEBREAKER", ConfigFileBuilder.create()
-                .set("QUORUM", ctx.tiebreaker.quorum)
-                .set("ACTIVATION_TIMEOUT", ctx.tiebreaker.activationTimeout)
-                .set("EXECUTION_DELAY", ctx.tiebreaker.executionDelay)
-                .set("MAX_ACTIVATION_TIMEOUT", ctx.tiebreaker.maxActivationTimeout)
-                .set("MIN_ACTIVATION_TIMEOUT", ctx.tiebreaker.minActivationTimeout)
-                .set("COMMITTEES_COUNT", ctx.tiebreaker.committeesCount)
-                .set("COMMITTEES", tiebreakerCommitteesConfigBuilder.content)
-                .content
-            ).content;
+            sanityCheckParamsBuilder.set("min_withdrawals_batch_size", ctx.dualGovernance.sanityCheckParams.minWithdrawalsBatchSize);
+            sanityCheckParamsBuilder.set("min_tiebreaker_activation_timeout", ctx.dualGovernance.sanityCheckParams.minTiebreakerActivationTimeout);
+            sanityCheckParamsBuilder.set("max_tiebreaker_activation_timeout", ctx.dualGovernance.sanityCheckParams.maxTiebreakerActivationTimeout);
+            sanityCheckParamsBuilder.set("max_sealable_withdrawal_blockers_count", ctx.dualGovernance.sanityCheckParams.maxSealableWithdrawalBlockersCount);
+            sanityCheckParamsBuilder.set("max_min_assets_lock_duration", ctx.dualGovernance.sanityCheckParams.maxMinAssetsLockDuration);
+
+            ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+
+            configBuilder.set("first_seal_rage_quit_support", ctx.dualGovernance.dualGovernanceConfig.firstSealRageQuitSupport);
+            configBuilder.set("second_seal_rage_quit_support", ctx.dualGovernance.dualGovernanceConfig.secondSealRageQuitSupport);
+            configBuilder.set("min_assets_lock_duration", ctx.dualGovernance.dualGovernanceConfig.minAssetsLockDuration);
+            configBuilder.set("veto_signalling_min_duration", ctx.dualGovernance.dualGovernanceConfig.vetoSignallingMinDuration);
+            configBuilder.set("veto_signalling_min_active_duration", ctx.dualGovernance.dualGovernanceConfig.vetoSignallingMinActiveDuration);
+            configBuilder.set("veto_signalling_max_duration", ctx.dualGovernance.dualGovernanceConfig.vetoSignallingMaxDuration);
+            configBuilder.set("veto_signalling_deactivation_max_duration", ctx.dualGovernance.dualGovernanceConfig.vetoSignallingDeactivationMaxDuration);
+            configBuilder.set("veto_cooldown_duration", ctx.dualGovernance.dualGovernanceConfig.vetoCooldownDuration);
+            configBuilder.set("rage_quit_eth_withdrawals_delay_growth", ctx.dualGovernance.dualGovernanceConfig.rageQuitEthWithdrawalsDelayGrowth);
+            configBuilder.set("rage_quit_eth_withdrawals_max_delay", ctx.dualGovernance.dualGovernanceConfig.rageQuitEthWithdrawalsMaxDelay);
+            configBuilder.set("rage_quit_eth_withdrawals_min_delay",ctx.dualGovernance.dualGovernanceConfig.rageQuitEthWithdrawalsMinDelay);
+            configBuilder.set("rage_quit_extension_period_duration", ctx.dualGovernance.dualGovernanceConfig.rageQuitExtensionPeriodDuration);
+
+            ConfigFileBuilder.Context memory signallingTokensBuilder = ConfigFileBuilder.create();
+
+            signallingTokensBuilder.set("st_eth", address(ctx.dualGovernance.signallingTokens.stETH));
+            signallingTokensBuilder.set("wst_eth", address(ctx.dualGovernance.signallingTokens.wstETH));
+            signallingTokensBuilder.set("withdrawal_queue", address(ctx.dualGovernance.signallingTokens.withdrawalQueue));
+
+            dgConfigBuilder.set("admin_proposer", ctx.dualGovernance.adminProposer);
+            dgConfigBuilder.set("reseal_committee", ctx.dualGovernance.resealCommittee);
+            dgConfigBuilder.set("proposals_canceller", ctx.dualGovernance.proposalsCanceller);
+            dgConfigBuilder.set("config", configBuilder.content);
+            dgConfigBuilder.set("signalling_tokens", signallingTokensBuilder.content);
+            dgConfigBuilder.set("sanity_check_params", sanityCheckParamsBuilder.content);
+            dgConfigBuilder.set("sealable_withdrawal_blockers", ctx.dualGovernance.sealableWithdrawalBlockers);
+
+        }
+
+        ConfigFileBuilder.Context memory deployConfigBuilder = ConfigFileBuilder.create();
+        // forgefmt: disable-next-item
+        {
+            deployConfigBuilder.set("chain_id", ctx.chainId);
+            deployConfigBuilder.set("dual_governance", dgConfigBuilder.content);
+            deployConfigBuilder.set("tiebreaker", tiebreakerConfigBuilder.content);
+            deployConfigBuilder.set("timelock", timelockConfigBuilder.content);
+        }
+
+        return deployConfigBuilder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("TODO: print all config params");
+    }
+
+    error InvalidQuorum(string committee, uint256 quorum);
+    error InvalidParameter(string parameter);
+    error InvalidChain(string chainName);
+
+    function validate(Context memory ctx) internal pure {
+        if (ctx.tiebreaker.quorum == 0) {
+            revert InvalidQuorum("TIEBREAKER_CORE", ctx.tiebreaker.quorum);
+        }
+
+        for (uint256 i = 0; i < ctx.tiebreaker.committees.length; ++i) {
+            _checkCommitteeQuorum(ctx.tiebreaker.committees[i], string.concat("tiebreaker[", vm.toString(i), "]"));
+        }
+
+        if (ctx.timelock.afterSubmitDelay > ctx.timelock.sanityCheckParams.maxAfterSubmitDelay) {
+            revert InvalidParameter("after_submit_delay");
+        }
+
+        if (ctx.timelock.afterScheduleDelay > ctx.timelock.sanityCheckParams.maxAfterScheduleDelay) {
+            revert InvalidParameter("after_schedule_delay");
+        }
+
+        if (ctx.timelock.emergencyModeDuration > ctx.timelock.sanityCheckParams.maxEmergencyModeDuration) {
+            revert InvalidParameter("emergency_mode_duration");
+        }
+
+        if (
+            ctx.dualGovernance.sanityCheckParams.minTiebreakerActivationTimeout
+                > ctx.dualGovernance.sanityCheckParams.maxTiebreakerActivationTimeout
+        ) {
+            revert InvalidParameter("dual_governance.sanity_check_params.min_activation_timeout");
+        }
+
+        if (ctx.tiebreaker.activationTimeout > ctx.dualGovernance.sanityCheckParams.maxTiebreakerActivationTimeout) {
+            revert InvalidParameter("dual_governance.tiebreaker.activation_timeout");
+        }
+
+        if (ctx.dualGovernance.sanityCheckParams.maxSealableWithdrawalBlockersCount == 0) {
+            revert InvalidParameter("max_sealable_withdrawal_blockers_count");
+        }
+
+        if (
+            ctx.dualGovernance.sealableWithdrawalBlockers.length
+                > ctx.dualGovernance.sanityCheckParams.maxSealableWithdrawalBlockersCount
+        ) {
+            revert InvalidParameter("tiebreaker.SEALABLE_WITHDRAWAL_BLOCKERS");
+        }
+
+        if (
+            ctx.dualGovernance.dualGovernanceConfig.vetoSignallingMinDuration
+                > ctx.dualGovernance.dualGovernanceConfig.vetoSignallingMaxDuration
+        ) {
+            revert InvalidParameter("veto_signalling_min_duration");
+        }
+    }
+
+    function _checkCommitteeQuorum(
+        TiebreakerCommitteeDeployConfig memory committee,
+        string memory message
+    ) internal pure {
+        if (committee.quorum == 0 || committee.quorum > committee.members.length) {
+            revert InvalidQuorum(message, committee.quorum);
+        }
     }
 }
 
-library DGContractsDeployment {
-    function deployDualGovernanceSetup(
+library ContractsDeployment {
+    function deployTGSetup(
         address deployer,
-        DeployConfig.Context memory deployConfig
-    ) internal returns (DeployedContracts.Context memory contracts) {
+        TGDeployConfig.Context memory config
+    ) internal returns (TGDeployedContracts.Context memory contracts) {
         contracts.adminExecutor = deployExecutor({owner: deployer});
 
         contracts.timelock = deployEmergencyProtectedTimelock(
-            address(contracts.adminExecutor),
+            contracts.adminExecutor,
+            config.timelock.afterSubmitDelay,
+            config.timelock.afterScheduleDelay,
+            config.timelock.sanityCheckParams
+        );
+
+        contracts.timelockedGovernance =
+            deployTimelockedGovernance({governance: config.governance, timelock: contracts.timelock});
+
+        configureEmergencyProtectedTimelock(contracts.adminExecutor, contracts.timelock, config.timelock);
+        finalizeEmergencyProtectedTimelockDeploy(
+            contracts.adminExecutor, contracts.timelock, address(contracts.timelockedGovernance)
+        );
+    }
+
+    function deployDGSetup(
+        address deployer,
+        DGDeployConfig.Context memory deployConfig
+    ) internal returns (DGDeployedContracts.Context memory contracts) {
+        console.log("Deploy DG Setup");
+        contracts.adminExecutor = deployExecutor({owner: deployer});
+
+        contracts.timelock = deployEmergencyProtectedTimelock(
+            contracts.adminExecutor,
             deployConfig.timelock.afterSubmitDelay,
             deployConfig.timelock.afterScheduleDelay,
             deployConfig.timelock.sanityCheckParams
@@ -456,7 +620,8 @@ library DGContractsDeployment {
             deployConfig.dualGovernance
         );
 
-        configureEmergencyProtectedTimelock(contracts.adminExecutor, contracts.timelock, deployConfig.timelock);
+        contracts.emergencyGovernance =
+            configureEmergencyProtectedTimelock(contracts.adminExecutor, contracts.timelock, deployConfig.timelock);
 
         finalizeEmergencyProtectedTimelockDeploy(
             contracts.adminExecutor, contracts.timelock, address(contracts.dualGovernance)
@@ -468,12 +633,14 @@ library DGContractsDeployment {
     }
 
     function deployEmergencyProtectedTimelock(
-        address adminExecutor,
+        Executor adminExecutor,
         Duration afterSubmitDelay,
         Duration afterScheduleDelay,
         EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams
     ) internal returns (EmergencyProtectedTimelock) {
-        return new EmergencyProtectedTimelock(sanityCheckParams, adminExecutor, afterSubmitDelay, afterScheduleDelay);
+        return new EmergencyProtectedTimelock(
+            sanityCheckParams, address(adminExecutor), afterSubmitDelay, afterScheduleDelay
+        );
     }
 
     function deployTimelockedGovernance(
@@ -606,10 +773,10 @@ library DGContractsDeployment {
     function configureEmergencyProtectedTimelock(
         Executor adminExecutor,
         EmergencyProtectedTimelock timelock,
-        EmergencyProtectedTimelockDeployConfig memory timelockConfig
-    ) internal {
+        TimelockDeployConfig memory timelockConfig
+    ) internal returns (TimelockedGovernance emergencyGovernance) {
         if (timelockConfig.emergencyGovernanceProposer != address(0)) {
-            TimelockedGovernance emergencyGovernance =
+            emergencyGovernance =
                 deployTimelockedGovernance({governance: timelockConfig.emergencyGovernanceProposer, timelock: timelock});
             adminExecutor.execute(
                 address(timelock), 0, abi.encodeCall(timelock.setEmergencyGovernance, (address(emergencyGovernance)))
@@ -638,7 +805,7 @@ library DGContractsDeployment {
                 address(timelock),
                 0,
                 abi.encodeCall(
-                    timelock.setEmergencyProtectionActivationCommittee, (timelockConfig.emergencyExecutionCommittee)
+                    timelock.setEmergencyProtectionExecutionCommittee, (timelockConfig.emergencyExecutionCommittee)
                 )
             );
             console.log("Emergency execution committee set successfully.");
@@ -664,18 +831,15 @@ library DGContractsDeployment {
     function finalizeEmergencyProtectedTimelockDeploy(
         Executor adminExecutor,
         EmergencyProtectedTimelock timelock,
-        address dualGovernance
+        address governance
     ) internal {
-        adminExecutor.execute(address(timelock), 0, abi.encodeCall(timelock.setGovernance, (dualGovernance)));
+        adminExecutor.execute(address(timelock), 0, abi.encodeCall(timelock.setGovernance, (governance)));
         adminExecutor.transferOwnership(address(timelock));
     }
 }
 
 library ConfigFileBuilder {
     error InvalidConfigFormat(uint256 format);
-
-    // solhint-disable-next-line const-name-snakecase
-    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     enum ConfigFormat {
         JSON,
@@ -704,7 +868,7 @@ library ConfigFileBuilder {
     }
 
     function set(Context memory ctx, string memory key, uint256 value) internal returns (Context memory) {
-        ctx.content = stdJson.serialize(ctx.content, key, value);
+        ctx.content = stdJson.serialize(ctx.id, key, value);
         return ctx;
     }
 
@@ -721,17 +885,22 @@ library ConfigFileBuilder {
     }
 
     function set(Context memory ctx, string memory key, address value) internal returns (Context memory) {
-        ctx.content = stdJson.serialize(ctx.content, key, value);
+        ctx.content = stdJson.serialize(ctx.id, key, value);
         return ctx;
     }
 
     function set(Context memory ctx, string memory key, address[] memory value) internal returns (Context memory) {
-        ctx.content = stdJson.serialize(ctx.content, key, value);
+        ctx.content = stdJson.serialize(ctx.id, key, value);
+        return ctx;
+    }
+
+    function set(Context memory ctx, string memory key, string[] memory value) internal returns (Context memory) {
+        ctx.content = stdJson.serialize(ctx.id, key, value);
         return ctx;
     }
 
     function set(Context memory ctx, string memory key, string memory value) internal returns (Context memory) {
-        ctx.content = stdJson.serialize(ctx.content, key, value);
+        ctx.content = stdJson.serialize(ctx.id, key, value);
         return ctx;
     }
 

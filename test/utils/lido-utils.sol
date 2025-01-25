@@ -225,6 +225,15 @@ library LidoUtils {
     // ACL
     // ---
 
+    function hasPermission(
+        Context memory self,
+        address entity,
+        address app,
+        bytes32 role
+    ) internal view returns (bool) {
+        return self.acl.hasPermission(entity, app, role);
+    }
+
     function grantPermission(Context memory self, address app, bytes32 role, address grantee) internal {
         if (!self.acl.hasPermission(grantee, app, role)) {
             address manager = self.acl.getPermissionManager(app, role);
