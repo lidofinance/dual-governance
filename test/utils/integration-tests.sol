@@ -28,6 +28,8 @@ import {ExternalCall, ExternalCallHelpers} from "../utils/executor-calls.sol";
 
 import {
     Path,
+    TGDeployConfig,
+    TGDeployedContracts,
     DGDeployConfig,
     DGDeployArtifacts,
     DGDeployedContracts,
@@ -125,7 +127,7 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
 
     EmergencyProtectedTimelock internal _timelock;
 
-    function _setGovernanceAndTimelock(IGovernance governance, EmergencyProtectedTimelock timelock) internal {
+    function _setTimelock(EmergencyProtectedTimelock timelock) internal {
         _timelock = timelock;
     }
 
@@ -391,7 +393,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         _setDGDeployConfig(_getDefaultDGDeployConfig(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0)));
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
-        _setGovernanceAndTimelock(_dgDeployedContracts.dualGovernance, _dgDeployedContracts.timelock);
+        _setTimelock(_dgDeployedContracts.timelock);
     }
 
     function _deployDGSetup(address emergencyGovernanceProposer) internal {
@@ -399,7 +401,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         _setDGDeployConfig(_getDefaultDGDeployConfig(emergencyGovernanceProposer));
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
-        _setGovernanceAndTimelock(_dgDeployedContracts.dualGovernance, _dgDeployedContracts.timelock);
+        _setTimelock(_dgDeployedContracts.timelock);
     }
 
     function _adoptProposalByAdminProposer(
@@ -513,6 +515,45 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
         _setDGDeployConfig(deployArtifacts.deployConfig);
         _dgDeployedContracts = deployArtifacts.deployedContracts;
 
-        _setGovernanceAndTimelock(_dgDeployedContracts.dualGovernance, _dgDeployedContracts.timelock);
+        _setTimelock(_dgDeployedContracts.timelock);
+    }
+}
+
+contract TimelockedGovernanceTestSetup is GovernedTimelockSetup {
+    TGDeployConfig.Context internal _tgDeployConfig;
+    TGDeployedContracts.Context internal _tgDeployedContracts;
+
+    function _getDefaultTGDeployConfig(bool isEmergencyProtectionEnabled)
+        internal
+        returns (TGDeployConfig.Context memory)
+    {
+        return TGDeployConfig.Context({
+            chainId: block.chainid,
+            governance: address(_lido.voting),
+            timelock: _getDefaultTimelockDeployConfig(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0))
+        });
+    }
+
+    function _setTGDeployConfig(TGDeployConfig.Context memory deployConfig) internal {
+        _tgDeployConfig = deployConfig;
+    }
+
+    function _deployTGSetup(bool isEmergencyProtectionEnabled) internal {
+        _setupFork(MAINNET_CHAIN_ID, DEFAULT_MAINNET_FORK_BLOCK_NUMBER);
+        _setTGDeployConfig(_getDefaultTGDeployConfig(isEmergencyProtectionEnabled));
+        _tgDeployedContracts = ContractsDeployment.deployTGSetup(address(this), _tgDeployConfig);
+
+        _setTimelock(_tgDeployedContracts.timelock);
+    }
+
+    function _submitProposal(ExternalCall[] memory calls) internal returns (uint256 proposalId) {
+        proposalId = _submitProposal(calls, string(""));
+    }
+
+    function _submitProposal(
+        ExternalCall[] memory calls,
+        string memory metadata
+    ) internal returns (uint256 proposalId) {
+        proposalId = _submitProposal(address(_tgDeployedContracts.timelockedGovernance.GOVERNANCE()), calls, metadata);
     }
 }

@@ -5,7 +5,7 @@ import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 import {ExternalCall, ExternalCallHelpers} from "../utils/executor-calls.sol";
-import {DGRegressionTestSetup} from "../utils/SetupDeployment.sol";
+import {DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
@@ -22,7 +22,7 @@ contract HappyPathTest is DGRegressionTestSetup {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId = _submitProposalByAdminProposer(
-            "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
         );
         _assertProposalSubmitted(proposalId);
         _assertSubmittedProposalData(proposalId, regularStaffCalls);
@@ -31,7 +31,7 @@ contract HappyPathTest is DGRegressionTestSetup {
 
         // the min execution delay hasn't elapsed yet
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
-        _scheduleProposal(proposalId);
+        this.external__scheduleProposal(proposalId);
 
         // wait till the first phase of timelock passes
         _wait(_getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
@@ -46,6 +46,10 @@ contract HappyPathTest is DGRegressionTestSetup {
         _executeProposal(proposalId);
 
         _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
+    }
+
+    function external__scheduleProposal(uint256 proposalId) external {
+        _scheduleProposal(proposalId);
     }
 
     // function testFork_HappyPathWithMultipleItems() external {

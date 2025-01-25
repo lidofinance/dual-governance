@@ -23,7 +23,7 @@ import {
     TimelockedGovernanceTestSetup,
     ExternalCall,
     ExternalCallHelpers
-} from "../utils/SetupDeployment.sol";
+} from "../utils/integration-tests.sol";
 
 contract PlanBSetup is TimelockedGovernanceTestSetup {
     function setUp() external {
@@ -38,7 +38,7 @@ contract PlanBSetup is TimelockedGovernanceTestSetup {
         // ---
         {
             uint256 proposalId =
-                _submitProposal("DAO does regular staff on potentially dangerous contract", regularStaffCalls);
+                _submitProposal(regularStaffCalls, "DAO does regular staff on potentially dangerous contract");
 
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
@@ -68,7 +68,7 @@ contract PlanBSetup is TimelockedGovernanceTestSetup {
                 address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
             );
 
-            maliciousProposalId = _submitProposal("Rug Pool attempt", maliciousCalls);
+            maliciousProposalId = _submitProposal(maliciousCalls, "Rug Pool attempt");
 
             // the call isn't executable until the delay has passed
             _assertProposalSubmitted(maliciousProposalId);
