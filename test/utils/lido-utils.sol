@@ -29,6 +29,17 @@ import {
     DAO_TOKEN_MANAGER
 } from "./addresses/mainnet-addresses.sol";
 
+import {
+    ST_ETH as HOLESKY_ST_ETH,
+    WST_ETH as HOLESKY_WST_ETH,
+    WITHDRAWAL_QUEUE as HOLESKY_WITHDRAWAL_QUEUE,
+    DAO_ACL as HOLESKY_DAO_ACL,
+    LDO_TOKEN as HOLESKY_LDO_TOKEN,
+    DAO_AGENT as HOLESKY_DAO_AGENT,
+    DAO_VOTING as HOLESKY_DAO_VOTING,
+    DAO_TOKEN_MANAGER as HOLESKY_DAO_TOKEN_MANAGER
+} from "./addresses/holesky-addresses.sol";
+
 uint256 constant ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
 
 library LidoUtils {
@@ -59,6 +70,18 @@ library LidoUtils {
         ctx.voting = IAragonVoting(DAO_VOTING);
         ctx.ldoToken = IERC20(LDO_TOKEN);
         ctx.tokenManager = IAragonForwarder(DAO_TOKEN_MANAGER);
+    }
+
+    function holesky() internal pure returns (Context memory ctx) {
+        ctx.stETH = IStETH(HOLESKY_ST_ETH);
+        ctx.wstETH = IWstETH(HOLESKY_WST_ETH);
+        ctx.withdrawalQueue = IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE);
+
+        ctx.acl = IAragonACL(HOLESKY_DAO_ACL);
+        ctx.agent = IAragonAgent(HOLESKY_DAO_AGENT);
+        ctx.voting = IAragonVoting(HOLESKY_DAO_VOTING);
+        ctx.ldoToken = IERC20(HOLESKY_LDO_TOKEN);
+        ctx.tokenManager = IAragonForwarder(HOLESKY_DAO_TOKEN_MANAGER);
     }
 
     function calcAmountFromPercentageOfTVL(

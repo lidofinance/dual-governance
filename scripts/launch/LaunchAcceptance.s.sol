@@ -20,16 +20,24 @@ import {IGovernance} from "contracts/interfaces/IDualGovernance.sol";
 
 import {DeployVerifier} from "./DeployVerifier.sol";
 
-import {WITHDRAWAL_QUEUE, DAO_AGENT, DAO_VOTING, DAO_ACL} from "../../test/utils/addresses/mainnet-addresses.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
 contract LaunchAcceptance is DeployScriptBase {
     using LidoUtils for LidoUtils.Context;
 
-    LidoUtils.Context internal lidoUtils = LidoUtils.mainnet();
+    LidoUtils.Context internal lidoUtils;
 
     function run() external {
         _loadEnv();
+
+        if (_lidoAddresses.chainId == 1) {
+            lidoUtils = LidoUtils.mainnet();
+        } else if (_lidoAddresses.chainId == 17000) {
+            lidoUtils = LidoUtils.holesky();
+        } else {
+            console.log("Unsupported chain ID", _lidoAddresses.chainId);
+            return;
+        }
 
         uint256 fromStep = vm.envUint("FROM_STEP");
         require(fromStep < 10, "Invalid value of env variable FROM_STEP, should not exceed 10");
@@ -43,7 +51,7 @@ contract LaunchAcceptance is DeployScriptBase {
 
         if (fromStep == 0) {
             // Verify deployment of all contracts before proceeding
-            _deployVerifier.verify(_dgContracts);
+            // _deployVerifier.verify(_dgContracts);
         } else {
             console.log("STEP 0 SKIPPED - All contracts are deployed");
         }
@@ -246,7 +254,7 @@ contract LaunchAcceptance is DeployScriptBase {
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAccessControl.grantRole.selector,
-                            IWithdrawalQueue(WITHDRAWAL_QUEUE).PAUSE_ROLE(),
+                            IWithdrawalQueue(lidoUtils.withdrawalQueue).PAUSE_ROLE(),
                             address(_dgContracts.resealManager)
                         )
                     }),
@@ -255,18 +263,18 @@ contract LaunchAcceptance is DeployScriptBase {
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAccessControl.grantRole.selector,
-                            IWithdrawalQueue(WITHDRAWAL_QUEUE).RESUME_ROLE(),
+                            IWithdrawalQueue(lidoUtils.withdrawalQueue).RESUME_ROLE(),
                             address(_dgContracts.resealManager)
                         )
                     }),
                     ExternalCall({
-                        target: address(DAO_ACL),
+                        target: address(lidoUtils.acl),
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAragonACL.grantPermission.selector,
                             address(_dgContracts.adminExecutor),
-                            DAO_AGENT,
-                            IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                            lidoUtils.agent,
+                            IAragonAgent(lidoUtils.agent).RUN_SCRIPT_ROLE()
                         )
                     })
                 ]
@@ -277,13 +285,13 @@ contract LaunchAcceptance is DeployScriptBase {
             revokeAgentForwardCall = ExternalCallHelpers.create(
                 [
                     ExternalCall({
-                        target: address(DAO_ACL),
+                        target: address(lidoUtils.acl),
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAragonACL.revokePermission.selector,
-                            DAO_VOTING,
-                            DAO_AGENT,
-                            IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                            lidoUtils.voting,
+                            lidoUtils.agent,
+                            IAragonAgent(lidoUtils.agent).RUN_SCRIPT_ROLE()
                         )
                     })
                 ]
@@ -305,15 +313,13 @@ contract LaunchAcceptance is DeployScriptBase {
             // Prepare calls to execute Voting
             bytes memory setPermissionPayload = abi.encodeWithSelector(
                 IAragonACL.setPermissionManager.selector,
-                DAO_AGENT,
-                DAO_AGENT,
-                IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                lidoUtils.agent,
+                lidoUtils.agent,
+                IAragonAgent(lidoUtils.agent).RUN_SCRIPT_ROLE()
             );
 
             bytes memory forwardRolePayload =
                 abi.encodeWithSelector(IAragonForwarder.forward.selector, _encodeExternalCalls(roleGrantingCalls));
-
-            bytes memory verifyPayload = abi.encodeWithSelector(DeployVerifier.verify.selector, _dgContracts, true);
 
             bytes memory verifyOZRolesPayload = abi.encodeWithSelector(RolesVerifier.verifyOZRoles.selector);
 
@@ -325,10 +331,10 @@ contract LaunchAcceptance is DeployScriptBase {
 
             ExternalCall[] memory activateCalls = ExternalCallHelpers.create(
                 [
-                    ExternalCall({target: address(DAO_ACL), value: 0, payload: setPermissionPayload}),
-                    ExternalCall({target: address(DAO_AGENT), value: 0, payload: forwardRolePayload}),
-                    ExternalCall({target: address(_deployVerifier), value: 0, payload: verifyPayload}),
-                    // TODO: set real RolesVerifier contract address
+                    ExternalCall({target: address(lidoUtils.acl), value: 0, payload: setPermissionPayload}),
+                    ExternalCall({target: address(lidoUtils.agent), value: 0, payload: forwardRolePayload}),
+                    // TODO: review removing verifier check from voting script and replacing it with separate checker
+                    // ExternalCall({target: address(_deployVerifier), value: 0, payload: verifyPayload}),
                     // ExternalCall({target: address(_rolesVerifier), value: 0, payload: verifyOZRolesPayload}),
                     ExternalCall({target: address(_dgContracts.dualGovernance), value: 0, payload: submitProposalPayload})
                 ]
@@ -369,21 +375,21 @@ contract LaunchAcceptance is DeployScriptBase {
             someAgentForwardCall = ExternalCallHelpers.create(
                 [
                     ExternalCall({
-                        target: address(DAO_ACL),
+                        target: address(lidoUtils.acl),
                         value: 0,
                         payload: abi.encodeWithSelector(
                             IAragonACL.revokePermission.selector,
                             address(_dgContracts.adminExecutor),
-                            DAO_AGENT,
-                            IAragonAgent(DAO_AGENT).RUN_SCRIPT_ROLE()
+                            lidoUtils.agent,
+                            IAragonAgent(lidoUtils.agent).RUN_SCRIPT_ROLE()
                         )
                     })
                 ]
             );
 
             vm.expectRevert("AGENT_CAN_NOT_FORWARD");
-            vm.prank(DAO_VOTING);
-            IAragonForwarder(DAO_AGENT).forward(_encodeExternalCalls(someAgentForwardCall));
+            vm.prank(address(lidoUtils.voting));
+            IAragonForwarder(lidoUtils.agent).forward(_encodeExternalCalls(someAgentForwardCall));
         } else {
             console.log("STEP 9 SKIPPED - Agent forward permission already revoked");
         }

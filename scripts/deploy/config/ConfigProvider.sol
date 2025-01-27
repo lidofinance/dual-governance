@@ -127,9 +127,9 @@ contract DGDeployConfigProvider {
             RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: configFile.readDuration(
                 ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH"
             ),
-            EMERGENCY_GOVERNANCE_PROPOSER: configFile.readAddress(".EMERGENCY_GOVERNANCE_PROPOSER"),
-            ADMIN_PROPOSER: configFile.readAddress(".ADMIN_PROPOSER"),
-            PROPOSAL_CANCELER: configFile.readAddress(".PROPOSAL_CANCELER")
+            EMERGENCY_GOVERNANCE_PROPOSER: configFile.readAddress(".DUAL_GOVERNANCE_CONFIG.EMERGENCY_GOVERNANCE_PROPOSER"),
+            ADMIN_PROPOSER: configFile.readAddress(".DUAL_GOVERNANCE_CONFIG.ADMIN_PROPOSER"),
+            PROPOSAL_CANCELER: configFile.readAddress(".DUAL_GOVERNANCE_CONFIG.PROPOSAL_CANCELER")
         });
     }
 
