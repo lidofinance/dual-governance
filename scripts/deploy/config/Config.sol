@@ -10,11 +10,6 @@ import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 import {PercentD16} from "contracts/types/PercentD16.sol";
 
-bytes32 constant CHAIN_NAME_MAINNET_HASH = keccak256(bytes("mainnet"));
-bytes32 constant CHAIN_NAME_HOLESKY_HASH = keccak256(bytes("holesky"));
-bytes32 constant CHAIN_NAME_HOLESKY_MOCKS_HASH = keccak256(bytes("holesky-mocks"));
-uint256 constant TIEBREAKER_SUB_COMMITTEES_COUNT = 3;
-
 struct TiebreakerSubCommitteeDeployConfig {
     address[] members;
     uint256 quorum;
@@ -25,9 +20,7 @@ struct TiebreakerDeployConfig {
     Duration minActivationTimeout;
     Duration maxActivationTimeout;
     Duration executionDelay;
-    TiebreakerSubCommitteeDeployConfig influencers;
-    TiebreakerSubCommitteeDeployConfig nodeOperators;
-    TiebreakerSubCommitteeDeployConfig protocols;
+    TiebreakerSubCommitteeDeployConfig[] subCommitteeConfigs;
     uint256 quorum;
     address[] sealableWithdrawalBlockers;
 }
@@ -61,7 +54,9 @@ struct DeployConfig {
     Duration RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY;
     Duration RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY;
     Duration RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH;
-    address TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER;
+    address EMERGENCY_GOVERNANCE_PROPOSER;
+    address ADMIN_PROPOSER;
+    address PROPOSAL_CANCELER;
 }
 
 struct LidoContracts {
@@ -69,5 +64,4 @@ struct LidoContracts {
     IStETH stETH;
     IWstETH wstETH;
     IWithdrawalQueue withdrawalQueue;
-    address voting;
 }

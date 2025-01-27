@@ -25,8 +25,8 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
         _step("1. Deploy new Dual Governance implementation");
         {
             newDualGovernanceInstance = _deployDualGovernance({
-                timelock: _timelock,
-                resealManager: _resealManager,
+                timelock: _contracts.timelock,
+                resealManager: _contracts.resealManager,
                 configProvider: _dualGovernanceConfigProvider
             });
         }
@@ -62,7 +62,7 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
             _waitAfterScheduleDelayPassed();
             _executeProposal(updateDualGovernanceProposalId);
 
-            assertEq(_timelock.getGovernance(), address(newDualGovernanceInstance));
+            assertEq(_contracts.timelock.getGovernance(), address(newDualGovernanceInstance));
         }
 
         _step("5. The old instance of the Dual Governance can't submit proposals anymore");
@@ -74,10 +74,10 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
 
             // old instance of the Dual Governance can't submit proposals anymore
             vm.expectRevert(
-                abi.encodeWithSelector(TimelockState.CallerIsNotGovernance.selector, address(_dualGovernance))
+                abi.encodeWithSelector(TimelockState.CallerIsNotGovernance.selector, address(_contracts.dualGovernance))
             );
             vm.prank(address(_lido.voting));
-            _dualGovernance.submitProposal(_getMockTargetRegularStaffCalls(), "empty metadata");
+            _contracts.dualGovernance.submitProposal(_getMockTargetRegularStaffCalls(), "empty metadata");
         }
 
         _step("6. Users can unlock stETH from the old Signalling Escrow");
@@ -94,7 +94,7 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
             _assertRageQuitState();
 
             // The Rage Quit may be finished in the previous DG instance so vetoers will not lose their funds by mistake
-            Escrow rageQuitEscrow = Escrow(payable(_dualGovernance.getRageQuitEscrow()));
+            Escrow rageQuitEscrow = Escrow(payable(_contracts.dualGovernance.getRageQuitEscrow()));
 
             while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
@@ -133,8 +133,8 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
         _step("1. Deploy new Dual Governance implementation");
         {
             newDualGovernanceInstance = _deployDualGovernance({
-                timelock: _timelock,
-                resealManager: _resealManager,
+                timelock: _contracts.timelock,
+                resealManager: _contracts.resealManager,
                 configProvider: _dualGovernanceConfigProvider
             });
         }
@@ -161,8 +161,8 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
             maliciousProposalId = _submitProposalViaDualGovernance(
                 "Steal control over timelock contract",
                 ExternalCallHelpers.create({
-                    target: address(_timelock),
-                    payload: abi.encodeCall(_timelock.setGovernance, (_VETOER))
+                    target: address(_contracts.timelock),
+                    payload: abi.encodeCall(_contracts.timelock.setGovernance, (_VETOER))
                 })
             );
             _unlockStETH(_VETOER);
@@ -191,7 +191,7 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
             _waitAfterScheduleDelayPassed();
             _executeProposal(updateDualGovernanceProposalId);
 
-            assertEq(_timelock.getGovernance(), address(newDualGovernanceInstance));
+            assertEq(_contracts.timelock.getGovernance(), address(newDualGovernanceInstance));
         }
 
         _step("7. After the update malicious proposal is cancelled and can't be executed via new DualGovernance");
@@ -203,7 +203,7 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
             );
             newDualGovernanceInstance.scheduleProposal(maliciousProposalId);
 
-            assertEq(_timelock.getProposalDetails(maliciousProposalId).status, ProposalStatus.Cancelled);
+            assertEq(_contracts.timelock.getProposalDetails(maliciousProposalId).status, ProposalStatus.Cancelled);
         }
     }
 
@@ -221,13 +221,13 @@ contract DualGovernanceUpdateTokensRotation is ScenarioTestBlueprint {
                     value: 0,
                     target: address(newDualGovernanceInstance),
                     payload: abi.encodeCall(
-                        DualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())
+                        DualGovernance.registerProposer, (address(_lido.voting), _contracts.timelock.getAdminExecutor())
                     )
                 }),
                 ExternalCall({
                     value: 0,
-                    target: address(_timelock),
-                    payload: abi.encodeCall(_timelock.setGovernance, (address(newDualGovernanceInstance)))
+                    target: address(_contracts.timelock),
+                    payload: abi.encodeCall(_contracts.timelock.setGovernance, (address(newDualGovernanceInstance)))
                 })
                 // NOTE: There should be additional calls with the proper setting up of the new DG implementation
             ]

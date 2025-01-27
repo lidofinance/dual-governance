@@ -20,7 +20,7 @@ import {IGovernance} from "contracts/interfaces/IDualGovernance.sol";
 
 import {DeployVerifier} from "./DeployVerifier.sol";
 
-import {WITHDRAWAL_QUEUE, DAO_AGENT, DAO_VOTING, DAO_ACL} from "addresses/mainnet-addresses.sol";
+import {WITHDRAWAL_QUEUE, DAO_AGENT, DAO_VOTING, DAO_ACL} from "../../test/utils/addresses/mainnet-addresses.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
 contract LaunchAcceptance is DeployScriptBase {
@@ -76,7 +76,7 @@ contract LaunchAcceptance is DeployScriptBase {
         if (fromStep <= 3) {
             console.log("STEP 3 - Set DG state");
             require(
-                timelock.getGovernance() == address(_dgContracts.temporaryEmergencyGovernance),
+                timelock.getGovernance() == address(_dgContracts.emergencyGovernance),
                 "Incorrect governance address in EmergencyProtectedTimelock"
             );
             require(timelock.isEmergencyModeActive() == false, "Emergency mode is active");
@@ -146,8 +146,8 @@ contract LaunchAcceptance is DeployScriptBase {
                 );
             }
 
-            vm.prank(_config.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER);
-            proposalId = _dgContracts.temporaryEmergencyGovernance.submitProposal(
+            vm.prank(_config.EMERGENCY_GOVERNANCE_PROPOSER);
+            proposalId = _dgContracts.emergencyGovernance.submitProposal(
                 calls, "Reset emergency mode and set original DG as governance"
             );
 
@@ -162,7 +162,7 @@ contract LaunchAcceptance is DeployScriptBase {
             console.log("STEP 4 - Execute proposal");
             // Schedule and execute the proposal
             vm.warp(block.timestamp + _config.AFTER_SUBMIT_DELAY.toSeconds());
-            _dgContracts.temporaryEmergencyGovernance.scheduleProposal(proposalId);
+            _dgContracts.emergencyGovernance.scheduleProposal(proposalId);
             vm.warp(block.timestamp + _config.AFTER_SCHEDULE_DELAY.toSeconds());
             timelock.execute(proposalId);
 

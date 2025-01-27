@@ -190,4 +190,11 @@ abstract contract StETHBase is IStETH {
         _mintShares(INITIAL_TOKEN_HOLDER, _sharesAmount);
         _emitTransferAfterMintingShares(INITIAL_TOKEN_HOLDER, _sharesAmount);
     }
+
+    function submit(address /*_referral*/ ) external payable returns (uint256) {
+        uint256 sharesAmount = getSharesByPooledEth(msg.value);
+        _mintShares(msg.sender, sharesAmount);
+        _emitTransferAfterMintingShares(msg.sender, sharesAmount);
+        return sharesAmount;
+    }
 }

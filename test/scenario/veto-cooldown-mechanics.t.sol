@@ -23,11 +23,11 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
         _step("1. THE PROPOSAL IS SUBMITTED");
         {
             proposalId = _submitProposal(
-                _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
+                _contracts.dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
             );
 
-            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+            _assertSubmittedProposalData(proposalId, _contracts.timelock.getAdminExecutor(), regularStaffCalls);
+            _assertCanSchedule(_contracts.dualGovernance, proposalId, false);
         }
 
         address vetoer = makeAddr("MALICIOUS_ACTOR");
@@ -52,7 +52,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             _activateNextState();
             _assertRageQuitState();
             anotherProposalId = _submitProposal(
-                _dualGovernance,
+                _contracts.dualGovernance,
                 "Another Proposal",
                 ExternalCallHelpers.create(
                     address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
@@ -103,6 +103,6 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
     }
 
     function scheduleProposalExternal(uint256 proposalId) external {
-        _scheduleProposal(_dualGovernance, proposalId);
+        _scheduleProposal(_contracts.dualGovernance, proposalId);
     }
 }

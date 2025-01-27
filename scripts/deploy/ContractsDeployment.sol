@@ -26,7 +26,7 @@ import {IResealManager} from "contracts/interfaces/IResealManager.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 
 import {DeployedContracts} from "./DeployedContractsSet.sol";
-import {DeployConfig, LidoContracts, TIEBREAKER_SUB_COMMITTEES_COUNT} from "./config/Config.sol";
+import {DeployConfig, LidoContracts} from "./config/Config.sol";
 
 library DGContractsDeployment {
     function deployDualGovernanceSetup(
@@ -34,9 +34,22 @@ library DGContractsDeployment {
         LidoContracts memory lidoAddresses,
         address deployer
     ) internal returns (DeployedContracts memory contracts) {
+        // ---
+        // Deploy Admin Executor and Timelock
+        // ---
         contracts = deployAdminExecutorAndTimelock(dgDeployConfig, deployer);
-        deployEmergencyProtectedTimelockContracts(lidoAddresses, dgDeployConfig, contracts);
+
+        // ---
+        // Deploy Emergency Governance
+        // ---
+
+        setupEmergencyGovernance(dgDeployConfig, contracts);
         contracts.resealManager = deployResealManager(contracts.timelock);
+
+        // ---
+        // Deploy Dual Governance
+        // ---
+
         ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider =
             deployDualGovernanceConfigProvider(dgDeployConfig);
         DualGovernance dualGovernance = deployDualGovernance({
@@ -48,26 +61,26 @@ library DGContractsDeployment {
         });
         contracts.dualGovernance = dualGovernance;
 
+        // ---
+        // Tiebreaker
+        // ---
+
         contracts.tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
             owner: deployer, // temporary set owner to deployer, to add sub committees manually
             dualGovernance: address(dualGovernance),
             executionDelay: dgDeployConfig.tiebreakerConfig.executionDelay
         });
 
-        (TiebreakerSubCommittee influencers, TiebreakerSubCommittee nodeOperators, TiebreakerSubCommittee protocols) =
-        deployTiebreakerSubCommittees(
+        contracts.tiebreakerSubCommittees = setupTiebreakerSubCommittees(
             address(contracts.adminExecutor), contracts.tiebreakerCoreCommittee, dgDeployConfig
         );
-        contracts.tiebreakerSubCommitteeInfluencers = influencers;
-        contracts.tiebreakerSubCommitteeNodeOperators = nodeOperators;
-        contracts.tiebreakerSubCommitteeProtocols = protocols;
 
         contracts.tiebreakerCoreCommittee.transferOwnership(address(contracts.adminExecutor));
 
         // ---
         // Finalize Setup
         // ---
-        configureDualGovernance(dgDeployConfig, lidoAddresses, contracts);
+        configureDualGovernance(dgDeployConfig, contracts);
 
         finalizeEmergencyProtectedTimelockDeploy(contracts.adminExecutor, contracts.timelock, address(dualGovernance));
     }
@@ -83,16 +96,21 @@ library DGContractsDeployment {
         contracts.timelock = timelock;
     }
 
-    function deployEmergencyProtectedTimelockContracts(
-        LidoContracts memory lidoAddresses,
+    function setupEmergencyGovernance(
         DeployConfig memory dgDeployConfig,
         DeployedContracts memory contracts
-    ) internal returns (TimelockedGovernance emergencyGovernance, TimelockedGovernance temporaryEmergencyGovernance) {
+    ) internal returns (TimelockedGovernance) {
         Executor adminExecutor = contracts.adminExecutor;
         IEmergencyProtectedTimelock timelock = contracts.timelock;
 
-        emergencyGovernance = deployTimelockedGovernance({governance: lidoAddresses.voting, timelock: timelock});
-        contracts.emergencyGovernance = emergencyGovernance;
+        contracts.emergencyGovernance =
+            deployTimelockedGovernance({governance: dgDeployConfig.EMERGENCY_GOVERNANCE_PROPOSER, timelock: timelock});
+
+        adminExecutor.execute(
+            address(timelock),
+            0,
+            abi.encodeCall(timelock.setEmergencyGovernance, (address(contracts.emergencyGovernance)))
+        );
 
         adminExecutor.execute(
             address(timelock),
@@ -108,7 +126,6 @@ library DGContractsDeployment {
                 timelock.setEmergencyProtectionExecutionCommittee, (dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE)
             )
         );
-
         adminExecutor.execute(
             address(timelock),
             0,
@@ -120,22 +137,7 @@ library DGContractsDeployment {
             abi.encodeCall(timelock.setEmergencyModeDuration, (dgDeployConfig.EMERGENCY_MODE_DURATION))
         );
 
-        if (dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER != address(0)) {
-            temporaryEmergencyGovernance = deployTimelockedGovernance({
-                governance: dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER,
-                timelock: timelock
-            });
-            adminExecutor.execute(
-                address(timelock),
-                0,
-                abi.encodeCall(timelock.setEmergencyGovernance, (address(temporaryEmergencyGovernance)))
-            );
-            contracts.temporaryEmergencyGovernance = temporaryEmergencyGovernance;
-        } else {
-            adminExecutor.execute(
-                address(timelock), 0, abi.encodeCall(timelock.setEmergencyGovernance, (address(emergencyGovernance)))
-            );
-        }
+        return contracts.emergencyGovernance;
     }
 
     function deployExecutor(address owner) internal returns (Executor) {
@@ -234,77 +236,45 @@ library DGContractsDeployment {
         return new TiebreakerCoreCommittee({owner: owner, dualGovernance: dualGovernance, timelock: executionDelay});
     }
 
-    function deployTiebreakerSubCommittees(
+    function setupTiebreakerSubCommittees(
         address owner,
         TiebreakerCoreCommittee tiebreakerCoreCommittee,
         DeployConfig memory dgDeployConfig
-    )
-        internal
-        returns (
-            TiebreakerSubCommittee influencers,
-            TiebreakerSubCommittee nodeOperators,
-            TiebreakerSubCommittee protocols
-        )
-    {
-        influencers = deployTiebreakerSubCommittee({
-            owner: owner,
-            quorum: dgDeployConfig.tiebreakerConfig.influencers.quorum,
-            members: dgDeployConfig.tiebreakerConfig.influencers.members,
-            tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
-        });
+    ) internal returns (TiebreakerSubCommittee[] memory tiebreakerSubCommittees) {
+        tiebreakerSubCommittees =
+            new TiebreakerSubCommittee[](dgDeployConfig.tiebreakerConfig.subCommitteeConfigs.length);
 
-        nodeOperators = deployTiebreakerSubCommittee({
-            owner: owner,
-            quorum: dgDeployConfig.tiebreakerConfig.nodeOperators.quorum,
-            members: dgDeployConfig.tiebreakerConfig.nodeOperators.members,
-            tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
-        });
+        for (uint256 i = 0; i < dgDeployConfig.tiebreakerConfig.subCommitteeConfigs.length; ++i) {
+            TiebreakerSubCommittee tiebreakerSubCommittee = new TiebreakerSubCommittee({
+                owner: owner,
+                committeeMembers: dgDeployConfig.tiebreakerConfig.subCommitteeConfigs[i].members,
+                executionQuorum: dgDeployConfig.tiebreakerConfig.subCommitteeConfigs[i].quorum,
+                tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
+            });
+            tiebreakerSubCommittees[i] = tiebreakerSubCommittee;
+        }
 
-        protocols = deployTiebreakerSubCommittee({
-            owner: owner,
-            quorum: dgDeployConfig.tiebreakerConfig.protocols.quorum,
-            members: dgDeployConfig.tiebreakerConfig.protocols.members,
-            tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
-        });
+        address[] memory tiebreakerSubCommitteesAddresses = new address[](tiebreakerSubCommittees.length);
+        for (uint256 i = 0; i < tiebreakerSubCommittees.length; i++) {
+            tiebreakerSubCommitteesAddresses[i] = address(tiebreakerSubCommittees[i]);
+        }
 
-        address[] memory coreCommitteeMembers = new address[](TIEBREAKER_SUB_COMMITTEES_COUNT);
-        coreCommitteeMembers[0] = address(influencers);
-        coreCommitteeMembers[1] = address(nodeOperators);
-        coreCommitteeMembers[2] = address(protocols);
-
-        tiebreakerCoreCommittee.addMembers(coreCommitteeMembers, dgDeployConfig.tiebreakerConfig.quorum);
+        tiebreakerCoreCommittee.addMembers(tiebreakerSubCommitteesAddresses, dgDeployConfig.tiebreakerConfig.quorum);
     }
 
-    function deployTiebreakerSubCommittee(
-        address owner,
-        uint256 quorum,
-        address[] memory members,
-        address tiebreakerCoreCommittee
-    ) internal returns (TiebreakerSubCommittee) {
-        return new TiebreakerSubCommittee({
-            owner: owner,
-            executionQuorum: quorum,
-            committeeMembers: members,
-            tiebreakerCoreCommittee: tiebreakerCoreCommittee
-        });
-    }
-
-    function configureDualGovernance(
-        DeployConfig memory dgDeployConfig,
-        LidoContracts memory lidoAddresses,
-        DeployedContracts memory contracts
-    ) internal {
+    function configureDualGovernance(DeployConfig memory dgDeployConfig, DeployedContracts memory contracts) internal {
         contracts.adminExecutor.execute(
             address(contracts.dualGovernance),
             0,
             abi.encodeCall(
-                contracts.dualGovernance.registerProposer, (lidoAddresses.voting, address(contracts.adminExecutor))
+                contracts.dualGovernance.registerProposer,
+                (dgDeployConfig.ADMIN_PROPOSER, address(contracts.adminExecutor))
             )
         );
         contracts.adminExecutor.execute(
             address(contracts.dualGovernance),
             0,
-            abi.encodeCall(contracts.dualGovernance.setProposalsCanceller, address(lidoAddresses.voting))
+            abi.encodeCall(contracts.dualGovernance.setProposalsCanceller, dgDeployConfig.PROPOSAL_CANCELER)
         );
         contracts.adminExecutor.execute(
             address(contracts.dualGovernance),

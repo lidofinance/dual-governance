@@ -29,7 +29,7 @@ library DeployVerification {
         bool onchainVotingCheck
     ) internal view {
         checkImmutables(contracts, dgDeployConfig, lidoAddresses);
-        checkContractsConfiguration(contracts, dgDeployConfig, lidoAddresses, onchainVotingCheck);
+        checkContractsConfiguration(contracts, dgDeployConfig, onchainVotingCheck);
     }
 
     function checkImmutables(
@@ -40,8 +40,7 @@ library DeployVerification {
         checkEmergencyProtectedTimelockImmutables(contracts, dgDeployConfig);
         checkEmergencyActivationCommittee(dgDeployConfig);
         checkEmergencyExecutionCommittee(dgDeployConfig);
-        checkTimelockedGovernance(contracts, lidoAddresses);
-        checkTemporaryEmergencyGovernance(contracts, dgDeployConfig);
+        checkTimelockedGovernance(contracts, dgDeployConfig);
         checkResealManager(contracts);
         checkDualGovernanceAndEscrowImmutables(contracts, dgDeployConfig, lidoAddresses);
     }
@@ -49,23 +48,18 @@ library DeployVerification {
     function checkContractsConfiguration(
         DeployedContracts memory contracts,
         DeployConfig memory dgDeployConfig,
-        LidoContracts memory lidoAddresses,
         bool onchainVotingCheck
     ) internal view {
         checkAdminExecutor(contracts.adminExecutor, contracts.timelock);
         checkEmergencyProtectedTimelockConfiguration(contracts, dgDeployConfig, onchainVotingCheck);
-        checkDualGovernanceConfiguration(contracts, dgDeployConfig, lidoAddresses);
+        checkDualGovernanceConfiguration(contracts, dgDeployConfig);
         checkTiebreakerCoreCommittee(contracts, dgDeployConfig);
 
-        checkTiebreakerSubCommittee(
-            contracts, dgDeployConfig.tiebreakerConfig.influencers, contracts.tiebreakerSubCommitteeInfluencers
-        );
-        checkTiebreakerSubCommittee(
-            contracts, dgDeployConfig.tiebreakerConfig.nodeOperators, contracts.tiebreakerSubCommitteeNodeOperators
-        );
-        checkTiebreakerSubCommittee(
-            contracts, dgDeployConfig.tiebreakerConfig.protocols, contracts.tiebreakerSubCommitteeProtocols
-        );
+        for (uint256 i = 0; i < dgDeployConfig.tiebreakerConfig.subCommitteeConfigs.length; ++i) {
+            checkTiebreakerSubCommittee(
+                contracts, dgDeployConfig.tiebreakerConfig.subCommitteeConfigs[i], contracts.tiebreakerSubCommittees[i]
+            );
+        }
 
         checkResealCommittee(dgDeployConfig);
     }
@@ -184,31 +178,16 @@ library DeployVerification {
 
     function checkTimelockedGovernance(
         DeployedContracts memory contracts,
-        LidoContracts memory lidoAddresses
+        DeployConfig memory dgDeployConfig
     ) internal view {
         TimelockedGovernance emergencyTimelockedGovernance = contracts.emergencyGovernance;
         require(
-            emergencyTimelockedGovernance.GOVERNANCE() == lidoAddresses.voting,
+            emergencyTimelockedGovernance.GOVERNANCE() == dgDeployConfig.EMERGENCY_GOVERNANCE_PROPOSER,
             "TimelockedGovernance governance != Lido voting"
         );
         require(
             address(emergencyTimelockedGovernance.TIMELOCK()) == address(contracts.timelock),
             "Incorrect address for timelock in TimelockedGovernance"
-        );
-    }
-
-    function checkTemporaryEmergencyGovernance(
-        DeployedContracts memory contracts,
-        DeployConfig memory dgDeployConfig
-    ) internal view {
-        TimelockedGovernance temporaryEmergencyGovernance = contracts.temporaryEmergencyGovernance;
-        require(
-            temporaryEmergencyGovernance.GOVERNANCE() == dgDeployConfig.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER,
-            "temporaryEmergencyGovernance governance != TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
-        );
-        require(
-            address(temporaryEmergencyGovernance.TIMELOCK()) == address(contracts.timelock),
-            "Incorrect address for timelock in temporaryEmergencyGovernance"
         );
     }
 
@@ -221,8 +200,7 @@ library DeployVerification {
 
     function checkDualGovernanceConfiguration(
         DeployedContracts memory contracts,
-        DeployConfig memory dgDeployConfig,
-        LidoContracts memory lidoAddresses
+        DeployConfig memory dgDeployConfig
     ) internal view {
         IDualGovernance dg = contracts.dualGovernance;
         require(
@@ -272,7 +250,7 @@ library DeployVerification {
         // require(dg.getPersistedState() == State.Normal, "Incorrect DualGovernance persisted state");
         // require(dg.getEffectiveState() == State.Normal, "Incorrect DualGovernance effective state");
         // require(dg.getProposers().length == 1, "Incorrect amount of proposers");
-        require(dg.isProposer(address(lidoAddresses.voting)) == true, "Lido voting is not set as a proposer");
+        require(dg.isProposer(address(dgDeployConfig.ADMIN_PROPOSER)) == true, "Lido voting is not set as a proposer");
         require(dg.isExecutor(address(contracts.adminExecutor)) == true, "adminExecutor is not set as an executor");
         // require(dg.canSubmitProposal() == true, "DG is in incorrect state - can't submit proposal");
         require(dg.getRageQuitEscrow() == address(0), "DG is in incorrect state - RageQuit started");
@@ -424,20 +402,12 @@ library DeployVerification {
             "Incorrect parameter TIEBREAKER_CONFIG.EXECUTION_DELAY"
         );
 
-        require(
-            tcc.isMember(address(contracts.tiebreakerSubCommitteeInfluencers)) == true,
-            "Influencers sub committee is not a member of TiebreakerCoreCommittee"
-        );
-
-        require(
-            tcc.isMember(address(contracts.tiebreakerSubCommitteeNodeOperators)) == true,
-            "NodeOperators sub committee is not a member of TiebreakerCoreCommittee"
-        );
-
-        require(
-            tcc.isMember(address(contracts.tiebreakerSubCommitteeProtocols)) == true,
-            "Protocols sub committee is not a member of TiebreakerCoreCommittee"
-        );
+        for (uint256 i = 0; i < dgDeployConfig.tiebreakerConfig.subCommitteeConfigs.length; ++i) {
+            require(
+                tcc.isMember(address(contracts.tiebreakerSubCommittees[i])) == true,
+                "Incorrect member of TiebreakerCoreCommittee"
+            );
+        }
 
         require(
             tcc.getQuorum() == dgDeployConfig.tiebreakerConfig.quorum, "Incorrect quorum in TiebreakerCoreCommittee"

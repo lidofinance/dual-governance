@@ -52,8 +52,9 @@ contract ScheduledProposalExecution is ScenarioTestBlueprint {
         uint256 proposalId;
         _step("1. Submit time sensitive proposal");
         {
-            proposalId =
-                _submitProposal(_dualGovernance, "DAO performs some time sensitive action", scheduledProposalCalls);
+            proposalId = _submitProposal(
+                _contracts.dualGovernance, "DAO performs some time sensitive action", scheduledProposalCalls
+            );
 
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, scheduledProposalCalls);
@@ -61,7 +62,7 @@ contract ScheduledProposalExecution is ScenarioTestBlueprint {
 
         _step("2. Wait while the DG timelock has passed & schedule proposal");
         {
-            _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
+            _wait(_contracts.timelock.getAfterSubmitDelay().plusSeconds(1));
             _assertCanScheduleViaDualGovernance(proposalId, true);
             _scheduleProposalViaDualGovernance(proposalId);
             _assertProposalScheduled(proposalId);
@@ -137,7 +138,7 @@ contract ScheduledProposalExecution is ScenarioTestBlueprint {
             );
 
             _executeProposal(proposalId);
-            _assertTargetMockCalls(_timelock.getAdminExecutor(), expectedProposalCalls);
+            _assertTargetMockCalls(_contracts.timelock.getAdminExecutor(), expectedProposalCalls);
         }
         vm.revertTo(midnightSnapshotId);
 
@@ -150,7 +151,7 @@ contract ScheduledProposalExecution is ScenarioTestBlueprint {
             );
 
             _executeProposal(proposalId);
-            _assertTargetMockCalls(_timelock.getAdminExecutor(), expectedProposalCalls);
+            _assertTargetMockCalls(_contracts.timelock.getAdminExecutor(), expectedProposalCalls);
         }
         vm.revertTo(midnightSnapshotId);
 
@@ -163,7 +164,7 @@ contract ScheduledProposalExecution is ScenarioTestBlueprint {
             );
 
             _executeProposal(proposalId);
-            _assertTargetMockCalls(_timelock.getAdminExecutor(), expectedProposalCalls);
+            _assertTargetMockCalls(_contracts.timelock.getAdminExecutor(), expectedProposalCalls);
         }
         vm.revertTo(midnightSnapshotId);
     }

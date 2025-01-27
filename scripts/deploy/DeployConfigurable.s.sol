@@ -14,13 +14,13 @@ import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
 import {DGContractsDeployment} from "./ContractsDeployment.sol";
 import {DeployVerification} from "./DeployVerification.sol";
 import {SerializedJson, SerializedJsonLib} from "../utils/SerializedJson.sol";
+import {DeployConfigStorage} from "../utils/DeployConfigStorage.sol";
 
-contract DeployConfigurable is Script {
+contract DeployConfigurable is Script, DeployConfigStorage {
     using SerializedJsonLib for SerializedJson;
 
     error ChainIdMismatch(uint256 actual, uint256 expected);
 
-    DeployConfig internal _config;
     LidoContracts internal _lidoAddresses;
     address internal _deployer;
     DeployedContracts internal _contracts;
@@ -33,8 +33,10 @@ contract DeployConfigurable is Script {
         _configFileName = _getConfigFileName();
 
         _configProvider = new DGDeployConfigProvider(_configFileName);
-        _config = _configProvider.loadAndValidate();
-        _lidoAddresses = _configProvider.getLidoAddresses(_chainName);
+        DeployConfig memory tempConfig = _configProvider.loadAndValidate();
+        _fillConfig(tempConfig);
+
+        _lidoAddresses = _configProvider.getLidoAddresses();
     }
 
     function run() public {
@@ -63,7 +65,7 @@ contract DeployConfigurable is Script {
         SerializedJson memory deployArtifactJson = SerializedJsonLib.getInstance();
         deployArtifactJson = _serializeDeployedContracts(deployArtifactJson);
         deployArtifactJson = _configProvider.serialize(_config, deployArtifactJson);
-        deployArtifactJson = _configProvider.serializeLidoAddresses(_chainName, _lidoAddresses, deployArtifactJson);
+        deployArtifactJson = _configProvider.serializeLidoAddresses(_lidoAddresses, deployArtifactJson);
         _saveDeployArtifact(deployArtifactJson.str);
     }
 

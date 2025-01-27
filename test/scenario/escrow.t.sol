@@ -305,7 +305,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         vm.expectRevert();
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_contracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         uint256 escrowStETHBalance = _lido.stETH.balanceOf(address(escrow));
@@ -389,7 +389,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_contracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         _finalizeWithdrawalQueue();
@@ -433,7 +433,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_contracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         vm.expectRevert(Escrow.BatchesQueueIsNotClosed.selector);
@@ -481,7 +481,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         _lockWstETH(_VETOER_1, 1 ether);
         _lockUnstETH(_VETOER_1, lockedWithdrawalNfts);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_contracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         // ---
@@ -567,7 +567,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         // Lock stETH to generate batch
         _lockStETH(_VETOER_1, 20 * requestAmount);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_contracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         uint256 batchSizeLimit = 16;

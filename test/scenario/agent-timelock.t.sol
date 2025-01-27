@@ -35,8 +35,9 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         _step("2. Submit proposal via the Agent proposer");
         {
             vm.prank(agentProposer);
-            agentActionsProposalId =
-                _dualGovernance.submitProposal(regularStaffCalls, "Make regular staff using Agent as executor");
+            agentActionsProposalId = _contracts.dualGovernance.submitProposal(
+                regularStaffCalls, "Make regular staff using Agent as executor"
+            );
 
             _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), regularStaffCalls);
         }
@@ -76,8 +77,9 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         _step("2. Submit proposal which should revert via the Agent proposer");
         {
             vm.prank(agentProposer);
-            agentActionsProposalId =
-                _dualGovernance.submitProposal(regularStaffCalls, "Make regular staff using Agent as executor");
+            agentActionsProposalId = _contracts.dualGovernance.submitProposal(
+                regularStaffCalls, "Make regular staff using Agent as executor"
+            );
 
             _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), regularStaffCalls);
         }
@@ -132,7 +134,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         {
             vm.prank(agentProposer);
             agentActionsProposalId =
-                _dualGovernance.submitProposal(callsToEmptyAccount, "Make different calls to EOA account");
+                _contracts.dualGovernance.submitProposal(callsToEmptyAccount, "Make different calls to EOA account");
 
             _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), callsToEmptyAccount);
         }
@@ -198,7 +200,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         }
     }
 
-    function testFork_TimelockEmergencyReset() external {
+    function testFork_timelockEmergencyReset() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         // ---
@@ -220,7 +222,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         // ---
         {
             // wait until the delay has passed
-            _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
+            _wait(_contracts.timelock.getAfterSubmitDelay().plusSeconds(1));
 
             // when the first delay is passed and the is no opposition from the stETH holders
             // the proposal can be scheduled
@@ -239,17 +241,17 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         {
             // some time passes and emergency committee activates emergency mode
             // and resets the controller
-            _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
+            _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2));
 
             // committee resets governance
-            vm.prank(address(_emergencyActivationCommittee));
-            _timelock.activateEmergencyMode();
+            vm.prank(address(_dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE));
+            _contracts.timelock.activateEmergencyMode();
 
-            vm.prank(address(_emergencyExecutionCommittee));
-            _timelock.emergencyReset();
+            vm.prank(address(_dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE));
+            _contracts.timelock.emergencyReset();
 
             // proposal is canceled now
-            _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
+            _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
             // remove canceled call from the timelock
             _assertCanExecute(proposalId, false);
@@ -262,8 +264,10 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
     // ---
 
     function _grantAgentExecutorRoleToTimelock() internal {
-        _lido.grantPermission(address(_lido.agent), _lido.agent.EXECUTE_ROLE(), address(_timelock));
-        assertTrue(_lido.acl.hasPermission(address(_timelock), address(_lido.agent), _lido.agent.EXECUTE_ROLE()));
+        _lido.grantPermission(address(_lido.agent), _lido.agent.EXECUTE_ROLE(), address(_contracts.timelock));
+        assertTrue(
+            _lido.acl.hasPermission(address(_contracts.timelock), address(_lido.agent), _lido.agent.EXECUTE_ROLE())
+        );
     }
 
     function _addAragonAgentProposer(address agentProposer) internal {
@@ -271,8 +275,8 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
             [
                 ExternalCall({
                     value: 0,
-                    target: address(_dualGovernance),
-                    payload: abi.encodeCall(_dualGovernance.registerProposer, (agentProposer, address(_lido.agent)))
+                    target: address(_contracts.dualGovernance),
+                    payload: abi.encodeCall(_contracts.dualGovernance.registerProposer, (agentProposer, address(_lido.agent)))
                 })
             ]
         );
@@ -289,7 +293,7 @@ contract AgentTimelockTest is ScenarioTestBlueprint {
         _executeProposal(addAgentProposerProposalId);
         _assertProposalExecuted(addAgentProposerProposalId);
 
-        Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
+        Proposers.Proposer[] memory proposers = _contracts.dualGovernance.getProposers();
 
         assertEq(proposers.length, 2);
         assertEq(proposers[1].account, agentProposer);

@@ -11,12 +11,12 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
-        _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
+        _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposalViaDualGovernance(proposalId);
 
-        _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
+        _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
         _assertCanScheduleViaDualGovernance(proposalId, true);
         _scheduleProposalViaDualGovernance(proposalId);
@@ -27,7 +27,7 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
         _assertCanExecute(proposalId, true);
         _executeProposal(proposalId);
 
-        _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
+        _assertTargetMockCalls(_contracts.timelock.getAdminExecutor(), regularStaffCalls);
     }
 
     function test_protected_deployment_mode_execute_after_timelock() external {
@@ -35,12 +35,12 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
-        _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
+        _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposalViaDualGovernance(proposalId);
 
-        _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
+        _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
         _assertCanScheduleViaDualGovernance(proposalId, true);
         _scheduleProposalViaDualGovernance(proposalId);
@@ -51,7 +51,7 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
         _assertCanExecute(proposalId, true);
         _executeProposal(proposalId);
 
-        _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
+        _assertTargetMockCalls(_contracts.timelock.getAdminExecutor(), regularStaffCalls);
     }
 
     function test_protected_deployment_mode_execute_in_emergency_mode() external {
@@ -59,12 +59,12 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
 
-        _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
+        _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposalViaDualGovernance(proposalId);
 
-        _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
+        _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
         _assertCanScheduleViaDualGovernance(proposalId, true);
         _scheduleProposalViaDualGovernance(proposalId);
@@ -74,17 +74,17 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         _assertCanExecute(proposalId, true);
 
-        vm.prank(address(_emergencyActivationCommittee));
-        _timelock.activateEmergencyMode();
+        vm.prank(address(_dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE));
+        _contracts.timelock.activateEmergencyMode();
 
-        assertEq(_timelock.isEmergencyModeActive(), true);
+        assertEq(_contracts.timelock.isEmergencyModeActive(), true);
 
         _assertCanExecute(proposalId, false);
 
-        vm.prank(address(_emergencyExecutionCommittee));
-        _timelock.emergencyExecute(proposalId);
+        vm.prank(address(_dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE));
+        _contracts.timelock.emergencyExecute(proposalId);
 
-        _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
+        _assertTargetMockCalls(_contracts.timelock.getAdminExecutor(), regularStaffCalls);
     }
 
     function test_protected_deployment_mode_deactivation_in_emergency_mode() external {
@@ -92,12 +92,12 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         (uint256 proposalId,) = _createAndAssertProposal();
 
-        _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
+        _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
         _scheduleProposalViaDualGovernance(proposalId);
 
-        _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
+        _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
         _assertCanScheduleViaDualGovernance(proposalId, true);
         _scheduleProposalViaDualGovernance(proposalId);
@@ -107,24 +107,24 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
 
         _assertCanExecute(proposalId, true);
 
-        vm.prank(address(_emergencyActivationCommittee));
-        _timelock.activateEmergencyMode();
+        vm.prank(address(_dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE));
+        _contracts.timelock.activateEmergencyMode();
 
-        assertEq(_timelock.isEmergencyModeActive(), true);
-        assertEq(_timelock.isEmergencyProtectionEnabled(), true);
+        assertEq(_contracts.timelock.isEmergencyModeActive(), true);
+        assertEq(_contracts.timelock.isEmergencyProtectionEnabled(), true);
         _assertCanExecute(proposalId, false);
 
         // emergency protection disabled after emergency mode is activated
 
-        _wait(_timelock.getEmergencyProtectionDetails().emergencyModeDuration.plusSeconds(1));
+        _wait(_contracts.timelock.getEmergencyProtectionDetails().emergencyModeDuration.plusSeconds(1));
 
-        assertEq(_timelock.isEmergencyModeActive(), true);
-        assertEq(_timelock.isEmergencyProtectionEnabled(), true);
+        assertEq(_contracts.timelock.isEmergencyModeActive(), true);
+        assertEq(_contracts.timelock.isEmergencyProtectionEnabled(), true);
 
-        _timelock.deactivateEmergencyMode();
+        _contracts.timelock.deactivateEmergencyMode();
 
-        assertEq(_timelock.isEmergencyModeActive(), false);
-        assertEq(_timelock.isEmergencyProtectionEnabled(), false);
+        assertEq(_contracts.timelock.isEmergencyModeActive(), false);
+        assertEq(_contracts.timelock.isEmergencyProtectionEnabled(), false);
         _assertCanExecute(proposalId, false);
     }
 
@@ -132,7 +132,7 @@ contract ProposalDeploymentModesTest is ScenarioTestBlueprint {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId = _submitProposal(
-            _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            _contracts.dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
         );
         _assertProposalSubmitted(proposalId);
         _assertSubmittedProposalData(proposalId, regularStaffCalls);

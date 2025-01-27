@@ -23,7 +23,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         _step("1. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
         {
             proposalId = _submitProposal(
-                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+                _contracts.dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
             );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
@@ -50,7 +50,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         {
             _assertVetoSignalingState();
             maliciousProposalId = _submitProposal(
-                _dualGovernance,
+                _contracts.dualGovernance,
                 "Malicious Proposal",
                 ExternalCallHelpers.create(
                     address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
@@ -142,7 +142,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ---
         {
             proposalId = _submitProposal(
-                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+                _contracts.dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
             );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
@@ -154,7 +154,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ---
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         {
-            _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
+            _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2));
             _setupStETHBalance(
                 maliciousActor,
                 _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
@@ -162,7 +162,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _lockStETH(maliciousActor, PercentsD16.fromBasisPoints(12_00));
             _assertVetoSignalingState();
 
-            _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
+            _wait(_contracts.timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
 
             _assertProposalSubmitted(proposalId);
 
@@ -191,7 +191,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             _assertCanExecute(proposalId, true);
             _executeProposal(proposalId);
 
-            _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
+            _assertTargetMockCalls(_contracts.timelock.getAdminExecutor(), regularStaffCalls);
         }
     }
 
@@ -216,7 +216,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         _step("2. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
         {
             proposalId = _submitProposal(
-                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+                _contracts.dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
             );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
@@ -277,7 +277,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         _step("2. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
         {
             proposalId = _submitProposal(
-                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+                _contracts.dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
             );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);

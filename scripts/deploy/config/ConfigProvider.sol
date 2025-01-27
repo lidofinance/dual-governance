@@ -8,29 +8,9 @@ import {Vm} from "forge-std/Vm.sol";
 import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
-import {
-    ST_ETH as MAINNET_ST_ETH,
-    WST_ETH as MAINNET_WST_ETH,
-    WITHDRAWAL_QUEUE as MAINNET_WITHDRAWAL_QUEUE,
-    DAO_VOTING as MAINNET_DAO_VOTING
-} from "addresses/mainnet-addresses.sol";
-import {
-    ST_ETH as HOLESKY_ST_ETH,
-    WST_ETH as HOLESKY_WST_ETH,
-    WITHDRAWAL_QUEUE as HOLESKY_WITHDRAWAL_QUEUE,
-    DAO_VOTING as HOLESKY_DAO_VOTING
-} from "addresses/holesky-addresses.sol";
+
 import {SerializedJson, SerializedJsonLib} from "../../utils/SerializedJson.sol";
-import {
-    DeployConfig,
-    LidoContracts,
-    TiebreakerDeployConfig,
-    TiebreakerSubCommitteeDeployConfig,
-    CHAIN_NAME_MAINNET_HASH,
-    CHAIN_NAME_HOLESKY_HASH,
-    CHAIN_NAME_HOLESKY_MOCKS_HASH,
-    TIEBREAKER_SUB_COMMITTEES_COUNT
-} from "./Config.sol";
+import {DeployConfig, LidoContracts, TiebreakerDeployConfig, TiebreakerSubCommitteeDeployConfig} from "./Config.sol";
 import {ConfigFileReader} from "./ConfigFileReader.sol";
 
 string constant CONFIG_FILES_DIR = "deploy-config";
@@ -61,66 +41,29 @@ contract DGDeployConfigProvider {
         _printConfigAndCommittees(config, configFile.content);
     }
 
-    function getLidoAddresses(string memory chainName) external view returns (LidoContracts memory) {
-        bytes32 chainNameHash = keccak256(bytes(chainName));
-        if (
-            chainNameHash != CHAIN_NAME_MAINNET_HASH && chainNameHash != CHAIN_NAME_HOLESKY_HASH
-                && chainNameHash != CHAIN_NAME_HOLESKY_MOCKS_HASH
-        ) {
-            revert InvalidChain(chainName);
-        }
-
-        if (keccak256(bytes(chainName)) == CHAIN_NAME_MAINNET_HASH) {
-            return LidoContracts({
-                chainId: 1,
-                stETH: IStETH(MAINNET_ST_ETH),
-                wstETH: IWstETH(MAINNET_WST_ETH),
-                withdrawalQueue: IWithdrawalQueue(MAINNET_WITHDRAWAL_QUEUE),
-                voting: MAINNET_DAO_VOTING
-            });
-        }
-
-        if (keccak256(bytes(chainName)) == CHAIN_NAME_HOLESKY_MOCKS_HASH) {
-            ConfigFileReader.Context memory configFile = _loadConfigFile();
-
-            return _getHoleskyMockLidoAddresses(configFile);
-        }
-
+    function getLidoAddresses() external view returns (LidoContracts memory) {
+        ConfigFileReader.Context memory configFile = _loadConfigFile();
         return LidoContracts({
-            chainId: 17000,
-            stETH: IStETH(HOLESKY_ST_ETH),
-            wstETH: IWstETH(HOLESKY_WST_ETH),
-            withdrawalQueue: IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE),
-            voting: HOLESKY_DAO_VOTING
+            chainId: configFile.readUint(".CHAIN_ID"),
+            stETH: IStETH(configFile.readAddress(".LIDO_CONTRACTS.ST_ETH")),
+            wstETH: IWstETH(configFile.readAddress(".LIDO_CONTRACTS.WST_ETH")),
+            withdrawalQueue: IWithdrawalQueue(configFile.readAddress(".LIDO_CONTRACTS.WITHDRAWAL_QUEUE"))
         });
     }
 
     function _parse(ConfigFileReader.Context memory configFile) internal pure returns (DeployConfig memory config) {
-        TiebreakerSubCommitteeDeployConfig memory influencersSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: configFile.readAddressArray(".TIEBREAKER_CONFIG.INFLUENCERS.MEMBERS"),
-            quorum: configFile.readUint(".TIEBREAKER_CONFIG.INFLUENCERS.QUORUM")
-        });
-
-        TiebreakerSubCommitteeDeployConfig memory nodeOperatorsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: configFile.readAddressArray(".TIEBREAKER_CONFIG.NODE_OPERATORS.MEMBERS"),
-            quorum: configFile.readUint(".TIEBREAKER_CONFIG.NODE_OPERATORS.QUORUM")
-        });
-
-        TiebreakerSubCommitteeDeployConfig memory protocolsSubCommitteeConfig = TiebreakerSubCommitteeDeployConfig({
-            members: configFile.readAddressArray(".TIEBREAKER_CONFIG.PROTOCOLS.MEMBERS"),
-            quorum: configFile.readUint(".TIEBREAKER_CONFIG.PROTOCOLS.QUORUM")
-        });
+        bytes memory TiebreakerSubCommitteeDeployConfigRaw = configFile.readRaw(".TIEBREAKER_CONFIG.COMMITTEES");
+        TiebreakerSubCommitteeDeployConfig[] memory tiebreakerSubCommitteeDeployConfigs =
+            abi.decode(TiebreakerSubCommitteeDeployConfigRaw, (TiebreakerSubCommitteeDeployConfig[]));
 
         TiebreakerDeployConfig memory tiebreakerConfig = TiebreakerDeployConfig({
             activationTimeout: configFile.readDuration(".TIEBREAKER_CONFIG.ACTIVATION_TIMEOUT"),
             minActivationTimeout: configFile.readDuration(".TIEBREAKER_CONFIG.MIN_ACTIVATION_TIMEOUT"),
             maxActivationTimeout: configFile.readDuration(".TIEBREAKER_CONFIG.MAX_ACTIVATION_TIMEOUT"),
             executionDelay: configFile.readDuration(".TIEBREAKER_CONFIG.EXECUTION_DELAY"),
-            influencers: influencersSubCommitteeConfig,
-            nodeOperators: nodeOperatorsSubCommitteeConfig,
-            protocols: protocolsSubCommitteeConfig,
             quorum: configFile.readUint(".TIEBREAKER_CONFIG.QUORUM"),
-            sealableWithdrawalBlockers: configFile.readAddressArray(".TIEBREAKER_CONFIG.SEALABLE_WITHDRAWAL_BLOCKERS")
+            sealableWithdrawalBlockers: configFile.readAddressArray(".TIEBREAKER_CONFIG.SEALABLE_WITHDRAWAL_BLOCKERS"),
+            subCommitteeConfigs: tiebreakerSubCommitteeDeployConfigs
         });
 
         config = DeployConfig({
@@ -143,9 +86,6 @@ contract DGDeployConfigProvider {
             ),
             MAX_EMERGENCY_PROTECTION_DURATION: configFile.readDuration(
                 ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.MAX_EMERGENCY_PROTECTION_DURATION"
-            ),
-            TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER: configFile.readAddress(
-                ".EMERGENCY_PROTECTED_TIMELOCK_CONFIG.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER"
             ),
             //
             // DUAL_GOVERNANCE_CONFIG
@@ -186,34 +126,30 @@ contract DGDeployConfigProvider {
             ),
             RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH: configFile.readDuration(
                 ".DUAL_GOVERNANCE_CONFIG.RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH"
-            )
-        });
-    }
-
-    function _getHoleskyMockLidoAddresses(ConfigFileReader.Context memory configFile)
-        internal
-        pure
-        returns (LidoContracts memory)
-    {
-        return LidoContracts({
-            chainId: 17000,
-            stETH: IStETH(configFile.readAddress(".HOLESKY_MOCK_CONTRACTS.ST_ETH")),
-            wstETH: IWstETH(configFile.readAddress(".HOLESKY_MOCK_CONTRACTS.WST_ETH")),
-            withdrawalQueue: IWithdrawalQueue(configFile.readAddress(".HOLESKY_MOCK_CONTRACTS.WITHDRAWAL_QUEUE")),
-            voting: configFile.readAddress(".HOLESKY_MOCK_CONTRACTS.DAO_VOTING")
+            ),
+            EMERGENCY_GOVERNANCE_PROPOSER: configFile.readAddress(".EMERGENCY_GOVERNANCE_PROPOSER"),
+            ADMIN_PROPOSER: configFile.readAddress(".ADMIN_PROPOSER"),
+            PROPOSAL_CANCELER: configFile.readAddress(".PROPOSAL_CANCELER")
         });
     }
 
     function _validateConfig(DeployConfig memory config) internal pure {
-        if (config.tiebreakerConfig.quorum == 0 || config.tiebreakerConfig.quorum > TIEBREAKER_SUB_COMMITTEES_COUNT) {
+        if (
+            config.tiebreakerConfig.quorum == 0
+                || config.tiebreakerConfig.quorum > config.tiebreakerConfig.subCommitteeConfigs.length
+        ) {
             revert InvalidQuorum("TIEBREAKER_CORE", config.tiebreakerConfig.quorum);
         }
 
-        _checkCommitteeQuorum(config.tiebreakerConfig.influencers, "TIEBREAKER_CONFIG.INFLUENCERS");
-
-        _checkCommitteeQuorum(config.tiebreakerConfig.nodeOperators, "TIEBREAKER_CONFIG.NODE_OPERATORS");
-
-        _checkCommitteeQuorum(config.tiebreakerConfig.protocols, "TIEBREAKER_CONFIG.PROTOCOLS");
+        for (uint256 i = 0; i < config.tiebreakerConfig.subCommitteeConfigs.length; ++i) {
+            if (
+                config.tiebreakerConfig.subCommitteeConfigs[i].quorum == 0
+                    || config.tiebreakerConfig.subCommitteeConfigs[i].quorum
+                        > config.tiebreakerConfig.subCommitteeConfigs[i].members.length
+            ) {
+                revert InvalidQuorum("TIEBREAKER_SUB_COMMITTEE", config.tiebreakerConfig.subCommitteeConfigs[i].quorum);
+            }
+        }
 
         if (config.AFTER_SUBMIT_DELAY > config.MAX_AFTER_SUBMIT_DELAY) {
             revert InvalidParameter("AFTER_SUBMIT_DELAY");
@@ -248,15 +184,6 @@ contract DGDeployConfigProvider {
         }
     }
 
-    function _checkCommitteeQuorum(
-        TiebreakerSubCommitteeDeployConfig memory committee,
-        string memory message
-    ) internal pure {
-        if (committee.quorum == 0 || committee.quorum > committee.members.length) {
-            revert InvalidQuorum(message, committee.quorum);
-        }
-    }
-
     function _printConfigAndCommittees(DeployConfig memory config, string memory configFile) internal pure {
         console.log("=================================================");
         console.log("Loaded valid config file:");
@@ -264,22 +191,14 @@ contract DGDeployConfigProvider {
         console.log("=================================================");
         console.log("The Tiebreaker committee in the config consists of the following subcommittees:");
 
-        _printCommittee(config.tiebreakerConfig.influencers, "TiebreakerSubCommittee #1 (influencers) members, quorum");
-
-        _printCommittee(
-            config.tiebreakerConfig.nodeOperators, "TiebreakerSubCommittee #2 (nodeOperators) members, quorum"
-        );
-
-        _printCommittee(config.tiebreakerConfig.protocols, "TiebreakerSubCommittee #3 (protocols) members, quorum");
-
+        for (uint256 i = 0; i < config.tiebreakerConfig.subCommitteeConfigs.length; ++i) {
+            _printCommittee(config.tiebreakerConfig.subCommitteeConfigs[i]);
+        }
         console.log("=================================================");
     }
 
-    function _printCommittee(
-        TiebreakerSubCommitteeDeployConfig memory committee,
-        string memory message
-    ) internal pure {
-        console.log(message, committee.quorum, "of", committee.members.length);
+    function _printCommittee(TiebreakerSubCommitteeDeployConfig memory committee) internal pure {
+        console.log(committee.quorum, "of", committee.members.length);
         for (uint256 k = 0; k < committee.members.length; ++k) {
             console.log(">> #", k, address(committee.members[k]));
         }
@@ -306,9 +225,6 @@ contract DGDeployConfigProvider {
         emergencyProtectedTimelockConfig.set("EMERGENCY_PROTECTION_END_DATE", config.EMERGENCY_PROTECTION_END_DATE);
         emergencyProtectedTimelockConfig.set(
             "MAX_EMERGENCY_PROTECTION_DURATION", config.MAX_EMERGENCY_PROTECTION_DURATION
-        );
-        emergencyProtectedTimelockConfig.set(
-            "TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER", config.TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER
         );
         json.set("EMERGENCY_PROTECTED_TIMELOCK_CONFIG", emergencyProtectedTimelockConfig.str);
 
@@ -339,22 +255,15 @@ contract DGDeployConfigProvider {
         );
         json.set("DUAL_GOVERNANCE_CONFIG", dualGovernanceConfig.str);
 
-        SerializedJson memory tiebreakerInfluencers = SerializedJsonLib.getInstance();
-        tiebreakerInfluencers.set("MEMBERS", config.tiebreakerConfig.influencers.members);
-        tiebreakerInfluencers.set("QUORUM", config.tiebreakerConfig.influencers.quorum);
-
-        SerializedJson memory tiebreakerNodeOperators = SerializedJsonLib.getInstance();
-        tiebreakerNodeOperators.set("MEMBERS", config.tiebreakerConfig.nodeOperators.members);
-        tiebreakerNodeOperators.set("QUORUM", config.tiebreakerConfig.nodeOperators.quorum);
-
-        SerializedJson memory tiebreakerProtocols = SerializedJsonLib.getInstance();
-        tiebreakerProtocols.set("MEMBERS", config.tiebreakerConfig.protocols.members);
-        tiebreakerProtocols.set("QUORUM", config.tiebreakerConfig.protocols.quorum);
-
         SerializedJson memory tiebreakerConfig = SerializedJsonLib.getInstance();
-        tiebreakerConfig.set("INFLUENCERS", tiebreakerInfluencers.str);
-        tiebreakerConfig.set("NODE_OPERATORS", tiebreakerNodeOperators.str);
-        tiebreakerConfig.set("PROTOCOLS", tiebreakerProtocols.str);
+
+        for (uint256 i = 0; i < config.tiebreakerConfig.subCommitteeConfigs.length; ++i) {
+            SerializedJson memory subCommitteeConfig = SerializedJsonLib.getInstance();
+            subCommitteeConfig.set("MEMBERS", config.tiebreakerConfig.subCommitteeConfigs[i].members);
+            subCommitteeConfig.set("QUORUM", config.tiebreakerConfig.subCommitteeConfigs[i].quorum);
+            tiebreakerConfig.set("COMMITTEES", subCommitteeConfig.str);
+        }
+
         tiebreakerConfig.set("ACTIVATION_TIMEOUT", config.tiebreakerConfig.activationTimeout);
         tiebreakerConfig.set("MIN_ACTIVATION_TIMEOUT", config.tiebreakerConfig.minActivationTimeout);
         tiebreakerConfig.set("MAX_ACTIVATION_TIMEOUT", config.tiebreakerConfig.maxActivationTimeout);
@@ -368,20 +277,16 @@ contract DGDeployConfigProvider {
     }
 
     function serializeLidoAddresses(
-        string memory chainName,
         LidoContracts memory lidoContracts,
         SerializedJson memory json
     ) external returns (SerializedJson memory) {
-        if (keccak256(bytes(chainName)) == CHAIN_NAME_HOLESKY_MOCKS_HASH) {
-            SerializedJson memory holeskyMocks = SerializedJsonLib.getInstance();
+        SerializedJson memory lidoContractsSerialized = SerializedJsonLib.getInstance();
 
-            holeskyMocks.set("ST_ETH", address(lidoContracts.stETH));
-            holeskyMocks.set("WST_ETH", address(lidoContracts.wstETH));
-            holeskyMocks.set("WITHDRAWAL_QUEUE", address(lidoContracts.withdrawalQueue));
-            holeskyMocks.set("DAO_VOTING", address(lidoContracts.voting));
+        lidoContractsSerialized.set("ST_ETH", address(lidoContracts.stETH));
+        lidoContractsSerialized.set("WST_ETH", address(lidoContracts.wstETH));
+        lidoContractsSerialized.set("WITHDRAWAL_QUEUE", address(lidoContracts.withdrawalQueue));
 
-            json.set("HOLESKY_MOCK_CONTRACTS", holeskyMocks.str);
-        }
+        json.set("LIDO_CONTRACTS", lidoContractsSerialized.str);
         return json;
     }
 }

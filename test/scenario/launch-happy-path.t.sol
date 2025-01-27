@@ -26,7 +26,14 @@ import {ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "test/uti
 import {LidoUtils} from "test/utils/lido-utils.sol";
 import {EvmScriptUtils} from "test/utils/evm-script-utils.sol";
 
-import {ST_ETH, WST_ETH, WITHDRAWAL_QUEUE, DAO_VOTING, DAO_ACL, DAO_AGENT} from "addresses/mainnet-addresses.sol";
+import {
+    ST_ETH,
+    WST_ETH,
+    WITHDRAWAL_QUEUE,
+    DAO_VOTING,
+    DAO_ACL,
+    DAO_AGENT
+} from "test/utils/addresses/mainnet-addresses.sol";
 
 import {IAccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
@@ -43,7 +50,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
     RolesVerifier internal _rolesVerifier;
 
     function setUp() external {
-        _deployDualGovernanceSetup(true, true);
+        _deployDualGovernanceSetup(true);
     }
 
     function testFork_dualGovernance_deployment_and_activation() external {
@@ -55,19 +62,19 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         _verifier.verify(_contracts, false);
 
         // Activate Dual Governance Emergency Mode
-        vm.prank(_emergencyActivationCommittee);
+        vm.prank(_dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE);
         _contracts.timelock.activateEmergencyMode();
 
         assertEq(_contracts.timelock.isEmergencyModeActive(), true, "Emergency mode is not active");
 
         // Emergency Committee execute emergencyReset()
 
-        vm.prank(_emergencyExecutionCommittee);
+        vm.prank(_dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE);
         _contracts.timelock.emergencyReset();
 
         assertEq(
             _contracts.timelock.getGovernance(),
-            address(_contracts.temporaryEmergencyGovernance),
+            address(_contracts.emergencyGovernance),
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
 
@@ -94,14 +101,16 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                     target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        _contracts.timelock.setEmergencyProtectionActivationCommittee.selector, _emergencyActivationCommittee
+                        _contracts.timelock.setEmergencyProtectionActivationCommittee.selector,
+                        _dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE
                     )
                 }),
                 ExternalCall({
                     target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        _contracts.timelock.setEmergencyProtectionExecutionCommittee.selector, _emergencyExecutionCommittee
+                        _contracts.timelock.setEmergencyProtectionExecutionCommittee.selector,
+                        _dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE
                     )
                 }),
                 ExternalCall({
@@ -126,19 +135,19 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         console.log("Submit proposal to set DG state calldata");
         console.logBytes(
             abi.encodeWithSelector(
-                _contracts.temporaryEmergencyGovernance.submitProposal.selector,
+                _contracts.emergencyGovernance.submitProposal.selector,
                 calls,
                 "Reset emergency mode and set original DG as governance"
             )
         );
-        vm.prank(_temporaryEmergencyGovernanceProposer);
-        uint256 proposalId = _contracts.temporaryEmergencyGovernance.submitProposal(
+        vm.prank(_dgDeployConfig.EMERGENCY_GOVERNANCE_PROPOSER);
+        uint256 proposalId = _contracts.emergencyGovernance.submitProposal(
             calls, "Reset emergency mode and set original DG as governance"
         );
 
         // Schedule and execute the proposal
         _wait(_dgDeployConfig.AFTER_SUBMIT_DELAY);
-        _contracts.temporaryEmergencyGovernance.scheduleProposal(proposalId);
+        _contracts.emergencyGovernance.scheduleProposal(proposalId);
         _wait(_dgDeployConfig.AFTER_SCHEDULE_DELAY);
         _contracts.timelock.execute(proposalId);
 
@@ -156,12 +165,12 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         assertEq(_contracts.timelock.isEmergencyModeActive(), false, "Emergency mode is not active");
         assertEq(
             _contracts.timelock.getEmergencyActivationCommittee(),
-            _emergencyActivationCommittee,
+            _dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE,
             "Incorrect emergencyActivationCommittee address in EmergencyProtectedTimelock"
         );
         assertEq(
             _contracts.timelock.getEmergencyExecutionCommittee(),
-            _emergencyExecutionCommittee,
+            _dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE,
             "Incorrect emergencyExecutionCommittee address in EmergencyProtectedTimelock"
         );
 

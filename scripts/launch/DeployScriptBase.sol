@@ -11,11 +11,11 @@ import {DeployConfig, LidoContracts} from "../deploy/config/Config.sol";
 import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "../deploy/config/ConfigProvider.sol";
 import {DeployedContracts, DGContractsSet} from "../deploy/DeployedContractsSet.sol";
 import {DeployVerifier} from "./DeployVerifier.sol";
+import {DeployConfigStorage} from "../utils/DeployConfigStorage.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
-contract DeployScriptBase is Script {
-    DeployConfig internal _config;
+contract DeployScriptBase is Script, DeployConfigStorage {
     LidoContracts internal _lidoAddresses;
     DeployedContracts internal _dgContracts;
     string internal _chainName;
@@ -28,8 +28,8 @@ contract DeployScriptBase is Script {
 
         DGDeployConfigProvider configProvider = new DGDeployConfigProvider(_deployArtifactFileName);
 
-        _config = configProvider.loadAndValidate();
-        _lidoAddresses = configProvider.getLidoAddresses(_chainName);
+        _fillConfig(configProvider.loadAndValidate());
+        _lidoAddresses = configProvider.getLidoAddresses();
         _dgContracts = DGContractsSet.loadFromFile(_loadDeployedAddressesFile(_deployArtifactFileName));
 
         console.log("Using the following DG contracts addresses (from file", _deployArtifactFileName, "):");

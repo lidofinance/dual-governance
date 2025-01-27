@@ -15,30 +15,30 @@ contract DGLaunchTest is ScenarioTestBlueprint {
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
     }
 
-    function testFork_DualGovernanceLaunchFromAragonVote() external {
+    function testFork_dualGovernanceLaunchFromAragonVote() external {
         _step("0. Validate The DG Initial State After Deployment");
         // TODO: call DeployVerification lib
-        assertNotEq(address(_emergencyGovernance), address(0));
-        assertEq(_timelock.getEmergencyGovernance(), address(_emergencyGovernance));
+        assertNotEq(address(_contracts.emergencyGovernance), address(0));
+        assertEq(_contracts.timelock.getEmergencyGovernance(), address(_contracts.emergencyGovernance));
 
         _step("1. Activate Emergency Mode");
         {
-            assertFalse(_timelock.isEmergencyModeActive());
+            assertFalse(_contracts.timelock.isEmergencyModeActive());
 
-            vm.prank(_emergencyActivationCommittee);
-            _timelock.activateEmergencyMode();
+            vm.prank(_dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE);
+            _contracts.timelock.activateEmergencyMode();
 
-            assertTrue(_timelock.isEmergencyModeActive());
+            assertTrue(_contracts.timelock.isEmergencyModeActive());
         }
 
         _step("2. Make Emergency Reset");
         {
-            assertEq(_timelock.getGovernance(), address(_dualGovernance));
+            assertEq(_contracts.timelock.getGovernance(), address(_contracts.dualGovernance));
 
-            vm.prank(_emergencyExecutionCommittee);
-            _timelock.emergencyReset();
+            vm.prank(_dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE);
+            _contracts.timelock.emergencyReset();
 
-            assertEq(_timelock.getGovernance(), address(_emergencyGovernance));
+            assertEq(_contracts.timelock.getGovernance(), address(_contracts.emergencyGovernance));
         }
 
         _step("3. Prepare Aragon Vote With Roles Transfer & DG Configuration");
@@ -47,34 +47,38 @@ contract DGLaunchTest is ScenarioTestBlueprint {
                 [
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
+                        target: address(_contracts.timelock),
                         payload: abi.encodeCall(
-                            _timelock.setEmergencyProtectionActivationCommittee, (_emergencyActivationCommittee)
+                            _contracts.timelock.setEmergencyProtectionActivationCommittee,
+                            (_dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE)
                         )
                     }),
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
+                        target: address(_contracts.timelock),
                         payload: abi.encodeCall(
-                            _timelock.setEmergencyProtectionExecutionCommittee, (_emergencyExecutionCommittee)
+                            _contracts.timelock.setEmergencyProtectionExecutionCommittee,
+                            (_dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE)
                         )
                     }),
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setGovernance, (address(_dualGovernance)))
+                        target: address(_contracts.timelock),
+                        payload: abi.encodeCall(_contracts.timelock.setGovernance, (address(_contracts.dualGovernance)))
                     }),
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
+                        target: address(_contracts.timelock),
                         payload: abi.encodeCall(
-                            _timelock.setEmergencyProtectionEndDate, _dgDeployConfig.EMERGENCY_PROTECTION_END_DATE
+                            _contracts.timelock.setEmergencyProtectionEndDate, _dgDeployConfig.EMERGENCY_PROTECTION_END_DATE
                         )
                     }),
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setEmergencyModeDuration, (_dgDeployConfig.EMERGENCY_MODE_DURATION))
+                        target: address(_contracts.timelock),
+                        payload: abi.encodeCall(
+                            _contracts.timelock.setEmergencyModeDuration, (_dgDeployConfig.EMERGENCY_MODE_DURATION)
+                        )
                     })
                 ]
             );
@@ -85,13 +89,14 @@ contract DGLaunchTest is ScenarioTestBlueprint {
             aragonVoteCalls[0].target = address(_lido.acl);
             aragonVoteCalls[0].data = abi.encodeCall(
                 _lido.acl.grantPermission,
-                (address(_adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+                (address(_contracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
             );
 
             // Grant EXECUTE_ROLE to AdminExecutor
             aragonVoteCalls[1].target = address(_lido.acl);
             aragonVoteCalls[1].data = abi.encodeCall(
-                _lido.acl.grantPermission, (address(_adminExecutor), address(_lido.agent), _lido.agent.EXECUTE_ROLE())
+                _lido.acl.grantPermission,
+                (address(_contracts.adminExecutor), address(_lido.agent), _lido.agent.EXECUTE_ROLE())
             );
 
             // Transfer RUN_SCRIPT_ROLE manager to Agent
@@ -108,9 +113,10 @@ contract DGLaunchTest is ScenarioTestBlueprint {
             );
 
             // Submit proposal to EmergencyProtectedTimelock
-            aragonVoteCalls[4].target = address(_emergencyGovernance);
+            aragonVoteCalls[4].target = address(_contracts.emergencyGovernance);
             aragonVoteCalls[4].data = abi.encodeCall(
-                _emergencyGovernance.submitProposal, (dgConfigurationProposalCalls, "Dual Governance Configuration")
+                _contracts.emergencyGovernance.submitProposal,
+                (dgConfigurationProposalCalls, "Dual Governance Configuration")
             );
 
             bytes memory script = EvmScriptUtils.encodeEvmCallScript(aragonVoteCalls);
@@ -133,17 +139,21 @@ contract DGLaunchTest is ScenarioTestBlueprint {
             );
 
             assertTrue(
-                _lido.acl.hasPermission(address(_adminExecutor), address(_lido.agent), _lido.agent.EXECUTE_ROLE())
+                _lido.acl.hasPermission(
+                    address(_contracts.adminExecutor), address(_lido.agent), _lido.agent.EXECUTE_ROLE()
+                )
             );
             assertTrue(
-                _lido.acl.hasPermission(address(_adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+                _lido.acl.hasPermission(
+                    address(_contracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                )
             );
 
             uint256 launchProposalId = 1;
-            assertEq(_timelock.getProposalsCount(), 1);
+            assertEq(_contracts.timelock.getProposalsCount(), 1);
 
             _waitAfterSubmitDelayPassed();
-            _scheduleProposal(_emergencyGovernance, launchProposalId);
+            _scheduleProposal(_contracts.emergencyGovernance, launchProposalId);
 
             _waitAfterScheduleDelayPassed();
             _executeProposal(launchProposalId);
@@ -157,10 +167,14 @@ contract DGLaunchTest is ScenarioTestBlueprint {
             );
 
             assertTrue(
-                _lido.acl.hasPermission(address(_adminExecutor), address(_lido.agent), _lido.agent.EXECUTE_ROLE())
+                _lido.acl.hasPermission(
+                    address(_contracts.adminExecutor), address(_lido.agent), _lido.agent.EXECUTE_ROLE()
+                )
             );
             assertTrue(
-                _lido.acl.hasPermission(address(_adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+                _lido.acl.hasPermission(
+                    address(_contracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                )
             );
 
             assertEq(
@@ -209,8 +223,8 @@ contract DGLaunchTest is ScenarioTestBlueprint {
             );
 
             uint256 dgLaunchPoposalId =
-                _submitProposal(_dualGovernance, "DG Launch Final Step", votingRevokePermissionsCalls);
-            assertEq(_timelock.getProposalsCount(), 2);
+                _submitProposal(_contracts.dualGovernance, "DG Launch Final Step", votingRevokePermissionsCalls);
+            assertEq(_contracts.timelock.getProposalsCount(), 2);
 
             _waitAfterSubmitDelayPassed();
             _scheduleProposalViaDualGovernance(dgLaunchPoposalId);
@@ -229,10 +243,14 @@ contract DGLaunchTest is ScenarioTestBlueprint {
             );
 
             assertTrue(
-                _lido.acl.hasPermission(address(_adminExecutor), address(_lido.agent), _lido.agent.EXECUTE_ROLE())
+                _lido.acl.hasPermission(
+                    address(_contracts.adminExecutor), address(_lido.agent), _lido.agent.EXECUTE_ROLE()
+                )
             );
             assertTrue(
-                _lido.acl.hasPermission(address(_adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+                _lido.acl.hasPermission(
+                    address(_contracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                )
             );
 
             assertEq(

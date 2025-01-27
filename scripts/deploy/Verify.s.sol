@@ -10,19 +10,18 @@ import {DeployConfig, LidoContracts} from "./config/Config.sol";
 import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "./config/ConfigProvider.sol";
 import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
 import {DeployVerification} from "./DeployVerification.sol";
+import {DeployConfigStorage} from "../utils/DeployConfigStorage.sol";
 
-contract Verify is Script {
-    DeployConfig internal _config;
+contract Verify is Script, DeployConfigStorage {
     LidoContracts internal _lidoAddresses;
 
     function run() external {
-        string memory chainName = vm.envString("CHAIN");
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
         bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
         DGDeployConfigProvider configProvider = new DGDeployConfigProvider(deployArtifactFileName);
-        _config = configProvider.loadAndValidate();
-        _lidoAddresses = configProvider.getLidoAddresses(chainName);
+        _fillConfig(configProvider.loadAndValidate());
+        _lidoAddresses = configProvider.getLidoAddresses();
 
         DeployedContracts memory contracts =
             DGContractsSet.loadFromFile(_loadDeployArtifactFile(deployArtifactFileName));

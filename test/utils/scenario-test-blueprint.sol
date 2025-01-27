@@ -70,15 +70,15 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     // ---
 
     function _getAdminExecutor() internal view returns (address) {
-        return _timelock.getAdminExecutor();
+        return _contracts.timelock.getAdminExecutor();
     }
 
     function _getVetoSignallingEscrow() internal view returns (Escrow) {
-        return Escrow(payable(_dualGovernance.getVetoSignallingEscrow()));
+        return Escrow(payable(_contracts.dualGovernance.getVetoSignallingEscrow()));
     }
 
     function _getRageQuitEscrow() internal view returns (Escrow) {
-        address rageQuitEscrow = _dualGovernance.getRageQuitEscrow();
+        address rageQuitEscrow = _contracts.dualGovernance.getRageQuitEscrow();
         return Escrow(payable(rageQuitEscrow));
     }
 
@@ -93,9 +93,9 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         view
         returns (bool isActive, uint256 duration, uint256 activatedAt, uint256 enteredAt)
     {
-        IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
+        IDualGovernance.StateDetails memory stateContext = _contracts.dualGovernance.getStateDetails();
         isActive = stateContext.persistedState == DGState.VetoSignalling;
-        duration = _dualGovernance.getStateDetails().vetoSignallingDuration.toSeconds();
+        duration = _contracts.dualGovernance.getStateDetails().vetoSignallingDuration.toSeconds();
         enteredAt = stateContext.persistedStateEnteredAt.toSeconds();
         activatedAt = stateContext.vetoSignallingActivatedAt.toSeconds();
     }
@@ -105,7 +105,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         view
         returns (bool isActive, uint256 duration, uint256 enteredAt)
     {
-        IDualGovernance.StateDetails memory stateContext = _dualGovernance.getStateDetails();
+        IDualGovernance.StateDetails memory stateContext = _contracts.dualGovernance.getStateDetails();
         isActive = stateContext.persistedState == DGState.VetoSignallingDeactivation;
         duration = _dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().toSeconds();
         enteredAt = stateContext.persistedStateEnteredAt.toSeconds();
@@ -282,7 +282,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     // Dual Governance State Manipulation
     // ---
     function _activateNextState() internal {
-        _dualGovernance.activateNextState();
+        _contracts.dualGovernance.activateNextState();
     }
 
     // ---
@@ -292,14 +292,14 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         string memory description,
         ExternalCall[] memory calls
     ) internal returns (uint256 proposalId) {
-        proposalId = _submitProposal(_dualGovernance, description, calls);
+        proposalId = _submitProposal(_contracts.dualGovernance, description, calls);
     }
 
     function _submitProposalViaTimelockedGovernance(
         string memory description,
         ExternalCall[] memory calls
     ) internal returns (uint256 proposalId) {
-        proposalId = _submitProposal(_timelockedGovernance, description, calls);
+        proposalId = _submitProposal(_contracts.emergencyGovernance, description, calls);
     }
 
     function _submitProposal(
@@ -307,7 +307,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         string memory description,
         ExternalCall[] memory calls
     ) internal returns (uint256 proposalId) {
-        uint256 proposalsCountBefore = _timelock.getProposalsCount();
+        uint256 proposalsCountBefore = _contracts.timelock.getProposalsCount();
 
         bytes memory script = EvmScriptUtils.encodeEvmCallScript(
             address(governance), abi.encodeCall(IGovernance.submitProposal, (calls, string("")))
@@ -315,22 +315,22 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
         uint256 voteId = _lido.adoptVote(description, script);
 
         // The scheduled calls count is the same until the vote is enacted
-        assertEq(_timelock.getProposalsCount(), proposalsCountBefore);
+        assertEq(_contracts.timelock.getProposalsCount(), proposalsCountBefore);
 
         // executing the vote
         _lido.executeVote(voteId);
 
-        proposalId = _timelock.getProposalsCount();
+        proposalId = _contracts.timelock.getProposalsCount();
         // new call is scheduled but has not executable yet
         assertEq(proposalId, proposalsCountBefore + 1);
     }
 
     function _scheduleProposalViaDualGovernance(uint256 proposalId) internal {
-        _scheduleProposal(_dualGovernance, proposalId);
+        _scheduleProposal(_contracts.dualGovernance, proposalId);
     }
 
     function _scheduleProposalViaTimelockedGovernance(uint256 proposalId) internal {
-        _scheduleProposal(_timelockedGovernance, proposalId);
+        _scheduleProposal(_contracts.emergencyGovernance, proposalId);
     }
 
     function _scheduleProposal(IGovernance governance, uint256 proposalId) internal {
@@ -338,7 +338,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _executeProposal(uint256 proposalId) internal {
-        _timelock.execute(proposalId);
+        _contracts.timelock.execute(proposalId);
     }
 
     function _scheduleAndExecuteProposal(IGovernance governance, uint256 proposalId) internal {
@@ -351,11 +351,12 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     // ---
 
     function _assertSubmittedProposalData(uint256 proposalId, ExternalCall[] memory calls) internal {
-        _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), calls);
+        _assertSubmittedProposalData(proposalId, _contracts.timelock.getAdminExecutor(), calls);
     }
 
     function _assertSubmittedProposalData(uint256 proposalId, address executor, ExternalCall[] memory calls) internal {
-        (ITimelock.ProposalDetails memory proposal, ExternalCall[] memory calls) = _timelock.getProposal(proposalId);
+        (ITimelock.ProposalDetails memory proposal, ExternalCall[] memory calls) =
+            _contracts.timelock.getProposal(proposalId);
         assertEq(proposal.id, proposalId, "unexpected proposal id");
         assertEq(proposal.status, ProposalStatus.Submitted, "unexpected status value");
         assertEq(proposal.executor, executor, "unexpected executor");
@@ -400,15 +401,15 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _assertCanExecute(uint256 proposalId, bool canExecute) internal {
-        assertEq(_timelock.canExecute(proposalId), canExecute, "unexpected canExecute() value");
+        assertEq(_contracts.timelock.canExecute(proposalId), canExecute, "unexpected canExecute() value");
     }
 
     function _assertCanScheduleViaDualGovernance(uint256 proposalId, bool canSchedule) internal {
-        _assertCanSchedule(_dualGovernance, proposalId, canSchedule);
+        _assertCanSchedule(_contracts.dualGovernance, proposalId, canSchedule);
     }
 
     function _assertCanScheduleViaTimelockedGovernance(uint256 proposalId, bool canSchedule) internal {
-        _assertCanSchedule(_timelockedGovernance, proposalId, canSchedule);
+        _assertCanSchedule(_contracts.emergencyGovernance, proposalId, canSchedule);
     }
 
     function _assertCanSchedule(IGovernance governance, uint256 proposalId, bool canSchedule) internal {
@@ -418,14 +419,14 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     function _assertCanScheduleAndExecute(IGovernance governance, uint256 proposalId) internal {
         _assertCanSchedule(governance, proposalId, true);
         assertFalse(
-            _timelock.isEmergencyProtectionEnabled(),
+            _contracts.timelock.isEmergencyProtectionEnabled(),
             "Execution in the same block with scheduling allowed only when emergency protection is disabled"
         );
     }
 
     function _assertProposalSubmitted(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposalDetails(proposalId).status,
+            _contracts.timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Submitted,
             "TimelockProposal not in 'Submitted' state"
         );
@@ -433,7 +434,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _assertProposalScheduled(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposalDetails(proposalId).status,
+            _contracts.timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Scheduled,
             "TimelockProposal not in 'Scheduled' state"
         );
@@ -441,7 +442,7 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _assertProposalExecuted(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposalDetails(proposalId).status,
+            _contracts.timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Executed,
             "TimelockProposal not in 'Executed' state"
         );
@@ -449,30 +450,30 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
 
     function _assertProposalCancelled(uint256 proposalId) internal {
         assertEq(
-            _timelock.getProposalDetails(proposalId).status,
+            _contracts.timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Cancelled,
             "Proposal not in 'Canceled' state"
         );
     }
 
     function _assertNormalState() internal {
-        assertEq(_dualGovernance.getPersistedState(), DGState.Normal);
+        assertEq(_contracts.dualGovernance.getPersistedState(), DGState.Normal);
     }
 
     function _assertVetoSignalingState() internal {
-        assertEq(_dualGovernance.getPersistedState(), DGState.VetoSignalling);
+        assertEq(_contracts.dualGovernance.getPersistedState(), DGState.VetoSignalling);
     }
 
     function _assertVetoSignalingDeactivationState() internal {
-        assertEq(_dualGovernance.getPersistedState(), DGState.VetoSignallingDeactivation);
+        assertEq(_contracts.dualGovernance.getPersistedState(), DGState.VetoSignallingDeactivation);
     }
 
     function _assertRageQuitState() internal {
-        assertEq(_dualGovernance.getPersistedState(), DGState.RageQuit);
+        assertEq(_contracts.dualGovernance.getPersistedState(), DGState.RageQuit);
     }
 
     function _assertVetoCooldownState() internal {
-        assertEq(_dualGovernance.getPersistedState(), DGState.VetoCooldown);
+        assertEq(_contracts.dualGovernance.getPersistedState(), DGState.VetoCooldown);
     }
 
     function _assertNoTargetMockCalls() internal {
@@ -548,26 +549,26 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
     }
 
     function _waitAfterSubmitDelayPassed() internal {
-        _wait(_timelock.getAfterSubmitDelay() + Durations.from(1 seconds));
+        _wait(_contracts.timelock.getAfterSubmitDelay() + Durations.from(1 seconds));
     }
 
     function _waitAfterScheduleDelayPassed() internal {
-        _wait(_timelock.getAfterScheduleDelay() + Durations.from(1 seconds));
+        _wait(_contracts.timelock.getAfterScheduleDelay() + Durations.from(1 seconds));
     }
 
     function _executeActivateEmergencyMode() internal {
-        vm.prank(_emergencyActivationCommittee);
-        _timelock.activateEmergencyMode();
+        vm.prank(_dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE);
+        _contracts.timelock.activateEmergencyMode();
     }
 
     function _executeEmergencyExecute(uint256 proposalId) internal {
-        vm.prank(_emergencyExecutionCommittee);
-        _timelock.emergencyExecute(proposalId);
+        vm.prank(_dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE);
+        _contracts.timelock.emergencyExecute(proposalId);
     }
 
     function _executeEmergencyReset() internal {
-        vm.prank(_emergencyExecutionCommittee);
-        _timelock.emergencyReset();
+        vm.prank(_dgDeployConfig.EMERGENCY_EXECUTION_COMMITTEE);
+        _contracts.timelock.emergencyReset();
     }
 
     struct DurationStruct {

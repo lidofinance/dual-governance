@@ -76,4 +76,10 @@ library ConfigFileReader {
         // solhint-disable-next-line custom-errors
         revert(string.concat("Unsupported file format: ", fileFormat));
     }
+
+    function readRaw(Context memory ctx, string memory key) internal pure returns (bytes memory) {
+        if (ctx.format == ConfigFormat.JSON) return stdJson.parseRaw(ctx.content, key);
+        if (ctx.format == ConfigFormat.TOML) return stdToml.parseRaw(ctx.content, key);
+        revert InvalidConfigFormat(uint256(ctx.format));
+    }
 }

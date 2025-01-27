@@ -22,8 +22,8 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
         _newAdminExecutor = new Executor({owner: address(this)});
 
-        _oldAdminExecutor = Executor(payable(_timelock.getAdminExecutor()));
-        _newAdminExecutor.transferOwnership(address(_timelock));
+        _oldAdminExecutor = Executor(payable(_contracts.timelock.getAdminExecutor()));
+        _newAdminExecutor.transferOwnership(address(_contracts.timelock));
     }
 
     function testFork_ExecutorOwnershipTransfer_HappyPath() external {
@@ -35,24 +35,24 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
                     // 1. Register new proposer and assign it to the old admin executor
                     ExternalCall({
                         value: 0,
-                        target: address(_dualGovernance),
+                        target: address(_contracts.dualGovernance),
                         payload: abi.encodeCall(
-                            _dualGovernance.registerProposer, (_NEW_REGULAR_PROPOSER, address(_oldAdminExecutor))
+                            _contracts.dualGovernance.registerProposer, (_NEW_REGULAR_PROPOSER, address(_oldAdminExecutor))
                         )
                     }),
                     // 2. Assign previous proposer (Aragon Voting) to the new executor
                     ExternalCall({
                         value: 0,
-                        target: address(_dualGovernance),
+                        target: address(_contracts.dualGovernance),
                         payload: abi.encodeCall(
-                            _dualGovernance.setProposerExecutor, (address(_lido.voting), address(_newAdminExecutor))
+                            _contracts.dualGovernance.setProposerExecutor, (address(_lido.voting), address(_newAdminExecutor))
                         )
                     }),
                     // 3. Replace the admin executor of the Timelock contract
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setAdminExecutor, (address(_newAdminExecutor)))
+                        target: address(_contracts.timelock),
+                        payload: abi.encodeCall(_contracts.timelock.setAdminExecutor, (address(_newAdminExecutor)))
                     })
                 ]
             );
@@ -73,9 +73,9 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
         }
         _step("3. The proposers and executors were set up correctly");
         {
-            assertEq(_timelock.getAdminExecutor(), address(_newAdminExecutor));
+            assertEq(_contracts.timelock.getAdminExecutor(), address(_newAdminExecutor));
 
-            Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
+            Proposers.Proposer[] memory proposers = _contracts.dualGovernance.getProposers();
 
             assertEq(proposers.length, 2);
 
@@ -92,14 +92,15 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
                 [
                     ExternalCall({
                         value: 0,
-                        target: address(_dualGovernance),
-                        payload: abi.encodeCall(_dualGovernance.unregisterProposer, (_NEW_REGULAR_PROPOSER))
+                        target: address(_contracts.dualGovernance),
+                        payload: abi.encodeCall(_contracts.dualGovernance.unregisterProposer, (_NEW_REGULAR_PROPOSER))
                     }),
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
+                        target: address(_contracts.timelock),
                         payload: abi.encodeCall(
-                            _timelock.transferExecutorOwnership, (address(_oldAdminExecutor), address(_newAdminExecutor))
+                            _contracts.timelock.transferExecutorOwnership,
+                            (address(_oldAdminExecutor), address(_newAdminExecutor))
                         )
                     }),
                     ExternalCall({
@@ -112,17 +113,17 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
                     ExternalCall({
                         value: 0,
                         target: address(_oldAdminExecutor),
-                        payload: abi.encodeCall(_oldAdminExecutor.transferOwnership, (address(_timelock)))
+                        payload: abi.encodeCall(_oldAdminExecutor.transferOwnership, (address(_contracts.timelock)))
                     }),
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setAfterSubmitDelay, (Durations.from(5 days)))
+                        target: address(_contracts.timelock),
+                        payload: abi.encodeCall(_contracts.timelock.setAfterSubmitDelay, (Durations.from(5 days)))
                     }),
                     ExternalCall({
                         value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setAfterScheduleDelay, (Durations.ZERO))
+                        target: address(_contracts.timelock),
+                        payload: abi.encodeCall(_contracts.timelock.setAfterScheduleDelay, (Durations.ZERO))
                     })
                 ]
             );
@@ -139,15 +140,15 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
 
             _executeProposal(proposalId);
 
-            Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
+            Proposers.Proposer[] memory proposers = _contracts.dualGovernance.getProposers();
 
             assertEq(proposers.length, 1);
             assertEq(proposers[0].account, address(_lido.voting));
             assertEq(proposers[0].executor, address(_newAdminExecutor));
 
-            assertEq(_timelock.getAfterScheduleDelay(), Durations.ZERO);
+            assertEq(_contracts.timelock.getAfterScheduleDelay(), Durations.ZERO);
 
-            assertEq(_oldAdminExecutor.owner(), address(_timelock));
+            assertEq(_oldAdminExecutor.owner(), address(_contracts.timelock));
         }
     }
 }
