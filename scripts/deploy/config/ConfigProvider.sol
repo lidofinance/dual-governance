@@ -52,7 +52,7 @@ contract DGDeployConfigProvider {
     }
 
     function _parse(ConfigFileReader.Context memory configFile) internal pure returns (DeployConfig memory config) {
-        bytes memory TiebreakerSubCommitteeDeployConfigRaw = configFile.readRaw(".TIEBREAKER_CONFIG.COMMITTEES");
+        bytes memory TiebreakerSubCommitteeDeployConfigRaw = configFile.readRaw(".TIEBREAKER_CONFIG.SUB_COMMITTEES");
         TiebreakerSubCommitteeDeployConfig[] memory tiebreakerSubCommitteeDeployConfigs =
             abi.decode(TiebreakerSubCommitteeDeployConfigRaw, (TiebreakerSubCommitteeDeployConfig[]));
 

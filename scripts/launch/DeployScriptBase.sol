@@ -18,12 +18,12 @@ import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 contract DeployScriptBase is Script, DeployConfigStorage {
     LidoContracts internal _lidoAddresses;
     DeployedContracts internal _dgContracts;
-    string internal _chainName;
+    string internal _chainId;
     string internal _deployArtifactFileName;
     DeployVerifier internal _deployVerifier;
 
     function _loadEnv() internal {
-        _chainName = vm.envString("CHAIN");
+        _chainId = vm.envString("CHAIN_ID");
         _deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
 
         DGDeployConfigProvider configProvider = new DGDeployConfigProvider(_deployArtifactFileName);

@@ -25,11 +25,9 @@ contract DeployConfigurable is Script, DeployConfigStorage {
     address internal _deployer;
     DeployedContracts internal _contracts;
     DGDeployConfigProvider internal _configProvider;
-    string internal _chainName;
     string internal _configFileName;
 
     constructor() {
-        _chainName = _getChainName();
         _configFileName = _getConfigFileName();
 
         _configProvider = new DGDeployConfigProvider(_configFileName);
@@ -76,25 +74,26 @@ contract DeployConfigurable is Script, DeployConfigStorage {
             "ESCROW_MASTER_COPY",
             address(ISignallingEscrow(_contracts.dualGovernance.getVetoSignallingEscrow()).ESCROW_MASTER_COPY())
         );
-        addrsJson.set("chainName", _chainName);
+        addrsJson.set("chainId", _lidoAddresses.chainId);
         addrsJson.set("timestamp", block.timestamp);
 
         return json.set("DEPLOYED_CONTRACTS", addrsJson.str);
     }
 
     function _saveDeployArtifact(string memory deployedAddrsJson) internal {
-        string memory addressesFileName =
-            string.concat("deploy-artifact-", _chainName, "-", Strings.toString(block.timestamp), ".json");
+        string memory addressesFileName = string.concat(
+            "deploy-artifact-",
+            Strings.toString(_lidoAddresses.chainId),
+            "-",
+            Strings.toString(block.timestamp),
+            ".json"
+        );
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", addressesFileName);
 
         stdJson.write(deployedAddrsJson, path);
 
         console.log("The deployed contracts' addresses are saved to file", path);
-    }
-
-    function _getChainName() internal virtual returns (string memory) {
-        return vm.envString("CHAIN");
     }
 
     function _getConfigFileName() internal virtual returns (string memory) {
