@@ -16,8 +16,8 @@ contract DeployVerifier is DeployConfigStorage {
         _lidoAddresses = lidoAddresses;
     }
 
-    function verify(DeployedContracts memory dgContracts, bool onchainVotingCheck) external {
-        DeployVerification.checkContractsConfiguration(dgContracts, _config, onchainVotingCheck);
+    function verify(DeployedContracts memory dgContracts) external {
+        DeployVerification.checkContractsConfiguration(dgContracts, _config);
 
         emit Verified();
     }

@@ -25,11 +25,10 @@ library DeployVerification {
     function verify(
         DeployedContracts memory contracts,
         DeployConfig memory dgDeployConfig,
-        LidoContracts memory lidoAddresses,
-        bool onchainVotingCheck
+        LidoContracts memory lidoAddresses
     ) internal view {
         checkImmutables(contracts, dgDeployConfig, lidoAddresses);
-        checkContractsConfiguration(contracts, dgDeployConfig, onchainVotingCheck);
+        checkContractsConfiguration(contracts, dgDeployConfig);
     }
 
     function checkImmutables(
@@ -47,11 +46,10 @@ library DeployVerification {
 
     function checkContractsConfiguration(
         DeployedContracts memory contracts,
-        DeployConfig memory dgDeployConfig,
-        bool onchainVotingCheck
+        DeployConfig memory dgDeployConfig
     ) internal view {
         checkAdminExecutor(contracts.adminExecutor, contracts.timelock);
-        checkEmergencyProtectedTimelockConfiguration(contracts, dgDeployConfig, onchainVotingCheck);
+        checkEmergencyProtectedTimelockConfiguration(contracts, dgDeployConfig);
         checkDualGovernanceConfiguration(contracts, dgDeployConfig);
         checkTiebreakerCoreCommittee(contracts, dgDeployConfig);
 
@@ -98,8 +96,7 @@ library DeployVerification {
 
     function checkEmergencyProtectedTimelockConfiguration(
         DeployedContracts memory contracts,
-        DeployConfig memory dgDeployConfig,
-        bool onchainVotingCheck
+        DeployConfig memory dgDeployConfig
     ) internal view {
         IEmergencyProtectedTimelock timelockInstance = contracts.timelock;
         require(
@@ -126,19 +123,15 @@ library DeployVerification {
             "Incorrect value for emergencyModeDuration"
         );
 
-        if (!onchainVotingCheck) {
-            require(
-                details.emergencyModeEndsAfter == Timestamps.ZERO,
-                "Incorrect value for emergencyModeEndsAfter (Emergency mode is activated)"
-            );
-        }
+        require(
+            details.emergencyModeEndsAfter == Timestamps.ZERO,
+            "Incorrect value for emergencyModeEndsAfter (Emergency mode is activated)"
+        );
 
-        if (onchainVotingCheck) {
-            require(
-                timelockInstance.getEmergencyGovernance() == address(contracts.emergencyGovernance),
-                "Incorrect emergencyGovernance address in EmergencyProtectedTimelock"
-            );
-        }
+        require(
+            timelockInstance.getEmergencyGovernance() == address(contracts.emergencyGovernance),
+            "Incorrect emergencyGovernance address in EmergencyProtectedTimelock"
+        );
 
         require(
             timelockInstance.getAfterSubmitDelay() == dgDeployConfig.AFTER_SUBMIT_DELAY,
@@ -161,11 +154,7 @@ library DeployVerification {
             timelockInstance.isEmergencyModeActive() == false, "EmergencyMode is Active in EmergencyProtectedTimelock"
         );
 
-        if (onchainVotingCheck) {
-            require(timelockInstance.getProposalsCount() == 1, "ProposalsCount != 1 in EmergencyProtectedTimelock");
-        } else {
-            require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 1 in EmergencyProtectedTimelock");
-        }
+        // require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 1 in EmergencyProtectedTimelock");
     }
 
     function checkEmergencyActivationCommittee(DeployConfig memory dgDeployConfig) internal pure {

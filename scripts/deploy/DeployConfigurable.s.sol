@@ -58,7 +58,7 @@ contract DeployConfigurable is Script, DeployConfigStorage {
 
         console.log("Verifying deploy");
 
-        DeployVerification.verify(_contracts, _config, _lidoAddresses, false);
+        DeployVerification.verify(_contracts, _config, _lidoAddresses);
 
         console.log(unicode"Verified ✅");
 

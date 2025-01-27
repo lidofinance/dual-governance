@@ -48,19 +48,14 @@ contract DeployHappyPath is ScenarioTestBlueprint {
     address _ldoHolder = address(0xF977814e90dA44bFA03b6295A0616a897441aceC);
     DeployVerifier internal _verifier;
     RolesVerifier internal _rolesVerifier;
+    TimelockedGovernance internal _daoEmergencyGovernance;
 
     function setUp() external {
         _deployDualGovernanceSetup(true);
+        _daoEmergencyGovernance = _deployTimelockedGovernance(DAO_VOTING, _contracts.timelock);
     }
 
     function testFork_dualGovernance_deployment_and_activation() external {
-        // Deploy Dual Governance contracts
-
-        _verifier = new DeployVerifier(_dgDeployConfig, _lidoAddresses);
-
-        // Verify deployment
-        _verifier.verify(_contracts, false);
-
         // Activate Dual Governance Emergency Mode
         vm.prank(_dgDeployConfig.EMERGENCY_ACTIVATION_COMMITTEE);
         _contracts.timelock.activateEmergencyMode();
@@ -94,7 +89,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
                     target: address(_contracts.timelock),
                     value: 0,
                     payload: abi.encodeWithSelector(
-                        _contracts.timelock.setEmergencyGovernance.selector, address(_contracts.emergencyGovernance)
+                        _contracts.timelock.setEmergencyGovernance.selector, address(_daoEmergencyGovernance)
                     )
                 }),
                 ExternalCall({
@@ -159,7 +154,7 @@ contract DeployHappyPath is ScenarioTestBlueprint {
         );
         assertEq(
             _contracts.timelock.getEmergencyGovernance(),
-            address(_contracts.emergencyGovernance),
+            address(_daoEmergencyGovernance),
             "Incorrect governance address in EmergencyProtectedTimelock"
         );
         assertEq(_contracts.timelock.isEmergencyModeActive(), false, "Emergency mode is not active");
@@ -191,6 +186,13 @@ contract DeployHappyPath is ScenarioTestBlueprint {
             emergencyProtectionEndsAfter,
             "Incorrect emergencyProtectionEndsAfter in EmergencyProtectedTimelock"
         );
+
+        _dgDeployConfig.EMERGENCY_GOVERNANCE_PROPOSER = DAO_VOTING;
+        _contracts.emergencyGovernance = _daoEmergencyGovernance;
+
+        _verifier = new DeployVerifier(_dgDeployConfig, _lidoAddresses);
+        // Verify deployment is ready for activation
+        _verifier.verify(_contracts);
 
         // Activate Dual Governance with DAO Voting
 

@@ -43,7 +43,7 @@ contract LaunchAcceptance is DeployScriptBase {
 
         if (fromStep == 0) {
             // Verify deployment of all contracts before proceeding
-            _deployVerifier.verify(_dgContracts, false);
+            _deployVerifier.verify(_dgContracts);
         } else {
             console.log("STEP 0 SKIPPED - All contracts are deployed");
         }
@@ -205,7 +205,7 @@ contract LaunchAcceptance is DeployScriptBase {
             // Activate Dual Governance with DAO Voting
 
             // Verify deployment
-            _deployVerifier.verify(_dgContracts, true);
+            _deployVerifier.verify(_dgContracts);
         } else {
             console.log("STEP 5 SKIPPED - DG state already verified");
         }

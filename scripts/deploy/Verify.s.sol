@@ -17,7 +17,6 @@ contract Verify is Script, DeployConfigStorage {
 
     function run() external {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
-        bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
         DGDeployConfigProvider configProvider = new DGDeployConfigProvider(deployArtifactFileName);
         _fillConfig(configProvider.loadAndValidate());
@@ -31,7 +30,7 @@ contract Verify is Script, DeployConfigStorage {
 
         console.log("Verifying deploy");
 
-        DeployVerification.verify(contracts, _config, _lidoAddresses, onchainVotingCheck);
+        DeployVerification.verify(contracts, _config, _lidoAddresses);
 
         console.log(unicode"Verified ✅");
     }
