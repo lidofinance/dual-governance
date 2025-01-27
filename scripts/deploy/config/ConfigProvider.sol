@@ -229,6 +229,8 @@ contract DGDeployConfigProvider {
         json.set("EMERGENCY_PROTECTED_TIMELOCK_CONFIG", emergencyProtectedTimelockConfig.str);
 
         SerializedJson memory dualGovernanceConfig = SerializedJsonLib.getInstance();
+        dualGovernanceConfig.set("ADMIN_PROPOSER", config.ADMIN_PROPOSER);
+        dualGovernanceConfig.set("PROPOSAL_CANCELER", config.PROPOSAL_CANCELER);
         dualGovernanceConfig.set("EMERGENCY_ACTIVATION_COMMITTEE", config.EMERGENCY_ACTIVATION_COMMITTEE);
         dualGovernanceConfig.set("EMERGENCY_EXECUTION_COMMITTEE", config.EMERGENCY_EXECUTION_COMMITTEE);
         dualGovernanceConfig.set("RESEAL_COMMITTEE", config.RESEAL_COMMITTEE);
