@@ -6,40 +6,41 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 
-import {PercentsD16} from "contracts/types/PercentD16.sol";
-import {Timestamps, Timestamp} from "contracts/types/Duration.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
+import {Timestamps, Timestamp} from "contracts/types/Duration.sol";
+import {PercentsD16, PercentD16} from "contracts/types/PercentD16.sol";
 
-import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+import {IGovernance} from "contracts/interfaces/IGovernance.sol";
+import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
 
 import {Proposers} from "contracts/libraries/Proposers.sol";
 import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 
-import {DualGovernance} from "contracts/DualGovernance.sol";
+import {Escrow, ISignallingEscrow, IRageQuitEscrow} from "contracts/Escrow.sol";
+import {DualGovernance, State as DGState} from "contracts/DualGovernance.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 
-import {LidoUtils} from "./lido-utils.sol";
+import {LidoUtils, IStETH, IWstETH, IWithdrawalQueue} from "./lido-utils.sol";
 import {TargetMock} from "./target-mock.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 import {ExternalCall, ExternalCallHelpers} from "../utils/executor-calls.sol";
 
 import {
-    Path,
-    TGDeployConfig,
-    TGDeployedContracts,
-    DGDeployConfig,
-    DGDeployArtifacts,
-    DGDeployedContracts,
     ContractsDeployment,
-    DualGovernanceDeployConfig,
-    TiebreakerDeployConfig,
+    TGSetupDeployConfig,
     DualGovernanceConfig,
+    TGSetupDeployedContracts,
+    DGSetupDeployConfig,
+    DGSetupDeployArtifacts,
+    DGSetupDeployedContracts,
+    DualGovernanceContractDeployConfig,
+    TiebreakerContractDeployConfig,
     TiebreakerCommitteeDeployConfig,
-    TimelockDeployConfig
-} from "scripts/deploy/ContractsDeploymentNew.sol";
+    TimelockContractDeployConfig
+} from "scripts/utils/contracts-deployment.sol";
 
 uint256 constant MAINNET_CHAIN_ID = 1;
 uint256 constant HOLESKY_CHAIN_ID = 17000;
@@ -120,6 +121,8 @@ abstract contract ForkTestSetup is Test {
 }
 
 contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
+    Duration internal immutable _DEFAULT_EMERGENCY_MODE_DURATION = Durations.from(180 days);
+    Duration internal immutable _DEFAULT_EMERGENCY_PROTECTION_DURATION = Durations.from(90 days);
     address internal immutable _DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE =
         makeAddr("DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE");
     address internal immutable _DEFAULT_EMERGENCY_EXECUTION_COMMITTEE =
@@ -136,19 +139,19 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
     function _getDefaultTimelockDeployConfig(address emergencyGovernanceProposer)
         internal
         view
-        returns (TimelockDeployConfig memory)
+        returns (TimelockContractDeployConfig.Context memory)
     {
         address emergencyActivationCommittee =
             emergencyGovernanceProposer == address(0) ? address(0) : _DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE;
         address emergencyExecutionCommittee =
             emergencyGovernanceProposer == address(0) ? address(0) : _DEFAULT_EMERGENCY_EXECUTION_COMMITTEE;
         Duration emergencyModeDuration =
-            emergencyGovernanceProposer == address(0) ? Durations.ZERO : Durations.from(180 days);
+            emergencyGovernanceProposer == address(0) ? Durations.ZERO : _DEFAULT_EMERGENCY_MODE_DURATION;
         Timestamp emergencyProtectionEndDate = emergencyGovernanceProposer == address(0)
             ? Timestamps.ZERO
-            : Durations.from(90 days).addTo(Timestamps.now());
+            : _DEFAULT_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now());
 
-        return TimelockDeployConfig({
+        return TimelockContractDeployConfig.Context({
             afterSubmitDelay: Durations.from(3 days),
             afterScheduleDelay: Durations.from(3 days),
             sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
@@ -191,6 +194,18 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         }
     }
 
+    function _getEmergencyModeDuration() internal view returns (Duration) {
+        return _timelock.getEmergencyProtectionDetails().emergencyModeDuration;
+    }
+
+    function _getEmergencyProtectionDuration() internal view returns (Duration) {
+        return _timelock.getEmergencyProtectionDetails().emergencyModeDuration;
+    }
+
+    function _getEmergencyModeEndsAfter() internal view returns (Timestamp) {
+        return _timelock.getEmergencyProtectionDetails().emergencyModeEndsAfter;
+    }
+
     function _executeProposal(uint256 proposalId) internal {
         _timelock.execute(proposalId);
     }
@@ -229,10 +244,7 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
 
         assertTrue(_timelock.isEmergencyModeActive());
 
-        assertEq(
-            _timelock.getEmergencyProtectionDetails().emergencyModeEndsAfter,
-            _timelock.getEmergencyProtectionDetails().emergencyModeDuration.addTo(Timestamps.now())
-        );
+        assertEq(_getEmergencyModeEndsAfter(), _getEmergencyModeDuration().addTo(Timestamps.now()));
     }
 
     function _emergencyReset() internal {
@@ -246,6 +258,15 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
 
         assertFalse(_timelock.isEmergencyModeActive());
         assertEq(_timelock.getEmergencyGovernance(), _timelock.getGovernance());
+    }
+
+    function _emergencyExecute(uint256 proposalId) internal {
+        assertTrue(_timelock.isEmergencyModeActive());
+
+        vm.prank(_timelock.getEmergencyExecutionCommittee());
+        _timelock.emergencyExecute(proposalId);
+
+        _assertProposalExecuted(proposalId);
     }
 
     // ---
@@ -309,6 +330,14 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
             "TimelockProposal not in 'Executed' state"
         );
     }
+
+    function _assertProposalCancelled(uint256 proposalId) internal {
+        assertEq(
+            _timelock.getProposalDetails(proposalId).status,
+            ProposalStatus.Cancelled,
+            "Proposal not in 'Canceled' state"
+        );
+    }
 }
 
 contract DGScenarioTestSetup is GovernedTimelockSetup {
@@ -316,12 +345,12 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
     address internal immutable _DEFAULT_RESEAL_COMMITTEE = makeAddr("DEFAULT_RESEAL_COMMITTEE");
 
-    DGDeployConfig.Context internal _dgDeployConfig;
-    DGDeployedContracts.Context internal _dgDeployedContracts;
+    DGSetupDeployConfig.Context internal _dgDeployConfig;
+    DGSetupDeployedContracts.Context internal _dgDeployedContracts;
 
     function _getDefaultDGDeployConfig(address emergencyGovernanceProposer)
         internal
-        returns (DGDeployConfig.Context memory config)
+        returns (DGSetupDeployConfig.Context memory config)
     {
         uint256 tiebreakerCommitteesCount = 2;
         uint256 tiebreakerCommitteeMembersCount = 5;
@@ -340,33 +369,32 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         address[] memory sealableWithdrawalBlockers = new address[](1);
         sealableWithdrawalBlockers[0] = address(_lido.withdrawalQueue);
 
-        config = DGDeployConfig.Context({
+        config = DGSetupDeployConfig.Context({
             chainId: 1,
-            tiebreaker: TiebreakerDeployConfig({
+            tiebreaker: TiebreakerContractDeployConfig.Context({
                 quorum: tiebreakerCommitteesCount,
                 committeesCount: tiebreakerCommitteesCount,
                 executionDelay: Durations.from(30 days),
-                activationTimeout: Durations.from(365 days),
                 committees: tiebreakerCommitteeConfigs
             }),
-            dualGovernance: DualGovernanceDeployConfig({
-                dualGovernanceConfig: DualGovernanceConfig.Context({
-                    firstSealRageQuitSupport: PercentsD16.fromBasisPoints(3_00),
-                    secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00),
-                    //
-                    minAssetsLockDuration: Durations.from(5 hours),
-                    //
-                    vetoSignallingMinDuration: Durations.from(3 days),
-                    vetoSignallingMaxDuration: Durations.from(30 days),
-                    vetoSignallingMinActiveDuration: Durations.from(5 hours),
-                    vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
-                    vetoCooldownDuration: Durations.from(4 days),
-                    //
-                    rageQuitExtensionPeriodDuration: Durations.from(7 days),
-                    rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
-                    rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
-                    rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
-                }),
+            dualGovernanceConfigProvider: DualGovernanceConfig.Context({
+                firstSealRageQuitSupport: PercentsD16.fromBasisPoints(3_00),
+                secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00),
+                //
+                minAssetsLockDuration: Durations.from(5 hours),
+                //
+                vetoSignallingMinDuration: Durations.from(3 days),
+                vetoSignallingMaxDuration: Durations.from(30 days),
+                vetoSignallingMinActiveDuration: Durations.from(5 hours),
+                vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
+                vetoCooldownDuration: Durations.from(4 days),
+                //
+                rageQuitExtensionPeriodDuration: Durations.from(7 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
+            }),
+            dualGovernance: DualGovernanceContractDeployConfig.Context({
                 signallingTokens: DualGovernance.SignallingTokens({
                     stETH: _lido.stETH,
                     wstETH: _lido.wstETH,
@@ -382,6 +410,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
                 adminProposer: address(_lido.voting),
                 resealCommittee: _DEFAULT_RESEAL_COMMITTEE,
                 proposalsCanceller: address(_lido.voting),
+                tiebreakerActivationTimeout: Durations.from(365 days),
                 sealableWithdrawalBlockers: sealableWithdrawalBlockers
             }),
             timelock: _getDefaultTimelockDeployConfig(emergencyGovernanceProposer)
@@ -394,6 +423,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
         _setTimelock(_dgDeployedContracts.timelock);
+        _lido.removeStakingLimit();
     }
 
     function _deployDGSetup(address emergencyGovernanceProposer) internal {
@@ -402,6 +432,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
         _setTimelock(_dgDeployedContracts.timelock);
+        _lido.removeStakingLimit();
     }
 
     function _adoptProposalByAdminProposer(
@@ -444,6 +475,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         return _dgDeployedContracts.dualGovernance.getProposers();
     }
 
+    function _getGovernance() internal view returns (address governance) {
+        return _timelock.getGovernance();
+    }
+
     function _getFirstAdminProposer() internal view returns (address) {
         Proposers.Proposer[] memory proposers = _getProposers();
 
@@ -458,15 +493,51 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         }
     }
 
-    function _setDGDeployConfig(DGDeployConfig.Context memory config) internal {
+    function _getVetoSignallingEscrow() internal view returns (ISignallingEscrow) {
+        return ISignallingEscrow(payable(address(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow())));
+    }
+
+    function _getRageQuitEscrow() internal view returns (IRageQuitEscrow) {
+        return IRageQuitEscrow(payable(address(_dgDeployedContracts.dualGovernance.getRageQuitEscrow())));
+    }
+
+    function _getSecondSealRageQuitSupport() internal view returns (PercentD16) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT();
+    }
+
+    function _getFirstSealRageQuitSupport() internal view returns (PercentD16) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT();
+    }
+
+    function _getVetoSignallingMaxDuration() internal view returns (Duration) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION();
+    }
+
+    function _getVetoSignallingMinDuration() internal view returns (Duration) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION();
+    }
+
+    function _getVetoSignallingDeactivationMaxDuration() internal view returns (Duration) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION();
+    }
+
+    function _getVetoCooldownDuration() internal view returns (Duration) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION();
+    }
+
+    function _getRageQuitExtensionPeriodDuration() internal view returns (Duration) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_PERIOD_DURATION();
+    }
+
+    function _setDGDeployConfig(DGSetupDeployConfig.Context memory config) internal {
         _dgDeployConfig.chainId = config.chainId;
         _dgDeployConfig.timelock = config.timelock;
         _dgDeployConfig.dualGovernance = config.dualGovernance;
+        _dgDeployConfig.dualGovernanceConfigProvider = config.dualGovernanceConfigProvider;
 
         _dgDeployConfig.tiebreaker.quorum = config.tiebreaker.quorum;
         _dgDeployConfig.tiebreaker.executionDelay = config.tiebreaker.executionDelay;
         _dgDeployConfig.tiebreaker.committeesCount = config.tiebreaker.committeesCount;
-        _dgDeployConfig.tiebreaker.activationTimeout = config.tiebreaker.activationTimeout;
 
         // remove previously set committees
         for (uint256 i = 0; i < _dgDeployConfig.tiebreaker.committees.length; ++i) {
@@ -487,9 +558,195 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
             _lido.grantPermission(address(_lido.agent), _lido.agent.EXECUTE_ROLE(), grantee);
         }
     }
+
+    function _activateNextState() internal {
+        _dgDeployedContracts.dualGovernance.activateNextState();
+    }
+
+    // ---
+    // Balances Manipulation
+    // ---
+
+    function _setupStETHBalance(address account, uint256 amount) internal {
+        _lido.submitStETH(account, amount);
+    }
+
+    function _setupStETHBalance(address account, PercentD16 tvlPercentage) internal {
+        _lido.submitStETH(account, _lido.calcAmountToDepositFromPercentageOfTVL(tvlPercentage));
+    }
+
+    function _setupWstETHBalance(address account, uint256 amount) internal {
+        _lido.submitWstETH(account, amount);
+    }
+
+    function _setupWstETHBalance(address account, PercentD16 tvlPercentage) internal {
+        _lido.submitWstETH(account, _lido.calcSharesToDepositFromPercentageOfTVL(tvlPercentage));
+    }
+
+    // ---
+    // Withdrawal Queue Operations
+    // ---
+    function _finalizeWithdrawalQueue() internal {
+        _lido.finalizeWithdrawalQueue();
+    }
+
+    function _finalizeWithdrawalQueue(uint256 id) internal {
+        _lido.finalizeWithdrawalQueue(id);
+    }
+
+    function _simulateRebase(PercentD16 rebaseFactor) internal {
+        _lido.simulateRebase(rebaseFactor);
+    }
+
+    // ---
+    // Escrow Manipulation
+    // ---
+    function _lockStETH(address vetoer, PercentD16 tvlPercentage) internal {
+        _lockStETH(vetoer, _lido.calcAmountFromPercentageOfTVL(tvlPercentage));
+    }
+
+    function _lockStETH(address vetoer, uint256 amount) internal {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+        vm.startPrank(vetoer);
+        if (_lido.stETH.allowance(vetoer, address(escrow)) < amount) {
+            _lido.stETH.approve(address(escrow), amount);
+        }
+        escrow.lockStETH(amount);
+        vm.stopPrank();
+    }
+
+    function _unlockStETH(address vetoer) internal {
+        vm.startPrank(vetoer);
+        _getVetoSignallingEscrow().unlockStETH();
+        vm.stopPrank();
+    }
+
+    function _lockWstETH(address vetoer, PercentD16 tvlPercentage) internal {
+        _lockWstETH(vetoer, _lido.calcSharesFromPercentageOfTVL(tvlPercentage));
+    }
+
+    function _lockWstETH(address vetoer, uint256 amount) internal {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+        vm.startPrank(vetoer);
+        if (_lido.wstETH.allowance(vetoer, address(escrow)) < amount) {
+            _lido.wstETH.approve(address(escrow), amount);
+        }
+        escrow.lockWstETH(amount);
+        vm.stopPrank();
+    }
+
+    function _unlockWstETH(address vetoer) internal {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+        uint256 wstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+
+        vm.startPrank(vetoer);
+        uint256 wstETHUnlocked = escrow.unlockWstETH();
+        vm.stopPrank();
+
+        // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
+        // sending funds to the user
+        assertApproxEqAbs(wstETHUnlocked, vetoerDetailsBefore.stETHLockedShares.toUint256(), 1);
+        assertApproxEqAbs(
+            _lido.wstETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerDetailsBefore.stETHLockedShares.toUint256(), 1
+        );
+    }
+
+    function _lockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsBefore =
+            escrow.getSignallingEscrowDetails();
+
+        uint256 unstETHTotalSharesLocked = 0;
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            unstETHTotalSharesLocked += statuses[i].amountOfShares;
+        }
+
+        vm.startPrank(vetoer);
+        _lido.withdrawalQueue.setApprovalForAll(address(escrow), true);
+        escrow.lockUnstETH(unstETHIds);
+        _lido.withdrawalQueue.setApprovalForAll(address(escrow), false);
+        vm.stopPrank();
+
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            assertEq(_lido.withdrawalQueue.ownerOf(unstETHIds[i]), address(escrow));
+        }
+
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        assertEq(vetoerDetailsAfter.unstETHIdsCount, vetoerDetailsBefore.unstETHIdsCount + unstETHIds.length);
+
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsAfter =
+            escrow.getSignallingEscrowDetails();
+        assertEq(
+            signallingEscrowDetailsAfter.totalUnstETHUnfinalizedShares.toUint256(),
+            signallingEscrowDetailsBefore.totalUnstETHUnfinalizedShares.toUint256() + unstETHTotalSharesLocked
+        );
+    }
+
+    function _unlockUnstETH(address vetoer, uint256[] memory unstETHIds) internal {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsBefore =
+            escrow.getSignallingEscrowDetails();
+
+        uint256 unstETHTotalSharesUnlocked = 0;
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            unstETHTotalSharesUnlocked += statuses[i].amountOfShares;
+        }
+
+        vm.startPrank(vetoer);
+        escrow.unlockUnstETH(unstETHIds);
+        vm.stopPrank();
+
+        for (uint256 i = 0; i < unstETHIds.length; ++i) {
+            assertEq(_lido.withdrawalQueue.ownerOf(unstETHIds[i]), vetoer);
+        }
+
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        assertEq(vetoerDetailsAfter.unstETHIdsCount, vetoerDetailsBefore.unstETHIdsCount - unstETHIds.length);
+
+        // TODO: implement correct assert. It must consider was unstETH finalized or not
+        ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsAfter =
+            escrow.getSignallingEscrowDetails();
+        assertEq(
+            signallingEscrowDetailsAfter.totalUnstETHUnfinalizedShares.toUint256(),
+            signallingEscrowDetailsBefore.totalUnstETHUnfinalizedShares.toUint256() - unstETHTotalSharesUnlocked
+        );
+    }
+
+    function _assertNormalState() internal {
+        assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.Normal);
+    }
+
+    function _assertVetoSignalingState() internal {
+        assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.VetoSignalling);
+    }
+
+    function _assertRageQuitState() internal {
+        assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.RageQuit);
+    }
+
+    function _assertVetoSignallingDeactivationState() internal {
+        assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.VetoSignallingDeactivation);
+    }
+
+    function _assertVetoCooldownState() internal {
+        assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.VetoCooldown);
+    }
+
+    function external__scheduleProposal(uint256 proposalId) external {
+        _scheduleProposal(proposalId);
+    }
 }
 
 contract DGRegressionTestSetup is DGScenarioTestSetup {
+    using LidoUtils for LidoUtils.Context;
+
     function _loadOrDeployDGSetup() internal returns (bool isSetupLoaded) {
         string memory deployArtifactFileName = vm.envOr("DEPLOY_ARTIFACT_FILE_NAME", string(""));
 
@@ -500,14 +757,13 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
             console.log("Running on the loaded setup from file '%s'", deployArtifactFileName);
             return true;
         }
-        _deployDGSetup({isEmergencyProtectionEnabled: false});
+        _deployDGSetup({isEmergencyProtectionEnabled: true});
         console.log("Running on the deployed setup");
         return false;
     }
 
     function _loadDGSetup(string memory deployArtifactFileName) internal {
-        string memory deployArtifactFilePath = Path.resolveDeployArtifact(deployArtifactFileName);
-        DGDeployArtifacts.Context memory deployArtifacts = DGDeployArtifacts.load(deployArtifactFilePath);
+        DGSetupDeployArtifacts.Context memory deployArtifacts = DGSetupDeployArtifacts.load(deployArtifactFileName);
 
         console.log("CHAIN ID:", deployArtifacts.deployConfig.chainId);
         _setupFork(deployArtifacts.deployConfig.chainId, _getEnvForkBlockNumberOrDefault(LATEST_FORK_BLOCK_NUMBER));
@@ -516,25 +772,34 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
         _dgDeployedContracts = deployArtifacts.deployedContracts;
 
         _setTimelock(_dgDeployedContracts.timelock);
+
+        _lido.stETH = IStETH(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.stETH)));
+        _lido.wstETH = IWstETH(address(_dgDeployConfig.dualGovernance.signallingTokens.wstETH));
+        _lido.withdrawalQueue =
+            IWithdrawalQueue(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.withdrawalQueue)));
+
+        _lido.removeStakingLimit();
     }
 }
 
-contract TimelockedGovernanceTestSetup is GovernedTimelockSetup {
-    TGDeployConfig.Context internal _tgDeployConfig;
-    TGDeployedContracts.Context internal _tgDeployedContracts;
+contract TGScenarioTestSetup is GovernedTimelockSetup {
+    using LidoUtils for LidoUtils.Context;
+
+    TGSetupDeployConfig.Context internal _tgDeployConfig;
+    TGSetupDeployedContracts.Context internal _tgDeployedContracts;
 
     function _getDefaultTGDeployConfig(bool isEmergencyProtectionEnabled)
         internal
-        returns (TGDeployConfig.Context memory)
+        returns (TGSetupDeployConfig.Context memory)
     {
-        return TGDeployConfig.Context({
+        return TGSetupDeployConfig.Context({
             chainId: block.chainid,
             governance: address(_lido.voting),
             timelock: _getDefaultTimelockDeployConfig(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0))
         });
     }
 
-    function _setTGDeployConfig(TGDeployConfig.Context memory deployConfig) internal {
+    function _setTGDeployConfig(TGSetupDeployConfig.Context memory deployConfig) internal {
         _tgDeployConfig = deployConfig;
     }
 
@@ -544,6 +809,7 @@ contract TimelockedGovernanceTestSetup is GovernedTimelockSetup {
         _tgDeployedContracts = ContractsDeployment.deployTGSetup(address(this), _tgDeployConfig);
 
         _setTimelock(_tgDeployedContracts.timelock);
+        _lido.removeStakingLimit();
     }
 
     function _submitProposal(ExternalCall[] memory calls) internal returns (uint256 proposalId) {

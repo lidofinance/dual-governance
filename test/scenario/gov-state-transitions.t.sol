@@ -1,136 +1,136 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-// import {Durations} from "contracts/types/Duration.sol";
-// import {PercentsD16} from "contracts/types/PercentD16.sol";
+import {Durations} from "contracts/types/Duration.sol";
+import {PercentsD16} from "contracts/types/PercentD16.sol";
 // import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 
-// contract GovernanceStateTransitions is ScenarioTestBlueprint {
-//     address internal immutable _VETOER = makeAddr("VETOER");
+import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall, DualGovernance} from "../utils/integration-tests.sol";
 
-//     function setUp() external {
-//         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
-//         _setupStETHBalance(
-//             _VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
-//         );
-//     }
+contract GovernanceStateTransitions is DGScenarioTestSetup {
+    address internal immutable _VETOER = makeAddr("VETOER");
 
-//     function test_signalling_state_min_duration() public {
-//         _assertNormalState();
+    function setUp() external {
+        _deployDGSetup({isEmergencyProtectionEnabled: false});
+        _setupStETHBalance(_VETOER, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
+    }
 
-//         _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
-//         _assertNormalState();
+    function testFork_VetoSignallingStateMinDuration() external {
+        _assertNormalState();
 
-//         _lockStETH(_VETOER, 1 gwei);
-//         _assertVetoSignalingState();
+        _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
+        _assertNormalState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().dividedBy(2));
+        _lockStETH(_VETOER, 1 gwei);
+        _assertVetoSignalingState();
 
-//         _activateNextState();
-//         _assertVetoSignalingState();
+        _wait(_getVetoSignallingMinDuration().dividedBy(2));
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().dividedBy(2).plusSeconds(1));
+        _activateNextState();
+        _assertVetoSignalingState();
 
-//         _activateNextState();
-//         _assertVetoSignalingDeactivationState();
-//     }
+        _wait(_getVetoSignallingMinDuration().dividedBy(2).plusSeconds(1));
 
-//     function test_signalling_state_max_duration() public {
-//         _assertNormalState();
+        _activateNextState();
+        _assertVetoSignallingDeactivationState();
+    }
 
-//         _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+    function testFork_VetoSignallingStateMaxDuration() public {
+        _assertNormalState();
 
-//         _assertVetoSignalingState();
+        _lockStETH(_VETOER, _getSecondSealRageQuitSupport());
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
-//         _activateNextState();
+        _assertVetoSignalingState();
 
-//         _assertVetoSignalingState();
+        _wait(_getVetoSignallingMaxDuration().dividedBy(2));
+        _activateNextState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
-//         _activateNextState();
+        _assertVetoSignalingState();
 
-//         _assertVetoSignalingState();
+        _wait(_getVetoSignallingMaxDuration().dividedBy(2));
+        _activateNextState();
 
-//         _lockStETH(_VETOER, 1 gwei);
+        _assertVetoSignalingState();
 
-//         _wait(Durations.from(1 seconds));
-//         _activateNextState();
+        _lockStETH(_VETOER, 1 gwei);
 
-//         _assertRageQuitState();
-//     }
+        _wait(Durations.from(1 seconds));
+        _activateNextState();
 
-//     function test_signalling_to_normal() public {
-//         _assertNormalState();
+        _assertRageQuitState();
+    }
 
-//         _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
+    function testFork_VetoSignallingToNormal() public {
+        _assertNormalState();
 
-//         _assertNormalState();
+        _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
 
-//         _lockStETH(_VETOER, 1 gwei);
-//         _assertVetoSignalingState();
+        _assertNormalState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
-//         _activateNextState();
+        _lockStETH(_VETOER, 1 gwei);
+        _assertVetoSignalingState();
 
-//         _assertVetoSignalingDeactivationState();
+        _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
+        _activateNextState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
-//         _activateNextState();
+        _assertVetoSignallingDeactivationState();
 
-//         _assertVetoCooldownState();
+        _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
+        _activateNextState();
 
-//         vm.startPrank(_VETOER);
-//         _getVetoSignallingEscrow().unlockStETH();
-//         vm.stopPrank();
+        _assertVetoCooldownState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
-//         _activateNextState();
+        vm.startPrank(_VETOER);
+        _getVetoSignallingEscrow().unlockStETH();
+        vm.stopPrank();
 
-//         _assertNormalState();
-//     }
+        _wait(_getVetoCooldownDuration().plusSeconds(1));
+        _activateNextState();
 
-//     function test_signalling_non_stop() public {
-//         _assertNormalState();
+        _assertNormalState();
+    }
 
-//         _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
-//         _assertNormalState();
+    function testFork_VetoSignallingVetoCooldownCycle() public {
+        _assertNormalState();
 
-//         _lockStETH(_VETOER, 1 gwei);
-//         _assertVetoSignalingState();
+        _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
+        _assertNormalState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
-//         _activateNextState();
+        _lockStETH(_VETOER, 1 gwei);
+        _assertVetoSignalingState();
 
-//         _assertVetoSignalingDeactivationState();
+        _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
+        _activateNextState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
-//         _activateNextState();
+        _assertVetoSignallingDeactivationState();
 
-//         _assertVetoCooldownState();
+        _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
+        _activateNextState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
-//         _activateNextState();
+        _assertVetoCooldownState();
 
-//         _assertVetoSignalingState();
-//     }
+        _wait(_getVetoCooldownDuration().plusSeconds(1));
+        _activateNextState();
 
-//     function test_signalling_to_rage_quit() public {
-//         _assertNormalState();
+        _assertVetoSignalingState();
+    }
 
-//         _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
-//         _assertVetoSignalingState();
+    function testFork_VetoSignallingToRageQuit() public {
+        _assertNormalState();
 
-//         _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION());
-//         _activateNextState();
+        _lockStETH(_VETOER, _getSecondSealRageQuitSupport());
+        _assertVetoSignalingState();
 
-//         _assertVetoSignalingState();
+        _wait(_getVetoSignallingMaxDuration());
+        _activateNextState();
 
-//         _lockStETH(_VETOER, 1 gwei);
-//         _assertVetoSignalingState();
+        _assertVetoSignalingState();
 
-//         _wait(Durations.from(1 seconds));
-//         _activateNextState();
-//         _assertRageQuitState();
-//     }
-// }
+        _lockStETH(_VETOER, 1 gwei);
+        _assertVetoSignalingState();
+
+        _wait(Durations.from(1 seconds));
+        _activateNextState();
+        _assertRageQuitState();
+    }
+}

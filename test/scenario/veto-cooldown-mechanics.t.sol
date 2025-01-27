@@ -1,108 +1,100 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-// import {PercentsD16} from "contracts/types/PercentD16.sol";
-// import {DualGovernance} from "contracts/DualGovernance.sol";
+import {
+    Escrow,
+    DGScenarioTestSetup,
+    ExternalCallHelpers,
+    ExternalCall,
+    IPotentiallyDangerousContract,
+    IRageQuitEscrow
+} from "../utils/integration-tests.sol";
 
-// import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
+import {PercentsD16} from "contracts/types/PercentD16.sol";
+import {DualGovernance} from "contracts/DualGovernance.sol";
 
-// import {LidoUtils} from "../utils/lido-utils.sol";
-// import {ScenarioTestBlueprint, Escrow, ExternalCall, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
+contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
+    function setUp() external {
+        _deployDGSetup({isEmergencyProtectionEnabled: false});
+    }
 
-// contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
-//     using LidoUtils for LidoUtils.Context;
+    function testFork_ProposalSubmittedInRageQuitNonExecutableInTheNextVetoCooldown() external {
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
-//     function setUp() external {
-//         _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
-//     }
+        uint256 proposalId;
+        _step("1. The proposal is submitted");
+        {
+            proposalId =
+                _submitProposalByAdminProposer(regularStaffCalls, "Propose to doSmth on target passing dual governance");
 
-//     function testFork_ProposalSubmittedInRageQuitNonExecutableInTheNextVetoCooldown() external {
-//         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
+            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
+            _assertCanSchedule(proposalId, false);
+        }
 
-//         uint256 proposalId;
-//         _step("1. THE PROPOSAL IS SUBMITTED");
-//         {
-//             proposalId = _submitProposal(
-//                 _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
-//             );
+        address vetoer = makeAddr("MALICIOUS_ACTOR");
+        _setupStETHBalance(vetoer, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
+        _step("2. The second seal rage quit support is acquired");
+        {
+            _lockStETH(vetoer, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1));
+            _assertVetoSignalingState();
 
-//             _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
-//             _assertCanSchedule(_dualGovernance, proposalId, false);
-//         }
+            _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
+            _activateNextState();
+            _assertRageQuitState();
+        }
 
-//         address vetoer = makeAddr("MALICIOUS_ACTOR");
-//         _setupStETHBalance(
-//             vetoer, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
-//         );
-//         _step("2. THE SECOND SEAL RAGE QUIT SUPPORT IS ACQUIRED");
-//         {
-//             _lockStETH(
-//                 vetoer, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1)
-//             );
-//             _assertVetoSignalingState();
+        uint256 anotherProposalId;
+        _step("3. Another proposal is submitted during the rage quit state");
+        {
+            _activateNextState();
+            _assertRageQuitState();
+            anotherProposalId = _submitProposalByAdminProposer(
+                ExternalCallHelpers.create(
+                    address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
+                ),
+                "Another Proposal"
+            );
+        }
 
-//             _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
-//             _activateNextState();
-//             _assertRageQuitState();
-//         }
+        _step("4. Rage quit is finalized");
+        {
+            // request withdrawals batches
+            IRageQuitEscrow rageQuitEscrow = _getRageQuitEscrow();
 
-//         uint256 anotherProposalId;
-//         _step("3. ANOTHER PROPOSAL IS SUBMITTED DURING THE RAGE QUIT STATE");
-//         {
-//             _activateNextState();
-//             _assertRageQuitState();
-//             anotherProposalId = _submitProposal(
-//                 _dualGovernance,
-//                 "Another Proposal",
-//                 ExternalCallHelpers.create(
-//                     address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-//                 )
-//             );
-//         }
+            while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
+                rageQuitEscrow.requestNextWithdrawalsBatch(96);
+            }
 
-//         _step("4. RAGE QUIT IS FINALIZED");
-//         {
-//             // request withdrawals batches
-//             Escrow rageQuitEscrow = _getRageQuitEscrow();
+            _finalizeWithdrawalQueue();
 
-//             while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
-//                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
-//             }
+            while (rageQuitEscrow.getUnclaimedUnstETHIdsCount() > 0) {
+                rageQuitEscrow.claimNextWithdrawalsBatch(128);
+            }
 
-//             _lido.finalizeWithdrawalQueue();
+            rageQuitEscrow.startRageQuitExtensionPeriod();
 
-//             while (rageQuitEscrow.getUnclaimedUnstETHIdsCount() > 0) {
-//                 rageQuitEscrow.claimNextWithdrawalsBatch(128);
-//             }
+            _wait(_getRageQuitExtensionPeriodDuration().plusSeconds(1));
+            assertTrue(rageQuitEscrow.isRageQuitFinalized());
+        }
 
-//             rageQuitEscrow.startRageQuitExtensionPeriod();
+        _step("5. Proposal submitted before rage quit is executable");
+        {
+            _activateNextState();
+            _assertVetoCooldownState();
 
-//             _wait(_dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_PERIOD_DURATION().plusSeconds(1));
-//             assertTrue(rageQuitEscrow.isRageQuitFinalized());
-//         }
+            this.external__scheduleProposal(proposalId);
+            _assertProposalScheduled(proposalId);
+        }
 
-//         _step("5. PROPOSAL SUBMITTED BEFORE RAGE QUIT IS EXECUTABLE");
-//         {
-//             _activateNextState();
-//             _assertVetoCooldownState();
+        _step("6. Proposal submitted during rage quit is not executable");
+        {
+            _activateNextState();
+            _assertVetoCooldownState();
 
-//             this.scheduleProposalExternal(proposalId);
-//             _assertProposalScheduled(proposalId);
-//         }
-
-//         _step("6. PROPOSAL SUBMITTED DURING RAGE QUIT IS NOT EXECUTABLE");
-//         {
-//             _activateNextState();
-//             _assertVetoCooldownState();
-
-//             vm.expectRevert(
-//                 abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, anotherProposalId)
-//             );
-//             this.scheduleProposalExternal(anotherProposalId);
-//         }
-//     }
-
-//     function scheduleProposalExternal(uint256 proposalId) external {
-//         _scheduleProposal(_dualGovernance, proposalId);
-//     }
-// }
+            vm.expectRevert(
+                abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, anotherProposalId)
+            );
+            this.external__scheduleProposal(anotherProposalId);
+        }
+    }
+}

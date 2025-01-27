@@ -18,6 +18,10 @@ contract StETHMock is StETHBase {
         return "MStETH";
     }
 
+    function getCurrentStakeLimit() external pure returns (uint256) {
+        return type(uint256).max;
+    }
+
     function rebaseTotalPooledEther(PercentD16 rebaseFactor) public {
         _totalPooledEther = rebaseFactor.toUint256() * _totalPooledEther / HUNDRED_PERCENT_D16;
     }

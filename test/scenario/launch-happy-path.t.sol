@@ -11,12 +11,12 @@ import {
     Proposers,
     IGovernance
 } from "../utils/integration-tests.sol";
-import {TimelockedGovernance, ContractsDeployment} from "scripts/deploy/ContractsDeploymentNew.sol";
+import {TimelockedGovernance, ContractsDeployment} from "scripts/utils/contracts-deployment.sol";
 
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 
-import {DGDeployVerification} from "scripts/deploy/DGDeployVerification.sol";
+import {DGSetupDeployVerification} from "scripts/deploy/DGSetupDeployVerification.sol";
 
 contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
     address internal immutable _TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER =
@@ -33,7 +33,7 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
     function testFork_DualGovernance_DeploymentWithDryRunTemporaryGovernance() external {
         _step("5. Verify the state of the DG setup before the dry-run emergency reset");
         {
-            DGDeployVerification.verify(_dgDeployConfig, _dgDeployedContracts);
+            DGSetupDeployVerification.verify(_dgDeployedContracts, _dgDeployConfig, false);
         }
 
         _step("1. Activate Dual Governance Emergency Mode");
@@ -77,7 +77,6 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
 
         _step("4. Submit proposal from the temporary governance to configure timelock for the launch");
         {
-            console.log(_timelock.getGovernance(), _TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER);
             _adoptProposal(
                 _TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER, finalizeDGSetupCalls, "Dual Governance after dry-run setup"
             );
@@ -88,7 +87,7 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
             _dgDeployedContracts.emergencyGovernance = _emergencyGovernance;
             _dgDeployConfig.timelock.emergencyGovernanceProposer = address(_lido.voting);
 
-            DGDeployVerification.verify(_dgDeployConfig, _dgDeployedContracts);
+            DGSetupDeployVerification.verify(_dgDeployedContracts, _dgDeployConfig, true);
         }
 
         //         // Schedule and execute the proposal

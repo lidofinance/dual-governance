@@ -18,6 +18,7 @@ out/
 .vscode/
 deploy-config/*
 !deploy-config/deploy-config-holesky-testnet.toml
+!deploy-config/exmp-dg-setup-deploy-config-holesky.toml
 
 # dev/testnet deployments
 !deploy-config/deployment-*

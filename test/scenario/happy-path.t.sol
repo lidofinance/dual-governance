@@ -48,61 +48,6 @@ contract HappyPathTest is DGRegressionTestSetup {
         _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
     }
 
-    function external__scheduleProposal(uint256 proposalId) external {
-        _scheduleProposal(proposalId);
-    }
-
-    // function testFork_HappyPathWithMultipleItems() external {
-    //     // additional phase required here, grant rights to call DAO Agent to the admin executor
-    //     _lido.grantPermission(address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE(), _timelock.getAdminExecutor());
-
-    //     bytes memory agentDoRegularStaffPayload = abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (42));
-    //     bytes memory targetCallEvmScript =
-    //         EvmScriptUtils.encodeEvmCallScript(address(_targetMock), agentDoRegularStaffPayload);
-
-    //     ExternalCall[] memory multipleCalls = ExternalCallHelpers.create(
-    //         [address(_lido.agent), address(_targetMock)],
-    //         [
-    //             abi.encodeCall(_lido.agent.forward, (targetCallEvmScript)),
-    //             abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (43))
-    //         ]
-    //     );
-
-    //     uint256 proposalId = _submitProposal(_dualGovernance, "Multiple items", multipleCalls);
-
-    //     _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
-
-    //     // proposal can't be scheduled before the after submit delay has passed
-    //     _assertCanScheduleViaDualGovernance(proposalId, false);
-
-    //     // the min execution delay hasn't elapsed yet
-    //     vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, (proposalId)));
-    //     _scheduleProposalViaDualGovernance(proposalId);
-
-    //     // wait till the DG-enforced timelock elapses
-    //     _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
-
-    //     _assertCanScheduleViaDualGovernance(proposalId, true);
-    //     _scheduleProposalViaDualGovernance(proposalId);
-    //     _assertProposalScheduled(proposalId);
-
-    //     _waitAfterScheduleDelayPassed();
-
-    //     _assertCanExecute(proposalId, true);
-    //     _executeProposal(proposalId);
-
-    //     address[] memory senders = new address[](2);
-    //     senders[0] = address(_lido.agent);
-    //     senders[1] = _timelock.getAdminExecutor();
-
-    //     ExternalCall[] memory expectedTargetCalls = ExternalCallHelpers.create(
-    //         [address(_lido.agent), address(_targetMock)],
-    //         [agentDoRegularStaffPayload, abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (43))]
-    //     );
-
-    //     _assertTargetMockCalls(senders, expectedTargetCalls);
-    // }
-
     // TODO: make this test pass
     // function test_escalation_and_one_sided_de_escalation() external {
     //     Target target = new Target();
