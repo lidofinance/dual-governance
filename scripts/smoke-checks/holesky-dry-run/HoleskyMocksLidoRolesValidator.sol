@@ -26,7 +26,7 @@ contract HoleskyMocksLidoRolesValidator is LidoRolesValidator {
         _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(dgResealManager));
         _validate(WITHDRAWAL_QUEUE, "RESUME_ROLE", OZRoles.granted(dgResealManager));
 
-        _validate(EASYTRACK_ALLOWED_TOKENS_REGISTRY, "DEFAULT_ADMIN_ROLE", AragonRoles.granted(VOTING).revoked(AGENT));
+        _validate(EASYTRACK_ALLOWED_TOKENS_REGISTRY, "DEFAULT_ADMIN_ROLE", OZRoles.granted(VOTING).revoked(AGENT));
         _validate(AGENT, "RUN_SCRIPT_ROLE", AragonRoles.granted(dgAdminExecutor));
     }
 }

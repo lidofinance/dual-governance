@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AragonRolesAssertion} from "./libraries/AragonRolesAssertion.sol";
-import {OZRolesAssertion} from "./libraries/OZRolesAssertion.sol";
+import {AragonRoles} from "./libraries/AragonRoles.sol";
+import {OZRoles} from "./libraries/OZRoles.sol";
 
 interface IACL {
     function hasPermission(address _who, address _where, bytes32 _what) external view returns (bool);
@@ -29,7 +29,7 @@ abstract contract LidoRolesValidator {
         ACL = IACL(acl);
     }
 
-    function _validate(address entity, string memory roleName, AragonRolesAssertion.Context memory role) internal {
+    function _validate(address entity, string memory roleName, AragonRoles.Context memory role) internal {
         bytes32 roleNameHash = keccak256(bytes(roleName));
         if (role.manager != address(0)) {
             address roleManager = ACL.getPermissionManager(entity, roleNameHash);
@@ -39,14 +39,14 @@ abstract contract LidoRolesValidator {
         }
 
         for (uint256 i = 0; i < role.grantedTo.length; ++i) {
-            bool isPermissionGranted = ACL.hasPermission(entity, role.grantedTo[i], roleNameHash);
+            bool isPermissionGranted = ACL.hasPermission(role.grantedTo[i], entity, roleNameHash);
             if (!isPermissionGranted) {
                 revert AragonPermissionNotGranted(entity, roleName, role.grantedTo[i]);
             }
         }
 
         for (uint256 i = 0; i < role.revokedFrom.length; ++i) {
-            bool isPermissionGranted = ACL.hasPermission(entity, role.revokedFrom[i], roleNameHash);
+            bool isPermissionGranted = ACL.hasPermission(role.revokedFrom[i], entity, roleNameHash);
             if (isPermissionGranted) {
                 revert AragonPermissionGranted(entity, roleName, role.revokedFrom[i]);
             }
@@ -55,9 +55,12 @@ abstract contract LidoRolesValidator {
         emit RoleValidated(entity, roleName);
     }
 
-    function _validate(address entity, string memory roleName, OZRolesAssertion.Context memory role) internal {
+    function _validate(address entity, string memory roleName, OZRoles.Context memory role) internal {
         for (uint256 i = 0; i < role.grantedTo.length; ++i) {
-            bool isRoleGranted = IOZAccessControl(entity).hasRole(keccak256(bytes(roleName)), role.grantedTo[i]);
+            bytes32 roleHash = keccak256(bytes(roleName)) == keccak256(bytes("DEFAULT_ADMIN_ROLE"))
+                ? bytes32(0)
+                : keccak256(bytes(roleName));
+            bool isRoleGranted = IOZAccessControl(entity).hasRole(roleHash, role.grantedTo[i]);
             if (!isRoleGranted) {
                 revert OZRoleNotGranted(entity, roleName, role.grantedTo[i]);
             }
