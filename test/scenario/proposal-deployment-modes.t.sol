@@ -32,7 +32,7 @@ contract ProposalDeploymentModesScenarioTest is DGScenarioTestSetup {
         _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
     }
 
-    function test_protected_deployment_mode_execute_after_timelock() external {
+    function testFork_ProtectedDeploymentMode_ExecuteAfterTimelock() external {
         _deployDGSetup({isEmergencyProtectionEnabled: true});
 
         (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
@@ -56,7 +56,7 @@ contract ProposalDeploymentModesScenarioTest is DGScenarioTestSetup {
         _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
     }
 
-    function test_protected_deployment_mode_execute_in_emergency_mode() external {
+    function testFork_ProtectedDeploymentMode_ExecuteInEmergencyMode() external {
         _deployDGSetup({isEmergencyProtectionEnabled: true});
 
         (uint256 proposalId, ExternalCall[] memory regularStaffCalls) = _createAndAssertProposal();
@@ -84,7 +84,7 @@ contract ProposalDeploymentModesScenarioTest is DGScenarioTestSetup {
         _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
     }
 
-    function test_protected_deployment_mode_deactivation_in_emergency_mode() external {
+    function testFork_ProtectedDeploymentMode_DeactivationInEmergencyMode() external {
         _deployDGSetup({isEmergencyProtectionEnabled: true});
 
         (uint256 proposalId,) = _createAndAssertProposal();
@@ -108,9 +108,8 @@ contract ProposalDeploymentModesScenarioTest is DGScenarioTestSetup {
 
         _assertCanExecute(proposalId, false);
 
-        // emergency protection disabled after emergency mode is activated
-
-        _wait(_getEmergencyProtectionDuration().plusSeconds(1));
+        // emergency protection may be disabled by anyone when full emergency mode duration has passed
+        _wait(_getEmergencyModeDuration().plusSeconds(1));
 
         assertEq(_isEmergencyModeActive(), true);
         assertEq(_isEmergencyProtectionEnabled(), true);

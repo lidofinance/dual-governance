@@ -72,7 +72,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
         _step("2. Emergency protection expires");
         {
             if (_isEmergencyProtectionEnabled()) {
-                _wait(_getEmergencyProtectionDuration());
+                _wait(_getEmergencyProtectionDuration().plusSeconds(1));
             }
             assertFalse(_isEmergencyProtectionEnabled());
         }

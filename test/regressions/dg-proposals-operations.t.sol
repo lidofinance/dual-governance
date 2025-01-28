@@ -148,7 +148,9 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
     }
 
     function testFork_AragonVotingAsProposer() external {
-        assertTrue(_dgDeployedContracts.dualGovernance.isProposer(address(_lido.voting)));
+        assertTrue(
+            _dgDeployedContracts.dualGovernance.isProposer(address(_lido.voting)), "Aragon Voting is not DG proposer"
+        );
 
         Proposers.Proposer memory votingProposer =
             _dgDeployedContracts.dualGovernance.getProposer(address(_lido.voting));

@@ -208,7 +208,10 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
     }
 
     function _getEmergencyProtectionDuration() internal view returns (Duration) {
-        return _timelock.getEmergencyProtectionDetails().emergencyModeDuration;
+        Timestamp emergencyProtectionEndsAfter = _getEmergencyProtectionEndsAfter();
+        return emergencyProtectionEndsAfter > Timestamps.now()
+            ? Durations.from(emergencyProtectionEndsAfter.toSeconds() - Timestamps.now().toSeconds())
+            : Durations.ZERO;
     }
 
     function _getEmergencyProtectionEndsAfter() internal view returns (Timestamp) {
