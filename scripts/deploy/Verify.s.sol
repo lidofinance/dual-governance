@@ -6,44 +6,33 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {DeployConfig, LidoContracts} from "./config/Config.sol";
-import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "./config/ConfigProvider.sol";
-import {DeployedContracts, DGContractsSet} from "./DeployedContractsSet.sol";
+import {DGSetupDeployArtifacts, DGSetupDeployedContracts} from "../utils/contracts-deployment.sol";
+import {DeployFiles} from "../utils/deploy-files.sol";
 import {DeployVerification} from "./DeployVerification.sol";
 
 contract Verify is Script {
-    DeployConfig internal _config;
-    LidoContracts internal _lidoAddresses;
+    using DGSetupDeployArtifacts for DGSetupDeployArtifacts.Context;
+    using DGSetupDeployedContracts for DGSetupDeployedContracts.Context;
+
+    error InvalidChainId(uint256 actual, uint256 expected);
 
     function run() external {
-        string memory chainName = vm.envString("CHAIN");
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
-        bool onchainVotingCheck = vm.envBool("ONCHAIN_VOTING_CHECK_MODE");
 
-        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(deployArtifactFileName);
-        _config = configProvider.loadAndValidate();
-        _lidoAddresses = configProvider.getLidoAddresses(chainName);
+        console.log("Loading config from artifact file: %s", deployArtifactFileName);
 
-        DeployedContracts memory contracts =
-            DGContractsSet.loadFromFile(_loadDeployArtifactFile(deployArtifactFileName));
+        DGSetupDeployArtifacts.Context memory deployArtifact = DGSetupDeployArtifacts.load(deployArtifactFileName);
 
+        if (deployArtifact.deployConfig.chainId != block.chainid) {
+            revert InvalidChainId({actual: block.chainid, expected: deployArtifact.deployConfig.chainId});
+        }
         console.log("Using the following DG contracts addresses (from file", deployArtifactFileName, "):");
-        DGContractsSet.print(contracts);
+        deployArtifact.deployedContracts.print();
 
         console.log("Verifying deploy");
 
-        DeployVerification.verify(contracts, _config, _lidoAddresses, onchainVotingCheck);
+        DeployVerification.verify(deployArtifact);
 
         console.log(unicode"Verified ✅");
-    }
-
-    function _loadDeployArtifactFile(string memory deployArtifactFileName)
-        internal
-        view
-        returns (string memory deployedAddressesJson)
-    {
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", deployArtifactFileName);
-        deployedAddressesJson = vm.readFile(path);
     }
 }

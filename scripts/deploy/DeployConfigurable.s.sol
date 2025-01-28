@@ -5,13 +5,13 @@ pragma solidity 0.8.26;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {DGSetupDeployVerification} from "./DGSetupDeployVerification.sol";
 import {
     DGSetupDeployConfig,
     DGSetupDeployArtifacts,
     ContractsDeployment,
     DGSetupDeployedContracts
 } from "../utils/contracts-deployment.sol";
+import {DeployVerification} from "./DeployVerification.sol";
 
 import {DeployFiles} from "../utils/deploy-files.sol";
 
@@ -53,15 +53,18 @@ contract DeployConfigurable is Script {
         console.log("DG deployed successfully");
         deployedContracts.print();
 
+        DGSetupDeployArtifacts.Context memory deployArtifact =
+            DGSetupDeployArtifacts.Context({deployConfig: deployConfig, deployedContracts: deployedContracts});
+
         console.log("Verifying deploy");
 
-        DGSetupDeployVerification.verify(deployedContracts, deployConfig, false);
+        DeployVerification.verify(deployArtifact);
 
         console.log(unicode"Verified ✅");
 
         string memory deployArtifactFileName =
-            string.concat("deploy-artifact-", vm.toString(block.chainid), "-", vm.toString(block.timestamp), ".toml");
+            string.concat("deploy-artifact-", vm.toString(block.chainid), "-", vm.toString(block.timestamp));
 
-        DGSetupDeployArtifacts.create(deployConfig, deployedContracts).save(deployArtifactFileName);
+        deployArtifact.save(string.concat(deployArtifactFileName, ".toml"));
     }
 }
