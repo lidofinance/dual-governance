@@ -471,6 +471,13 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         _setDGDeployConfig(_getDefaultDGDeployConfig(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0)));
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
+        vm.startPrank(address(_lido.agent));
+        _lido.withdrawalQueue.grantRole(_lido.withdrawalQueue.PAUSE_ROLE(), address(_dgDeployedContracts.resealManager));
+        _lido.withdrawalQueue.grantRole(
+            _lido.withdrawalQueue.RESUME_ROLE(), address(_dgDeployedContracts.resealManager)
+        );
+        vm.stopPrank();
+
         _setTimelock(_dgDeployedContracts.timelock);
         _lido.removeStakingLimit();
     }
@@ -522,6 +529,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
                 return proposers[i].account;
             }
         }
+    }
+
+    function _getSealableWithdrawalBlockers() internal view returns (address[] memory) {
+        return _dgDeployedContracts.dualGovernance.getTiebreakerDetails().sealableWithdrawalBlockers;
     }
 
     function _getMinAssetsLockDuration() internal view returns (Duration) {
