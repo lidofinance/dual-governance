@@ -43,7 +43,7 @@ contract AragonAgentAsExecutorScenarioTest is DGScenarioTestSetup {
         }
 
         address agentProposer = makeAddr("AGENT_PROPOSER");
-        _step("1. Submit proposal to register Aragon as the executor");
+        _step("2. Submit proposal to register Aragon as the executor");
         {
             _addAragonAgentProposer(agentProposer);
         }
@@ -52,7 +52,7 @@ contract AragonAgentAsExecutorScenarioTest is DGScenarioTestSetup {
         vm.mockCallRevert(regularStaffCalls[0].target, regularStaffCalls[0].payload, "INVALID TARGET");
 
         uint256 agentActionsProposalId;
-        _step("2. Submit proposal which should revert via the Agent proposer");
+        _step("3. Submit proposal which should revert via the Agent proposer");
         {
             vm.prank(agentProposer);
             agentActionsProposalId =
@@ -61,7 +61,7 @@ contract AragonAgentAsExecutorScenarioTest is DGScenarioTestSetup {
             _assertSubmittedProposalData(agentActionsProposalId, address(_lido.agent), regularStaffCalls);
         }
 
-        _step("3. The execution of the proposal fails");
+        _step("4. The execution of the proposal fails");
         {
             _assertProposalSubmitted(agentActionsProposalId);
             _wait(_getAfterSubmitDelay());
@@ -108,12 +108,12 @@ contract AragonAgentAsExecutorScenarioTest is DGScenarioTestSetup {
 
         uint256 agentActionsProposalId;
 
-        _step("2. Adopt proposal via the Agent proposer with calls to EOA account");
+        _step("3. Adopt proposal via the Agent proposer with calls to EOA account");
         {
             _adoptProposal(agentProposer, callsToEmptyAccount, "Make different calls to EOA account");
         }
 
-        _step("3. When the calls is done by Agent, it's not failed and executed successfully");
+        _step("4. When the calls is done by Agent, it's not failed and executed successfully");
         {
             assertEq(nonContractAccount.balance, 1 ether);
             assertEq(address(_lido.agent).balance, agentBalanceBefore);

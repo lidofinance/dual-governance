@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
+import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 
 import {ResealManager} from "contracts/ResealManager.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
@@ -12,7 +13,6 @@ import {ImmutableDualGovernanceConfigProvider} from "contracts/ImmutableDualGove
 import {
     Durations,
     Timestamps,
-    DGSetupDeployConfig,
     ContractsDeployment,
     IPotentiallyDangerousContract,
     TGScenarioTestSetup,
@@ -108,6 +108,7 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
 
             // Dual Governance is deployed into mainnet
             _setDGDeployConfig(_getDefaultDGDeployConfig({emergencyGovernanceProposer: address(_lido.voting)}));
+
             _dgDeployedContracts.resealManager = ContractsDeployment.deployResealManager(_timelock);
             _dgDeployedContracts.dualGovernanceConfigProvider =
                 ContractsDeployment.deployDualGovernanceConfigProvider(_dgDeployConfig.dualGovernanceConfigProvider);
@@ -309,177 +310,154 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
         }
     }
 
-    //     function testFork_SubmittedCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
-    //         ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
-    //             address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-    //         );
+    function testFork_SubmittedCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
+        ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
+            address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
+        );
 
-    //         // schedule some malicious call
-    //         uint256 maliciousProposalId;
-    //         {
-    //             maliciousProposalId = _submitProposalViaTimelockedGovernance("Rug Pool attempt", maliciousCalls);
+        // schedule some malicious call
+        uint256 maliciousProposalId;
+        {
+            maliciousProposalId = _submitProposal(maliciousCalls, "Rug Pool attempt");
 
-    //             // malicious calls can't be executed until the delays have passed
-    //             _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, false);
-    //         }
+            // malicious calls can't be executed until the delays have passed
+            _assertCanSchedule(maliciousProposalId, false);
+        }
 
-    //         // activate emergency mode
-    //         EmergencyProtection.Context memory emergencyState;
-    //         {
-    //             _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
+        // activate emergency mode
+        EmergencyProtection.Context memory emergencyState;
+        {
+            _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
 
-    //             vm.prank(address(_deployConfig.timelock.emergencyActivationCommittee));
-    //             _timelock.activateEmergencyMode();
+            _activateEmergencyMode();
+        }
 
-    //             assertTrue(_timelock.isEmergencyModeActive());
-    //         }
+        // delay for malicious proposal has passed, but it can't be executed because of emergency mode was activated
+        {
+            // the after submit delay has passed, and proposal can be scheduled, but not executed
+            _wait(_timelock.getAfterScheduleDelay() + Durations.from(1 seconds));
+            _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
+            _assertCanSchedule(maliciousProposalId, true);
 
-    //         // delay for malicious proposal has passed, but it can't be executed because of emergency mode was activated
-    //         {
-    //             // the after submit delay has passed, and proposal can be scheduled, but not executed
-    //             _wait(_timelock.getAfterScheduleDelay() + Durations.from(1 seconds));
-    //             _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
-    //             _assertCanScheduleViaTimelockedGovernance(maliciousProposalId, true);
+            _scheduleProposal(maliciousProposalId);
 
-    //             _scheduleProposalViaTimelockedGovernance(maliciousProposalId);
+            _wait(_timelock.getAfterScheduleDelay().plusSeconds(1));
+            _assertCanExecute(maliciousProposalId, false);
 
-    //             _wait(_timelock.getAfterScheduleDelay().plusSeconds(1));
-    //             _assertCanExecute(maliciousProposalId, false);
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
+            _executeProposal(maliciousProposalId);
+        }
 
-    //             vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
-    //             _executeProposal(maliciousProposalId);
-    //         }
+        // another malicious call is scheduled during the emergency mode also can't be executed
+        uint256 anotherMaliciousProposalId;
+        {
+            _wait(_getEmergencyModeDuration().dividedBy(2));
 
-    //         // another malicious call is scheduled during the emergency mode also can't be executed
-    //         uint256 anotherMaliciousProposalId;
-    //         {
-    //             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
+            // emergency mode still active
+            assertTrue(_timelock.getEmergencyProtectionDetails().emergencyModeEndsAfter > Timestamps.now());
 
-    //             // emergency mode still active
-    //             assertTrue(_timelock.getEmergencyProtectionDetails().emergencyModeEndsAfter > Timestamps.now());
+            anotherMaliciousProposalId = _submitProposal(maliciousCalls, "Another Rug Pool attempt");
 
-    //             anotherMaliciousProposalId =
-    //                 _submitProposalViaTimelockedGovernance("Another Rug Pool attempt", maliciousCalls);
+            // malicious calls can't be executed until the delays have passed
+            _assertCanExecute(anotherMaliciousProposalId, false);
 
-    //             // malicious calls can't be executed until the delays have passed
-    //             _assertCanExecute(anotherMaliciousProposalId, false);
+            // the after submit delay has passed, and proposal can not be executed
+            _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
+            _assertCanSchedule(anotherMaliciousProposalId, true);
 
-    //             // the after submit delay has passed, and proposal can not be executed
-    //             _wait(_timelock.getAfterSubmitDelay().plusSeconds(1));
-    //             _assertCanScheduleViaTimelockedGovernance(anotherMaliciousProposalId, true);
+            _wait(_timelock.getAfterScheduleDelay().plusSeconds(1));
+            _assertCanExecute(anotherMaliciousProposalId, false);
 
-    //             _wait(_timelock.getAfterScheduleDelay().plusSeconds(1));
-    //             _assertCanExecute(anotherMaliciousProposalId, false);
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
+            _executeProposal(anotherMaliciousProposalId);
+        }
 
-    //             vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
-    //             _executeProposal(anotherMaliciousProposalId);
-    //         }
+        // emergency mode is over but proposals can't be executed until the emergency mode turned off manually
+        {
+            _wait(_getEmergencyModeDuration().dividedBy(2));
+            assertTrue(emergencyState.emergencyModeEndsAfter < Timestamps.now());
 
-    //         // emergency mode is over but proposals can't be executed until the emergency mode turned off manually
-    //         {
-    //             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
-    //             assertTrue(emergencyState.emergencyModeEndsAfter < Timestamps.now());
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
+            _executeProposal(maliciousProposalId);
 
-    //             vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
-    //             _executeProposal(maliciousProposalId);
+            vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
+            _executeProposal(anotherMaliciousProposalId);
+        }
 
-    //             vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
-    //             _executeProposal(anotherMaliciousProposalId);
-    //         }
+        // anyone can deactivate emergency mode when it's over
+        {
+            _timelock.deactivateEmergencyMode();
 
-    //         // anyone can deactivate emergency mode when it's over
-    //         {
-    //             _timelock.deactivateEmergencyMode();
+            assertFalse(_timelock.isEmergencyModeActive());
+            assertFalse(_timelock.isEmergencyProtectionEnabled());
+        }
 
-    //             assertFalse(_timelock.isEmergencyModeActive());
-    //             assertFalse(_timelock.isEmergencyProtectionEnabled());
-    //         }
+        // all malicious calls is canceled now and can't be executed
+        {
+            _assertProposalCancelled(maliciousProposalId);
+            _assertProposalCancelled(anotherMaliciousProposalId);
 
-    //         // all malicious calls is canceled now and can't be executed
-    //         {
-    //             _assertProposalCancelled(maliciousProposalId);
-    //             _assertProposalCancelled(anotherMaliciousProposalId);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    ExecutableProposals.UnexpectedProposalStatus.selector, maliciousProposalId, ProposalStatus.Cancelled
+                )
+            );
+            _executeProposal(maliciousProposalId);
 
-    //             vm.expectRevert(
-    //                 abi.encodeWithSelector(
-    //                     ExecutableProposals.UnexpectedProposalStatus.selector, maliciousProposalId, ProposalStatus.Cancelled
-    //                 )
-    //             );
-    //             _executeProposal(maliciousProposalId);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    ExecutableProposals.UnexpectedProposalStatus.selector,
+                    anotherMaliciousProposalId,
+                    ProposalStatus.Cancelled
+                )
+            );
+            _executeProposal(anotherMaliciousProposalId);
+        }
+    }
 
-    //             vm.expectRevert(
-    //                 abi.encodeWithSelector(
-    //                     ExecutableProposals.UnexpectedProposalStatus.selector,
-    //                     anotherMaliciousProposalId,
-    //                     ProposalStatus.Cancelled
-    //                 )
-    //             );
-    //             _executeProposal(anotherMaliciousProposalId);
-    //         }
-    //     }
+    function testFork_EmergencyResetGovernance() external {
+        // deploy dual governance full setup
+        {
+            _deployDGSetup({isEmergencyProtectionEnabled: true});
+            assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
+        }
 
-    //     function testFork_EmergencyResetGovernance() external {
-    //         // deploy dual governance full setup
-    //         {
-    //             _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
-    //             assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
-    //         }
+        // emergency committee activates emergency mode
+        {
+            _activateEmergencyMode();
+        }
 
-    //         // emergency committee activates emergency mode
-    //         {
-    //             vm.prank(address(_deployConfig.timelock.emergencyActivationCommittee));
-    //             _timelock.activateEmergencyMode();
+        // before the end of the emergency mode emergency committee can reset the controller to
+        // disable dual governance
+        {
+            _wait(_getEmergencyModeDuration().dividedBy(2));
 
-    //             assertTrue(_timelock.isEmergencyModeActive());
-    //         }
+            assertTrue(_getEmergencyModeEndsAfter() > Timestamps.now());
 
-    //         // before the end of the emergency mode emergency committee can reset the controller to
-    //         // disable dual governance
-    //         {
-    //             _wait(_EMERGENCY_MODE_DURATION.dividedBy(2));
+            _emergencyReset();
+        }
+    }
 
-    //             IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState =
-    //                 _timelock.getEmergencyProtectionDetails();
+    function testFork_ExpiredEmergencyCommitteeHasNoPower() external {
+        // deploy dual governance full setup
+        {
+            _deployDGSetup({isEmergencyProtectionEnabled: true});
+            assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
+        }
 
-    //             assertTrue(emergencyState.emergencyModeEndsAfter > Timestamps.now());
+        // wait till the protection duration passes
+        {
+            _wait(_getEmergencyModeDuration().plusSeconds(1));
+        }
 
-    //             _executeEmergencyReset();
-
-    //             assertEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
-
-    //             emergencyState = _timelock.getEmergencyProtectionDetails();
-    //             assertEq(_timelock.getEmergencyActivationCommittee(), address(0));
-    //             assertEq(_timelock.getEmergencyExecutionCommittee(), address(0));
-    //             assertEq(emergencyState.emergencyModeDuration, Durations.ZERO);
-    //             assertEq(emergencyState.emergencyModeEndsAfter, Timestamps.ZERO);
-    //             assertFalse(_timelock.isEmergencyModeActive());
-    //         }
-    //     }
-
-    //     function testFork_ExpiredEmergencyCommitteeHasNoPower() external {
-    //         // deploy dual governance full setup
-    //         {
-    //             _deployDualGovernanceSetup({isEmergencyProtectionEnabled: true});
-    //             assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
-    //         }
-
-    //         // wait till the protection duration passes
-    //         {
-    //             _wait(_EMERGENCY_PROTECTION_DURATION.plusSeconds(1));
-    //         }
-
-    //         IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState =
-    //             _timelock.getEmergencyProtectionDetails();
-
-    //         // attempt to activate emergency protection fails
-    //         {
-    //             vm.expectRevert(
-    //                 abi.encodeWithSelector(
-    //                     EmergencyProtection.EmergencyProtectionExpired.selector, emergencyState.emergencyProtectionEndsAfter
-    //                 )
-    //             );
-    //             vm.prank(address(_deployConfig.timelock.emergencyActivationCommittee));
-    //             _timelock.activateEmergencyMode();
-    //         }
-    // }
+        // attempt to activate emergency protection fails
+        {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    EmergencyProtection.EmergencyProtectionExpired.selector, _getEmergencyProtectionEndsAfter()
+                )
+            );
+            this.external__activateEmergencyMode();
+        }
+    }
 }

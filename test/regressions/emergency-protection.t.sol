@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {DGRegressionTestSetup, ExternalCall, ExternalCallHelpers} from "../utils/integration-tests.sol";
 
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
+import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
@@ -59,6 +60,37 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             // remove canceled call from the timelock
             _assertCanExecute(proposalId, false);
             _assertProposalCancelled(proposalId);
+        }
+    }
+
+    function testFork_EmergencyProtectionExpiration() external {
+        _step("1. DAO operates regularly");
+        {
+            _adoptProposalByAdminProposer(_getMockTargetRegularStaffCalls({callsCount: 5}), "Regular staff calls");
+        }
+
+        _step("2. Emergency protection expires");
+        {
+            if (_isEmergencyProtectionEnabled()) {
+                _wait(_getEmergencyProtectionDuration());
+            }
+            assertFalse(_isEmergencyProtectionEnabled());
+        }
+
+        _step("3. Emergency activation committee has not power");
+        {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    EmergencyProtection.EmergencyProtectionExpired.selector,
+                    _getEmergencyProtectionEndsAfter().toSeconds()
+                )
+            );
+            this.external__activateEmergencyMode();
+        }
+
+        _step("4. DAO operated as usually when emergency protection expired");
+        {
+            _adoptProposalByAdminProposer(_getMockTargetRegularStaffCalls({callsCount: 5}), "Regular staff calls");
         }
     }
 }
