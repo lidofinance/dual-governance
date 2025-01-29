@@ -242,35 +242,35 @@ contract LaunchAcceptance is DeployScriptBase {
             _wait(_config.timelock.afterSubmitDelay);
             _dgContracts.dualGovernance.scheduleProposal(expectedProposalId);
             _wait(_config.timelock.afterScheduleDelay);
-            // timelock.execute(expectedProposalId);
+            timelock.execute(expectedProposalId);
         } else {
             console.log("STEP 8 SKIPPED - Dual Governance proposal already executed");
         }
 
-        // if (fromStep <= 9) {
-        //     console.log("STEP 9 - Verify DAO has no agent forward permission from Voting");
-        //     // Verify that Voting has no permission to forward to Agent
-        //     ExternalCall[] memory someAgentForwardCall;
-        //     someAgentForwardCall = ExternalCallHelpers.create(
-        //         [
-        //             ExternalCall({
-        //                 target: address(_lidoUtils.acl),
-        //                 value: 0,
-        //                 payload: abi.encodeWithSelector(
-        //                     IAragonACL.revokePermission.selector,
-        //                     address(_dgContracts.adminExecutor),
-        //                     _lidoUtils.agent,
-        //                     IAragonAgent(_lidoUtils.agent).RUN_SCRIPT_ROLE()
-        //                 )
-        //             })
-        //         ]
-        //     );
+        if (fromStep <= 9) {
+            console.log("STEP 9 - Verify DAO has no agent forward permission from Voting");
+            // Verify that Voting has no permission to forward to Agent
+            ExternalCall[] memory someAgentForwardCall;
+            someAgentForwardCall = ExternalCallHelpers.create(
+                [
+                    ExternalCall({
+                        target: address(_lidoUtils.acl),
+                        value: 0,
+                        payload: abi.encodeWithSelector(
+                            IAragonACL.revokePermission.selector,
+                            address(_dgContracts.adminExecutor),
+                            _lidoUtils.agent,
+                            IAragonAgent(_lidoUtils.agent).RUN_SCRIPT_ROLE()
+                        )
+                    })
+                ]
+            );
 
-        //     vm.expectRevert("AGENT_CAN_NOT_FORWARD");
-        //     vm.prank(_lidoUtils.voting);
-        //     IAragonForwarder(_lidoUtils.agent).forward(_encodeExternalCalls(someAgentForwardCall));
-        // } else {
-        //     console.log("STEP 9 SKIPPED - Agent forward permission already revoked");
-        // }
+            vm.expectRevert("ACL_AUTH_NO_MANAGER");
+            vm.prank(address(_lidoUtils.voting));
+            IAragonForwarder(_lidoUtils.agent).forward(_encodeExternalCalls(someAgentForwardCall));
+        } else {
+            console.log("STEP 9 SKIPPED - Agent forward permission already revoked");
+        }
     }
 }
