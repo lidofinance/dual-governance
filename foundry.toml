@@ -1,5 +1,5 @@
 [profile.default]
-evm_version = 'paris'
+evm_version = 'cancun'
 src = 'contracts'
 out = 'out'
 script = 'scripts'
