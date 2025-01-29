@@ -17,9 +17,10 @@ import {TimelockedGovernance, ContractsDeployment} from "scripts/utils/contracts
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 
-import {DGSetupDeployVerification} from "scripts/deploy/DGSetupDeployVerification.sol";
+import {DeployVerification} from "scripts/utils/DeployVerification.sol";
 
 import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
+import {DGSetupDeployArtifacts} from "scripts/utils/contracts-deployment.sol";
 
 contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
     using LidoUtils for LidoUtils.Context;
@@ -28,8 +29,12 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
         makeAddr("TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER");
 
     TimelockedGovernance internal _emergencyGovernance;
+    DGSetupDeployArtifacts.Context internal _deployArtifact;
 
-    function setUp() external {}
+    function setUp() external {
+        _deployArtifact.deployConfig = _dgDeployConfig;
+        _deployArtifact.deployedContracts = _dgDeployedContracts;
+    }
 
     function testFork_DualGovernance_DeploymentWithDryRunTemporaryGovernance() external {
         _step("0. Deploy DG contracts with temporary emergency governance for dry-run test");
@@ -41,7 +46,7 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
 
         _step("1. Verify the state of the DG setup before the dry-run emergency reset");
         {
-            DGSetupDeployVerification.verify(_dgDeployedContracts, _dgDeployConfig, false);
+            DeployVerification.verify(_deployArtifact);
         }
 
         _step("2. Activate Dual Governance Emergency Mode");
@@ -96,7 +101,7 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
             _dgDeployedContracts.emergencyGovernance = _emergencyGovernance;
             _dgDeployConfig.timelock.emergencyGovernanceProposer = address(_lido.voting);
 
-            DGSetupDeployVerification.verify(_dgDeployedContracts, _dgDeployConfig, true);
+            DeployVerification.verify(_deployArtifact);
         }
 
         _step("7. Prepare Roles Verifier");
@@ -239,7 +244,7 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
 
         _step("1. Validate The DG Initial State After Deployment");
         {
-            DGSetupDeployVerification.verify(_dgDeployedContracts, _dgDeployConfig, false);
+            DeployVerification.verify(_deployArtifact);
         }
 
         _step("2. Activate Emergency Mode");
