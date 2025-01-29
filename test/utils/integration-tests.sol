@@ -12,6 +12,7 @@ import {PercentsD16, PercentD16} from "contracts/types/PercentD16.sol";
 
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
+import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
@@ -169,6 +170,14 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         });
     }
 
+    function _isEmergencyModeActive() internal view returns (bool) {
+        return _timelock.isEmergencyModeActive();
+    }
+
+    function _isEmergencyProtectionEnabled() internal view returns (bool) {
+        return _timelock.isEmergencyProtectionEnabled();
+    }
+
     function _getAdminExecutor() internal view returns (address) {
         return _timelock.getAdminExecutor();
     }
@@ -199,11 +208,22 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
     }
 
     function _getEmergencyProtectionDuration() internal view returns (Duration) {
-        return _timelock.getEmergencyProtectionDetails().emergencyModeDuration;
+        Timestamp emergencyProtectionEndsAfter = _getEmergencyProtectionEndsAfter();
+        return emergencyProtectionEndsAfter > Timestamps.now()
+            ? Durations.from(emergencyProtectionEndsAfter.toSeconds() - Timestamps.now().toSeconds())
+            : Durations.ZERO;
+    }
+
+    function _getEmergencyProtectionEndsAfter() internal view returns (Timestamp) {
+        return _timelock.getEmergencyProtectionDetails().emergencyProtectionEndsAfter;
     }
 
     function _getEmergencyModeEndsAfter() internal view returns (Timestamp) {
         return _timelock.getEmergencyProtectionDetails().emergencyModeEndsAfter;
+    }
+
+    function _getLastProposalId() internal view returns (uint256) {
+        return _timelock.getProposalsCount();
     }
 
     function _executeProposal(uint256 proposalId) internal {
@@ -228,6 +248,24 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         proposalId = _timelock.getProposalsCount();
         // new call is scheduled but is not executable yet
         assertEq(proposalId, proposalsCountBefore + 1);
+    }
+
+    function _adoptProposal(
+        address proposer,
+        ExternalCall[] memory calls,
+        string memory metadata
+    ) internal returns (uint256 proposalId) {
+        proposalId = _submitProposal(proposer, calls, metadata);
+
+        _assertProposalSubmitted(proposalId);
+        _wait(_getAfterSubmitDelay());
+
+        _scheduleProposal(proposalId);
+        _assertProposalScheduled(proposalId);
+
+        _wait(_getAfterScheduleDelay());
+        _executeProposal(proposalId);
+        _assertProposalExecuted(proposalId);
     }
 
     function _scheduleProposal(uint256 proposalId) internal {
@@ -255,8 +293,18 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         _timelock.emergencyReset();
 
         // TODO: assert all emergency protection properties were reset
+        IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details =
+            _timelock.getEmergencyProtectionDetails();
+
+        assertEq(details.emergencyModeDuration, Durations.ZERO);
+        assertEq(details.emergencyModeEndsAfter, Timestamps.ZERO);
+        assertEq(details.emergencyProtectionEndsAfter, Timestamps.ZERO);
 
         assertFalse(_timelock.isEmergencyModeActive());
+        assertFalse(_timelock.isEmergencyProtectionEnabled());
+
+        assertEq(_timelock.getEmergencyActivationCommittee(), address(0));
+        assertEq(_timelock.getEmergencyExecutionCommittee(), address(0));
         assertEq(_timelock.getEmergencyGovernance(), _timelock.getGovernance());
     }
 
@@ -337,6 +385,10 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
             ProposalStatus.Cancelled,
             "Proposal not in 'Canceled' state"
         );
+    }
+
+    function external__activateEmergencyMode() external {
+        _activateEmergencyMode();
     }
 }
 
@@ -422,6 +474,13 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         _setDGDeployConfig(_getDefaultDGDeployConfig(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0)));
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
+        vm.startPrank(address(_lido.agent));
+        _lido.withdrawalQueue.grantRole(_lido.withdrawalQueue.PAUSE_ROLE(), address(_dgDeployedContracts.resealManager));
+        _lido.withdrawalQueue.grantRole(
+            _lido.withdrawalQueue.RESUME_ROLE(), address(_dgDeployedContracts.resealManager)
+        );
+        vm.stopPrank();
+
         _setTimelock(_dgDeployedContracts.timelock);
         _lido.removeStakingLimit();
     }
@@ -440,24 +499,6 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         string memory metadata
     ) internal returns (uint256 proposalId) {
         proposalId = _adoptProposal(_getFirstAdminProposer(), calls, metadata);
-    }
-
-    function _adoptProposal(
-        address proposer,
-        ExternalCall[] memory calls,
-        string memory metadata
-    ) internal returns (uint256 proposalId) {
-        proposalId = _submitProposal(proposer, calls, metadata);
-
-        _assertProposalSubmitted(proposalId);
-        _wait(_getAfterSubmitDelay());
-
-        _scheduleProposal(proposalId);
-        _assertProposalScheduled(proposalId);
-
-        _wait(_getAfterScheduleDelay());
-        _executeProposal(proposalId);
-        _assertProposalExecuted(proposalId);
     }
 
     function _submitProposalByAdminProposer(ExternalCall[] memory calls) internal returns (uint256 proposalId) {
@@ -491,6 +532,14 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
                 return proposers[i].account;
             }
         }
+    }
+
+    function _getSealableWithdrawalBlockers() internal view returns (address[] memory) {
+        return _dgDeployedContracts.dualGovernance.getTiebreakerDetails().sealableWithdrawalBlockers;
+    }
+
+    function _getMinAssetsLockDuration() internal view returns (Duration) {
+        return _getVetoSignallingEscrow().getMinAssetsLockDuration();
     }
 
     function _getVetoSignallingEscrow() internal view returns (ISignallingEscrow) {
@@ -527,6 +576,18 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
     function _getRageQuitExtensionPeriodDuration() internal view returns (Duration) {
         return _dgDeployedContracts.dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_PERIOD_DURATION();
+    }
+
+    function _getRageQuitEthWithdrawalsDelay() internal view returns (Duration) {
+        return _getRageQuitEscrow().getRageQuitEscrowDetails().rageQuitEthWithdrawalsDelay;
+    }
+
+    function _getVetoSignallingDuration() internal view returns (Duration) {
+        return _dgDeployedContracts.dualGovernance.getStateDetails().vetoSignallingDuration;
+    }
+
+    function _getVetoSignallingActivatedAt() internal view returns (Timestamp) {
+        return _dgDeployedContracts.dualGovernance.getStateDetails().vetoSignallingActivatedAt;
     }
 
     function _setDGDeployConfig(DGSetupDeployConfig.Context memory config) internal {
@@ -821,5 +882,12 @@ contract TGScenarioTestSetup is GovernedTimelockSetup {
         string memory metadata
     ) internal returns (uint256 proposalId) {
         proposalId = _submitProposal(address(_tgDeployedContracts.timelockedGovernance.GOVERNANCE()), calls, metadata);
+    }
+
+    function _adoptProposal(
+        ExternalCall[] memory calls,
+        string memory metadata
+    ) internal returns (uint256 proposalId) {
+        proposalId = _adoptProposal(address(_tgDeployedContracts.timelockedGovernance.GOVERNANCE()), calls, metadata);
     }
 }

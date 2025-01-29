@@ -5,7 +5,7 @@ import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 import {ExternalCall, ExternalCallHelpers} from "../utils/executor-calls.sol";
-import {DGRegressionTestSetup} from "../utils/integration-tests.sol";
+import {DGRegressionTestSetup, Proposers} from "../utils/integration-tests.sol";
 
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
@@ -145,6 +145,58 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         _assertTargetMockCalls(address(_lido.agent), expectedTargetMockCalls);
         assertEq(address(_targetMock).balance, ethPaymentValue);
         assertEq(agentBalanceBefore - ethPaymentValue, address(_lido.agent).balance);
+    }
+
+    function testFork_AragonVotingAsProposer() external {
+        assertTrue(
+            _dgDeployedContracts.dualGovernance.isProposer(address(_lido.voting)), "Aragon Voting is not DG proposer"
+        );
+
+        Proposers.Proposer memory votingProposer =
+            _dgDeployedContracts.dualGovernance.getProposer(address(_lido.voting));
+
+        assertTrue(_dgDeployedContracts.dualGovernance.isExecutor(votingProposer.executor));
+
+        uint256 proposalId;
+        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
+        _step("1. Aragon Vote may be used to submit proposal");
+        {
+            uint256 dgProposalsCountBefore = _timelock.getProposalsCount();
+            bytes memory voteWithProposalSubmission = EvmScriptUtils.encodeEvmCallScript(
+                address(_dgDeployedContracts.dualGovernance),
+                abi.encodeCall(
+                    _dgDeployedContracts.dualGovernance.submitProposal,
+                    (regularStaffCalls, "Proposal submitted by the DAO")
+                )
+            );
+
+            uint256 voteId = _lido.adoptVote("Submit DG proposal", voteWithProposalSubmission);
+            _lido.executeVote(voteId);
+
+            assertEq(_timelock.getProposalsCount(), dgProposalsCountBefore + 1);
+
+            proposalId = _getLastProposalId();
+
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStaffCalls);
+        }
+
+        _step("2. Proposal may be scheduled and executed");
+        {
+            // wait till the first phase of timelock passes
+            _wait(_getAfterSubmitDelay());
+
+            _assertCanSchedule(proposalId, true);
+            _scheduleProposal(proposalId);
+            _assertProposalScheduled(proposalId);
+
+            _wait(_getAfterScheduleDelay());
+
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
+
+            _assertTargetMockCalls(votingProposer.executor, regularStaffCalls);
+        }
     }
 
     function testFork_ProposalLifecycle_ProposalCancellation() external {
