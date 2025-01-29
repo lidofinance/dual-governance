@@ -5,7 +5,7 @@ chain_id = 17000
 admin_proposer = "0xdA7d2573Df555002503F29aA4003e398d28cc00f"
 proposals_canceller = "0xdA7d2573Df555002503F29aA4003e398d28cc00f"
 reseal_committee = "0x17A283c01dCc0F1d3D67b24E341e142DF78807D4"
-sealable_withdrawal_blockers = ["0xECC8DF29067E1c0f162eC199Cba11fbFb90918D5"]
+sealable_withdrawal_blockers = ["0xF054E479b6A3D30CE70A4C4720988739BE362A55"]
 tiebreaker_activation_timeout = 900
 
 [deploy_config.dual_governance.sanity_check_params]
@@ -16,9 +16,9 @@ min_tiebreaker_activation_timeout = 300
 min_withdrawals_batch_size = 1
 
 [deploy_config.dual_governance.signalling_tokens]
-st_eth = "0xC326CB00e29Bffcc610974aabb8Ad358dF10E90B"
-withdrawal_queue = "0xECC8DF29067E1c0f162eC199Cba11fbFb90918D5"
-wst_eth = "0x655Ad3C82dB3Aa85b5F34b3CeCC608f2DE8728C1"
+st_eth = "0x7f6C35c096E1fdAa417B6A1C947Dc19F46a288cC"
+withdrawal_queue = "0xF054E479b6A3D30CE70A4C4720988739BE362A55"
+wst_eth = "0x80F767f445E97A4C6548D524D1429479cbb5FD2E"
 
 [deploy_config.dual_governance_config_provider]
 first_seal_rage_quit_support = 300
@@ -88,16 +88,16 @@ max_emergency_protection_duration = 31536000
 min_execution_delay = 300
 
 [deployed_contracts]
-admin_executor = "0x4C0e79308f2E672b9dB9f2E6fD183Ec6025eFc37"
-dual_governance = "0x85350e579C71a78810305f860380a3315b3e6Ed9"
-dual_governance_config_provider = "0xc8b9F2bfFFF2f2B8F9C32A7b39a5AAa0644Fe632"
-emergency_governance = "0xE87f4b9Ce6E2b002e634035bc1357370bf4878b8"
-escrow_master_copy = "0x478b69d970070c2188679905fa15bba66ee20174"
-reseal_manager = "0x7f5395AC6Ff3967CEd48e6a99029747B48239b31"
-tiebreaker_core_committee = "0x3F65d94E804bfEF570A13FC6923855865098EEB6"
+admin_executor = "0xA275ddB4F0De13c4551de5f8d054F803C4E787B4"
+dual_governance = "0xc2fA339ca250cA22beD862B4Dd38eFE159AF4cCe"
+dual_governance_config_provider = "0xb27c0ff1137A84DA834DbD3c0741ECe440883793"
+emergency_governance = "0x0DA61E4bC9E281B65BF213F50ebE0753b27b0CD2"
+escrow_master_copy = "0x0000000000000000000000000000000000000000"
+reseal_manager = "0x019c9bA97434EE94e3B3659E472aF2C38e025EFE"
+tiebreaker_core_committee = "0xb448095d9556268e029a9E9c6f1Af514f12E4788"
 tiebreaker_sub_committees = [
-    "0x2Ed0FB58ba7637f972100Db7427614C9E30Ed684",
-    "0x9367f9DB78631624a90EBaaF8798cf47d1D28fdD",
-    "0x819d226050d62dD2fc3feaddb1AcF4ac1AFB8309",
+    "0xaCd2DD270Da868e877B49c0876BB0E15145622dF",
+    "0x730Bee80110752897Fb0923B94dbA0e02e26b72d",
+    "0x21ca18E7371E7A6C19CE77Ffe0b0DC29f40603b0",
 ]
-timelock = "0x2b956B578D0f44E0BD484d1A63c8A164BBEf6B58"
+timelock = "0xc8Df3f0dF91B4Dc9Bd366904e3e950b6600Aa576"

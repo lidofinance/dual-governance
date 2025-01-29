@@ -6,38 +6,50 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {Duration} from "contracts/types/Duration.sol";
-import {DeployConfig, LidoContracts} from "../deploy/config/Config.sol";
-import {CONFIG_FILES_DIR, DGDeployConfigProvider} from "../deploy/config/ConfigProvider.sol";
-import {DeployedContracts, DGContractsSet} from "../deploy/DeployedContractsSet.sol";
-import {DeployVerifier} from "./DeployVerifier.sol";
+import {
+    DGSetupDeployArtifacts, DGSetupDeployedContracts, DGSetupDeployConfig
+} from "../utils/contracts-deployment.sol";
+import {DeployFiles} from "../utils/deploy-files.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
+import {Duration} from "contracts/types/Duration.sol";
+import {LidoUtils} from "test/utils/lido-utils.sol";
 
 contract DeployScriptBase is Script {
-    DeployConfig internal _config;
-    LidoContracts internal _lidoAddresses;
-    DeployedContracts internal _dgContracts;
-    string internal _chainName;
-    string internal _deployArtifactFileName;
-    DeployVerifier internal _deployVerifier;
+    using DGSetupDeployArtifacts for DGSetupDeployArtifacts.Context;
+    using DGSetupDeployedContracts for DGSetupDeployedContracts.Context;
+
+    error InvalidChainId(uint256 chainId);
+
+    DGSetupDeployArtifacts.Context internal _deployArtifact;
+    DGSetupDeployConfig.Context internal _config;
+    DGSetupDeployedContracts.Context internal _dgContracts;
+    LidoUtils.Context internal _lidoUtils;
 
     function _loadEnv() internal {
-        _chainName = vm.envString("CHAIN");
-        _deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
+        string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
 
-        DGDeployConfigProvider configProvider = new DGDeployConfigProvider(_deployArtifactFileName);
+        console.log("Loading config from artifact file: %s", deployArtifactFileName);
 
-        _config = configProvider.loadAndValidate();
-        _lidoAddresses = configProvider.getLidoAddresses(_chainName);
-        _dgContracts = DGContractsSet.loadFromFile(_loadDeployedAddressesFile(_deployArtifactFileName));
+        _deployArtifact = DGSetupDeployArtifacts.load(deployArtifactFileName);
 
-        console.log("Using the following DG contracts addresses (from file", _deployArtifactFileName, "):");
-        console.log("=====================================");
-        DGContractsSet.print(_dgContracts);
-        console.log("=====================================");
+        _dgContracts = _deployArtifact.deployedContracts;
+        _config = _deployArtifact.deployConfig;
 
-        _deployVerifier = new DeployVerifier(_config, _lidoAddresses);
+        if (_deployArtifact.deployConfig.chainId != block.chainid) {
+            revert InvalidChainId(_config.chainId);
+        }
+
+        if (_config.chainId == 1) {
+            _lidoUtils = LidoUtils.mainnet();
+        } else if (_config.chainId == 17000) {
+            _lidoUtils = LidoUtils.holesky();
+        } else {
+            revert InvalidChainId(_config.chainId);
+        }
+
+        console.log("Using the following DG contracts addresses (from file", deployArtifactFileName, "):");
+        _dgContracts.print();
     }
 
     function _printExternalCalls(ExternalCall[] memory calls) internal pure {
@@ -62,16 +74,6 @@ contract DeployScriptBase is Script {
             str[1 + i * 2] = alphabet[uint256(uint8(data[i] & 0x0f))];
         }
         return string(str);
-    }
-
-    function _loadDeployedAddressesFile(string memory deployedAddressesFileName)
-        internal
-        view
-        returns (string memory deployedAddressesJson)
-    {
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/", CONFIG_FILES_DIR, "/", deployedAddressesFileName);
-        deployedAddressesJson = vm.readFile(path);
     }
 
     function _encodeExternalCalls(ExternalCall[] memory calls) internal pure returns (bytes memory result) {

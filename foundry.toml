@@ -1,4 +1,5 @@
 [profile.default]
+evm_version = 'paris'
 src = 'contracts'
 out = 'out'
 script = 'scripts'
