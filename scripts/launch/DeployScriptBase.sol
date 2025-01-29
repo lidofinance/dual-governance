@@ -21,12 +21,10 @@ contract DeployScriptBase is Script {
 
     error InvalidChainId(uint256 chainId);
 
-    DGSetupDeployArtifacts.Context internal _deployArtifact;
-    DGSetupDeployConfig.Context internal _config;
     DGSetupDeployedContracts.Context internal _dgContracts;
     LidoUtils.Context internal _lidoUtils;
 
-    function _loadEnv() internal {
+    function _loadEnv() internal returns (DGSetupDeployArtifacts.Context memory _deployArtifact) {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
 
         console.log("Loading config from artifact file: %s", deployArtifactFileName);
@@ -34,18 +32,17 @@ contract DeployScriptBase is Script {
         _deployArtifact = DGSetupDeployArtifacts.load(deployArtifactFileName);
 
         _dgContracts = _deployArtifact.deployedContracts;
-        _config = _deployArtifact.deployConfig;
 
         if (_deployArtifact.deployConfig.chainId != block.chainid) {
-            revert InvalidChainId(_config.chainId);
+            revert InvalidChainId(_deployArtifact.deployConfig.chainId);
         }
 
-        if (_config.chainId == 1) {
+        if (_deployArtifact.deployConfig.chainId == 1) {
             _lidoUtils = LidoUtils.mainnet();
-        } else if (_config.chainId == 17000) {
+        } else if (_deployArtifact.deployConfig.chainId == 17000) {
             _lidoUtils = LidoUtils.holesky();
         } else {
-            revert InvalidChainId(_config.chainId);
+            revert InvalidChainId(_deployArtifact.deployConfig.chainId);
         }
 
         console.log("Using the following DG contracts addresses (from file", deployArtifactFileName, "):");
