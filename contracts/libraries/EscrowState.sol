@@ -72,10 +72,14 @@ library EscrowState {
     /// @notice Initializes the Escrow state to SignallingEscrow.
     /// @param self The context of the Escrow State library.
     /// @param minAssetsLockDuration The minimum assets lock duration.
-    function initialize(Context storage self, Duration minAssetsLockDuration) internal {
+    function initialize(
+        Context storage self,
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) internal {
         _checkState(self, State.NotInitialized);
         _setState(self, State.SignallingEscrow);
-        _setMinAssetsLockDuration(self, minAssetsLockDuration);
+        setMinAssetsLockDuration(self, minAssetsLockDuration, maxMinAssetsLockDuration);
     }
 
     /// @notice Starts the rage quit process.
