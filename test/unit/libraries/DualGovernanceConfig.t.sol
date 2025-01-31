@@ -13,7 +13,8 @@ contract DualGovernanceConfigTest is UnitTest {
 
     // Unrealistically huge value for the percents value, to limit max fuzz value to avoid overflow
     // due to very high values
-    PercentD16 internal immutable _SECOND_SEAL_RAGE_QUIT_SUPPORT_LIMIT = PercentsD16.fromBasisPoints(1_000_000_00);
+    PercentD16 internal immutable _MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT =
+        PercentsD16.from(DualGovernanceConfig.MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT);
     Timestamp internal immutable _MAX_TIMESTAMP = Timestamps.from(block.timestamp + 100 * 365 days);
 
     // The actual max value will not exceed 255, but for testing is used higher upper bound
@@ -40,12 +41,30 @@ contract DualGovernanceConfigTest is UnitTest {
 
     function testFuzz_validate_HappyPath(DualGovernanceConfig.Context memory config) external {
         _assumeConfigParams(config);
-        config.validate();
+        this.external__validate(config);
+    }
+
+    function testFuzz_validate_RevertOn_InvalidSecondSealRageQuitSupport(DualGovernanceConfig.Context memory config)
+        external
+    {
+        vm.assume(config.secondSealRageQuitSupport > _MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT);
+        vm.assume(config.firstSealRageQuitSupport < config.secondSealRageQuitSupport);
+        vm.assume(config.vetoSignallingMinDuration < config.vetoSignallingMaxDuration);
+        vm.assume(config.rageQuitEthWithdrawalsMinDelay <= config.rageQuitEthWithdrawalsMaxDelay);
+        vm.assume(config.minAssetsLockDuration > Durations.ZERO);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DualGovernanceConfig.InvalidSecondSealRageQuitSupport.selector, config.secondSealRageQuitSupport
+            )
+        );
+        this.external__validate(config);
     }
 
     function testFuzz_validate_RevertOn_InvalidSealRageQuitSupportRange(DualGovernanceConfig.Context memory config)
         external
     {
+        vm.assume(config.secondSealRageQuitSupport <= _MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT);
         vm.assume(config.firstSealRageQuitSupport >= config.secondSealRageQuitSupport);
         vm.assume(config.vetoSignallingMinDuration < config.vetoSignallingMaxDuration);
         vm.assume(config.rageQuitEthWithdrawalsMinDelay <= config.rageQuitEthWithdrawalsMaxDelay);
@@ -57,14 +76,14 @@ contract DualGovernanceConfigTest is UnitTest {
                 config.secondSealRageQuitSupport
             )
         );
-        config.validate();
+        this.external__validate(config);
     }
 
     function testFuzz_validate_RevertOn_InvalidVetoSignallingDurationRange(DualGovernanceConfig.Context memory config)
         external
     {
         vm.assume(config.firstSealRageQuitSupport < config.secondSealRageQuitSupport);
-        vm.assume(config.secondSealRageQuitSupport < _SECOND_SEAL_RAGE_QUIT_SUPPORT_LIMIT);
+        vm.assume(config.secondSealRageQuitSupport < _MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT);
         vm.assume(config.vetoSignallingMinDuration >= config.vetoSignallingMaxDuration);
         vm.assume(config.rageQuitEthWithdrawalsMinDelay <= config.rageQuitEthWithdrawalsMaxDelay);
 
@@ -75,14 +94,14 @@ contract DualGovernanceConfigTest is UnitTest {
                 config.vetoSignallingMaxDuration
             )
         );
-        config.validate();
+        this.external__validate(config);
     }
 
     function testFuzz_validate_RevertOn_InvalidRageQuitEthWithdrawalsDelayRange(
         DualGovernanceConfig.Context memory config
     ) external {
         vm.assume(config.firstSealRageQuitSupport < config.secondSealRageQuitSupport);
-        vm.assume(config.secondSealRageQuitSupport < _SECOND_SEAL_RAGE_QUIT_SUPPORT_LIMIT);
+        vm.assume(config.secondSealRageQuitSupport < _MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT);
         vm.assume(config.vetoSignallingMinDuration < config.vetoSignallingMaxDuration);
         vm.assume(config.rageQuitEthWithdrawalsMinDelay > config.rageQuitEthWithdrawalsMaxDelay);
 
@@ -93,7 +112,7 @@ contract DualGovernanceConfigTest is UnitTest {
                 config.rageQuitEthWithdrawalsMaxDelay
             )
         );
-        config.validate();
+        this.external__validate(config);
     }
 
     function test_validate_RevertOn_InvalidMinAssetsLockDuration() external {
@@ -102,7 +121,7 @@ contract DualGovernanceConfigTest is UnitTest {
         vm.expectRevert(
             abi.encodeWithSelector(DualGovernanceConfig.InvalidMinAssetsLockDuration.selector, Durations.ZERO)
         );
-        _dualGovernanceConfig.validate();
+        this.external__validate(_dualGovernanceConfig);
     }
 
     // ---
@@ -335,22 +354,20 @@ contract DualGovernanceConfigTest is UnitTest {
         DualGovernanceConfig.Context memory config,
         uint16 rageQuitRound
     ) external {
+        _assumeConfigParams(config);
         vm.assume(rageQuitRound > 0);
         vm.assume(rageQuitRound <= _MAX_RAGE_QUIT_ROUND);
 
-        vm.assume(
-            config.rageQuitEthWithdrawalsMinDelay.toSeconds()
-                + config.rageQuitEthWithdrawalsDelayGrowth.toSeconds() * (rageQuitRound + 1) <= MAX_DURATION_VALUE
-        );
-        vm.assume(config.rageQuitEthWithdrawalsMinDelay <= config.rageQuitEthWithdrawalsMaxDelay);
+        uint256 computedRageQuitEthWithdrawalsDelayInSeconds = config.rageQuitEthWithdrawalsMinDelay.toSeconds()
+            + rageQuitRound * config.rageQuitEthWithdrawalsDelayGrowth.toSeconds();
 
-        Duration computedRageQuitEthWithdrawalsMinDelay = config.rageQuitEthWithdrawalsMinDelay.plusSeconds(
-            rageQuitRound * config.rageQuitEthWithdrawalsDelayGrowth.toSeconds()
-        );
-        if (computedRageQuitEthWithdrawalsMinDelay > config.rageQuitEthWithdrawalsMaxDelay) {
-            computedRageQuitEthWithdrawalsMinDelay = config.rageQuitEthWithdrawalsMaxDelay;
+        if (computedRageQuitEthWithdrawalsDelayInSeconds > config.rageQuitEthWithdrawalsMaxDelay.toSeconds()) {
+            computedRageQuitEthWithdrawalsDelayInSeconds = config.rageQuitEthWithdrawalsMaxDelay.toSeconds();
         }
-        assertEq(config.calcRageQuitWithdrawalsDelay(rageQuitRound), computedRageQuitEthWithdrawalsMinDelay);
+        assertEq(
+            config.calcRageQuitWithdrawalsDelay(rageQuitRound),
+            Durations.from(computedRageQuitEthWithdrawalsDelayInSeconds)
+        );
     }
 
     // ---
@@ -360,8 +377,12 @@ contract DualGovernanceConfigTest is UnitTest {
     function _assumeConfigParams(DualGovernanceConfig.Context memory config) internal view {
         vm.assume(config.firstSealRageQuitSupport < config.secondSealRageQuitSupport);
         vm.assume(config.vetoSignallingMinDuration < config.vetoSignallingMaxDuration);
-        vm.assume(config.secondSealRageQuitSupport < _SECOND_SEAL_RAGE_QUIT_SUPPORT_LIMIT);
+        vm.assume(config.secondSealRageQuitSupport <= _MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT);
         vm.assume(config.rageQuitEthWithdrawalsMinDelay <= config.rageQuitEthWithdrawalsMaxDelay);
         vm.assume(config.minAssetsLockDuration > Durations.ZERO);
+    }
+
+    function external__validate(DualGovernanceConfig.Context memory config) external {
+        config.validate();
     }
 }
