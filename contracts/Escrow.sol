@@ -227,7 +227,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     ///     the rage quit support proportionally to the total number of stETH shares contained in the locked unstETH NFTs.
     /// @dev Locking finalized or already claimed unstETH NFTs is prohibited.
     /// @param unstETHIds An array of ids representing the unstETH NFTs to be locked.
-    function lockUnstETH(uint256[] memory unstETHIds) external {
+    function lockUnstETH(uint256[] calldata unstETHIds) external {
         if (unstETHIds.length == 0) {
             revert EmptyUnstETHIds();
         }
@@ -247,7 +247,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @notice Unlocks the specified unstETH NFTs, identified by their ids, from the Veto Signalling Escrow
     ///     that were previously locked by the vetoer.
     /// @param unstETHIds An array of ids representing the unstETH NFTs to be unlocked.
-    function unlockUnstETH(uint256[] memory unstETHIds) external {
+    function unlockUnstETH(uint256[] calldata unstETHIds) external {
         if (unstETHIds.length == 0) {
             revert EmptyUnstETHIds();
         }
@@ -274,7 +274,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @param unstETHIds An array of ids representing the unstETH NFTs to be marked as finalized.
     /// @param hints An array of hints required by the WithdrawalQueue to efficiently retrieve
     ///        the claimable amounts for the unstETH NFTs.
-    function markUnstETHFinalized(uint256[] memory unstETHIds, uint256[] calldata hints) external {
+    function markUnstETHFinalized(uint256[] calldata unstETHIds, uint256[] calldata hints) external {
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 

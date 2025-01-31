@@ -71,7 +71,7 @@ abstract contract HashConsensus is Ownable {
     ///      or if it exceeds the total number of members.
     /// @param newMembers The array of addresses to be added as new members
     /// @param executionQuorum The minimum number of members required for executing certain operations
-    function addMembers(address[] memory newMembers, uint256 executionQuorum) external {
+    function addMembers(address[] calldata newMembers, uint256 executionQuorum) external {
         _checkOwner();
 
         _addMembers(newMembers, executionQuorum);
@@ -84,7 +84,7 @@ abstract contract HashConsensus is Ownable {
     ///      the new total number of members.
     /// @param membersToRemove The array of addresses to be removed from the members list.
     /// @param executionQuorum The updated minimum number of members required for executing certain operations.
-    function removeMembers(address[] memory membersToRemove, uint256 executionQuorum) external {
+    function removeMembers(address[] calldata membersToRemove, uint256 executionQuorum) external {
         _checkOwner();
 
         _removeMembers(membersToRemove, executionQuorum);
