@@ -736,9 +736,22 @@ contract EscrowUnitTests is UnitTest {
         assertEq(signallingEscrowDetails.totalUnstETHFinalizedETH.toUint256(), 0);
     }
 
-    function test_markUnstETHFinalized_RevertOn_EmptyUnstETHIds() external {
+    function test_markUnstETHFinalized_RevertOn_UnexpectedEscrowState() external {
         _transitToRageQuit();
 
+        uint256[] memory unstethIds = new uint256[](1);
+        uint256[] memory hints = new uint256[](1);
+
+        unstethIds[0] = 1;
+        hints[0] = 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
+        _escrow.markUnstETHFinalized(unstethIds, hints);
+    }
+
+    function test_markUnstETHFinalized_RevertOn_EmptyUnstETHIds() external {
         uint256[] memory unstethIds = new uint256[](0);
         uint256[] memory hints = new uint256[](0);
 
