@@ -178,6 +178,7 @@ abstract contract SetupDeployment is Test {
         dgDeployConfig.FIRST_SEAL_RAGE_QUIT_SUPPORT = PercentsD16.fromBasisPoints(3_00); // 3%
         dgDeployConfig.SECOND_SEAL_RAGE_QUIT_SUPPORT = PercentsD16.fromBasisPoints(15_00); // 15%
         dgDeployConfig.MIN_ASSETS_LOCK_DURATION = Durations.from(5 hours);
+        dgDeployConfig.MAX_MIN_ASSETS_LOCK_DURATION = Durations.from(365 days);
         dgDeployConfig.VETO_SIGNALLING_MIN_DURATION = Durations.from(3 days);
         dgDeployConfig.VETO_SIGNALLING_MAX_DURATION = Durations.from(30 days);
         dgDeployConfig.VETO_SIGNALLING_MIN_ACTIVE_DURATION = Durations.from(5 hours);

@@ -140,7 +140,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         }
         _checkCallerIsDualGovernance();
 
-        _escrowState.initialize(minAssetsLockDuration);
+        _escrowState.initialize(minAssetsLockDuration, MAX_MIN_ASSETS_LOCK_DURATION);
 
         ST_ETH.approve(address(WST_ETH), type(uint256).max);
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
@@ -310,6 +310,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
         _checkCallerIsDualGovernance();
+        _escrowState.checkSignallingEscrow();
         _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration, MAX_MIN_ASSETS_LOCK_DURATION);
     }
 

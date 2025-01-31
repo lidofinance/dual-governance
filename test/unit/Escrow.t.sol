@@ -135,20 +135,23 @@ contract EscrowUnitTests is UnitTest {
     // initialize()
     // ---
 
-    function test_initialize_HappyPath() external {
+    function testFuzz_initialize_HappyPath(Duration minAssetLockDuration) external {
+        vm.assume(minAssetLockDuration > Durations.ZERO);
+        vm.assume(minAssetLockDuration <= _maxMinAssetsLockDuration);
+
         vm.expectEmit();
         emit EscrowStateLib.EscrowStateChanged(EscrowState.NotInitialized, EscrowState.SignallingEscrow);
         vm.expectEmit();
-        emit EscrowStateLib.MinAssetsLockDurationSet(Durations.ZERO);
+        emit EscrowStateLib.MinAssetsLockDurationSet(minAssetLockDuration);
 
         vm.expectCall(address(_stETH), abi.encodeCall(IERC20.approve, (address(_wstETH), type(uint256).max)));
         vm.expectCall(address(_stETH), abi.encodeCall(IERC20.approve, (address(_withdrawalQueue), type(uint256).max)));
 
         Escrow escrowInstance =
-            _createInitializedEscrowProxy({minWithdrawalsBatchSize: 100, minAssetsLockDuration: Durations.ZERO});
+            _createInitializedEscrowProxy({minWithdrawalsBatchSize: 100, minAssetsLockDuration: minAssetLockDuration});
 
         assertEq(escrowInstance.MIN_WITHDRAWALS_BATCH_SIZE(), 100);
-        assertEq(escrowInstance.getMinAssetsLockDuration(), Durations.ZERO);
+        assertEq(escrowInstance.getMinAssetsLockDuration(), minAssetLockDuration);
         assertTrue(escrowInstance.getEscrowState() == EscrowState.SignallingEscrow);
 
         IEscrow.SignallingEscrowDetails memory signallingEscrowDetails = escrowInstance.getSignallingEscrowDetails();
@@ -1187,6 +1190,18 @@ contract EscrowUnitTests is UnitTest {
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(Escrow.CallerIsNotDualGovernance.selector, stranger));
+        _escrow.setMinAssetsLockDuration(newMinAssetsLockDuration);
+    }
+
+    function test_setMinAssetsLockDuration_RevertOn_RageQuitState() external {
+        Duration newMinAssetsLockDuration = Durations.from(1);
+
+        _transitToRageQuit();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowStateLib.UnexpectedEscrowState.selector, EscrowState.RageQuitEscrow)
+        );
+        vm.prank(_dualGovernance);
         _escrow.setMinAssetsLockDuration(newMinAssetsLockDuration);
     }
 

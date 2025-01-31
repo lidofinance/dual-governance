@@ -17,14 +17,20 @@ contract EscrowStateUnitTests is UnitTest {
     // initialize()
     // ---
 
-    function testFuzz_initialize_happyPath(Duration minAssetsLockDuration) external {
+    function testFuzz_initialize_happyPath(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(minAssetsLockDuration > Durations.ZERO);
+        vm.assume(minAssetsLockDuration <= maxMinAssetsLockDuration);
+
         _context.state = State.NotInitialized;
 
         vm.expectEmit();
         emit EscrowState.EscrowStateChanged(State.NotInitialized, State.SignallingEscrow);
         emit EscrowState.MinAssetsLockDurationSet(minAssetsLockDuration);
 
-        EscrowState.initialize(_context, minAssetsLockDuration);
+        EscrowState.initialize(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
 
         checkContext({
             state: State.SignallingEscrow,
@@ -35,12 +41,35 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function testFuzz_initialize_RevertOn_InvalidState(Duration minAssetsLockDuration) external {
+    function testFuzz_initialize_RevertOn_InvalidState(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(minAssetsLockDuration <= maxMinAssetsLockDuration);
         _context.state = State.SignallingEscrow;
 
         vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.SignallingEscrow));
 
-        EscrowState.initialize(_context, minAssetsLockDuration);
+        EscrowState.initialize(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
+    }
+
+    function testFuzz_initalize_RevertOn_InvalidMinAssetLockDuration_ZeroDuration(Duration maxMinAssetsLockDuration)
+        external
+    {
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, 0));
+        EscrowState.initialize(_context, Durations.ZERO, maxMinAssetsLockDuration);
+    }
+
+    function testFuzz_initalize_RevertOn_InvalidMinAssetLockDuration_ExceedMaxDuration(
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(
+            maxMinAssetsLockDuration > Durations.ZERO
+                && maxMinAssetsLockDuration < Durations.from(MAX_DURATION_VALUE - 1)
+        );
+        Duration duration = maxMinAssetsLockDuration + Durations.from(1);
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, duration));
+        EscrowState.initialize(_context, duration, maxMinAssetsLockDuration);
     }
 
     // ---

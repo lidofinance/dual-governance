@@ -849,6 +849,8 @@ The `Escrow` instance is intended to be used behind [minimal proxy contracts](ht
 - MUST be called using the proxy contract.
 - MUST be called by the `DualGovernance` contract.
 - MUST NOT have been initialized previously.
+- `minAssetsLockDuration` MUST NOT exceed `Escrow.MAX_MIN_ASSETS_LOCK_DURATION`.
+- `minAssetsLockDuration` MUST NOT be equal to previous value (by default `0`).
 
 ---
 
