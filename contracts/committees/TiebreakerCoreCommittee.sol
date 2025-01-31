@@ -28,6 +28,8 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     error ProposalDoesNotExist(uint256 proposalId);
     error InvalidSealable(address sealable);
 
+    event ExecutionExpired(bytes32 key);
+
     address public immutable DUAL_GOVERNANCE;
 
     mapping(address sealable => uint256 nonce) private _sealableResumeNonces;
@@ -154,6 +156,12 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
         (, bytes32 key) = _encodeSealableResume(sealable, _sealableResumeNonces[sealable]);
         _markUsed(key);
         _sealableResumeNonces[sealable]++;
+
+        if (_isExpired(key)) {
+            emit ExecutionExpired(key);
+            return;
+        }
+
         Address.functionCall(
             DUAL_GOVERNANCE, abi.encodeWithSelector(ITiebreaker.tiebreakerResumeSealable.selector, sealable)
         );

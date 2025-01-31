@@ -5,7 +5,7 @@ pragma solidity 0.8.26;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {Duration} from "../types/Duration.sol";
+import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
 /// @title HashConsensus Contract
@@ -48,6 +48,8 @@ abstract contract HashConsensus is Ownable {
 
     uint256 private _quorum;
     Duration private _timelockDuration;
+
+    Duration private immutable EXPIRATION_TIME = Durations.from(3 days);
 
     mapping(bytes32 hash => HashState state) private _hashStates;
     EnumerableSet.AddressSet private _members;
@@ -305,5 +307,9 @@ abstract contract HashConsensus is Ownable {
         if (!_members.contains(msg.sender)) {
             revert CallerIsNotMember(msg.sender);
         }
+    }
+
+    function _isExpired(bytes32 hash) internal view returns (bool) {
+        return EXPIRATION_TIME.addTo(_timelockDuration.addTo(_hashStates[hash].scheduledAt)) > Timestamps.now();
     }
 }
