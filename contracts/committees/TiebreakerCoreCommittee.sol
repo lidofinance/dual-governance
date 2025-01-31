@@ -15,6 +15,8 @@ import {ITiebreakerCoreCommittee} from "../interfaces/ITiebreakerCoreCommittee.s
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
 
+import {SealableCalls} from "../libraries/SealableCalls.sol";
+
 enum ProposalType {
     ScheduleProposal,
     ResumeSealable
@@ -27,8 +29,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     error ResumeSealableNonceMismatch();
     error ProposalDoesNotExist(uint256 proposalId);
     error InvalidSealable(address sealable);
-
-    event ExecutionExpired(bytes32 key);
+    error ExecutionExpired(bytes32 key);
 
     address public immutable DUAL_GOVERNANCE;
 
@@ -107,9 +108,13 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     /// @notice Gets the current resume nonce for a sealable address
     /// @dev Retrieves the resume nonce for the given sealable address
     /// @param sealable The address of the sealable to get the nonce for
-    /// @return The current resume nonce for the sealable address
-    function getSealableResumeNonce(address sealable) external view returns (uint256) {
-        return _sealableResumeNonces[sealable];
+    /// @return currentNonce The current resume nonce for the sealable address
+    function getSealableResumeNonce(address sealable) public view returns (uint256 currentNonce) {
+        currentNonce = _sealableResumeNonces[sealable];
+        (, bytes32 key) = _encodeSealableResume(sealable, currentNonce);
+        if (_isExpired(key)) {
+            currentNonce++;
+        }
     }
 
     /// @notice Votes on a proposal to resume a sealable address
@@ -120,12 +125,22 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     function sealableResume(address sealable, uint256 nonce) external {
         _checkCallerIsMember();
 
-        if (sealable == address(0)) {
+        (bool isCallSucceed, uint256 resumeSinceTimestamp) = SealableCalls.callGetResumeSinceTimestamp(sealable);
+
+        /// @dev Prevents addition of paused or misbehaving sealables.
+        ///     According to the current PausableUntil implementation, a contract is paused if `block.timestamp < resumeSinceTimestamp`.
+        ///     Reference: https://github.com/lidofinance/core/blob/60bc9b77b036eec22b2ab8a3a1d49c6b6614c600/contracts/0.8.9/utils/PausableUntil.sol#L52
+        if (!isCallSucceed || block.timestamp >= resumeSinceTimestamp) {
             revert InvalidSealable(sealable);
         }
 
-        if (nonce != _sealableResumeNonces[sealable]) {
+        uint256 currentNonce = getSealableResumeNonce(sealable);
+
+        if (nonce != currentNonce) {
             revert ResumeSealableNonceMismatch();
+        }
+        if (currentNonce != _sealableResumeNonces[sealable]) {
+            _sealableResumeNonces[sealable] = currentNonce;
         }
 
         (bytes memory proposalData, bytes32 key) = _encodeSealableResume(sealable, nonce);
@@ -153,15 +168,15 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     /// @dev Executes the resume sealable proposal by calling the tiebreakerResumeSealable function on the Dual Governance contract
     /// @param sealable The address to resume
     function executeSealableResume(address sealable) external {
-        (, bytes32 key) = _encodeSealableResume(sealable, _sealableResumeNonces[sealable]);
-        _markUsed(key);
-        _sealableResumeNonces[sealable]++;
+        uint256 currentNonce = getSealableResumeNonce(sealable);
+        (, bytes32 key) = _encodeSealableResume(sealable, currentNonce);
 
         if (_isExpired(key)) {
-            emit ExecutionExpired(key);
-            return;
+            revert ExecutionExpired(key);
         }
 
+        _markUsed(key);
+        _sealableResumeNonces[sealable]++;
         Address.functionCall(
             DUAL_GOVERNANCE, abi.encodeWithSelector(ITiebreaker.tiebreakerResumeSealable.selector, sealable)
         );
