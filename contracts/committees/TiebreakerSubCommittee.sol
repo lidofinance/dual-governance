@@ -21,8 +21,6 @@ enum ProposalType {
 /// @notice This contract allows a subcommittee to vote on and execute proposals for scheduling and resuming sealable addresses
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
-    error InvalidSealable(address sealable);
-
     address public immutable TIEBREAKER_CORE_COMMITTEE;
 
     constructor(
@@ -99,10 +97,8 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
     /// @param sealable The address to resume
     function sealableResume(address sealable) external {
         _checkCallerIsMember();
+        ITiebreakerCoreCommittee(TIEBREAKER_CORE_COMMITTEE).checkSealableIsPaused(sealable);
 
-        if (sealable == address(0)) {
-            revert InvalidSealable(sealable);
-        }
         (bytes memory proposalData, bytes32 key,) = _encodeSealableResume(sealable);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ResumeSealable), proposalData);

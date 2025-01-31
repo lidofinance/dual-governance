@@ -11,6 +11,7 @@ import {ITimelock} from "../interfaces/ITimelock.sol";
 import {ITiebreaker} from "../interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 import {ITiebreakerCoreCommittee} from "../interfaces/ITiebreakerCoreCommittee.sol";
+import {ISealable} from "../interfaces/ISealable.sol";
 
 import {HashConsensus} from "./HashConsensus.sol";
 import {ProposalsList} from "./ProposalsList.sol";
@@ -26,7 +27,7 @@ enum ProposalType {
 contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, ProposalsList {
     error ResumeSealableNonceMismatch();
     error ProposalDoesNotExist(uint256 proposalId);
-    error InvalidSealable(address sealable);
+    error SealableIsNotPaused(address sealable);
 
     address public immutable DUAL_GOVERNANCE;
 
@@ -117,10 +118,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     /// @param nonce The nonce for the resume proposal
     function sealableResume(address sealable, uint256 nonce) external {
         _checkCallerIsMember();
-
-        if (sealable == address(0)) {
-            revert InvalidSealable(sealable);
-        }
+        checkSealableIsPaused(sealable);
 
         if (nonce != _sealableResumeNonces[sealable]) {
             revert ResumeSealableNonceMismatch();
@@ -145,6 +143,15 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     ) external view returns (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) {
         (, bytes32 key) = _encodeSealableResume(sealable, nonce);
         return _getHashState(key);
+    }
+
+    /// @notice Checks if a sealable address is paused
+    /// @dev Checks if the sealable address is paused by calling the getResumeSinceTimestamp function on the ISealable contract
+    /// @param sealable The address to check
+    function checkSealableIsPaused(address sealable) public view {
+        if (ISealable(sealable).getResumeSinceTimestamp() <= block.timestamp) {
+            revert SealableIsNotPaused(sealable);
+        }
     }
 
     /// @notice Executes an approved resume sealable proposal
