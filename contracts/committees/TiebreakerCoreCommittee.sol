@@ -31,6 +31,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     error InvalidSealable(address sealable);
     error ExecutionExpired(bytes32 key);
 
+    uint256 public constant PAUSE_INFINITELY = type(uint256).max;
     address public immutable DUAL_GOVERNANCE;
 
     mapping(address sealable => uint256 nonce) private _sealableResumeNonces;
@@ -130,7 +131,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
         /// @dev Prevents addition of paused or misbehaving sealables.
         ///     According to the current PausableUntil implementation, a contract is paused if `block.timestamp < resumeSinceTimestamp`.
         ///     Reference: https://github.com/lidofinance/core/blob/60bc9b77b036eec22b2ab8a3a1d49c6b6614c600/contracts/0.8.9/utils/PausableUntil.sol#L52
-        if (!isCallSucceed || block.timestamp >= resumeSinceTimestamp) {
+        if (!isCallSucceed || block.timestamp >= resumeSinceTimestamp || resumeSinceTimestamp == PAUSE_INFINITELY) {
             revert InvalidSealable(sealable);
         }
 

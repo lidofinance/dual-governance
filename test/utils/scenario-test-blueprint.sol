@@ -23,6 +23,7 @@ import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
+import {ISealable} from "contracts/libraries/SealableCalls.sol";
 
 // ---
 // Libraries
@@ -599,6 +600,14 @@ contract ScenarioTestBlueprint is TestingAssertEqExtender, SetupDeployment {
                 Strings.toString(duration._seconds),
                 "s"
             )
+        );
+    }
+
+    function _mockSealableResumeSinceTimestampResult(address sealableAddress, uint256 resumeSinceTimestamp) internal {
+        vm.mockCall(
+            sealableAddress,
+            abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
+            abi.encode(resumeSinceTimestamp)
         );
     }
 }

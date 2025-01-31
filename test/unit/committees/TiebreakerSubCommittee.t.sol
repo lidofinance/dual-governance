@@ -7,6 +7,7 @@ import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommit
 import {TiebreakerSubCommittee, ProposalType} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
+import {ISealable} from "contracts/libraries/SealableCalls.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
@@ -121,6 +122,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
             abi.encode(0)
         );
 
+        _mockSealableResumeSinceTimestampResult(sealable, block.timestamp + 1);
         vm.prank(committeeMembers[0]);
         tiebreakerSubCommittee.sealableResume(sealable);
 
@@ -158,7 +160,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
             abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
-
+        _mockSealableResumeSinceTimestampResult(sealable, block.timestamp + 1);
         vm.prank(committeeMembers[0]);
         tiebreakerSubCommittee.sealableResume(sealable);
         vm.prank(committeeMembers[1]);
@@ -180,6 +182,8 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
             abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
+
+        _mockSealableResumeSinceTimestampResult(sealable, block.timestamp + 1);
 
         vm.prank(committeeMembers[0]);
         tiebreakerSubCommittee.sealableResume(sealable);
@@ -236,6 +240,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
             abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
+        _mockSealableResumeSinceTimestampResult(sealable, block.timestamp + 1);
 
         (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) =
             tiebreakerSubCommittee.getSealableResumeState(sealable);
@@ -270,5 +275,13 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         assertEq(executionQuorum, quorum);
         assertEq(quorumAt, Timestamp.wrap(uint40(block.timestamp)));
         assertTrue(isExecuted);
+    }
+
+    function _mockSealableResumeSinceTimestampResult(address sealableAddress, uint256 resumeSinceTimestamp) internal {
+        vm.mockCall(
+            sealableAddress,
+            abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
+            abi.encode(resumeSinceTimestamp)
+        );
     }
 }

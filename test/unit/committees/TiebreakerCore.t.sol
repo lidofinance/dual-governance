@@ -8,6 +8,7 @@ import {Timestamp} from "contracts/types/Timestamp.sol";
 
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
+import {ISealable} from "contracts/libraries/SealableCalls.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
@@ -125,6 +126,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
     function test_sealableResume_HappyPath() external {
         uint256 nonce = tiebreakerCore.getSealableResumeNonce(sealable);
 
+        _mockSealableResumeSinceTimestampResult(sealable, block.timestamp + 1);
         vm.prank(committeeMembers[0]);
         tiebreakerCore.sealableResume(sealable, nonce);
 
@@ -159,6 +161,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
     function test_executeSealableResume_HappyPath() external {
         uint256 nonce = tiebreakerCore.getSealableResumeNonce(sealable);
 
+        _mockSealableResumeSinceTimestampResult(sealable, block.timestamp + 1000);
         vm.prank(committeeMembers[0]);
         tiebreakerCore.sealableResume(sealable, nonce);
         vm.prank(committeeMembers[1]);
@@ -214,5 +217,13 @@ contract TiebreakerCoreUnitTest is UnitTest {
         assertEq(executionQuorum, quorum);
         assertEq(quorumAt, quorumAtExpected);
         assertTrue(isExecuted);
+    }
+
+    function _mockSealableResumeSinceTimestampResult(address sealableAddress, uint256 resumeSinceTimestamp) internal {
+        vm.mockCall(
+            sealableAddress,
+            abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
+            abi.encode(resumeSinceTimestamp)
+        );
     }
 }
