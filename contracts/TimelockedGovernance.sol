@@ -70,6 +70,7 @@ contract TimelockedGovernance is IGovernance {
     }
 
     /// @notice Cancels all pending proposals that have not been executed.
+    /// @return A boolean indicating whether the operation was successful.
     function cancelAllPendingProposals() external returns (bool) {
         _checkCallerIsGovernance();
         TIMELOCK.cancelAllNonExecutedProposals();
