@@ -18,6 +18,10 @@ contract StETHMock is StETHBase {
         return "MStETH";
     }
 
+    function getCurrentStakeLimit() external pure returns (uint256) {
+        return type(uint256).max;
+    }
+
     function rebaseTotalPooledEther(PercentD16 rebaseFactor) public {
         _totalPooledEther = rebaseFactor.toUint256() * _totalPooledEther / HUNDRED_PERCENT_D16;
     }
@@ -27,12 +31,7 @@ contract StETHMock is StETHBase {
     }
 
     function mint(address account, uint256 ethAmount) external {
-        uint256 sharesAmount = getSharesByPooledEth(ethAmount);
-
-        _mintShares(account, sharesAmount);
-        _totalPooledEther += ethAmount;
-
-        _emitTransferAfterMintingShares(account, sharesAmount);
+        _mint(account, ethAmount);
     }
 
     function burn(address account, uint256 ethAmount) external {
@@ -40,5 +39,22 @@ contract StETHMock is StETHBase {
         _burnShares(account, sharesToBurn);
         _totalPooledEther -= ethAmount;
         _emitTransferEvents(account, address(0), ethAmount, sharesToBurn);
+    }
+
+    function submit(address /* _referral */ ) external payable returns (uint256) {
+        return _mint(msg.sender, msg.value);
+    }
+
+    receive() external payable {
+        _mint(msg.sender, msg.value);
+    }
+
+    function _mint(address account, uint256 ethAmount) internal returns (uint256 sharesAmount) {
+        sharesAmount = getSharesByPooledEth(ethAmount);
+
+        _mintShares(account, sharesAmount);
+        _totalPooledEther += ethAmount;
+
+        _emitTransferAfterMintingShares(account, sharesAmount);
     }
 }

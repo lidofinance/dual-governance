@@ -183,4 +183,12 @@ library ExternalCallHelpers {
             res[i].payload = payloads[i];
         }
     }
+
+    function create(address target, bytes[6] memory payloads) internal pure returns (ExternalCall[] memory res) {
+        res = new ExternalCall[](6);
+        for (uint256 i = 0; i < 6; ++i) {
+            res[i].target = target;
+            res[i].payload = payloads[i];
+        }
+    }
 }

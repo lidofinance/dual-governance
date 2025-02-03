@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {console} from "forge-std/Test.sol";
 
+import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
@@ -15,9 +16,15 @@ import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsA
 
 import {Escrow} from "contracts/Escrow.sol";
 
-import {ScenarioTestBlueprint, LidoUtils, console} from "../utils/scenario-test-blueprint.sol";
+import {
+    LidoUtils,
+    ContractsDeployment,
+    DGScenarioTestSetup,
+    ExternalCallHelpers,
+    ExternalCall
+} from "../utils/integration-tests.sol";
 
-contract EscrowHappyPath is ScenarioTestBlueprint {
+contract EscrowHappyPath is DGScenarioTestSetup {
     using LidoUtils for LidoUtils.Context;
 
     Escrow internal escrow;
@@ -29,9 +36,9 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
     address internal immutable _VETOER_2 = makeAddr("VETOER_2");
 
     function setUp() external {
-        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
+        _deployDGSetup({isEmergencyProtectionEnabled: false});
 
-        escrow = _getVetoSignallingEscrow();
+        escrow = Escrow(payable(address(_getVetoSignallingEscrow())));
 
         _setupStETHBalance(_VETOER_1, PercentsD16.fromBasisPoints(10_00));
 
@@ -72,7 +79,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         _lockStETH(_VETOER_2, secondVetoerLockStETHAmount);
         _lockWstETH(_VETOER_2, secondVetoerLockWstETHAmount);
 
-        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
+        _wait(_getMinAssetsLockDuration().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
         assertApproxEqAbs(
@@ -108,7 +115,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _simulateRebase(PercentsD16.fromBasisPoints(101_00)); // +1%
 
-        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
+        _wait(_getMinAssetsLockDuration().plusSeconds(1));
 
         _unlockWstETH(_VETOER_1);
         assertApproxEqAbs(
@@ -150,7 +157,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _simulateRebase(PercentsD16.fromBasisPoints(99_00)); // -1%
 
-        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
+        _wait(_getMinAssetsLockDuration().plusSeconds(1));
 
         _unlockStETH(_VETOER_1);
         assertApproxEqAbs(
@@ -183,7 +190,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        _wait(_dualGovernanceConfigProvider.MIN_ASSETS_LOCK_DURATION().plusSeconds(1));
+        _wait(_getMinAssetsLockDuration().plusSeconds(1));
 
         _unlockUnstETH(_VETOER_1, unstETHIds);
     }
@@ -305,7 +312,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         vm.expectRevert();
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_dgDeployedContracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         uint256 escrowStETHBalance = _lido.stETH.balanceOf(address(escrow));
@@ -389,7 +396,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_dgDeployedContracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         _finalizeWithdrawalQueue();
@@ -433,7 +440,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
 
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_dgDeployedContracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         vm.expectRevert(Escrow.BatchesQueueIsNotClosed.selector);
@@ -481,7 +488,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         _lockWstETH(_VETOER_1, 1 ether);
         _lockUnstETH(_VETOER_1, lockedWithdrawalNfts);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_dgDeployedContracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         // ---
@@ -515,18 +522,16 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         _assertVetoSignalingState();
 
         // wait till the last second of the dynamic timelock duration
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION());
+        _wait(_getVetoSignallingMaxDuration());
         _activateNextState();
         _assertVetoSignalingState();
 
-        ( /* bool isActive */ , uint256 duration, uint256 activatedAt, /* uint256 enteredAt */ ) =
-            _getVetoSignallingState();
-        assertEq(duration + activatedAt, block.timestamp);
+        assertEq(_getVetoSignallingDuration().addTo(_getVetoSignallingActivatedAt()), Timestamps.now());
 
         // validate that while the VetoSignalling has not passed, vetoer can unlock funds from Escrow
         uint256 snapshotId = vm.snapshot();
         _unlockStETH(_VETOER_1);
-        _assertVetoSignalingDeactivationState();
+        _assertVetoSignallingDeactivationState();
 
         // Rollback the state of the node before vetoer unlocked his funds
         vm.revertTo(snapshotId);
@@ -567,7 +572,7 @@ contract EscrowHappyPath is ScenarioTestBlueprint {
         // Lock stETH to generate batch
         _lockStETH(_VETOER_1, 20 * requestAmount);
 
-        vm.prank(address(_dualGovernance));
+        vm.prank(address(_dgDeployedContracts.dualGovernance));
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
 
         uint256 batchSizeLimit = 16;

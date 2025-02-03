@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -24,9 +25,9 @@ library DualGovernanceConfig {
     // ---
 
     /// @notice Configuration values for Dual Governance.
-    /// @param firstSealRageQuitSupport The percentage of the total stETH supply that must be exceeded in the Signalling
+    /// @param firstSealRageQuitSupport The percentage of the total stETH supply that must be reached in the Signalling
     ///     Escrow to transition Dual Governance from the Normal state to the VetoSignalling state.
-    /// @param secondSealRageQuitSupport The percentage of the total stETH supply that must be exceeded in the
+    /// @param secondSealRageQuitSupport The percentage of the total stETH supply that must be reached in the
     ///     Signalling Escrow to transition Dual Governance into the RageQuit state.
     ///
     /// @param minAssetsLockDuration The minimum duration that assets must remain locked in the Signalling Escrow contract

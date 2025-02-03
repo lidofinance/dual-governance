@@ -1,75 +1,71 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {
+    Escrow,
+    DGScenarioTestSetup,
+    ExternalCallHelpers,
+    ExternalCall,
+    IPotentiallyDangerousContract,
+    IRageQuitEscrow
+} from "../utils/integration-tests.sol";
+
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
-
-import {LidoUtils} from "../utils/lido-utils.sol";
-import {Escrow, ExternalCall, ExternalCallHelpers, ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
-
-contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
-    using LidoUtils for LidoUtils.Context;
-
+contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
     function setUp() external {
-        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
+        _deployDGSetup({isEmergencyProtectionEnabled: false});
     }
 
     function testFork_ProposalSubmittedInRageQuitNonExecutableInTheNextVetoCooldown() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId;
-        _step("1. THE PROPOSAL IS SUBMITTED");
+        _step("1. The proposal is submitted");
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "Propose to doSmth on target passing dual governance", regularStaffCalls
-            );
+            proposalId =
+                _submitProposalByAdminProposer(regularStaffCalls, "Propose to doSmth on target passing dual governance");
 
             _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
-            _assertCanSchedule(_dualGovernance, proposalId, false);
+            _assertCanSchedule(proposalId, false);
         }
 
         address vetoer = makeAddr("MALICIOUS_ACTOR");
-        _setupStETHBalance(
-            vetoer, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
-        );
-        _step("2. THE SECOND SEAL RAGE QUIT SUPPORT IS ACQUIRED");
+        _setupStETHBalance(vetoer, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
+        _step("2. The second seal rage quit support is acquired");
         {
-            _lockStETH(
-                vetoer, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1)
-            );
+            _lockStETH(vetoer, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1));
             _assertVetoSignalingState();
 
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
+            _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
             _activateNextState();
             _assertRageQuitState();
         }
 
         uint256 anotherProposalId;
-        _step("3. ANOTHER PROPOSAL IS SUBMITTED DURING THE RAGE QUIT STATE");
+        _step("3. Another proposal is submitted during the rage quit state");
         {
             _activateNextState();
             _assertRageQuitState();
-            anotherProposalId = _submitProposal(
-                _dualGovernance,
-                "Another Proposal",
+            anotherProposalId = _submitProposalByAdminProposer(
                 ExternalCallHelpers.create(
                     address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-                )
+                ),
+                "Another Proposal"
             );
         }
 
-        _step("4. RAGE QUIT IS FINALIZED");
+        _step("4. Rage quit is finalized");
         {
             // request withdrawals batches
-            Escrow rageQuitEscrow = _getRageQuitEscrow();
+            IRageQuitEscrow rageQuitEscrow = _getRageQuitEscrow();
 
             while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
                 rageQuitEscrow.requestNextWithdrawalsBatch(96);
             }
 
-            _lido.finalizeWithdrawalQueue();
+            _finalizeWithdrawalQueue();
 
             while (rageQuitEscrow.getUnclaimedUnstETHIdsCount() > 0) {
                 rageQuitEscrow.claimNextWithdrawalsBatch(128);
@@ -77,20 +73,20 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
 
             rageQuitEscrow.startRageQuitExtensionPeriod();
 
-            _wait(_dualGovernanceConfigProvider.RAGE_QUIT_EXTENSION_PERIOD_DURATION().plusSeconds(1));
+            _wait(_getRageQuitExtensionPeriodDuration().plusSeconds(1));
             assertTrue(rageQuitEscrow.isRageQuitFinalized());
         }
 
-        _step("5. PROPOSAL SUBMITTED BEFORE RAGE QUIT IS EXECUTABLE");
+        _step("5. Proposal submitted before rage quit is executable");
         {
             _activateNextState();
             _assertVetoCooldownState();
 
-            this.scheduleProposalExternal(proposalId);
+            this.external__scheduleProposal(proposalId);
             _assertProposalScheduled(proposalId);
         }
 
-        _step("6. PROPOSAL SUBMITTED DURING RAGE QUIT IS NOT EXECUTABLE");
+        _step("6. Proposal submitted during rage quit is not executable");
         {
             _activateNextState();
             _assertVetoCooldownState();
@@ -98,11 +94,7 @@ contract VetoCooldownMechanicsTest is ScenarioTestBlueprint {
             vm.expectRevert(
                 abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, anotherProposalId)
             );
-            this.scheduleProposalExternal(anotherProposalId);
+            this.external__scheduleProposal(anotherProposalId);
         }
-    }
-
-    function scheduleProposalExternal(uint256 proposalId) external {
-        _scheduleProposal(_dualGovernance, proposalId);
     }
 }

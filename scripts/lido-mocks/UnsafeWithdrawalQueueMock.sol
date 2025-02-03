@@ -466,7 +466,7 @@ contract UnsafeWithdrawalQueueMock is IWithdrawalQueue, IERC721Metadata {
         _lockedEtherAmount = _lockedEtherAmount + _amountOfETH;
         _lastFinalizedRequestId = _lastRequestIdToBeFinalized;
 
-        StETHMock(address(ST_ETH)).burn(address(this), stETHToFinalize);
+        StETHMock(payable(address(ST_ETH))).burn(address(this), stETHToFinalize);
     }
 
     function _markClaimed(uint256 _requestId) internal {

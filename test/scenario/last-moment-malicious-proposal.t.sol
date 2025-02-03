@@ -1,101 +1,87 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {
-    ScenarioTestBlueprint, ExternalCall, ExternalCallHelpers, Durations
-} from "../utils/scenario-test-blueprint.sol";
+import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall, Proposers} from "../utils/integration-tests.sol";
 
-contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
+contract LastMomentMaliciousProposalSuccessor is DGScenarioTestSetup {
     function setUp() external {
-        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
+        _deployDGSetup({isEmergencyProtectionEnabled: false});
     }
 
     function testFork_LastMomentMaliciousProposal() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId;
-        _step("1. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
+        _step("1. DAO submits proposal with regular staff");
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            proposalId = _submitProposalByAdminProposer(
+                regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
             );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
-            _logVetoSignallingState();
         }
 
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         _setupStETHBalance(maliciousActor, PercentsD16.fromBasisPoints(15_00));
-        _step("2. MALICIOUS ACTOR STARTS ACQUIRE VETO SIGNALLING DURATION");
+        _step("2. Malicious actor starts acquire veto signalling duration");
         {
             _lockStETH(maliciousActor, PercentsD16.fromBasisPoints(12_00));
             _assertVetoSignalingState();
-            _logVetoSignallingState();
 
             // almost all veto signalling period has passed
             _wait(Durations.from(20 days));
             _activateNextState();
             _assertVetoSignalingState();
-            _logVetoSignallingState();
         }
 
         uint256 maliciousProposalId;
-        _step("3. MALICIOUS ACTOR SUBMITS MALICIOUS PROPOSAL");
+        _step("3. Malicious actor submits malicious proposal");
         {
             _assertVetoSignalingState();
-            maliciousProposalId = _submitProposal(
-                _dualGovernance,
-                "Malicious Proposal",
+            maliciousProposalId = _submitProposalByAdminProposer(
                 ExternalCallHelpers.create(
                     address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-                )
+                ),
+                "Malicious Proposal"
             );
 
             // the both calls aren't executable until the delay has passed
             _assertProposalSubmitted(proposalId);
             _assertProposalSubmitted(maliciousProposalId);
-            _logVetoSignallingState();
         }
 
-        _step("4. MALICIOUS ACTOR UNLOCK FUNDS FROM ESCROW");
+        _step("4. Malicious actor unlock funds from escrow");
         {
             _wait(Durations.from(12 seconds));
             _unlockStETH(maliciousActor);
-            _assertVetoSignalingDeactivationState();
-            _logVetoSignallingDeactivationState();
+            _assertVetoSignallingDeactivationState();
         }
 
         address stEthHolders = makeAddr("STETH_WHALE");
-        _setupStETHBalance(
-            stEthHolders,
-            _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
-        );
-        _step("5. STETH HOLDERS ACQUIRING QUORUM TO VETO MALICIOUS PROPOSAL");
+        _setupStETHBalance(stEthHolders, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
+        _step("5. StETH holders acquiring quorum to veto malicious proposal");
         {
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().dividedBy(2));
-            _lockStETH(
-                stEthHolders,
-                _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1)
-            );
-            _assertVetoSignalingDeactivationState();
-            _logVetoSignallingDeactivationState();
+            _wait(_getVetoSignallingDeactivationMaxDuration().dividedBy(2));
+            _lockStETH(stEthHolders, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1));
+            _assertVetoSignallingDeactivationState();
 
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().dividedBy(2).plusSeconds(1));
+            _wait(_getVetoSignallingDeactivationMaxDuration().dividedBy(2).plusSeconds(1));
             _activateNextState();
             _assertVetoCooldownState();
         }
 
-        _step("6. MALICIOUS PROPOSAL CAN'T BE EXECUTED IN THE VETO COOLDOWN STATE");
+        _step("6. Malicious proposal can't be executed in the veto cooldown state");
         {
             // the regular proposal can be executed
-            _scheduleProposalViaDualGovernance(proposalId);
-            _waitAfterScheduleDelayPassed();
+            _scheduleProposal(proposalId);
+            _wait(_getAfterScheduleDelay());
 
             _executeProposal(proposalId);
             _assertProposalExecuted(proposalId);
@@ -103,33 +89,30 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
             vm.expectRevert(
                 abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, maliciousProposalId)
             );
-            this.scheduleProposalExternal(maliciousProposalId);
+            this.external__scheduleProposal(maliciousProposalId);
 
             _assertProposalSubmitted(maliciousProposalId);
         }
 
-        _step("7. NEW VETO SIGNALLING ROUND FOR MALICIOUS PROPOSAL IS STARTED");
+        _step("7. New veto signalling round for malicious proposal is started");
         {
-            _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+            _wait(_getVetoCooldownDuration().plusSeconds(1));
             _activateNextState();
             _assertVetoSignalingState();
-            _logVetoSignallingState();
 
             // the second seal rage quit support is reached
-            _setupStETHBalance(stEthHolders, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
-            _lockStETH(stEthHolders, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+            _setupStETHBalance(stEthHolders, _getSecondSealRageQuitSupport());
+            _lockStETH(stEthHolders, _getSecondSealRageQuitSupport());
             _assertVetoSignalingState();
-            _logVetoSignallingState();
 
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
-            _logVetoSignallingState();
+            _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
             _activateNextState();
             _assertRageQuitState();
 
             vm.expectRevert(
                 abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, maliciousProposalId)
             );
-            this.scheduleProposalExternal(maliciousProposalId);
+            this.external__scheduleProposal(maliciousProposalId);
         }
     }
 
@@ -141,12 +124,11 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         // ACT 1. DAO SUBMITS CONTROVERSIAL PROPOSAL
         // ---
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            proposalId = _submitProposalByAdminProposer(
+                regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
             );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
-            _logVetoSignallingState();
         }
 
         // ---
@@ -155,10 +137,7 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         {
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
-            _setupStETHBalance(
-                maliciousActor,
-                _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
-            );
+            _setupStETHBalance(maliciousActor, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
             _lockStETH(maliciousActor, PercentsD16.fromBasisPoints(12_00));
             _assertVetoSignalingState();
 
@@ -166,27 +145,26 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
             _assertProposalSubmitted(proposalId);
 
-            (, uint256 currentVetoSignallingDuration,,) = _getVetoSignallingState();
-            _wait(Durations.from(currentVetoSignallingDuration + 1));
+            _wait(_getVetoSignallingDuration().plusSeconds(1));
 
             _activateNextState();
-            _assertVetoSignalingDeactivationState();
+            _assertVetoSignallingDeactivationState();
         }
 
         // ---
         // ACT 3. THE VETO SIGNALLING DEACTIVATION DURATION EQUALS TO "VETO_SIGNALLING_DEACTIVATION_MAX_DURATION" DAYS
         // ---
         {
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+            _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
 
             _activateNextState();
             _assertVetoCooldownState();
 
-            _assertCanScheduleViaDualGovernance(proposalId, true);
-            _scheduleProposalViaDualGovernance(proposalId);
+            _assertCanSchedule(proposalId, true);
+            _scheduleProposal(proposalId);
             _assertProposalScheduled(proposalId);
 
-            _waitAfterScheduleDelayPassed();
+            _wait(_getAfterScheduleDelay());
 
             _assertCanExecute(proposalId, true);
             _executeProposal(proposalId);
@@ -197,60 +175,53 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
     function testFork_VetoSignallingToNormalState() external {
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
-        _setupStETHBalance(
-            maliciousActor,
-            _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
-        );
-        _step("2. MALICIOUS ACTOR LOCKS FIRST SEAL THRESHOLD TO ACTIVATE VETO SIGNALLING BEFORE PROPOSAL SUBMISSION");
+        _setupStETHBalance(maliciousActor, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
+        _step("2. Malicious actor locks first seal threshold to activate veto signalling before proposal submission");
         {
-            _lockStETH(
-                maliciousActor,
-                _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1)
-            );
+            _lockStETH(maliciousActor, _getFirstSealRageQuitSupport());
             _assertVetoSignalingState();
-            _logVetoSignallingState();
         }
 
         uint256 proposalId;
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
-        _step("2. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
+        _step("2. DAO submits proposal with regular staff");
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            _wait(_getVetoSignallingDuration().dividedBy(2));
+
+            proposalId = _submitProposalByAdminProposer(
+                regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
             );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
-            _logVetoSignallingState();
         }
 
-        _step("3. THE VETO SIGNALLING & DEACTIVATION PASSED BUT PROPOSAL STILL NOT EXECUTABLE");
+        _step("3. The veto Signalling & Deactivation passed but proposal still not executable");
         {
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().plusSeconds(1));
+            _wait(_getVetoSignallingDuration().plusSeconds(1));
             _activateNextState();
-            _assertVetoSignalingDeactivationState();
-            _logVetoSignallingDeactivationState();
+            _assertVetoSignallingDeactivationState();
 
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+            _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
             _activateNextState();
             _assertVetoCooldownState();
 
             vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
-            this.scheduleProposalExternal(proposalId);
+            this.external__scheduleProposal(proposalId);
         }
 
-        _step("4. AFTER THE VETO COOLDOWN GOVERNANCE TRANSITIONS INTO NORMAL STATE");
+        _step("4. After the VetoCooldown governance transitions into Normal state");
         {
             _unlockStETH(maliciousActor);
-            _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+            _wait(_getVetoCooldownDuration().plusSeconds(1));
             _activateNextState();
             _assertNormalState();
         }
 
-        _step("5. PROPOSAL EXECUTABLE IN THE NORMAL STATE");
+        _step("5. Proposal executable in the normal state");
         {
-            _scheduleProposalViaDualGovernance(proposalId);
+            _scheduleProposal(proposalId);
             _assertProposalScheduled(proposalId);
-            _waitAfterScheduleDelayPassed();
+            _wait(_getAfterScheduleDelay());
             _executeProposal(proposalId);
             _assertProposalExecuted(proposalId);
         }
@@ -258,78 +229,64 @@ contract LastMomentMaliciousProposalSuccessor is ScenarioTestBlueprint {
 
     function testFork_ProposalSubmissionFrontRunning() external {
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
-        _step("2. MALICIOUS ACTOR LOCKS FIRST SEAL THRESHOLD TO ACTIVATE VETO SIGNALLING BEFORE PROPOSAL SUBMISSION");
+        _step("2. Malicious actor locks first seal threshold to activate VetoSignalling before proposal submission");
         {
-            _setupStETHBalance(
-                maliciousActor,
-                _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
-            );
-            _lockStETH(
-                maliciousActor,
-                _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1)
-            );
+            _setupStETHBalance(maliciousActor, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
+            _lockStETH(maliciousActor, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1));
             _assertVetoSignalingState();
-            _logVetoSignallingState();
         }
 
         uint256 proposalId;
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
-        _step("2. DAO SUBMITS PROPOSAL WITH REGULAR STAFF");
+        _step("2. DAO submits proposal with regular staff");
         {
-            proposalId = _submitProposal(
-                _dualGovernance, "DAO does regular staff on potentially dangerous contract", regularStaffCalls
+            _wait(_getVetoSignallingDuration().dividedBy(2));
+            proposalId = _submitProposalByAdminProposer(
+                regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
             );
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);
-            _logVetoSignallingState();
         }
 
-        _step("3. THE VETO SIGNALLING & DEACTIVATION PASSED BUT PROPOSAL STILL NOT EXECUTABLE");
+        _step("3. The VetoSignalling & Deactivation passed but proposal still not executable");
         {
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().plusSeconds(1));
+            _wait(_getVetoSignallingDuration().plusSeconds(1));
             _activateNextState();
-            _assertVetoSignalingDeactivationState();
-            _logVetoSignallingDeactivationState();
+            _assertVetoSignallingDeactivationState();
 
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+            _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
             _activateNextState();
             _assertVetoCooldownState();
 
             vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
-            this.scheduleProposalExternal(proposalId);
+            this.external__scheduleProposal(proposalId);
         }
 
-        _step("4. AFTER THE VETO COOLDOWN NEW VETO SIGNALLING ROUND STARTED");
+        _step("4. After the VetoCooldown new VetoSignalling round started");
         {
-            _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+            _wait(_getVetoCooldownDuration().plusSeconds(1));
             _activateNextState();
             _assertVetoSignalingState();
-            _logVetoSignallingState();
 
             vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
-            this.scheduleProposalExternal(proposalId);
+            this.external__scheduleProposal(proposalId);
         }
 
-        _step("5. PROPOSAL EXECUTABLE IN THE NEXT VETO COOLDOWN");
+        _step("5. Proposal executable in the next VetoCooldown");
         {
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().multipliedBy(2));
+            _wait(_getVetoSignallingMinDuration().multipliedBy(2));
             _activateNextState();
-            _assertVetoSignalingDeactivationState();
-            _logVetoSignallingDeactivationState();
+            _assertVetoSignallingDeactivationState();
 
-            _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+            _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
             _activateNextState();
             _assertVetoCooldownState();
 
-            _scheduleProposalViaDualGovernance(proposalId);
+            _scheduleProposal(proposalId);
             _assertProposalScheduled(proposalId);
-            _waitAfterScheduleDelayPassed();
+            _wait(_getAfterScheduleDelay());
             _executeProposal(proposalId);
             _assertProposalExecuted(proposalId);
         }
-    }
-
-    function scheduleProposalExternal(uint256 proposalId) external {
-        _scheduleProposalViaDualGovernance(proposalId);
     }
 }
