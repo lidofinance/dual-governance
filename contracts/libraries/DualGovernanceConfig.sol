@@ -26,7 +26,7 @@ library DualGovernanceConfig {
 
     /// @notice Configuration values for Dual Governance.
     /// @param firstSealRageQuitSupport The percentage of the total stETH supply that must be reached in the Signalling
-    ///     Escrow to transition Dual Governance from the Normal state to the VetoSignalling state.
+    ///     Escrow to transition Dual Governance from Normal, VetoCooldown and RageQuit states to the VetoSignalling state.
     /// @param secondSealRageQuitSupport The percentage of the total stETH supply that must be reached in the
     ///     Signalling Escrow to transition Dual Governance into the RageQuit state.
     ///
