@@ -83,6 +83,7 @@ library ExecutableProposals {
     error UnexpectedProposalStatus(uint256 proposalId, Status status);
     error AfterSubmitDelayNotPassed(uint256 proposalId);
     error AfterScheduleDelayNotPassed(uint256 proposalId);
+    error MinExecutionDelayNotPassed(uint256 proposalId);
 
     // ---
     // Events
@@ -158,7 +159,13 @@ library ExecutableProposals {
     /// @param self The context of the Executable Proposal library.
     /// @param proposalId The id of the proposal to execute.
     /// @param afterScheduleDelay The minimum delay required after scheduling before execution is allowed.
-    function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
+    /// @param minExecutionDelay The minimum time that must elapse after submission before execution is allowed.
+    function execute(
+        Context storage self,
+        uint256 proposalId,
+        Duration afterScheduleDelay,
+        Duration minExecutionDelay
+    ) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
         _checkProposalNotCancelled(self, proposalId, proposal.data);
@@ -169,6 +176,10 @@ library ExecutableProposals {
 
         if (afterScheduleDelay.addTo(proposal.data.scheduledAt) > Timestamps.now()) {
             revert AfterScheduleDelayNotPassed(proposalId);
+        }
+
+        if (minExecutionDelay.addTo(proposal.data.submittedAt) > Timestamps.now()) {
+            revert MinExecutionDelayNotPassed(proposalId);
         }
 
         self.proposals[proposalId].data.status = Status.Executed;
