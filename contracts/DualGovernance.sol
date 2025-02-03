@@ -226,7 +226,7 @@ contract DualGovernance is IDualGovernance {
     ///     or `VetoSignallingDeactivation` state.
     /// @dev If the Dual Governance state is not `VetoSignalling` or `VetoSignallingDeactivation`, the function will
     ///     exit early, emitting the `CancelAllPendingProposalsSkipped` event without canceling any proposals.
-    /// @return isProposalsCancelled A boolean indicating whether the proposals were successfully canceled (`true`)
+    /// @return isProposalsCancelled A boolean indicating whether the proposals were successfully cancelled (`true`)
     ///     or the cancellation was skipped due to an inappropriate state (`false`).
     function cancelAllPendingProposals() external returns (bool) {
         _stateMachine.activateNextState();
@@ -240,7 +240,7 @@ contract DualGovernance is IDualGovernance {
             ///     reached consensus. This could lead to a situation where a proposer’s cancelAllPendingProposals() call
             ///     becomes unexecutable if the Dual Governance state changes. However, it might become executable again if
             ///     the system state shifts back to VetoSignalling or VetoSignallingDeactivation.
-            ///     To avoid such a scenario, an early return is used instead of a revert when proposals cannot be canceled
+            ///     To avoid such a scenario, an early return is used instead of a revert when proposals cannot be cancelled
             ///     due to an unsuitable Dual Governance state.
             emit CancelAllPendingProposalsSkipped();
             return false;
@@ -265,7 +265,7 @@ contract DualGovernance is IDualGovernance {
     ///     - The Dual Governance system is in the `Normal` or `VetoCooldown` state.
     ///     - If the system is in the `VetoCooldown` state, the proposal must have been submitted before the system
     ///         last entered the `VetoSignalling` state.
-    ///     - The proposal has not already been scheduled, canceled, or executed.
+    ///     - The proposal has not already been scheduled, cancelled, or executed.
     ///     - The required delay period, as defined by `ITimelock.getAfterSubmitDelay()`, has elapsed since the proposal
     ///         was submitted.
     /// @param proposalId The unique identifier of the proposal to check.
@@ -282,9 +282,9 @@ contract DualGovernance is IDualGovernance {
     ///     `DualGovernance.cancelAllPendingProposals()` method.
     /// @dev Proposal cancellation is only allowed when the Dual Governance system is in the `VetoSignalling` or
     ///     `VetoSignallingDeactivation` states. In any other state, the cancellation will be skipped and no proposals
-    ///     will be canceled.
+    ///     will be cancelled.
     /// @return canCancelAllPendingProposals A boolean value indicating whether the pending proposals can be
-    ///     canceled (`true`) or not (`false`) based on the current `effective` state of the Dual Governance system.
+    ///     cancelled (`true`) or not (`false`) based on the current `effective` state of the Dual Governance system.
     function canCancelAllPendingProposals() external view returns (bool) {
         return _stateMachine.canCancelAllPendingProposals({useEffectiveState: true});
     }
