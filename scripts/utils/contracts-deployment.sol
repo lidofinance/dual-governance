@@ -33,6 +33,7 @@ import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "./config-files.sol"
 Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
 error InvalidParameter(string parameter);
+error InvalidChainId(uint256 actual, uint256 expected);
 
 using JsonKeys for string;
 using ConfigFileBuilder for ConfigFileBuilder.Context;
@@ -335,8 +336,8 @@ library DualGovernanceConfigProviderContractDeployConfig {
 
         // forgefmt: disable-next-item
         {
-            builder.set("first_seal_rage_quit_support", ctx.firstSealRageQuitSupport);
-            builder.set("second_seal_rage_quit_support", ctx.secondSealRageQuitSupport);
+            builder.set("first_seal_rage_quit_support", ctx.firstSealRageQuitSupport.toUint256() / 1e14);
+            builder.set("second_seal_rage_quit_support", ctx.secondSealRageQuitSupport.toUint256() / 1e14);
 
             builder.set("min_assets_lock_duration", ctx.minAssetsLockDuration);
 
@@ -437,6 +438,7 @@ library DGSetupDeployedContracts {
         ctx.emergencyGovernance = TimelockedGovernance(deployedContract.readAddress($.key("emergency_governance")));
         ctx.resealManager = ResealManager(deployedContract.readAddress($.key("reseal_manager")));
         ctx.dualGovernance = DualGovernance(deployedContract.readAddress($.key("dual_governance")));
+        ctx.escrowMasterCopy = Escrow(payable(deployedContract.readAddress($.key("escrow_master_copy"))));
         ctx.dualGovernanceConfigProvider = ImmutableDualGovernanceConfigProvider(
             deployedContract.readAddress($.key("dual_governance_config_provider"))
         );
@@ -458,6 +460,7 @@ library DGSetupDeployedContracts {
         configBuilder.set("emergency_governance", address(ctx.emergencyGovernance));
         configBuilder.set("reseal_manager", address(ctx.resealManager));
         configBuilder.set("dual_governance", address(ctx.dualGovernance));
+        configBuilder.set("escrow_master_copy", address(ctx.escrowMasterCopy));
         configBuilder.set("dual_governance_config_provider", address(ctx.dualGovernanceConfigProvider));
         configBuilder.set("tiebreaker_core_committee", address(ctx.tiebreakerCoreCommittee));
         configBuilder.set("tiebreaker_sub_committees", _getTiebreakerSubCommitteeAddresses(ctx));
@@ -467,6 +470,7 @@ library DGSetupDeployedContracts {
 
     function print(Context memory ctx) internal pure {
         console.log("DualGovernance address", address(ctx.dualGovernance));
+        console.log("EscrowMasterCopy address", address(ctx.escrowMasterCopy));
         console.log("ResealManager address", address(ctx.resealManager));
         console.log("TiebreakerCoreCommittee address", address(ctx.tiebreakerCoreCommittee));
 
@@ -545,6 +549,80 @@ library TGSetupDeployedContracts {
         Executor adminExecutor;
         EmergencyProtectedTimelock timelock;
         TimelockedGovernance timelockedGovernance;
+    }
+}
+
+library TimelockedGovernanceDeployConfig {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        uint256 chainId;
+        address governance;
+        EmergencyProtectedTimelock timelock;
+    }
+
+    function load(string memory configFilePath, string memory configRootKey) internal returns (Context memory ctx) {
+        string memory $ = configRootKey.root();
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+
+        ctx.governance = file.readAddress($.key("governance"));
+        ctx.timelock = EmergencyProtectedTimelock(file.readAddress($.key("timelock")));
+    }
+
+    function validate(Context memory ctx) internal {
+        if (ctx.chainId != block.chainid) {
+            revert InvalidChainId({actual: block.chainid, expected: ctx.chainId});
+        }
+        if (address(ctx.timelock) == address(0)) {
+            revert InvalidParameter("timelock");
+        }
+        if (ctx.governance == address(0)) {
+            revert InvalidParameter("governance");
+        }
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("governance", ctx.governance);
+        builder.set("timelock", address(ctx.timelock));
+
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal {
+        console.log("Governance address", ctx.governance);
+        console.log("Timelock address", address(ctx.timelock));
+    }
+}
+
+library TimelockedGovernanceDeployedContracts {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        TimelockedGovernance timelockedGovernance;
+    }
+
+    function load(
+        string memory deployedContractsFilePath,
+        string memory prefix
+    ) internal returns (Context memory ctx) {
+        string memory $ = prefix.root();
+        ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
+
+        ctx.timelockedGovernance = TimelockedGovernance(deployedContract.readAddress($.key("timelocked_governance")));
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("timelocked_governance", address(ctx.timelockedGovernance));
+
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal {
+        console.log("TimelockedGovernance address", address(ctx.timelockedGovernance));
     }
 }
 
