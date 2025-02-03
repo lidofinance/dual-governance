@@ -15,6 +15,7 @@ import {TargetMock} from "test/utils/target-mock.sol";
 contract TiebreakerCoreMock is TargetMock {
     error ProposalDoesNotExist(uint256 proposalId);
     error SealableIsNotPaused(address sealable);
+    error InvalidSealable(address sealable);
 
     uint256 public proposalsCount;
 
@@ -29,6 +30,9 @@ contract TiebreakerCoreMock is TargetMock {
     }
 
     function checkSealableIsPaused(address sealable) public view {
+        if (sealable == address(0)) {
+            revert InvalidSealable(sealable);
+        }
         if (ISealable(sealable).getResumeSinceTimestamp() <= block.timestamp) {
             revert SealableIsNotPaused(sealable);
         }
@@ -183,7 +187,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
 
     function test_sealableResume_RevertOn_SealableZeroAddress() external {
         vm.prank(committeeMembers[0]);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.InvalidSealable.selector, address(0)));
         tiebreakerSubCommittee.sealableResume(address(0));
     }
 

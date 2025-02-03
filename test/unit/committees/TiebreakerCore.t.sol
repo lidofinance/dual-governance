@@ -173,7 +173,8 @@ contract TiebreakerCoreUnitTest is UnitTest {
     }
 
     function test_sealableResume_RevertOn_SealableZeroAddress() external {
-        vm.expectRevert();
+        vm.prank(committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.InvalidSealable.selector, address(0)));
         tiebreakerCore.sealableResume(address(0), 0);
     }
 

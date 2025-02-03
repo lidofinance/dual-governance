@@ -28,6 +28,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     error ResumeSealableNonceMismatch();
     error ProposalDoesNotExist(uint256 proposalId);
     error SealableIsNotPaused(address sealable);
+    error InvalidSealable(address sealable);
 
     address public immutable DUAL_GOVERNANCE;
 
@@ -149,6 +150,9 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
     /// @dev Checks if the sealable address is paused by calling the getResumeSinceTimestamp function on the ISealable contract
     /// @param sealable The address to check
     function checkSealableIsPaused(address sealable) public view {
+        if (sealable == address(0)) {
+            revert InvalidSealable(sealable);
+        }
         if (ISealable(sealable).getResumeSinceTimestamp() <= block.timestamp) {
             revert SealableIsNotPaused(sealable);
         }
