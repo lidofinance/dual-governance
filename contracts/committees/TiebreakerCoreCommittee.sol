@@ -114,7 +114,7 @@ contract TiebreakerCoreCommittee is ITiebreakerCoreCommittee, HashConsensus, Pro
 
     /// @notice Votes on a proposal to resume a sealable address
     /// @dev Allows committee members to vote on resuming a sealable address
-    ///      reverts if the sealable address is the zero address
+    ///      reverts if the sealable address is the zero address or if the sealable address is not paused
     /// @param sealable The address to resume
     /// @param nonce The nonce for the resume proposal
     function sealableResume(address sealable, uint256 nonce) external {

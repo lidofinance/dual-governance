@@ -2197,6 +2197,7 @@ Submits a request to resume operations of a sealable contract by voting on it an
 #### Preconditions
 
 - MUST be called by a member.
+- The `sealable` address MUST be in `Paused` state.
 - The provided nonce MUST match the current nonce of the sealable contract.
 
 ---
@@ -2209,7 +2210,7 @@ function getSealableResumeState(address sealable, uint256 nonce)
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
 
-Returns the state of a sealable resume request including support count, quorum, and execution status.
+Returns the state of sealable resume request including support count, quorum, and execution status.
 
 ---
 
@@ -2284,6 +2285,7 @@ Submits a request to resume operations of a sealable contract by voting on it an
 #### Preconditions
 
 - MUST be called by a member.
+- The `sealable` address MUST be in `Paused` state.
 
 ### Function: `TiebreakerSubCommittee.getSealableResumeState`
 
@@ -2293,7 +2295,7 @@ function getSealableResumeState(address sealable)
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
 
-Returns the state of a sealable resume request including support count, quorum, and execution status.
+Returns the state of current sealable resume request including support count, quorum, and execution status.
 
 ---
 

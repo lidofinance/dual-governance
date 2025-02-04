@@ -93,7 +93,7 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
 
     /// @notice Votes on a proposal to resume a sealable address
     /// @dev Allows committee members to vote on resuming a sealable address
-    ///      reverts if the sealable address is the zero address
+    ///      reverts if the sealable address is the zero address or if the sealable address is not paused
     /// @param sealable The address to resume
     function sealableResume(address sealable) external {
         _checkCallerIsMember();
