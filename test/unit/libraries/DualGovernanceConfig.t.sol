@@ -11,8 +11,6 @@ import {UnitTest} from "test/utils/unit-test.sol";
 contract DualGovernanceConfigTest is UnitTest {
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
-    // Unrealistically huge value for the percents value, to limit max fuzz value to avoid overflow
-    // due to very high values
     PercentD16 internal immutable _MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT =
         PercentsD16.from(DualGovernanceConfig.MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT);
     Timestamp internal immutable _MAX_TIMESTAMP = Timestamps.from(block.timestamp + 100 * 365 days);
@@ -337,7 +335,7 @@ contract DualGovernanceConfigTest is UnitTest {
         assertEq(config.calcRageQuitWithdrawalsDelay({rageQuitRound: 0}), config.rageQuitEthWithdrawalsMinDelay);
     }
 
-    function test_calcRageQuitWithdrawalsDelay_HappyPath_MaxDelayWhenRageQuitRoundIsZero() external {
+    function test_calcRageQuitWithdrawalsDelay_HappyPath_MaxDelayWhenRageQuitRoundIsMaxRageQuitRound() external {
         DualGovernanceConfig.Context memory config;
 
         config.rageQuitEthWithdrawalsMinDelay = Durations.from(15 days);
@@ -355,7 +353,6 @@ contract DualGovernanceConfigTest is UnitTest {
         uint16 rageQuitRound
     ) external {
         _assumeConfigParams(config);
-        vm.assume(rageQuitRound > 0);
         vm.assume(rageQuitRound <= _MAX_RAGE_QUIT_ROUND);
 
         uint256 computedRageQuitEthWithdrawalsDelayInSeconds = config.rageQuitEthWithdrawalsMinDelay.toSeconds()
