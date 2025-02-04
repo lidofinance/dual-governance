@@ -52,7 +52,10 @@ library TimelockContractDeployConfig {
         address emergencyExecutionCommittee;
     }
 
-    function load(string memory configFilePath, string memory configRootKey) internal returns (Context memory ctx) {
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
         string memory $ = configRootKey.root();
@@ -77,7 +80,7 @@ library TimelockContractDeployConfig {
         });
     }
 
-    function validate(Context memory ctx) internal {
+    function validate(Context memory ctx) internal pure {
         if (ctx.afterSubmitDelay > ctx.sanityCheckParams.maxAfterSubmitDelay) {
             revert InvalidParameter("after_submit_delay");
         }
@@ -142,7 +145,7 @@ library TiebreakerContractDeployConfig {
         TiebreakerCommitteeDeployConfig[] committees;
     }
 
-    function load(string memory configFilePath, string memory configRootKey) internal returns (Context memory) {
+    function load(string memory configFilePath, string memory configRootKey) internal view returns (Context memory) {
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
         string memory $ = JsonKeys.root(configRootKey);
@@ -166,7 +169,7 @@ library TiebreakerContractDeployConfig {
         });
     }
 
-    function validate(Context memory ctx) internal {
+    function validate(Context memory ctx) internal pure {
         if (ctx.quorum == 0 || ctx.quorum > ctx.committeesCount) {
             revert InvalidParameter("tiebreaker.quorum");
         }
@@ -217,7 +220,7 @@ library DualGovernanceContractDeployConfig {
         DualGovernance.SanityCheckParams sanityCheckParams;
     }
 
-    function load(string memory configFilePath, string memory configRootKey) internal returns (Context memory) {
+    function load(string memory configFilePath, string memory configRootKey) internal view returns (Context memory) {
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
         string memory $ = configRootKey.root();
@@ -245,7 +248,7 @@ library DualGovernanceContractDeployConfig {
         });
     }
 
-    function validate(Context memory ctx) internal {
+    function validate(Context memory ctx) internal pure {
         if (ctx.sanityCheckParams.minTiebreakerActivationTimeout > ctx.sanityCheckParams.maxTiebreakerActivationTimeout)
         {
             revert InvalidParameter("dual_governance.sanity_check_params.min_activation_timeout");
@@ -304,7 +307,7 @@ library DualGovernanceConfigProviderContractDeployConfig {
     function load(
         string memory configFilePath,
         string memory configRootKey
-    ) internal returns (DualGovernanceConfig.Context memory ctx) {
+    ) internal view returns (DualGovernanceConfig.Context memory ctx) {
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
         string memory $ = configRootKey.root();
 
@@ -327,7 +330,7 @@ library DualGovernanceConfigProviderContractDeployConfig {
         });
     }
 
-    function validate(DualGovernanceConfig.Context memory ctx) internal returns (string memory) {
+    function validate(DualGovernanceConfig.Context memory ctx) internal pure {
         DualGovernanceConfig.validate(ctx);
     }
 
@@ -372,11 +375,14 @@ library DGSetupDeployConfig {
         DualGovernanceConfig.Context dualGovernanceConfigProvider;
     }
 
-    function load(string memory configFilePath) internal returns (Context memory ctx) {
+    function load(string memory configFilePath) internal view returns (Context memory ctx) {
         return load(configFilePath, "");
     }
 
-    function load(string memory configFilePath, string memory configRootKey) internal returns (Context memory ctx) {
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
         string memory $ = configRootKey.root();
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
@@ -389,7 +395,7 @@ library DGSetupDeployConfig {
         );
     }
 
-    function validate(Context memory ctx) internal {
+    function validate(Context memory ctx) internal pure {
         ctx.timelock.validate();
         ctx.tiebreaker.validate();
         ctx.dualGovernance.validate();
@@ -429,7 +435,7 @@ library DGSetupDeployedContracts {
     function load(
         string memory deployedContractsFilePath,
         string memory prefix
-    ) internal returns (Context memory ctx) {
+    ) internal view returns (Context memory ctx) {
         string memory $ = prefix.root();
         ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
 
@@ -510,18 +516,18 @@ library DGSetupDeployArtifacts {
     function create(
         DGSetupDeployConfig.Context memory deployConfig,
         DGSetupDeployedContracts.Context memory deployedContracts
-    ) internal returns (Context memory ctx) {
+    ) internal pure returns (Context memory ctx) {
         ctx.deployConfig = deployConfig;
         ctx.deployedContracts = deployedContracts;
     }
 
-    function load(string memory deployArtifactFileName) internal returns (Context memory ctx) {
+    function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
         ctx.deployConfig = DGSetupDeployConfig.load(deployArtifactFilePath, "deploy_config");
         ctx.deployedContracts = DGSetupDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
     }
 
-    function validate(Context memory ctx) internal {
+    function validate(Context memory ctx) internal pure {
         ctx.deployConfig.validate();
     }
 
@@ -561,7 +567,10 @@ library TimelockedGovernanceDeployConfig {
         EmergencyProtectedTimelock timelock;
     }
 
-    function load(string memory configFilePath, string memory configRootKey) internal returns (Context memory ctx) {
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
         string memory $ = configRootKey.root();
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
@@ -569,7 +578,7 @@ library TimelockedGovernanceDeployConfig {
         ctx.timelock = EmergencyProtectedTimelock(file.readAddress($.key("timelock")));
     }
 
-    function validate(Context memory ctx) internal {
+    function validate(Context memory ctx) internal view {
         if (ctx.chainId != block.chainid) {
             revert InvalidChainId({actual: block.chainid, expected: ctx.chainId});
         }
@@ -590,7 +599,7 @@ library TimelockedGovernanceDeployConfig {
         return builder.content;
     }
 
-    function print(Context memory ctx) internal {
+    function print(Context memory ctx) internal pure {
         console.log("Governance address", ctx.governance);
         console.log("Timelock address", address(ctx.timelock));
     }
@@ -606,7 +615,7 @@ library TimelockedGovernanceDeployedContracts {
     function load(
         string memory deployedContractsFilePath,
         string memory prefix
-    ) internal returns (Context memory ctx) {
+    ) internal view returns (Context memory ctx) {
         string memory $ = prefix.root();
         ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
 
@@ -621,7 +630,7 @@ library TimelockedGovernanceDeployedContracts {
         return builder.content;
     }
 
-    function print(Context memory ctx) internal {
+    function print(Context memory ctx) internal pure {
         console.log("TimelockedGovernance address", address(ctx.timelockedGovernance));
     }
 }
@@ -700,12 +709,7 @@ library ContractsDeployment {
         // Finalize Setup
         // ---
 
-        configureDualGovernance(
-            contracts.adminExecutor,
-            contracts.dualGovernance,
-            contracts.tiebreakerCoreCommittee,
-            deployConfig.dualGovernance
-        );
+        configureDualGovernance(contracts.adminExecutor, contracts.dualGovernance, deployConfig.dualGovernance);
 
         contracts.emergencyGovernance =
             configureEmergencyProtectedTimelock(contracts.adminExecutor, contracts.timelock, deployConfig.timelock);
@@ -837,7 +841,6 @@ library ContractsDeployment {
     function configureDualGovernance(
         Executor adminExecutor,
         DualGovernance dualGovernance,
-        TiebreakerCoreCommittee tiebreakerCoreCommittee,
         DualGovernanceContractDeployConfig.Context memory dgDeployConfig
     ) internal {
         adminExecutor.execute(

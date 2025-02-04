@@ -106,8 +106,6 @@ contract AragonAgentAsExecutorScenarioTest is DGScenarioTestSetup {
         uint256 agentBalanceBefore = address(_lido.agent).balance;
         vm.deal(address(_lido.agent), agentBalanceBefore + callValue);
 
-        uint256 agentActionsProposalId;
-
         _step("3. Adopt proposal via the Agent proposer with calls to EOA account");
         {
             _adoptProposal(agentProposer, callsToEmptyAccount, "Make different calls to EOA account");

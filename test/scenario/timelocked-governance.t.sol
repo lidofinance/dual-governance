@@ -121,8 +121,6 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
 
         _step("4. DAO decides to not deactivate emergency mode and allow stakers to quit");
         {
-            IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState =
-                _timelock.getEmergencyProtectionDetails();
             assertTrue(_isEmergencyModeActive());
 
             vm.warp(_getEmergencyModeEndsAfter().toSeconds() + 1);

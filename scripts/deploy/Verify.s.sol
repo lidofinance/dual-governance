@@ -16,7 +16,7 @@ contract Verify is Script {
 
     error InvalidChainId(uint256 actual, uint256 expected);
 
-    function run() external {
+    function run() external view {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
 
         console.log("Loading config from artifact file: %s", deployArtifactFileName);

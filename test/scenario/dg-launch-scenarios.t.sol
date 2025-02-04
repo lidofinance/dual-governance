@@ -465,7 +465,7 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
 contract MockRolesVerifier {
     event AllRolesVerified();
 
-    function validate(address dgAdminExecutor, address dgResealManager) external {
+    function validate(address, /* dgAdminExecutor */ address /* dgResealManager */ ) external {
         emit AllRolesVerified();
     }
 }
@@ -473,7 +473,7 @@ contract MockRolesVerifier {
 contract MockDGStateVerifier {
     event DGStateVerified();
 
-    function validate(address dualGovernance, address timelock) external {
+    function validate(address, /* dualGovernance */ address /* timelock */ ) external {
         emit DGStateVerified();
     }
 }

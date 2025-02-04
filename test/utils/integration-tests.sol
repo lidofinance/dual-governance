@@ -72,7 +72,7 @@ abstract contract ForkTestSetup is Test {
         _targetMock = new TargetMock();
     }
 
-    function _getEnvForkBlockNumberOrDefault(uint256 defaultBlockNumber) internal returns (uint256) {
+    function _getEnvForkBlockNumberOrDefault(uint256 defaultBlockNumber) internal view returns (uint256) {
         return vm.envOr("FORK_BLOCK_NUMBER", defaultBlockNumber);
     }
 
@@ -107,7 +107,7 @@ abstract contract ForkTestSetup is Test {
         _targetMock.reset();
     }
 
-    function _assertNoTargetMockCalls() internal {
+    function _assertNoTargetMockCalls() internal view {
         assertEq(_targetMock.getCalls().length, 0, "Unexpected target calls count");
     }
 
@@ -115,7 +115,7 @@ abstract contract ForkTestSetup is Test {
         vm.warp(block.timestamp + Duration.unwrap(duration));
     }
 
-    function _step(string memory text) internal {
+    function _step(string memory text) internal pure {
         // solhint-disable-next-line
         console.log(string.concat(">>> ", text));
     }
@@ -321,7 +321,7 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
     // Assertions
     // ---
 
-    function _assertProposalSubmitted(uint256 proposalId) internal {
+    function _assertProposalSubmitted(uint256 proposalId) internal view {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Submitted,
@@ -329,20 +329,24 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         );
     }
 
-    function _assertSubmittedProposalData(uint256 proposalId, ExternalCall[] memory calls) internal {
+    function _assertSubmittedProposalData(uint256 proposalId, ExternalCall[] memory calls) internal view {
         _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), calls);
     }
 
-    function _assertSubmittedProposalData(uint256 proposalId, address executor, ExternalCall[] memory calls) internal {
+    function _assertSubmittedProposalData(
+        uint256 proposalId,
+        address executor,
+        ExternalCall[] memory expectedCalls
+    ) internal view {
         (ITimelock.ProposalDetails memory proposal, ExternalCall[] memory calls) = _timelock.getProposal(proposalId);
         assertEq(proposal.id, proposalId, "unexpected proposal id");
         assertEq(proposal.status, ProposalStatus.Submitted, "unexpected status value");
         assertEq(proposal.executor, executor, "unexpected executor");
         assertEq(proposal.submittedAt, Timestamps.now(), "unexpected scheduledAt");
-        assertEq(calls.length, calls.length, "unexpected calls length");
+        assertEq(expectedCalls.length, calls.length, "unexpected calls length");
 
         for (uint256 i = 0; i < calls.length; ++i) {
-            ExternalCall memory expected = calls[i];
+            ExternalCall memory expected = expectedCalls[i];
             ExternalCall memory actual = calls[i];
 
             assertEq(actual.value, expected.value);
@@ -351,7 +355,7 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         }
     }
 
-    function _assertCanSchedule(uint256 proposalId, bool canSchedule) internal {
+    function _assertCanSchedule(uint256 proposalId, bool canSchedule) internal view {
         assertEq(
             IGovernance(_timelock.getGovernance()).canScheduleProposal(proposalId),
             canSchedule,
@@ -359,11 +363,11 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         );
     }
 
-    function _assertCanExecute(uint256 proposalId, bool canExecute) internal {
+    function _assertCanExecute(uint256 proposalId, bool canExecute) internal view {
         assertEq(_timelock.canExecute(proposalId), canExecute, "unexpected canExecute() value");
     }
 
-    function _assertProposalScheduled(uint256 proposalId) internal {
+    function _assertProposalScheduled(uint256 proposalId) internal view {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Scheduled,
@@ -371,7 +375,7 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         );
     }
 
-    function _assertProposalExecuted(uint256 proposalId) internal {
+    function _assertProposalExecuted(uint256 proposalId) internal view {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Executed,
@@ -379,7 +383,7 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         );
     }
 
-    function _assertProposalCancelled(uint256 proposalId) internal {
+    function _assertProposalCancelled(uint256 proposalId) internal view {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Cancelled,
@@ -532,6 +536,8 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
                 return proposers[i].account;
             }
         }
+
+        revert("No available proposers");
     }
 
     function _getSealableWithdrawalBlockers() internal view returns (address[] memory) {
@@ -780,23 +786,23 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         );
     }
 
-    function _assertNormalState() internal {
+    function _assertNormalState() internal view {
         assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.Normal);
     }
 
-    function _assertVetoSignalingState() internal {
+    function _assertVetoSignalingState() internal view {
         assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.VetoSignalling);
     }
 
-    function _assertRageQuitState() internal {
+    function _assertRageQuitState() internal view {
         assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.RageQuit);
     }
 
-    function _assertVetoSignallingDeactivationState() internal {
+    function _assertVetoSignallingDeactivationState() internal view {
         assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.VetoSignallingDeactivation);
     }
 
-    function _assertVetoCooldownState() internal {
+    function _assertVetoCooldownState() internal view {
         assertEq(_dgDeployedContracts.dualGovernance.getPersistedState(), DGState.VetoCooldown);
     }
 
@@ -851,6 +857,7 @@ contract TGScenarioTestSetup is GovernedTimelockSetup {
 
     function _getDefaultTGDeployConfig(bool isEmergencyProtectionEnabled)
         internal
+        view
         returns (TGSetupDeployConfig.Context memory)
     {
         return TGSetupDeployConfig.Context({

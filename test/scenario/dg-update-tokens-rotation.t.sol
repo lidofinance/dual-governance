@@ -231,6 +231,7 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
     // ---
     function _getActionsToUpdateDualGovernanceImplementation(address newDualGovernanceInstance)
         internal
+        view
         returns (ExternalCall[] memory)
     {
         return ExternalCallHelpers.create(
@@ -257,6 +258,6 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
         external
         returns (uint256 proposalId)
     {
-        _submitProposalByAdminProposer(calls);
+        proposalId = _submitProposalByAdminProposer(calls);
     }
 }

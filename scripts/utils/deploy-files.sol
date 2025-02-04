@@ -10,14 +10,14 @@ library DeployFiles {
     string internal constant DEPLOY_CONFIGS_DIR = "deploy-config";
     string internal constant DEPLOY_ARTIFACTS_DIR = "deploy-artifacts";
 
-    function resolveDeployConfig(string memory fileName) internal returns (string memory) {
+    function resolveDeployConfig(string memory fileName) internal view returns (string memory) {
         if (bytes(fileName).length == 0) {
             revert("fileName is empty");
         }
         return string.concat(vm.projectRoot(), "/", DEPLOY_CONFIGS_DIR, "/", fileName);
     }
 
-    function resolveDeployArtifact(string memory fileName) internal returns (string memory) {
+    function resolveDeployArtifact(string memory fileName) internal view returns (string memory) {
         if (bytes(fileName).length == 0) {
             revert("fileName is empty");
         }
