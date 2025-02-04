@@ -148,8 +148,8 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.schedule(proposalId, Durations.ZERO);
     }
 
-    function testFuzz_execute_proposal(Duration delay) external {
-        vm.assume(delay > Durations.ZERO && delay.toSeconds() <= MAX_DURATION_VALUE);
+    function testFuzz_execute_proposal(Duration afterScheduleDelay, Duration minExecutionDelay) external {
+        vm.assume(afterScheduleDelay > Durations.ZERO);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.getProposalsCount();
@@ -163,12 +163,11 @@ contract ExecutableProposalsUnitTests is UnitTest {
         assertEq(proposal.data.submittedAt, submittedAndScheduledAt);
         assertEq(proposal.data.scheduledAt, submittedAndScheduledAt);
 
-        _wait(delay);
+        _wait(afterScheduleDelay > minExecutionDelay ? afterScheduleDelay : minExecutionDelay);
 
-        // TODO: figure out why event is not emitted
-        // vm.expectEmit();
-        // emit ExecutableProposals.ProposalExecuted();
-        _proposals.execute(proposalId, delay);
+        vm.expectEmit();
+        emit ExecutableProposals.ProposalExecuted(proposalId);
+        this.external__execute(proposalId, afterScheduleDelay, minExecutionDelay);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 0);
@@ -187,7 +186,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.NotExist
             )
         );
-        _proposals.execute(proposalId, Durations.ZERO);
+        this.external__execute(proposalId, Durations.ZERO, Durations.ZERO);
     }
 
     function test_cannot_execute_unscheduled_proposal() external {
@@ -199,21 +198,21 @@ contract ExecutableProposalsUnitTests is UnitTest {
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Submitted
             )
         );
-        _proposals.execute(proposalId, Durations.ZERO);
+        this.external__execute(proposalId, Durations.ZERO, Durations.ZERO);
     }
 
     function test_cannot_execute_twice() external {
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.getProposalsCount();
         _proposals.schedule(proposalId, Durations.ZERO);
-        _proposals.execute(proposalId, Durations.ZERO);
+        this.external__execute(proposalId, Durations.ZERO, Durations.ZERO);
 
         vm.expectRevert(
             abi.encodeWithSelector(
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Executed
             )
         );
-        _proposals.execute(proposalId, Durations.ZERO);
+        this.external__execute(proposalId, Durations.ZERO, Durations.ZERO);
     }
 
     function test_cannot_execute_cancelled_proposal() external {
@@ -227,19 +226,31 @@ contract ExecutableProposalsUnitTests is UnitTest {
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Cancelled
             )
         );
-        _proposals.execute(proposalId, Durations.ZERO);
+        this.external__execute(proposalId, Durations.ZERO, Durations.ZERO);
     }
 
-    function testFuzz_cannot_execute_before_delay_passed(Duration delay) external {
-        vm.assume(delay > Durations.ZERO && delay.toSeconds() <= MAX_DURATION_VALUE);
+    function testFuzz_cannot_execute_before_after_schedule_delay_passed(Duration afterScheduleDelay) external {
+        vm.assume(afterScheduleDelay > Durations.ZERO);
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.getProposalsCount();
         _proposals.schedule(proposalId, Durations.ZERO);
 
-        _wait(delay.minusSeconds(1 seconds));
+        _wait(afterScheduleDelay.minusSeconds(1 seconds));
 
         vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.AfterScheduleDelayNotPassed.selector, proposalId));
-        _proposals.execute(proposalId, delay);
+        this.external__execute(proposalId, afterScheduleDelay, Durations.ZERO);
+    }
+
+    function testFuzz_cannot_execute_before_min_execution_delay_passed(Duration minExecutionDelay) external {
+        vm.assume(minExecutionDelay > Durations.ZERO);
+        _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
+        uint256 proposalId = _proposals.getProposalsCount();
+        _proposals.schedule(proposalId, Durations.ZERO);
+
+        _wait(minExecutionDelay.minusSeconds(1 seconds));
+
+        vm.expectRevert(abi.encodeWithSelector(ExecutableProposals.MinExecutionDelayNotPassed.selector, proposalId));
+        this.external__execute(proposalId, Durations.ZERO, minExecutionDelay);
     }
 
     function test_cancel_all_proposals() external {
@@ -301,7 +312,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
             assertEq(calls[i].payload, expectedCalls[i].payload);
         }
 
-        _proposals.execute(proposalId, Durations.ZERO);
+        _proposals.execute(proposalId, Durations.ZERO, Durations.ZERO);
 
         proposalDetails = _proposals.getProposalDetails(proposalId);
 
@@ -396,7 +407,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.schedule(2, Durations.ZERO);
         assertEq(_proposals.getProposalsCount(), 3);
 
-        _proposals.execute(1, Durations.ZERO);
+        _proposals.execute(1, Durations.ZERO, Durations.ZERO);
         assertEq(_proposals.getProposalsCount(), 3);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
@@ -421,7 +432,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
         assert(_proposals.canExecute(proposalId, delay));
 
-        _proposals.execute(proposalId, Durations.ZERO);
+        _proposals.execute(proposalId, Durations.ZERO, Durations.ZERO);
 
         assert(!_proposals.canExecute(proposalId, delay));
     }
@@ -442,7 +453,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         assertEq(_proposals.getProposalsCount(), 1);
         uint256 executedProposalId = 1;
         _proposals.schedule(executedProposalId, Durations.ZERO);
-        _proposals.execute(executedProposalId, Durations.ZERO);
+        _proposals.execute(executedProposalId, Durations.ZERO, Durations.ZERO);
 
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
         assertEq(_proposals.getProposalsCount(), 2);
@@ -480,7 +491,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         assert(_proposals.canSchedule(proposalId, delay));
 
         _proposals.schedule(proposalId, delay);
-        _proposals.execute(proposalId, Durations.ZERO);
+        _proposals.execute(proposalId, Durations.ZERO, Durations.ZERO);
 
         assert(!_proposals.canSchedule(proposalId, delay));
     }
@@ -493,5 +504,9 @@ contract ExecutableProposalsUnitTests is UnitTest {
         _proposals.cancelAll();
 
         assert(!_proposals.canSchedule(proposalId, Durations.ZERO));
+    }
+
+    function external__execute(uint256 proposalId, Duration afterScheduleDelay, Duration minExecutionDelay) external {
+        _proposals.execute(proposalId, afterScheduleDelay, minExecutionDelay);
     }
 }

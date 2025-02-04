@@ -160,6 +160,56 @@ While active, the Emergency Activation Committee can enable Emergency Mode. This
 
 ---
 
+### Function: `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY`
+
+```solidity
+Duration public immutable MIN_EXECUTION_DELAY;
+```
+
+The minimum duration that must pass between a proposal's submission and its execution.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SUBMIT_DELAY`
+
+```solidity
+Duration public immutable MAX_AFTER_SUBMIT_DELAY;
+```
+
+The upper bound for the delay required before a submitted proposal can be scheduled for execution.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SCHEDULE_DELAY`
+
+```solidity
+Duration public immutable MAX_AFTER_SCHEDULE_DELAY;
+```
+
+The upper bound for the delay required before a scheduled proposal can be executed.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_MODE_DURATION`
+
+```solidity
+Duration public immutable MAX_EMERGENCY_MODE_DURATION;
+```
+
+The upper bound for the time the timelock can remain in emergency mode.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_PROTECTION_DURATION`
+
+```solidity
+Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
+```
+
+The upper bound for the time the emergency protection mechanism can be activated.
+
+---
+
 ### Function: `EmergencyProtectedTimelock.submit`
 
 ```solidity
@@ -192,6 +242,7 @@ Schedules a previously submitted and non-cancelled proposal for execution after 
 
 - MUST be called by the `governance` address.
 - The proposal MUST already be submitted.
+- `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY` MUST have elapsed since the proposal’s submission.
 - The post-submit timelock MUST have elapsed since the proposal submission.
 
 ---

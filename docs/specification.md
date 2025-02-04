@@ -1479,6 +1479,56 @@ The governance reset entails the following steps:
 
 ---
 
+### Function: `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY`
+
+```solidity
+Duration public immutable MIN_EXECUTION_DELAY;
+```
+
+The minimum duration that must pass between a proposal's submission and its execution.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SUBMIT_DELAY`
+
+```solidity
+Duration public immutable MAX_AFTER_SUBMIT_DELAY;
+```
+
+The upper bound for the delay required before a submitted proposal can be scheduled for execution.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SCHEDULE_DELAY`
+
+```solidity
+Duration public immutable MAX_AFTER_SCHEDULE_DELAY;
+```
+
+The upper bound for the delay required before a scheduled proposal can be executed.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_MODE_DURATION`
+
+```solidity
+Duration public immutable MAX_EMERGENCY_MODE_DURATION;
+```
+
+The upper bound for the time the timelock can remain in emergency mode.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_PROTECTION_DURATION`
+
+```solidity
+Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
+```
+
+The upper bound for the time the emergency protection mechanism can be activated.
+
+---
+
 ### Function: `EmergencyProtectedTimelock.submit`
 
 ```solidity
@@ -1527,6 +1577,7 @@ Instructs the executor contract associated with the proposal to issue the propos
 
 - Emergency mode MUST NOT be active.
 - The proposal MUST be already submitted & scheduled for execution.
+- `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY` MUST have elapsed since the proposal’s submission.
 - The emergency protection delay MUST already elapse since the moment the proposal was scheduled.
 
 ---
