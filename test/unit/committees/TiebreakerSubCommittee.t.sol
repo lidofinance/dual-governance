@@ -2,17 +2,20 @@
 pragma solidity 0.8.26;
 
 import {ITiebreakerCoreCommittee} from "contracts/interfaces/ITiebreakerCoreCommittee.sol";
+import {ISealable} from "contracts/interfaces/ISealable.sol";
 
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee, ProposalType} from "contracts/committees/TiebreakerSubCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
-import {UnitTest} from "test/utils/unit-test.sol";
 
+import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/target-mock.sol";
 
 contract TiebreakerCoreMock is TargetMock {
     error ProposalDoesNotExist(uint256 proposalId);
+    error SealableIsNotPaused(address sealable);
+    error InvalidSealable(address sealable);
 
     uint256 public proposalsCount;
 
@@ -24,6 +27,15 @@ contract TiebreakerCoreMock is TargetMock {
 
     function setProposalsCount(uint256 _proposalsCount) external {
         proposalsCount = _proposalsCount;
+    }
+
+    function checkSealableIsPaused(address sealable) public view {
+        if (sealable == address(0)) {
+            revert InvalidSealable(sealable);
+        }
+        if (ISealable(sealable).getResumeSinceTimestamp() <= block.timestamp) {
+            revert SealableIsNotPaused(sealable);
+        }
     }
 }
 
@@ -120,6 +132,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
             abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp + 1000);
 
         vm.prank(committeeMembers[0]);
         tiebreakerSubCommittee.sealableResume(sealable);
@@ -138,6 +151,32 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         assertFalse(isExecuted);
     }
 
+    function test_sealableResume_RevertOn_Sealable_Is_Resumed() external {
+        vm.mockCall(
+            tiebreakerCore,
+            abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
+            abi.encode(0)
+        );
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp);
+
+        vm.prank(committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.SealableIsNotPaused.selector, sealable));
+        tiebreakerSubCommittee.sealableResume(sealable);
+    }
+
+    function test_sealableResume_RevertOn_Sealable_Is_Resumed_For_1_Second() external {
+        vm.mockCall(
+            tiebreakerCore,
+            abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
+            abi.encode(0)
+        );
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp - 1);
+
+        vm.prank(committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.SealableIsNotPaused.selector, sealable));
+        tiebreakerSubCommittee.sealableResume(sealable);
+    }
+
     function testFuzz_sealableResume_RevertOn_NotMember(address caller) external {
         vm.assume(caller != committeeMembers[0] && caller != committeeMembers[1] && caller != committeeMembers[2]);
 
@@ -148,7 +187,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
 
     function test_sealableResume_RevertOn_SealableZeroAddress() external {
         vm.prank(committeeMembers[0]);
-        vm.expectRevert(abi.encodeWithSelector(TiebreakerSubCommittee.InvalidSealable.selector, address(0)));
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.InvalidSealable.selector, address(0)));
         tiebreakerSubCommittee.sealableResume(address(0));
     }
 
@@ -158,6 +197,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
             abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp + 1000);
 
         vm.prank(committeeMembers[0]);
         tiebreakerSubCommittee.sealableResume(sealable);
@@ -180,6 +220,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
             abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp + 1000);
 
         vm.prank(committeeMembers[0]);
         tiebreakerSubCommittee.sealableResume(sealable);
@@ -236,6 +277,7 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
             abi.encodeWithSelector(ITiebreakerCoreCommittee.getSealableResumeNonce.selector, sealable),
             abi.encode(0)
         );
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp + 1000);
 
         (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) =
             tiebreakerSubCommittee.getSealableResumeState(sealable);
@@ -270,5 +312,13 @@ contract TiebreakerSubCommitteeUnitTest is UnitTest {
         assertEq(executionQuorum, quorum);
         assertEq(quorumAt, Timestamp.wrap(uint40(block.timestamp)));
         assertTrue(isExecuted);
+    }
+
+    function _mockSealableResumeSinceTimestamp(address sealableAddress, uint256 resumeSinceTimestamp) internal {
+        vm.mockCall(
+            sealableAddress,
+            abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
+            abi.encode(resumeSinceTimestamp)
+        );
     }
 }

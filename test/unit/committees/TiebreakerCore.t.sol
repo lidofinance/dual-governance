@@ -8,6 +8,7 @@ import {Timestamp} from "contracts/types/Timestamp.sol";
 
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
+import {ISealable} from "contracts/interfaces/ISealable.sol";
 
 import {TargetMock} from "test/utils/target-mock.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
@@ -125,6 +126,8 @@ contract TiebreakerCoreUnitTest is UnitTest {
     function test_sealableResume_HappyPath() external {
         uint256 nonce = tiebreakerCore.getSealableResumeNonce(sealable);
 
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp + 1000);
+
         vm.prank(committeeMembers[0]);
         tiebreakerCore.sealableResume(sealable, nonce);
 
@@ -142,9 +145,28 @@ contract TiebreakerCoreUnitTest is UnitTest {
         assertFalse(isExecuted);
     }
 
+    function test_sealableResume_RevertOn_Sealable_Is_Resumed() external {
+        uint256 nonce = tiebreakerCore.getSealableResumeNonce(sealable);
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp);
+
+        vm.prank(committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.SealableIsNotPaused.selector, sealable));
+        tiebreakerCore.sealableResume(sealable, nonce);
+    }
+
+    function test_sealableResume_RevertOn_Sealable_Is_Resumed_For_1_Second() external {
+        uint256 nonce = tiebreakerCore.getSealableResumeNonce(sealable);
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp - 1);
+
+        vm.prank(committeeMembers[0]);
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.SealableIsNotPaused.selector, sealable));
+        tiebreakerCore.sealableResume(sealable, nonce);
+    }
+
     function test_sealableResume_RevertOn_NonceMismatch() external {
         uint256 wrongNonce = 999;
 
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp + 1000);
         vm.prank(committeeMembers[0]);
         vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.ResumeSealableNonceMismatch.selector));
         tiebreakerCore.sealableResume(sealable, wrongNonce);
@@ -158,6 +180,8 @@ contract TiebreakerCoreUnitTest is UnitTest {
 
     function test_executeSealableResume_HappyPath() external {
         uint256 nonce = tiebreakerCore.getSealableResumeNonce(sealable);
+
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp + 1000);
 
         vm.prank(committeeMembers[0]);
         tiebreakerCore.sealableResume(sealable, nonce);
@@ -214,5 +238,13 @@ contract TiebreakerCoreUnitTest is UnitTest {
         assertEq(executionQuorum, quorum);
         assertEq(quorumAt, quorumAtExpected);
         assertTrue(isExecuted);
+    }
+
+    function _mockSealableResumeSinceTimestamp(address sealableAddress, uint256 resumeSinceTimestamp) internal {
+        vm.mockCall(
+            sealableAddress,
+            abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
+            abi.encode(resumeSinceTimestamp)
+        );
     }
 }
