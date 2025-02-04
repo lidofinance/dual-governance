@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {PercentD16} from "../types/PercentD16.sol";
+import {PercentD16, PercentsD16, HUNDRED_PERCENT_D16} from "../types/PercentD16.sol";
 import {Duration, Durations} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
@@ -13,6 +13,7 @@ library DualGovernanceConfig {
     // Errors
     // ---
 
+    error InvalidSecondSealRageQuitSupport(PercentD16 secondSealRageQuitSupport);
     error InvalidRageQuitSupportRange(PercentD16 firstSealRageQuitSupport, PercentD16 secondSealRageQuitSupport);
     error InvalidRageQuitEthWithdrawalsDelayRange(
         Duration rageQuitEthWithdrawalsMinDelay, Duration rageQuitEthWithdrawalsMaxDelay
@@ -26,7 +27,7 @@ library DualGovernanceConfig {
 
     /// @notice Configuration values for Dual Governance.
     /// @param firstSealRageQuitSupport The percentage of the total stETH supply that must be reached in the Signalling
-    ///     Escrow to transition Dual Governance from the Normal state to the VetoSignalling state.
+    ///     Escrow to transition Dual Governance from Normal, VetoCooldown and RageQuit states to the VetoSignalling state.
     /// @param secondSealRageQuitSupport The percentage of the total stETH supply that must be reached in the
     ///     Signalling Escrow to transition Dual Governance into the RageQuit state.
     ///
@@ -65,6 +66,12 @@ library DualGovernanceConfig {
     }
 
     // ---
+    // Constants
+    // ---
+
+    uint256 internal constant MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT = HUNDRED_PERCENT_D16;
+
+    // ---
     // Main Functionality
     // ---
 
@@ -72,6 +79,10 @@ library DualGovernanceConfig {
     ///     of the Dual Governance system.
     /// @param self The configuration context.
     function validate(Context memory self) internal pure {
+        if (self.secondSealRageQuitSupport > PercentsD16.from(MAX_SECOND_SEAL_RAGE_QUIT_SUPPORT)) {
+            revert InvalidSecondSealRageQuitSupport(self.secondSealRageQuitSupport);
+        }
+
         if (self.firstSealRageQuitSupport >= self.secondSealRageQuitSupport) {
             revert InvalidRageQuitSupportRange(self.firstSealRageQuitSupport, self.secondSealRageQuitSupport);
         }
@@ -203,11 +214,11 @@ library DualGovernanceConfig {
         Context memory self,
         uint256 rageQuitRound
     ) internal pure returns (Duration) {
-        return Durations.min(
-            self.rageQuitEthWithdrawalsMinDelay.plusSeconds(
-                rageQuitRound * self.rageQuitEthWithdrawalsDelayGrowth.toSeconds()
-            ),
-            self.rageQuitEthWithdrawalsMaxDelay
-        );
+        uint256 rageQuitWithdrawalsDelayInSeconds = self.rageQuitEthWithdrawalsMinDelay.toSeconds()
+            + rageQuitRound * self.rageQuitEthWithdrawalsDelayGrowth.toSeconds();
+
+        return rageQuitWithdrawalsDelayInSeconds > self.rageQuitEthWithdrawalsMaxDelay.toSeconds()
+            ? self.rageQuitEthWithdrawalsMaxDelay
+            : Durations.from(rageQuitWithdrawalsDelayInSeconds);
     }
 }

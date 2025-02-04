@@ -140,7 +140,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
         }
         _checkCallerIsDualGovernance();
 
-        _escrowState.initialize(minAssetsLockDuration);
+        _escrowState.initialize(minAssetsLockDuration, MAX_MIN_ASSETS_LOCK_DURATION);
 
         ST_ETH.approve(address(WST_ETH), type(uint256).max);
         ST_ETH.approve(address(WITHDRAWAL_QUEUE), type(uint256).max);
@@ -275,6 +275,9 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @param hints An array of hints required by the WithdrawalQueue to efficiently retrieve
     ///        the claimable amounts for the unstETH NFTs.
     function markUnstETHFinalized(uint256[] memory unstETHIds, uint256[] calldata hints) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 
@@ -310,6 +313,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @param newMinAssetsLockDuration The new minimum lock duration to be set.
     function setMinAssetsLockDuration(Duration newMinAssetsLockDuration) external {
         _checkCallerIsDualGovernance();
+        _escrowState.checkSignallingEscrow();
         _escrowState.setMinAssetsLockDuration(newMinAssetsLockDuration, MAX_MIN_ASSETS_LOCK_DURATION);
     }
 

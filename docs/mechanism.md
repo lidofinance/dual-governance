@@ -214,7 +214,7 @@ SecondSealRageQuitSupport = 0.1
 
 #### Deactivation sub-state
 
-The sub-state's purpose is to allow all stakers to observe the Veto Signalling being deactivated and react accordingly before non-canceled proposals can be executed. In this sub-state, the DAO cannot submit proposals to the DG or execute pending proposals.
+The sub-state's purpose is to allow all stakers to observe the Veto Signalling being deactivated and react accordingly before non-cancelled proposals can be executed. In this sub-state, the DAO cannot submit proposals to the DG or execute pending proposals.
 
 **Transition to the parent state**. If, while the sub-state is active, the following condition becomes true:
 
@@ -245,7 +245,7 @@ VetoSignallingDeactivationMaxDuration = 3 days
 
 ### Veto Cooldown state
 
-In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can execute pending non-canceled proposals, provided that the proposal being executed was submitted more than `ProposalExecutionMinTimelock` days ago and before the Veto Signalling state was entered the last time. This state exists to guarantee that no staker possessing enough stETH to generate `FirstSealRageQuitSupport` can lock the governance indefinitely without rage quitting the protocol.
+In the Veto Cooldown state, the DAO cannot submit proposals to the DG but can execute pending non-cancelled proposals, provided that the proposal being executed was submitted more than `ProposalExecutionMinTimelock` days ago and before the Veto Signalling state was entered the last time. This state exists to guarantee that no staker possessing enough stETH to generate `FirstSealRageQuitSupport` can lock the governance indefinitely without rage quitting the protocol.
 
 **Transition to Veto Signalling**. If, while the state is active, the following condition becomes true:
 

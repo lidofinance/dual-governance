@@ -67,7 +67,7 @@ library ExecutableProposals {
 
     /// @notice The context for the library, storing relevant proposals data.
     /// @param proposalsCount The total number of proposals submitted so far.
-    /// @param lastCancelledProposalId The id of the most recently canceled proposal.
+    /// @param lastCancelledProposalId The id of the most recently cancelled proposal.
     /// @param proposals A mapping of proposal ids to their corresponding `Proposal` data.
     struct Context {
         uint64 proposalsCount;
@@ -83,6 +83,7 @@ library ExecutableProposals {
     error UnexpectedProposalStatus(uint256 proposalId, Status status);
     error AfterSubmitDelayNotPassed(uint256 proposalId);
     error AfterScheduleDelayNotPassed(uint256 proposalId);
+    error MinExecutionDelayNotPassed(uint256 proposalId);
 
     // ---
     // Events
@@ -128,7 +129,7 @@ library ExecutableProposals {
     }
 
     /// @notice Marks a previously submitted proposal as scheduled for execution if the required delay period
-    ///     has passed since submission and the proposal was not canceled.
+    ///     has passed since submission and the proposal was not cancelled.
     /// @param self The context of the Executable Proposal library.
     /// @param proposalId The id of the proposal to schedule.
     /// @param afterSubmitDelay The required delay duration after submission before the proposal can be scheduled.
@@ -154,11 +155,17 @@ library ExecutableProposals {
     }
 
     /// @notice Marks a previously scheduled proposal as executed and runs the associated external calls if the
-    ///     required delay period has passed since scheduling and the proposal has not been canceled.
+    ///     required delay period has passed since scheduling and the proposal has not been cancelled.
     /// @param self The context of the Executable Proposal library.
     /// @param proposalId The id of the proposal to execute.
     /// @param afterScheduleDelay The minimum delay required after scheduling before execution is allowed.
-    function execute(Context storage self, uint256 proposalId, Duration afterScheduleDelay) internal {
+    /// @param minExecutionDelay The minimum time that must elapse after submission before execution is allowed.
+    function execute(
+        Context storage self,
+        uint256 proposalId,
+        Duration afterScheduleDelay,
+        Duration minExecutionDelay
+    ) internal {
         Proposal memory proposal = self.proposals[proposalId];
 
         _checkProposalNotCancelled(self, proposalId, proposal.data);
@@ -171,13 +178,17 @@ library ExecutableProposals {
             revert AfterScheduleDelayNotPassed(proposalId);
         }
 
+        if (minExecutionDelay.addTo(proposal.data.submittedAt) > Timestamps.now()) {
+            revert MinExecutionDelayNotPassed(proposalId);
+        }
+
         self.proposals[proposalId].data.status = Status.Executed;
 
         ExternalCalls.execute(IExternalExecutor(proposal.data.executor), proposal.calls);
         emit ProposalExecuted(proposalId);
     }
 
-    /// @notice Marks all non-executed proposals up to the most recently submitted as canceled, preventing their execution.
+    /// @notice Marks all non-executed proposals up to the most recently submitted as cancelled, preventing their execution.
     /// @param self The context of the Executable Proposal library.
     function cancelAll(Context storage self) internal {
         uint64 lastCancelledProposalId = self.proposalsCount;
