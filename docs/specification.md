@@ -2176,6 +2176,16 @@ Executes a scheduled proposal by calling the `tiebreakerScheduleProposal` functi
 
 ---
 
+### Function: `TiebreakerCoreCommittee.checkProposalExists`
+
+```solidity
+function checkProposalExists(uint256 proposalId) public view
+```
+
+Checks if the specified proposal exists, otherwise reverts.
+
+---
+
 ### Function: `TiebreakerCoreCommittee.getSealableResumeNonce`
 
 ```solidity
@@ -2226,6 +2236,15 @@ Executes a sealable resume request by calling the `tiebreakerResumeSealable` fun
 
 - Resume request MUST have reached quorum and passed the timelock duration.
 
+---
+
+### Function: `TiebreakerCoreCommittee.checkSealableIsPaused`
+
+```solidity
+function checkSealableIsPaused(address sealable) public view
+```
+
+Checks if the specified sealable address is not a zero address and that it is paused, otherwise reverts.
 ---
 
 ## Contract: `TiebreakerSubCommittee`
