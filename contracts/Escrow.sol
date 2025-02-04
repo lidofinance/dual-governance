@@ -275,6 +275,9 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @param hints An array of hints required by the WithdrawalQueue to efficiently retrieve
     ///        the claimable amounts for the unstETH NFTs.
     function markUnstETHFinalized(uint256[] memory unstETHIds, uint256[] calldata hints) external {
+        if (unstETHIds.length == 0) {
+            revert EmptyUnstETHIds();
+        }
         DUAL_GOVERNANCE.activateNextState();
         _escrowState.checkSignallingEscrow();
 

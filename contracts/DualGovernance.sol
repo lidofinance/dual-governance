@@ -397,7 +397,7 @@ contract DualGovernance is IDualGovernance {
         _proposers.setProposerExecutor(proposerAccount, newExecutor);
 
         /// @dev after update of the proposer, check that admin executor still belongs to some proposer
-        _proposers.checkRegisteredExecutor(TIMELOCK.getAdminExecutor());
+        _proposers.checkRegisteredExecutor(msg.sender);
     }
 
     /// @notice Unregisters a proposer from the system.
