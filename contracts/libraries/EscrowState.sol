@@ -71,11 +71,16 @@ library EscrowState {
 
     /// @notice Initializes the Escrow state to SignallingEscrow.
     /// @param self The context of the Escrow State library.
-    /// @param minAssetsLockDuration The minimum assets lock duration.
-    function initialize(Context storage self, Duration minAssetsLockDuration) internal {
+    /// @param minAssetsLockDuration The initial minimum assets lock duration.
+    /// @param maxMinAssetsLockDuration Sanity check upper bound for min assets lock duration.
+    function initialize(
+        Context storage self,
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) internal {
         _checkState(self, State.NotInitialized);
         _setState(self, State.SignallingEscrow);
-        _setMinAssetsLockDuration(self, minAssetsLockDuration);
+        setMinAssetsLockDuration(self, minAssetsLockDuration, maxMinAssetsLockDuration);
     }
 
     /// @notice Starts the rage quit process.
@@ -116,7 +121,8 @@ library EscrowState {
         ) {
             revert InvalidMinAssetsLockDuration(newMinAssetsLockDuration);
         }
-        _setMinAssetsLockDuration(self, newMinAssetsLockDuration);
+        self.minAssetsLockDuration = newMinAssetsLockDuration;
+        emit MinAssetsLockDurationSet(newMinAssetsLockDuration);
     }
 
     // ---
@@ -204,13 +210,5 @@ library EscrowState {
         State prevState = self.state;
         self.state = newState;
         emit EscrowStateChanged(prevState, newState);
-    }
-
-    /// @notice Sets the minimum assets lock duration.
-    /// @param self The context of the Escrow State library.
-    /// @param newMinAssetsLockDuration The new minimum assets lock duration.
-    function _setMinAssetsLockDuration(Context storage self, Duration newMinAssetsLockDuration) private {
-        self.minAssetsLockDuration = newMinAssetsLockDuration;
-        emit MinAssetsLockDurationSet(newMinAssetsLockDuration);
     }
 }
