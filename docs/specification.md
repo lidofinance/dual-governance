@@ -1479,7 +1479,7 @@ The governance reset entails the following steps:
 
 ---
 
-### Function: `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY()`
+### Function: `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY`
 
 ```solidity
 Duration public immutable MIN_EXECUTION_DELAY;
@@ -1489,7 +1489,7 @@ The minimum duration that must pass between a proposal's submission and its exec
 
 ---
 
-### Function: `EmergencyProtectedTimelock.MAX_AFTER_SUBMIT_DELAY()`
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SUBMIT_DELAY`
 
 ```solidity
 Duration public immutable MAX_AFTER_SUBMIT_DELAY;
@@ -1499,7 +1499,7 @@ The upper bound for the delay required before a submitted proposal can be schedu
 
 ---
 
-### Function: `EmergencyProtectedTimelock.MAX_AFTER_SCHEDULE_DELAY()`
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SCHEDULE_DELAY`
 
 ```solidity
 Duration public immutable MAX_AFTER_SCHEDULE_DELAY;
@@ -1509,7 +1509,7 @@ The upper bound for the delay required before a scheduled proposal can be execut
 
 ---
 
-### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_MODE_DURATION()`
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_MODE_DURATION`
 
 ```solidity
 Duration public immutable MAX_EMERGENCY_MODE_DURATION;
@@ -1519,7 +1519,7 @@ The upper bound for the time the timelock can remain in emergency mode.
 
 ---
 
-### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_PROTECTION_DURATION()`
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_PROTECTION_DURATION`
 
 ```solidity
 Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
