@@ -133,7 +133,7 @@ function cancelAllPendingProposals() returns (bool)
 
 Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
 
-The function will return `true` if all proposals are successfully canceled. If the subsequent call to the [`EmergencyProtectedTimelock.cancelAllNonExecutedProposals`](#Function-EmergencyProtectedTimelockcancelAllNonExecutedProposals) method fails, the function will revert with an error.
+The function will return `true` if all proposals are successfully cancelled. If the subsequent call to the [`EmergencyProtectedTimelock.cancelAllNonExecutedProposals`](#Function-EmergencyProtectedTimelockcancelAllNonExecutedProposals) method fails, the function will revert with an error.
 
 #### Preconditions
 

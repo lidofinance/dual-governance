@@ -66,8 +66,8 @@ The general proposal flow is the following:
 
 1. A proposer submits a proposal, i.e. a set of EVM calls (represented by an array of [`ExternalCall`](#Struct-ExternalCall) structs) to be issued by the proposer's associated [executor contract](#Contract-Executor), by calling the [`DualGovernance.submitProposal`](#Function-DualGovernancesubmitProposal) function.
 2. This starts a [dynamic timelock period](#Dynamic-timelock) that allows stakers to oppose the DAO, potentially leaving the protocol before the timelock elapses.
-3. By the end of the dynamic timelock period, the proposal is either canceled by the DAO or executable.
-    * If it's canceled, it cannot be scheduled for execution. However, any proposer is free to submit a new proposal with the same set of calls.
+3. By the end of the dynamic timelock period, the proposal is either cancelled by the DAO or executable.
+    * If it's cancelled, it cannot be scheduled for execution. However, any proposer is free to submit a new proposal with the same set of calls.
     * Otherwise, anyone can schedule the proposal for execution by calling the [`DualGovernance.scheduleProposal`](#Function-DualGovernancescheduleProposal) function, with the execution flow that follows being dependent on the [deployment mode](#Proposal-execution-and-deployment-modes).
 4. The proposal's execution results in the proposal's EVM calls being issued by the executor contract associated with the proposer.
 
@@ -85,8 +85,8 @@ While the Dual Governance is in the `VetoSignalling` or `VetoSignallingDeactivat
 By the time the dynamic timelock described above elapses, one of the following outcomes is possible:
 
 - The DAO was not opposed by stakers (the **happy path** scenario).
-- The DAO was opposed by stakers and canceled all pending proposals (the **two-sided de-escalation** scenario).
-- The DAO was opposed by stakers and didn't cancel pending proposals, forcing the stakers to leave via the rage quit process, or canceled the proposals but some stakers still left (the **rage quit** scenario).
+- The DAO was opposed by stakers and cancelled all pending proposals (the **two-sided de-escalation** scenario).
+- The DAO was opposed by stakers and didn't cancel pending proposals, forcing the stakers to leave via the rage quit process, or cancelled the proposals but some stakers still left (the **rage quit** scenario).
 - The DAO was opposed by stakers and didn't cancel pending proposals but the total stake opposing the DAO was too small to trigger the rage quit (the **failed escalation** scenario).
 
 
@@ -295,7 +295,7 @@ function cancelAllPendingProposals() returns (bool)
 Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
 
 If the current governance state is neither `VetoSignalling` nor `VetoSignallingDeactivation`, the function will exit early without canceling any proposals, emitting the `CancelAllPendingProposalsSkipped` event and returning `false`.
-If proposals are successfully canceled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
+If proposals are successfully cancelled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
 
 #### Preconditions
 
