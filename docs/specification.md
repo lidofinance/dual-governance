@@ -329,6 +329,7 @@ Sets the configuration provider for the Dual Governance system.
 - The `newConfigProvider` address MUST NOT be the same as the current configuration provider.
 - The values returned by the config MUST be valid:
   - `firstSealRageQuitSupport` MUST be less than `secondSealRageQuitSupport`.
+  - `secondSealRageQuitSupport` MUST be less than or equal to 100%, represented as a percentage with 16 decimal places of precision.
   - `vetoSignallingMinDuration` MUST be less than `vetoSignallingMaxDuration`.
   - `rageQuitEthWithdrawalsMinDelay` MUST be less than or equal to `rageQuitEthWithdrawalsMaxDelay`.
   - `minAssetsLockDuration` MUST NOT be zero.
