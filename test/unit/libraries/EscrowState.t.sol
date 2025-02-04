@@ -61,15 +61,14 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function testFuzz_initalize_RevertOn_InvalidMinAssetLockDuration_ExceedMaxDuration(
+        Duration minAssetsLockDuration,
         Duration maxMinAssetsLockDuration
     ) external {
-        vm.assume(
-            maxMinAssetsLockDuration > Durations.ZERO
-                && maxMinAssetsLockDuration < Durations.from(MAX_DURATION_VALUE - 1)
+        vm.assume(maxMinAssetsLockDuration < minAssetsLockDuration);
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
         );
-        Duration duration = maxMinAssetsLockDuration + Durations.from(1);
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, duration));
-        EscrowState.initialize(_context, duration, maxMinAssetsLockDuration);
+        EscrowState.initialize(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
     }
 
     // ---
