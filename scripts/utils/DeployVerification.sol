@@ -231,7 +231,6 @@ library DeployVerification {
             signallingEscrowDetails.totalStETHClaimedETH.toUint256() == 0,
             "Incorrect SignallingEscrowDetails.totalStETHClaimedETH"
         );
-        // TODO: Double check if we need this assertion
         require(
             signallingEscrowDetails.totalStETHLockedShares.toUint256() == 0,
             "Incorrect SignallingEscrowDetails.totalStETHLockedShares"
@@ -245,27 +244,17 @@ library DeployVerification {
             "Incorrect SignallingEscrowDetails.totalUnstETHFinalizedETH"
         );
 
-        // require(dg.getPersistedState() == State.Normal, "Incorrect DualGovernance persisted state");
-        // require(dg.getEffectiveState() == State.Normal, "Incorrect DualGovernance effective state");
-        // require(dg.getProposers().length == 1, "Incorrect amount of proposers");
         require(
             dg.isProposer(address(dgDeployConfig.dualGovernance.adminProposer)) == true,
             "Lido voting is not set as a proposer"
         );
         require(dg.isExecutor(address(contracts.adminExecutor)) == true, "adminExecutor is not set as an executor");
-        // require(dg.canSubmitProposal() == true, "DG is in incorrect state - can't submit proposal");
         require(dg.getRageQuitEscrow() == address(0), "DG is in incorrect state - RageQuit started");
 
         IDualGovernance.StateDetails memory stateDetails = dg.getStateDetails();
-        // require(stateDetails.effectiveState == State.Normal, "Incorrect DualGovernance effectiveState");
-        // require(stateDetails.persistedState == State.Normal, "Incorrect DualGovernance persistedState");
         require(
             stateDetails.persistedStateEnteredAt <= Timestamps.now(), "Incorrect DualGovernance persistedStateEnteredAt"
         );
-        /* require(
-            stateDetails.vetoSignallingActivatedAt == Timestamps.ZERO,
-            "Incorrect DualGovernance state vetoSignallingActivatedAt"
-        ); */
         require(
             stateDetails.vetoSignallingReactivationTime == Timestamps.ZERO,
             "Incorrect DualGovernance state vetoSignallingReactivationTime"
@@ -275,7 +264,6 @@ library DeployVerification {
             "Incorrect DualGovernance state normalOrVetoCooldownExitedAt"
         );
         require(stateDetails.rageQuitRound == 0, "Incorrect DualGovernance state rageQuitRound");
-        // TODO: Double check if we need this assertion.
         require(
             stateDetails.vetoSignallingDuration == Durations.ZERO,
             "Incorrect DualGovernance state vetoSignallingDuration"
