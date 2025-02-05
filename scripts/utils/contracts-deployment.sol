@@ -10,6 +10,7 @@ import {IStETH} from "contracts/interfaces/IStETH.sol";
 import {IWstETH} from "contracts/interfaces/IWstETH.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
@@ -339,10 +340,12 @@ library DualGovernanceConfigProviderContractDeployConfig {
     function toJSON(DualGovernanceConfig.Context memory ctx) internal returns (string memory) {
         ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
 
+        uint256 percentD16BasisPointsDivider = 1e14; // = HUNDRED_PERCENT_D16 / HUNDRED_PERCENT_BP
+
         // forgefmt: disable-next-item
         {
-            builder.set("first_seal_rage_quit_support", ctx.firstSealRageQuitSupport.toUint256() / 1e14);
-            builder.set("second_seal_rage_quit_support", ctx.secondSealRageQuitSupport.toUint256() / 1e14);
+            builder.set("first_seal_rage_quit_support", ctx.firstSealRageQuitSupport.toUint256() / percentD16BasisPointsDivider);
+            builder.set("second_seal_rage_quit_support", ctx.secondSealRageQuitSupport.toUint256() / percentD16BasisPointsDivider);
 
             builder.set("min_assets_lock_duration", ctx.minAssetsLockDuration);
 
@@ -679,6 +682,10 @@ library ContractsDeployment {
             }),
             deployConfig.dualGovernance.signallingTokens,
             deployConfig.dualGovernance.sanityCheckParams
+        );
+
+        contracts.escrowMasterCopy = Escrow(
+            payable(address(ISignallingEscrow(contracts.dualGovernance.getVetoSignallingEscrow()).ESCROW_MASTER_COPY()))
         );
 
         contracts.tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
