@@ -215,19 +215,24 @@ library ExecutableProposals {
             && Timestamps.now() >= afterSubmitDelay.addTo(proposalData.submittedAt);
     }
 
-    /// @notice Determines whether a proposal is eligible for execution based on its status and delay requirements.
+    /// @notice Determines whether a proposal is eligible for execution based on its status and delays requirements.
     /// @param self The context of the Executable Proposal library.
     /// @param proposalId The id of the proposal to check for execution eligibility.
     /// @param afterScheduleDelay The required delay duration after scheduling before the proposal can be executed.
+    /// @param minExecutionDelay The required minimum delay after submission before execution is allowed.
     /// @return bool `true` if the proposal is eligible for execution, otherwise `false`.
     function canExecute(
         Context storage self,
         uint256 proposalId,
-        Duration afterScheduleDelay
+        Duration afterScheduleDelay,
+        Duration minExecutionDelay
     ) internal view returns (bool) {
+        Timestamp currentTime = Timestamps.now();
         ProposalData memory proposalData = self.proposals[proposalId].data;
+
         return proposalId > self.lastCancelledProposalId && proposalData.status == Status.Scheduled
-            && Timestamps.now() >= afterScheduleDelay.addTo(proposalData.scheduledAt);
+            && currentTime >= afterScheduleDelay.addTo(proposalData.scheduledAt)
+            && currentTime >= minExecutionDelay.addTo(proposalData.submittedAt);
     }
 
     /// @notice Returns the total count of submitted proposals.

@@ -418,23 +418,29 @@ contract ExecutableProposalsUnitTests is UnitTest {
     }
 
     function test_can_execute_proposal() external {
-        Duration delay = Durations.from(100 seconds);
+        Duration afterScheduleDelay = Durations.from(100 seconds);
+        Duration minExecutionDelay = Durations.from(200 seconds);
         _proposals.submit(address(_executor), _getMockTargetRegularStaffCalls(address(_targetMock)));
         uint256 proposalId = _proposals.getProposalsCount();
 
-        assert(!_proposals.canExecute(proposalId, Durations.ZERO));
+        // Can't execute because proposal not in Scheduled state
+        assertFalse(_proposals.canExecute(proposalId, Durations.ZERO, Durations.ZERO));
 
         _proposals.schedule(proposalId, Durations.ZERO);
 
-        assert(!_proposals.canExecute(proposalId, delay));
+        // Can't execute because afterScheduleDelay not passed
+        assertFalse(_proposals.canExecute(proposalId, afterScheduleDelay, Durations.ZERO));
+        _wait(afterScheduleDelay);
+        assertTrue(_proposals.canExecute(proposalId, afterScheduleDelay, Durations.ZERO));
 
-        _wait(delay);
+        // Can't execute because minExecutionDelay not passed
+        assertFalse(_proposals.canExecute(proposalId, afterScheduleDelay, minExecutionDelay));
+        _wait(minExecutionDelay - afterScheduleDelay);
+        assertTrue(_proposals.canExecute(proposalId, afterScheduleDelay, minExecutionDelay));
 
-        assert(_proposals.canExecute(proposalId, delay));
+        _proposals.execute(proposalId, afterScheduleDelay, minExecutionDelay);
 
-        _proposals.execute(proposalId, Durations.ZERO, Durations.ZERO);
-
-        assert(!_proposals.canExecute(proposalId, delay));
+        assertFalse(_proposals.canExecute(proposalId, afterScheduleDelay, minExecutionDelay));
     }
 
     function test_can_not_execute_cancelled_proposal() external {
@@ -442,10 +448,10 @@ contract ExecutableProposalsUnitTests is UnitTest {
         uint256 proposalId = _proposals.getProposalsCount();
         _proposals.schedule(proposalId, Durations.ZERO);
 
-        assert(_proposals.canExecute(proposalId, Durations.ZERO));
+        assert(_proposals.canExecute(proposalId, Durations.ZERO, Durations.ZERO));
         _proposals.cancelAll();
 
-        assert(!_proposals.canExecute(proposalId, Durations.ZERO));
+        assert(!_proposals.canExecute(proposalId, Durations.ZERO, Durations.ZERO));
     }
 
     function test_cancelAll_DoesNotModifyStateOfExecutedProposals() external {

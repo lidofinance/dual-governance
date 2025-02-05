@@ -377,7 +377,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @return A boolean indicating if the proposal can be executed.
     function canExecute(uint256 proposalId) external view returns (bool) {
         return !_emergencyProtection.isEmergencyModeActive()
-            && _proposals.canExecute(proposalId, _timelockState.getAfterScheduleDelay());
+            && _proposals.canExecute(proposalId, _timelockState.getAfterScheduleDelay(), MIN_EXECUTION_DELAY);
     }
 
     /// @notice Checks if a proposal can be scheduled.
