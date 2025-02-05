@@ -19,7 +19,7 @@ import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/target-mock.sol";
-import {ExternalCall} from "test/utils/executor-calls.sol";
+import {ExternalCall, ExternalCallHelpers} from "test/utils/executor-calls.sol";
 
 contract EmergencyProtectedTimelockUnitTests is UnitTest {
     EmergencyProtectedTimelock private _timelock;
@@ -275,6 +275,83 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         ITimelock.ProposalDetails memory proposal = _timelock.getProposalDetails(1);
         assertEq(proposal.status, ProposalStatus.Scheduled);
+    }
+
+    function test_execute_ProposalExecutionBeforeMinExecutionDelayPassedForbidden() external {
+        Duration initialAfterSubmitDelay = Durations.ZERO;
+        Duration initialAfterScheduleDelay = _defaultSanityCheckParams.minExecutionDelay;
+
+        Duration newAfterSubmitDelay = _defaultSanityCheckParams.minExecutionDelay;
+        Duration newAfterScheduleDelay = Durations.ZERO;
+
+        // prepare timelock instance timings
+        vm.startPrank(_adminExecutor);
+        _timelock.setAfterScheduleDelay(initialAfterScheduleDelay);
+        _timelock.setAfterSubmitDelay(initialAfterSubmitDelay);
+        vm.stopPrank();
+
+        assertEq(_timelock.getAfterSubmitDelay(), initialAfterSubmitDelay);
+        assertEq(_timelock.getAfterScheduleDelay(), initialAfterScheduleDelay);
+
+        // submit proposal to update delay durations
+        vm.startPrank(_dualGovernance);
+        uint256 updateDelaysProposalId = _timelock.submit(
+            _adminExecutor,
+            ExternalCallHelpers.create(
+                address(_timelock),
+                [
+                    abi.encodeCall(_timelock.setAfterSubmitDelay, newAfterSubmitDelay),
+                    abi.encodeCall(_timelock.setAfterScheduleDelay, newAfterScheduleDelay)
+                ]
+            )
+        );
+        vm.stopPrank();
+
+        // as the current after submit delay is 0, proposal may be instantly scheduled
+        assertTrue(_timelock.canSchedule(updateDelaysProposalId));
+
+        vm.prank(_dualGovernance);
+        _timelock.schedule(updateDelaysProposalId);
+
+        assertFalse(_timelock.canExecute(updateDelaysProposalId));
+
+        _wait(_timelock.getAfterScheduleDelay());
+
+        assertTrue(_timelock.canExecute(updateDelaysProposalId));
+
+        // at the end of the after schedule delay submit another proposal
+        vm.startPrank(_dualGovernance);
+        uint256 otherProposalId =
+            _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)));
+        vm.stopPrank();
+
+        // as the proposal to update delays hasn't executed yet and after submit delay is 0
+        // new proposal may be scheduled just after submit
+        assertTrue(_timelock.canSchedule(otherProposalId));
+
+        vm.prank(_dualGovernance);
+        _timelock.schedule(otherProposalId);
+
+        assertFalse(_timelock.canExecute(otherProposalId));
+
+        _timelock.execute(updateDelaysProposalId);
+        assertEq(_timelock.getAfterSubmitDelay(), newAfterSubmitDelay);
+        assertEq(_timelock.getAfterScheduleDelay(), newAfterScheduleDelay);
+
+        // after the execution of the proposal with the delays update, proposal submitted
+        // just before execution can't be executed, due to min execution delay constraint
+        assertFalse(_timelock.canExecute(otherProposalId));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ExecutableProposals.MinExecutionDelayNotPassed.selector, otherProposalId)
+        );
+        _timelock.execute(otherProposalId);
+
+        _wait(_timelock.MIN_EXECUTION_DELAY());
+        _timelock.execute(otherProposalId);
+
+        // after min execution delay has passed, proposal may be executed
+        assertEq(_targetMock.getCallsLength(), 1);
     }
 
     // EmergencyProtectedTimelock.cancelAllNonExecutedProposals()
