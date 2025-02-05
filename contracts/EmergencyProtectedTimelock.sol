@@ -18,8 +18,9 @@ import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 ///     a compromised or misbehaving (including those caused by code vulnerabilities) governance entity.
 /// @dev The proposal lifecycle:
 ///
-///                                         afterSubmitDelay          afterScheduleDelay
-///                                              passed                     passed
+///                                                                MIN_EXECUTION_DELAY and
+///                                         afterSubmitDelay         afterScheduleDelay
+///                                              passed                    passed
 ///     ┌──────────┐            ┌───────────┐              ┌───────────┐             ╔══════════╗
 ///     │ NotExist ├ submit() ─>│ Submitted ├ schedule() ─>│ Scheduled ├ execute() ─>║ Executed ║
 ///     └──────────┘            └────────┬──┘              └──┬────────┘             ╚══════════╝
@@ -377,7 +378,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @return A boolean indicating if the proposal can be executed.
     function canExecute(uint256 proposalId) external view returns (bool) {
         return !_emergencyProtection.isEmergencyModeActive()
-            && _proposals.canExecute(proposalId, _timelockState.getAfterScheduleDelay());
+            && _proposals.canExecute(proposalId, _timelockState.getAfterScheduleDelay(), MIN_EXECUTION_DELAY);
     }
 
     /// @notice Checks if a proposal can be scheduled.
