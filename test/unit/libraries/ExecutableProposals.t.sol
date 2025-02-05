@@ -448,10 +448,10 @@ contract ExecutableProposalsUnitTests is UnitTest {
         uint256 proposalId = _proposals.getProposalsCount();
         _proposals.schedule(proposalId, Durations.ZERO);
 
-        assert(_proposals.canExecute(proposalId, Durations.ZERO, Durations.ZERO));
+        assertTrue(_proposals.canExecute(proposalId, Durations.ZERO, Durations.ZERO));
         _proposals.cancelAll();
 
-        assert(!_proposals.canExecute(proposalId, Durations.ZERO, Durations.ZERO));
+        assertFalse(_proposals.canExecute(proposalId, Durations.ZERO, Durations.ZERO));
     }
 
     function test_cancelAll_DoesNotModifyStateOfExecutedProposals() external {
