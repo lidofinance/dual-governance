@@ -18,8 +18,9 @@ import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 ///     a compromised or misbehaving (including those caused by code vulnerabilities) governance entity.
 /// @dev The proposal lifecycle:
 ///
-///                                         afterSubmitDelay          afterScheduleDelay
-///                                              passed                     passed
+///                                                                MIN_EXECUTION_DELAY and
+///                                         afterSubmitDelay         afterScheduleDelay
+///                                              passed                    passed
 ///     ┌──────────┐            ┌───────────┐              ┌───────────┐             ╔══════════╗
 ///     │ NotExist ├ submit() ─>│ Submitted ├ schedule() ─>│ Scheduled ├ execute() ─>║ Executed ║
 ///     └──────────┘            └────────┬──┘              └──┬────────┘             ╚══════════╝
