@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Durations} from "contracts/types/Duration.sol";
 
-import {Ownable, Executor} from "contracts/Executor.sol";
+import {Executor} from "contracts/Executor.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
 
 import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall, DualGovernance} from "../utils/integration-tests.sol";

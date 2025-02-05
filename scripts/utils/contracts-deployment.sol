@@ -224,7 +224,9 @@ library DualGovernanceContractDeployConfig {
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
         string memory $ = configRootKey.root();
+        // solhint-disable-next-line var-name-mixedcase
         string memory $sanity_check = $.key("sanity_check_params");
+        // solhint-disable-next-line var-name-mixedcase
         string memory $signalling_tokens = $.key("signalling_tokens");
 
         return Context({

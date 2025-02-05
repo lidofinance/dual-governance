@@ -1,14 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {PercentsD16} from "contracts/types/PercentD16.sol";
-
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
-
-import {ResealManager} from "contracts/ResealManager.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
-import {ImmutableDualGovernanceConfigProvider} from "contracts/ImmutableDualGovernanceConfigProvider.sol";
 
 import {
     Durations,

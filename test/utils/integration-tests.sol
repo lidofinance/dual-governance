@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/* solhint-disable no-console */
+/* solhint-disable no-console,reason-string,custom-errors */
 
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -20,7 +20,7 @@ import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousC
 import {Proposers} from "contracts/libraries/Proposers.sol";
 import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 
-import {Escrow, ISignallingEscrow, IRageQuitEscrow} from "contracts/Escrow.sol";
+import {ISignallingEscrow, IRageQuitEscrow} from "contracts/Escrow.sol";
 import {DualGovernance, State as DGState} from "contracts/DualGovernance.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 

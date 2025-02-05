@@ -4,14 +4,7 @@ pragma solidity 0.8.26;
 
 import {console} from "forge-std/console.sol";
 
-import {
-    LidoUtils,
-    DGScenarioTestSetup,
-    ExternalCallHelpers,
-    ExternalCall,
-    Proposers,
-    IGovernance
-} from "../utils/integration-tests.sol";
+import {LidoUtils, DGScenarioTestSetup, ExternalCallHelpers, ExternalCall} from "../utils/integration-tests.sol";
 import {TimelockedGovernance, ContractsDeployment} from "scripts/utils/contracts-deployment.sol";
 
 import {Durations} from "contracts/types/Duration.sol";

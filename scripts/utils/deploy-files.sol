@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+/* solhint-disable custom-errors */
+
 import {Vm} from "forge-std/Vm.sol";
 
 // solhint-disable-next-line const-name-snakecase

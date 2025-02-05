@@ -19,12 +19,10 @@ import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 import {State as EscrowState} from "contracts/libraries/EscrowState.sol";
 
-import {DualGovernance} from "contracts/DualGovernance.sol";
 import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.sol";
 import {
     DGSetupDeployConfig,
     DGSetupDeployArtifacts,
-    ContractsDeployment,
     DGSetupDeployedContracts,
     TimelockContractDeployConfig,
     TiebreakerContractDeployConfig,
