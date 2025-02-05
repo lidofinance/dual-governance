@@ -82,15 +82,15 @@ library TimelockContractDeployConfig {
 
     function validate(Context memory ctx) internal pure {
         if (ctx.afterSubmitDelay > ctx.sanityCheckParams.maxAfterSubmitDelay) {
-            revert InvalidParameter("after_submit_delay");
+            revert InvalidParameter("timelock.after_submit_delay");
         }
 
         if (ctx.afterScheduleDelay > ctx.sanityCheckParams.maxAfterScheduleDelay) {
-            revert InvalidParameter("after_schedule_delay");
+            revert InvalidParameter("timelock.after_schedule_delay");
         }
 
         if (ctx.emergencyModeDuration > ctx.sanityCheckParams.maxEmergencyModeDuration) {
-            revert InvalidParameter("emergency_mode_duration");
+            revert InvalidParameter("timelock.emergency_mode_duration");
         }
     }
 
@@ -148,7 +148,7 @@ library TiebreakerContractDeployConfig {
     function load(string memory configFilePath, string memory configRootKey) internal view returns (Context memory) {
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
-        string memory $ = JsonKeys.root(configRootKey);
+        string memory $ = configRootKey.root();
 
         uint256 tiebreakerCommitteesCount = file.readUint($.key("committees_count"));
 
@@ -253,22 +253,22 @@ library DualGovernanceContractDeployConfig {
     function validate(Context memory ctx) internal pure {
         if (ctx.sanityCheckParams.minTiebreakerActivationTimeout > ctx.sanityCheckParams.maxTiebreakerActivationTimeout)
         {
-            revert InvalidParameter("dual_governance.sanity_check_params.min_activation_timeout");
+            revert InvalidParameter("dual_governance.sanity_check_params.min_tiebreaker_activation_timeout");
         }
 
         if (
             ctx.tiebreakerActivationTimeout > ctx.sanityCheckParams.maxTiebreakerActivationTimeout
                 || ctx.tiebreakerActivationTimeout < ctx.sanityCheckParams.minTiebreakerActivationTimeout
         ) {
-            revert InvalidParameter("dual_governance.tiebreaker.activation_timeout");
+            revert InvalidParameter("dual_governance.tiebreaker_activation_timeout");
         }
 
         if (ctx.sanityCheckParams.maxSealableWithdrawalBlockersCount == 0) {
-            revert InvalidParameter("max_sealable_withdrawal_blockers_count");
+            revert InvalidParameter("dual_governance.sanity_check_params.max_sealable_withdrawal_blockers_count");
         }
 
         if (ctx.sealableWithdrawalBlockers.length > ctx.sanityCheckParams.maxSealableWithdrawalBlockersCount) {
-            revert InvalidParameter("tiebreaker.sealable_withdrawal_blockers");
+            revert InvalidParameter("dual_governance.sealable_withdrawal_blockers");
         }
     }
 
@@ -322,7 +322,7 @@ library DualGovernanceConfigProviderContractDeployConfig {
             vetoSignallingMinDuration: file.readDuration($.key("veto_signalling_min_duration")),
             vetoSignallingMaxDuration: file.readDuration($.key("veto_signalling_max_duration")),
             vetoSignallingMinActiveDuration: file.readDuration($.key("veto_signalling_min_active_duration")),
-            vetoSignallingDeactivationMaxDuration: file.readDuration($.key("veto_signalling_max_duration")),
+            vetoSignallingDeactivationMaxDuration: file.readDuration($.key("veto_signalling_deactivation_max_duration")),
             vetoCooldownDuration: file.readDuration($.key("veto_cooldown_duration")),
             //
             rageQuitExtensionPeriodDuration: file.readDuration($.key("rage_quit_extension_period_duration")),
@@ -515,14 +515,6 @@ library DGSetupDeployArtifacts {
         DGSetupDeployedContracts.Context deployedContracts;
     }
 
-    function create(
-        DGSetupDeployConfig.Context memory deployConfig,
-        DGSetupDeployedContracts.Context memory deployedContracts
-    ) internal pure returns (Context memory ctx) {
-        ctx.deployConfig = deployConfig;
-        ctx.deployedContracts = deployedContracts;
-    }
-
     function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
         ctx.deployConfig = DGSetupDeployConfig.load(deployArtifactFilePath, "deploy_config");
@@ -576,6 +568,7 @@ library TimelockedGovernanceDeployConfig {
         string memory $ = configRootKey.root();
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
+        ctx.chainId = file.readUint($.key("chain_id"));
         ctx.governance = file.readAddress($.key("governance"));
         ctx.timelock = EmergencyProtectedTimelock(file.readAddress($.key("timelock")));
     }
