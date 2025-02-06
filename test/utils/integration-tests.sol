@@ -142,6 +142,7 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         view
         returns (TimelockContractDeployConfig.Context memory)
     {
+        // TODO: extract (emergencyGovernanceProposer == address(0)) to bool variable
         address emergencyActivationCommittee =
             emergencyGovernanceProposer == address(0) ? address(0) : _DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE;
         address emergencyExecutionCommittee =

@@ -24,15 +24,12 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
     TimelockedGovernance internal _emergencyGovernance;
     DGSetupDeployArtifacts.Context internal _deployArtifact;
 
-    function setUp() external {
-        _deployArtifact.deployConfig = _dgDeployConfig;
-        _deployArtifact.deployedContracts = _dgDeployedContracts;
-    }
-
     function testFork_DualGovernance_DeploymentWithDryRunTemporaryGovernance() external {
         _step("0. Deploy DG contracts with temporary emergency governance for dry-run test");
         {
             _deployDGSetup({emergencyGovernanceProposer: _TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER});
+            _deployArtifact.deployConfig = _dgDeployConfig;
+            _deployArtifact.deployedContracts = _dgDeployedContracts;
             _emergencyGovernance =
                 ContractsDeployment.deployTimelockedGovernance({governance: address(_lido.voting), timelock: _timelock});
         }
@@ -93,6 +90,8 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
         {
             _dgDeployedContracts.emergencyGovernance = _emergencyGovernance;
             _dgDeployConfig.timelock.emergencyGovernanceProposer = address(_lido.voting);
+            _deployArtifact.deployConfig = _dgDeployConfig;
+            _deployArtifact.deployedContracts = _dgDeployedContracts;
 
             DeployVerification.verify(_deployArtifact);
         }
@@ -233,6 +232,8 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
         _step("0. Deploy DG contracts");
         {
             _deployDGSetup({isEmergencyProtectionEnabled: true});
+            _deployArtifact.deployConfig = _dgDeployConfig;
+            _deployArtifact.deployedContracts = _dgDeployedContracts;
         }
 
         _step("1. Validate The DG Initial State After Deployment");
