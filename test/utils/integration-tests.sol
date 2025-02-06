@@ -27,6 +27,7 @@ import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.s
 import {LidoUtils, IStETH, IWstETH, IWithdrawalQueue} from "./lido-utils.sol";
 import {TargetMock} from "./target-mock.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
+// solhint-disable-next-line no-unused-import
 import {ExternalCall, ExternalCallHelpers} from "../utils/executor-calls.sol";
 
 import {
@@ -142,16 +143,12 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         view
         returns (TimelockContractDeployConfig.Context memory)
     {
-        // TODO: extract (emergencyGovernanceProposer == address(0)) to bool variable
-        address emergencyActivationCommittee =
-            emergencyGovernanceProposer == address(0) ? address(0) : _DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE;
-        address emergencyExecutionCommittee =
-            emergencyGovernanceProposer == address(0) ? address(0) : _DEFAULT_EMERGENCY_EXECUTION_COMMITTEE;
-        Duration emergencyModeDuration =
-            emergencyGovernanceProposer == address(0) ? Durations.ZERO : _DEFAULT_EMERGENCY_MODE_DURATION;
-        Timestamp emergencyProtectionEndDate = emergencyGovernanceProposer == address(0)
-            ? Timestamps.ZERO
-            : _DEFAULT_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now());
+        bool emProposerIsNotSet = emergencyGovernanceProposer == address(0);
+        address emergencyActivationCommittee = emProposerIsNotSet ? address(0) : _DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE;
+        address emergencyExecutionCommittee = emProposerIsNotSet ? address(0) : _DEFAULT_EMERGENCY_EXECUTION_COMMITTEE;
+        Duration emergencyModeDuration = emProposerIsNotSet ? Durations.ZERO : _DEFAULT_EMERGENCY_MODE_DURATION;
+        Timestamp emergencyProtectionEndDate =
+            emProposerIsNotSet ? Timestamps.ZERO : _DEFAULT_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now());
 
         return TimelockContractDeployConfig.Context({
             afterSubmitDelay: Durations.from(3 days),
