@@ -1,6 +1,13 @@
-### Deploying
+### Launch acceptance tests
+Specify the env variable `FROM_STEP` value in the .env file
 
-    With the local fork (Anvil):
-    ```
-    forge script scripts/launch/DeployDeployVerifier.s.sol:DeployDeployVerifier --fork-url http://localhost:8545 --broadcast --account Deployer1 --sender <DEPLOYER1_ADDRESS> --verify
-    ```
+```
+FROM_STEP=0
+```
+
+
+Launch acceptance tests with the local fork (Anvil):
+
+```
+forge script scripts/launch/LaunchAcceptance.s.sol:LaunchAcceptance --fork-url http://localhost:8545 -vvvv
+```

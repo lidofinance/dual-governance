@@ -18,76 +18,93 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 2. Set up the required env variables in the .env file
 
     ```
-    CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
     ETHERSCAN_MAINNET_KEY=...
-    DEPLOY_CONFIG_FILE_NAME=... (in the deploy-config folder, for example: "deploy-config.toml")
+    DEPLOY_CONFIG_FILE_NAME=... (in the `deploy-config` folder, for example: "deploy-config.toml")
     ```
 
-3. Create a deploy config TOML file with all the required values (at the location specified in DEPLOY_CONFIG_FILE_NAME):
-    ```
-    [EMERGENCY_PROTECTED_TIMELOCK_CONFIG]
-    MIN_EXECUTION_DELAY = 0
-    AFTER_SUBMIT_DELAY = 259200                           # 3 days
-    MAX_AFTER_SUBMIT_DELAY = 3888000                      # 45 days
-    AFTER_SCHEDULE_DELAY = 259200                         # 3 days
-    MAX_AFTER_SCHEDULE_DELAY = 3888000                    # 45 days
-    EMERGENCY_MODE_DURATION = 15552000                    # 180 days
-    MAX_EMERGENCY_MODE_DURATION = 31536000                # 365 days
-    EMERGENCY_PROTECTION_END_DATE = 1765200000            # Mon, 08 Dec 2025 13:20:00 GMT
-    MAX_EMERGENCY_PROTECTION_DURATION = 31536000          # 365 days
-    TEMPORARY_EMERGENCY_GOVERNANCE_PROPOSER = <address>
+3. Create a deploy config TOML file with all the required values (at the location specified in `DEPLOY_CONFIG_FILE_NAME`):
+    ```toml
+    chain_id = 17000
 
-    [DUAL_GOVERNANCE_CONFIG]
-    EMERGENCY_ACTIVATION_COMMITTEE = <address>
-    EMERGENCY_EXECUTION_COMMITTEE = <address>
-    RESEAL_COMMITTEE = <address>
-    MIN_WITHDRAWALS_BATCH_SIZE = 4
-    MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = 255
-    FIRST_SEAL_RAGE_QUIT_SUPPORT = 300                    # 3%
-    SECOND_SEAL_RAGE_QUIT_SUPPORT = 1500                  # 15%
-    MIN_ASSETS_LOCK_DURATION = 18000                      # 5 hours
-    MAX_MIN_ASSETS_LOCK_DURATION = 31536000               # 365 days
-    VETO_SIGNALLING_MIN_DURATION = 259200                 # 3 days
-    VETO_SIGNALLING_MIN_ACTIVE_DURATION = 18000           # 5 hours
-    VETO_SIGNALLING_MAX_DURATION = 2592000                # 30 days
-    VETO_SIGNALLING_DEACTIVATION_MAX_DURATION = 432000    # 5 days
-    VETO_COOLDOWN_DURATION = 345600                       # 4 days
-    RAGE_QUIT_EXTENSION_PERIOD_DURATION = 604800          # 7 days
-    RAGE_QUIT_ETH_WITHDRAWALS_MIN_DELAY = 2592000         # 30 days
-    RAGE_QUIT_ETH_WITHDRAWALS_MAX_DELAY = 15552000        # 180 days
-    RAGE_QUIT_ETH_WITHDRAWALS_DELAY_GROWTH = 1296000      # 15 days
+    # ======================
+    # DUAL GOVERNANCE CONFIG
+    # ======================
 
-    [TIEBREAKER_CONFIG]
-    EXECUTION_DELAY = 2592000         # 30 days
-    MIN_ACTIVATION_TIMEOUT = 7776000  # 90 days
-    ACTIVATION_TIMEOUT = 31536000     # 365 days
-    MAX_ACTIVATION_TIMEOUT = 63072000 # 730 days
-    QUORUM = 1
-    SEALABLE_WITHDRAWAL_BLOCKERS = [<Lido WITHDRAWAL_QUEUE address>, ...]
+    [dual_governance]
+    admin_proposer = "<address>"
+    reseal_committee = "<address>"
+    proposals_canceller = "<address>"
+    tiebreaker_activation_timeout = 31536000            # 365 days
+    sealable_withdrawal_blockers = ["<address>"]
 
-    [TIEBREAKER_CONFIG.INFLUENCERS]
-    MEMBERS = [<address1>,<address2>,<address3>]
-    QUORUM = 3
+    [dual_governance.signalling_tokens]
+    st_eth = "<address>"
+    wst_eth = "<address>"
+    withdrawal_queue = "<address>"
 
-    [TIEBREAKER_CONFIG.NODE_OPERATORS]
-    MEMBERS = [<address1>,<address2>,<address3>]
-    QUORUM = 2
+    [dual_governance.sanity_check_params]
+    min_withdrawals_batch_size = 4
+    max_tiebreaker_activation_timeout = 63072000        # 730 days
+    min_tiebreaker_activation_timeout = 7776000         # 90 days
+    max_sealable_withdrawal_blockers_count = 255
+    max_min_assets_lock_duration = 31536000             # 365 days
 
-    [TIEBREAKER_CONFIG.PROTOCOLS]
-    MEMBERS = [<address1>,<address2>,<address3>]
-    QUORUM = 1
-    ```
+    [dual_governance_config_provider]
+    first_seal_rage_quit_support = 300                  # 3%
+    second_seal_rage_quit_support = 1500                # 15%
+    min_assets_lock_duration = 18000                    # 5 hours
+    veto_signalling_min_duration = 259200               # 3 days
+    veto_signalling_min_active_duration = 18000         # 5 hours
+    veto_signalling_max_duration = 2592000              # 30 days
+    veto_signalling_deactivation_max_duration = 432000  # 5 days
+    veto_cooldown_duration = 345600                     # 4 days
+    rage_quit_extension_period_duration = 604800        # 7 days
+    rage_quit_eth_withdrawals_min_delay = 2592000       # 30 days
+    rage_quit_eth_withdrawals_max_delay = 15552000      # 180 days
+    rage_quit_eth_withdrawals_delay_growth = 1296000    # 15 days
 
-    When using `CHAIN="holesky-mocks"` you will need to provide in addition already deployed mock contracts addresses in the same TOML config file (at DEPLOY_CONFIG_FILE_NAME):
-    
-    ```
-    ...
-    [HOLESKY_MOCK_CONTRACTS]
-    ST_ETH = <address>
-    WST_ETH = <address>
-    WITHDRAWAL_QUEUE = <address>
-    DAO_VOTING = <address>
-    ...
+    # ======================
+    # EMERGENCY PROTECTED TIMELOCK CONFIG
+    # ======================
+
+    [timelock]
+    after_submit_delay = 259200                         # 3 days
+    after_schedule_delay = 259200                       # 3 days
+
+    [timelock.sanity_check_params]
+    min_execution_delay = 300                           # 5 minutes
+    max_after_submit_delay = 3888000                    # 45 days
+    max_after_schedule_delay = 3888000                  # 45 days
+    max_emergency_mode_duration = 31536000              # 365 days
+    max_emergency_protection_duration = 31536000        # 1 year
+
+    [timelock.emergency_protection]
+    emergency_mode_duration = 15552000                  # 180 days
+    emergency_protection_end_date = 1765200000          # Mon, 08 Dec 2025 13:20:00 GMT+0000
+    emergency_governance_proposer = "<address>"
+    emergency_activation_committee = "<address>"
+    emergency_execution_committee = "<address>"
+
+    # ======================
+    # TIEBREAKER CONFIG
+    # ======================
+
+    [tiebreaker]
+    quorum = 1
+    committees_count = 3
+    execution_delay = 2592000                           # 30 days
+
+    [[tiebreaker.committees]] 
+    quorum = 1
+    members = ["<address>"]
+
+    [[tiebreaker.committees]] 
+    quorum = 1
+    members = ["<address>"]
+
+    [[tiebreaker.committees]] 
+    quorum = 1
+    members = ["<address>"]
     ```
 
 4. Run the deployment script
@@ -106,12 +123,12 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 
     The Escrow contract is deployed internally by DualGovernance contract, so it can't be verified automatically during the initial deployment and requires manual verification afterward. To run Etherscan verification:
 
-    a. Search the deployed DualGovernance contract events for `EscrowMasterCopyDeployed` event with a single argument - ESCROW_MASTER_COPY address.
+    a. Open the DualGovernance contracts deployment artifact file (`deploy-artifact-<chain_name>-<timestamp>.toml` in the `deploy-artifacts` folder) and look for `escrow_master_copy` and `dual_governance` addresses in the `deployed_contracts` section.
 
     b. Run Etherscan verification (for example on a Holesky testnet)
 
     ```
-    forge verify-contract --chain holesky --verifier-url https://api-holesky.etherscan.io/api --watch --constructor-args $(cast abi-encode "Escrow(address,address,address,address,uint256,uint32)" <ST_ETH_ADDRESS> <WST_ETH_ADDRESS> <WITHDRAWAL_QUEUE_ADDRESS> <DUAL_GOVERNANCE_ADDRESS> <MIN_WITHDRAWALS_BATCH_SIZE> <MAX_MIN_ASSETS_LOCK_DURATION>) <ESCROW_MASTER_COPY> contracts/Escrow.sol:Escrow
+    forge verify-contract --chain holesky --verifier-url https://api-holesky.etherscan.io/api --watch --constructor-args $(cast abi-encode "Escrow(address,address,address,address,uint256,uint32)" <st_eth address> <wst_eth address> <withdrawal_queue address> <dual_governance address> <min_withdrawals_batch_size> <max_min_assets_lock_duration>) <escrow_master_copy address> contracts/Escrow.sol:Escrow
     ```
 
 ### Running the verification script
@@ -119,30 +136,26 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 1. Set up the required env variables in the .env file
 
     ```
-    CHAIN=<"mainnet" OR "holesky" OR "holesky-mocks">
-    DEPLOY_ARTIFACT_FILE_NAME=... (in the deploy-config folder, for example: "deploy-artifact-<chain_name>-<timestamp>.json")
-    ONCHAIN_VOTING_CHECK_MODE=false
+    DEPLOY_ARTIFACT_FILE_NAME=... (in the `deploy-artifacts` folder, for example: "deploy-artifact-<chain_name>-<timestamp>.toml")
     ```
 
-2. The deployed addresses list JSON file should be produced by the deployment script, and should contain the section "DEPLOYED_CONTRACTS" with all the required values:
+2. The deployed addresses list TOML file should be produced by the deployment script, and should contain the section `deployed_contracts` with all the required values:
 
-    ```
-    {
-        "DEPLOYED_CONTRACTS": {
-            "ADMIN_EXECUTOR": <address>,
-            "TIMELOCK": <address>,
-            "EMERGENCY_GOVERNANCE": <address>,
-            "RESEAL_MANAGER": <address>,
-            "DUAL_GOVERNANCE": <address>,
-            "TIEBREAKER_CORE_COMMITTEE": <address>,
-            "TIEBREAKER_SUB_COMMITTEE_INFLUENCERS": <address>,
-            "TIEBREAKER_SUB_COMMITTEE_NODE_OPERATORS": <address>,
-            "TIEBREAKER_SUB_COMMITTEE_PROTOCOLS": <address>,
-            "TEMPORARY_EMERGENCY_GOVERNANCE": <address>
-        },
-        ...
-        <deployment config values>
-    }
+    ```toml
+    [deployed_contracts]
+    admin_executor = "<address>"
+    dual_governance = "<address>"
+    dual_governance_config_provider = "<address>"
+    emergency_governance = "<address>"
+    escrow_master_copy = "<address>"
+    reseal_manager = "<address>"
+    tiebreaker_core_committee = "<address>"
+    tiebreaker_sub_committees = [
+        "<address>",
+        "<address>",
+        "<address>",
+    ]
+    timelock = "<address>"
     ```
 
 3. Run the script (with the local Anvil as an example)
