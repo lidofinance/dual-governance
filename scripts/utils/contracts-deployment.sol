@@ -225,10 +225,8 @@ library DualGovernanceContractDeployConfig {
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
         string memory $ = configRootKey.root();
-        // solhint-disable-next-line var-name-mixedcase
-        string memory $sanity_check = $.key("sanity_check_params");
-        // solhint-disable-next-line var-name-mixedcase
-        string memory $signalling_tokens = $.key("signalling_tokens");
+        string memory $sanityCheck = $.key("sanity_check_params");
+        string memory $signallingTokens = $.key("signalling_tokens");
 
         return Context({
             adminProposer: file.readAddress($.key("admin_proposer")),
@@ -237,16 +235,16 @@ library DualGovernanceContractDeployConfig {
             tiebreakerActivationTimeout: file.readDuration($.key("tiebreaker_activation_timeout")),
             sealableWithdrawalBlockers: file.readAddressArray($.key("sealable_withdrawal_blockers")),
             sanityCheckParams: DualGovernance.SanityCheckParams({
-                minWithdrawalsBatchSize: file.readUint($sanity_check.key("min_withdrawals_batch_size")),
-                minTiebreakerActivationTimeout: file.readDuration($sanity_check.key("min_tiebreaker_activation_timeout")),
-                maxTiebreakerActivationTimeout: file.readDuration($sanity_check.key("max_tiebreaker_activation_timeout")),
-                maxSealableWithdrawalBlockersCount: file.readUint($sanity_check.key("max_sealable_withdrawal_blockers_count")),
-                maxMinAssetsLockDuration: file.readDuration($sanity_check.key("max_min_assets_lock_duration"))
+                minWithdrawalsBatchSize: file.readUint($sanityCheck.key("min_withdrawals_batch_size")),
+                minTiebreakerActivationTimeout: file.readDuration($sanityCheck.key("min_tiebreaker_activation_timeout")),
+                maxTiebreakerActivationTimeout: file.readDuration($sanityCheck.key("max_tiebreaker_activation_timeout")),
+                maxSealableWithdrawalBlockersCount: file.readUint($sanityCheck.key("max_sealable_withdrawal_blockers_count")),
+                maxMinAssetsLockDuration: file.readDuration($sanityCheck.key("max_min_assets_lock_duration"))
             }),
             signallingTokens: DualGovernance.SignallingTokens({
-                stETH: IStETH(file.readAddress($signalling_tokens.key("st_eth"))),
-                wstETH: IWstETH(file.readAddress($signalling_tokens.key("wst_eth"))),
-                withdrawalQueue: IWithdrawalQueue(file.readAddress($signalling_tokens.key("withdrawal_queue")))
+                stETH: IStETH(file.readAddress($signallingTokens.key("st_eth"))),
+                wstETH: IWstETH(file.readAddress($signallingTokens.key("wst_eth"))),
+                withdrawalQueue: IWithdrawalQueue(file.readAddress($signallingTokens.key("withdrawal_queue")))
             })
         });
     }
