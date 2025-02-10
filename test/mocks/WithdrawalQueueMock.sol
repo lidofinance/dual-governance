@@ -207,4 +207,12 @@ contract WithdrawalQueueMock is IWithdrawalQueue {
     function setCheckpointHints(uint256[] memory hints) public {
         _checkpointHints = hints;
     }
+
+    function PAUSE_ROLE() external pure returns (bytes32) {
+        return keccak256("PAUSE_ROLE");
+    }
+
+    function RESUME_ROLE() external pure returns (bytes32) {
+        return keccak256("PAUSE_ROLE");
+    }
 }
