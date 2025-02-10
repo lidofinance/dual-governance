@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {console} from "forge-std/Test.sol";
-
 import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
@@ -16,13 +14,7 @@ import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsA
 
 import {Escrow} from "contracts/Escrow.sol";
 
-import {
-    LidoUtils,
-    ContractsDeployment,
-    DGScenarioTestSetup,
-    ExternalCallHelpers,
-    ExternalCall
-} from "../utils/integration-tests.sol";
+import {LidoUtils, DGScenarioTestSetup} from "../utils/integration-tests.sol";
 
 contract EscrowHappyPath is DGScenarioTestSetup {
     using LidoUtils for LidoUtils.Context;

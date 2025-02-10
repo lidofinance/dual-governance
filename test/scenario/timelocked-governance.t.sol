@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Duration, Durations} from "contracts/types/Duration.sol";
-
-import {IGovernance} from "contracts/interfaces/IGovernance.sol";
-import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
-
-import {ResealManager} from "contracts/ResealManager.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
-import {ImmutableDualGovernanceConfigProvider} from "contracts/ImmutableDualGovernanceConfigProvider.sol";
-
 import {
     ContractsDeployment,
     TGScenarioTestSetup,
@@ -121,8 +113,6 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
 
         _step("4. DAO decides to not deactivate emergency mode and allow stakers to quit");
         {
-            IEmergencyProtectedTimelock.EmergencyProtectionDetails memory emergencyState =
-                _timelock.getEmergencyProtectionDetails();
             assertTrue(_isEmergencyModeActive());
 
             vm.warp(_getEmergencyModeEndsAfter().toSeconds() + 1);

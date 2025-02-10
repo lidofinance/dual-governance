@@ -91,7 +91,7 @@ library AragonRoles {
     }
 
     function checkManager(address _manager) internal pure returns (Context memory ctx) {
-        // solhint-disable-next-line custom-errors */
+        // solhint-disable-next-line custom-errors
         require(_manager != address(0), "Invalid role manager");
         ctx.manager = _manager;
     }

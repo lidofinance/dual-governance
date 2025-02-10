@@ -10,8 +10,7 @@ cache_path = 'cache_forge'
 no-match-path = 'test/kontrol/*'
 fs_permissions = [
     { access = "read-write", path = "./deploy-config"},
-    { access = "read-write", path = "./deploy-artifacts"},
-    { access = "read", path = "./scripts/smoke-checks"}
+    { access = "read-write", path = "./deploy-artifacts"}
 ]
 
 [profile.kprove]

@@ -18,8 +18,6 @@ import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
 
 import {EvmScriptUtils} from "./evm-script-utils.sol";
 
-import {StETHMock} from "../mocks/StETHMock.sol";
-
 uint256 constant ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
 
 // ---

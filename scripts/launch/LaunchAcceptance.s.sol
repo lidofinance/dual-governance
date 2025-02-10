@@ -11,16 +11,12 @@ import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
-import {IAccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IAragonForwarder} from "test/utils/interfaces/IAragonForwarder.sol";
-import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {IAragonACL} from "test/utils/interfaces/IAragonACL.sol";
 import {IAragonAgent} from "test/utils/interfaces/IAragonAgent.sol";
 import {IGovernance} from "contracts/interfaces/IDualGovernance.sol";
 
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
-
-import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
 import {DeployVerification} from "../utils/DeployVerification.sol";
 

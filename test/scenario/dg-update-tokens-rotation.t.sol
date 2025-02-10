@@ -1,24 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {TimelockState} from "contracts/libraries/TimelockState.sol";
 import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 
-import {Escrow} from "contracts/Escrow.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
 import {
-    LidoUtils,
     IRageQuitEscrow,
     ContractsDeployment,
     DGScenarioTestSetup,
     ExternalCallHelpers,
-    ExternalCall,
-    Proposers,
-    IGovernance
+    ExternalCall
 } from "../utils/integration-tests.sol";
 
 contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
@@ -231,6 +226,7 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
     // ---
     function _getActionsToUpdateDualGovernanceImplementation(address newDualGovernanceInstance)
         internal
+        view
         returns (ExternalCall[] memory)
     {
         return ExternalCallHelpers.create(
@@ -257,6 +253,6 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
         external
         returns (uint256 proposalId)
     {
-        _submitProposalByAdminProposer(calls);
+        proposalId = _submitProposalByAdminProposer(calls);
     }
 }

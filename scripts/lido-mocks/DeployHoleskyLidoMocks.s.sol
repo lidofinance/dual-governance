@@ -59,13 +59,14 @@ contract DeployHoleskyLidoMocks is Script {
     }
 
     function _serializeAddresses(DeployedMockContracts memory mockContracts) internal pure returns (string memory) {
-        string memory addressesToml =
-            string.concat("\n[HOLESKY_MOCK_CONTRACTS]\nST_ETH = \"", Strings.toHexString(address(mockContracts.stETH)));
+        string memory addressesToml = string.concat(
+            "\n[dual_governance.signalling_tokens]\nst_eth = \"", Strings.toHexString(address(mockContracts.stETH))
+        );
         addressesToml =
-            string.concat(addressesToml, "\"\nWST_ETH = \"", Strings.toHexString(address(mockContracts.wstETH)));
+            string.concat(addressesToml, "\"\nwst_eth = \"", Strings.toHexString(address(mockContracts.wstETH)));
         addressesToml = string.concat(
             addressesToml,
-            "\"\nWITHDRAWAL_QUEUE = \"",
+            "\"\nwithdrawal_queue = \"",
             Strings.toHexString(address(mockContracts.withdrawalQueue)),
             "\""
         );

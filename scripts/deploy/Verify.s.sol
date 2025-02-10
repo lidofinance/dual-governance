@@ -7,7 +7,6 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {DGSetupDeployArtifacts, DGSetupDeployedContracts} from "../utils/contracts-deployment.sol";
-import {DeployFiles} from "../utils/deploy-files.sol";
 import {DeployVerification} from "../utils/DeployVerification.sol";
 
 contract Verify is Script {
@@ -16,7 +15,7 @@ contract Verify is Script {
 
     error InvalidChainId(uint256 actual, uint256 expected);
 
-    function run() external {
+    function run() external view {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
 
         console.log("Loading config from artifact file: %s", deployArtifactFileName);

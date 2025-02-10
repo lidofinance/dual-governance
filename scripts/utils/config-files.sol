@@ -161,11 +161,11 @@ library JsonKeys {
         return string.concat("$", ".", prefix);
     }
 
-    function key(string memory prefix, string memory key) internal pure returns (string memory) {
-        return string.concat(prefix, ".", key);
+    function key(string memory prefix, string memory _key) internal pure returns (string memory) {
+        return string.concat(prefix, ".", _key);
     }
 
-    function index(string memory prefix, string memory key, uint256 index) internal pure returns (string memory) {
-        return string.concat(prefix, ".", key, "[", vm.toString(index), "]");
+    function index(string memory prefix, string memory _key, uint256 _index) internal pure returns (string memory) {
+        return string.concat(prefix, ".", _key, "[", vm.toString(_index), "]");
     }
 }

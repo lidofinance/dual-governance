@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
-import {ExternalCall, ExternalCallHelpers} from "../utils/executor-calls.sol";
+import {ExternalCall} from "../utils/executor-calls.sol";
 import {DGRegressionTestSetup, Proposers} from "../utils/integration-tests.sol";
 
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";

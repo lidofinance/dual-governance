@@ -8,7 +8,7 @@ import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDan
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall, Proposers} from "../utils/integration-tests.sol";
+import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall} from "../utils/integration-tests.sol";
 
 contract LastMomentMaliciousProposalSuccessor is DGScenarioTestSetup {
     function setUp() external {

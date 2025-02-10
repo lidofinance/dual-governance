@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
 /* solhint-disable no-console */
@@ -6,10 +6,7 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {
-    DGSetupDeployArtifacts, DGSetupDeployedContracts, DGSetupDeployConfig
-} from "../utils/contracts-deployment.sol";
-import {DeployFiles} from "../utils/deploy-files.sol";
+import {DGSetupDeployArtifacts, DGSetupDeployedContracts} from "../utils/contracts-deployment.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {Duration} from "contracts/types/Duration.sol";
