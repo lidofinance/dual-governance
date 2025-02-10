@@ -5,7 +5,7 @@ pragma solidity 0.8.26;
 import {Duration} from "../types/Duration.sol";
 
 /// @title Timelock State Library
-/// @dev Library for managing the configuration related  the state of timelock contract.
+/// @dev Library for managing the configuration related to the state of timelock contract.
 library TimelockState {
     // ---
     // Errors

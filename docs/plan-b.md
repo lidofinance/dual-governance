@@ -133,7 +133,7 @@ function cancelAllPendingProposals() returns (bool)
 
 Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
 
-The function will return `true` if all proposals are successfully canceled. If the subsequent call to the [`EmergencyProtectedTimelock.cancelAllNonExecutedProposals`](#Function-EmergencyProtectedTimelockcancelAllNonExecutedProposals) method fails, the function will revert with an error.
+The function will return `true` if all proposals are successfully cancelled. If the subsequent call to the [`EmergencyProtectedTimelock.cancelAllNonExecutedProposals`](#Function-EmergencyProtectedTimelockcancelAllNonExecutedProposals) method fails, the function will revert with an error.
 
 #### Preconditions
 
@@ -157,6 +157,56 @@ The contract only allows proposal submission and scheduling by the `governance` 
 If the Emergency Committees are set up and active, the governance proposal undergoes a separate emergency protection delay between submission and scheduling. This additional timelock is implemented to protect against the execution of malicious proposals submitted by the DAO. If the Emergency Committees aren't set, the proposal flow remains the same, but the timelock duration is zero.
 
 While active, the Emergency Activation Committee can enable Emergency Mode. This mode prohibits anyone but the Emergency Execution Committee from executing proposals. Once the **Emergency Duration** has ended, the Emergency Execution Committee or anyone else may disable the emergency mode, canceling all pending proposals. After the emergency mode is deactivated or the Emergency Period has elapsed, the Emergency Committees lose their power.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY`
+
+```solidity
+Duration public immutable MIN_EXECUTION_DELAY;
+```
+
+The minimum duration that must pass between a proposal's submission and its execution.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SUBMIT_DELAY`
+
+```solidity
+Duration public immutable MAX_AFTER_SUBMIT_DELAY;
+```
+
+The upper bound for the delay required before a submitted proposal can be scheduled for execution.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SCHEDULE_DELAY`
+
+```solidity
+Duration public immutable MAX_AFTER_SCHEDULE_DELAY;
+```
+
+The upper bound for the delay required before a scheduled proposal can be executed.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_MODE_DURATION`
+
+```solidity
+Duration public immutable MAX_EMERGENCY_MODE_DURATION;
+```
+
+The upper bound for the time the timelock can remain in emergency mode.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_PROTECTION_DURATION`
+
+```solidity
+Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
+```
+
+The upper bound for the time the emergency protection mechanism can be activated.
 
 ---
 
@@ -192,6 +242,7 @@ Schedules a previously submitted and non-cancelled proposal for execution after 
 
 - MUST be called by the `governance` address.
 - The proposal MUST already be submitted.
+- `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY` MUST have elapsed since the proposal’s submission.
 - The post-submit timelock MUST have elapsed since the proposal submission.
 
 ---

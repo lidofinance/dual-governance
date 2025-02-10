@@ -153,8 +153,4 @@ library Durations {
         ///     to `MAX_DURATION_VALUE`, which fits within the `uint32`.
         res = Duration.wrap(uint32(durationInSeconds));
     }
-
-    function min(Duration d1, Duration d2) internal pure returns (Duration res) {
-        res = d1 < d2 ? d1 : d2;
-    }
 }

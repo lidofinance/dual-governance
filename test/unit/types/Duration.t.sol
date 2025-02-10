@@ -296,10 +296,6 @@ contract DurationTests is UnitTest {
         this.external__from(durationInSeconds);
     }
 
-    function testFuzz_min_HappyPath(Duration d1, Duration d2) external {
-        assertEq(Durations.min(d1, d2), Durations.from(Math.min(d1.toSeconds(), d2.toSeconds())));
-    }
-
     // ---
     // Helper test methods
     // ---

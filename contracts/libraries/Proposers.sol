@@ -163,7 +163,7 @@ library Proposers {
         }
     }
 
-    /// @notice Checks if an `proposerAccount` is a registered proposer.
+    /// @notice Checks if a `proposerAccount` is a registered proposer.
     /// @param self The context of the Proposers library.
     /// @param proposerAccount The address to check.
     /// @return bool `true` if the `proposerAccount` is a registered proposer, otherwise `false`.

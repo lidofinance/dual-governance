@@ -66,8 +66,8 @@ The general proposal flow is the following:
 
 1. A proposer submits a proposal, i.e. a set of EVM calls (represented by an array of [`ExternalCall`](#Struct-ExternalCall) structs) to be issued by the proposer's associated [executor contract](#Contract-Executor), by calling the [`DualGovernance.submitProposal`](#Function-DualGovernancesubmitProposal) function.
 2. This starts a [dynamic timelock period](#Dynamic-timelock) that allows stakers to oppose the DAO, potentially leaving the protocol before the timelock elapses.
-3. By the end of the dynamic timelock period, the proposal is either canceled by the DAO or executable.
-    * If it's canceled, it cannot be scheduled for execution. However, any proposer is free to submit a new proposal with the same set of calls.
+3. By the end of the dynamic timelock period, the proposal is either cancelled by the DAO or executable.
+    * If it's cancelled, it cannot be scheduled for execution. However, any proposer is free to submit a new proposal with the same set of calls.
     * Otherwise, anyone can schedule the proposal for execution by calling the [`DualGovernance.scheduleProposal`](#Function-DualGovernancescheduleProposal) function, with the execution flow that follows being dependent on the [deployment mode](#Proposal-execution-and-deployment-modes).
 4. The proposal's execution results in the proposal's EVM calls being issued by the executor contract associated with the proposer.
 
@@ -85,8 +85,8 @@ While the Dual Governance is in the `VetoSignalling` or `VetoSignallingDeactivat
 By the time the dynamic timelock described above elapses, one of the following outcomes is possible:
 
 - The DAO was not opposed by stakers (the **happy path** scenario).
-- The DAO was opposed by stakers and canceled all pending proposals (the **two-sided de-escalation** scenario).
-- The DAO was opposed by stakers and didn't cancel pending proposals, forcing the stakers to leave via the rage quit process, or canceled the proposals but some stakers still left (the **rage quit** scenario).
+- The DAO was opposed by stakers and cancelled all pending proposals (the **two-sided de-escalation** scenario).
+- The DAO was opposed by stakers and didn't cancel pending proposals, forcing the stakers to leave via the rage quit process, or cancelled the proposals but some stakers still left (the **rage quit** scenario).
 - The DAO was opposed by stakers and didn't cancel pending proposals but the total stake opposing the DAO was too small to trigger the rage quit (the **failed escalation** scenario).
 
 
@@ -295,7 +295,7 @@ function cancelAllPendingProposals() returns (bool)
 Cancels all currently submitted and non-executed proposals. If a proposal was submitted but not scheduled, it becomes unschedulable. If a proposal was scheduled, it becomes unexecutable.
 
 If the current governance state is neither `VetoSignalling` nor `VetoSignallingDeactivation`, the function will exit early without canceling any proposals, emitting the `CancelAllPendingProposalsSkipped` event and returning `false`.
-If proposals are successfully canceled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
+If proposals are successfully cancelled, the `CancelAllPendingProposalsExecuted` event will be emitted, and the function will return `true`.
 
 #### Preconditions
 
@@ -329,6 +329,7 @@ Sets the configuration provider for the Dual Governance system.
 - The `newConfigProvider` address MUST NOT be the same as the current configuration provider.
 - The values returned by the config MUST be valid:
   - `firstSealRageQuitSupport` MUST be less than `secondSealRageQuitSupport`.
+  - `secondSealRageQuitSupport` MUST be less than or equal to 100%, represented as a percentage with 16 decimal places of precision.
   - `vetoSignallingMinDuration` MUST be less than `vetoSignallingMaxDuration`.
   - `rageQuitEthWithdrawalsMinDelay` MUST be less than or equal to `rageQuitEthWithdrawalsMaxDelay`.
   - `minAssetsLockDuration` MUST NOT be zero.
@@ -849,6 +850,8 @@ The `Escrow` instance is intended to be used behind [minimal proxy contracts](ht
 - MUST be called using the proxy contract.
 - MUST be called by the `DualGovernance` contract.
 - MUST NOT have been initialized previously.
+- `minAssetsLockDuration` MUST NOT exceed `Escrow.MAX_MIN_ASSETS_LOCK_DURATION`.
+- `minAssetsLockDuration` MUST NOT be equal to previous value (by default `0`).
 
 ---
 
@@ -1479,6 +1482,56 @@ The governance reset entails the following steps:
 
 ---
 
+### Function: `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY`
+
+```solidity
+Duration public immutable MIN_EXECUTION_DELAY;
+```
+
+The minimum duration that must pass between a proposal's submission and its execution.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SUBMIT_DELAY`
+
+```solidity
+Duration public immutable MAX_AFTER_SUBMIT_DELAY;
+```
+
+The upper bound for the delay required before a submitted proposal can be scheduled for execution.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_AFTER_SCHEDULE_DELAY`
+
+```solidity
+Duration public immutable MAX_AFTER_SCHEDULE_DELAY;
+```
+
+The upper bound for the delay required before a scheduled proposal can be executed.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_MODE_DURATION`
+
+```solidity
+Duration public immutable MAX_EMERGENCY_MODE_DURATION;
+```
+
+The upper bound for the time the timelock can remain in emergency mode.
+
+---
+
+### Function: `EmergencyProtectedTimelock.MAX_EMERGENCY_PROTECTION_DURATION`
+
+```solidity
+Duration public immutable MAX_EMERGENCY_PROTECTION_DURATION;
+```
+
+The upper bound for the time the emergency protection mechanism can be activated.
+
+---
+
 ### Function: `EmergencyProtectedTimelock.submit`
 
 ```solidity
@@ -1527,6 +1580,7 @@ Instructs the executor contract associated with the proposal to issue the propos
 
 - Emergency mode MUST NOT be active.
 - The proposal MUST be already submitted & scheduled for execution.
+- `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY` MUST have elapsed since the proposal’s submission.
 - The emergency protection delay MUST already elapse since the moment the proposal was scheduled.
 
 ---
@@ -2176,6 +2230,16 @@ Executes a scheduled proposal by calling the `tiebreakerScheduleProposal` functi
 
 ---
 
+### Function: `TiebreakerCoreCommittee.checkProposalExists`
+
+```solidity
+function checkProposalExists(uint256 proposalId) public view
+```
+
+Checks if the specified proposal exists, otherwise reverts.
+
+---
+
 ### Function: `TiebreakerCoreCommittee.getSealableResumeNonce`
 
 ```solidity
@@ -2197,6 +2261,7 @@ Submits a request to resume operations of a sealable contract by voting on it an
 #### Preconditions
 
 - MUST be called by a member.
+- The `sealable` address MUST be in `Paused` state.
 - The provided nonce MUST match the current nonce of the sealable contract.
 
 ---
@@ -2209,7 +2274,7 @@ function getSealableResumeState(address sealable, uint256 nonce)
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
 
-Returns the state of a sealable resume request including support count, quorum, and execution status.
+Returns the state of sealable resume request including support count, quorum, and execution status.
 
 ---
 
@@ -2225,6 +2290,15 @@ Executes a sealable resume request by calling the `tiebreakerResumeSealable` fun
 
 - Resume request MUST have reached quorum and passed the timelock duration.
 
+---
+
+### Function: `TiebreakerCoreCommittee.checkSealableIsPaused`
+
+```solidity
+function checkSealableIsPaused(address sealable) public view
+```
+
+Checks if the specified sealable address is not a zero address and that it is paused, otherwise reverts.
 ---
 
 ## Contract: `TiebreakerSubCommittee`
@@ -2284,6 +2358,7 @@ Submits a request to resume operations of a sealable contract by voting on it an
 #### Preconditions
 
 - MUST be called by a member.
+- The `sealable` address MUST be in `Paused` state.
 
 ### Function: `TiebreakerSubCommittee.getSealableResumeState`
 
@@ -2293,7 +2368,7 @@ function getSealableResumeState(address sealable)
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
 
-Returns the state of a sealable resume request including support count, quorum, and execution status.
+Returns the state of current sealable resume request including support count, quorum, and execution status.
 
 ---
 
