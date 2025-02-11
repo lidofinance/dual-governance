@@ -2008,6 +2008,9 @@ Sets a new address for the admin executor contract.
 - The `newAdminExecutor` address MUST NOT be the zero address.
 - The `newAdminExecutor` address MUST NOT be the same as the current value.
 
+> [!CAUTION]
+> There is a risk of misconfiguration if the new executor address is not assigned to a proposer within Dual Governance. To eliminate this risk, any proposal updating the admin executor MUST include a validation check as the final action, ensuring that the new admin executor is properly assigned as a Dual Governance proposer.
+
 ---
 
 ## Contract: `ImmutableDualGovernanceConfigProvider`
