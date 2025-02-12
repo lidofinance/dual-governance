@@ -309,4 +309,8 @@ library LidoUtils {
     function executeVote(Context memory self, uint256 voteId) internal {
         self.voting.executeVote(voteId);
     }
+
+    function getLastVoteId(Context memory self) internal view returns (uint256) {
+        return self.voting.votesLength() - 1;
+    }
 }

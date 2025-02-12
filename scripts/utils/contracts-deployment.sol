@@ -363,6 +363,24 @@ library DualGovernanceConfigProviderContractDeployConfig {
     }
 }
 
+library DGActivationVotingCalldata {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    function load(string memory configFilePath) internal view returns (bytes memory votingCalldata) {
+        return load(configFilePath, "");
+    }
+
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (bytes memory votingCalldata) {
+        string memory $ = configRootKey.root();
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+
+        votingCalldata = file.readBytes($.key("dao_voting.dual_governance_activation_voting_encoded_data"));
+    }
+}
+
 library DGSetupDeployConfig {
     using ConfigFileReader for ConfigFileReader.Context;
     using TimelockContractDeployConfig for TimelockContractDeployConfig.Context;
@@ -520,6 +538,15 @@ library DGSetupDeployArtifacts {
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
         ctx.deployConfig = DGSetupDeployConfig.load(deployArtifactFilePath, "deploy_config");
         ctx.deployedContracts = DGSetupDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
+    }
+
+    function loadDgActivationVotingCalldata(string memory deployArtifactFileName)
+        internal
+        view
+        returns (bytes memory)
+    {
+        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
+        return DGActivationVotingCalldata.load(deployArtifactFilePath);
     }
 
     function validate(Context memory ctx) internal pure {
