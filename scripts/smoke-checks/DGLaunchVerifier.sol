@@ -5,12 +5,23 @@ import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtec
 import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 
-abstract contract DGLaunchVerifier {
+contract DGLaunchVerifier {
     event DGLaunchConfigurationValidated();
 
     error EmergencyModeEnabledAfterLaunch();
     error InvalidDGLaunchConfigAddress(string paramName, address expectedValue, address actualValue);
     error InvalidDGLaunchConfigParameter(string paramName, uint256 expectedValue, uint256 actualValue);
+
+    struct ConstructorParams {
+        address timelock;
+        address dualGovernance;
+        address emergencyGovernance;
+        address emergencyActivationCommittee;
+        address emergencyExecutionCommittee;
+        Timestamp emergencyProtectionEndDate;
+        Duration emergencyModeDuration;
+        uint256 proposalsCount;
+    }
 
     address public immutable TIMELOCK;
     address public immutable DUAL_GOVERNANCE;
@@ -19,26 +30,17 @@ abstract contract DGLaunchVerifier {
     address public immutable EMERGENCY_EXECUTION_COMMITTEE;
     Timestamp public immutable EMERGENCY_PROTECTION_END_DATE;
     Duration public immutable EMERGENCY_MODE_DURATION;
-    uint256 public immutable MIN_PROPOSALS_COUNT;
+    uint256 public immutable PROPOSALS_COUNT;
 
-    constructor(
-        address timelock,
-        address dualGovernance,
-        address emergencyGovernance,
-        address emergencyActivationCommittee,
-        address emergencyExecutionCommittee,
-        Timestamp emergencyProtectionEndDate,
-        Duration emergencyModeDuration,
-        uint256 minProposalsCount
-    ) {
-        TIMELOCK = timelock;
-        DUAL_GOVERNANCE = dualGovernance;
-        EMERGENCY_GOVERNANCE = emergencyGovernance;
-        EMERGENCY_ACTIVATION_COMMITTEE = emergencyActivationCommittee;
-        EMERGENCY_EXECUTION_COMMITTEE = emergencyExecutionCommittee;
-        EMERGENCY_PROTECTION_END_DATE = emergencyProtectionEndDate;
-        EMERGENCY_MODE_DURATION = emergencyModeDuration;
-        MIN_PROPOSALS_COUNT = minProposalsCount;
+    constructor(ConstructorParams memory params) {
+        TIMELOCK = params.timelock;
+        DUAL_GOVERNANCE = params.dualGovernance;
+        EMERGENCY_GOVERNANCE = params.emergencyGovernance;
+        EMERGENCY_ACTIVATION_COMMITTEE = params.emergencyActivationCommittee;
+        EMERGENCY_EXECUTION_COMMITTEE = params.emergencyExecutionCommittee;
+        EMERGENCY_PROTECTION_END_DATE = params.emergencyProtectionEndDate;
+        EMERGENCY_MODE_DURATION = params.emergencyModeDuration;
+        PROPOSALS_COUNT = params.proposalsCount;
     }
 
     function verify() external {
@@ -107,10 +109,10 @@ abstract contract DGLaunchVerifier {
             });
         }
 
-        if (timelockInstance.getProposalsCount() < MIN_PROPOSALS_COUNT) {
+        if (timelockInstance.getProposalsCount() != PROPOSALS_COUNT) {
             revert InvalidDGLaunchConfigParameter({
                 paramName: "getProposalsCount()",
-                expectedValue: MIN_PROPOSALS_COUNT,
+                expectedValue: PROPOSALS_COUNT,
                 actualValue: timelockInstance.getProposalsCount()
             });
         }
