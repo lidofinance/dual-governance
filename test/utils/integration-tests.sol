@@ -624,6 +624,16 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         return _dgDeployedContracts.dualGovernance.getStateDetails().vetoSignallingActivatedAt;
     }
 
+    function _assertCanSubmitProposal(bool canSubmit) internal view {
+        assertEq(
+            _dgDeployedContracts.dualGovernance.canSubmitProposal(), canSubmit, "unexpected canSubmitProposal() value"
+        );
+    }
+
+    function _assertRageQuitFinalized(bool finalized) internal view {
+        assertEq(_getRageQuitEscrow().isRageQuitFinalized(), finalized, "unexpected isRageQuitFinalized() value");
+    }
+
     function _setDGDeployConfig(DGSetupDeployConfig.Context memory config) internal {
         _dgDeployConfig.chainId = config.chainId;
         _dgDeployConfig.timelock = config.timelock;

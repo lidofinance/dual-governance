@@ -6,10 +6,12 @@ script = 'scripts'
 libs = ['node_modules', 'lib']
 test = 'test'
 cache_path = 'cache_forge'
+gas_limit = '18446744073709551615'
 # solc-version = "0.8.26"
 optimizer=true
 no-match-path = 'test/kontrol/*'
 fs_permissions = [
+    { access = "read", path = "./test/regressions"},
     { access = "read-write", path = "./deploy-config"},
     { access = "read-write", path = "./deploy-artifacts"}
 ]
