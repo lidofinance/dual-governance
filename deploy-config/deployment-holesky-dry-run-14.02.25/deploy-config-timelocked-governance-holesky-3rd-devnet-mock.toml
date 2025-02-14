@@ -1,0 +1,4 @@
+[timelocked_governance]
+chain_id=17000
+governance="0xdA7d2573Df555002503F29aA4003e398d28cc00f" # DAO Voting
+timelock="0xb66797d1560e646B6b0283E0F88F0c87fA98fF34"
