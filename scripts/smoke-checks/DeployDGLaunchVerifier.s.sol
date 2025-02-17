@@ -4,11 +4,11 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
 import {console} from "forge-std/console.sol";
-import {DeployScriptBase} from "../../launch/DeployScriptBase.sol";
-import {DGSetupDeployArtifacts} from "../../utils/contracts-deployment.sol";
-import {DGLaunchVerifier} from "../DGLaunchVerifier.sol";
+import {DGDeployArtifactLoader} from "../utils/DGDeployArtifactLoader.sol";
+import {DGSetupDeployArtifacts} from "../utils/contracts-deployment.sol";
+import {DGLaunchVerifier} from "./DGLaunchVerifier.sol";
 
-contract DeployDGLaunchVerifier is DeployScriptBase {
+contract DeployDGLaunchVerifier is DGDeployArtifactLoader {
     function run() public {
         vm.label(msg.sender, "DEPLOYER");
 
