@@ -1406,46 +1406,48 @@ contract EscrowUnitTests is UnitTest {
 
         _claimUnstEthFromEscrow(unstEthAmounts, unstEthIds, hints);
 
-        IEscrow.VetoerDetails memory state = _escrow.getVetoerDetails(_vetoer);
+        IEscrow.VetoerDetails memory vetoerState = _escrow.getVetoerDetails(_vetoer);
 
-        assertApproxEqAbs(totalSharesToBeWithdrawn, state.unstETHLockedShares.toUint256(), ACCURACY);
-        assertEq(unstEthAmounts.length, state.unstETHIdsCount);
+        assertApproxEqAbs(totalSharesToBeWithdrawn, vetoerState.unstETHLockedShares.toUint256(), ACCURACY);
+        assertEq(unstEthAmounts.length, vetoerState.unstETHIdsCount);
 
-        uint256[] memory firstWithdrawal = new uint256[](1);
-        firstWithdrawal[0] = unstEthIds[0];
+        uint256[] memory firstWithdrawalUnstEthIds = new uint256[](1);
+        firstWithdrawalUnstEthIds[0] = unstEthIds[0];
 
         vm.startPrank(_vetoer);
-        _escrow.withdrawETH(firstWithdrawal);
+        _escrow.withdrawETH(firstWithdrawalUnstEthIds);
         vm.stopPrank();
 
-        IEscrow.VetoerDetails memory stateAfterFirstWithdrawal = _escrow.getVetoerDetails(_vetoer);
+        IEscrow.VetoerDetails memory vetoerStateAfterFirstWithdrawal = _escrow.getVetoerDetails(_vetoer);
 
         // Based on current design it is expected that after the first withdrawal these data was not updated
-        assertApproxEqAbs(totalSharesToBeWithdrawn, stateAfterFirstWithdrawal.unstETHLockedShares.toUint256(), ACCURACY);
-        assertEq(unstEthAmounts.length, stateAfterFirstWithdrawal.unstETHIdsCount);
+        assertApproxEqAbs(
+            totalSharesToBeWithdrawn, vetoerStateAfterFirstWithdrawal.unstETHLockedShares.toUint256(), ACCURACY
+        );
+        assertEq(unstEthAmounts.length, vetoerStateAfterFirstWithdrawal.unstETHIdsCount);
         // But request is successful and funds are transferred
         assertEq(balanceBefore + unstEthAmounts[0], _vetoer.balance);
 
         uint256[] memory vetoerUnstETHIds = _escrow.getVetoerUnstETHIds(_vetoer);
         IEscrow.LockedUnstETHDetails[] memory lockedUnstETHDetails = _escrow.getLockedUnstETHDetails(vetoerUnstETHIds);
 
-        uint256 index = 0;
+        uint256 unclaimedUnstETHRecordsCount = 0;
         for (uint256 i = 0; i < lockedUnstETHDetails.length; i++) {
             if (lockedUnstETHDetails[i].status == UnstETHRecordStatus.Claimed) {
-                index++;
+                unclaimedUnstETHRecordsCount++;
             }
         }
-        uint256[] memory secondWithdrawal = new uint256[](index);
-        index = 0;
+        uint256[] memory secondWithdrawalUnstEthIds = new uint256[](unclaimedUnstETHRecordsCount);
+        unclaimedUnstETHRecordsCount = 0;
         for (uint256 i = 0; i < lockedUnstETHDetails.length; i++) {
             if (lockedUnstETHDetails[i].status == UnstETHRecordStatus.Claimed) {
-                secondWithdrawal[index] = vetoerUnstETHIds[i];
-                index++;
+                secondWithdrawalUnstEthIds[unclaimedUnstETHRecordsCount] = vetoerUnstETHIds[i];
+                unclaimedUnstETHRecordsCount++;
             }
         }
 
         vm.startPrank(_vetoer);
-        _escrow.withdrawETH(secondWithdrawal);
+        _escrow.withdrawETH(secondWithdrawalUnstEthIds);
         vm.stopPrank();
 
         assertEq(balanceBefore + unstEthAmounts[0] + unstEthAmounts[1], _vetoer.balance);
