@@ -80,6 +80,12 @@ library ConfigFileReader {
         if (ctx.format == ConfigFormat.TOML) return stdToml.readAddressArray(ctx.content, key);
         revert InvalidConfigFormat(uint256(ctx.format));
     }
+
+    function readBytes(Context memory ctx, string memory key) internal pure returns (bytes memory) {
+        if (ctx.format == ConfigFormat.JSON) return stdJson.readBytes(ctx.content, key);
+        if (ctx.format == ConfigFormat.TOML) return stdToml.readBytes(ctx.content, key);
+        revert InvalidConfigFormat(uint256(ctx.format));
+    }
 }
 
 library ConfigFileBuilder {
