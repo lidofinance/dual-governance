@@ -220,29 +220,25 @@ contract LaunchAcceptance is DeployScriptBase {
                 details.emergencyProtectionEndsAfter == _config.timelock.emergencyProtectionEndDate,
                 "Incorrect emergencyProtectionEndsAfter in EmergencyProtectedTimelock"
             );
+
+            console.log("Submitting DAO Voting proposal to activate Dual Governance");
+            uint256 voteId = _lidoUtils.adoptVoteEVMScript(_dgActivationVotingCalldata, "Activate Dual Governance");
+            console.log("Vote ID", voteId);
         } else {
-            console.log("STEP 6 SKIPPED - DG state already verified");
+            console.log("STEP 6 SKIPPED - Dual Governance activation vote already submitted");
         }
 
         if (fromStep <= 7) {
-            console.log("STEP 7 - Submitting DAO Voting proposal to activate Dual Governance");
-            uint256 voteId = _lidoUtils.adoptVotePreparedBytecode(_dgActivationVotingCalldata);
-            console.log("Vote ID", voteId);
-        } else {
-            console.log("STEP 7 SKIPPED - Dual Governance activation vote already submitted");
-        }
-
-        if (fromStep <= 8) {
-            console.log("STEP 8 - Enacting DAO Voting proposal to activate Dual Governance");
+            console.log("STEP 7 - Enacting DAO Voting proposal to activate Dual Governance");
             uint256 voteId = _lidoUtils.getLastVoteId();
             console.log("Enacting vote with ID", voteId);
             _lidoUtils.executeVote(voteId);
         } else {
-            console.log("STEP 8 SKIPPED - Dual Governance activation vote already executed");
+            console.log("STEP 7 SKIPPED - Dual Governance activation vote already executed");
         }
 
-        if (fromStep <= 9) {
-            console.log("STEP 9 - Wait for Dual Governance after submit delay");
+        if (fromStep <= 8) {
+            console.log("STEP 8 - Wait for Dual Governance after submit delay");
 
             _wait(_config.timelock.afterSubmitDelay);
 
@@ -257,11 +253,11 @@ contract LaunchAcceptance is DeployScriptBase {
 
             console.log("DG Proposal scheduled: ", dgProposalId);
         } else {
-            console.log("STEP 9 SKIPPED - Dual Governance proposal already scheduled");
+            console.log("STEP 8 SKIPPED - Dual Governance proposal already scheduled");
         }
 
-        if (fromStep <= 10) {
-            console.log("STEP 10 - Wait for Dual Governance after schedule delay and execute proposal");
+        if (fromStep <= 9) {
+            console.log("STEP 9 - Wait for Dual Governance after schedule delay and execute proposal");
 
             uint256 dgProposalId = _dgContracts.timelock.getProposalsCount();
             _wait(_config.timelock.afterScheduleDelay);
@@ -275,11 +271,11 @@ contract LaunchAcceptance is DeployScriptBase {
 
             console.log("DG proposal executed: ", dgProposalId);
         } else {
-            console.log("STEP 10 SKIPPED - Dual Governance proposal already executed");
+            console.log("STEP 9 SKIPPED - Dual Governance proposal already executed");
         }
 
-        if (fromStep <= 11) {
-            console.log("STEP 11 - Verify DAO has no agent forward permission from Voting");
+        if (fromStep <= 10) {
+            console.log("STEP 10 - Verify DAO has no agent forward permission from Voting");
             // Verify that Voting has no permission to forward to Agent
             ExternalCall[] memory someAgentForwardCall;
             someAgentForwardCall = ExternalCallHelpers.create(
@@ -302,7 +298,7 @@ contract LaunchAcceptance is DeployScriptBase {
             IAragonForwarder(_lidoUtils.agent).forward(_encodeExternalCalls(someAgentForwardCall));
             console.log("Agent forward permission revoked");
         } else {
-            console.log("STEP 11 SKIPPED - Agent forward permission already revoked");
+            console.log("STEP 10 SKIPPED - Agent forward permission already revoked");
         }
     }
 }

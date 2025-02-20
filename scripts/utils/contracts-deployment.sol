@@ -30,6 +30,8 @@ import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommitte
 import {DeployFiles} from "./deploy-files.sol";
 import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "./config-files.sol";
 
+import {IVotingProvider} from "./interfaces/IVotingProvider.sol";
+
 // solhint-disable-next-line const-name-snakecase
 Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -363,21 +365,27 @@ library DualGovernanceConfigProviderContractDeployConfig {
     }
 }
 
-library DGActivationVotingCalldata {
+library DGActivationVotingCalldataProvider {
     using ConfigFileReader for ConfigFileReader.Context;
 
-    function load(string memory configFilePath) internal view returns (bytes memory votingCalldata) {
+    function load(string memory configFilePath) internal view returns (IVotingProvider votingCalldataProvider) {
         return load(configFilePath, "");
     }
 
     function load(
         string memory configFilePath,
         string memory configRootKey
-    ) internal view returns (bytes memory votingCalldata) {
+    ) internal view returns (IVotingProvider votingCalldataProvider) {
         string memory $ = configRootKey.root();
+
+        string memory $daoVoting = $.key("dao_voting");
+
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
-        votingCalldata = file.readBytes($.key("dao_voting.dual_governance_activation_voting_encoded_data"));
+        address votingCalldataProviderAddress =
+            file.readAddress($daoVoting.key("dual_governance_activation_voting_calldata_provider"));
+
+        votingCalldataProvider = IVotingProvider(votingCalldataProviderAddress);
     }
 }
 
@@ -546,7 +554,7 @@ library DGSetupDeployArtifacts {
         returns (bytes memory)
     {
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
-        return DGActivationVotingCalldata.load(deployArtifactFilePath);
+        return DGActivationVotingCalldataProvider.load(deployArtifactFilePath).getEVMCallScript();
     }
 
     function validate(Context memory ctx) internal pure {
