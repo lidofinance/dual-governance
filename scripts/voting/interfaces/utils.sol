@@ -25,12 +25,3 @@ interface ITimeConstraints {
 interface ITokenManager {
     function forward(bytes calldata _evmScript) external;
 }
-
-interface IVoting {
-    function newVote(
-        bytes calldata _executionScript,
-        string calldata _metadata,
-        bool, /* _castVote_deprecated */
-        bool /* _executesIfDecided_deprecated */
-    ) external;
-}
