@@ -32,7 +32,7 @@ usage_other() {
   exit 0
 }
 
-# Set Run Directory <root>/packages/contracts-bedrock
+# Set Run Directory <root>/, This is where the foundtry.toml file generally is located.
 WORKSPACE_DIR=$( cd "$SCRIPT_HOME/../../.." >/dev/null 2>&1 && pwd )
 pushd "$WORKSPACE_DIR" > /dev/null || exit
 
@@ -170,11 +170,9 @@ copy_to_docker() {
 }
 
 clean_docker(){
-  trap
   if [ "$LOCAL" = false ]; then
     notif "Cleaning Docker Container"
-    docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
-    docker rm "$CONTAINER_NAME" > /dev/null 2>&1 || true
+    docker stop "$CONTAINER_NAME" > /dev/null 2>&1
     sleep 2 # Give time for system to clean up container
   else
     notif "Not Running in Container. Done."

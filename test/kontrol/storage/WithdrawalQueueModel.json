@@ -1,0 +1,196 @@
+{
+  "storage": [
+    {
+      "astId": 59017,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_name",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_string_storage"
+    },
+    {
+      "astId": 59019,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_symbol",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_string_storage"
+    },
+    {
+      "astId": 59023,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_owners",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 59027,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_balances",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 59031,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_tokenApprovals",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 59037,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_operatorApprovals",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_bool))"
+    },
+    {
+      "astId": 88345,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_lastRequestId",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 88347,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_lastFinalizedRequestId",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 88349,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_lockedEtherAmount",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 88367,
+      "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+      "label": "_requests",
+      "offset": 0,
+      "slot": "9",
+      "type": "t_mapping(t_uint256,t_struct(WithdrawalRequest)88362_storage)"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_bool))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => bool))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_bool)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_address)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => address)",
+      "numberOfBytes": "32",
+      "value": "t_address"
+    },
+    "t_mapping(t_uint256,t_struct(WithdrawalRequest)88362_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct WithdrawalQueueModel.WithdrawalRequest)",
+      "numberOfBytes": "32",
+      "value": "t_struct(WithdrawalRequest)88362_storage"
+    },
+    "t_string_storage": {
+      "encoding": "bytes",
+      "label": "string",
+      "numberOfBytes": "32"
+    },
+    "t_struct(WithdrawalRequest)88362_storage": {
+      "encoding": "inplace",
+      "label": "struct WithdrawalQueueModel.WithdrawalRequest",
+      "numberOfBytes": "160",
+      "members": [
+        {
+          "astId": 88351,
+          "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+          "label": "amountOfStETH",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 88353,
+          "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+          "label": "amountOfShares",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 88355,
+          "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+          "label": "owner",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_address"
+        },
+        {
+          "astId": 88357,
+          "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+          "label": "timestamp",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 88359,
+          "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+          "label": "isFinalized",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_bool"
+        },
+        {
+          "astId": 88361,
+          "contract": "test/kontrol/model/WithdrawalQueueModel.sol:WithdrawalQueueModel",
+          "label": "isClaimed",
+          "offset": 1,
+          "slot": "4",
+          "type": "t_bool"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
