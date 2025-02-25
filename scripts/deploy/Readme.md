@@ -18,7 +18,7 @@ anvil --fork-url https://<mainnet or holesky>.infura.io/v3/<YOUR_API_KEY> --bloc
 2. Set up the required env variables in the .env file
 
     ```
-    ETHERSCAN_MAINNET_KEY=...
+    ETHERSCAN_API_KEY=...
     DEPLOY_CONFIG_FILE_NAME=... (in the `deploy-config` folder, for example: "deploy-config.toml")
     ```
 

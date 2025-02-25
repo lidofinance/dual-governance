@@ -291,13 +291,19 @@ library LidoUtils {
         supportVoteAndWaitTillDecided(self, voteId, DEFAULT_LDO_WHALE);
     }
 
-    function adoptVotePreparedBytecode(
+    function adoptVoteEVMScript(
         Context memory self,
-        bytes memory voteScript
+        bytes memory evmScript,
+        string memory description
     ) internal returns (uint256 voteId) {
         if (self.ldoToken.balanceOf(DEFAULT_LDO_WHALE) < self.voting.minAcceptQuorumPct()) {
             setupLDOWhale(self, DEFAULT_LDO_WHALE);
         }
+
+        bytes memory voteScript = EvmScriptUtils.encodeEvmCallScript(
+            address(self.voting), abi.encodeCall(self.voting.newVote, (evmScript, description, false, false))
+        );
+
         vm.prank(DEFAULT_LDO_WHALE);
         self.tokenManager.forward(voteScript);
 
@@ -308,5 +314,9 @@ library LidoUtils {
 
     function executeVote(Context memory self, uint256 voteId) internal {
         self.voting.executeVote(voteId);
+    }
+
+    function getLastVoteId(Context memory self) internal view returns (uint256) {
+        return self.voting.votesLength() - 1;
     }
 }
