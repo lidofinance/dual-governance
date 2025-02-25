@@ -1,19 +1,43 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "forge-std/Script.sol";
+/* solhint-disable no-console */
+import {console} from "forge-std/console.sol";
+
+import {DGDeployArtifactLoader} from "../utils/DGDeployArtifactLoader.sol";
+import {DGSetupDeployArtifacts} from "../utils/contracts-deployment.sol";
+
 import {Voting} from "./Voting.sol";
 
-contract DeployVotingScript is Script {
-    function setUp() public {}
-
+contract DeployVoting is DGDeployArtifactLoader {
     function run() public {
+        vm.label(msg.sender, "DEPLOYER");
+
+        DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
+
+        address dualGovernance = address(_deployArtifact.deployedContracts.dualGovernance);
+        address adminExecutor = address(_deployArtifact.deployedContracts.adminExecutor);
+        address resealManager = address(_deployArtifact.deployedContracts.resealManager);
+        console.log("\n\n");
+        console.log("Deploying Voting contract with the following params:\n");
+        console.log("=====================================");
+        console.log("Chain ID:", block.chainid);
+        console.log("Deployer address:", msg.sender);
+        console.log("\n");
+        console.log("Dual Governance:", dualGovernance);
+        console.log("Admin Executor:", adminExecutor);
+        console.log("Reseal Manager:", resealManager);
+        console.log("=====================================");
+
         vm.startBroadcast();
-        new Voting(
-            0xE29D4d0CAD66D87a054b5A93867C708000DaE1E6, // Dual Governance
-            0x3Cc908B004422fd66FdB40Be062Bf9B0bd5BDbed, // Admin Executor
-            0x517C93bb27aD463FE3AD8f15DaFDAD56EC0bEeC3 // Reseal Manager
-        );
+
+        Voting votingCalldataBuilder =
+            new Voting({dualGovernance: dualGovernance, adminExecutor: adminExecutor, resealManager: resealManager});
+
+        console.log("Deploying Voting calldata builder...");
+
         vm.stopBroadcast();
+
+        console.log("Voting calldata builder contract deployed successfully at", address(votingCalldataBuilder));
     }
 }
