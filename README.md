@@ -27,7 +27,7 @@ This project uses NPM for dependency management and Forge for tests so you'll ne
     cp .env.example .env
     ```
 
-    and specify there your `MAINNET_RPC_URL`.
+    and specify there your `MAINNET_RPC_URL` and `HOLESKY_RPC_URL`.
 
     > **_NOTE:_**  You may need to specify manually maximum allowed requests per second (rps) value for an API key/RPC url for some providers. In our experience max 100 rps will be enough to run tests.
 

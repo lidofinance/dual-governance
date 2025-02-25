@@ -1,4 +1,5 @@
 [profile.default]
+evm_version = 'cancun'
 src = 'contracts'
 out = 'out'
 script = 'scripts'
@@ -7,7 +8,10 @@ test = 'test'
 cache_path = 'cache_forge'
 # solc-version = "0.8.26"
 no-match-path = 'test/kontrol/*'
-fs_permissions = [{ access = "read", path = "./"}]
+fs_permissions = [
+    { access = "read-write", path = "./deploy-config"},
+    { access = "read-write", path = "./deploy-artifacts"}
+]
 
 [profile.kprove]
 src = 'test/kontrol'

@@ -3,49 +3,50 @@ pragma solidity 0.8.26;
 
 import {Durations} from "contracts/types/Duration.sol";
 
-import {Ownable, Executor} from "contracts/Executor.sol";
+import {Executor} from "contracts/Executor.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
 
-import {ExternalCall, ScenarioTestBlueprint, ExternalCallHelpers} from "../utils/scenario-test-blueprint.sol";
+import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall, DualGovernance} from "../utils/integration-tests.sol";
 
 interface ISomeContract {
     function someMethod(uint256 someParameter) external;
 }
 
-contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
+contract ExecutorOwnershipTransferScenarioTest is DGScenarioTestSetup {
     address private immutable _NEW_REGULAR_PROPOSER = makeAddr("NEW_REGULAR_PROPOSER");
 
     Executor private _oldAdminExecutor;
     Executor private _newAdminExecutor;
 
     function setUp() external {
-        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
+        _deployDGSetup({isEmergencyProtectionEnabled: false});
         _newAdminExecutor = new Executor({owner: address(this)});
 
-        _oldAdminExecutor = Executor(payable(_timelock.getAdminExecutor()));
+        _oldAdminExecutor = Executor(payable(_getAdminExecutor()));
         _newAdminExecutor.transferOwnership(address(_timelock));
     }
 
     function testFork_ExecutorOwnershipTransfer_HappyPath() external {
-        _step("1. DAO creates proposal to add new proposer and change the admin executor");
         uint256 shuffleExecutorsProposalId;
+        DualGovernance dualGovernance = DualGovernance(_getGovernance());
+        _step("1. DAO creates proposal to add new proposer and change the admin executor");
         {
             ExternalCall[] memory executorsShuffleCalls = ExternalCallHelpers.create(
                 [
                     // 1. Register new proposer and assign it to the old admin executor
                     ExternalCall({
                         value: 0,
-                        target: address(_dualGovernance),
+                        target: address(dualGovernance),
                         payload: abi.encodeCall(
-                            _dualGovernance.registerProposer, (_NEW_REGULAR_PROPOSER, address(_oldAdminExecutor))
+                            dualGovernance.registerProposer, (_NEW_REGULAR_PROPOSER, address(_oldAdminExecutor))
                         )
                     }),
                     // 2. Assign previous proposer (Aragon Voting) to the new executor
                     ExternalCall({
                         value: 0,
-                        target: address(_dualGovernance),
+                        target: address(dualGovernance),
                         payload: abi.encodeCall(
-                            _dualGovernance.setProposerExecutor, (address(_lido.voting), address(_newAdminExecutor))
+                            dualGovernance.setProposerExecutor, (address(_lido.voting), address(_newAdminExecutor))
                         )
                     }),
                     // 3. Replace the admin executor of the Timelock contract
@@ -57,25 +58,25 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
                 ]
             );
             shuffleExecutorsProposalId =
-                _submitProposalViaDualGovernance("Register new proposer and swap executors", executorsShuffleCalls);
+                _submitProposalByAdminProposer(executorsShuffleCalls, "Register new proposer and swap executors");
         }
 
         _step("2. Proposal is scheduled and executed");
         {
             _assertProposalSubmitted(shuffleExecutorsProposalId);
-            _waitAfterSubmitDelayPassed();
+            _wait(_getAfterSubmitDelay());
 
-            _scheduleProposalViaDualGovernance(shuffleExecutorsProposalId);
+            _scheduleProposal(shuffleExecutorsProposalId);
             _assertProposalScheduled(shuffleExecutorsProposalId);
-            _waitAfterScheduleDelayPassed();
+            _wait(_getAfterScheduleDelay());
 
             _executeProposal(shuffleExecutorsProposalId);
         }
         _step("3. The proposers and executors were set up correctly");
         {
-            assertEq(_timelock.getAdminExecutor(), address(_newAdminExecutor));
+            assertEq(_getAdminExecutor(), address(_newAdminExecutor));
 
-            Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
+            Proposers.Proposer[] memory proposers = _getProposers();
 
             assertEq(proposers.length, 2);
 
@@ -92,8 +93,8 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
                 [
                     ExternalCall({
                         value: 0,
-                        target: address(_dualGovernance),
-                        payload: abi.encodeCall(_dualGovernance.unregisterProposer, (_NEW_REGULAR_PROPOSER))
+                        target: address(dualGovernance),
+                        payload: abi.encodeCall(dualGovernance.unregisterProposer, (_NEW_REGULAR_PROPOSER))
                     }),
                     ExternalCall({
                         value: 0,
@@ -127,25 +128,24 @@ contract ExecutorOwnershipTransfer is ScenarioTestBlueprint {
                 ]
             );
 
-            uint256 proposalId =
-                _submitProposalViaDualGovernance("Manage Dual Governance parameters", dgManageOperations);
+            uint256 proposalId = _submitProposalByAdminProposer(dgManageOperations, "Manage Dual Governance parameters");
 
             _assertProposalSubmitted(proposalId);
-            _waitAfterSubmitDelayPassed();
+            _wait(_getAfterSubmitDelay());
 
-            _scheduleProposalViaDualGovernance(proposalId);
+            _scheduleProposal(proposalId);
             _assertProposalScheduled(proposalId);
-            _waitAfterScheduleDelayPassed();
+            _wait(_getAfterScheduleDelay());
 
             _executeProposal(proposalId);
 
-            Proposers.Proposer[] memory proposers = _dualGovernance.getProposers();
+            Proposers.Proposer[] memory proposers = _getProposers();
 
             assertEq(proposers.length, 1);
             assertEq(proposers[0].account, address(_lido.voting));
             assertEq(proposers[0].executor, address(_newAdminExecutor));
 
-            assertEq(_timelock.getAfterScheduleDelay(), Durations.ZERO);
+            assertEq(_getAfterScheduleDelay(), Durations.ZERO);
 
             assertEq(_oldAdminExecutor.owner(), address(_timelock));
         }

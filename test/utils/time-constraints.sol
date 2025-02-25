@@ -16,6 +16,7 @@ contract TimeConstraints {
     error InvalidDayTimeRange(Duration startDayTime, Duration endDayTime);
     error DayTimeOutOfRange(Duration currentDayTime, Duration startDayTime, Duration endDayTime);
     error TimestampNotReached(Timestamp requiredTimestamp);
+    error TimestampExceeded(Timestamp deadline);
 
     // ---
     // Constants
@@ -50,6 +51,14 @@ contract TimeConstraints {
     function checkExecuteAfterTimestamp(Timestamp timestamp) external view {
         if (Timestamps.now() < timestamp) {
             revert TimestampNotReached(timestamp);
+        }
+    }
+
+    /// @notice Checks that the transaction can only be executed before a specific timestamp.
+    /// @param timestamp The Unix timestamp before which the function can be executed.
+    function checkExecuteBeforeTimestamp(Timestamp timestamp) external view {
+        if (Timestamps.now() > timestamp) {
+            revert TimestampExceeded(timestamp);
         }
     }
 

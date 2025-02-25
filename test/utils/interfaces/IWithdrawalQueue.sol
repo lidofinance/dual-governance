@@ -10,4 +10,6 @@ interface IWithdrawalQueue is IWithdrawalQueueBase {
     function pauseFor(uint256 duration) external;
     function isPaused() external returns (bool);
     function finalize(uint256 _lastRequestIdToBeFinalized, uint256 _maxShareRate) external payable;
+    function PAUSE_ROLE() external view returns (bytes32);
+    function RESUME_ROLE() external view returns (bytes32);
 }
