@@ -139,8 +139,8 @@ function formatRolesInfoTable(ozRolesInfo: OZRoleInfo[]) {
     }
 
     const roleNameText = role.isModified
-      ? md.modified(md.roleName(role.roleName))
-      : md.unchanged(md.roleName(role.roleName));
+      ? md.modified(role.roleName)
+      : md.unchanged(role.roleName);
 
     rows.push([
       roleNameText,

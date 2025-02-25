@@ -17,10 +17,6 @@ export default {
   empty() {
     return "∅";
   },
-  roleName(rawRoleName: string) {
-    const roleNameParts = rawRoleName.split("_");
-    return roleNameParts.join(" ");
-  },
   modified(text: string) {
     return `⚠️ **${text}**`;
   },

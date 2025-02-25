@@ -140,8 +140,8 @@ function formatPermissionsInfoTable(aragonRolesInfo: AragonPermissionInfo[]) {
     }
 
     const roleNameText = role.isModified
-      ? md.modified(md.roleName(role.name))
-      : md.unchanged(md.roleName(role.name));
+      ? md.modified(role.name)
+      : md.unchanged(role.name);
 
     rows.push([
       roleNameText,

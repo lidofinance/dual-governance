@@ -10,18 +10,12 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   Lido: {
     address: LIDO_CONTRACTS.Lido,
     permissions: {
-      STAKING_CONTROL_ROLE: { manager: "None" },
-      RESUME_ROLE: { manager: "None" },
-      PAUSE_ROLE: { manager: "None" },
+      STAKING_CONTROL_ROLE: { manager: "Agent"},
+      RESUME_ROLE: { manager: "Agent"},
+      PAUSE_ROLE: { manager: "Agent"},
       UNSAFE_CHANGE_DEPOSITED_VALIDATORS_ROLE: { manager: "None" },
-      STAKING_PAUSE_ROLE: { manager: "None" },
+      STAKING_PAUSE_ROLE: { manager: "Agent" },
     },
-  },
-
-  // Oracle Contracts
-  LegacyOracle: {
-    address: LIDO_CONTRACTS.LegacyOracle,
-    permissions: {},
   },
 
   // DAO Contracts
@@ -66,25 +60,25 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   Agent: {
     address: LIDO_CONTRACTS.Agent,
     permissions: {
-      ADD_PROTECTED_TOKEN_ROLE: { manager: "Voting" },
-      REMOVE_PROTECTED_TOKEN_ROLE: { manager: "Voting" },
       TRANSFER_ROLE: { manager: "Voting", grantedTo: ["Finance"] },
       RUN_SCRIPT_ROLE: {
-        manager: "DualGovernance",
+        manager: "Agent",
+        grantedTo: ["DualGovernance"],
+      },
+      EXECUTE_ROLE: {
+        manager: "Agent",
         grantedTo: ["DualGovernance"],
       },
       SAFE_EXECUTE_ROLE: { manager: "None" },
-      DESIGNATE_SIGNER_ROLE: { manager: "Voting" },
-      EXECUTE_ROLE: {
-        manager: "DualGovernance",
-        grantedTo: ["DualGovernance"],
-      },
-      ADD_PRESIGNED_HASH_ROLE: { manager: "Voting" },
+      DESIGNATE_SIGNER_ROLE: { manager: "None" },
+      ADD_PRESIGNED_HASH_ROLE: { manager: "None" },
+      ADD_PROTECTED_TOKEN_ROLE: { manager: "None" },
+      REMOVE_PROTECTED_TOKEN_ROLE: { manager: "None" },
     },
   },
   ACL: {
     address: LIDO_CONTRACTS.ACL,
-    permissions: { CREATE_PERMISSIONS_ROLE: { manager: "Agent" } },
+    permissions: { CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] } },
   },
   AragonPM: {
     address: LIDO_CONTRACTS.AragonPM,
@@ -95,8 +89,8 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   EVMScriptRegistry: {
     address: LIDO_CONTRACTS.EVMScriptRegistry,
     permissions: {
-      REGISTRY_ADD_EXECUTOR_ROLE: { manager: "None" },
-      REGISTRY_MANAGER_ROLE: { manager: "None" },
+      REGISTRY_ADD_EXECUTOR_ROLE: { manager: "Agent"},
+      REGISTRY_MANAGER_ROLE: { manager: "Agent"},
     },
   },
   VotingRepo: {
@@ -137,10 +131,11 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
       MANAGE_NODE_OPERATOR_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
       SET_NODE_OPERATOR_LIMIT_ROLE: {
         manager: "Agent",
-        grantedTo: ["EasyTrackEvmScriptExecutor"],
+        grantedTo: ["EasyTrackEvmScriptExecutor", "Agent"],
       },
       MANAGE_SIGNING_KEYS: {
         manager: "Agent",
+        grantedTo: ["Agent"],
       },
     },
   },
@@ -164,6 +159,12 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
         grantedTo: ["EasyTrackEvmScriptExecutor"],
       },
     },
+  },
+
+   // Oracle Contracts
+   LegacyOracle: {
+    address: LIDO_CONTRACTS.LegacyOracle,
+    permissions: {},
   },
 };
 
