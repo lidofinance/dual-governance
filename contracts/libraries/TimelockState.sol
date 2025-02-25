@@ -37,7 +37,7 @@ library TimelockState {
         address governance;
         /// @dev slot0 [160..191]
         Duration afterSubmitDelay;
-        /// @dev slot0 [192..224]
+        /// @dev slot0 [192..223]
         Duration afterScheduleDelay;
         /// @dev slot1 [0..159]
         address adminExecutor;
@@ -91,11 +91,11 @@ library TimelockState {
         self.afterScheduleDelay = newAfterScheduleDelay;
         emit AfterScheduleDelaySet(newAfterScheduleDelay);
     }
+
     /// @notice Sets the admin executor address.
     /// @dev Reverts if the new admin executor address is zero or the same as the current one.
     /// @param self The context of the timelock state.
     /// @param newAdminExecutor The new admin executor address.
-
     function setAdminExecutor(Context storage self, address newAdminExecutor) internal {
         if (newAdminExecutor == address(0) || newAdminExecutor == self.adminExecutor) {
             revert InvalidAdminExecutor(newAdminExecutor);

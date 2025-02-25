@@ -237,7 +237,7 @@ contract DualGovernance is IDualGovernance {
 
         if (!_stateMachine.canCancelAllPendingProposals({useEffectiveState: false})) {
             /// @dev Some proposer contracts, like Aragon Voting, may not support canceling decisions that have already
-            ///     reached consensus. This could lead to a situation where a proposer’s cancelAllPendingProposals() call
+            ///     reached consensus. This could lead to a situation where a cancelAllPendingProposals() call
             ///     becomes unexecutable if the Dual Governance state changes. However, it might become executable again if
             ///     the system state shifts back to VetoSignalling or VetoSignallingDeactivation.
             ///     To avoid such a scenario, an early return is used instead of a revert when proposals cannot be cancelled
@@ -252,7 +252,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     /// @notice Returns whether proposal submission is allowed based on the current `effective` state of the Dual Governance system.
-    /// @dev Proposal submission is forbidden in the `VetoSignalling` and `VetoSignallingDeactivation` states.
+    /// @dev Proposal submission is forbidden in the `VetoCooldown` and `VetoSignallingDeactivation` states.
     /// @return canSubmitProposal A boolean value indicating whether proposal submission is allowed (`true`) or not (`false`)
     ///     based on the current `effective` state of the Dual Governance system.
     function canSubmitProposal() external view returns (bool) {
@@ -263,8 +263,8 @@ contract DualGovernance is IDualGovernance {
     ///     state of the Dual Governance system, the proposal's submission time, and its current status.
     /// @dev Proposal scheduling is allowed only if all the following conditions are met:
     ///     - The Dual Governance system is in the `Normal` or `VetoCooldown` state.
-    ///     - If the system is in the `VetoCooldown` state, the proposal must have been submitted before the system
-    ///         last entered the `VetoSignalling` state.
+    ///     - If the system is in the `VetoCooldown` state, the proposal must have been submitted no later than
+    ///         when the system last entered the `VetoSignalling` state.
     ///     - The proposal has not already been scheduled, cancelled, or executed.
     ///     - The required delay period, as defined by `ITimelock.getAfterSubmitDelay()`, has elapsed since the proposal
     ///         was submitted.

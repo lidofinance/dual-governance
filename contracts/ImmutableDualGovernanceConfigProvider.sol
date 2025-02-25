@@ -20,7 +20,7 @@ contract ImmutableDualGovernanceConfigProvider is IDualGovernanceConfigProvider 
     // ---
 
     /// @notice The percentage of the total stETH supply that must be reached in the Signalling Escrow to transition
-    ///     Dual Governance from the Normal state to the VetoSignalling state.
+    ///     Dual Governance from the Normal, VetoCooldown and RageQuit state to the VetoSignalling state.
     PercentD16 public immutable FIRST_SEAL_RAGE_QUIT_SUPPORT;
 
     /// @notice The percentage of the total stETH supply that must be reached in the Signalling Escrow to transition
