@@ -5,7 +5,7 @@ pragma solidity 0.8.26;
 
 import {console} from "forge-std/Test.sol";
 
-import {DeployScriptBase} from "./DeployScriptBase.sol";
+import {DGDeployArtifactLoader} from "../utils/DGDeployArtifactLoader.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
@@ -25,7 +25,7 @@ import {DeployVerification} from "../utils/DeployVerification.sol";
 
 import {DGSetupDeployArtifacts, DGSetupDeployConfig} from "../utils/contracts-deployment.sol";
 
-contract LaunchAcceptance is DeployScriptBase {
+contract LaunchAcceptance is DGDeployArtifactLoader {
     using LidoUtils for LidoUtils.Context;
 
     function run() external {
