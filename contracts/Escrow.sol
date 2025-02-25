@@ -367,8 +367,8 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
 
     /// @notice Returns the total amounts of locked and claimed assets in the Escrow.
     /// @return details A struct containing the total amounts of locked and claimed assets, including:
-    ///     - `totalStETHClaimedETH`: The total amount of ETH claimed from locked stETH.
     ///     - `totalStETHLockedShares`: The total number of stETH shares currently locked in the Escrow.
+    ///     - `totalStETHClaimedETH`: The total amount of ETH claimed from locked stETH.
     ///     - `totalUnstETHUnfinalizedShares`: The total number of shares from unstETH NFTs that have not yet been finalized.
     ///     - `totalUnstETHFinalizedETH`: The total amount of ETH from finalized unstETH NFTs.
     function getSignallingEscrowDetails() external view returns (SignallingEscrowDetails memory details) {
@@ -605,10 +605,10 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
 
     /// @notice Returns details about the current state of the rage quit escrow.
     /// @return details A `RageQuitEscrowDetails` struct containing the following fields:
-    /// - `isRageQuitExtensionPeriodStarted`: Indicates whether the rage quit extension period has started.
     /// - `rageQuitEthWithdrawalsDelay`: The delay period for ETH withdrawals during rage quit.
     /// - `rageQuitExtensionPeriodDuration`: The duration of the rage quit extension period.
     /// - `rageQuitExtensionPeriodStartedAt`: The timestamp when the rage quit extension period started.
+    /// - `isRageQuitExtensionPeriodStarted`: Indicates whether the rage quit extension period has started.
     function getRageQuitEscrowDetails() external view returns (RageQuitEscrowDetails memory details) {
         _escrowState.checkRageQuitEscrow();
 

@@ -55,13 +55,13 @@ library EmergencyProtection {
         Timestamp emergencyModeEndsAfter;
         /// @dev slot0 [40..199]
         address emergencyActivationCommittee;
-        /// @dev slot0 [200..240]
+        /// @dev slot0 [200..239]
         Timestamp emergencyProtectionEndsAfter;
         /// @dev slot1 [0..159]
         address emergencyExecutionCommittee;
         /// @dev slot1 [160..191]
         Duration emergencyModeDuration;
-        /// @dev slot2 [0..160]
+        /// @dev slot2 [0..159]
         address emergencyGovernance;
     }
 
@@ -226,9 +226,9 @@ library EmergencyProtection {
         return self.emergencyModeEndsAfter.isNotZero();
     }
 
-    /// @notice Checks if the emergency mode has passed.
+    /// @notice Checks if the emergency mode duration has passed.
     /// @param self The context of the Emergency Protection library
-    /// @return bool Whether the emergency mode has passed or not.
+    /// @return bool Whether the emergency mode duration has passed or not.
     function isEmergencyModeDurationPassed(Context storage self) internal view returns (bool) {
         Timestamp endsAfter = self.emergencyModeEndsAfter;
         return endsAfter.isNotZero() && Timestamps.now() > endsAfter;
