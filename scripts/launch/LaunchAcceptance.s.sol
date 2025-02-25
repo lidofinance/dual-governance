@@ -5,7 +5,7 @@ pragma solidity 0.8.26;
 
 import {console} from "forge-std/Test.sol";
 
-import {DeployScriptBase} from "./DeployScriptBase.sol";
+import {DGDeployArtifactLoader} from "../utils/DGDeployArtifactLoader.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
@@ -15,6 +15,9 @@ import {IAragonForwarder} from "test/utils/interfaces/IAragonForwarder.sol";
 import {IAragonACL} from "test/utils/interfaces/IAragonACL.sol";
 import {IAragonAgent} from "test/utils/interfaces/IAragonAgent.sol";
 import {IGovernance} from "contracts/interfaces/IDualGovernance.sol";
+import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+
+import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 
@@ -22,9 +25,7 @@ import {DeployVerification} from "../utils/DeployVerification.sol";
 
 import {DGSetupDeployArtifacts, DGSetupDeployConfig} from "../utils/contracts-deployment.sol";
 
-import {HoleskyDryRunDAOVotingCalldataProvider} from "./HoleskyDryRunDAOVotingCalldataProvider.sol";
-
-contract LaunchAcceptance is DeployScriptBase {
+contract LaunchAcceptance is DGDeployArtifactLoader {
     using LidoUtils for LidoUtils.Context;
 
     function run() external {
@@ -131,12 +132,6 @@ contract LaunchAcceptance is DeployScriptBase {
             );
 
             if (fromStep == 3) {
-                console.log("Calls to set DG state:");
-                console.logBytes(abi.encode(calls));
-
-                console.log("Calls encoded:");
-                console.logBytes(abi.encode(calls));
-
                 console.log("Submit proposal to set DG state calldata");
                 console.logBytes(
                     abi.encodeWithSelector(
@@ -148,36 +143,55 @@ contract LaunchAcceptance is DeployScriptBase {
             }
 
             vm.prank(_config.timelock.emergencyGovernanceProposer);
-            proposalId = _dgContracts.emergencyGovernance.submitProposal(
+            uint256 dgProposalId = _dgContracts.emergencyGovernance.submitProposal(
                 calls, "Reset emergency mode and set original DG as governance"
             );
 
-            console.log("Proposal submitted");
+            console.log("DG Proposal submitted");
 
-            console.log("Proposal ID", proposalId);
+            console.log("DG Proposal ID", dgProposalId);
         } else {
             console.log("STEP 3 SKIPPED - DG state proposal already submitted");
         }
 
         if (fromStep <= 4) {
-            console.log("STEP 4 - Execute proposal");
-            // Schedule and execute the proposal
+            console.log("STEP 4 - Execute DG proposal to set DG state");
+
+            uint256 dgProposalId = _dgContracts.timelock.getProposalsCount();
             vm.warp(block.timestamp + _config.timelock.afterSubmitDelay.toSeconds());
+            vm.assertTrue(_dgContracts.timelock.canSchedule(dgProposalId));
+
             _dgContracts.emergencyGovernance.scheduleProposal(proposalId);
-            vm.warp(block.timestamp + _config.timelock.afterScheduleDelay.toSeconds());
-            timelock.execute(proposalId);
+            ITimelock.ProposalDetails memory proposalDetails = _dgContracts.timelock.getProposalDetails(dgProposalId);
+            assert(proposalDetails.status == ProposalStatus.Scheduled);
 
-            _dgContracts.emergencyGovernance = TimelockedGovernance(daoEmergencyGovernance);
-
-            console.log("Proposal executed");
-
-            console.log("Emergency Governance set to", address(_dgContracts.emergencyGovernance));
+            console.log("DG Proposal scheduled: ", dgProposalId);
         } else {
-            console.log("STEP 4 SKIPPED - Proposal to set DG state already executed");
+            console.log("STEP 4 SKIPPED - DG Proposal to set DG state already scheduled");
         }
 
         if (fromStep <= 5) {
-            console.log("STEP 5 - Verify DG state");
+            console.log("STEP 5 - Execute proposal");
+
+            uint256 dgProposalId = _dgContracts.timelock.getProposalsCount();
+            vm.warp(block.timestamp + _config.timelock.afterScheduleDelay.toSeconds());
+            vm.assertTrue(_dgContracts.timelock.canExecute(dgProposalId));
+
+            timelock.execute(dgProposalId);
+
+            _dgContracts.emergencyGovernance = TimelockedGovernance(daoEmergencyGovernance);
+            ITimelock.ProposalDetails memory proposalDetails = _dgContracts.timelock.getProposalDetails(dgProposalId);
+            assert(proposalDetails.status == ProposalStatus.Executed);
+
+            console.log("DG proposal executed: ", dgProposalId);
+
+            console.log("Emergency Governance set to", address(_dgContracts.emergencyGovernance));
+        } else {
+            console.log("STEP 5 SKIPPED - Proposal to set DG state already executed");
+        }
+
+        if (fromStep <= 6) {
+            console.log("STEP 6 - Verify DG state");
             // Verify state after proposal execution
             require(
                 timelock.getGovernance() == address(_dgContracts.dualGovernance),
@@ -206,45 +220,62 @@ contract LaunchAcceptance is DeployScriptBase {
                 details.emergencyProtectionEndsAfter == _config.timelock.emergencyProtectionEndDate,
                 "Incorrect emergencyProtectionEndsAfter in EmergencyProtectedTimelock"
             );
-        } else {
-            console.log("STEP 5 SKIPPED - DG state already verified");
-        }
 
-        if (fromStep <= 6) {
-            console.log("STEP 6 - Submitting DAO Voting proposal to activate Dual Governance");
-
-            bytes memory _encodedDAOVotingCalls = HoleskyDryRunDAOVotingCalldataProvider.votingCalldata();
-            uint256 voteId = _lidoUtils.adoptVotePreparedBytecode(_encodedDAOVotingCalls);
+            console.log("Submitting DAO Voting proposal to activate Dual Governance");
+            uint256 voteId = _lidoUtils.adoptVoteEVMScript(_dgActivationVotingCalldata, "Activate Dual Governance");
             console.log("Vote ID", voteId);
         } else {
             console.log("STEP 6 SKIPPED - Dual Governance activation vote already submitted");
         }
 
         if (fromStep <= 7) {
-            uint256 voteId = 503;
-            require(voteId != 0);
             console.log("STEP 7 - Enacting DAO Voting proposal to activate Dual Governance");
+            uint256 voteId = _lidoUtils.getLastVoteId();
+            console.log("Enacting vote with ID", voteId);
             _lidoUtils.executeVote(voteId);
         } else {
             console.log("STEP 7 SKIPPED - Dual Governance activation vote already executed");
         }
 
         if (fromStep <= 8) {
-            console.log("STEP 8 - Wait for Dual Governance after submit delay and enacting proposal");
+            console.log("STEP 8 - Wait for Dual Governance after submit delay");
 
-            uint256 expectedProposalId = 2;
-
-            // Schedule and execute the proposal
             _wait(_config.timelock.afterSubmitDelay);
-            _dgContracts.dualGovernance.scheduleProposal(expectedProposalId);
-            _wait(_config.timelock.afterScheduleDelay);
-            timelock.execute(expectedProposalId);
+
+            uint256 dgProposalId = _dgContracts.timelock.getProposalsCount();
+            vm.assertTrue(_dgContracts.timelock.canSchedule(dgProposalId));
+
+            console.log("Scheduling DG proposal with ID", dgProposalId);
+            _dgContracts.dualGovernance.scheduleProposal(dgProposalId);
+
+            ITimelock.ProposalDetails memory proposalDetails = _dgContracts.timelock.getProposalDetails(dgProposalId);
+            assert(proposalDetails.status == ProposalStatus.Scheduled);
+
+            console.log("DG Proposal scheduled: ", dgProposalId);
         } else {
-            console.log("STEP 8 SKIPPED - Dual Governance proposal already executed");
+            console.log("STEP 8 SKIPPED - Dual Governance proposal already scheduled");
         }
 
         if (fromStep <= 9) {
-            console.log("STEP 9 - Verify DAO has no agent forward permission from Voting");
+            console.log("STEP 9 - Wait for Dual Governance after schedule delay and execute proposal");
+
+            uint256 dgProposalId = _dgContracts.timelock.getProposalsCount();
+            _wait(_config.timelock.afterScheduleDelay);
+            vm.assertTrue(_dgContracts.timelock.canExecute(dgProposalId));
+
+            console.log("Executing proposal with ID", dgProposalId);
+            timelock.execute(dgProposalId);
+
+            ITimelock.ProposalDetails memory proposalDetails = _dgContracts.timelock.getProposalDetails(dgProposalId);
+            assert(proposalDetails.status == ProposalStatus.Executed);
+
+            console.log("DG proposal executed: ", dgProposalId);
+        } else {
+            console.log("STEP 9 SKIPPED - Dual Governance proposal already executed");
+        }
+
+        if (fromStep <= 10) {
+            console.log("STEP 10 - Verify DAO has no agent forward permission from Voting");
             // Verify that Voting has no permission to forward to Agent
             ExternalCall[] memory someAgentForwardCall;
             someAgentForwardCall = ExternalCallHelpers.create(
@@ -265,8 +296,9 @@ contract LaunchAcceptance is DeployScriptBase {
             vm.expectRevert("ACL_AUTH_NO_MANAGER");
             vm.prank(address(_lidoUtils.voting));
             IAragonForwarder(_lidoUtils.agent).forward(_encodeExternalCalls(someAgentForwardCall));
+            console.log("Agent forward permission revoked");
         } else {
-            console.log("STEP 9 SKIPPED - Agent forward permission already revoked");
+            console.log("STEP 10 SKIPPED - Agent forward permission already revoked");
         }
     }
 }

@@ -6,13 +6,13 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {DGSetupDeployArtifacts, DGSetupDeployedContracts} from "../utils/contracts-deployment.sol";
+import {DGSetupDeployArtifacts, DGSetupDeployedContracts} from "./contracts-deployment.sol";
 
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {Duration} from "contracts/types/Duration.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
-contract DeployScriptBase is Script {
+contract DGDeployArtifactLoader is Script {
     using DGSetupDeployArtifacts for DGSetupDeployArtifacts.Context;
     using DGSetupDeployedContracts for DGSetupDeployedContracts.Context;
 
@@ -20,6 +20,7 @@ contract DeployScriptBase is Script {
 
     DGSetupDeployedContracts.Context internal _dgContracts;
     LidoUtils.Context internal _lidoUtils;
+    bytes internal _dgActivationVotingCalldata;
 
     function _loadEnv() internal returns (DGSetupDeployArtifacts.Context memory _deployArtifact) {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
@@ -27,8 +28,9 @@ contract DeployScriptBase is Script {
         console.log("Loading config from artifact file: %s", deployArtifactFileName);
 
         _deployArtifact = DGSetupDeployArtifacts.load(deployArtifactFileName);
-
         _dgContracts = _deployArtifact.deployedContracts;
+
+        _dgActivationVotingCalldata = DGSetupDeployArtifacts.loadDgActivationVotingCalldata(deployArtifactFileName);
 
         if (_deployArtifact.deployConfig.chainId != block.chainid) {
             revert InvalidChainId(_deployArtifact.deployConfig.chainId);
