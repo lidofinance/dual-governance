@@ -17,12 +17,12 @@ import {ExternalCall, ExternalCalls, IExternalExecutor} from "./ExternalCalls.so
 ///     reachable from Submitted.
 /// @param Executed Proposal has been successfully executed after being scheduled. This state is
 ///     only reachable from Scheduled and is the final state of the proposal.
-/// @param Cancelled Proposal was cancelled before execution. Cancelled proposals cannot be resubmitted
-///     or rescheduled. This state is only reachable from Submitted or Scheduled and is the final state
+/// @param Cancelled Proposal was cancelled before execution. Cancelled proposals cannot be scheduled
+///     or executed. This state is only reachable from Submitted or Scheduled and is the final state
 ///     of the proposal.
 ///     @dev A proposal is considered cancelled if it was not executed and its id is less than
 ///         the id of the last submitted proposal at the time the `cancelAll()` method was called.
-///         To check if a proposal is in the `Cancelled` state, use the `_isProposalMarkedCancelled()`
+///         To check if a proposal is in the `Cancelled` state, use the `_isProposalCancelled()`
 ///         view function.
 enum Status {
     NotExist,
@@ -245,8 +245,8 @@ library ExecutableProposals {
     /// @notice Retrieves detailed information about a specific previously submitted proposal.
     /// @param self The context of the Executable Proposal library.
     /// @param proposalId The id of the proposal to retrieve details for.
-    /// @return proposalDetails A struct containing the proposal’s id, status, executor, submission timestamp,
-    ///     and scheduling timestamp, if applicable
+    /// @return proposalDetails A struct containing the proposal’s id, executor, submission timestamp,
+    ///      scheduling timestamp and status, if applicable
     function getProposalDetails(
         Context storage self,
         uint256 proposalId
