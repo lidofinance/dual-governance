@@ -1,0 +1,427 @@
+{
+  "storage": [
+    {
+      "astId": 1936,
+      "contract": "contracts/Escrow.sol:Escrow",
+      "label": "_escrowState",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_struct(Context)10530_storage"
+    },
+    {
+      "astId": 1940,
+      "contract": "contracts/Escrow.sol:Escrow",
+      "label": "_accounting",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_struct(Context)6828_storage"
+    },
+    {
+      "astId": 1944,
+      "contract": "contracts/Escrow.sol:Escrow",
+      "label": "_batchesQueue",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_struct(Context)13228_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_struct(SequentialBatch)13199_storage)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "struct WithdrawalsBatchesQueue.SequentialBatch[]",
+      "numberOfBytes": "32",
+      "base": "t_struct(SequentialBatch)13199_storage"
+    },
+    "t_array(t_uint256)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "uint256[]",
+      "numberOfBytes": "32",
+      "base": "t_uint256"
+    },
+    "t_enum(State)10465": {
+      "encoding": "inplace",
+      "label": "enum State",
+      "numberOfBytes": "1"
+    },
+    "t_enum(State)13165": {
+      "encoding": "inplace",
+      "label": "enum State",
+      "numberOfBytes": "1"
+    },
+    "t_enum(UnstETHRecordStatus)6784": {
+      "encoding": "inplace",
+      "label": "enum UnstETHRecordStatus",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_struct(HolderAssets)6757_storage)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => struct HolderAssets)",
+      "numberOfBytes": "32",
+      "value": "t_struct(HolderAssets)6757_storage"
+    },
+    "t_mapping(t_uint256,t_struct(UnstETHRecord)6805_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct UnstETHRecord)",
+      "numberOfBytes": "32",
+      "value": "t_struct(UnstETHRecord)6805_storage"
+    },
+    "t_struct(Context)10530_storage": {
+      "encoding": "inplace",
+      "label": "struct EscrowState.Context",
+      "numberOfBytes": "32",
+      "members": [
+        {
+          "astId": 10513,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "state",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_enum(State)10465"
+        },
+        {
+          "astId": 10517,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "minAssetsLockDuration",
+          "offset": 1,
+          "slot": "0",
+          "type": "t_userDefinedValueType(Duration)13814"
+        },
+        {
+          "astId": 10521,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "rageQuitExtensionPeriodDuration",
+          "offset": 5,
+          "slot": "0",
+          "type": "t_userDefinedValueType(Duration)13814"
+        },
+        {
+          "astId": 10525,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "rageQuitExtensionPeriodStartedAt",
+          "offset": 9,
+          "slot": "0",
+          "type": "t_userDefinedValueType(Timestamp)15170"
+        },
+        {
+          "astId": 10529,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "rageQuitEthWithdrawalsDelay",
+          "offset": 14,
+          "slot": "0",
+          "type": "t_userDefinedValueType(Duration)13814"
+        }
+      ]
+    },
+    "t_struct(Context)13228_storage": {
+      "encoding": "inplace",
+      "label": "struct WithdrawalsBatchesQueue.Context",
+      "numberOfBytes": "64",
+      "members": [
+        {
+          "astId": 13222,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "info",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_struct(QueueInfo)13217_storage"
+        },
+        {
+          "astId": 13227,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "batches",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_array(t_struct(SequentialBatch)13199_storage)dyn_storage"
+        }
+      ]
+    },
+    "t_struct(Context)6828_storage": {
+      "encoding": "inplace",
+      "label": "struct AssetsAccounting.Context",
+      "numberOfBytes": "128",
+      "members": [
+        {
+          "astId": 6811,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "stETHTotals",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_struct(StETHAccounting)6777_storage"
+        },
+        {
+          "astId": 6815,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "unstETHTotals",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_struct(UnstETHAccounting)6767_storage"
+        },
+        {
+          "astId": 6821,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "assets",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_mapping(t_address,t_struct(HolderAssets)6757_storage)"
+        },
+        {
+          "astId": 6827,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "unstETHRecords",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_mapping(t_uint256,t_struct(UnstETHRecord)6805_storage)"
+        }
+      ]
+    },
+    "t_struct(HolderAssets)6757_storage": {
+      "encoding": "inplace",
+      "label": "struct HolderAssets",
+      "numberOfBytes": "96",
+      "members": [
+        {
+          "astId": 6744,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "lastAssetsLockTimestamp",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_userDefinedValueType(Timestamp)15170"
+        },
+        {
+          "astId": 6748,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "stETHLockedShares",
+          "offset": 5,
+          "slot": "0",
+          "type": "t_userDefinedValueType(SharesValue)14981"
+        },
+        {
+          "astId": 6752,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "unstETHLockedShares",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_userDefinedValueType(SharesValue)14981"
+        },
+        {
+          "astId": 6756,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "unstETHIds",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_array(t_uint256)dyn_storage"
+        }
+      ]
+    },
+    "t_struct(QueueInfo)13217_storage": {
+      "encoding": "inplace",
+      "label": "struct WithdrawalsBatchesQueue.QueueInfo",
+      "numberOfBytes": "32",
+      "members": [
+        {
+          "astId": 13204,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "state",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_enum(State)13165"
+        },
+        {
+          "astId": 13207,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "lastClaimedBatchIndex",
+          "offset": 1,
+          "slot": "0",
+          "type": "t_uint56"
+        },
+        {
+          "astId": 13210,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "lastClaimedUnstETHIdIndex",
+          "offset": 8,
+          "slot": "0",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 13213,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "totalUnstETHIdsCount",
+          "offset": 16,
+          "slot": "0",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 13216,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "totalUnstETHIdsClaimed",
+          "offset": 24,
+          "slot": "0",
+          "type": "t_uint64"
+        }
+      ]
+    },
+    "t_struct(SequentialBatch)13199_storage": {
+      "encoding": "inplace",
+      "label": "struct WithdrawalsBatchesQueue.SequentialBatch",
+      "numberOfBytes": "64",
+      "members": [
+        {
+          "astId": 13195,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "firstUnstETHId",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 13198,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "lastUnstETHId",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        }
+      ]
+    },
+    "t_struct(StETHAccounting)6777_storage": {
+      "encoding": "inplace",
+      "label": "struct StETHAccounting",
+      "numberOfBytes": "32",
+      "members": [
+        {
+          "astId": 6772,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "lockedShares",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_userDefinedValueType(SharesValue)14981"
+        },
+        {
+          "astId": 6776,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "claimedETH",
+          "offset": 16,
+          "slot": "0",
+          "type": "t_userDefinedValueType(ETHValue)14265"
+        }
+      ]
+    },
+    "t_struct(UnstETHAccounting)6767_storage": {
+      "encoding": "inplace",
+      "label": "struct UnstETHAccounting",
+      "numberOfBytes": "32",
+      "members": [
+        {
+          "astId": 6762,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "unfinalizedShares",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_userDefinedValueType(SharesValue)14981"
+        },
+        {
+          "astId": 6766,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "finalizedETH",
+          "offset": 16,
+          "slot": "0",
+          "type": "t_userDefinedValueType(ETHValue)14265"
+        }
+      ]
+    },
+    "t_struct(UnstETHRecord)6805_storage": {
+      "encoding": "inplace",
+      "label": "struct UnstETHRecord",
+      "numberOfBytes": "64",
+      "members": [
+        {
+          "astId": 6789,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "status",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_enum(UnstETHRecordStatus)6784"
+        },
+        {
+          "astId": 6793,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "index",
+          "offset": 1,
+          "slot": "0",
+          "type": "t_userDefinedValueType(IndexOneBased)14533"
+        },
+        {
+          "astId": 6796,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "lockedBy",
+          "offset": 5,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 6800,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "shares",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_userDefinedValueType(SharesValue)14981"
+        },
+        {
+          "astId": 6804,
+          "contract": "contracts/Escrow.sol:Escrow",
+          "label": "claimableAmount",
+          "offset": 16,
+          "slot": "1",
+          "type": "t_userDefinedValueType(ETHValue)14265"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint56": {
+      "encoding": "inplace",
+      "label": "uint56",
+      "numberOfBytes": "7"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    },
+    "t_userDefinedValueType(Duration)13814": {
+      "encoding": "inplace",
+      "label": "Duration",
+      "numberOfBytes": "4"
+    },
+    "t_userDefinedValueType(ETHValue)14265": {
+      "encoding": "inplace",
+      "label": "ETHValue",
+      "numberOfBytes": "16"
+    },
+    "t_userDefinedValueType(IndexOneBased)14533": {
+      "encoding": "inplace",
+      "label": "IndexOneBased",
+      "numberOfBytes": "4"
+    },
+    "t_userDefinedValueType(SharesValue)14981": {
+      "encoding": "inplace",
+      "label": "SharesValue",
+      "numberOfBytes": "16"
+    },
+    "t_userDefinedValueType(Timestamp)15170": {
+      "encoding": "inplace",
+      "label": "Timestamp",
+      "numberOfBytes": "5"
+    }
+  }
+}
