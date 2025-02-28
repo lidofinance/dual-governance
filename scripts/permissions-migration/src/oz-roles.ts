@@ -74,13 +74,11 @@ async function collectRolesInfo(
       const currentlyGrantedTo = (ozRolesHolders[address][roleHash] || []).map(
         (roleHolderAddress) => {
           if (LIDO_CONTRACTS_NAMES[roleHolderAddress] === undefined) {
-            throw new Error(
-              `Unknown contract with address ${roleHolderAddress}`
-            );
+            return "Unknown";
           }
           return LIDO_CONTRACTS_NAMES[roleHolderAddress];
         }
-      );
+      ) as LidoContractName[];
 
       const holdersToGrantRole = desiredRoleGrantees.filter(
         (roleHolder) => !currentlyGrantedTo.includes(roleHolder)
@@ -92,13 +90,17 @@ async function collectRolesInfo(
         (roleHolder) => currentlyGrantedTo.includes(roleHolder)
       );
 
+      const holdersToRevokeWithoutUnknown = holdersToRevokeRole.filter(
+        (roleHolder) => !roleHolder.startsWith("Unknown")
+      );
+
       ozRolesInfo[contractName].push({
         roleName,
         holdersToGrantRole,
         holdersToRevokeRole,
         holderAlreadyGrantedWithRole,
         isModified:
-          holdersToGrantRole.length > 0 || holdersToRevokeRole.length > 0,
+          holdersToGrantRole.length > 0 || holdersToRevokeWithoutUnknown.length > 0,
       });
     }
   }
@@ -118,12 +120,23 @@ function formatRolesInfoTable(ozRolesInfo: OZRoleInfo[]) {
       modifiedRolesCount += 1;
     }
 
+    const unknownRoleHolders = role.holdersToRevokeRole.filter((holderName) =>
+      holderName.startsWith("Unknown")
+    );
+
     const revokedFromItems =
       role.holdersToRevokeRole.length === 0
         ? [md.empty()]
-        : role.holdersToRevokeRole.map((roleHolder) =>
-            md.bold(md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder))
-          );
+        : role.holdersToRevokeRole.map((roleHolder) => {
+            if (roleHolder.startsWith("Unknown")) {
+              return false;
+            }
+            return md.bold(md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder))
+          }).filter(Boolean);
+
+    if (unknownRoleHolders.length > 0){
+      revokedFromItems.push(md.label(`+${unknownRoleHolders.length} ${md.bold("UNKNOWN")} holders`));
+    }
 
     const grantedToItems: string[] = [
       ...role.holderAlreadyGrantedWithRole.map((roleHolder) =>

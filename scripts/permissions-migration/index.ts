@@ -12,7 +12,7 @@ import {
   OZ_CONTRACT_ROLES_CONFIG,
 } from "./config/agent-transfer-permissions-config";
 
-const RPC_URL = process.env.MAINNET_RPC_URL;
+const RPC_URL = process.env.RPC_URL;
 
 if (!RPC_URL) {
   throw new Error("RPC_URL env variable not set");

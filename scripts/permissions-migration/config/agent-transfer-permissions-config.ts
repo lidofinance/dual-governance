@@ -128,14 +128,13 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
     address: LIDO_CONTRACTS.CuratedModule,
     permissions: {
       STAKING_ROUTER_ROLE: { manager: "Agent", grantedTo: ["StakingRouter"] },
-      MANAGE_NODE_OPERATOR_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
+      MANAGE_NODE_OPERATOR_ROLE: { manager: "Agent" },
       SET_NODE_OPERATOR_LIMIT_ROLE: {
         manager: "Agent",
-        grantedTo: ["EasyTrackEvmScriptExecutor", "Agent"],
+        grantedTo: ["EasyTrackEvmScriptExecutor"],
       },
       MANAGE_SIGNING_KEYS: {
         manager: "Agent",
-        grantedTo: ["Agent"],
       },
     },
   },
@@ -190,14 +189,14 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       MANAGE_TOKEN_URI_ROLE: [],
       ORACLE_ROLE: ["AccountingOracle"],
       PAUSE_ROLE: ["OraclesGateSeal"],
-      RESUME_ROLE: [],
+      RESUME_ROLE: ["Agent"],
     },
   },
   Burner: {
     address: LIDO_CONTRACTS.Burner,
     roles: {
       DEFAULT_ADMIN_ROLE: ["Agent"],
-      REQUEST_BURN_MY_STETH_ROLE: ["Agent"],
+      REQUEST_BURN_MY_STETH_ROLE: [],
       REQUEST_BURN_SHARES_ROLE: [
         "Lido",
         "CuratedModule",
@@ -224,7 +223,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       DISABLE_CONSENSUS_ROLE: [],
       MANAGE_FAST_LANE_CONFIG_ROLE: [],
       MANAGE_FRAME_CONFIG_ROLE: [],
-      MANAGE_MEMBERS_AND_QUORUM_ROLE: ["Agent"],
+      MANAGE_MEMBERS_AND_QUORUM_ROLE: [],
       MANAGE_REPORT_PROCESSOR_ROLE: [],
     },
   },
@@ -235,7 +234,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       MANAGE_CONSENSUS_CONTRACT_ROLE: [],
       MANAGE_CONSENSUS_VERSION_ROLE: [],
       PAUSE_ROLE: ["OraclesGateSeal"],
-      RESUME_ROLE: [],
+      RESUME_ROLE: ["Agent"],
       SUBMIT_DATA_ROLE: [],
     },
   },
@@ -246,7 +245,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       DISABLE_CONSENSUS_ROLE: [],
       MANAGE_FAST_LANE_CONFIG_ROLE: [],
       MANAGE_FRAME_CONFIG_ROLE: [],
-      MANAGE_MEMBERS_AND_QUORUM_ROLE: ["Agent"],
+      MANAGE_MEMBERS_AND_QUORUM_ROLE: [],
       MANAGE_REPORT_PROCESSOR_ROLE: [],
     },
   },
@@ -283,7 +282,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       MODULE_MANAGER_ROLE: [],
       PAUSE_ROLE: ["CSGateSeal"],
       RECOVERER_ROLE: [],
-      REPORT_EL_REWARDS_STEALING_PENALTY_ROLE: ["CSCommitteeMultisig"],
+      REPORT_EL_REWARDS_STEALING_PENALTY_ROLE: [],
       RESUME_ROLE: [],
       SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE: ["EasyTrackEvmScriptExecutor"],
       STAKING_ROUTER_ROLE: ["StakingRouter"],
@@ -298,9 +297,9 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       MANAGE_BOND_CURVES_ROLE: [],
       PAUSE_ROLE: ["CSGateSeal"],
       RECOVERER_ROLE: [],
-      RESET_BOND_CURVE_ROLE: ["CSModule", "CSCommitteeMultisig"],
+      RESET_BOND_CURVE_ROLE: ["CSModule"],
       RESUME_ROLE: [],
-      SET_BOND_CURVE_ROLE: ["CSModule", "CSCommitteeMultisig"],
+      SET_BOND_CURVE_ROLE: ["CSModule"],
     },
   },
   CSFeeDistributor: {
@@ -352,150 +351,37 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE: ["Voting"],
     },
   },
-  // Arbitrum
-  L1ERC20TokenGateway_Arbitrum: {
-    address: LIDO_CONTRACTS.L1ERC20TokenGateway_Arbitrum,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Agent"],
-      DEPOSITS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      DEPOSITS_ENABLER_ROLE: ["Agent"],
-      WITHDRAWALS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      WITHDRAWALS_ENABLER_ROLE: ["Agent"],
-    },
-  },
-  // Optimism
-  L1TokensBridge_Optimism: {
-    address: LIDO_CONTRACTS.L1TokensBridge_Optimism,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Agent"],
-      DEPOSITS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      DEPOSITS_ENABLER_ROLE: ["Agent"],
-      WITHDRAWALS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      WITHDRAWALS_ENABLER_ROLE: ["Agent"],
-    },
-  },
-  // Polygon
-  ERC20Predicate_Polygon: {
-    address: LIDO_CONTRACTS.ERC20Predicate_Polygon,
-    roles: {
-      DEFAULT_ADMIN_ROLE: [],
-      MANAGER_ROLE: [],
-    },
-  },
-  // Base
-  L1ERC20TokenBridge_Base: {
-    address: LIDO_CONTRACTS.L1ERC20TokenBridge_Base,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Agent"],
-      DEPOSITS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      DEPOSITS_ENABLER_ROLE: ["Agent"],
-      WITHDRAWALS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      WITHDRAWALS_ENABLER_ROLE: ["Agent"],
-    },
-  },
-  L1ERC20Bridge_zkSync: {
-    address: LIDO_CONTRACTS.L1ERC20Bridge_zkSync,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Agent"],
-      DEPOSITS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      DEPOSITS_ENABLER_ROLE: ["Agent"],
-      WITHDRAWALS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      WITHDRAWALS_ENABLER_ROLE: ["Agent"],
-    },
-  },
-  // Mantle
-  L1ERC20TokenBridge_Mantle: {
-    address: LIDO_CONTRACTS.L1ERC20TokenBridge_Mantle,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Agent"],
-      DEPOSITS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      DEPOSITS_ENABLER_ROLE: ["Agent"],
-      WITHDRAWALS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      WITHDRAWALS_ENABLER_ROLE: ["Agent"],
-    },
-  },
-
-  L1LidoGateway_Scroll: {
-    address: LIDO_CONTRACTS.L1LidoGateway_Scroll,
-    roles: {
-      DEPOSITS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      DEPOSITS_ENABLER_ROLE: ["Agent"],
-      WITHDRAWALS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      WITHDRAWALS_ENABLER_ROLE: ["Agent"],
-    },
-  },
-
-  // Mode
-  L1ERC20TokenBridge_Mode: {
-    address: LIDO_CONTRACTS.L1ERC20TokenBridge_Mode,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Agent"],
-      DEPOSITS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      DEPOSITS_ENABLER_ROLE: ["Agent"],
-      WITHDRAWALS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      WITHDRAWALS_ENABLER_ROLE: ["Agent"],
-    },
-  },
-
-  //Zircuit
-  L1ERC20TokenBridge_Zircuit: {
-    address: LIDO_CONTRACTS.L1ERC20TokenBridge_Zircuit,
-    roles: {
-      DEFAULT_ADMIN_ROLE: ["Agent"],
-      DEPOSITS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      DEPOSITS_ENABLER_ROLE: ["Agent"],
-      WITHDRAWALS_DISABLER_ROLE: ["Agent", "EmergencyBrakesMultisig"],
-      WITHDRAWALS_ENABLER_ROLE: ["Agent"],
-    },
-  },
 } as const;
 
 export const MANAGED_CONTRACTS: ManagedContractsConfig = {
   DSM: {
-    address: "0xfFA96D84dEF2EA035c7AB153D8B991128e3d72fD",
+    address: "0x808DE3b26Be9438F12E9B45528955EA94C17f217",
     properties: {
       owner: { property: "getOwner", managedBy: "Agent" },
     },
   },
   "LidoLocator :: Proxy": {
-    address: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb",
+    address: "0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8",
     properties: { admin: { property: "proxy__getAdmin", managedBy: "Agent" } },
   },
   "StakingRouter :: Proxy": {
-    address: "0xFdDf38947aFB03C621C71b06C9C70bce73f12999",
+    address: "0xd6EbF043D30A7fe46D1Db32BA90a0A51207FE229",
     properties: { admin: { property: "proxy__getAdmin", managedBy: "Agent" } },
   },
   "WithdrawalQueue :: Proxy": {
-    address: "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+    address: "0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50",
     properties: { admin: { property: "proxy__getAdmin", managedBy: "Agent" } },
   },
   "WithdrawalVault :: Proxy": {
-    address: "0xB9D7934878B5FB9610B3fE8A5e441e8fad7E293f",
+    address: "0xF0179dEC45a37423EAD4FaD5fCb136197872EAd9",
     properties: { admin: { property: "proxy_getAdmin", managedBy: "Agent" } },
   },
   "AccountingOracle :: Proxy": {
-    address: "0x852deD011285fe67063a08005c71a85690503Cee",
+    address: "0x4E97A3972ce8511D87F334dA17a2C332542a5246",
     properties: { admin: { property: "proxy__getAdmin", managedBy: "Agent" } },
   },
   "ValidatorsExitBusOracle :: Proxy": {
-    address: "0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e",
+    address: "0xffDDF7025410412deaa05E3E1cE68FE53208afcb",
     properties: { admin: { property: "proxy__getAdmin", managedBy: "Agent" } },
   },
-  ScrollL1LidoGateway: {
-    address: "0x6625c6332c9f91f2d27c304e729b86db87a3f504",
-    properties: { owner: { property: "owner", managedBy: "Agent" } },
-  },
-  ScrollProxyAdmin: {
-    address: "0xCC2C53556Bc75217cf698721b29071d6f12628A9",
-    properties: { owner: { property: "owner", managedBy: "Agent" } },
-  },
-  InsuranceFund: {
-    address: "0x8B3f33234ABD88493c0Cd28De33D583B70beDe35",
-    properties: { owner: { property: "owner", managedBy: "Voting" } }, // ??
-  },
-  ZKSync_L1Executor: {
-    address: LIDO_CONTRACTS.L1Executor_zkSync,
-    properties: { owner: { property: "owner", managedBy: "Agent" } },
-  },
-  // TODO: Add missing contracts
 };

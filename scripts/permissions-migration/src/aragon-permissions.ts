@@ -122,7 +122,7 @@ function formatPermissionsInfoTable(aragonRolesInfo: AragonPermissionInfo[]) {
 
     if (unknownRoleHolders.length > 0) {
       revokedFromItems.push(
-        md.label(`+${unknownRoleHolders.length} **UNKNOWN** holders`)
+        md.label(`+${unknownRoleHolders.length} UNKNOWN holders`)
       );
     }
 
