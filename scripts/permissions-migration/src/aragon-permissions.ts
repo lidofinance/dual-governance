@@ -11,7 +11,6 @@ import {
 } from "./utils";
 
 import {
-  CONTRACT_LABELS,
   LIDO_CONTRACTS,
   LIDO_CONTRACTS_NAMES,
   LIDO_GENESIS_BLOCK,
@@ -61,7 +60,7 @@ interface AragonPermissionHolders {
 }
 
 function formatContractPermissionsSection(
-  aragonContractsInfo: AragonPermissionsInfo
+  aragonContractsInfo: AragonPermissionsInfo,
 ) {
   const resSectionLines: string[] = ["### Aragon Roles Transition \n"];
 
@@ -69,16 +68,65 @@ function formatContractPermissionsSection(
 
   for (const [contractName, roles] of Object.entries(aragonContractsInfo)) {
     if (roles.length === 0) continue;
-    resSectionLines.push(`#### ${contractName}\n`);
+    resSectionLines.push(
+      `#### [${contractName}](https://etherscan.io/address/${LIDO_CONTRACTS[contractName as keyof typeof LIDO_CONTRACTS]})\n`,
+    );
     const [modifiedRolesCount, rowsText] = formatPermissionsInfoTable(roles);
     resSectionLines.push(rowsText);
     resSectionLines.push("\n");
     totalModifiedRoles += modifiedRolesCount;
   }
 
-  resSectionLines.push(`\n **Total Roles Modified: ${totalModifiedRoles}** \n`);
+  resSectionLines.push(
+    `\n #### **Total Roles Modified: ${totalModifiedRoles}** \n`,
+  );
+  resSectionLines.push(formatOperations(aragonContractsInfo));
+  resSectionLines.push(`\n`);
 
   return resSectionLines.join("\n");
+}
+
+function formatOperations(aragonContractsInfo: AragonPermissionsInfo) {
+  const operations: string[] = [];
+
+  for (const [contractName, roles] of Object.entries(aragonContractsInfo)) {
+    if (roles.length === 0) continue;
+
+    const contractOperations: string[] = [];
+
+    for (const role of roles) {
+      if (!role.isModified) continue;
+
+      if (role.oldManager !== role.newManager) {
+        contractOperations.push(
+          `setPermissionManager('${role.name}', ${role.newManager})`,
+        );
+      }
+
+      for (const holderToRevoke of role.holdersToRevokeRole) {
+        contractOperations.push(
+          `revokePermission('${role.name}', ${holderToRevoke})`,
+        );
+      }
+
+      const holdersToGrant = role.holdersToGrantRole.filter(
+        (holder) => !holder.startsWith("Unknown"),
+      );
+
+      for (const holderToGrant of holdersToGrant) {
+        contractOperations.push(
+          `grantPermission('${role.name}', ${holderToGrant})`,
+        );
+      }
+    }
+
+    if (contractOperations.length > 0) {
+      operations.push(`\n#### ${contractName}\n`);
+      operations.push(...contractOperations);
+    }
+  }
+
+  return operations.join("\n");
 }
 
 function formatPermissionsInfoTable(aragonRolesInfo: AragonPermissionInfo[]) {
@@ -88,52 +136,57 @@ function formatPermissionsInfoTable(aragonRolesInfo: AragonPermissionInfo[]) {
   let modifiedRolesCount = 0;
 
   for (const role of aragonRolesInfo.sort(
-    (a, b) => Number(!a.isModified) - Number(!b.isModified)
+    (a, b) => Number(!a.isModified) - Number(!b.isModified),
   )) {
     if (role.isModified) {
       modifiedRolesCount += 1;
     }
 
     const oldManagerLabel = md.label(
-      role.oldManager === "None" ? md.empty() : role.oldManager
+      role.oldManager === "None" ? md.empty() : role.oldManager,
     );
     const newManagerLabel = md.label(
-      role.newManager === "None" ? md.empty() : role.newManager
+      role.newManager === "None" ? md.empty() : role.newManager,
     );
 
     const managerTransition =
       role.oldManager != role.newManager
-        ? md.bold(`${oldManagerLabel} -> ${newManagerLabel}`)
+        ? md.modified(`${oldManagerLabel} ➡️ ${newManagerLabel}`)
         : md.label(oldManagerLabel);
 
-    const unknownRoleHolders = role.holdersToRevokeRole.filter((holderName) =>
-      holderName.startsWith("Unknown")
-    );
-    const knownRoleHolders = role.holdersToRevokeRole.filter(
-      (holderName) => !holderName.startsWith("Unknown")
+    const unknownRoleHolders = role.holdersToGrantRole.filter((holderName) =>
+      holderName.startsWith("Unknown"),
     );
 
     const revokedFromItems =
       role.holdersToRevokeRole.length === 0
         ? [md.empty()]
-        : knownRoleHolders.map((roleHolder) =>
-            md.bold(md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder))
-          );
+        : role.holdersToRevokeRole.map((roleHolder) => md.modified(roleHolder));
 
-    if (unknownRoleHolders.length > 0) {
-      revokedFromItems.push(
-        md.label(`+${unknownRoleHolders.length} **UNKNOWN** holders`)
-      );
-    }
+    const knownRoleHolders = role.holdersToGrantRole.filter(
+      (holderName) => !holderName.startsWith("Unknown"),
+    );
 
     const grantedToItems: string[] = [
       ...role.holderAlreadyGrantedWithRole.map((roleHolder) =>
-        md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder)
+        md.label(roleHolder),
       ),
-      ...role.holdersToGrantRole.map((roleHolder) =>
-        md.bold(CONTRACT_LABELS[roleHolder] ?? md.label(roleHolder))
+      ...knownRoleHolders.map((roleHolder) =>
+        md.modified(md.label(roleHolder)),
       ),
     ];
+
+    if (unknownRoleHolders.length > 0) {
+      if (role.name === "MANAGE_SIGNING_KEYS") {
+        grantedToItems.push(
+          md.label(`+${unknownRoleHolders.length} SDVT holders`),
+        );
+      } else {
+        grantedToItems.push(
+          md.label(`+${unknownRoleHolders.length} UNKNOWN holders`),
+        );
+      }
+    }
 
     if (grantedToItems.length === 0) {
       grantedToItems.push(md.empty());
@@ -158,7 +211,7 @@ function formatPermissionsInfoTable(aragonRolesInfo: AragonPermissionInfo[]) {
 
 async function collectPermissionsData(
   provider: JsonRpcProvider,
-  config: AragonContractPermissionConfigs
+  config: AragonContractPermissionConfigs,
 ) {
   const { managers, permissions } = await fetchACLPermissionsInfo(provider);
   const aragonContractsInfo: AragonPermissionsInfo = {};
@@ -168,12 +221,12 @@ async function collectPermissionsData(
     aragonContractsInfo[contractName] = [];
 
     for (const [permissionName, { manager, grantedTo }] of Object.entries(
-      contractInfo.permissions
+      contractInfo.permissions,
     )) {
       const permissionHash = await getPermissionHash(
         provider,
         address,
-        permissionName
+        permissionName,
       );
 
       const newManager = manager;
@@ -190,14 +243,21 @@ async function collectPermissionsData(
           : LIDO_CONTRACTS_NAMES[roleHolderAddress];
       });
 
-      const holdersToGrantRole = (grantedTo ?? []).filter(
-        (roleHolder) => !currentlyGrantedTo.includes(roleHolder)
+      const currentlyGrantedToUnknown = currentlyGrantedTo.filter(
+        (roleHolder) => roleHolder.startsWith("Unknown"),
       );
-      const holdersToRevokeRole = currentlyGrantedTo.filter(
-        (roleHolderName) => !(grantedTo ?? []).includes(roleHolderName)
+      const currentlyGrantedToKnown = currentlyGrantedTo.filter(
+        (roleHolder) => !roleHolder.startsWith("Unknown"),
+      );
+
+      const holdersToGrantRole = (grantedTo ?? []).filter(
+        (roleHolder) => !currentlyGrantedToKnown.includes(roleHolder),
+      );
+      const holdersToRevokeRole = currentlyGrantedToKnown.filter(
+        (roleHolderName) => !(grantedTo ?? []).includes(roleHolderName),
       );
       const holderAlreadyGrantedWithRole = (grantedTo ?? []).filter(
-        (roleHolder) => currentlyGrantedTo.includes(roleHolder)
+        (roleHolder) => currentlyGrantedToKnown.includes(roleHolder),
       );
 
       aragonContractsInfo[contractName].push({
@@ -208,7 +268,10 @@ async function collectPermissionsData(
           newManager !== oldManager ||
           holdersToGrantRole.length > 0 ||
           holdersToRevokeRole.length > 0,
-        holdersToGrantRole,
+        holdersToGrantRole: [
+          ...holdersToGrantRole,
+          ...currentlyGrantedToUnknown,
+        ],
         holdersToRevokeRole,
         holderAlreadyGrantedWithRole,
       });
@@ -253,7 +316,7 @@ async function fetchACLPermissionsInfo(provider: JsonRpcProvider) {
         if (!result.permissions[app][role].includes(entity!)) {
         }
         result.permissions[app][role] = result.permissions[app][role].filter(
-          (e) => e !== entity
+          (e) => e !== entity,
         );
       }
     }
@@ -265,14 +328,14 @@ async function fetchACLPermissionsInfo(provider: JsonRpcProvider) {
 
 async function getACLPermissionEvents(
   provider: JsonRpcProvider,
-  filterRange?: { fromBlock: number; toBlock?: number }
+  filterRange?: { fromBlock: number; toBlock?: number },
 ) {
   const setPermissionTopic = id("SetPermission(address,address,bytes32,bool)");
   const setPermissionParamsTopic = id(
-    "SetPermissionParams(address,address,bytes32,bytes32)"
+    "SetPermissionParams(address,address,bytes32,bytes32)",
   );
   const changePermissionManagerTopic = id(
-    "ChangePermissionManager(address,bytes32,address)"
+    "ChangePermissionManager(address,bytes32,address)",
   );
 
   const filterParams = {
@@ -343,7 +406,7 @@ async function getACLPermissionEvents(
 async function getPermissionHash(
   provider: JsonRpcProvider,
   address: Address,
-  permissionName: string
+  permissionName: string,
 ) {
   return makeContractCall(provider, address, permissionName);
 }

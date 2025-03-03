@@ -5,7 +5,8 @@ export const LIDO_GENESIS_BLOCK = 11473216;
 export type LidoContractName =
   | `Unknown(${Address})`
   | "None"
-  | "DualGovernance"
+  | "DualGovernanceExecutor"
+  | "ResealManager"
   | keyof typeof LIDO_CONTRACTS;
 
 export const LIDO_CONTRACTS = {
@@ -139,7 +140,3 @@ export const LIDO_CONTRACTS_NAMES: Record<Address, LidoContractName> = {};
 for (const [name, address] of Object.entries(LIDO_CONTRACTS)) {
   LIDO_CONTRACTS_NAMES[bytes.normalize(address)] = name as LidoContractName;
 }
-
-export const CONTRACT_LABELS: Partial<Record<LidoContractName, string>> = {
-  EasyTrackEvmScriptExecutor: "ET :: EVMScriptExecutor",
-};

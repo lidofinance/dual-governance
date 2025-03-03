@@ -6,9 +6,9 @@ import bytes, { Address, HexStrPrefixed } from "./bytes";
 
 import {
   LidoContractName,
+  LIDO_CONTRACTS,
   LIDO_CONTRACTS_NAMES,
   LIDO_GENESIS_BLOCK,
-  CONTRACT_LABELS,
 } from "../config/lido-contracts";
 
 export type OZContractRolesConfig = Record<string, OZContractConfig>;
@@ -45,7 +45,9 @@ function formatContractRolesSection(ozContractsInfo: OZRolesInfo) {
 
   for (const [contractName, roles] of Object.entries(ozContractsInfo)) {
     if (roles.length === 0) continue;
-    resSectionLines.push(`#### ${contractName}\n`);
+    resSectionLines.push(
+      `#### [${contractName}](https://etherscan.io/address/${LIDO_CONTRACTS[contractName as keyof typeof LIDO_CONTRACTS]})\n`,
+    );
     const [modifiedRolesCount, rowsText] = formatRolesInfoTable(roles);
     resSectionLines.push(rowsText);
     resSectionLines.push("\n");
@@ -53,13 +55,48 @@ function formatContractRolesSection(ozContractsInfo: OZRolesInfo) {
   }
 
   resSectionLines.push(`\n **Total Roles Modified: ${totalModifiedRoles}** \n`);
+  resSectionLines.push(formatOperations(ozContractsInfo));
+  resSectionLines.push(`\n`);
 
   return resSectionLines.join("\n");
 }
 
+function formatOperations(ozContractsInfo: OZRolesInfo) {
+  const operations: string[] = [];
+
+  for (const [contractName, roles] of Object.entries(ozContractsInfo)) {
+    if (roles.length === 0) continue;
+
+    const contractOperations: string[] = [];
+
+    for (const role of roles) {
+      if (!role.isModified) continue;
+
+      for (const holderToRevoke of role.holdersToRevokeRole) {
+        contractOperations.push(
+          `revokeRole('${role.roleName}', ${holderToRevoke})`,
+        );
+      }
+
+      for (const holderToGrant of role.holdersToGrantRole) {
+        contractOperations.push(
+          `grantRole('${role.roleName}', ${holderToGrant})`,
+        );
+      }
+    }
+
+    if (contractOperations.length > 0) {
+      operations.push(`\n#### ${contractName}\n`);
+      operations.push(...contractOperations);
+    }
+  }
+
+  return operations.join("\n");
+}
+
 async function collectRolesInfo(
   provider: JsonRpcProvider,
-  config: Record<string, OZContractConfig>
+  config: Record<string, OZContractConfig>,
 ) {
   const ozRolesInfo: OZRolesInfo = {};
 
@@ -75,21 +112,21 @@ async function collectRolesInfo(
         (roleHolderAddress) => {
           if (LIDO_CONTRACTS_NAMES[roleHolderAddress] === undefined) {
             throw new Error(
-              `Unknown contract with address ${roleHolderAddress}`
+              `Unknown contract with address ${roleHolderAddress}`,
             );
           }
           return LIDO_CONTRACTS_NAMES[roleHolderAddress];
-        }
+        },
       );
 
       const holdersToGrantRole = desiredRoleGrantees.filter(
-        (roleHolder) => !currentlyGrantedTo.includes(roleHolder)
+        (roleHolder) => !currentlyGrantedTo.includes(roleHolder),
       );
       const holdersToRevokeRole = currentlyGrantedTo.filter(
-        (roleHolderName) => !desiredRoleGrantees.includes(roleHolderName)
+        (roleHolderName) => !desiredRoleGrantees.includes(roleHolderName),
       );
       const holderAlreadyGrantedWithRole = desiredRoleGrantees.filter(
-        (roleHolder) => currentlyGrantedTo.includes(roleHolder)
+        (roleHolder) => currentlyGrantedTo.includes(roleHolder),
       );
 
       ozRolesInfo[contractName].push({
@@ -112,7 +149,7 @@ function formatRolesInfoTable(ozRolesInfo: OZRoleInfo[]) {
   let modifiedRolesCount = 0;
 
   for (const role of ozRolesInfo.sort(
-    (a, b) => Number(!a.isModified) - Number(!b.isModified)
+    (a, b) => Number(!a.isModified) - Number(!b.isModified),
   )) {
     if (role.isModified) {
       modifiedRolesCount += 1;
@@ -121,17 +158,13 @@ function formatRolesInfoTable(ozRolesInfo: OZRoleInfo[]) {
     const revokedFromItems =
       role.holdersToRevokeRole.length === 0
         ? [md.empty()]
-        : role.holdersToRevokeRole.map((roleHolder) =>
-            md.bold(md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder))
-          );
+        : role.holdersToRevokeRole.map((roleHolder) => md.modified(roleHolder));
 
     const grantedToItems: string[] = [
       ...role.holderAlreadyGrantedWithRole.map((roleHolder) =>
-        md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder)
+        md.label(roleHolder),
       ),
-      ...role.holdersToGrantRole.map((roleHolder) =>
-        md.bold(md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder))
-      ),
+      ...role.holdersToGrantRole.map((roleHolder) => md.modified(roleHolder)),
     ];
 
     if (grantedToItems.length === 0) {
@@ -156,7 +189,7 @@ function formatRolesInfoTable(ozRolesInfo: OZRoleInfo[]) {
 
 async function fetchRoleHolders(
   provider: JsonRpcProvider,
-  config: Record<string, OZContractConfig>
+  config: Record<string, OZContractConfig>,
 ) {
   const ozRolesHolders: OZRoleHolders = {};
 
@@ -168,7 +201,7 @@ async function fetchRoleHolders(
       ozContractAddress,
       {
         fromBlock: LIDO_GENESIS_BLOCK,
-      }
+      },
     );
 
     for (const event of roleGrantedRevokedEvents) {
@@ -195,7 +228,7 @@ async function fetchRoleHolders(
 
 async function checkRoleAdmins(
   provider: JsonRpcProvider,
-  config: Record<string, OZContractConfig>
+  config: Record<string, OZContractConfig>,
 ) {
   for (const [contractName, { address, roles }] of Object.entries(config)) {
     const roleNames = Object.keys(roles);
@@ -207,7 +240,7 @@ async function checkRoleAdmins(
           roleHash,
           await getRoleAdminHash(provider, address, roleHash),
         ] as [roleHash: string, roleAdmin: string];
-      })
+      }),
     );
 
     console.log(`Checking role admins for "${contractName}":`);
@@ -228,21 +261,21 @@ async function checkRoleAdmins(
 async function getRoleAdminHash(
   provider: JsonRpcProvider,
   address: Address,
-  roleHash: string
+  roleHash: string,
 ) {
   return makeContractCall(
     provider,
     address,
     "getRoleAdmin",
     ["bytes32"],
-    [roleHash]
+    [roleHash],
   );
 }
 
 async function getRoleHash(
   provider: JsonRpcProvider,
   address: Address,
-  roleName: string
+  roleName: string,
 ) {
   return makeContractCall(provider, address, roleName);
 }
@@ -250,7 +283,7 @@ async function getRoleHash(
 async function getRoleGrantedRevokedEvents(
   provider: JsonRpcProvider,
   contract: Address,
-  filterRange?: { fromBlock: number; toBlock?: number }
+  filterRange?: { fromBlock: number; toBlock?: number },
 ) {
   const roleGrantedTopic = id("RoleGranted(bytes32,address,address)");
   const roleRevokedTopic = id("RoleRevoked(bytes32,address,address)");
@@ -277,11 +310,11 @@ async function getRoleGrantedRevokedEvents(
         role: log.topics[1],
         account: AbiCoder.defaultAbiCoder().decode(
           ["address"],
-          log.topics[2]
+          log.topics[2],
         )[0] as HexStrPrefixed,
         sender: AbiCoder.defaultAbiCoder().decode(
           ["address"],
-          log.topics[3]
+          log.topics[3],
         )[0] as HexStrPrefixed,
       },
     };

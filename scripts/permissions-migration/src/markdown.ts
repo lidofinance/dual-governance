@@ -12,13 +12,13 @@ export default {
     return `**${text}**`;
   },
   label(text: string) {
-    return `\`${text}\``;
+    return `${text}`;
   },
   empty() {
     return "∅";
   },
   modified(text: string) {
-    return `⚠️ **${text}**`;
+    return `⚠️ **\`${text}\`**`;
   },
   unchanged(text: string) {
     return `${text}`;

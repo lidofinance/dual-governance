@@ -5,7 +5,6 @@ import { Address } from "./bytes";
 import { decodeAddress, makeContractCall } from "./utils";
 
 import {
-  CONTRACT_LABELS,
   LIDO_CONTRACTS_NAMES,
   LidoContractName,
 } from "../config/lido-contracts";
@@ -33,21 +32,58 @@ interface ManagedContractPropertyInfo {
 }
 
 function formatControlledContractsSection(
-  managedContractsPropertiesInfo: ManagedContractPropertyInfo[]
+  managedContractsPropertiesInfo: ManagedContractPropertyInfo[],
 ) {
   const resSectionLines: string[] = ["### Managed Contracts Updates \n"];
   const [totalModifiedRoles, tableText] = formatControlledContractsTable(
-    managedContractsPropertiesInfo
+    managedContractsPropertiesInfo,
   );
 
   resSectionLines.push(tableText);
   resSectionLines.push(`\n **Total Roles Modified: ${totalModifiedRoles}** \n`);
+  resSectionLines.push(formatOperations(managedContractsPropertiesInfo));
+  resSectionLines.push(`\n`);
 
   return resSectionLines.join("\n");
 }
 
+function formatOperations(
+  managedContractsPropertiesInfo: ManagedContractPropertyInfo[],
+) {
+  const operations: string[] = [];
+
+  const contractsMap = new Map<string, ManagedContractPropertyInfo[]>();
+
+  for (const info of managedContractsPropertiesInfo) {
+    if (!contractsMap.has(info.contractName)) {
+      contractsMap.set(info.contractName, []);
+    }
+    contractsMap.get(info.contractName)!.push(info);
+  }
+
+  for (const [contractName, properties] of contractsMap) {
+    const contractOperations: string[] = [];
+
+    for (const property of properties) {
+      if (property.isModified) {
+        const setterMethodName = `set${property.propertyName.charAt(0).toUpperCase() + property.propertyName.slice(1)}`;
+        contractOperations.push(
+          `${setterMethodName}(${property.newManagedBy})`,
+        );
+      }
+    }
+
+    if (contractOperations.length > 0) {
+      operations.push(`\n#### ${contractName}\n`);
+      operations.push(...contractOperations);
+    }
+  }
+
+  return operations.join("\n");
+}
+
 function formatControlledContractsTable(
-  managedContractsPropertiesInfo: ManagedContractPropertyInfo[]
+  managedContractsPropertiesInfo: ManagedContractPropertyInfo[],
 ) {
   const columnHeaders = ["Contract", "Property", "Old Manager", "New Manager"];
   const rows: string[][] = [];
@@ -58,18 +94,19 @@ function formatControlledContractsTable(
       modifiedPropertiesCount += 1;
     }
     const contractNameText = info.isModified
-      ? md.bold(md.modified(info.contractName))
+      ? md.modified(info.contractName)
       : md.unchanged(info.contractName);
     const newManagedBy = info.isModified
-      ? md.bold(
-          md.label(CONTRACT_LABELS[info.newManagedBy] ?? info.newManagedBy)
-        )
-      : md.label(CONTRACT_LABELS[info.newManagedBy] ?? info.newManagedBy);
+      ? md.modified(info.newManagedBy)
+      : md.label(info.newManagedBy);
+    const oldManagedBy = info.isModified
+      ? md.modified(info.oldManagedBy)
+      : md.label(info.oldManagedBy);
     rows.push([
       contractNameText,
       md.label(info.propertyGetter + "()"),
-      md.label(CONTRACT_LABELS[info.oldManagedBy] ?? info.oldManagedBy),
-      CONTRACT_LABELS[info.oldManagedBy] ?? newManagedBy,
+      oldManagedBy,
+      newManagedBy,
     ]);
   }
 
@@ -81,22 +118,22 @@ function formatControlledContractsTable(
 
 async function collectManagedContractsInfo(
   provider: JsonRpcProvider,
-  config: ManagedContractsConfig
+  config: ManagedContractsConfig,
 ) {
   const controlledContractsInfo: ManagedContractPropertyInfo[] = [];
 
   for (const [contractName, { address, properties }] of Object.entries(
-    config
+    config,
   )) {
     for (const [propertyName, { property, managedBy }] of Object.entries(
-      properties
+      properties,
     )) {
       const currentlyManagedByAddress = decodeAddress(
-        await makeContractCall(provider, address, property)
+        await makeContractCall(provider, address, property),
       );
       if (!LIDO_CONTRACTS_NAMES[currentlyManagedByAddress]) {
         throw new Error(
-          `Unknown lido contract address ${currentlyManagedByAddress}`
+          `Unknown lido contract address ${currentlyManagedByAddress}`,
         );
       }
       const currentlyManagedBy =

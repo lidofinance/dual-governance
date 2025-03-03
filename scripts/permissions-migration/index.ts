@@ -25,21 +25,20 @@ async function main() {
     aragon.formatContractPermissionsSection(
       await aragon.collectPermissionsData(
         provider,
-        ARAGON_CONTRACT_ROLES_CONFIG
-      )
-    )
+        ARAGON_CONTRACT_ROLES_CONFIG,
+      ),
+    ),
   );
   console.log(
     oz.formatContractRolesSection(
-      await oz.collectRolesInfo(provider, OZ_CONTRACT_ROLES_CONFIG)
-    )
+      await oz.collectRolesInfo(provider, OZ_CONTRACT_ROLES_CONFIG),
+    ),
   );
   console.log(
     managed.formatControlledContractsSection(
-      await managed.collectManagedContractsInfo(provider, MANAGED_CONTRACTS)
-    )
+      await managed.collectManagedContractsInfo(provider, MANAGED_CONTRACTS),
+    ),
   );
-  console.log(await retrieveDeployConfiguration(provider));
 }
 
 main().catch((error) => {

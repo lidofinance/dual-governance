@@ -3,16 +3,14 @@ import { ManagedContractsConfig } from "../src/managed-contracts";
 import { OZContractRolesConfig } from "../src/oz-roles";
 import { LIDO_CONTRACTS } from "./lido-contracts";
 
-// TODO: Check the completeness of the configs
-
 export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   // Core protocol
   Lido: {
     address: LIDO_CONTRACTS.Lido,
     permissions: {
-      STAKING_CONTROL_ROLE: { manager: "Agent"},
-      RESUME_ROLE: { manager: "Agent"},
-      PAUSE_ROLE: { manager: "Agent"},
+      STAKING_CONTROL_ROLE: { manager: "Agent" },
+      RESUME_ROLE: { manager: "Agent" },
+      PAUSE_ROLE: { manager: "Agent" },
       UNSAFE_CHANGE_DEPOSITED_VALIDATORS_ROLE: { manager: "None" },
       STAKING_PAUSE_ROLE: { manager: "Agent" },
     },
@@ -63,11 +61,11 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
       TRANSFER_ROLE: { manager: "Voting", grantedTo: ["Finance"] },
       RUN_SCRIPT_ROLE: {
         manager: "Agent",
-        grantedTo: ["DualGovernance"],
+        grantedTo: ["DualGovernanceExecutor"],
       },
       EXECUTE_ROLE: {
         manager: "Agent",
-        grantedTo: ["DualGovernance"],
+        grantedTo: ["DualGovernanceExecutor"],
       },
       SAFE_EXECUTE_ROLE: { manager: "None" },
       DESIGNATE_SIGNER_ROLE: { manager: "None" },
@@ -78,7 +76,9 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   },
   ACL: {
     address: LIDO_CONTRACTS.ACL,
-    permissions: { CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] } },
+    permissions: {
+      CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
+    },
   },
   AragonPM: {
     address: LIDO_CONTRACTS.AragonPM,
@@ -89,8 +89,8 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   EVMScriptRegistry: {
     address: LIDO_CONTRACTS.EVMScriptRegistry,
     permissions: {
-      REGISTRY_ADD_EXECUTOR_ROLE: { manager: "Agent"},
-      REGISTRY_MANAGER_ROLE: { manager: "Agent"},
+      REGISTRY_ADD_EXECUTOR_ROLE: { manager: "Agent" },
+      REGISTRY_MANAGER_ROLE: { manager: "Agent" },
     },
   },
   VotingRepo: {
@@ -161,8 +161,8 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
     },
   },
 
-   // Oracle Contracts
-   LegacyOracle: {
+  // Oracle Contracts
+  LegacyOracle: {
     address: LIDO_CONTRACTS.LegacyOracle,
     permissions: {},
   },
@@ -189,8 +189,8 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       FINALIZE_ROLE: ["Lido"],
       MANAGE_TOKEN_URI_ROLE: [],
       ORACLE_ROLE: ["AccountingOracle"],
-      PAUSE_ROLE: ["OraclesGateSeal"],
-      RESUME_ROLE: [],
+      PAUSE_ROLE: ["OraclesGateSeal", "ResealManager"],
+      RESUME_ROLE: ["ResealManager"],
     },
   },
   Burner: {
