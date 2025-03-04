@@ -220,7 +220,7 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 
 </details>
 
-### OpenZeppelin (3 roles modified)
+### OpenZeppelin (5 roles modified)
 
 #### [AllowedTokensRegistry](https://etherscan.io/address/0x4AC40c34f8992bb1e5E856A448792158022551ca)
 
@@ -229,6 +229,17 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 | ⚠️ **`DEFAULT_ADMIN_ROLE`** | ⚠️ **`Agent`** | ⚠️ **`Voting`** |
 | ⚠️ **`ADD_TOKEN_TO_ALLOWED_LIST_ROLE`** | ⚠️ **`Agent`** | ⚠️ **`Voting`** |
 | ⚠️ **`REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE`** | ⚠️ **`Agent`** | ⚠️ **`Voting`** |
+
+#### [WithdrawalQueueERC721](https://etherscan.io/address/0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1)
+
+| Role | Revoked | Granted |
+| --- | --- | --- |
+| ⚠️ **`PAUSE_ROLE`** | ∅ | OraclesGateSeal, ⚠️ **`ResealManager`** |
+| ⚠️ **`RESUME_ROLE`** | ∅ | ⚠️ **`ResealManager`** |
+| DEFAULT_ADMIN_ROLE | ∅ | Agent |
+| FINALIZE_ROLE | ∅ | Lido |
+| MANAGE_TOKEN_URI_ROLE | ∅ | ∅ |
+| ORACLE_ROLE | ∅ | AccountingOracle |
 
 ### Not affected contracts
 
@@ -245,17 +256,6 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 | STAKING_MODULE_MANAGE_ROLE | ∅ | Agent |
 | STAKING_MODULE_UNVETTING_ROLE | ∅ | DepositSecurityModule |
 | UNSAFE_SET_EXITED_VALIDATORS_ROLE | ∅ | ∅ |
-
-#### [WithdrawalQueueERC721](https://etherscan.io/address/0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1)
-
-| Role | Revoked | Granted |
-| --- | --- | --- |
-| DEFAULT_ADMIN_ROLE | ∅ | Agent |
-| FINALIZE_ROLE | ∅ | Lido |
-| MANAGE_TOKEN_URI_ROLE | ∅ | ∅ |
-| ORACLE_ROLE | ∅ | AccountingOracle |
-| PAUSE_ROLE | ∅ | OraclesGateSeal |
-| RESUME_ROLE | ∅ | ∅ |
 
 #### [Burner](https://etherscan.io/address/0xD15a672319Cf0352560eE76d9e89eAB0889046D3)
 
@@ -504,7 +504,7 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 | ZKSync_L1Executor | owner() | Agent | Agent |
 
 
-### Omnibus items (44 items)
+### Omnibus items (46 items)
 
 #### Lido (8 items)
 ```
@@ -586,6 +586,12 @@ revokeRole('ADD_TOKEN_TO_ALLOWED_LIST_ROLE', Agent)
 grantRole('ADD_TOKEN_TO_ALLOWED_LIST_ROLE', Voting)
 revokeRole('REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE', Agent)
 grantRole('REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE', Voting)
+```
+
+#### WithdrawalQueueERC721
+```
+grantRole('PAUSE_ROLE', ResealManager)
+grantRole('RESUME_ROLE', ResealManager)
 ```
 
 #### WithdrawalVault (1 item)
