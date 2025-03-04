@@ -16,23 +16,24 @@ import {IWithdrawalVaultProxy} from "./interfaces/IWithdrawalVaultProxy.sol";
 import {IHoleskyMocksLidoRolesValidator, IDGLaunchVerifier, ITimeConstraints, IFoo} from "./interfaces/utils.sol";
 
 contract Omnibus {
-    IACL constant ACL = IACL(0x9895F0F17cc1d1891b6f18ee0b483B6f221b37Bb);
-    address constant LIDO = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
-    address constant KERNEL = 0xb8FFC3Cd6e7Cf5a098A1c92F48009765B24088Dc;
-    address constant VOTING = 0x2e59A20f205bB85a89C53f1936454680651E618e;
-    address constant TOKEN_MANAGER = 0xf73a1260d222f447210581DDf212D915c09a3249;
-    address constant FINANCE = 0xB9E5CBB9CA5b0d659238807E84D0176930753d86;
-    address constant AGENT = 0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c;
-    address constant EVM_SCRIPT_REGISTRY = 0x853cc0D5917f49B57B8e9F89e491F5E18919093A;
-    address constant CURATED_MODULE = 0x55032650b14df07b85bF18A3a3eC8E0Af2e028d5;
-    address constant SDVT_MODULE = 0xaE7B191A31f627b4eB1d4DaC64eaB9976995b433;
-    address constant ALLOWED_TOKENS_REGISTRY = 0x4AC40c34f8992bb1e5E856A448792158022551ca;
-    address constant WITHDRAWAL_VAULT = 0xB9D7934878B5FB9610B3fE8A5e441e8fad7E293f;
-    address constant INSURANCE_FUND = 0x8B3f33234ABD88493c0Cd28De33D583B70beDe35;
+    IACL public constant ACL = IACL(0x9895F0F17cc1d1891b6f18ee0b483B6f221b37Bb);
+    address public constant LIDO = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+    address public constant KERNEL = 0xb8FFC3Cd6e7Cf5a098A1c92F48009765B24088Dc;
+    address public constant VOTING = 0x2e59A20f205bB85a89C53f1936454680651E618e;
+    address public constant TOKEN_MANAGER = 0xf73a1260d222f447210581DDf212D915c09a3249;
+    address public constant FINANCE = 0xB9E5CBB9CA5b0d659238807E84D0176930753d86;
+    address public constant AGENT = 0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c;
+    address public constant EVM_SCRIPT_REGISTRY = 0x853cc0D5917f49B57B8e9F89e491F5E18919093A;
+    address public constant CURATED_MODULE = 0x55032650b14df07b85bF18A3a3eC8E0Af2e028d5;
+    address public constant SDVT_MODULE = 0xaE7B191A31f627b4eB1d4DaC64eaB9976995b433;
+    address public constant ALLOWED_TOKENS_REGISTRY = 0x4AC40c34f8992bb1e5E856A448792158022551ca;
+    address public constant WITHDRAWAL_VAULT = 0xB9D7934878B5FB9610B3fE8A5e441e8fad7E293f;
+    address public constant WITHDRAWAL_QUEUE = 0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1;
+    address public constant INSURANCE_FUND = 0x8B3f33234ABD88493c0Cd28De33D583B70beDe35;
 
-    address private immutable DUAL_GOVERNANCE;
-    address private immutable ADMIN_EXECUTOR;
-    address private immutable RESEAL_MANAGER;
+    address public immutable DUAL_GOVERNANCE;
+    address public immutable ADMIN_EXECUTOR;
+    address public immutable RESEAL_MANAGER;
 
     struct VoteItem {
         string description;
@@ -298,38 +299,48 @@ contract Omnibus {
             )
         });
 
+        // WithdrawalQueue
+        voteItems[36] = VoteItem({
+            description: "Grant PAUSE_ROLE on WithdrawalQueue to ResealManager",
+            call: _agentForward(WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (keccak256("PAUSE_ROLE"), RESEAL_MANAGER)))
+        });
+        voteItems[37] = VoteItem({
+            description: "Grant RESUME_ROLE on WithdrawalQueue to ResealManager",
+            call: _agentForward(WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (keccak256("RESUME_ROLE"), RESEAL_MANAGER)))
+        });
+
         // AllowedTokensRegistry
         bytes32 DEFAULT_ADMIN_ROLE = bytes32(0);
-        voteItems[36] = VoteItem({
+        voteItems[38] = VoteItem({
             description: "Grant DEFAULT_ADMIN_ROLE on AllowedTokensRegistry to Voting",
             call: _agentForward(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.grantRole, (DEFAULT_ADMIN_ROLE, VOTING)))
         });
-        voteItems[37] = VoteItem({
+        voteItems[39] = VoteItem({
             description: "Revoke DEFAULT_ADMIN_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (DEFAULT_ADMIN_ROLE, AGENT)))
         });
-        voteItems[38] = VoteItem({
+        voteItems[40] = VoteItem({
             description: "Grant ADD_TOKEN_TO_ALLOWED_LIST_ROLE on AllowedTokensRegistry to Voting",
             call: _agentForward(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.grantRole, (keccak256("ADD_TOKEN_TO_ALLOWED_LIST_ROLE"), VOTING))
             )
         });
-        voteItems[39] = VoteItem({
+        voteItems[41] = VoteItem({
             description: "Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.revokeRole, (keccak256("ADD_TOKEN_TO_ALLOWED_LIST_ROLE"), AGENT))
             )
         });
-        voteItems[40] = VoteItem({
+        voteItems[42] = VoteItem({
             description: "Grant REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE on AllowedTokensRegistry to Voting",
             call: _agentForward(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.grantRole, (keccak256("REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE"), VOTING))
             )
         });
-        voteItems[41] = VoteItem({
+        voteItems[43] = VoteItem({
             description: "Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
@@ -338,13 +349,13 @@ contract Omnibus {
         });
 
         // WithdrawalVault
-        voteItems[42] = VoteItem({
+        voteItems[44] = VoteItem({
             description: "Set admin to Agent on WithdrawalVault",
             call: _votingCall(WITHDRAWAL_VAULT, abi.encodeCall(IWithdrawalVaultProxy.proxy_changeAdmin, (AGENT)))
         });
 
         // Insurance Fund
-        voteItems[43] = VoteItem({
+        voteItems[45] = VoteItem({
             description: "Set owner to Agent on InsuranceFund",
             call: _votingCall(INSURANCE_FUND, abi.encodeCall(IOwnable.transferOwnership, (AGENT)))
         });
