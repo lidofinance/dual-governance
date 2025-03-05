@@ -458,7 +458,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     ///     the first unclaimed unstETH NFT.
     /// @param fromUnstETHId The id of the first unclaimed unstETH NFT in the batch to be claimed.
     /// @param hints An array of hints required by the `WithdrawalQueue` contract to efficiently process
-    ///     the claiming of unstETH NFTs.
+    ///     the claiming of unstETH NFTs. Passing an empty array will cause the method to revert with an index OOB error.
     function claimNextWithdrawalsBatch(uint256 fromUnstETHId, uint256[] calldata hints) external {
         _escrowState.checkRageQuitEscrow();
         _escrowState.checkBatchesClaimingInProgress();
@@ -471,7 +471,8 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @notice An overloaded version of `Escrow.claimNextWithdrawalsBatch(uint256, uint256[] calldata)` that calculates
     ///     hints for the WithdrawalQueue on-chain. This method provides a more convenient claiming process but is
     ///     less gas efficient compared to `Escrow.claimNextWithdrawalsBatch(uint256, uint256[] calldata)`.
-    /// @param maxUnstETHIdsCount The maximum number of unstETH NFTs to claim in this batch.
+    /// @param maxUnstETHIdsCount The maximum number of unstETH NFTs to claim in this batch. Passing zero will cause
+    ///     the method to revert with an index OOB error.
     function claimNextWithdrawalsBatch(uint256 maxUnstETHIdsCount) external {
         _escrowState.checkRageQuitEscrow();
         _escrowState.checkBatchesClaimingInProgress();
