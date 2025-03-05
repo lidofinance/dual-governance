@@ -97,25 +97,31 @@ function formatOperations(aragonContractsInfo: AragonPermissionsInfo) {
     for (const role of roles) {
       if (!role.isModified) continue;
 
-      if (role.oldManager !== role.newManager) {
+      const holdersToGrant = role.holdersToGrantRole.filter(
+        (holder) => !holder.startsWith("Unknown"),
+      );
+
+      if (role.oldManager == "None" && role.newManager != role.oldManager) {
         contractOperations.push(
-          `setPermissionManager('${role.name}', ${role.newManager})`,
+          `createPermission('${role.name}', ${role.newManager}, ${holdersToGrant[0]})`,
         );
+      } else {
+        if (role.oldManager !== role.newManager) {
+          contractOperations.push(
+            `setPermissionManager('${role.name}', ${role.newManager})`,
+          );
+        }
+
+        for (const holderToGrant of holdersToGrant) {
+          contractOperations.push(
+            `grantPermission('${role.name}', ${holderToGrant})`,
+          );
+        }
       }
 
       for (const holderToRevoke of role.holdersToRevokeRole) {
         contractOperations.push(
           `revokePermission('${role.name}', ${holderToRevoke})`,
-        );
-      }
-
-      const holdersToGrant = role.holdersToGrantRole.filter(
-        (holder) => !holder.startsWith("Unknown"),
-      );
-
-      for (const holderToGrant of holdersToGrant) {
-        contractOperations.push(
-          `grantPermission('${role.name}', ${holderToGrant})`,
         );
       }
     }
