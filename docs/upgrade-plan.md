@@ -142,8 +142,8 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 
 | Role | Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ **`CHANGE_PERIOD_ROLE`** | ⚠️ **`∅ ➡️ Voting`** | ∅ | ∅ |
-| ⚠️ **`CHANGE_BUDGETS_ROLE`** | ⚠️ **`∅ ➡️ Voting`** | ∅ | ∅ |
+| ⚠️ **`CHANGE_PERIOD_ROLE`** | ⚠️ **`∅ ➡️ Voting`** | ∅ | ⚠️ **`Voting`** |
+| ⚠️ **`CHANGE_BUDGETS_ROLE`** | ⚠️ **`∅ ➡️ Voting`** | ∅ | ⚠️ **`Voting`** |
 | CREATE_PAYMENTS_ROLE | Voting | ∅ | Voting, EasyTrackEvmScriptExecutor |
 | EXECUTE_PAYMENTS_ROLE | Voting | ∅ | Voting |
 | MANAGE_PAYMENTS_ROLE | Voting | ∅ | Voting |
@@ -152,8 +152,8 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 
 | Role | Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ **`MINT_ROLE`** | ⚠️ **`∅ ➡️ Voting`** | ∅ | ∅ |
-| ⚠️ **`REVOKE_VESTINGS_ROLE`** | ⚠️ **`∅ ➡️ Voting`** | ∅ | ∅ |
+| ⚠️ **`MINT_ROLE`** | ⚠️ **`∅ ➡️ Voting`** | ∅ | ⚠️ **`Voting`** |
+| ⚠️ **`REVOKE_VESTINGS_ROLE`** | ⚠️ **`∅ ➡️ Voting`** | ∅ | ⚠️ **`Voting`** |
 | ISSUE_ROLE | Voting | ∅ | ∅ |
 | ASSIGN_ROLE | Voting | ∅ | Voting |
 | BURN_ROLE | Voting | ∅ | ∅ |
@@ -526,14 +526,14 @@ revokePermission('APP_MANAGER_ROLE', Voting)
 
 #### TokenManager (2 items)
 ```
-setPermissionManager('MINT_ROLE', Voting)
-setPermissionManager('REVOKE_VESTINGS_ROLE', Voting)
+createPermission('MINT_ROLE', Voting, Voting)
+createPermission('REVOKE_VESTINGS_ROLE', Voting, Voting)
 ```
 
 #### Finance (2 items)
 ```
-setPermissionManager('CHANGE_PERIOD_ROLE', Voting)
-setPermissionManager('CHANGE_BUDGETS_ROLE', Voting)
+createPermission('CHANGE_PERIOD_ROLE', Voting, Voting)
+createPermission('CHANGE_BUDGETS_ROLE', Voting, Voting)
 ```
 
 #### Agent (6 items)
