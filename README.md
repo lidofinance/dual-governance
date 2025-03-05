@@ -22,6 +22,11 @@ This project uses NPM for dependency management and Forge for tests so you'll ne
 
 * Install Foundry and `forge` https://book.getfoundry.sh/getting-started/installation
 
+* Install Foundry v1.0.0 
+    ```sh
+    foundryup -i 1.0.0
+    ```
+
 * Create `.env` file
     ```sh
     cp .env.example .env
