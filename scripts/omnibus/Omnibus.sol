@@ -47,7 +47,7 @@ contract Omnibus {
     }
 
     function getVoteItems() external view returns (VoteItem[] memory voteItems) {
-        ExternalCall[] memory executorCalls = new ExternalCall[](2);
+        // ExternalCall[] memory executorCalls = new ExternalCall[](2);
         voteItems = new VoteItem[](46);
 
         // Lido
@@ -112,16 +112,16 @@ contract Omnibus {
 
         // TokenManager
         voteItems[10] = VoteItem({
-            description: "Set MINT_ROLE manager to Voting on TokenManager",
+            description: "Set MINT_ROLE manager and grant role to Voting on TokenManager",
             call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.setPermissionManager, (VOTING, TOKEN_MANAGER, keccak256("MINT_ROLE")))
+                address(ACL), abi.encodeCall(ACL.createPermission, (VOTING, TOKEN_MANAGER, keccak256("MINT_ROLE"), VOTING))
             )
         });
         voteItems[11] = VoteItem({
-            description: "Set REVOKE_VESTINGS_ROLE manager to Voting on TokenManager",
+            description: "Set REVOKE_VESTINGS_ROLE manager and grant role to Voting on TokenManager",
             call: _votingCall(
                 address(ACL),
-                abi.encodeCall(ACL.setPermissionManager, (VOTING, TOKEN_MANAGER, keccak256("REVOKE_VESTINGS_ROLE")))
+                abi.encodeCall(ACL.createPermission, (VOTING, TOKEN_MANAGER, keccak256("REVOKE_VESTINGS_ROLE"), VOTING))
             )
         });
 
@@ -129,13 +129,15 @@ contract Omnibus {
         voteItems[12] = VoteItem({
             description: "Set CHANGE_PERIOD_ROLE manager to Voting on Finance",
             call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.setPermissionManager, (VOTING, FINANCE, keccak256("CHANGE_PERIOD_ROLE")))
+                address(ACL),
+                abi.encodeCall(ACL.createPermission, (VOTING, FINANCE, keccak256("CHANGE_PERIOD_ROLE"), VOTING))
             )
         });
         voteItems[13] = VoteItem({
             description: "Set CHANGE_BUDGETS_ROLE manager to Voting on Finance",
             call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.setPermissionManager, (VOTING, FINANCE, keccak256("CHANGE_BUDGETS_ROLE")))
+                address(ACL),
+                abi.encodeCall(ACL.createPermission, (VOTING, FINANCE, keccak256("CHANGE_BUDGETS_ROLE"), VOTING))
             )
         });
 
@@ -227,120 +229,82 @@ contract Omnibus {
             description: "Set MANAGE_NODE_OPERATOR_ROLE manager to Agent on SDVTModule",
             call: _votingCall(
                 address(ACL),
-                abi.encodeCall(ACL.setPermissionManager, (AGENT, SDVT_MODULE, keccak256("STAKING_ROUTER_ROLE")))
+                abi.encodeCall(ACL.setPermissionManager, (AGENT, SDVT_MODULE, keccak256("MANAGE_NODE_OPERATOR_ROLE")))
             )
         });
         voteItems[26] = VoteItem({
             description: "Set SET_NODE_OPERATOR_LIMIT_ROLE manager to Agent on SDVTModule",
             call: _votingCall(
                 address(ACL),
-                abi.encodeCall(ACL.setPermissionManager, (AGENT, SDVT_MODULE, keccak256("STAKING_ROUTER_ROLE")))
-            )
-        });
-
-        // Agent
-        voteItems[27] = VoteItem({
-            description: "Revoke RUN_SCRIPT_ROLE permission from Voting on Agent",
-            call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("RUN_SCRIPT_ROLE")))
-            )
-        });
-        voteItems[28] = VoteItem({
-            description: "Grant RUN_SCRIPT_ROLE to DualGovernance Executor on Agent",
-            call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.grantPermission, (ADMIN_EXECUTOR, AGENT, keccak256("RUN_SCRIPT_ROLE")))
-            )
-        });
-        voteItems[29] = VoteItem({
-            description: "Set RUN_SCRIPT_ROLE manager to Agent on Agent",
-            call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("RUN_SCRIPT_ROLE")))
-            )
-        });
-        voteItems[30] = VoteItem({
-            description: "Revoke EXECUTE_ROLE permission from Voting on Agent",
-            call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("EXECUTE_ROLE")))
-            )
-        });
-        voteItems[31] = VoteItem({
-            description: "Grant EXECUTE_ROLE to DualGovernance Executor on Agent",
-            call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.grantPermission, (ADMIN_EXECUTOR, AGENT, keccak256("EXECUTE_ROLE")))
-            )
-        });
-        voteItems[32] = VoteItem({
-            description: "Set EXECUTE_ROLE manager to Agent on Agent",
-            call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("EXECUTE_ROLE")))
+                abi.encodeCall(ACL.setPermissionManager, (AGENT, SDVT_MODULE, keccak256("SET_NODE_OPERATOR_LIMIT_ROLE")))
             )
         });
 
         // ACL
-        voteItems[33] = VoteItem({
+        voteItems[27] = VoteItem({
             description: "Grant CREATE_PERMISSIONS_ROLE permission to Agent on ACL",
             call: _votingCall(
                 address(ACL),
                 abi.encodeCall(ACL.grantPermission, (AGENT, address(ACL), keccak256("CREATE_PERMISSIONS_ROLE")))
             )
         });
-        voteItems[34] = VoteItem({
+        voteItems[28] = VoteItem({
             description: "Revoke CREATE_PERMISSIONS_ROLE permission from Voting on ACL",
             call: _votingCall(
                 address(ACL),
-                abi.encodeCall(ACL.revokePermission, (VOTING, address(ACL), keccak256("CHANGE_PERMISSIONS_ROLE")))
+                abi.encodeCall(ACL.revokePermission, (VOTING, address(ACL), keccak256("CREATE_PERMISSIONS_ROLE")))
             )
         });
-        voteItems[35] = VoteItem({
-            description: "Set CREATE_PERMISSIONS_ROLE manager to Agent on Finance",
+        voteItems[29] = VoteItem({
+            description: "Set CREATE_PERMISSIONS_ROLE manager to Agent on ACL",
             call: _votingCall(
                 address(ACL),
-                abi.encodeCall(ACL.setPermissionManager, (AGENT, FINANCE, keccak256("CREATE_PERMISSIONS_ROLE")))
+                abi.encodeCall(ACL.setPermissionManager, (AGENT, address(ACL), keccak256("CREATE_PERMISSIONS_ROLE")))
             )
         });
 
         // WithdrawalQueue
-        voteItems[36] = VoteItem({
+        voteItems[30] = VoteItem({
             description: "Grant PAUSE_ROLE on WithdrawalQueue to ResealManager",
             call: _agentForward(WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (keccak256("PAUSE_ROLE"), RESEAL_MANAGER)))
         });
-        voteItems[37] = VoteItem({
+        voteItems[31] = VoteItem({
             description: "Grant RESUME_ROLE on WithdrawalQueue to ResealManager",
             call: _agentForward(WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (keccak256("RESUME_ROLE"), RESEAL_MANAGER)))
         });
 
         // AllowedTokensRegistry
         bytes32 DEFAULT_ADMIN_ROLE = bytes32(0);
-        voteItems[38] = VoteItem({
+        voteItems[32] = VoteItem({
             description: "Grant DEFAULT_ADMIN_ROLE on AllowedTokensRegistry to Voting",
             call: _agentForward(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.grantRole, (DEFAULT_ADMIN_ROLE, VOTING)))
         });
-        voteItems[39] = VoteItem({
+        voteItems[33] = VoteItem({
             description: "Revoke DEFAULT_ADMIN_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (DEFAULT_ADMIN_ROLE, AGENT)))
         });
-        voteItems[40] = VoteItem({
+        voteItems[34] = VoteItem({
             description: "Grant ADD_TOKEN_TO_ALLOWED_LIST_ROLE on AllowedTokensRegistry to Voting",
-            call: _agentForward(
+            call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.grantRole, (keccak256("ADD_TOKEN_TO_ALLOWED_LIST_ROLE"), VOTING))
             )
         });
-        voteItems[41] = VoteItem({
+        voteItems[35] = VoteItem({
             description: "Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.revokeRole, (keccak256("ADD_TOKEN_TO_ALLOWED_LIST_ROLE"), AGENT))
             )
         });
-        voteItems[42] = VoteItem({
+        voteItems[36] = VoteItem({
             description: "Grant REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE on AllowedTokensRegistry to Voting",
-            call: _agentForward(
+            call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.grantRole, (keccak256("REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE"), VOTING))
             )
         });
-        voteItems[43] = VoteItem({
+        voteItems[37] = VoteItem({
             description: "Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
@@ -349,15 +313,53 @@ contract Omnibus {
         });
 
         // WithdrawalVault
-        voteItems[44] = VoteItem({
+        voteItems[38] = VoteItem({
             description: "Set admin to Agent on WithdrawalVault",
             call: _votingCall(WITHDRAWAL_VAULT, abi.encodeCall(IWithdrawalVaultProxy.proxy_changeAdmin, (AGENT)))
         });
 
         // Insurance Fund
+        voteItems[39] = VoteItem({
+            description: "Set owner to Voting on InsuranceFund",
+            call: _agentForward(INSURANCE_FUND, abi.encodeCall(IOwnable.transferOwnership, (VOTING)))
+        });
+
+        // Agent
+        voteItems[40] = VoteItem({
+            description: "Revoke RUN_SCRIPT_ROLE permission from Voting on Agent",
+            call: _votingCall(
+                address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("RUN_SCRIPT_ROLE")))
+            )
+        });
+        voteItems[41] = VoteItem({
+            description: "Grant RUN_SCRIPT_ROLE to DualGovernance Executor on Agent",
+            call: _votingCall(
+                address(ACL), abi.encodeCall(ACL.grantPermission, (ADMIN_EXECUTOR, AGENT, keccak256("RUN_SCRIPT_ROLE")))
+            )
+        });
+        voteItems[42] = VoteItem({
+            description: "Set RUN_SCRIPT_ROLE manager to Agent on Agent",
+            call: _votingCall(
+                address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("RUN_SCRIPT_ROLE")))
+            )
+        });
+        voteItems[43] = VoteItem({
+            description: "Revoke EXECUTE_ROLE permission from Voting on Agent",
+            call: _votingCall(
+                address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("EXECUTE_ROLE")))
+            )
+        });
+        voteItems[44] = VoteItem({
+            description: "Grant EXECUTE_ROLE to DualGovernance Executor on Agent",
+            call: _votingCall(
+                address(ACL), abi.encodeCall(ACL.grantPermission, (ADMIN_EXECUTOR, AGENT, keccak256("EXECUTE_ROLE")))
+            )
+        });
         voteItems[45] = VoteItem({
-            description: "Set owner to Agent on InsuranceFund",
-            call: _votingCall(INSURANCE_FUND, abi.encodeCall(IOwnable.transferOwnership, (AGENT)))
+            description: "Set EXECUTE_ROLE manager to Agent on Agent",
+            call: _votingCall(
+                address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("EXECUTE_ROLE")))
+            )
         });
     }
 
@@ -405,43 +407,5 @@ contract Omnibus {
         return _executorCall(
             address(AGENT), 0, abi.encodeCall(IAgent.forward, (EvmScriptUtils.encodeEvmCallScript(target, data)))
         );
-    }
-
-    function _aclPermissionGrant(
-        address target,
-        address grantTo,
-        bytes32 permission
-    ) internal pure returns (bytes memory) {
-        return EvmScriptUtils.encodeEvmCallScript(
-            address(ACL), abi.encodeCall(ACL.grantPermission, (grantTo, target, permission))
-        );
-    }
-
-    function _aclPermissionRevoke(
-        address target,
-        address revokeFrom,
-        bytes32 permission
-    ) internal pure returns (bytes memory) {
-        return EvmScriptUtils.encodeEvmCallScript(
-            address(ACL), abi.encodeCall(ACL.revokePermission, (revokeFrom, target, permission))
-        );
-    }
-
-    function _aclPermissionSetManager(
-        address app,
-        address newManager,
-        bytes32 role
-    ) internal pure returns (bytes memory) {
-        return EvmScriptUtils.encodeEvmCallScript(
-            address(ACL), abi.encodeCall(ACL.setPermissionManager, (newManager, app, role))
-        );
-    }
-
-    function _ozRoleGrant(address target, address grantTo, bytes32 role) internal pure returns (bytes memory) {
-        return EvmScriptUtils.encodeEvmCallScript(target, abi.encodeCall(IOZ.grantRole, (role, grantTo)));
-    }
-
-    function _ozRoleRevoke(address target, address revokeFrom, bytes32 role) internal pure returns (bytes memory) {
-        return EvmScriptUtils.encodeEvmCallScript(target, abi.encodeCall(IOZ.revokeRole, (role, revokeFrom)));
     }
 }

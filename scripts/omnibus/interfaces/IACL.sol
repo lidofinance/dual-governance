@@ -8,5 +8,4 @@ interface IACL {
     function revokePermission(address _entity, address _app, bytes32 _role) external;
 
     function setPermissionManager(address _newManager, address _app, bytes32 _role) external;
-    function createBurnedPermission(address _app, bytes32 _role) external;
 }
