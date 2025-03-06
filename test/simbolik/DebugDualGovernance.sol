@@ -89,30 +89,61 @@ contract DebugDualGovernance {
 
     }
 
-    function debugSubmitProposal() external {
-        Proposal proposal = new Proposal("Debug Proposal");
+    function debugExecuteProposal() external {
+        DummyProposal proposal = new DummyProposal(0, 100 /*10%*/);
         ExternalCall[] memory calls = new ExternalCall[](1);
         calls[0] = ExternalCall({
             target: address(proposal),
             value: 0,
-            payload: abi.encodeWithSelector(proposal.execute.selector)
+            payload: abi.encodeWithSelector(proposal.reduceInterestRate.selector)
         });
-        dualGovernance.submitProposal(calls, "Debug Proposal");
+        uint256 proposalId = dualGovernance.submitProposal(calls, "Debug Proposal");
+        dualGovernance.scheduleProposal(proposalId);
+        timelock.execute(proposalId);
     }
+
+    function execute(address target, uint256 value, bytes memory payload) external returns (bytes memory) {
+        (bool success, bytes memory result) = target.call{value: value}(payload);
+        assert(success);
+        return result;
+    }
+
 }
 
-contract Proposal {
+// This dummy proposal is used to test the submitProposal function in the DualGovernance contract
+// It simulates some interest bearing asset.
+// It has a simple voting mechanism where stake holders can vote to reduce the interest rate
+// If the proposal receives enough votes, the interest rate is reduced by 5%
+// The reduceInterestRate function is called by the deployer to finalize the proposal
+contract DummyProposal {
+    address public deployer;
+    uint256 public threshold;
+    uint256 public interestRate; // in basis points
+    bool public executed;
 
-    bool public executed = false;
-    string public name;
+    uint256 public votesFor;
 
-    constructor(string memory _name) {
-        name = _name;
+    constructor(uint256 _threshold, uint256 _interestRate) {
+        deployer = msg.sender;
+        threshold = _threshold;
+        interestRate = _interestRate;
     }
 
-    function execute() external {
+    function vote(bool support) external {
         require(!executed, "Already executed");
+        if (support) {
+            votesFor += 1;
+        }
+    }
+
+    function reduceInterestRate() external {
+        require(msg.sender == deployer, "Not authorized");
+        require(!executed, "Already executed");
+
+        if (votesFor >= threshold) {
+            interestRate = (interestRate * 950) / 1000;
+        }
+
         executed = true;
     }
-
 }
