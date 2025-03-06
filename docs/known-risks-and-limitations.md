@@ -91,7 +91,7 @@ The Signalling Escrow enables stETH holders to lock funds in opposition to the D
 The overall strategy involves:
 1. Locking X tokens from address A.
 2. Waiting until the `minAssetsLockDuration` has passed.
-3. Taking a flash loan of X tokens from    address B.
+3. Taking a flash loan of X tokens from address B.
 4. Unlocking funds from address A.
 5. Using the withdrawn funds to repay the flash loan.
 
