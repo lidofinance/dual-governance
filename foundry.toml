@@ -14,4 +14,4 @@ test = 'test/kontrol'
 
 [fmt]
 line_length = 120
-multiline_func_header = 'params_first_multi'
+multiline_func_header = 'params_first'
