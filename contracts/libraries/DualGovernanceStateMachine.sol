@@ -137,8 +137,8 @@ library DualGovernanceStateMachine {
     /// @notice Executes a state transition for the Dual Governance State Machine, if applicable.
     ///     If no transition is possible from the current `persisted` state, no changes are applied to the context.
     /// @dev If the state transitions to RageQuit, a new instance of the Signalling Escrow is deployed using
-    ///     `escrowMasterCopy` as the implementation for the minimal proxy, while the previous Signalling Escrow
-    ///     instance is converted into the RageQuit escrow.
+    ///     `signallingEscrow.ESCROW_MASTER_COPY()` as the implementation for the minimal proxy,
+    ///     while the previous Signalling Escrow instance is converted into the RageQuit escrow.
     /// @param self The context of the Dual Governance State Machine.
     function activateNextState(Context storage self) internal {
         DualGovernanceConfig.Context memory config = getDualGovernanceConfig(self);

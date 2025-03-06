@@ -33,7 +33,7 @@ struct HolderAssets {
 struct UnstETHAccounting {
     /// @dev slot0: [0..127]
     SharesValue unfinalizedShares;
-    /// @dev slot1: [128..255]
+    /// @dev slot0: [128..255]
     ETHValue finalizedETH;
 }
 
@@ -64,7 +64,7 @@ enum UnstETHRecordStatus {
 
 /// @notice Stores information about an accounted unstETH NFT.
 /// @param status The current status of the unstETH NFT. Refer to `UnstETHRecordStatus` for details.
-/// @param index The one-based index of the unstETH NFT in the `UnstETHAccounting.unstETHIds` array.
+/// @param index The one-based index of the unstETH NFT in the `HolderAssets.unstETHIds` array.
 /// @param lockedBy The address of the account that locked the unstETH.
 /// @param shares The number of shares contained in the unstETH.
 /// @param claimableAmount The amount of claimable ETH contained in the unstETH. This value is 0

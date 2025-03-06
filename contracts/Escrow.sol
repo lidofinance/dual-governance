@@ -367,8 +367,8 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
 
     /// @notice Returns the total amounts of locked and claimed assets in the Escrow.
     /// @return details A struct containing the total amounts of locked and claimed assets, including:
-    ///     - `totalStETHClaimedETH`: The total amount of ETH claimed from locked stETH.
     ///     - `totalStETHLockedShares`: The total number of stETH shares currently locked in the Escrow.
+    ///     - `totalStETHClaimedETH`: The total amount of ETH claimed from locked stETH.
     ///     - `totalUnstETHUnfinalizedShares`: The total number of shares from unstETH NFTs that have not yet been finalized.
     ///     - `totalUnstETHFinalizedETH`: The total amount of ETH from finalized unstETH NFTs.
     function getSignallingEscrowDetails() external view returns (SignallingEscrowDetails memory details) {
@@ -458,7 +458,7 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     ///     the first unclaimed unstETH NFT.
     /// @param fromUnstETHId The id of the first unclaimed unstETH NFT in the batch to be claimed.
     /// @param hints An array of hints required by the `WithdrawalQueue` contract to efficiently process
-    ///     the claiming of unstETH NFTs.
+    ///     the claiming of unstETH NFTs. Passing an empty array will cause the method to revert with an index OOB error.
     function claimNextWithdrawalsBatch(uint256 fromUnstETHId, uint256[] calldata hints) external {
         _escrowState.checkRageQuitEscrow();
         _escrowState.checkBatchesClaimingInProgress();
@@ -471,7 +471,8 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
     /// @notice An overloaded version of `Escrow.claimNextWithdrawalsBatch(uint256, uint256[] calldata)` that calculates
     ///     hints for the WithdrawalQueue on-chain. This method provides a more convenient claiming process but is
     ///     less gas efficient compared to `Escrow.claimNextWithdrawalsBatch(uint256, uint256[] calldata)`.
-    /// @param maxUnstETHIdsCount The maximum number of unstETH NFTs to claim in this batch.
+    /// @param maxUnstETHIdsCount The maximum number of unstETH NFTs to claim in this batch. Passing zero will cause
+    ///     the method to revert with an index OOB error.
     function claimNextWithdrawalsBatch(uint256 maxUnstETHIdsCount) external {
         _escrowState.checkRageQuitEscrow();
         _escrowState.checkBatchesClaimingInProgress();
@@ -605,10 +606,10 @@ contract Escrow is ISignallingEscrow, IRageQuitEscrow {
 
     /// @notice Returns details about the current state of the rage quit escrow.
     /// @return details A `RageQuitEscrowDetails` struct containing the following fields:
-    /// - `isRageQuitExtensionPeriodStarted`: Indicates whether the rage quit extension period has started.
     /// - `rageQuitEthWithdrawalsDelay`: The delay period for ETH withdrawals during rage quit.
     /// - `rageQuitExtensionPeriodDuration`: The duration of the rage quit extension period.
     /// - `rageQuitExtensionPeriodStartedAt`: The timestamp when the rage quit extension period started.
+    /// - `isRageQuitExtensionPeriodStarted`: Indicates whether the rage quit extension period has started.
     function getRageQuitEscrowDetails() external view returns (RageQuitEscrowDetails memory details) {
         _escrowState.checkRageQuitEscrow();
 

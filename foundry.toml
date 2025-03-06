@@ -17,6 +17,9 @@ fs_permissions = [
 # TODO: remove the next line. This is a quick fix for the existing tests that is required for tests to pass after upgrade of Foundry to v1.0.0.
 allow_internal_expect_revert = true
 
+# TODO: remove the next line. This is a quick fix for the existing tests that is required for tests to pass after upgrade of Foundry to v1.0.0.
+allow_internal_expect_revert = true
+
 [profile.kprove]
 src = 'test/kontrol'
 out = 'kout'
