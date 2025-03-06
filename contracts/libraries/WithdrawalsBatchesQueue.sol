@@ -51,12 +51,12 @@ library WithdrawalsBatchesQueue {
     }
 
     /// @notice Holds the meta-information about the queue and the claiming process.
-    /// @param state The current state of the WithdrawalQueue library.
+    /// @param state The current state of the WithdrawalsBatchesQueue library.
     /// @param lastClaimedBatchIndex The index of the batch containing the id of the last claimed unstETH NFT.
     /// @param lastClaimedUnstETHIdIndex The index of the last claimed unstETH id in the batch with
     ///     index `lastClaimedBatchIndex`.
-    /// @param totalUnstETHCount The total number of unstETH ids in all batches.
-    /// @param totalUnstETHClaimed The total number of unstETH ids that have been marked as claimed.
+    /// @param totalUnstETHIdsCount The total number of unstETH ids in all batches.
+    /// @param totalUnstETHIdsClaimed The total number of unstETH ids that have been marked as claimed.
     struct QueueInfo {
         /// @dev slot0: [0..7]
         State state;

@@ -272,7 +272,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     }
 
     /// @notice Returns whether the emergency mode is active.
-    /// @return isEmergencyModeActive A boolean indicating whether the emergency protection is enabled.
+    /// @return isEmergencyModeActive A boolean indicating whether the emergency mode is active.
     function isEmergencyModeActive() external view returns (bool) {
         return _emergencyProtection.isEmergencyModeActive();
     }
@@ -346,16 +346,16 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @param proposalId The id of the proposal to return information for.
     /// @return proposalDetails A ProposalDetails struct containing the details of the proposal, with the following data:
     ///     - `id`: The id of the proposal.
+    ///     - `executor`: The address of the executor responsible for executing the proposal's external calls.
+    ///     - `submittedAt`: The timestamp when the proposal was submitted.
+    ///     - `scheduledAt`: The timestamp when the proposal was scheduled for execution. Equals 0 if the proposal
+    ///            was submitted but not yet scheduled.
     ///     - `status`: The current status of the proposal. Possible values are:
     ///         1 - The proposal was submitted but not scheduled.
     ///         2 - The proposal was submitted and scheduled but not yet executed.
     ///         3 - The proposal was submitted, scheduled, and executed. This is the final state of the proposal lifecycle.
     ///         4 - The proposal was cancelled via cancelAllNonExecutedProposals() and cannot be scheduled or executed anymore.
     ///             This is the final state of the proposal.
-    ///     - `executor`: The address of the executor responsible for executing the proposal's external calls.
-    ///     - `submittedAt`: The timestamp when the proposal was submitted.
-    ///     - `scheduledAt`: The timestamp when the proposal was scheduled for execution. Equals 0 if the proposal
-    ///            was submitted but not yet scheduled.
     function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory proposalDetails) {
         return _proposals.getProposalDetails(proposalId);
     }
