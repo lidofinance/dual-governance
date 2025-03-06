@@ -1,0 +1,18 @@
+{
+    "name": "Simbolik Development",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "tintinweb.vscode-solidity-language",
+                "runtimeverification.simbolik"
+            ],
+            "settings": {
+                "simbolik.api-key": "${SIMBOLIK_API_KEY}",
+                "workbench.colorTheme": "Visual Studio Dark"
+            }
+        }
+    }
+}
