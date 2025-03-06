@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {Duration} from "../../../contracts/types/Duration.sol";
 import {Timestamp} from "../../../contracts/types/Timestamp.sol";
 
-interface IHoleskyMocksLidoRolesValidator {
+interface IRolesValidator {
     function validate(address dgAdminExecutor, address dgResealManager) external;
 }
 

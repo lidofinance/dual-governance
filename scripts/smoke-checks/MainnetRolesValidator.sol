@@ -46,12 +46,12 @@ contract MainnetRolesValidator is LidoRolesValidator {
         _validate(KERNEL, "APP_MANAGER_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
 
         // TokenManager
-        _validate(TOKEN_MANAGER, "MINT_ROLE", AragonRoles.checkManager(VOTING));
-        _validate(TOKEN_MANAGER, "REVOKE_VESTINGS_ROLE", AragonRoles.checkManager(VOTING));
+        _validate(TOKEN_MANAGER, "MINT_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
+        _validate(TOKEN_MANAGER, "REVOKE_VESTINGS_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
 
         // Finance
-        _validate(FINANCE, "CHANGE_PERIOD_ROLE", AragonRoles.checkManager(VOTING));
-        _validate(FINANCE, "CHANGE_BUDGETS_ROLE", AragonRoles.checkManager(VOTING));
+        _validate(FINANCE, "CHANGE_PERIOD_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
+        _validate(FINANCE, "CHANGE_BUDGETS_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
 
         // Aragon EVMScriptRegistry
         _validate(EVM_SCRIPT_REGISTRY, "REGISTRY_MANAGER_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
@@ -73,7 +73,9 @@ contract MainnetRolesValidator is LidoRolesValidator {
         _validate(AGENT, "EXECUTE_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING).granted(executor));
 
         // ACL
-        _validate(ACL_ADDRESS, "CREATE_PERMISSION_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING).granted(AGENT));
+        _validate(
+            ACL_ADDRESS, "CREATE_PERMISSIONS_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING).granted(AGENT)
+        );
 
         // WithdrawalQueue
         _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(resealManager));

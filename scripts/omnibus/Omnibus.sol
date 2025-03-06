@@ -13,7 +13,7 @@ import {IVoting} from "./interfaces/IVoting.sol";
 import {IOwnable} from "./interfaces/IOwnable.sol";
 import {IGovernance} from "../../contracts/interfaces/IGovernance.sol";
 import {IWithdrawalVaultProxy} from "./interfaces/IWithdrawalVaultProxy.sol";
-import {IHoleskyMocksLidoRolesValidator, IDGLaunchVerifier, ITimeConstraints, IFoo} from "./interfaces/utils.sol";
+import {IRolesValidator, IDGLaunchVerifier, ITimeConstraints, IFoo} from "./interfaces/utils.sol";
 
 contract Omnibus {
     IACL public constant ACL = IACL(0x9895F0F17cc1d1891b6f18ee0b483B6f221b37Bb);
@@ -34,21 +34,23 @@ contract Omnibus {
     address public immutable DUAL_GOVERNANCE;
     address public immutable ADMIN_EXECUTOR;
     address public immutable RESEAL_MANAGER;
+    address public immutable ROLES_VALIDATOR;
 
     struct VoteItem {
         string description;
         EvmScriptUtils.EvmScriptCall call;
     }
 
-    constructor(address dualGovernance, address adminExecutor, address resealManager) {
+    constructor(address dualGovernance, address adminExecutor, address resealManager, address rolesValidator) {
         DUAL_GOVERNANCE = dualGovernance;
         ADMIN_EXECUTOR = adminExecutor;
         RESEAL_MANAGER = resealManager;
+        ROLES_VALIDATOR = rolesValidator;
     }
 
     function getVoteItems() external view returns (VoteItem[] memory voteItems) {
         // ExternalCall[] memory executorCalls = new ExternalCall[](2);
-        voteItems = new VoteItem[](46);
+        voteItems = new VoteItem[](47);
 
         // Lido
         voteItems[0] = VoteItem({
@@ -361,10 +363,30 @@ contract Omnibus {
                 address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("EXECUTE_ROLE")))
             )
         });
+
+        // Validate transferred roles
+        voteItems[46] = VoteItem({
+            description: "Validate transferred roles",
+            call: _votingCall(
+                address(ROLES_VALIDATOR), abi.encodeCall(IRolesValidator.validate, (ADMIN_EXECUTOR, RESEAL_MANAGER))
+            )
+        });
     }
 
     function validateVote(uint256 voteId) external view returns (bool) {
-        (,,,,,,,,, bytes memory script,) = IVoting(VOTING).getVote(voteId);
+        ( /*open*/
+            , /*executed*/
+            , /*startDate*/
+            , /*snapshotBlock*/
+            , /*supportRequired*/
+            , /*minAcceptQuorum*/
+            , /*yea*/
+            , /*nay*/
+            , /*votingPower*/
+            ,
+            bytes memory script,
+            /*phase*/
+        ) = IVoting(VOTING).getVote(voteId);
         return keccak256(script) == keccak256(this.getEVMCallScript());
     }
 
