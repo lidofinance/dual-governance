@@ -17,6 +17,8 @@ import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsA
 import {UnitTest, Duration} from "test/utils/unit-test.sol";
 
 contract AssetsAccountingUnitTests is UnitTest {
+    using AssetsAccounting for AssetsAccounting.Context;
+
     AssetsAccounting.Context private _accountingContext;
 
     // ---
@@ -55,7 +57,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidSharesValue.selector, shares));
 
-        AssetsAccounting.accountStETHSharesLock(_accountingContext, holder, shares);
+        this.external__accountStETHSharesLock(holder, shares);
     }
 
     function testFuzz_accountStETHSharesLock_WhenNoSharesWereLockedBefore(
@@ -117,7 +119,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidSharesValue.selector, shares));
 
-        AssetsAccounting.accountStETHSharesUnlock(_accountingContext, holder, shares);
+        this.external__accountStETHSharesUnlock(holder, shares);
     }
 
     function testFuzz_accountStETHSharesUnlock_RevertWhen_HolderHaveLessSharesThanProvided(
@@ -135,7 +137,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidSharesValue.selector, shares));
 
-        AssetsAccounting.accountStETHSharesUnlock(_accountingContext, holder, shares);
+        this.external__accountStETHSharesUnlock(holder, shares);
     }
 
     function testFuzz_accountStETHSharesUnlock_RevertOn_AccountingError_TotalLockedSharesCounterIsLessThanProvidedSharesAmount(
@@ -151,7 +153,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(SharesValueUnderflow.selector);
 
-        AssetsAccounting.accountStETHSharesUnlock(_accountingContext, holder, shares);
+        this.external__accountStETHSharesUnlock(holder, shares);
     }
 
     function testFuzz_accountStETHSharesUnlock_RevertWhen_NoSharesWereLockedBefore(
@@ -162,7 +164,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidSharesValue.selector, shares));
 
-        AssetsAccounting.accountStETHSharesUnlock(_accountingContext, stranger, shares);
+        this.external__accountStETHSharesUnlock(stranger, shares);
     }
 
     // ---
@@ -200,7 +202,7 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountStETHSharesUnlock_simple_RevertWhen_NoSharesWereLockedBefore(address stranger) external {
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidSharesValue.selector, SharesValues.ZERO));
 
-        AssetsAccounting.accountStETHSharesUnlock(_accountingContext, stranger);
+        this.external__accountStETHSharesUnlock(stranger);
     }
 
     // ---
@@ -241,7 +243,7 @@ contract AssetsAccountingUnitTests is UnitTest {
     function testFuzz_accountStETHSharesWithdraw_RevertWhen_HolderHaveZeroShares(address stranger) external {
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidSharesValue.selector, SharesValues.ZERO));
 
-        AssetsAccounting.accountStETHSharesWithdraw(_accountingContext, stranger);
+        this.external__accountStETHSharesWithdraw(stranger);
     }
 
     function testFuzz_accountStETHSharesWithdraw_RevertOn_AccountingError_TotalLockedSharesCounterIsZero(
@@ -257,7 +259,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(stdError.divisionError);
 
-        AssetsAccounting.accountStETHSharesWithdraw(_accountingContext, holder);
+        this.external__accountStETHSharesWithdraw(holder);
     }
 
     function testFuzz_accountStETHSharesWithdraw_AccountingError_WithdrawAmountMoreThanTotalClaimedETH(
@@ -302,7 +304,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(ETHValueOverflow.selector);
 
-        AssetsAccounting.accountStETHSharesWithdraw(_accountingContext, holder);
+        this.external__accountStETHSharesWithdraw(holder);
     }
 
     // ---
@@ -395,7 +397,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(stdError.assertionError);
 
-        AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
+        this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
     function testFuzz_accountUnstETHLock_RevertOn_WithdrawalRequestStatusIsFinalized(
@@ -434,7 +436,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             )
         );
 
-        AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
+        this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
     function testFuzz_accountUnstETHLock_RevertOn_WithdrawalRequestStatusIsClaimed(
@@ -467,7 +469,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(stdError.assertionError);
 
-        AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
+        this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
     function testFuzz_accountUnstETHLock_RevertOn_UnstETHRecordStatusIsNot_NotLocked(
@@ -506,7 +508,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             )
         );
 
-        AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
+        this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
     function testFuzz_accountUnstETHLock_RevertWhen_DuplicatingUnstETHIdsProvided(
@@ -545,7 +547,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             )
         );
 
-        AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
+        this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
     // TODO: is it expected behavior?
@@ -600,7 +602,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(SharesValueOverflow.selector);
 
-        AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
+        this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
     function testFuzz_accountUnstETHLock_AccountingError_HolderUnstETHLockedSharesOverflow(
@@ -626,7 +628,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(SharesValueOverflow.selector);
 
-        AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
+        this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
     function testFuzz_accountUnstETHLock_AccountingError_TotalUnfinalizedSharesOverflow(
@@ -651,7 +653,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(SharesValueOverflow.selector);
 
-        AssetsAccounting.accountUnstETHLock(_accountingContext, holder, unstETHIds, withdrawalRequestStatuses);
+        this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
     // ---
@@ -788,7 +790,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], holder));
 
-        AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
+        this.external__accountUnstETHUnlock(holder, unstETHIds);
     }
 
     function testFuzz_accountUnstETHUnlock_RevertWhen_UnstETHRecordDoesNotBelongToCurrent(
@@ -803,7 +805,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current));
 
-        AssetsAccounting.accountUnstETHUnlock(_accountingContext, current, unstETHIds);
+        this.external__accountUnstETHUnlock(current, unstETHIds);
     }
 
     function testFuzz_accountUnstETHUnlock_RevertWhen_UnstETHRecordStatusInvalid(address holder) external {
@@ -818,7 +820,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             )
         );
 
-        AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
+        this.external__accountUnstETHUnlock(holder, unstETHIds);
     }
 
     function testFuzz_accountUnstETHUnlock_RevertWhen_UnstETHRecordIndexInvalid_OOB(address holder) external {
@@ -832,7 +834,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(stdError.indexOOBError);
 
-        AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
+        this.external__accountUnstETHUnlock(holder, unstETHIds);
     }
 
     // TODO: is it expected behavior?
@@ -883,7 +885,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(SharesValueUnderflow.selector);
 
-        AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
+        this.external__accountUnstETHUnlock(holder, unstETHIds);
     }
 
     function testFuzz_accountUnstETHUnlock_RevertOn_AccountingError_TotalFinalizedETHUnderflow(address holder)
@@ -903,7 +905,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(ETHValueUnderflow.selector);
 
-        AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
+        this.external__accountUnstETHUnlock(holder, unstETHIds);
     }
 
     function testFuzz_accountUnstETHUnlock_RevertOn_AccountingError_TotalUnfinalizedSharesUnderflow(address holder)
@@ -922,7 +924,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(SharesValueUnderflow.selector);
 
-        AssetsAccounting.accountUnstETHUnlock(_accountingContext, holder, unstETHIds);
+        this.external__accountUnstETHUnlock(holder, unstETHIds);
     }
 
     // ---
@@ -989,7 +991,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(stdError.assertionError);
 
-        AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
+        this.external__accountUnstETHFinalized(unstETHIds, claimableAmountsPrepared);
     }
 
     function testFuzz_accountUnstETHFinalized_When_NoClaimableAmountsProvided(
@@ -1102,7 +1104,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(ETHValueOverflow.selector);
 
-        AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
+        this.external__accountUnstETHFinalized(unstETHIds, claimableAmountsPrepared);
     }
 
     function testFuzz_accountUnstETHFinalized_RevertOn_TotalFinalizedETHOverflow(
@@ -1125,7 +1127,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(ETHValueOverflow.selector);
 
-        AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
+        this.external__accountUnstETHFinalized(unstETHIds, claimableAmountsPrepared);
     }
 
     function testFuzz_accountUnstETHFinalized_RevertOn_TotalUnfinalizedSharesUnderflow(
@@ -1149,7 +1151,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(SharesValueUnderflow.selector);
 
-        AssetsAccounting.accountUnstETHFinalized(_accountingContext, unstETHIds, claimableAmountsPrepared);
+        this.external__accountUnstETHFinalized(unstETHIds, claimableAmountsPrepared);
     }
 
     // ---
@@ -1205,7 +1207,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(stdError.indexOOBError);
 
-        AssetsAccounting.accountUnstETHClaimed(_accountingContext, unstETHIds, claimableAmountsPrepared);
+        this.external__accountUnstETHClaimed(unstETHIds, claimableAmountsPrepared);
     }
 
     function test_accountUnstETHClaimed_WhenNoUnstETHIdsProvided() external {
@@ -1242,7 +1244,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             )
         );
 
-        AssetsAccounting.accountUnstETHClaimed(_accountingContext, unstETHIds, claimableAmountsPrepared);
+        this.external__accountUnstETHClaimed(unstETHIds, claimableAmountsPrepared);
     }
 
     function testFuzz_accountUnstETHClaimed_RevertWhen_UnstETHRecordIsFinalizedAndClaimableAmountIsIncorrect(
@@ -1266,7 +1268,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             abi.encodeWithSelector(AssetsAccounting.InvalidClaimableAmount.selector, unstETHIds[0], claimableAmounts[0])
         );
 
-        AssetsAccounting.accountUnstETHClaimed(_accountingContext, unstETHIds, claimableAmountsPrepared);
+        this.external__accountUnstETHClaimed(unstETHIds, claimableAmountsPrepared);
     }
 
     function testFuzz_accountUnstETHClaimed_When_UnstETHRecordIsFinalizedAndClaimableAmountIsCorrect(
@@ -1312,7 +1314,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(ETHValueOverflow.selector);
 
-        AssetsAccounting.accountUnstETHClaimed(_accountingContext, unstETHIds, claimableAmountsPrepared);
+        this.external__accountUnstETHClaimed(unstETHIds, claimableAmountsPrepared);
     }
 
     // ---
@@ -1383,7 +1385,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             )
         );
 
-        AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
+        this.external__accountUnstETHWithdraw(holder, unstETHIds);
     }
 
     function testFuzz_accountUnstETHWithdraw_RevertWhen_UnstETHRecordDoesNotBelongToCurrent(
@@ -1401,7 +1403,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, unstETHIds[0], current));
 
-        AssetsAccounting.accountUnstETHWithdraw(_accountingContext, current, unstETHIds);
+        this.external__accountUnstETHWithdraw(current, unstETHIds);
     }
 
     function testFuzz_accountUnstETHWithdraw_RevertOn_WithdrawnAmountOverflow(address holder) external {
@@ -1417,7 +1419,7 @@ contract AssetsAccountingUnitTests is UnitTest {
 
         vm.expectRevert(ETHValueOverflow.selector);
 
-        AssetsAccounting.accountUnstETHWithdraw(_accountingContext, holder, unstETHIds);
+        this.external__accountUnstETHWithdraw(holder, unstETHIds);
     }
 
     // ---
@@ -1473,7 +1475,7 @@ contract AssetsAccountingUnitTests is UnitTest {
                 AssetsAccounting.InvalidUnstETHStatus.selector, notLockedUnstETHId, UnstETHRecordStatus.NotLocked
             )
         );
-        AssetsAccounting.getLockedUnstETHDetails(_accountingContext, notLockedUnstETHId);
+        this.external__getLockedUnstETHDetails(notLockedUnstETHId);
     }
 
     // ---
@@ -1497,7 +1499,7 @@ contract AssetsAccountingUnitTests is UnitTest {
             abi.encodeWithSelector(AssetsAccounting.MinAssetsLockDurationNotPassed.selector, Timestamps.now())
         );
 
-        AssetsAccounting.checkMinAssetsLockDurationPassed(_accountingContext, holder, minAssetsLockDuration);
+        this.external__checkMinAssetsLockDurationPassed(holder, minAssetsLockDuration);
     }
 
     // ---
@@ -1513,14 +1515,62 @@ contract AssetsAccountingUnitTests is UnitTest {
         ETHValue claimedETH,
         SharesValue unfinalizedShares,
         ETHValue finalizedETH
-    ) internal {
+    ) internal view {
         assertEq(_accountingContext.stETHTotals.lockedShares, lockedShares);
         assertEq(_accountingContext.stETHTotals.claimedETH, claimedETH);
         assertEq(_accountingContext.unstETHTotals.unfinalizedShares, unfinalizedShares);
         assertEq(_accountingContext.unstETHTotals.finalizedETH, finalizedETH);
     }
 
-    function assertEq(UnstETHRecordStatus a, UnstETHRecordStatus b) internal {
+    function assertEq(UnstETHRecordStatus a, UnstETHRecordStatus b) internal pure {
         assertEq(uint256(a), uint256(b));
+    }
+
+    function external__accountStETHSharesLock(address holder, SharesValue shares) external {
+        _accountingContext.accountStETHSharesLock(holder, shares);
+    }
+
+    function external__accountStETHSharesUnlock(address holder, SharesValue shares) external {
+        _accountingContext.accountStETHSharesUnlock(holder, shares);
+    }
+
+    function external__accountStETHSharesUnlock(address holder) external {
+        _accountingContext.accountStETHSharesUnlock(holder);
+    }
+
+    function external__accountStETHSharesWithdraw(address stranger) external {
+        _accountingContext.accountStETHSharesWithdraw(stranger);
+    }
+
+    function external__accountUnstETHLock(
+        address holder,
+        uint256[] memory unstETHIds,
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses
+    ) external {
+        _accountingContext.accountUnstETHLock(holder, unstETHIds, statuses);
+    }
+
+    function external__accountUnstETHUnlock(address holder, uint256[] memory unstETHIds) external {
+        _accountingContext.accountUnstETHUnlock(holder, unstETHIds);
+    }
+
+    function external__accountUnstETHFinalized(uint256[] memory unstETHIds, uint256[] memory amounts) external {
+        _accountingContext.accountUnstETHFinalized(unstETHIds, amounts);
+    }
+
+    function external__accountUnstETHClaimed(uint256[] memory unstETHIds, uint256[] memory amounts) external {
+        _accountingContext.accountUnstETHClaimed(unstETHIds, amounts);
+    }
+
+    function external__accountUnstETHWithdraw(address holder, uint256[] memory unstETHIds) external {
+        _accountingContext.accountUnstETHWithdraw(holder, unstETHIds);
+    }
+
+    function external__getLockedUnstETHDetails(uint256 unstETHId) external view {
+        _accountingContext.getLockedUnstETHDetails(unstETHId);
+    }
+
+    function external__checkMinAssetsLockDurationPassed(address holder, Duration minAssetsLockDuration) external view {
+        _accountingContext.checkMinAssetsLockDurationPassed(holder, minAssetsLockDuration);
     }
 }

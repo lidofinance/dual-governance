@@ -13,17 +13,17 @@ contract TimelockStateUnitTests is UnitTest {
 
     address internal governance = makeAddr("governance");
     address internal adminExecutor = makeAddr("adminExecutor");
-    Duration internal afterSubmitDelay = Durations.from(1 days);
-    Duration internal afterScheduleDelay = Durations.from(2 days);
+    Duration internal _afterSubmitDelay = Durations.from(1 days);
+    Duration internal _afterScheduleDelay = Durations.from(2 days);
 
-    Duration internal maxAfterSubmitDelay = Durations.from(10 days);
-    Duration internal maxAfterScheduleDelay = Durations.from(20 days);
+    Duration internal _maxAfterSubmitDelay = Durations.from(10 days);
+    Duration internal _maxAfterScheduleDelay = Durations.from(20 days);
 
     function setUp() external {
         TimelockState.setGovernance(_timelockState, governance);
         TimelockState.setAdminExecutor(_timelockState, adminExecutor);
-        TimelockState.setAfterSubmitDelay(_timelockState, afterSubmitDelay, maxAfterSubmitDelay);
-        TimelockState.setAfterScheduleDelay(_timelockState, afterScheduleDelay, maxAfterScheduleDelay);
+        TimelockState.setAfterSubmitDelay(_timelockState, _afterSubmitDelay, _maxAfterSubmitDelay);
+        TimelockState.setAfterScheduleDelay(_timelockState, _afterScheduleDelay, _maxAfterScheduleDelay);
     }
 
     function testFuzz_setGovernance_HappyPath(address newGovernance) external {
@@ -37,56 +37,56 @@ contract TimelockStateUnitTests is UnitTest {
 
     function test_setGovernance_RevertOn_ZeroAddress() external {
         vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidGovernance.selector, address(0)));
-        TimelockState.setGovernance(_timelockState, address(0));
+        this.external__setGovernance(address(0));
     }
 
     function test_setGovernance_RevertOn_SameAddress() external {
         vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidGovernance.selector, governance));
-        TimelockState.setGovernance(_timelockState, governance);
+        this.external__setGovernance(governance);
     }
 
     function testFuzz_setAfterSubmitDelay_HappyPath(Duration newAfterSubmitDelay) external {
-        vm.assume(newAfterSubmitDelay <= maxAfterSubmitDelay && newAfterSubmitDelay != afterSubmitDelay);
+        vm.assume(newAfterSubmitDelay <= _maxAfterSubmitDelay && newAfterSubmitDelay != _afterSubmitDelay);
 
         vm.expectEmit();
         emit TimelockState.AfterSubmitDelaySet(newAfterSubmitDelay);
 
-        TimelockState.setAfterSubmitDelay(_timelockState, newAfterSubmitDelay, maxAfterSubmitDelay);
+        TimelockState.setAfterSubmitDelay(_timelockState, newAfterSubmitDelay, _maxAfterSubmitDelay);
     }
 
     function test_setAfterSubmitDelay_RevertOn_GreaterThanMax() external {
         vm.expectRevert(
-            abi.encodeWithSelector(TimelockState.InvalidAfterSubmitDelay.selector, maxAfterSubmitDelay.plusSeconds(1))
+            abi.encodeWithSelector(TimelockState.InvalidAfterSubmitDelay.selector, _maxAfterSubmitDelay.plusSeconds(1))
         );
-        TimelockState.setAfterSubmitDelay(_timelockState, maxAfterSubmitDelay.plusSeconds(1), maxAfterSubmitDelay);
+        this.external__setAfterSubmitDelay(_maxAfterSubmitDelay.plusSeconds(1), _maxAfterSubmitDelay);
     }
 
     function test_setAfterSubmitDelay_RevertOn_SameValue() external {
-        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterSubmitDelay.selector, afterSubmitDelay));
-        TimelockState.setAfterSubmitDelay(_timelockState, afterSubmitDelay, maxAfterSubmitDelay);
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterSubmitDelay.selector, _afterSubmitDelay));
+        this.external__setAfterSubmitDelay(_afterSubmitDelay, _maxAfterSubmitDelay);
     }
 
     function testFuzz_setAfterScheduleDelay_HappyPath(Duration newAfterScheduleDelay) external {
-        vm.assume(newAfterScheduleDelay <= maxAfterScheduleDelay && newAfterScheduleDelay != afterScheduleDelay);
+        vm.assume(newAfterScheduleDelay <= _maxAfterScheduleDelay && newAfterScheduleDelay != _afterScheduleDelay);
 
         vm.expectEmit();
         emit TimelockState.AfterScheduleDelaySet(newAfterScheduleDelay);
 
-        TimelockState.setAfterScheduleDelay(_timelockState, newAfterScheduleDelay, maxAfterScheduleDelay);
+        TimelockState.setAfterScheduleDelay(_timelockState, newAfterScheduleDelay, _maxAfterScheduleDelay);
     }
 
     function test_setAfterScheduleDelay_RevertOn_GreaterThanMax() external {
         vm.expectRevert(
             abi.encodeWithSelector(
-                TimelockState.InvalidAfterScheduleDelay.selector, maxAfterScheduleDelay.plusSeconds(1)
+                TimelockState.InvalidAfterScheduleDelay.selector, _maxAfterScheduleDelay.plusSeconds(1)
             )
         );
-        TimelockState.setAfterScheduleDelay(_timelockState, maxAfterScheduleDelay.plusSeconds(1), maxAfterScheduleDelay);
+        this.external__setAfterScheduleDelay(_maxAfterScheduleDelay.plusSeconds(1), _maxAfterScheduleDelay);
     }
 
     function test_setAfterScheduleDelay_RevertOn_SameValue() external {
-        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterScheduleDelay.selector, afterScheduleDelay));
-        TimelockState.setAfterScheduleDelay(_timelockState, afterScheduleDelay, maxAfterScheduleDelay);
+        vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAfterScheduleDelay.selector, _afterScheduleDelay));
+        this.external__setAfterScheduleDelay(_afterScheduleDelay, _maxAfterScheduleDelay);
     }
 
     function testFuzz_setAdminExecutor_HappyPath(address newAdminExecutor) external {
@@ -100,12 +100,12 @@ contract TimelockStateUnitTests is UnitTest {
 
     function test_setAdminExecutor_RevertOn_ZeroAddress() external {
         vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAdminExecutor.selector, address(0)));
-        TimelockState.setAdminExecutor(_timelockState, address(0));
+        this.external__setAdminExecutor(address(0));
     }
 
     function test_setAdminExecutor_RevertOn_SameAddress() external {
         vm.expectRevert(abi.encodeWithSelector(TimelockState.InvalidAdminExecutor.selector, adminExecutor));
-        TimelockState.setAdminExecutor(_timelockState, adminExecutor);
+        this.external__setAdminExecutor(adminExecutor);
     }
 
     function testFuzz_getAfterSubmitDelay_HappyPath(Duration newAfterSubmitDelay) external {
@@ -253,11 +253,27 @@ contract TimelockStateUnitTests is UnitTest {
     // Helper Methods
     // ---
 
-    function external__checkCallerIsGovernance() external {
+    function external__checkCallerIsGovernance() external view {
         TimelockState.checkCallerIsGovernance(_timelockState);
     }
 
-    function external__checkExecutionDelay(Duration minExecutionDelay) external {
+    function external__checkExecutionDelay(Duration minExecutionDelay) external view {
         _timelockState.checkExecutionDelay(minExecutionDelay);
+    }
+
+    function external__setGovernance(address newGovernance) external {
+        _timelockState.setGovernance(newGovernance);
+    }
+
+    function external__setAfterSubmitDelay(Duration newAfterSubmitDelay, Duration maxAfterSubmitDelay) external {
+        _timelockState.setAfterSubmitDelay(newAfterSubmitDelay, maxAfterSubmitDelay);
+    }
+
+    function external__setAfterScheduleDelay(Duration newAfterScheduleDelay, Duration maxAfterScheduleDelay) external {
+        _timelockState.setAfterScheduleDelay(newAfterScheduleDelay, maxAfterScheduleDelay);
+    }
+
+    function external__setAdminExecutor(address newAdminExecutor) external {
+        _timelockState.setAdminExecutor(newAdminExecutor);
     }
 }
