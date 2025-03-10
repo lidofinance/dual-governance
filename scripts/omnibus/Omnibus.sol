@@ -49,8 +49,8 @@ contract Omnibus {
     }
 
     function getVoteItems() external view returns (VoteItem[] memory voteItems) {
-        // ExternalCall[] memory executorCalls = new ExternalCall[](2);
-        voteItems = new VoteItem[](47);
+        ExternalCall[] memory executorCalls = new ExternalCall[](2);
+        voteItems = new VoteItem[](46);
 
         // Lido
         voteItems[0] = VoteItem({
@@ -328,36 +328,24 @@ contract Omnibus {
 
         // Agent
         voteItems[40] = VoteItem({
-            description: "Revoke RUN_SCRIPT_ROLE permission from Voting on Agent",
-            call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("RUN_SCRIPT_ROLE")))
-            )
-        });
-        voteItems[41] = VoteItem({
             description: "Grant RUN_SCRIPT_ROLE to DualGovernance Executor on Agent",
             call: _votingCall(
                 address(ACL), abi.encodeCall(ACL.grantPermission, (ADMIN_EXECUTOR, AGENT, keccak256("RUN_SCRIPT_ROLE")))
             )
         });
-        voteItems[42] = VoteItem({
+        voteItems[41] = VoteItem({
             description: "Set RUN_SCRIPT_ROLE manager to Agent on Agent",
             call: _votingCall(
                 address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("RUN_SCRIPT_ROLE")))
             )
         });
-        voteItems[43] = VoteItem({
-            description: "Revoke EXECUTE_ROLE permission from Voting on Agent",
-            call: _votingCall(
-                address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("EXECUTE_ROLE")))
-            )
-        });
-        voteItems[44] = VoteItem({
+        voteItems[42] = VoteItem({
             description: "Grant EXECUTE_ROLE to DualGovernance Executor on Agent",
             call: _votingCall(
                 address(ACL), abi.encodeCall(ACL.grantPermission, (ADMIN_EXECUTOR, AGENT, keccak256("EXECUTE_ROLE")))
             )
         });
-        voteItems[45] = VoteItem({
+        voteItems[43] = VoteItem({
             description: "Set EXECUTE_ROLE manager to Agent on Agent",
             call: _votingCall(
                 address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("EXECUTE_ROLE")))
@@ -365,10 +353,25 @@ contract Omnibus {
         });
 
         // Validate transferred roles
-        voteItems[46] = VoteItem({
+        voteItems[44] = VoteItem({
             description: "Validate transferred roles",
             call: _votingCall(
                 address(ROLES_VALIDATOR), abi.encodeCall(IRolesValidator.validate, (ADMIN_EXECUTOR, RESEAL_MANAGER))
+            )
+        });
+
+        // Submit first dual governance proposal
+        executorCalls[0] = _agentForwardFromExecutor(
+            address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("RUN_SCRIPT_ROLE")))
+        );
+        executorCalls[1] = _agentForwardFromExecutor(
+            address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("EXECUTE_ROLE")))
+        );
+        voteItems[45] = VoteItem({
+            description: "Submit first proposal",
+            call: _votingCall(
+                address(DUAL_GOVERNANCE),
+                abi.encodeCall(IGovernance.submitProposal, (executorCalls, string("First dual governance proposal")))
             )
         });
     }

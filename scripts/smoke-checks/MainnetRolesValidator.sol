@@ -69,8 +69,8 @@ contract MainnetRolesValidator is LidoRolesValidator {
         _validate(CURATED_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.checkManager(AGENT));
 
         // Agent
-        _validate(AGENT, "RUN_SCRIPT_ROLE", AragonRoles.checkManager(AGENT));
-        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.checkManager(AGENT));
+        _validate(AGENT, "RUN_SCRIPT_ROLE", AragonRoles.checkManager(AGENT).granted(executor));
+        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.checkManager(AGENT).granted(executor));
 
         // ACL
         _validate(
@@ -95,9 +95,9 @@ contract MainnetRolesValidator is LidoRolesValidator {
         assert(IOwnable(INSURANCE_FUND).owner() == VOTING);
     }
 
-    function validateAfterDG(address executor) external {
+    function validateAfterDG() external {
         // Agent
-        _validate(AGENT, "RUN_SCRIPT_ROLE", AragonRoles.revoked(VOTING).granted(executor));
-        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.revoked(VOTING).granted(executor));
+        _validate(AGENT, "RUN_SCRIPT_ROLE", AragonRoles.revoked(VOTING));
+        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.revoked(VOTING));
     }
 }
