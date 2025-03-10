@@ -61,7 +61,7 @@ interface AragonPermissionHolders {
 }
 
 function formatContractPermissionsSection(
-  aragonContractsInfo: AragonPermissionsInfo
+  aragonContractsInfo: AragonPermissionsInfo,
 ) {
   const resSectionLines: string[] = ["### Aragon Roles Transition \n"];
 
@@ -88,17 +88,17 @@ function formatPermissionsInfoTable(aragonRolesInfo: AragonPermissionInfo[]) {
   let modifiedRolesCount = 0;
 
   for (const role of aragonRolesInfo.sort(
-    (a, b) => Number(!a.isModified) - Number(!b.isModified)
+    (a, b) => Number(!a.isModified) - Number(!b.isModified),
   )) {
     if (role.isModified) {
       modifiedRolesCount += 1;
     }
 
     const oldManagerLabel = md.label(
-      role.oldManager === "None" ? md.empty() : role.oldManager
+      role.oldManager === "None" ? md.empty() : role.oldManager,
     );
     const newManagerLabel = md.label(
-      role.newManager === "None" ? md.empty() : role.newManager
+      role.newManager === "None" ? md.empty() : role.newManager,
     );
 
     const managerTransition =
@@ -107,33 +107,39 @@ function formatPermissionsInfoTable(aragonRolesInfo: AragonPermissionInfo[]) {
         : md.label(oldManagerLabel);
 
     const unknownRoleHolders = role.holdersToRevokeRole.filter((holderName) =>
-      holderName.startsWith("Unknown")
+      holderName.startsWith("Unknown"),
     );
     const knownRoleHolders = role.holdersToRevokeRole.filter(
-      (holderName) => !holderName.startsWith("Unknown")
+      (holderName) => !holderName.startsWith("Unknown"),
     );
 
     const revokedFromItems =
       role.holdersToRevokeRole.length === 0
         ? [md.empty()]
         : knownRoleHolders.map((roleHolder) =>
-            md.bold(md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder))
+            md.bold(md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder)),
           );
-
-    if (unknownRoleHolders.length > 0) {
-      revokedFromItems.push(
-        md.label(`+${unknownRoleHolders.length} UNKNOWN holders`)
-      );
-    }
 
     const grantedToItems: string[] = [
       ...role.holderAlreadyGrantedWithRole.map((roleHolder) =>
-        md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder)
+        md.label(CONTRACT_LABELS[roleHolder] ?? roleHolder),
       ),
       ...role.holdersToGrantRole.map((roleHolder) =>
-        md.bold(CONTRACT_LABELS[roleHolder] ?? md.label(roleHolder))
+        md.bold(CONTRACT_LABELS[roleHolder] ?? md.label(roleHolder)),
       ),
     ];
+
+    if (unknownRoleHolders.length > 0) {
+      if (unknownRoleHolders.length > 2) {
+        grantedToItems.push(
+          md.label(`+${unknownRoleHolders.length} unknown holders`),
+        );
+      } else {
+        unknownRoleHolders.map((holder) =>
+          grantedToItems.push(md.label(holder)),
+        );
+      }
+    }
 
     if (grantedToItems.length === 0) {
       grantedToItems.push(md.empty());
@@ -158,7 +164,7 @@ function formatPermissionsInfoTable(aragonRolesInfo: AragonPermissionInfo[]) {
 
 async function collectPermissionsData(
   provider: JsonRpcProvider,
-  config: AragonContractPermissionConfigs
+  config: AragonContractPermissionConfigs,
 ) {
   const { managers, permissions } = await fetchACLPermissionsInfo(provider);
   const aragonContractsInfo: AragonPermissionsInfo = {};
@@ -168,12 +174,12 @@ async function collectPermissionsData(
     aragonContractsInfo[contractName] = [];
 
     for (const [permissionName, { manager, grantedTo }] of Object.entries(
-      contractInfo.permissions
+      contractInfo.permissions,
     )) {
       const permissionHash = await getPermissionHash(
         provider,
         address,
-        permissionName
+        permissionName,
       );
 
       const newManager = manager;
@@ -191,13 +197,13 @@ async function collectPermissionsData(
       });
 
       const holdersToGrantRole = (grantedTo ?? []).filter(
-        (roleHolder) => !currentlyGrantedTo.includes(roleHolder)
+        (roleHolder) => !currentlyGrantedTo.includes(roleHolder),
       );
       const holdersToRevokeRole = currentlyGrantedTo.filter(
-        (roleHolderName) => !(grantedTo ?? []).includes(roleHolderName)
+        (roleHolderName) => !(grantedTo ?? []).includes(roleHolderName),
       );
       const holderAlreadyGrantedWithRole = (grantedTo ?? []).filter(
-        (roleHolder) => currentlyGrantedTo.includes(roleHolder)
+        (roleHolder) => currentlyGrantedTo.includes(roleHolder),
       );
 
       aragonContractsInfo[contractName].push({
@@ -253,7 +259,7 @@ async function fetchACLPermissionsInfo(provider: JsonRpcProvider) {
         if (!result.permissions[app][role].includes(entity!)) {
         }
         result.permissions[app][role] = result.permissions[app][role].filter(
-          (e) => e !== entity
+          (e) => e !== entity,
         );
       }
     }
@@ -265,14 +271,14 @@ async function fetchACLPermissionsInfo(provider: JsonRpcProvider) {
 
 async function getACLPermissionEvents(
   provider: JsonRpcProvider,
-  filterRange?: { fromBlock: number; toBlock?: number }
+  filterRange?: { fromBlock: number; toBlock?: number },
 ) {
   const setPermissionTopic = id("SetPermission(address,address,bytes32,bool)");
   const setPermissionParamsTopic = id(
-    "SetPermissionParams(address,address,bytes32,bytes32)"
+    "SetPermissionParams(address,address,bytes32,bytes32)",
   );
   const changePermissionManagerTopic = id(
-    "ChangePermissionManager(address,bytes32,address)"
+    "ChangePermissionManager(address,bytes32,address)",
   );
 
   const filterParams = {
@@ -343,7 +349,7 @@ async function getACLPermissionEvents(
 async function getPermissionHash(
   provider: JsonRpcProvider,
   address: Address,
-  permissionName: string
+  permissionName: string,
 ) {
   return makeContractCall(provider, address, permissionName);
 }

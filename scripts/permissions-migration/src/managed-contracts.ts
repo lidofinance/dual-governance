@@ -33,11 +33,11 @@ interface ManagedContractPropertyInfo {
 }
 
 function formatControlledContractsSection(
-  managedContractsPropertiesInfo: ManagedContractPropertyInfo[]
+  managedContractsPropertiesInfo: ManagedContractPropertyInfo[],
 ) {
   const resSectionLines: string[] = ["### Managed Contracts Updates \n"];
   const [totalModifiedRoles, tableText] = formatControlledContractsTable(
-    managedContractsPropertiesInfo
+    managedContractsPropertiesInfo,
   );
 
   resSectionLines.push(tableText);
@@ -47,7 +47,7 @@ function formatControlledContractsSection(
 }
 
 function formatControlledContractsTable(
-  managedContractsPropertiesInfo: ManagedContractPropertyInfo[]
+  managedContractsPropertiesInfo: ManagedContractPropertyInfo[],
 ) {
   const columnHeaders = ["Contract", "Property", "Old Manager", "New Manager"];
   const rows: string[][] = [];
@@ -62,13 +62,15 @@ function formatControlledContractsTable(
       : md.unchanged(info.contractName);
     const newManagedBy = info.isModified
       ? md.bold(
-          md.label(CONTRACT_LABELS[info.newManagedBy] ?? info.newManagedBy)
+          md.label(CONTRACT_LABELS[info.newManagedBy] ?? info.newManagedBy),
         )
       : md.label(CONTRACT_LABELS[info.newManagedBy] ?? info.newManagedBy);
     rows.push([
       contractNameText,
       md.label(info.propertyGetter + "()"),
-      md.label(CONTRACT_LABELS[info.oldManagedBy] ?? info.oldManagedBy),
+      info.isModified
+        ? md.bold(md.label(info.oldManagedBy))
+        : md.label(info.oldManagedBy),
       CONTRACT_LABELS[info.oldManagedBy] ?? newManagedBy,
     ]);
   }
@@ -81,22 +83,22 @@ function formatControlledContractsTable(
 
 async function collectManagedContractsInfo(
   provider: JsonRpcProvider,
-  config: ManagedContractsConfig
+  config: ManagedContractsConfig,
 ) {
   const controlledContractsInfo: ManagedContractPropertyInfo[] = [];
 
   for (const [contractName, { address, properties }] of Object.entries(
-    config
+    config,
   )) {
     for (const [propertyName, { property, managedBy }] of Object.entries(
-      properties
+      properties,
     )) {
       const currentlyManagedByAddress = decodeAddress(
-        await makeContractCall(provider, address, property)
+        await makeContractCall(provider, address, property),
       );
       if (!LIDO_CONTRACTS_NAMES[currentlyManagedByAddress]) {
         throw new Error(
-          `Unknown lido contract address ${currentlyManagedByAddress}`
+          `Unknown lido contract address ${currentlyManagedByAddress}`,
         );
       }
       const currentlyManagedBy =

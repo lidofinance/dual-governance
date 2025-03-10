@@ -10,9 +10,9 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   Lido: {
     address: LIDO_CONTRACTS.Lido,
     permissions: {
-      STAKING_CONTROL_ROLE: { manager: "Agent"},
-      RESUME_ROLE: { manager: "Agent"},
-      PAUSE_ROLE: { manager: "Agent"},
+      STAKING_CONTROL_ROLE: { manager: "Agent" },
+      RESUME_ROLE: { manager: "Agent" },
+      PAUSE_ROLE: { manager: "Agent" },
       UNSAFE_CHANGE_DEPOSITED_VALIDATORS_ROLE: { manager: "None" },
       STAKING_PAUSE_ROLE: { manager: "Agent" },
     },
@@ -78,7 +78,9 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   },
   ACL: {
     address: LIDO_CONTRACTS.ACL,
-    permissions: { CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] } },
+    permissions: {
+      CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
+    },
   },
   AragonPM: {
     address: LIDO_CONTRACTS.AragonPM,
@@ -89,8 +91,8 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
   EVMScriptRegistry: {
     address: LIDO_CONTRACTS.EVMScriptRegistry,
     permissions: {
-      REGISTRY_ADD_EXECUTOR_ROLE: { manager: "Agent"},
-      REGISTRY_MANAGER_ROLE: { manager: "Agent"},
+      REGISTRY_ADD_EXECUTOR_ROLE: { manager: "Agent" },
+      REGISTRY_MANAGER_ROLE: { manager: "Agent" },
     },
   },
   VotingRepo: {
@@ -155,13 +157,13 @@ export const ARAGON_CONTRACT_ROLES_CONFIG: AragonContractPermissionConfigs = {
       },
       MANAGE_SIGNING_KEYS: {
         manager: "EasyTrackEvmScriptExecutor",
-        grantedTo: ["EasyTrackEvmScriptExecutor"],
+        grantedTo: ["EasyTrackEvmScriptExecutor", "Voting"],
       },
     },
   },
 
-   // Oracle Contracts
-   LegacyOracle: {
+  // Oracle Contracts
+  LegacyOracle: {
     address: LIDO_CONTRACTS.LegacyOracle,
     permissions: {},
   },
@@ -188,7 +190,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       FINALIZE_ROLE: ["Lido"],
       MANAGE_TOKEN_URI_ROLE: [],
       ORACLE_ROLE: ["AccountingOracle"],
-      PAUSE_ROLE: ["OraclesGateSeal"],
+      PAUSE_ROLE: [],
       RESUME_ROLE: ["Agent"],
     },
   },
@@ -233,7 +235,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       DEFAULT_ADMIN_ROLE: ["Agent"],
       MANAGE_CONSENSUS_CONTRACT_ROLE: [],
       MANAGE_CONSENSUS_VERSION_ROLE: [],
-      PAUSE_ROLE: ["OraclesGateSeal"],
+      PAUSE_ROLE: [],
       RESUME_ROLE: ["Agent"],
       SUBMIT_DATA_ROLE: [],
     },
@@ -280,13 +282,13 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
     roles: {
       DEFAULT_ADMIN_ROLE: ["Agent"],
       MODULE_MANAGER_ROLE: [],
-      PAUSE_ROLE: ["CSGateSeal"],
+      PAUSE_ROLE: [],
       RECOVERER_ROLE: [],
       REPORT_EL_REWARDS_STEALING_PENALTY_ROLE: [],
       RESUME_ROLE: [],
       SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE: ["EasyTrackEvmScriptExecutor"],
       STAKING_ROUTER_ROLE: ["StakingRouter"],
-      VERIFIER_ROLE: ["CSVerifier"],
+      VERIFIER_ROLE: [],
     },
   },
   CSAccounting: {
@@ -295,7 +297,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       DEFAULT_ADMIN_ROLE: ["Agent"],
       ACCOUNTING_MANAGER_ROLE: [],
       MANAGE_BOND_CURVES_ROLE: [],
-      PAUSE_ROLE: ["CSGateSeal"],
+      PAUSE_ROLE: [],
       RECOVERER_ROLE: [],
       RESET_BOND_CURVE_ROLE: ["CSModule"],
       RESUME_ROLE: [],
@@ -316,7 +318,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       CONTRACT_MANAGER_ROLE: [],
       MANAGE_CONSENSUS_CONTRACT_ROLE: [],
       MANAGE_CONSENSUS_VERSION_ROLE: [],
-      PAUSE_ROLE: ["CSGateSeal"],
+      PAUSE_ROLE: [],
       RECOVERER_ROLE: [],
       RESUME_ROLE: [],
       SUBMIT_DATA_ROLE: [],
@@ -329,7 +331,7 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
       DISABLE_CONSENSUS_ROLE: [],
       MANAGE_FAST_LANE_CONFIG_ROLE: [],
       MANAGE_FRAME_CONFIG_ROLE: [],
-      MANAGE_MEMBERS_AND_QUORUM_ROLE: ["Agent"],
+      MANAGE_MEMBERS_AND_QUORUM_ROLE: [],
       MANAGE_REPORT_PROCESSOR_ROLE: [],
     },
   },
@@ -338,9 +340,9 @@ export const OZ_CONTRACT_ROLES_CONFIG: OZContractRolesConfig = {
     address: LIDO_CONTRACTS.EasyTrack,
     roles: {
       DEFAULT_ADMIN_ROLE: ["Voting"],
-      CANCEL_ROLE: ["Voting"],
-      PAUSE_ROLE: ["Voting", "EmergencyBrakesMultisig"],
-      UNPAUSE_ROLE: ["Voting"],
+      CANCEL_ROLE: [],
+      PAUSE_ROLE: [],
+      UNPAUSE_ROLE: [],
     },
   },
   AllowedTokensRegistry: {
