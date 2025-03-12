@@ -6,6 +6,7 @@ import {Timestamp} from "../../../contracts/types/Timestamp.sol";
 
 interface IRolesValidator {
     function validate(address dgAdminExecutor, address dgResealManager) external;
+    function validateAfterDG() external;
 }
 
 interface IDGLaunchVerifier {
