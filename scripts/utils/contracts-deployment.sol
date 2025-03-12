@@ -382,8 +382,7 @@ library DGActivationVotingCalldataProvider {
 
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
-        address votingCalldataProviderAddress =
-            file.readAddress($daoVoting.key("dual_governance_activation_voting_calldata_provider"));
+        address votingCalldataProviderAddress = file.readAddress($daoVoting.key("omnibus_calldata_builder"));
 
         votingCalldataProvider = IVotingProvider(votingCalldataProviderAddress);
     }

@@ -57,7 +57,7 @@ contract OmnibusHolesky {
 
     function getVoteItems() external view returns (VoteItem[] memory voteItems) {
         ExternalCall[] memory executorCalls = new ExternalCall[](3);
-        voteItems = new VoteItem[](48);
+        voteItems = new VoteItem[](49);
 
         uint256 index = 0;
 
@@ -399,11 +399,11 @@ contract OmnibusHolesky {
             )
         });
 
-        // // Verify state of the DG after launch
-        // voteItems[index++] = VoteItem({
-        //     description: "Verify dual governance launch",
-        //     call: _votingCall(address(LAUNCH_VERIFIER), abi.encodeCall(IDGLaunchVerifier.verify, ()))
-        // });
+        // Verify state of the DG after launch
+        voteItems[index++] = VoteItem({
+            description: "Verify dual governance launch",
+            call: _votingCall(address(LAUNCH_VERIFIER), abi.encodeCall(IDGLaunchVerifier.verify, ()))
+        });
     }
 
     function validateVote(uint256 voteId) external view returns (bool) {
