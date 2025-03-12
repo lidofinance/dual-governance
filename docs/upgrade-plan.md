@@ -220,7 +220,7 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 
 </details>
 
-### OpenZeppelin (5 roles modified)
+### OpenZeppelin (7 roles modified)
 
 #### [AllowedTokensRegistry](https://etherscan.io/address/0x4AC40c34f8992bb1e5E856A448792158022551ca)
 
@@ -240,6 +240,17 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 | FINALIZE_ROLE | ∅ | Lido |
 | MANAGE_TOKEN_URI_ROLE | ∅ | ∅ |
 | ORACLE_ROLE | ∅ | AccountingOracle |
+
+#### [ValidatorExitBusOracle](https://etherscan.io/address/0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e)
+
+| Role | Revoked | Granted |
+| --- | --- | --- |
+| ⚠️ **`PAUSE_ROLE`** | ∅ | OraclesGateSeal, ⚠️ **`ResealManager`** |
+| ⚠️ **`RESUME_ROLE`** | ∅ | ⚠️ **`ResealManager`** |
+| DEFAULT_ADMIN_ROLE | ∅ | Agent |
+| MANAGE_CONSENSUS_CONTRACT_ROLE | ∅ | ∅ |
+| MANAGE_CONSENSUS_VERSION_ROLE | ∅ | ∅ |
+| SUBMIT_DATA_ROLE | ∅ | ∅ |
 
 ### Not affected contracts
 
@@ -284,17 +295,6 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 | MANAGE_FRAME_CONFIG_ROLE | ∅ | ∅ |
 | MANAGE_MEMBERS_AND_QUORUM_ROLE | ∅ | Agent |
 | MANAGE_REPORT_PROCESSOR_ROLE | ∅ | ∅ |
-
-#### [ValidatorExitBusOracle](https://etherscan.io/address/0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e)
-
-| Role | Revoked | Granted |
-| --- | --- | --- |
-| DEFAULT_ADMIN_ROLE | ∅ | Agent |
-| MANAGE_CONSENSUS_CONTRACT_ROLE | ∅ | ∅ |
-| MANAGE_CONSENSUS_VERSION_ROLE | ∅ | ∅ |
-| PAUSE_ROLE | ∅ | OraclesGateSeal |
-| RESUME_ROLE | ∅ | ∅ |
-| SUBMIT_DATA_ROLE | ∅ | ∅ |
 
 #### [ValidatorExitBusHashConsensus](https://etherscan.io/address/0x7FaDB6358950c5fAA66Cb5EB8eE5147De3df355a)
 
@@ -504,7 +504,7 @@ Note: If an item is highlighted in bold with ⚠️ icon, it means that this ite
 | ZKSync_L1Executor | owner() | Agent | Agent |
 
 
-### Omnibus items (46 items)
+### Omnibus items (48 items)
 
 #### Lido (8 items)
 ```
@@ -588,7 +588,13 @@ revokeRole('REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE', Agent)
 grantRole('REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE', Voting)
 ```
 
-#### WithdrawalQueueERC721
+#### WithdrawalQueueERC721 (2 items)
+```
+grantRole('PAUSE_ROLE', ResealManager)
+grantRole('RESUME_ROLE', ResealManager)
+```
+
+#### ValidatorExitBusOracle (2 items)
 ```
 grantRole('PAUSE_ROLE', ResealManager)
 grantRole('RESUME_ROLE', ResealManager)
