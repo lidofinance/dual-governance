@@ -24,6 +24,8 @@ interface IEmergencyProtectedTimelock is ITimelock {
     function setEmergencyModeDuration(Duration newEmergencyModeDuration) external;
     function setEmergencyGovernance(address newEmergencyGovernance) external;
 
+    function setGovernance(address newGovernance) external;
+
     function activateEmergencyMode() external;
     function emergencyExecute(uint256 proposalId) external;
     function deactivateEmergencyMode() external;

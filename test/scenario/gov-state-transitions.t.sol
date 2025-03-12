@@ -3,51 +3,50 @@ pragma solidity 0.8.26;
 
 import {Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
-import {ScenarioTestBlueprint} from "../utils/scenario-test-blueprint.sol";
 
-contract GovernanceStateTransitions is ScenarioTestBlueprint {
+import {DGScenarioTestSetup} from "../utils/integration-tests.sol";
+
+contract GovernanceStateTransitions is DGScenarioTestSetup {
     address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
-        _deployDualGovernanceSetup({isEmergencyProtectionEnabled: false});
-        _setupStETHBalance(
-            _VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT() + PercentsD16.fromBasisPoints(1_00)
-        );
+        _deployDGSetup({isEmergencyProtectionEnabled: false});
+        _setupStETHBalance(_VETOER, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
     }
 
-    function test_signalling_state_min_duration() public {
+    function testFork_VetoSignallingStateMinDuration() external {
         _assertNormalState();
 
-        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
+        _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
         _assertNormalState();
 
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().dividedBy(2));
+        _wait(_getVetoSignallingMinDuration().dividedBy(2));
 
         _activateNextState();
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION().dividedBy(2).plusSeconds(1));
+        _wait(_getVetoSignallingMinDuration().dividedBy(2).plusSeconds(1));
 
         _activateNextState();
-        _assertVetoSignalingDeactivationState();
+        _assertVetoSignallingDeactivationState();
     }
 
-    function test_signalling_state_max_duration() public {
+    function testFork_VetoSignallingStateMaxDuration() public {
         _assertNormalState();
 
-        _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+        _lockStETH(_VETOER, _getSecondSealRageQuitSupport());
 
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
+        _wait(_getVetoSignallingMaxDuration().dividedBy(2));
         _activateNextState();
 
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().dividedBy(2));
+        _wait(_getVetoSignallingMaxDuration().dividedBy(2));
         _activateNextState();
 
         _assertVetoSignalingState();
@@ -60,22 +59,22 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _assertRageQuitState();
     }
 
-    function test_signalling_to_normal() public {
+    function testFork_VetoSignallingToNormal() public {
         _assertNormalState();
 
-        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
+        _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
 
         _assertNormalState();
 
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
+        _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
         _activateNextState();
 
-        _assertVetoSignalingDeactivationState();
+        _assertVetoSignallingDeactivationState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+        _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
         _activateNextState();
 
         _assertVetoCooldownState();
@@ -84,44 +83,44 @@ contract GovernanceStateTransitions is ScenarioTestBlueprint {
         _getVetoSignallingEscrow().unlockStETH();
         vm.stopPrank();
 
-        _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+        _wait(_getVetoCooldownDuration().plusSeconds(1));
         _activateNextState();
 
         _assertNormalState();
     }
 
-    function test_signalling_non_stop() public {
+    function testFork_VetoSignallingVetoCooldownCycle() public {
         _assertNormalState();
 
-        _lockStETH(_VETOER, _dualGovernanceConfigProvider.FIRST_SEAL_RAGE_QUIT_SUPPORT() - PercentsD16.from(1));
+        _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
         _assertNormalState();
 
         _lockStETH(_VETOER, 1 gwei);
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
+        _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
         _activateNextState();
 
-        _assertVetoSignalingDeactivationState();
+        _assertVetoSignallingDeactivationState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION().plusSeconds(1));
+        _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
         _activateNextState();
 
         _assertVetoCooldownState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
+        _wait(_getVetoCooldownDuration().plusSeconds(1));
         _activateNextState();
 
         _assertVetoSignalingState();
     }
 
-    function test_signalling_to_rage_quit() public {
+    function testFork_VetoSignallingToRageQuit() public {
         _assertNormalState();
 
-        _lockStETH(_VETOER, _dualGovernanceConfigProvider.SECOND_SEAL_RAGE_QUIT_SUPPORT());
+        _lockStETH(_VETOER, _getSecondSealRageQuitSupport());
         _assertVetoSignalingState();
 
-        _wait(_dualGovernanceConfigProvider.VETO_SIGNALLING_MAX_DURATION());
+        _wait(_getVetoSignallingMaxDuration());
         _activateNextState();
 
         _assertVetoSignalingState();

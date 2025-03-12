@@ -1,0 +1,77 @@
+chain_id = 17000
+
+# ======================
+# DUAL GOVERNANCE CONFIG
+# ======================
+
+[dual_governance]
+admin_proposer = "<address>"
+reseal_committee = "<address>"
+proposals_canceller = "<address>"
+tiebreaker_activation_timeout = 900
+sealable_withdrawal_blockers = ["<address>"]
+
+[dual_governance.signalling_tokens]
+st_eth = "<address>"
+wst_eth = "<address>"
+withdrawal_queue = "<address>"
+
+[dual_governance.sanity_check_params]
+min_withdrawals_batch_size = 1
+max_tiebreaker_activation_timeout = 1800
+min_tiebreaker_activation_timeout = 300
+max_sealable_withdrawal_blockers_count = 255
+max_min_assets_lock_duration = 3600
+
+[dual_governance_config_provider]
+first_seal_rage_quit_support = 300
+second_seal_rage_quit_support = 1500
+min_assets_lock_duration = 300
+veto_signalling_min_duration = 300
+veto_signalling_min_active_duration = 300
+veto_signalling_max_duration = 1800
+veto_signalling_deactivation_max_duration = 1800
+veto_cooldown_duration = 900
+rage_quit_extension_period_duration = 900
+rage_quit_eth_withdrawals_min_delay = 300
+rage_quit_eth_withdrawals_max_delay = 1800
+rage_quit_eth_withdrawals_delay_growth = 1296000
+
+# ======================
+# EMERGENCY PROTECTED TIMELOCK CONFIG
+# ======================
+
+[timelock]
+after_submit_delay = 900
+after_schedule_delay = 900
+
+[timelock.sanity_check_params]
+min_execution_delay = 300
+max_after_submit_delay = 1800
+max_after_schedule_delay = 1800
+max_emergency_mode_duration = 86400          # 1 day
+max_emergency_protection_duration = 31536000 # 1 year
+
+[timelock.emergency_protection]
+emergency_mode_duration = 86400                                               # 1 day
+emergency_protection_end_date = 1765200000                                    # Mon, 08 Dec 2025 13:20:00 GMT+0000
+emergency_governance_proposer = "<address>"
+emergency_activation_committee = "<address>"
+emergency_execution_committee = "<address>"
+
+# ======================
+# TIEBREAKER CONFIG
+# ======================
+
+[tiebreaker]
+quorum = 1
+committees_count = 3
+execution_delay = 900
+
+[[tiebreaker.committees]] 
+quorum = 1
+members = [<address>]
+
+[[tiebreaker.committees]] 
+quorum = 1
+members = [<address>]
