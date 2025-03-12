@@ -1,0 +1,91 @@
+
+# ======================
+# DUAL GOVERNANCE CONFIG
+# ======================
+
+[dual_governance]
+admin_proposer = "0x2e59A20f205bB85a89C53f1936454680651E618e"                 # DAO Voting *
+proposals_canceller = "0x2e59A20f205bB85a89C53f1936454680651E618e"            # DAO Voting *
+reseal_committee = "0x0000000000000000000000000000000000000000"               # Gnosis Multisig TBD ***
+sealable_withdrawal_blockers = [
+    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",                             # Withdrawal queue *
+    "0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e"                              # VEBO *
+    ],
+tiebreaker_activation_timeout = 31536000                                      # 1 year **
+
+[dual_governance.signalling_tokens]
+st_eth = "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"                         # stETH token *
+wst_eth = "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"                        # wstETH *
+withdrawal_queue = "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1"               # Withdrawal queue *
+
+[dual_governance.sanity_check_params]
+max_min_assets_lock_duration = 86400                                          # 24 hours ****
+max_sealable_withdrawal_blockers_count = 255                                  # **** 
+max_tiebreaker_activation_timeout = 31536000                                  # 1 year ****
+min_tiebreaker_activation_timeout = 15768000                                  # 6 months ****
+min_withdrawals_batch_size = 1                                                # ****
+
+[dual_governance_config_provider]
+first_seal_rage_quit_support = 100                                            # 1% **
+second_seal_rage_quit_support = 1000                                          # 10% **
+min_assets_lock_duration = 18000                                              # 5 hours **
+rage_quit_eth_withdrawals_delay_growth = 1296000                              # 15 days **
+rage_quit_eth_withdrawals_min_delay = 5184000                                 # 60 days **
+rage_quit_eth_withdrawals_max_delay = 15552000                                # 180 days **
+rage_quit_extension_period_duration = 604800                                  # 7 days **
+veto_cooldown_duration = 18000                                                # 5 hours **
+veto_signalling_deactivation_max_duration = 259200                            # 3 days **
+veto_signalling_min_active_duration = 18000                                   # 5 hours **
+veto_signalling_min_duration =  432000                                        # 5 days ****
+veto_signalling_max_duration = 3888000                                        # 45 days****
+
+# ======================
+# EMERGENCY PROTECTED TIMELOCK CONFIG
+# ======================
+
+[timelock]
+after_schedule_delay = 259200                                                 # 3 days ****
+after_submit_delay = 259200                                                   # 3 days ****
+
+[timelock.sanity_check_params]
+max_after_schedule_delay = 864000                                             # 10 days ****
+max_after_submit_delay = 864000                                               # 10 days ****
+max_emergency_mode_duration = 7776000                                         # 3 months ****
+max_emergency_protection_duration = 31536000                                  # 1 year ****
+min_execution_delay = 259200                                                  # 3 days **
+
+[timelock.emergency_protection]
+emergency_activation_committee = "0x0000000000000000000000000000000000000000" # Gnosis Multisig TBD ***
+emergency_execution_committee = "0x0000000000000000000000000000000000000000"  # Gnosis Multisig TBD ***
+emergency_governance_proposer = "0x0000000000000000000000000000000000000000"  # Gnosis Multisig for Dry run TBD ***
+emergency_mode_duration = 2592000                                             # 1 month
+emergency_protection_end_date = 1778878800                                    # Fri May 15 2026 21:00:00 GMT+0000 ****
+
+# ======================
+# TIEBREAKER CONFIG
+# ======================
+
+[tiebreaker]
+execution_delay = 2592000                                                     # 1 month **
+committees_count = 3                                                          # ***
+quorum = 2                                                                    # ***
+
+[[tiebreaker.committees]] # Influencers
+members = []                                                                  # 9 members *** 
+quorum = 5                                                                    # ***
+
+[[tiebreaker.committees]] # Node Operators
+members = []                                                                  # all NOs ***
+quorum = 50%+1                                                                # 50% + 1 ***
+
+[[tiebreaker.committees]] # Protocols
+members = []                                                                  # 5 protocols ***
+quorum = 3                                                                    # ***
+
+# ======================
+# DAO TIMELOCKED GOVERNANCE
+# ======================
+
+[timelocked_governance]
+governance="0x2e59A20f205bB85a89C53f1936454680651E618e"                       # DAO Voting *
+timelock="<TIMELOCK>"                                                         # Fills after main deployment
