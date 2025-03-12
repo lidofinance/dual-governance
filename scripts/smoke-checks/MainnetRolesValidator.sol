@@ -32,6 +32,7 @@ contract MainnetRolesValidator is LidoRolesValidator {
     address public constant WITHDRAWAL_VAULT = 0xB9D7934878B5FB9610B3fE8A5e441e8fad7E293f;
     address public constant WITHDRAWAL_QUEUE = 0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1;
     address public constant INSURANCE_FUND = 0x8B3f33234ABD88493c0Cd28De33D583B70beDe35;
+    address public constant VEBO = 0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e;
 
     constructor() LidoRolesValidator(ACL_ADDRESS) {}
 
@@ -80,6 +81,10 @@ contract MainnetRolesValidator is LidoRolesValidator {
         // WithdrawalQueue
         _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(resealManager));
         _validate(WITHDRAWAL_QUEUE, "RESUME_ROLE", OZRoles.granted(resealManager));
+
+        // VEBO
+        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(resealManager));
+        _validate(VEBO, "RESUME_ROLE", OZRoles.granted(resealManager));
 
         // AllowedTokensRegistry
         _validate(ALLOWED_TOKENS_REGISTRY, "DEFAULT_ADMIN_ROLE", OZRoles.granted(VOTING).revoked(AGENT));

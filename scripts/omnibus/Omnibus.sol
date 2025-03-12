@@ -30,27 +30,36 @@ contract Omnibus {
     address public constant WITHDRAWAL_VAULT = 0xB9D7934878B5FB9610B3fE8A5e441e8fad7E293f;
     address public constant WITHDRAWAL_QUEUE = 0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1;
     address public constant INSURANCE_FUND = 0x8B3f33234ABD88493c0Cd28De33D583B70beDe35;
+    address public constant VEBO = 0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e;
 
     address public immutable DUAL_GOVERNANCE;
     address public immutable ADMIN_EXECUTOR;
     address public immutable RESEAL_MANAGER;
     address public immutable ROLES_VALIDATOR;
+    address public immutable LAUNCH_VERIFIER;
 
     struct VoteItem {
         string description;
         EvmScriptUtils.EvmScriptCall call;
     }
 
-    constructor(address dualGovernance, address adminExecutor, address resealManager, address rolesValidator) {
+    constructor(
+        address dualGovernance,
+        address adminExecutor,
+        address resealManager,
+        address rolesValidator,
+        address launchVerifier
+    ) {
         DUAL_GOVERNANCE = dualGovernance;
         ADMIN_EXECUTOR = adminExecutor;
         RESEAL_MANAGER = resealManager;
         ROLES_VALIDATOR = rolesValidator;
+        LAUNCH_VERIFIER = launchVerifier;
     }
 
     function getVoteItems() external view returns (VoteItem[] memory voteItems) {
         ExternalCall[] memory executorCalls = new ExternalCall[](2);
-        voteItems = new VoteItem[](46);
+        voteItems = new VoteItem[](48);
 
         // Lido
         voteItems[0] = VoteItem({
@@ -275,38 +284,48 @@ contract Omnibus {
             call: _agentForward(WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (keccak256("RESUME_ROLE"), RESEAL_MANAGER)))
         });
 
+        // VEBO
+        voteItems[32] = VoteItem({
+            description: "Grant PAUSE_ROLE on VEBO to ResealManager",
+            call: _agentForward(VEBO, abi.encodeCall(IOZ.grantRole, (keccak256("PAUSE_ROLE"), RESEAL_MANAGER)))
+        });
+        voteItems[33] = VoteItem({
+            description: "Grant RESUME_ROLE on VEBO to ResealManager",
+            call: _agentForward(VEBO, abi.encodeCall(IOZ.grantRole, (keccak256("RESUME_ROLE"), RESEAL_MANAGER)))
+        });
+
         // AllowedTokensRegistry
         bytes32 DEFAULT_ADMIN_ROLE = bytes32(0);
-        voteItems[32] = VoteItem({
+        voteItems[33] = VoteItem({
             description: "Grant DEFAULT_ADMIN_ROLE on AllowedTokensRegistry to Voting",
             call: _agentForward(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.grantRole, (DEFAULT_ADMIN_ROLE, VOTING)))
         });
-        voteItems[33] = VoteItem({
+        voteItems[34] = VoteItem({
             description: "Revoke DEFAULT_ADMIN_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (DEFAULT_ADMIN_ROLE, AGENT)))
         });
-        voteItems[34] = VoteItem({
+        voteItems[35] = VoteItem({
             description: "Grant ADD_TOKEN_TO_ALLOWED_LIST_ROLE on AllowedTokensRegistry to Voting",
             call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.grantRole, (keccak256("ADD_TOKEN_TO_ALLOWED_LIST_ROLE"), VOTING))
             )
         });
-        voteItems[35] = VoteItem({
+        voteItems[36] = VoteItem({
             description: "Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.revokeRole, (keccak256("ADD_TOKEN_TO_ALLOWED_LIST_ROLE"), AGENT))
             )
         });
-        voteItems[36] = VoteItem({
+        voteItems[37] = VoteItem({
             description: "Grant REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE on AllowedTokensRegistry to Voting",
             call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
                 abi.encodeCall(IOZ.grantRole, (keccak256("REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE"), VOTING))
             )
         });
-        voteItems[37] = VoteItem({
+        voteItems[38] = VoteItem({
             description: "Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE on AllowedTokensRegistry from AGENT",
             call: _votingCall(
                 ALLOWED_TOKENS_REGISTRY,
@@ -315,37 +334,37 @@ contract Omnibus {
         });
 
         // WithdrawalVault
-        voteItems[38] = VoteItem({
+        voteItems[39] = VoteItem({
             description: "Set admin to Agent on WithdrawalVault",
             call: _votingCall(WITHDRAWAL_VAULT, abi.encodeCall(IWithdrawalVaultProxy.proxy_changeAdmin, (AGENT)))
         });
 
         // Insurance Fund
-        voteItems[39] = VoteItem({
+        voteItems[40] = VoteItem({
             description: "Set owner to Voting on InsuranceFund",
             call: _agentForward(INSURANCE_FUND, abi.encodeCall(IOwnable.transferOwnership, (VOTING)))
         });
 
         // Agent
-        voteItems[40] = VoteItem({
+        voteItems[41] = VoteItem({
             description: "Grant RUN_SCRIPT_ROLE to DualGovernance Executor on Agent",
             call: _votingCall(
                 address(ACL), abi.encodeCall(ACL.grantPermission, (ADMIN_EXECUTOR, AGENT, keccak256("RUN_SCRIPT_ROLE")))
             )
         });
-        voteItems[41] = VoteItem({
+        voteItems[42] = VoteItem({
             description: "Set RUN_SCRIPT_ROLE manager to Agent on Agent",
             call: _votingCall(
                 address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("RUN_SCRIPT_ROLE")))
             )
         });
-        voteItems[42] = VoteItem({
+        voteItems[43] = VoteItem({
             description: "Grant EXECUTE_ROLE to DualGovernance Executor on Agent",
             call: _votingCall(
                 address(ACL), abi.encodeCall(ACL.grantPermission, (ADMIN_EXECUTOR, AGENT, keccak256("EXECUTE_ROLE")))
             )
         });
-        voteItems[43] = VoteItem({
+        voteItems[44] = VoteItem({
             description: "Set EXECUTE_ROLE manager to Agent on Agent",
             call: _votingCall(
                 address(ACL), abi.encodeCall(ACL.setPermissionManager, (AGENT, AGENT, keccak256("EXECUTE_ROLE")))
@@ -353,7 +372,7 @@ contract Omnibus {
         });
 
         // Validate transferred roles
-        voteItems[44] = VoteItem({
+        voteItems[45] = VoteItem({
             description: "Validate transferred roles",
             call: _votingCall(
                 address(ROLES_VALIDATOR), abi.encodeCall(IRolesValidator.validate, (ADMIN_EXECUTOR, RESEAL_MANAGER))
@@ -367,12 +386,18 @@ contract Omnibus {
         executorCalls[1] = _agentForwardFromExecutor(
             address(ACL), abi.encodeCall(ACL.revokePermission, (VOTING, AGENT, keccak256("EXECUTE_ROLE")))
         );
-        voteItems[45] = VoteItem({
+        voteItems[46] = VoteItem({
             description: "Submit first proposal",
             call: _votingCall(
                 address(DUAL_GOVERNANCE),
                 abi.encodeCall(IGovernance.submitProposal, (executorCalls, string("First dual governance proposal")))
             )
+        });
+
+        // Verify state of the DG after launch
+        voteItems[47] = VoteItem({
+            description: "Verify dual governance launch",
+            call: _votingCall(address(LAUNCH_VERIFIER), abi.encodeCall(IDGLaunchVerifier.verify, ()))
         });
     }
 
