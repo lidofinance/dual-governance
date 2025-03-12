@@ -29,6 +29,7 @@ contract OmnibusHolesky {
     address public constant ALLOWED_TOKENS_REGISTRY = 0x091C0eC8B4D54a9fcB36269B5D5E5AF43309e666;
     address public constant WITHDRAWAL_VAULT = 0xF0179dEC45a37423EAD4FaD5fCb136197872EAd9;
     address public constant WITHDRAWAL_QUEUE = 0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50;
+    address public constant VEBO = 0xffDDF7025410412deaa05E3E1cE68FE53208afcb;
 
     address public immutable DUAL_GOVERNANCE;
     address public immutable ADMIN_EXECUTOR;
@@ -57,7 +58,7 @@ contract OmnibusHolesky {
 
     function getVoteItems() external view returns (VoteItem[] memory voteItems) {
         ExternalCall[] memory executorCalls = new ExternalCall[](3);
-        voteItems = new VoteItem[](49);
+        voteItems = new VoteItem[](51);
 
         uint256 index = 0;
 
@@ -301,6 +302,16 @@ contract OmnibusHolesky {
         voteItems[index++] = VoteItem({
             description: "Grant RESUME_ROLE on WithdrawalQueue to ResealManager",
             call: _agentForward(WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (keccak256("RESUME_ROLE"), RESEAL_MANAGER)))
+        });
+
+        // VEBO
+        voteItems[index++] = VoteItem({
+            description: "Grant PAUSE_ROLE on VEBO to ResealManager",
+            call: _agentForward(VEBO, abi.encodeCall(IOZ.grantRole, (keccak256("PAUSE_ROLE"), RESEAL_MANAGER)))
+        });
+        voteItems[index++] = VoteItem({
+            description: "Grant RESUME_ROLE on VEBO to ResealManager",
+            call: _agentForward(VEBO, abi.encodeCall(IOZ.grantRole, (keccak256("RESUME_ROLE"), RESEAL_MANAGER)))
         });
 
         // AllowedTokensRegistry

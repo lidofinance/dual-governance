@@ -27,6 +27,7 @@ contract HoleskyRolesValidator is LidoRolesValidator {
     address public constant ALLOWED_TOKENS_REGISTRY = 0x091C0eC8B4D54a9fcB36269B5D5E5AF43309e666;
     address public constant WITHDRAWAL_VAULT = 0xF0179dEC45a37423EAD4FaD5fCb136197872EAd9;
     address public constant WITHDRAWAL_QUEUE = 0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50;
+    address public constant VEBO = 0xffDDF7025410412deaa05E3E1cE68FE53208afcb;
 
     constructor() LidoRolesValidator(ACL_ADDRESS) {}
 
@@ -77,6 +78,10 @@ contract HoleskyRolesValidator is LidoRolesValidator {
         // WithdrawalQueue
         _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(resealManager));
         _validate(WITHDRAWAL_QUEUE, "RESUME_ROLE", OZRoles.granted(resealManager));
+
+        // VEBO
+        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(resealManager));
+        _validate(VEBO, "RESUME_ROLE", OZRoles.granted(resealManager));
 
         // AllowedTokensRegistry
         _validate(ALLOWED_TOKENS_REGISTRY, "DEFAULT_ADMIN_ROLE", OZRoles.granted(VOTING).revoked(AGENT));
