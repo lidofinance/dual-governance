@@ -21,7 +21,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
     Executor private _executor;
     TargetMock private _targetMock;
     ExecutableProposals.Context internal _proposals;
-    address proposer = makeAddr("PROPOSER");
+    address private proposer = makeAddr("PROPOSER");
 
     uint256 private constant PROPOSAL_ID_OFFSET = 1;
 
@@ -32,7 +32,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
     function test_submit_reverts_if_empty_proposals() external {
         vm.expectRevert(ExecutableProposals.EmptyCalls.selector);
-        _proposals.submit(address(0), new ExternalCall[](0));
+        this.external__submit(address(0), new ExternalCall[](0));
     }
 
     function test_submit_proposal() external {
@@ -105,7 +105,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.NotExist
             )
         );
-        _proposals.schedule(proposalId, Durations.ZERO);
+        this.external__schedule(proposalId, Durations.ZERO);
     }
 
     function test_cannot_schedule_proposal_twice() external {
@@ -118,7 +118,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Scheduled
             )
         );
-        _proposals.schedule(proposalId, Durations.ZERO);
+        this.external__schedule(proposalId, Durations.ZERO);
     }
 
     function testFuzz_cannot_schedule_proposal_before_delay_passed(Duration delay) external {
@@ -131,7 +131,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
         vm.expectRevert(
             abi.encodeWithSelector(ExecutableProposals.AfterSubmitDelayNotPassed.selector, PROPOSAL_ID_OFFSET)
         );
-        _proposals.schedule(PROPOSAL_ID_OFFSET, delay);
+        this.external__schedule(PROPOSAL_ID_OFFSET, delay);
     }
 
     function test_cannot_schedule_cancelled_proposal() external {
@@ -145,7 +145,7 @@ contract ExecutableProposalsUnitTests is UnitTest {
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.Cancelled
             )
         );
-        _proposals.schedule(proposalId, Durations.ZERO);
+        this.external__schedule(proposalId, Durations.ZERO);
     }
 
     function testFuzz_execute_proposal(Duration afterScheduleDelay, Duration minExecutionDelay) external {
@@ -379,14 +379,14 @@ contract ExecutableProposalsUnitTests is UnitTest {
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.NotExist
             )
         );
-        _proposals.getProposalDetails(proposalId);
+        this.external__getProposalDetails(proposalId);
 
         vm.expectRevert(
             abi.encodeWithSelector(
                 ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, ProposalStatus.NotExist
             )
         );
-        _proposals.getProposalCalls(proposalId);
+        this.external__getProposalCalls(proposalId);
     }
 
     function test_count_proposals() external {
@@ -514,5 +514,21 @@ contract ExecutableProposalsUnitTests is UnitTest {
 
     function external__execute(uint256 proposalId, Duration afterScheduleDelay, Duration minExecutionDelay) external {
         _proposals.execute(proposalId, afterScheduleDelay, minExecutionDelay);
+    }
+
+    function external__submit(address executor, ExternalCall[] memory calls) external {
+        _proposals.submit(executor, calls);
+    }
+
+    function external__schedule(uint256 proposalId, Duration afterSubmitDelay) external {
+        _proposals.schedule(proposalId, afterSubmitDelay);
+    }
+
+    function external__getProposalDetails(uint256 proposalId) external view {
+        _proposals.getProposalDetails(proposalId);
+    }
+
+    function external__getProposalCalls(uint256 proposalId) external view {
+        _proposals.getProposalCalls(proposalId);
     }
 }

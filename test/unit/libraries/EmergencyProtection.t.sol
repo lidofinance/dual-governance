@@ -8,11 +8,13 @@ import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 
 contract EmergencyProtectionTest is UnitTest {
-    EmergencyProtection.Context ctx;
+    using EmergencyProtection for EmergencyProtection.Context;
 
-    address emergencyGovernance = address(0x1);
-    address emergencyActivationCommittee = address(0x2);
-    address emergencyExecutionCommittee = address(0x3);
+    EmergencyProtection.Context private ctx;
+
+    address private emergencyGovernance = address(0x1);
+    address private emergencyActivationCommittee = address(0x2);
+    address private emergencyExecutionCommittee = address(0x3);
 
     function setUp() external {
         // Setup initial values
@@ -43,7 +45,7 @@ contract EmergencyProtectionTest is UnitTest {
                 EmergencyProtection.EmergencyProtectionExpired.selector, ctx.emergencyProtectionEndsAfter
             )
         );
-        EmergencyProtection.activateEmergencyMode(ctx);
+        this.external__activateEmergencyMode();
     }
 
     function test_deactivateEmergencyMode_HappyPath() external {
@@ -75,7 +77,7 @@ contract EmergencyProtectionTest is UnitTest {
         vm.expectRevert(
             abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyGovernance.selector, emergencyGovernance)
         );
-        EmergencyProtection.setEmergencyGovernance(ctx, emergencyGovernance);
+        this.external__setEmergencyGovernance(emergencyGovernance);
     }
 
     function test_setEmergencyProtectionEndDate_HappyPath() external {
@@ -94,14 +96,14 @@ contract EmergencyProtectionTest is UnitTest {
         vm.expectRevert(
             abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyProtectionEndDate.selector, invalidEndDate)
         );
-        EmergencyProtection.setEmergencyProtectionEndDate(ctx, invalidEndDate, Duration.wrap(86400));
+        this.external__setEmergencyProtectionEndDate(invalidEndDate, Duration.wrap(86400));
 
         vm.expectRevert(
             abi.encodeWithSelector(
                 EmergencyProtection.InvalidEmergencyProtectionEndDate.selector, ctx.emergencyProtectionEndsAfter
             )
         );
-        EmergencyProtection.setEmergencyProtectionEndDate(ctx, ctx.emergencyProtectionEndsAfter, Duration.wrap(86400));
+        this.external__setEmergencyProtectionEndDate(ctx.emergencyProtectionEndsAfter, Duration.wrap(86400));
     }
 
     function test_setEmergencyModeDuration() external {
@@ -120,12 +122,12 @@ contract EmergencyProtectionTest is UnitTest {
         vm.expectRevert(
             abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeDuration.selector, invalidDuration)
         );
-        EmergencyProtection.setEmergencyModeDuration(ctx, invalidDuration, Duration.wrap(86400));
+        this.external__setEmergencyModeDuration(invalidDuration, Duration.wrap(86400));
 
         vm.expectRevert(
             abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyModeDuration.selector, ctx.emergencyModeDuration)
         );
-        EmergencyProtection.setEmergencyModeDuration(ctx, ctx.emergencyModeDuration, Duration.wrap(86400));
+        this.external__setEmergencyModeDuration(ctx.emergencyModeDuration, Duration.wrap(86400));
     }
 
     function testFuzz_setEmergencyActivationCommittee_HappyPath(address committee) external {
@@ -142,7 +144,7 @@ contract EmergencyProtectionTest is UnitTest {
         vm.expectRevert(
             abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyActivationCommittee.selector, committee)
         );
-        EmergencyProtection.setEmergencyActivationCommittee(ctx, committee);
+        this.external__setEmergencyActivationCommittee(committee);
     }
 
     function testFuzz_setEmergencyExecutionCommittee_HappyPath(address committee) external {
@@ -159,7 +161,7 @@ contract EmergencyProtectionTest is UnitTest {
         vm.expectRevert(
             abi.encodeWithSelector(EmergencyProtection.InvalidEmergencyExecutionCommittee.selector, committee)
         );
-        EmergencyProtection.setEmergencyExecutionCommittee(ctx, committee);
+        this.external__setEmergencyExecutionCommittee(committee);
     }
 
     function test_checkCallerIsEmergencyActivationCommittee_HappyPath() external {
@@ -195,7 +197,7 @@ contract EmergencyProtectionTest is UnitTest {
 
     function test_checkEmergencyMode_RevertOn_NotInEmergencyMode() external {
         vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
-        EmergencyProtection.checkEmergencyMode(ctx, true);
+        this.external__checkEmergencyMode(true);
     }
 
     function test_isEmergencyModeActive_HappyPath() public {
@@ -253,5 +255,39 @@ contract EmergencyProtectionTest is UnitTest {
 
     function external__checkCallerIsEmergencyExecutionCommittee() external view {
         EmergencyProtection.checkCallerIsEmergencyExecutionCommittee(ctx);
+    }
+
+    function external__activateEmergencyMode() external {
+        ctx.activateEmergencyMode();
+    }
+
+    function external__setEmergencyGovernance(address newEmergencyGovernance) external {
+        ctx.setEmergencyGovernance(newEmergencyGovernance);
+    }
+
+    function external__setEmergencyProtectionEndDate(
+        Timestamp newEmergencyProtectionEndDate,
+        Duration maxEmergencyProtectionDuration
+    ) external {
+        ctx.setEmergencyProtectionEndDate(newEmergencyProtectionEndDate, maxEmergencyProtectionDuration);
+    }
+
+    function external__setEmergencyModeDuration(
+        Duration newEmergencyModeDuration,
+        Duration maxEmergencyModeDuration
+    ) external {
+        ctx.setEmergencyModeDuration(newEmergencyModeDuration, maxEmergencyModeDuration);
+    }
+
+    function external__setEmergencyActivationCommittee(address newActivationCommittee) external {
+        ctx.setEmergencyActivationCommittee(newActivationCommittee);
+    }
+
+    function external__setEmergencyExecutionCommittee(address newExecutionCommittee) external {
+        ctx.setEmergencyExecutionCommittee(newExecutionCommittee);
+    }
+
+    function external__checkEmergencyMode(bool isActive) external view {
+        ctx.checkEmergencyMode(isActive);
     }
 }
