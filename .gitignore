@@ -17,3 +17,6 @@ out/
 /broadcast/**/dry-run/
 .vscode/
 deploy-config
+
+# Kontrol files
+/kout
