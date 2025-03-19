@@ -13,7 +13,7 @@ interface IOZAccessControl {
     function hasRole(bytes32 role, address account) external view returns (bool);
 }
 
-abstract contract LidoRolesValidator {
+abstract contract RolesValidator {
     event RoleValidated(address entity, string roleName);
 
     error OZRoleNotGranted(address entity, string roleName, address app);

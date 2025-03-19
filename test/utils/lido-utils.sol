@@ -6,6 +6,7 @@ import {Vm} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
+import {EvmScriptUtils} from "scripts/utils/evm-script-utils.sol";
 
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
@@ -15,8 +16,6 @@ import {IAragonACL} from "./interfaces/IAragonACL.sol";
 import {IAragonAgent} from "./interfaces/IAragonAgent.sol";
 import {IAragonVoting} from "./interfaces/IAragonVoting.sol";
 import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
-
-import {EvmScriptUtils} from "./evm-script-utils.sol";
 
 import {
     ST_ETH,

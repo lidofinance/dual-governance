@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Duration} from "../../../contracts/types/Duration.sol";
-import {Timestamp} from "../../../contracts/types/Timestamp.sol";
+import {Duration} from "contracts/types/Duration.sol";
+import {Timestamp} from "contracts/types/Timestamp.sol";
 
 interface IRolesValidator {
     function validate(address dgAdminExecutor, address dgResealManager) external;
@@ -10,10 +10,6 @@ interface IRolesValidator {
 
 interface IDGLaunchVerifier {
     function verify() external;
-}
-
-interface IFoo {
-    function bar() external;
 }
 
 interface ITimeConstraints {

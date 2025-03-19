@@ -50,8 +50,6 @@ import {ExternalCallHelpers} from "../utils/executor-calls.sol";
 
 import {LidoUtils, EvmScriptUtils} from "./lido-utils.sol";
 
-import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
-
 import {SetupDeployment} from "./SetupDeployment.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 
