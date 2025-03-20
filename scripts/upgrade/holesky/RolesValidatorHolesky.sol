@@ -1,23 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
+
 import {AragonRoles} from "../libraries/AragonRoles.sol";
 import {OZRoles} from "../libraries/OZRoles.sol";
-
-import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
+import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 import {RolesValidatorBase} from "../RolesValidatorBase.sol";
-
-interface IWithdrawalsManagerProxy {
-    function proxy_getAdmin() external returns (address);
-}
 
 contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky {
     using OZRoles for OZRoles.Context;
     using AragonRoles for AragonRoles.Context;
 
+    error InvalidWithdrawalsVaultProxyAdmin(address actual, address expected);
+
     constructor() RolesValidatorBase(ACL) {}
 
-    function validate(address executor, address resealManager) external {
+    function validate(address dualGovernanceExecutor, address resealManager) external {
         // Lido
         _validate(LIDO, "STAKING_CONTROL_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
         _validate(LIDO, "RESUME_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
@@ -53,8 +52,14 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky {
         _validate(SDVT_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.checkManager(AGENT));
 
         // Agent
-        _validate(AGENT, "RUN_SCRIPT_ROLE", AragonRoles.checkManager(AGENT).granted(executor).granted(VOTING));
-        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.checkManager(AGENT).granted(executor).granted(VOTING));
+        _validate(
+            AGENT,
+            "RUN_SCRIPT_ROLE",
+            AragonRoles.checkManager(AGENT).granted(dualGovernanceExecutor).granted(VOTING).granted(MANAGER_MULTISIG)
+        );
+        _validate(
+            AGENT, "EXECUTE_ROLE", AragonRoles.checkManager(AGENT).granted(dualGovernanceExecutor).granted(VOTING)
+        );
 
         // ACL
         _validate(ACL, "CREATE_PERMISSIONS_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING).granted(AGENT));
@@ -75,12 +80,19 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky {
         );
 
         // WithdrawalVault
-        assert(IWithdrawalsManagerProxy(WITHDRAWAL_VAULT).proxy_getAdmin() == AGENT);
+        address withdrawalVaultProxyAdmin = IWithdrawalVaultProxy(WITHDRAWAL_VAULT).proxy_getAdmin();
+        if (withdrawalVaultProxyAdmin != AGENT) {
+            revert InvalidWithdrawalsVaultProxyAdmin(withdrawalVaultProxyAdmin, AGENT);
+        }
     }
 
     function validateAfterDG(address executor) external {
         // Agent
-        _validate(AGENT, "RUN_SCRIPT_ROLE", AragonRoles.revoked(VOTING).granted(executor));
-        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.revoked(VOTING).granted(executor));
+        _validate(
+            AGENT,
+            "RUN_SCRIPT_ROLE",
+            AragonRoles.checkManager(AGENT).revoked(VOTING).granted(executor).granted(MANAGER_MULTISIG)
+        );
+        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING).granted(executor));
     }
 }

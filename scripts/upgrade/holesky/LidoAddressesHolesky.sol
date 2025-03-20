@@ -16,4 +16,7 @@ contract LidoAddressesHolesky {
     address public constant WITHDRAWAL_VAULT = 0xF0179dEC45a37423EAD4FaD5fCb136197872EAd9;
     address public constant WITHDRAWAL_QUEUE = 0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50;
     address public constant VEBO = 0xffDDF7025410412deaa05E3E1cE68FE53208afcb;
+
+    // TODO: add actual multisig address that will be the manager over RUN_SCRIPT_ROLE role.
+    address public constant MANAGER_MULTISIG = address(0);
 }
