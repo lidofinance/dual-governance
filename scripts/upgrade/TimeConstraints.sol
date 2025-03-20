@@ -17,6 +17,7 @@ contract TimeConstraints {
     error DayTimeOutOfRange(Duration currentDayTime, Duration startDayTime, Duration endDayTime);
     error TimestampNotReached(Timestamp requiredTimestamp);
     error TimestampExceeded(Timestamp deadline);
+    error InvalidTimestampRange(Timestamp startTimestamp, Timestamp endTimestamp);
 
     // ---
     // Constants
