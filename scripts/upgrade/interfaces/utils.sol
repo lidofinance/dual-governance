@@ -16,6 +16,7 @@ interface IDGLaunchVerifier {
 interface ITimeConstraints {
     function checkExecuteWithinDayTime(Duration startDayTime, Duration endDayTime) external view;
     function checkExecuteAfterTimestamp(Timestamp timestamp) external view;
+    function checkExecuteBeforeTimestamp(Timestamp timestamp) external view;
     function getCurrentDayTime() external view returns (Duration);
 }
 

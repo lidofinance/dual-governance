@@ -4,20 +4,44 @@ pragma solidity 0.8.26;
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {EvmScriptUtils} from "test/utils/evm-script-utils.sol";
 
-import {IVoting} from "./interfaces/IVoting.sol";
 import {IForwarder} from "./interfaces/IForwarder.sol";
+import {IVoting} from "./interfaces/IVoting.sol";
 
+// @title OmnibusBase
+// @notice Abstract base contract for creating votes for the Aragon Voting.
+//
+// Inheriting contracts must implement:
+// - getVoteItems() - to define the specific actions in the proposal
+// - _voteItemsCount() - to specify the number of vote items
+// - _voting() - to specify the Aragon Voting contract address
+// - _forwarder() - to specify the Forwarder (Aragon Agent) contract address
 abstract contract OmnibusBase {
+    // @notice A structure that represents a single voting item in a governance proposal.
+    // @dev This struct is designed to match the format required by the Lido scripts repository
+    //      for compatibility with the voting tooling.
+    // @param description Human-readable description of the voting item.
+    // @param call The EVM script call containing the target contract address and calldata.
     struct VoteItem {
         string description;
         EvmScriptUtils.EvmScriptCall call;
     }
 
+    // @return VoteItem[] The list of voting items to be executed by Aragon Voting.
     function getVoteItems() public view virtual returns (VoteItem[] memory);
-    function getVoteItemsCount() internal pure virtual returns (uint256);
 
+    // @return The address of the voting contract.
+    function _voting() internal pure virtual returns (address);
+
+    // @return Returns the address of the forwarder contract.
+    function _forwarder() internal pure virtual returns (address);
+
+    // @return The number of vote items in the proposal.
+    function _voteItemsCount() internal pure virtual returns (uint256);
+
+    // @notice Converts all vote items to the Aragon-compatible EVMCallScript to validate against.
+    // @return _evmCallScript A bytes containing encoded EVMCallScript.
     function getEVMCallScript() external view returns (bytes memory) {
-        uint256 voteItemsCount = getVoteItemsCount();
+        uint256 voteItemsCount = _voteItemsCount();
 
         EvmScriptUtils.EvmScriptCall[] memory allCalls = new EvmScriptUtils.EvmScriptCall[](voteItemsCount);
         VoteItem[] memory voteItems = this.getVoteItems();
@@ -29,7 +53,9 @@ abstract contract OmnibusBase {
         return EvmScriptUtils.encodeEvmCallScript(allCalls);
     }
 
-    function validateVote(address voting, uint256 voteId) internal view returns (bool) {
+    // @notice Validates the specific vote on Aragon Voting contract.
+    // @return A boolean value indicating whether the vote is valid.
+    function validateVote(uint256 voteId) internal view returns (bool) {
         ( /*open*/
             , /*executed*/
             , /*startDate*/
@@ -42,7 +68,7 @@ abstract contract OmnibusBase {
             ,
             bytes memory script,
             /*phase*/
-        ) = IVoting(voting).getVote(voteId);
+        ) = IVoting(_voting()).getVote(voteId);
         return keccak256(script) == keccak256(this.getEVMCallScript());
     }
 
@@ -54,30 +80,21 @@ abstract contract OmnibusBase {
     }
 
     function _forwardCall(
-        address forwarder,
         address target,
         bytes memory data
     ) internal pure returns (EvmScriptUtils.EvmScriptCall memory) {
         return _votingCall(
-            forwarder, abi.encodeCall(IForwarder.forward, (EvmScriptUtils.encodeEvmCallScript(target, data)))
+            _forwarder(), abi.encodeCall(IForwarder.forward, (EvmScriptUtils.encodeEvmCallScript(target, data)))
         );
     }
 
-    function _executorCall(
-        address target,
-        uint96 value,
-        bytes memory payload
-    ) internal pure returns (ExternalCall memory) {
-        return ExternalCall(target, value, payload);
+    function _executorCall(address target, bytes memory payload) internal pure returns (ExternalCall memory) {
+        return ExternalCall(target, 0, payload);
     }
 
-    function _forwardCallFromExecutor(
-        address forwarder,
-        address target,
-        bytes memory data
-    ) internal pure returns (ExternalCall memory) {
+    function _forwardCallFromExecutor(address target, bytes memory data) internal pure returns (ExternalCall memory) {
         return _executorCall(
-            forwarder, 0, abi.encodeCall(IForwarder.forward, (EvmScriptUtils.encodeEvmCallScript(target, data)))
+            _forwarder(), abi.encodeCall(IForwarder.forward, (EvmScriptUtils.encodeEvmCallScript(target, data)))
         );
     }
 }
