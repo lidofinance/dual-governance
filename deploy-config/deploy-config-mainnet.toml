@@ -34,7 +34,7 @@ withdrawal_queue = "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1"               # 
 [dual_governance.sanity_check_params]
 
 # Max allowed period for assets lock duration to prevent DAO from locking user assets for a long time
-max_min_assets_lock_duration = 86400                                          # 24 hours ****
+max_min_assets_lock_duration = 4147200                                        # 48 days ****
 
 # The upper bound for the number of sealable withdrawal blockers allowed to be
 # registered in the Dual Governance. This parameter prevents filling the sealable withdrawal blockers
@@ -45,7 +45,7 @@ max_sealable_withdrawal_blockers_count = 255                                  # 
 
 # The lower and upper bound for the time the Dual Governance must spend in the "locked" state
 # before the tiebreaker committee is allowed to schedule proposals.
-max_tiebreaker_activation_timeout = 31536000                                  # 1 year ****
+max_tiebreaker_activation_timeout = 63072000                                  # 2 years ****
 min_tiebreaker_activation_timeout = 15768000                                  # 6 months ****
 
 # The minimum number of withdrawal requests allowed to create during a single call of
@@ -103,17 +103,17 @@ after_schedule_delay = 86400                                                  # 
 [timelock.sanity_check_params]
 
 # Represents the minimum allowed time that must pass between the submission of a proposal and its execution.
-min_execution_delay = 172800                                                  # 2 days **
+min_execution_delay = 259200                                                  # 3 days **
 
 # The upper bound for the delays required for proposal scheduling and execution.
-max_after_submit_delay = 864000                                               # 10 days ****
+max_after_submit_delay = 2592000                                              # 30 days ****
 max_after_schedule_delay = 864000                                             # 10 days ****
 
 # The upper bound for the time the timelock can remain in emergency mode.
-max_emergency_mode_duration = 7776000                                         # 3 months ****
+max_emergency_mode_duration = 31536000                                        # 1 year ****
 
 # The upper bound for the time the emergency protection mechanism can be activated.
-max_emergency_protection_duration = 63072000                                  # 2 years ****
+max_emergency_protection_duration = 94608000                                  # 3 years ****
 
 [timelock.emergency_protection]
 
