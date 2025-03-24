@@ -20,9 +20,8 @@ contract DeployTG is Script {
         string memory configFileName = vm.envString("TIMELOCKED_GOVERNANCE_CONFIG_FILE_NAME");
         console.log("Loading config file: %s", configFileName);
 
-        TimelockedGovernanceDeployConfig.Context memory deployConfig = TimelockedGovernanceDeployConfig.load(
-            DeployFiles.resolveDeployConfig(configFileName), "timelocked_governance"
-        );
+        TimelockedGovernanceDeployConfig.Context memory deployConfig =
+            TimelockedGovernanceDeployConfig.load(DeployFiles.resolveDeployConfig(configFileName), "");
 
         deployConfig.print();
 

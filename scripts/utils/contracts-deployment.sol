@@ -605,8 +605,8 @@ library TimelockedGovernanceDeployConfig {
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
         ctx.chainId = file.readUint($.key("chain_id"));
-        ctx.governance = file.readAddress($.key("governance"));
-        ctx.timelock = EmergencyProtectedTimelock(file.readAddress($.key("timelock")));
+        ctx.governance = file.readAddress($.key("timelocked_governance.governance"));
+        ctx.timelock = EmergencyProtectedTimelock(file.readAddress($.key("timelocked_governance.timelock")));
     }
 
     function validate(Context memory ctx) internal view {

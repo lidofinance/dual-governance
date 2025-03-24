@@ -1,4 +1,5 @@
-[timelocked_governance]
 chain_id=17000
+
+[timelocked_governance]
 governance="address"
 timelock="address"
