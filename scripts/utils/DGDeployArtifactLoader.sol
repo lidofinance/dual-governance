@@ -20,7 +20,6 @@ contract DGDeployArtifactLoader is Script {
 
     DGSetupDeployedContracts.Context internal _dgContracts;
     LidoUtils.Context internal _lidoUtils;
-    bytes internal _dgActivationVotingCalldata;
 
     function _loadEnv() internal returns (DGSetupDeployArtifacts.Context memory _deployArtifact) {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
@@ -29,8 +28,6 @@ contract DGDeployArtifactLoader is Script {
 
         _deployArtifact = DGSetupDeployArtifacts.load(deployArtifactFileName);
         _dgContracts = _deployArtifact.deployedContracts;
-
-        _dgActivationVotingCalldata = DGSetupDeployArtifacts.loadDgActivationVotingCalldata(deployArtifactFileName);
 
         if (_deployArtifact.deployConfig.chainId != block.chainid) {
             revert InvalidChainId(_deployArtifact.deployConfig.chainId);

@@ -29,6 +29,10 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
     using LidoUtils for LidoUtils.Context;
 
     function run() external {
+        string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
+        bytes memory dgActivationVotingCalldata =
+            DGSetupDeployArtifacts.loadDgActivationVotingCalldata(deployArtifactFileName);
+
         address daoEmergencyGovernance = 0x3B20930B143F21C4a837a837cBBcd15ac0B93504;
 
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
@@ -222,7 +226,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
             );
 
             console.log("Submitting DAO Voting proposal to activate Dual Governance");
-            uint256 voteId = _lidoUtils.adoptVoteEVMScript(_dgActivationVotingCalldata, "Activate Dual Governance");
+            uint256 voteId = _lidoUtils.adoptVoteEVMScript(dgActivationVotingCalldata, "Activate Dual Governance");
             console.log("Vote ID", voteId);
         } else {
             console.log("STEP 6 SKIPPED - Dual Governance activation vote already submitted");
