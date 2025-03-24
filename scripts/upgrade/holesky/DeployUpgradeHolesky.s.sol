@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+/* solhint-disable no-console */
+
 import {DGDeployArtifactLoader} from "scripts/utils/DGDeployArtifactLoader.sol";
 import {DGSetupDeployArtifacts} from "scripts/utils/contracts-deployment.sol";
 
 import {RolesValidatorHolesky} from "./RolesValidatorHolesky.sol";
 import {DGUpgradeHolesky} from "./DGUpgradeHolesky.sol";
+import {DGLaunchVerifier} from "../DGLaunchVerifier.sol";
+
+import {Duration} from "contracts/types/Duration.sol";
+import {Timestamp} from "contracts/types/Timestamp.sol";
 
 import {TimeConstraints} from "../TimeConstraints.sol";
+
+import {console} from "forge-std/console.sol";
 
 contract DeployUpgradeHolesky is DGDeployArtifactLoader {
     function run() public {
@@ -16,7 +24,49 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
 
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
 
+        address timelock = address(_deployArtifact.deployedContracts.timelock);
+        address dualGovernance = address(_deployArtifact.deployedContracts.dualGovernance);
+        address emergencyGovernance = address(_deployArtifact.deployedContracts.emergencyGovernance);
+        address emergencyActivationCommittee = _deployArtifact.deployConfig.timelock.emergencyActivationCommittee;
+        address emergencyExecutionCommittee = _deployArtifact.deployConfig.timelock.emergencyExecutionCommittee;
+        Timestamp emergencyProtectionEndDate = _deployArtifact.deployConfig.timelock.emergencyProtectionEndDate;
+        Duration emergencyModeDuration = _deployArtifact.deployConfig.timelock.emergencyModeDuration;
+        uint256 proposalsCount = 2;
+
+        address adminExecutor = address(_deployArtifact.deployedContracts.adminExecutor);
+        address resealManager = address(_deployArtifact.deployedContracts.resealManager);
+
         vm.startBroadcast();
+
+        console.log("=====================================");
+        console.log("Chain ID:", block.chainid);
+        console.log("Deployer address:", msg.sender);
+        console.log("=====================================");
+        console.log("Deploying Launch Verifier contract with the following params:\n");
+        console.log("=====================================");
+        console.log("Emergency Protected Timelock:", timelock);
+        console.log("Dual Governance:", dualGovernance);
+        console.log("Emergency Governance:", emergencyGovernance);
+        console.log("Emergency Activation Committee:", emergencyActivationCommittee);
+        console.log("Emergency Execution Committee:", emergencyExecutionCommittee);
+        console.log("Emergency Protection End Date:", emergencyProtectionEndDate.toSeconds());
+        console.log("Emergency Mode Duration:", emergencyModeDuration.toSeconds());
+        console.log("Proposals Count:", proposalsCount);
+        console.log("=====================================");
+
+        DGLaunchVerifier launchVerifier = new DGLaunchVerifier(
+            DGLaunchVerifier.ConstructorParams({
+                timelock: timelock,
+                dualGovernance: dualGovernance,
+                emergencyGovernance: emergencyGovernance,
+                emergencyActivationCommittee: emergencyActivationCommittee,
+                emergencyExecutionCommittee: emergencyExecutionCommittee,
+                emergencyProtectionEndDate: emergencyProtectionEndDate,
+                emergencyModeDuration: emergencyModeDuration,
+                proposalsCount: 2
+            })
+        );
+        vm.label(address(launchVerifier), "LAUNCH_VERIFIER");
 
         RolesValidatorHolesky rolesValidator = new RolesValidatorHolesky();
         vm.label(address(rolesValidator), "ROLES_VALIDATOR");
@@ -24,18 +74,30 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
         TimeConstraints timeConstraints = new TimeConstraints();
         vm.label(address(timeConstraints), "TIME_CONSTRAINTS");
 
-        // TODO: add launch verifier address
-        address launchVerifier = address(0);
+        console.log("Deploying Holesky omnibus builder contract with the following params:\n");
+        console.log("=====================================");
+        console.log("Dual Governance:", dualGovernance);
+        console.log("Admin Executor:", adminExecutor);
+        console.log("Reseal Manager:", resealManager);
+        console.log("Roles Validator (deployed):", address(rolesValidator));
+        console.log("Launch Verifier (deployed):", address(launchVerifier));
+        console.log("Time Constraints (deployed):", address(timeConstraints));
+        console.log("=====================================");
 
         DGUpgradeHolesky dgUpgradeHolesky = new DGUpgradeHolesky(
-            address(_deployArtifact.deployedContracts.dualGovernance),
-            address(_deployArtifact.deployedContracts.adminExecutor),
-            address(_deployArtifact.deployedContracts.resealManager),
+            address(dualGovernance),
+            address(adminExecutor),
+            address(resealManager),
             address(rolesValidator),
-            launchVerifier,
+            address(launchVerifier),
             address(timeConstraints)
         );
         vm.label(address(dgUpgradeHolesky), "DG_UPGRADE_CONTRACT");
         vm.stopBroadcast();
+
+        console.log("DGLaunchVerifier deployed successfully at ", address(launchVerifier));
+        console.log("RolesValidatorHolesky deployed successfully at ", address(rolesValidator));
+        console.log("TimeConstraints deployed successfully at ", address(timeConstraints));
+        console.log("DGUpgradeHolesky deployed successfully at ", address(dgUpgradeHolesky));
     }
 }
