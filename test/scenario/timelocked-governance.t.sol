@@ -4,17 +4,15 @@ pragma solidity 0.8.26;
 import {ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
-import {
-    ContractsDeployment,
-    TGScenarioTestSetup,
-    DGScenarioTestSetup,
-    ExternalCall,
-    ExternalCallHelpers
-} from "../utils/integration-tests.sol";
+import {ContractsDeployment, TGScenarioTestSetup, DGScenarioTestSetup} from "../utils/integration-tests.sol";
 
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
+import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+
 contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetup {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     function setUp() external {
         _deployTGSetup({isEmergencyProtectionEnabled: true});
     }
@@ -51,11 +49,15 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
 
         _step("4. DAO decides to cancel all pending proposals and deactivate emergency mode");
         {
-            ExternalCall[] memory deactivateEmergencyModeCall = ExternalCallHelpers.create(
-                [address(_timelock)], [abi.encodeCall(_timelock.deactivateEmergencyMode, ())]
+            ExternalCallsBuilder.Context memory deactivateEmergencyModeCallsBuilder =
+                ExternalCallsBuilder.create({callsCount: 1});
+
+            deactivateEmergencyModeCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(_timelock.deactivateEmergencyMode, ())
             );
+
             uint256 deactivateEmergencyModeProposalId =
-                _submitProposal(deactivateEmergencyModeCall, "DAO deactivates emergency mode");
+                _submitProposal(deactivateEmergencyModeCallsBuilder.getResult(), "DAO deactivates emergency mode");
 
             _wait(_getAfterSubmitDelay());
 
@@ -150,19 +152,21 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
                 _dgDeployConfig.dualGovernance.sanityCheckParams
             );
 
-            ExternalCall[] memory dualGovernanceLaunchCalls = ExternalCallHelpers.create(
-                [address(_dgDeployedContracts.dualGovernance), address(_timelock)],
-                [
-                    abi.encodeCall(
-                        _dgDeployedContracts.dualGovernance.registerProposer,
-                        (address(_lido.voting), _timelock.getAdminExecutor())
-                    ),
-                    abi.encodeCall(_timelock.setGovernance, (address(_dgDeployedContracts.dualGovernance)))
-                ]
+            ExternalCallsBuilder.Context memory upgradeCallsBuilder = ExternalCallsBuilder.create({callsCount: 2});
+            upgradeCallsBuilder.addCall(
+                address(_dgDeployedContracts.dualGovernance),
+                abi.encodeCall(
+                    _dgDeployedContracts.dualGovernance.registerProposer,
+                    (address(_lido.voting), _timelock.getAdminExecutor())
+                )
+            );
+            upgradeCallsBuilder.addCall(
+                address(_timelock),
+                abi.encodeCall(_timelock.setGovernance, (address(_dgDeployedContracts.dualGovernance)))
             );
 
             uint256 dualGovernanceLunchProposalId =
-                _submitProposal(dualGovernanceLaunchCalls, "Launch the Dual Governance");
+                _submitProposal(upgradeCallsBuilder.getResult(), "Launch the Dual Governance");
 
             _wait(_getAfterSubmitDelay());
 
@@ -191,16 +195,20 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
         {
             _activateEmergencyMode();
 
-            ExternalCall[] memory timelockedGovernanceLaunchCalls = ExternalCallHelpers.create(
+            ExternalCallsBuilder.Context memory timelockedGovernanceLaunchCallsBuilder =
+                ExternalCallsBuilder.create({callsCount: 2});
+
+            timelockedGovernanceLaunchCallsBuilder.addCall(
                 address(_timelock),
-                [
-                    abi.encodeCall(_timelock.setGovernance, (address(_tgDeployedContracts.timelockedGovernance))),
-                    abi.encodeCall(_timelock.deactivateEmergencyMode, ())
-                ]
+                abi.encodeCall(_timelock.setGovernance, (address(_tgDeployedContracts.timelockedGovernance)))
+            );
+            timelockedGovernanceLaunchCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(_timelock.deactivateEmergencyMode, ())
             );
 
-            uint256 timelockedGovernanceLunchProposalId =
-                _submitProposalByAdminProposer(timelockedGovernanceLaunchCalls, "Launch the Timelocked Governance");
+            uint256 timelockedGovernanceLunchProposalId = _submitProposalByAdminProposer(
+                timelockedGovernanceLaunchCallsBuilder.getResult(), "Launch the Timelocked Governance"
+            );
 
             _wait(_getAfterSubmitDelay());
 
@@ -222,9 +230,7 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
     }
 
     function _submitAndAssertMaliciousProposal() internal returns (uint256, ExternalCall[] memory) {
-        ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
-            address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-        );
+        ExternalCall[] memory maliciousCalls = _getMaliciousCalls();
 
         uint256 proposalId =
             _submitProposal(maliciousCalls, "DAO does malicious staff on potentially dangerous contract");

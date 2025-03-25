@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ExternalCall} from "../utils/executor-calls.sol";
 import {DGRegressionTestSetup} from "../utils/integration-tests.sol";
-import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
+import {ExecutableProposals, ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 import {LidoUtils} from "../utils/lido-utils.sol";
 
 contract HappyPathTest is DGRegressionTestSetup {

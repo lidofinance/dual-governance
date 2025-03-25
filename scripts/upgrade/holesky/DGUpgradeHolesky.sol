@@ -4,9 +4,6 @@ pragma solidity 0.8.26;
 import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
-import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-
-import {EvmScriptUtils} from "test/utils/evm-script-utils.sol";
 
 import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
 import {OmnibusBase} from "../OmnibusBase.sol";
@@ -16,21 +13,22 @@ import {IACL} from "../interfaces/IACL.sol";
 import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 import {IRolesValidator, IDGLaunchVerifier, ITimeConstraints} from "../interfaces/utils.sol";
 
-/**
- * @title DGUpgradeHolesky
- * @notice Script for migrating Lido to Dual Governance on Holesky testnet
- *
- * @dev This contract prepares the complete transition of the Lido protocol
- * critical roles and ownerships from direct Aragon Voting control to Dual Governance
- * on the Holesky testnet. It contains 51 items that includes:
- *
- * 1. Revoking critical permissions from Voting and transferring permission management to Agent
- * 2. Transferring ownerships to Agent over critical protocol contracts
- * 4. Validating the roles transfer to ensure proper role configuration
- * 5. Submitting the first proposal through the Dual Governance
- * 6. Verifying the successful launch of Dual Governance
- */
+import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+
+/// @title DGUpgradeHolesky
+/// @notice Script for migrating Lido to Dual Governance on Holesky testnet
+///
+/// @dev This contract prepares the complete transition of the Lido protocol
+/// critical roles and ownerships from direct Aragon Voting control to Dual Governance
+/// on the Holesky testnet. It contains 53 items that includes:
+///     1. Revoking critical permissions from Voting and transferring permission management to Agent
+///     2. Transferring ownerships to Agent over critical protocol contracts
+///     4. Validating the roles transfer to ensure proper role configuration
+///     5. Submitting the first proposal through the Dual Governance
+///     6. Verifying the successful launch of Dual Governance
 contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     bytes32 private constant PAUSE_ROLE = keccak256("PAUSE_ROLE");
     bytes32 private constant RESUME_ROLE = keccak256("RESUME_ROLE");
     bytes32 private constant RUN_SCRIPT_ROLE = keccak256("RUN_SCRIPT_ROLE");
@@ -40,6 +38,7 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
     bytes32 private constant MANAGE_NODE_OPERATOR_ROLE = keccak256("MANAGE_NODE_OPERATOR_ROLE");
 
     uint256 public constant VOTE_ITEMS_COUNT = 53;
+    uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
 
     address public immutable DUAL_GOVERNANCE;
     address public immutable ADMIN_EXECUTOR;
@@ -48,28 +47,34 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
     address public immutable LAUNCH_VERIFIER;
     address public immutable TIME_CONSTRAINTS;
 
+    // Additional grantee of the Agent.RUN_SCRIPT_ROLE, which may be used
+    // for development purposes or as a fallback recovery mechanism.
+    address public immutable AGENT_MANAGER;
+
     constructor(
         address dualGovernance,
         address adminExecutor,
         address resealManager,
         address rolesValidator,
         address launchVerifier,
-        address timeConstraints
-    ) {
+        address timeConstraints,
+        address agentManager
+    ) OmnibusBase(VOTING) {
         DUAL_GOVERNANCE = dualGovernance;
         ADMIN_EXECUTOR = adminExecutor;
         RESEAL_MANAGER = resealManager;
         ROLES_VALIDATOR = rolesValidator;
         LAUNCH_VERIFIER = launchVerifier;
         TIME_CONSTRAINTS = timeConstraints;
+        AGENT_MANAGER = agentManager;
     }
 
     function getVoteItems() public view override returns (VoteItem[] memory voteItems) {
         voteItems = new VoteItem[](VOTE_ITEMS_COUNT);
         uint256 index = 0;
 
+        // Lido Roles Migration
         {
-            // Lido
             bytes32 STAKING_CONTROL_ROLE = keccak256("STAKING_CONTROL_ROLE");
             bytes32 STAKING_PAUSE_ROLE = keccak256("STAKING_PAUSE_ROLE");
 
@@ -114,8 +119,8 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // DAOKernel Roles Migration
         {
-            // DAOKernel
             bytes32 APP_MANAGER_ROLE = keccak256("APP_MANAGER_ROLE");
 
             voteItems[index++] = VoteItem({
@@ -129,8 +134,8 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // TokenManager Roles Migration
         {
-            // TokenManager
             bytes32 MINT_ROLE = keccak256("MINT_ROLE");
             bytes32 BURN_ROLE = keccak256("BURN_ROLE");
             bytes32 ISSUE_ROLE = keccak256("ISSUE_ROLE");
@@ -159,8 +164,8 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // Finance
         {
-            // Finance
             bytes32 CHANGE_PERIOD_ROLE = keccak256("CHANGE_PERIOD_ROLE");
             bytes32 CHANGE_BUDGETS_ROLE = keccak256("CHANGE_BUDGETS_ROLE");
 
@@ -177,8 +182,8 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // EVMScriptRegistry
         {
-            // EVMScriptRegistry
             bytes32 REGISTRY_MANAGER_ROLE = keccak256("REGISTRY_MANAGER_ROLE");
             bytes32 REGISTRY_ADD_EXECUTOR_ROLE = keccak256("REGISTRY_ADD_EXECUTOR_ROLE");
 
@@ -211,8 +216,8 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // CuratedModule
         {
-            // CuratedModule
             bytes32 MANAGE_SIGNING_KEYS = keccak256("MANAGE_SIGNING_KEYS");
 
             voteItems[index++] = VoteItem({
@@ -263,8 +268,8 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // SDVTModule
         {
-            // SDVTModule
             voteItems[index++] = VoteItem({
                 description: "28. Set STAKING_ROUTER_ROLE manager to Agent on SDVTModule",
                 call: _votingCall(ACL, abi.encodeCall(IACL.setPermissionManager, (AGENT, SDVT_MODULE, STAKING_ROUTER_ROLE)))
@@ -285,8 +290,8 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // ACL
         {
-            // ACL
             bytes32 CREATE_PERMISSIONS_ROLE = keccak256("CREATE_PERMISSIONS_ROLE");
 
             voteItems[index++] = VoteItem({
@@ -305,41 +310,43 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // WithdrawalQueue
         {
-            // WithdrawalQueue
             voteItems[index++] = VoteItem({
                 description: "34. Grant PAUSE_ROLE on WithdrawalQueue to ResealManager",
-                call: _forwardCall(WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
+                call: _forwardCall(AGENT, WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
             });
 
             voteItems[index++] = VoteItem({
                 description: "35. Grant RESUME_ROLE on WithdrawalQueue to ResealManager",
-                call: _forwardCall(WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
+                call: _forwardCall(AGENT, WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
             });
         }
 
+        // VEBO
         {
-            // VEBO
             voteItems[index++] = VoteItem({
                 description: "36. Grant PAUSE_ROLE on VEBO to ResealManager",
-                call: _forwardCall(VEBO, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
+                call: _forwardCall(AGENT, VEBO, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
             });
 
             voteItems[index++] = VoteItem({
                 description: "37. Grant RESUME_ROLE on VEBO to ResealManager",
-                call: _forwardCall(VEBO, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
+                call: _forwardCall(AGENT, VEBO, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
             });
         }
 
+        // AllowedTokensRegistry
         {
-            // AllowedTokensRegistry
             bytes32 DEFAULT_ADMIN_ROLE = bytes32(0);
             bytes32 ADD_TOKEN_TO_ALLOWED_LIST_ROLE = keccak256("ADD_TOKEN_TO_ALLOWED_LIST_ROLE");
             bytes32 REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE = keccak256("REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE");
 
             voteItems[index++] = VoteItem({
                 description: "38. Grant DEFAULT_ADMIN_ROLE on AllowedTokensRegistry to Voting",
-                call: _forwardCall(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.grantRole, (DEFAULT_ADMIN_ROLE, VOTING)))
+                call: _forwardCall(
+                    AGENT, ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.grantRole, (DEFAULT_ADMIN_ROLE, VOTING))
+                )
             });
 
             voteItems[index++] = VoteItem({
@@ -376,16 +383,16 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // WithdrawalVault
         {
-            // WithdrawalVault
             voteItems[index++] = VoteItem({
                 description: "44. Set admin to Agent on WithdrawalVault",
                 call: _votingCall(WITHDRAWAL_VAULT, abi.encodeCall(IWithdrawalVaultProxy.proxy_changeAdmin, (AGENT)))
             });
         }
 
+        // Agent
         {
-            // Agent
             voteItems[index++] = VoteItem({
                 description: "45. Grant RUN_SCRIPT_ROLE to DualGovernance Executor on Agent",
                 call: _votingCall(ACL, abi.encodeCall(IACL.grantPermission, (ADMIN_EXECUTOR, AGENT, RUN_SCRIPT_ROLE)))
@@ -411,7 +418,9 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             // Manager multisig
             voteItems[index++] = VoteItem({
                 description: "49. Grant RUN_SCRIPT_ROLE to Manager multisig on Agent",
-                call: _forwardCall(ACL, abi.encodeCall(IACL.grantPermission, (MANAGER_MULTISIG, AGENT, RUN_SCRIPT_ROLE)))
+                call: _forwardCall(
+                    AGENT, ACL, abi.encodeCall(IACL.grantPermission, (AGENT_MANAGER, AGENT, RUN_SCRIPT_ROLE))
+                )
             });
         }
 
@@ -425,33 +434,38 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             });
         }
 
+        // Submit first dual governance proposal
         {
-            // Submit first dual governance proposal
-            ExternalCall[] memory executorCalls = new ExternalCall[](5);
-            uint256 executorCallsIndex = 0;
+            ExternalCallsBuilder.Context memory dgProposalCallsBuilder =
+                ExternalCallsBuilder.create({callsCount: DG_PROPOSAL_CALLS_COUNT});
 
-            executorCalls[executorCallsIndex++] = _executorCall(
+            // 1. Execution is allowed before Wednesday, 30 April 2025 00:00:00
+            dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
-                // Execution is allowed before Wednesday, 30 April 2025 00:00:00
                 abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1745971200)))
             );
 
-            executorCalls[executorCallsIndex++] = _executorCall(
+            // 2. Execution is allowed since 04:00 to 22:00
+            dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
-                // Execution is allowed since 04:00 to 22:00
                 abi.encodeCall(
                     ITimeConstraints.checkExecuteWithinDayTime, (Durations.from(4 hours), Durations.from(22 hours))
                 )
             );
 
-            executorCalls[executorCallsIndex++] =
-                _forwardCallFromExecutor(ACL, abi.encodeCall(IACL.revokePermission, (VOTING, AGENT, RUN_SCRIPT_ROLE)));
+            // 3.
+            dgProposalCallsBuilder.addForwardCall(
+                AGENT, ACL, abi.encodeCall(IACL.revokePermission, (VOTING, AGENT, RUN_SCRIPT_ROLE))
+            );
 
-            executorCalls[executorCallsIndex++] =
-                _forwardCallFromExecutor(ACL, abi.encodeCall(IACL.revokePermission, (VOTING, AGENT, EXECUTE_ROLE)));
+            // 4.
+            dgProposalCallsBuilder.addForwardCall(
+                AGENT, ACL, abi.encodeCall(IACL.revokePermission, (VOTING, AGENT, EXECUTE_ROLE))
+            );
 
-            executorCalls[executorCallsIndex++] = _forwardCallFromExecutor(
-                ROLES_VALIDATOR, abi.encodeCall(IRolesValidator.validateAfterDG, (ADMIN_EXECUTOR))
+            // 5.
+            dgProposalCallsBuilder.addForwardCall(
+                AGENT, ROLES_VALIDATOR, abi.encodeCall(IRolesValidator.validateAfterDG, (ADMIN_EXECUTOR))
             );
 
             voteItems[index++] = VoteItem({
@@ -460,7 +474,10 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
                     DUAL_GOVERNANCE,
                     abi.encodeCall(
                         IGovernance.submitProposal,
-                        (executorCalls, string("Revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting"))
+                        (
+                            dgProposalCallsBuilder.getResult(),
+                            string("Revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting")
+                        )
                     )
                 )
             });
@@ -485,17 +502,5 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
                 )
             });
         }
-    }
-
-    function _voting() internal pure override returns (address) {
-        return VOTING;
-    }
-
-    function _forwarder() internal pure override returns (address) {
-        return AGENT;
-    }
-
-    function _voteItemsCount() internal pure override returns (uint256) {
-        return VOTE_ITEMS_COUNT;
     }
 }

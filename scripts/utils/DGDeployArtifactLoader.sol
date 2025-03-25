@@ -69,15 +69,6 @@ contract DGDeployArtifactLoader is Script {
         return string(str);
     }
 
-    function _encodeExternalCalls(ExternalCall[] memory calls) internal pure returns (bytes memory result) {
-        result = abi.encodePacked(bytes4(uint32(1)));
-
-        for (uint256 i = 0; i < calls.length; ++i) {
-            ExternalCall memory call = calls[i];
-            result = abi.encodePacked(result, bytes20(call.target), bytes4(uint32(call.payload.length)), call.payload);
-        }
-    }
-
     function _wait(Duration duration) internal {
         vm.warp(block.timestamp + Duration.unwrap(duration));
     }

@@ -14,63 +14,73 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky {
 
     error InvalidWithdrawalsVaultProxyAdmin(address actual, address expected);
 
-    constructor() RolesValidatorBase(ACL) {}
+    address public immutable ADMIN_EXECUTOR;
+    address public immutable RESEAL_MANAGER;
 
-    function validate(address dualGovernanceExecutor, address resealManager) external {
+    // Additional grantee of the Agent.RUN_SCRIPT_ROLE, which may be used
+    // for development purposes or as a fallback recovery mechanism.
+    address public immutable AGENT_MANAGER;
+
+    constructor(address adminExecutor, address resealManager, address agentManager) RolesValidatorBase(ACL) {
+        ADMIN_EXECUTOR = adminExecutor;
+        RESEAL_MANAGER = resealManager;
+        AGENT_MANAGER = agentManager;
+    }
+
+    function validate() external {
+        // ACL
+        _validate(ACL, "CREATE_PERMISSIONS_ROLE", AragonRoles.manager(AGENT).revoked(VOTING).granted(AGENT));
+
         // Lido
-        _validate(LIDO, "STAKING_CONTROL_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
-        _validate(LIDO, "RESUME_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
-        _validate(LIDO, "PAUSE_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
-        _validate(LIDO, "STAKING_PAUSE_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
+        _validate(LIDO, "STAKING_CONTROL_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+        _validate(LIDO, "RESUME_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+        _validate(LIDO, "PAUSE_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+        _validate(LIDO, "UNSAFE_CHANGE_DEPOSITED_VALIDATORS_ROLE", AragonRoles.manager(address(0)).revoked(VOTING));
+        _validate(LIDO, "STAKING_PAUSE_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
 
-        // Kernel
-        _validate(KERNEL, "APP_MANAGER_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
+        // DAOKernel
+        _validate(KERNEL, "APP_MANAGER_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
 
         // TokenManager
-        _validate(TOKEN_MANAGER, "MINT_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
-        _validate(TOKEN_MANAGER, "REVOKE_VESTINGS_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
-        _validate(TOKEN_MANAGER, "BURN_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
-        _validate(TOKEN_MANAGER, "ISSUE_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
+        _validate(TOKEN_MANAGER, "ISSUE_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
+        _validate(TOKEN_MANAGER, "BURN_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
+        _validate(TOKEN_MANAGER, "MINT_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
+        _validate(TOKEN_MANAGER, "REVOKE_VESTINGS_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
 
         // Finance
-        _validate(FINANCE, "CHANGE_PERIOD_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
-        _validate(FINANCE, "CHANGE_BUDGETS_ROLE", AragonRoles.checkManager(VOTING).granted(VOTING));
+        _validate(FINANCE, "CHANGE_PERIOD_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
+        _validate(FINANCE, "CHANGE_BUDGETS_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
 
         // Aragon EVMScriptRegistry
-        _validate(EVM_SCRIPT_REGISTRY, "REGISTRY_MANAGER_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
-        _validate(EVM_SCRIPT_REGISTRY, "REGISTRY_ADD_EXECUTOR_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
+        _validate(EVM_SCRIPT_REGISTRY, "REGISTRY_MANAGER_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+        _validate(EVM_SCRIPT_REGISTRY, "REGISTRY_ADD_EXECUTOR_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
 
         // CuratedModule
-        _validate(CURATED_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.checkManager(AGENT));
-        _validate(CURATED_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
-        _validate(CURATED_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING));
-        _validate(CURATED_MODULE, "MANAGE_SIGNING_KEYS", AragonRoles.checkManager(AGENT).revoked(VOTING));
+        _validate(CURATED_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.manager(AGENT));
+        _validate(CURATED_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+        _validate(CURATED_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+        _validate(CURATED_MODULE, "MANAGE_SIGNING_KEYS", AragonRoles.manager(AGENT).revoked(VOTING));
 
         // SDVTModule
-        _validate(SDVT_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.checkManager(AGENT));
-        _validate(SDVT_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.checkManager(AGENT));
-        _validate(SDVT_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.checkManager(AGENT));
+        _validate(SDVT_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.manager(AGENT));
+        _validate(SDVT_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT));
+        _validate(SDVT_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.manager(AGENT));
 
         // Agent
         _validate(
             AGENT,
             "RUN_SCRIPT_ROLE",
-            AragonRoles.checkManager(AGENT).granted(dualGovernanceExecutor).granted(VOTING).granted(MANAGER_MULTISIG)
+            AragonRoles.manager(AGENT).granted(ADMIN_EXECUTOR).granted(VOTING).granted(AGENT_MANAGER)
         );
-        _validate(
-            AGENT, "EXECUTE_ROLE", AragonRoles.checkManager(AGENT).granted(dualGovernanceExecutor).granted(VOTING)
-        );
-
-        // ACL
-        _validate(ACL, "CREATE_PERMISSIONS_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING).granted(AGENT));
+        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).granted(ADMIN_EXECUTOR).granted(VOTING));
 
         // WithdrawalQueue
-        _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(resealManager));
-        _validate(WITHDRAWAL_QUEUE, "RESUME_ROLE", OZRoles.granted(resealManager));
+        _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER));
+        _validate(WITHDRAWAL_QUEUE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
         // VEBO
-        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(resealManager));
-        _validate(VEBO, "RESUME_ROLE", OZRoles.granted(resealManager));
+        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER));
+        _validate(VEBO, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
         // AllowedTokensRegistry
         _validate(ALLOWED_TOKENS_REGISTRY, "DEFAULT_ADMIN_ROLE", OZRoles.granted(VOTING).revoked(AGENT));
@@ -86,13 +96,13 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky {
         }
     }
 
-    function validateAfterDG(address executor) external {
+    function validateAfterDG() external {
         // Agent
         _validate(
             AGENT,
             "RUN_SCRIPT_ROLE",
-            AragonRoles.checkManager(AGENT).revoked(VOTING).granted(executor).granted(MANAGER_MULTISIG)
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(ADMIN_EXECUTOR).granted(AGENT_MANAGER)
         );
-        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.checkManager(AGENT).revoked(VOTING).granted(executor));
+        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).revoked(VOTING).granted(ADMIN_EXECUTOR));
     }
 }

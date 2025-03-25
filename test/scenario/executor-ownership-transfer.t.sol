@@ -6,13 +6,17 @@ import {Durations} from "contracts/types/Duration.sol";
 import {Executor} from "contracts/Executor.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
 
-import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall, DualGovernance} from "../utils/integration-tests.sol";
+import {DGScenarioTestSetup, DualGovernance} from "../utils/integration-tests.sol";
+
+import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 
 interface ISomeContract {
     function someMethod(uint256 someParameter) external;
 }
 
 contract ExecutorOwnershipTransferScenarioTest is DGScenarioTestSetup {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     address private immutable _NEW_REGULAR_PROPOSER = makeAddr("NEW_REGULAR_PROPOSER");
 
     Executor private _oldAdminExecutor;
@@ -29,36 +33,30 @@ contract ExecutorOwnershipTransferScenarioTest is DGScenarioTestSetup {
     function testFork_ExecutorOwnershipTransfer_HappyPath() external {
         uint256 shuffleExecutorsProposalId;
         DualGovernance dualGovernance = DualGovernance(_getGovernance());
+
         _step("1. DAO creates proposal to add new proposer and change the admin executor");
         {
-            ExternalCall[] memory executorsShuffleCalls = ExternalCallHelpers.create(
-                [
-                    // 1. Register new proposer and assign it to the old admin executor
-                    ExternalCall({
-                        value: 0,
-                        target: address(dualGovernance),
-                        payload: abi.encodeCall(
-                            dualGovernance.registerProposer, (_NEW_REGULAR_PROPOSER, address(_oldAdminExecutor))
-                        )
-                    }),
-                    // 2. Assign previous proposer (Aragon Voting) to the new executor
-                    ExternalCall({
-                        value: 0,
-                        target: address(dualGovernance),
-                        payload: abi.encodeCall(
-                            dualGovernance.setProposerExecutor, (address(_lido.voting), address(_newAdminExecutor))
-                        )
-                    }),
-                    // 3. Replace the admin executor of the Timelock contract
-                    ExternalCall({
-                        value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setAdminExecutor, (address(_newAdminExecutor)))
-                    })
-                ]
+            ExternalCallsBuilder.Context memory executorsShuffleCallsBuilder =
+                ExternalCallsBuilder.create({callsCount: 3});
+
+            // 1. Register new proposer and assign it to the old admin executor
+            executorsShuffleCallsBuilder.addCall(
+                address(dualGovernance),
+                abi.encodeCall(dualGovernance.registerProposer, (_NEW_REGULAR_PROPOSER, address(_oldAdminExecutor)))
             );
-            shuffleExecutorsProposalId =
-                _submitProposalByAdminProposer(executorsShuffleCalls, "Register new proposer and swap executors");
+            // 2. Assign previous proposer (Aragon Voting) to the new executor
+            executorsShuffleCallsBuilder.addCall(
+                address(dualGovernance),
+                abi.encodeCall(dualGovernance.setProposerExecutor, (address(_lido.voting), address(_newAdminExecutor)))
+            );
+            // 3. Replace the admin executor of the Timelock contract
+            executorsShuffleCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(_timelock.setAdminExecutor, (address(_newAdminExecutor)))
+            );
+
+            shuffleExecutorsProposalId = _submitProposalByAdminProposer(
+                executorsShuffleCallsBuilder.getResult(), "Register new proposer and swap executors"
+            );
         }
 
         _step("2. Proposal is scheduled and executed");
@@ -89,46 +87,37 @@ contract ExecutorOwnershipTransferScenarioTest is DGScenarioTestSetup {
 
         _step("4. New admin proposer can manage Dual Governance contracts");
         {
-            ExternalCall[] memory dgManageOperations = ExternalCallHelpers.create(
-                [
-                    ExternalCall({
-                        value: 0,
-                        target: address(dualGovernance),
-                        payload: abi.encodeCall(dualGovernance.unregisterProposer, (_NEW_REGULAR_PROPOSER))
-                    }),
-                    ExternalCall({
-                        value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(
-                            _timelock.transferExecutorOwnership, (address(_oldAdminExecutor), address(_newAdminExecutor))
-                        )
-                    }),
-                    ExternalCall({
-                        value: 0,
-                        target: address(_oldAdminExecutor),
-                        payload: abi.encodeCall(
-                            _oldAdminExecutor.execute, (address(_targetMock), 0, abi.encodeCall(ISomeContract.someMethod, (42)))
-                        )
-                    }),
-                    ExternalCall({
-                        value: 0,
-                        target: address(_oldAdminExecutor),
-                        payload: abi.encodeCall(_oldAdminExecutor.transferOwnership, (address(_timelock)))
-                    }),
-                    ExternalCall({
-                        value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setAfterSubmitDelay, (Durations.from(5 days)))
-                    }),
-                    ExternalCall({
-                        value: 0,
-                        target: address(_timelock),
-                        payload: abi.encodeCall(_timelock.setAfterScheduleDelay, (Durations.ZERO))
-                    })
-                ]
+            ExternalCallsBuilder.Context memory dgManageOperationsCallsBuilder =
+                ExternalCallsBuilder.create({callsCount: 6});
+
+            dgManageOperationsCallsBuilder.addCall(
+                address(dualGovernance), abi.encodeCall(dualGovernance.unregisterProposer, (_NEW_REGULAR_PROPOSER))
+            );
+            dgManageOperationsCallsBuilder.addCall(
+                address(_timelock),
+                abi.encodeCall(
+                    _timelock.transferExecutorOwnership, (address(_oldAdminExecutor), address(_newAdminExecutor))
+                )
+            );
+            dgManageOperationsCallsBuilder.addCall(
+                address(_oldAdminExecutor),
+                abi.encodeCall(
+                    _oldAdminExecutor.execute, (address(_targetMock), 0, abi.encodeCall(ISomeContract.someMethod, (42)))
+                )
+            );
+            dgManageOperationsCallsBuilder.addCall(
+                address(_oldAdminExecutor), abi.encodeCall(_oldAdminExecutor.transferOwnership, (address(_timelock)))
+            );
+            dgManageOperationsCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(_timelock.setAfterSubmitDelay, (Durations.from(5 days)))
+            );
+            dgManageOperationsCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(_timelock.setAfterScheduleDelay, (Durations.ZERO))
             );
 
-            uint256 proposalId = _submitProposalByAdminProposer(dgManageOperations, "Manage Dual Governance parameters");
+            uint256 proposalId = _submitProposalByAdminProposer(
+                dgManageOperationsCallsBuilder.getResult(), "Manage Dual Governance parameters"
+            );
 
             _assertProposalSubmitted(proposalId);
             _wait(_getAfterSubmitDelay());
