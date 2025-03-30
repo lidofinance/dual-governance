@@ -146,6 +146,9 @@ export const HOLESKY_PERMISSIONS_CONFIG: PermissionsConfig = {
       SET_NODE_OPERATOR_LIMIT_ROLE: { manager: "Agent", grantedTo: ["EvmScriptExecutor", "DevEOA3"] },
       MANAGE_SIGNING_KEYS: { manager: "EvmScriptExecutor", grantedTo: ["Voting", "EvmScriptExecutor", "DevEOA3"] },
     },
+    ACL: {
+      CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
+    },
     Agent: {
       TRANSFER_ROLE: { manager: "Voting", grantedTo: ["Finance"] },
       RUN_SCRIPT_ROLE: { manager: "Agent", grantedTo: ["DGExecutor", "DevAgentManager"] },
@@ -155,9 +158,6 @@ export const HOLESKY_PERMISSIONS_CONFIG: PermissionsConfig = {
       ADD_PRESIGNED_HASH_ROLE: { manager: "None" },
       ADD_PROTECTED_TOKEN_ROLE: { manager: "None" },
       REMOVE_PROTECTED_TOKEN_ROLE: { manager: "None" },
-    },
-    ACL: {
-      CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
     },
   },
   oz: {
