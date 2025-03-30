@@ -177,12 +177,12 @@ export const HOLESKY_PERMISSIONS_CONFIG: PermissionsConfig = {
       MANAGE_TOKEN_URI_ROLE: [],
       ORACLE_ROLE: ["AccountingOracle"],
       PAUSE_ROLE: ["OraclesGateSeal", "ResealManager"],
-      RESUME_ROLE: ["ResealManager"],
+      RESUME_ROLE: ["Agent", "ResealManager"],
     },
     Burner: {
       DEFAULT_ADMIN_ROLE: ["Agent"],
       REQUEST_BURN_MY_STETH_ROLE: [],
-      REQUEST_BURN_SHARES_ROLE: ["Lido", "CuratedModule", "SimpleDVT", "CSAccounting"],
+      REQUEST_BURN_SHARES_ROLE: ["Lido", "CuratedModule", "SimpleDVT", "CSAccounting", "SandboxStakingModule"],
     },
 
     // Oracle Contracts
@@ -232,8 +232,8 @@ export const HOLESKY_PERMISSIONS_CONFIG: PermissionsConfig = {
       SHARE_RATE_DEVIATION_LIMIT_MANAGER_ROLE: [],
     },
     OracleDaemonConfig: {
-      DEFAULT_ADMIN_ROLE: ["DevEOA1"],
-      CONFIG_MANAGER_ROLE: [],
+      DEFAULT_ADMIN_ROLE: ["Agent"],
+      CONFIG_MANAGER_ROLE: ["DevEOA1"],
     },
     // Staking Modules
     CSModule: {
