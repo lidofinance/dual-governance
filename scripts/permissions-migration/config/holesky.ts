@@ -112,8 +112,8 @@ export const HOLESKY_PERMISSIONS_CONFIG: PermissionsConfig = {
       CREATE_REPO_ROLE: { manager: "None" },
     },
     EVMScriptRegistry: {
-      REGISTRY_ADD_EXECUTOR_ROLE: { manager: "Agent" },
       REGISTRY_MANAGER_ROLE: { manager: "Agent" },
+      REGISTRY_ADD_EXECUTOR_ROLE: { manager: "Agent" },
     },
     VotingRepo: {
       CREATE_VERSION_ROLE: { manager: "None" },
