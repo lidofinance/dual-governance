@@ -92,11 +92,11 @@ export const HOLESKY_PERMISSIONS_CONFIG: PermissionsConfig = {
       CREATE_VOTES_ROLE: { manager: "Voting", grantedTo: ["TokenManager"] },
     },
     TokenManager: {
-      ISSUE_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
-      ASSIGN_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
-      BURN_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       MINT_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       REVOKE_VESTINGS_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
+      BURN_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
+      ISSUE_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
+      ASSIGN_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
     },
     Finance: {
       CREATE_PAYMENTS_ROLE: {
