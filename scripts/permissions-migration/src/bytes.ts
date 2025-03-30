@@ -23,7 +23,27 @@ function is0xPrefixed(bytes: HexStr): bytes is HexStrPrefixed {
   return bytes.startsWith("0x");
 }
 
+function slice(str: HexStr, start: number, end: number) {
+  if (end === undefined) {
+    end = length(str);
+  }
+  return normalize(strip0x(str).slice(start * 2, end * 2));
+}
+
+function length(str: HexStr) {
+  const hexStrLen = strip0x(str).length;
+
+  if (hexStrLen % 2 === 1) {
+    throw new Error("Invalid HexStr length");
+  }
+
+  return hexStrLen / 2;
+}
+
 export default {
   join,
+  slice,
   normalize,
+  prefix0x,
+  strip0x
 };

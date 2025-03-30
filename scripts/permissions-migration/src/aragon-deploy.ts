@@ -1,16 +1,12 @@
 import { ethers, id, JsonRpcProvider, getAddress } from "ethers";
-import { LIDO_CONTRACTS } from "../config/lido-contracts";
 
-import md from "./markdown";
+import { MAINNET_PERMISSIONS_CONFIG } from "../config/mainnet";
 
-const txHash =
-  "0x3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866";
+const txHash = "0x3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866";
 
 export async function retrieveDeployConfiguration(provider: JsonRpcProvider) {
   const txReceipt = await provider.getTransactionReceipt(txHash);
-  const iface = new ethers.Interface([
-    "event SetApp(bytes32 indexed namespace, bytes32 indexed appId, address app)",
-  ]);
+  const iface = new ethers.Interface(["event SetApp(bytes32 indexed namespace, bytes32 indexed appId, address app)"]);
 
   const deployedApps: Set<string> = new Set();
 
@@ -27,7 +23,7 @@ export async function retrieveDeployConfiguration(provider: JsonRpcProvider) {
     }
   }
 
-  for (const lidoContract of Object.entries(LIDO_CONTRACTS)) {
+  for (const lidoContract of Object.entries(MAINNET_PERMISSIONS_CONFIG.labels)) {
     const [name, address] = lidoContract;
     const normalizedAddress = getAddress(address);
 
@@ -37,10 +33,10 @@ export async function retrieveDeployConfiguration(provider: JsonRpcProvider) {
     }
   }
 
-  const result = [md.header(["Deployed apps"])];
+  const result = ["Deployed apps"];
 
   for (const app of deployedApps) {
-    result.push(md.row([app]));
+    result.push(app);
   }
 
   return result.join("\n");
