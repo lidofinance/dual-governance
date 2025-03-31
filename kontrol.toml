@@ -1,0 +1,170 @@
+[build.default]
+foundry-project-root       = '.'
+regen                      = true
+rekompile                  = true
+verbose                    = false
+debug                      = false
+require                    = 'test/kontrol/lido-lemmas.k'
+module-import              = 'VetoSignallingTest:LIDO-LEMMAS'
+auxiliary-lemmas           = true
+
+[prove.default]
+foundry-project-root       = '.'
+schedule                   = 'CANCUN'
+verbose                    = false
+debug                      = false
+max-depth                  = 100000
+max-iterations             = 10000
+reinit                     = false
+cse                        = false
+workers                    = 1
+max-frontier-parallel      = 6
+maintenance-rate           = 128
+assume-defined             = false
+no-log-succ-rewrites       = true
+no-stack-checks            = true
+optimize-kcfg              = false
+kore-rpc-command           = 'kore-rpc-booster --no-post-exec-simplify --equation-max-recursion 20 --equation-max-iterations 1000 --fallback-on Aborted'
+failure-information        = true
+counterexample-information = true
+minimize-proofs            = false
+fail-fast                  = true
+smt-timeout                = 60000
+smt-retry-limit            = 0
+break-every-step           = false
+break-on-jumpi             = false
+break-on-calls             = false
+break-on-storage           = false
+break-on-basic-blocks      = false
+break-on-cheatcodes        = false
+auto_abstract              = true
+run-constructor            = false
+match-test                 = [
+        #"RageQuitTest.testRageQuitDuration",
+        #"VetoCooldownTest.testVetoCooldownDuration",
+        #"VetoSignallingTest.testTransitionNormalToVetoSignalling",
+        #"VetoSignallingTest.testVetoSignallingInvariantsHoldInitially",
+        #"VetoSignallingTest.testVetoSignallingInvariantsArePreserved",
+        #"VetoSignallingTest.testDeactivationNotCancelled",
+        #"EscrowAccountingTest.testRageQuitSupport",
+        #"EscrowAccountingTest.testEscrowInvariantsHoldInitially",
+        #"EscrowAccountingTest.testRequestNextWithdrawalsBatch",
+        #"EscrowAccountingTest.testClaimNextWithdrawalsBatch",
+        #"EscrowLockUnlockTest.testLockStEthNormal",
+        #"EscrowLockUnlockTest.testLockStEthVetoSignalling_",
+        #"EscrowLockUnlockTest.testLockStEthVetoSignallingDeactivation",
+        #"EscrowLockUnlockTest.testLockStEthVetoCooldown",
+        #"EscrowLockUnlockTest.testLockStEthRageQuit",
+        #"EscrowLockUnlockTest.testUnlockStEthNormal",
+        #"EscrowLockUnlockTest.testUnlockStEthVetoSignalling_",
+        #"EscrowLockUnlockTest.testUnlockStEthVetoSignallingDeactivation",
+        #"EscrowLockUnlockTest.testUnlockStEthVetoCooldown",
+        #"EscrowLockUnlockTest.testUnlockStEthRageQuit",
+        #"EscrowOperationsTest.testCannotUnlockBeforeMinLockTime",
+        #"EscrowOperationsTest.testCannotLockUnlockInRageQuitEscrowState",
+        #"EscrowOperationsTest.testCannotWithdrawBeforeEthClaimTimelockElapsed",
+        #"ProposalOperationsTest.testCannotProposeInInvalidState",
+        #"ProposalOperationsTest.testCannotScheduleInInvalidStates",
+        #"ProposalOperationsTest.testCannotScheduleSubmissionAfterLastVetoSignalling",
+        #"ProposalOperationsTest.testOnlyProposalsCancellerCanCancelProposals",
+        "TimelockInvariantsTest.testOnlyGovernanceCanCancelProposals",
+        "TimelockInvariantsTest.testCancelledProposalsCannotBeScheduled",
+        "TimelockInvariantsTest.testCancelledProposalsCannotBeExecuted",
+        "TimelockInvariantsTest.testCancelledProposalsCannotBeEmergencyExecuted",
+        "TimelockInvariantsTest.testSubmit",
+        "TimelockInvariantsTest.testSubmitRevert",
+        "TimelockInvariantsTest.testSchedule",
+        "TimelockInvariantsTest.testScheduleRevert",
+        "TimelockInvariantsTest.testScheduleDelayHasNotPassedRevert",
+        "TimelockInvariantsTest.testExecute",
+        "TimelockInvariantsTest.testExecuteNonScheduledRevert",
+        "TimelockInvariantsTest.testExecuteExecutedRevert",
+        "TimelockInvariantsTest.testExecuteDelayHasNotPassedRevert",
+        "TimelockInvariantsTest.testCancelAllNonExecutedProposals",
+        "TimelockInvariantsTest.testSetGovernance",
+        "TimelockInvariantsTest.testSetAfterSubmitDelay",
+        "TimelockInvariantsTest.testSetAfterScheduleDelay",
+        "TimelockInvariantsTest.testTransferExecutorOwnership",
+        "TimelockInvariantsTest.testSetEmergencyProtectionActivationCommittee",
+        "TimelockInvariantsTest.testSetEmergencyProtectionExecutionCommittee",
+        "TimelockInvariantsTest.testSetEmergencyProtectionEndDate",
+        "TimelockInvariantsTest.testSetEmergencyModeDuration",
+        "TimelockInvariantsTest.testSetEmergencyGovernance",
+        "TimelockInvariantsTest.testActivateEmergencyMode",
+        "TimelockInvariantsTest.testActivateEmergencyModeRevert",
+        "TimelockInvariantsTest.testActivateEmergencyModeInEmergencyRevert",
+        "TimelockInvariantsTest.testActivateEmergencyAfterEndDateRevert",
+        "TimelockInvariantsTest.testEmergencyExecute",
+        "TimelockInvariantsTest.testEmergencyExecuteNonScheduledRevert",
+        "TimelockInvariantsTest.testEmergencyExecuteExecutedRevert",
+        "TimelockInvariantsTest.testEmergencyExecuteNormalModeRevert",
+        "TimelockInvariantsTest.testEmergencyExecuteRevert",
+        "TimelockInvariantsTest.testDeactivateEmergencyMode",
+        "TimelockInvariantsTest.testDeactivateEmergencyModeNormalModeRevert",
+        "TimelockInvariantsTest.testDeactivateEmergencyModeRevert",
+        "TimelockInvariantsTest.testEmergencyReset",
+        "TimelockInvariantsTest.testEmergencyResetNormalModeRevert",
+        "TimelockInvariantsTest.testEmergencyResetRevert",
+        "TimelockInvariantsTest.testSetAdminExecutor",
+        "TimelockInvariantsTest.testSetGovernanceRevert",
+        "TimelockInvariantsTest.testSetAfterSubmitDelayRevert",
+        "TimelockInvariantsTest.testSetAfterScheduleDelayRevert",
+        "TimelockInvariantsTest.testTransferExecutorOwnershipRevert",
+        "TimelockInvariantsTest.testSetAdminExecutorRevert",
+        "TimelockInvariantsTest.testSetEmergencyProtectionActivationCommitteeRevert",
+        "TimelockInvariantsTest.testSetEmergencyProtectionExecutionCommitteeRevert",
+        "TimelockInvariantsTest.testSetEmergencyProtectionEndDateRevert",
+        "TimelockInvariantsTest.testSetEmergencyModeDurationRevert",
+        "TimelockInvariantsTest.testSetEmergencyGovernanceRevert",
+        "TimelockedGovernanceTest.testSubmitProposalRevert",
+        "TimelockedGovernanceTest.testCancellAllPendingProposalsRevert",
+    ]
+
+[prove.lockunlock]
+foundry-project-root       = '.'
+schedule                   = 'CANCUN'
+verbose                    = false
+debug                      = false
+max-depth                  = 100000
+max-iterations             = 10000
+reinit                     = false
+cse                        = false
+workers                    = 1
+max-frontier-parallel      = 6
+maintenance-rate           = 128
+assume-defined             = false
+no-log-succ-rewrites       = true
+no-stack-checks            = true
+optimize-kcfg              = false
+kore-rpc-command           = 'kore-rpc-booster --no-post-exec-simplify --equation-max-recursion 20 --equation-max-iterations 1000 --fallback-on Aborted'
+failure-information        = true
+counterexample-information = true
+minimize-proofs            = false
+fail-fast                  = true
+smt-timeout                = 60000
+smt-retry-limit            = 0
+break-every-step           = false
+break-on-jumpi             = false
+break-on-calls             = false
+break-on-storage           = false
+break-on-basic-blocks      = false
+break-on-cheatcodes        = false
+auto_abstract              = true
+run-constructor            = false
+match-test                 = [
+        #"EscrowLockUnlockTest.testLockStEthNormal",
+        #"EscrowLockUnlockTest.testLockStEthVetoSignalling_",
+        #"EscrowLockUnlockTest.testLockStEthVetoSignallingDeactivation",
+        #"EscrowLockUnlockTest.testLockStEthVetoCooldown",
+        #"EscrowLockUnlockTest.testLockStEthRageQuit",
+        "EscrowLockUnlockTest.testUnlockStEthNormal",
+        "EscrowLockUnlockTest.testUnlockStEthVetoSignalling_",
+        "EscrowLockUnlockTest.testUnlockStEthVetoSignallingDeactivation",
+        "EscrowLockUnlockTest.testUnlockStEthVetoCooldown",
+        "EscrowLockUnlockTest.testUnlockStEthRageQuit",
+    ]
+
+[show.default]
+foundry-project-root       = '.'
+verbose                    = false
+debug                      = false
