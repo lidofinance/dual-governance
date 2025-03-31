@@ -9,7 +9,7 @@ chain_id = 17000
 admin_proposer = "0xdA7d2573Df555002503F29aA4003e398d28cc00f"
 proposals_canceller = "0xdA7d2573Df555002503F29aA4003e398d28cc00f"
 sealable_withdrawal_blockers = ["0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50", "0xffDDF7025410412deaa05E3E1cE68FE53208afcb"] 
-reseal_committee = ""               # Gnosis Multisig TBD
+reseal_committee = "0x891BCE021d39557E81EA465989869581829C266f"               # Gnosis Multisig TBD
 tiebreaker_activation_timeout = 900
 
 [dual_governance.signalling_tokens]
@@ -54,9 +54,9 @@ max_emergency_mode_duration = 86400
 max_emergency_protection_duration = 31536000
 
 [timelock.emergency_protection]
-emergency_activation_committee = ""
-emergency_execution_committee = ""
-emergency_governance_proposer = ""
+emergency_activation_committee = "0x5527372C869743CE93b3459568F359c3d581994e"
+emergency_execution_committee = "0x18695e68bEE208861c86a33214fB00a97C2f8063"
+emergency_governance_proposer = "0x5C4895aD223653d1ab69D21B4BA59Bb7FD2Ed120"
 emergency_mode_duration = 86400                                               # 1 day
 emergency_protection_end_date = 1767225600                                    # Thu Jan 01 2026 00:00:00 GMT+0000
 
@@ -70,17 +70,15 @@ execution_delay = 900
 quorum = 1
 
 [[tiebreaker.committees]] # Influencers (participants from Devnet dry run multisig)
-members = [
-]
+members = ["0x61E3340206b32d293C9f1F8C4Ef76Aabc65A53cb"]
 quorum = 1
 
 [[tiebreaker.committees]] # Node Operators (participants from Devnet dry run multisig)
-members = [
-]
+members = ["0x61E3340206b32d293C9f1F8C4Ef76Aabc65A53cb"]
 quorum = 1
 
 [[tiebreaker.committees]] # Protocols (participants from Devnet dry run multisig)
-members = []
+members = ["0x61E3340206b32d293C9f1F8C4Ef76Aabc65A53cb"]
 quorum = 1
 
 # ======================
