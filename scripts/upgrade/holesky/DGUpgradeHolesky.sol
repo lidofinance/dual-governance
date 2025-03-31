@@ -37,7 +37,7 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
     bytes32 private constant SET_NODE_OPERATOR_LIMIT_ROLE = keccak256("SET_NODE_OPERATOR_LIMIT_ROLE");
     bytes32 private constant MANAGE_NODE_OPERATOR_ROLE = keccak256("MANAGE_NODE_OPERATOR_ROLE");
 
-    uint256 public constant VOTE_ITEMS_COUNT = 53;
+    uint256 public constant VOTE_ITEMS_COUNT = 55;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
 
     address public immutable DUAL_GOVERNANCE;

@@ -94,12 +94,16 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky, IRol
 
         // Agent
 
-        // The `revoked(VOTING)` check is intentionally omitted in the checks below. At the time of vote execution,
-        // this permission is still granted to Voting and is intended to be revoked via a DualGovernance proposal.
-        // The corresponding validation is performed in `validateDGProposalLaunchPhase()` as the final step of the
-        // Dual Governance launch process.
-        _validate(AGENT, "RUN_SCRIPT_ROLE", AragonRoles.manager(AGENT).granted(ADMIN_EXECUTOR).granted(AGENT_MANAGER));
-        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).revoked(VOTING).granted(ADMIN_EXECUTOR));
+        // The `revoked(VOTING)` check is intentionally replaced with `granted(VOTING) in the checks below.
+        // At the time of vote execution, this permission is still granted to Voting and is intended to be revoked
+        // via a DualGovernance proposal. The corresponding validation is performed in `validateDGProposalLaunchPhase()`
+        // as the final step of the Dual Governance launch process.
+        _validate(
+            AGENT,
+            "RUN_SCRIPT_ROLE",
+            AragonRoles.manager(AGENT).granted(VOTING).granted(ADMIN_EXECUTOR).granted(AGENT_MANAGER)
+        );
+        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).granted(VOTING).granted(ADMIN_EXECUTOR));
 
         // WithdrawalQueue
         _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
