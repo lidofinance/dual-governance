@@ -16,4 +16,17 @@ contract LidoAddressesHolesky {
     address public constant WITHDRAWAL_VAULT = 0xF0179dEC45a37423EAD4FaD5fCb136197872EAd9;
     address public constant WITHDRAWAL_QUEUE = 0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50;
     address public constant VEBO = 0xffDDF7025410412deaa05E3E1cE68FE53208afcb;
+    address public constant STAKING_ROUTER = 0xd6EbF043D30A7fe46D1Db32BA90a0A51207FE229;
+    address public constant ORACLES_GATE_SEAL = 0xAE6eCd77DCC656c5533c4209454Fd56fB46e1778;
+    address public constant EVM_SCRIPT_EXECUTOR = 0x2819B65021E13CEEB9AC33E77DB32c7e64e7520D;
+
+    // Dev Addresses And Contracts
+    address public constant DEV_EOA_1 = 0xDA6bEE5441f2e6b364F3b25E85d5f3C29Bfb669E;
+    address public constant DEV_EOA_2 = 0x66b25CFe6B9F0e61Bd80c4847225Baf4EE6Ba0A2;
+    address public constant DEV_EOA_3 = 0x2A329E1973217eB3828EB0F2225d1b1C10DB72B0;
+    address public constant UNLIMITED_STAKE = 0xCfAC1357B16218A90639cd17F90226B385A71084;
+
+    // Additional grantee of the Agent.RUN_SCRIPT_ROLE, which may be used
+    // for development purposes or as a fallback recovery mechanism.
+    address public constant AGENT_MANAGER = 0xc807d4036B400dE8f6cD2aDbd8d9cf9a3a01CC30;
 }

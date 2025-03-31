@@ -5,8 +5,8 @@ import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
 
 interface IRolesValidator {
-    function validate(address dgAdminExecutor, address dgResealManager) external;
-    function validateAfterDG(address dgAdminExecutor) external;
+    function validateVotingLaunchPhase() external;
+    function validateDGProposalLaunchPhase() external;
 }
 
 interface IDGLaunchVerifier {

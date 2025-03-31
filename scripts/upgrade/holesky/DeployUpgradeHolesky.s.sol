@@ -36,8 +36,6 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
         address adminExecutor = address(_deployArtifact.deployedContracts.adminExecutor);
         address resealManager = address(_deployArtifact.deployedContracts.resealManager);
 
-        address agentManager = vm.envAddress("AGENT_MANAGER");
-
         vm.startBroadcast();
 
         console.log("=====================================");
@@ -54,7 +52,6 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
         console.log("Emergency Protection End Date:", emergencyProtectionEndDate.toSeconds());
         console.log("Emergency Mode Duration:", emergencyModeDuration.toSeconds());
         console.log("Proposals Count:", proposalsCount);
-        console.log("Agent Manager:", agentManager);
         console.log("=====================================");
 
         DGLaunchVerifier launchVerifier = new DGLaunchVerifier(
@@ -71,7 +68,7 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
         );
         vm.label(address(launchVerifier), "LAUNCH_VERIFIER");
 
-        RolesValidatorHolesky rolesValidator = new RolesValidatorHolesky(adminExecutor, resealManager, agentManager);
+        RolesValidatorHolesky rolesValidator = new RolesValidatorHolesky(adminExecutor, resealManager);
         vm.label(address(rolesValidator), "ROLES_VALIDATOR");
 
         TimeConstraints timeConstraints = new TimeConstraints();
@@ -93,8 +90,7 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
             address(resealManager),
             address(rolesValidator),
             address(launchVerifier),
-            address(timeConstraints),
-            agentManager
+            address(timeConstraints)
         );
         vm.label(address(dgUpgradeHolesky), "DG_UPGRADE_CONTRACT");
         vm.stopBroadcast();
