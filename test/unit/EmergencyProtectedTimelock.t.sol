@@ -19,9 +19,11 @@ import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/target-mock.sol";
-import {ExternalCall, ExternalCallHelpers} from "test/utils/executor-calls.sol";
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
 
 contract EmergencyProtectedTimelockUnitTests is UnitTest {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     EmergencyProtectedTimelock private _timelock;
     TargetMock private _targetMock;
     TargetMock private _anotherTargetMock;
@@ -293,18 +295,13 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.getAfterSubmitDelay(), initialAfterSubmitDelay);
         assertEq(_timelock.getAfterScheduleDelay(), initialAfterScheduleDelay);
 
+        ExternalCallsBuilder.Context memory callsBuilder = ExternalCallsBuilder.create(2);
+        callsBuilder.addCall(address(_timelock), abi.encodeCall(_timelock.setAfterSubmitDelay, newAfterSubmitDelay));
+        callsBuilder.addCall(address(_timelock), abi.encodeCall(_timelock.setAfterScheduleDelay, newAfterScheduleDelay));
+
         // submit proposal to update delay durations
         vm.startPrank(_dualGovernance);
-        uint256 updateDelaysProposalId = _timelock.submit(
-            _adminExecutor,
-            ExternalCallHelpers.create(
-                address(_timelock),
-                [
-                    abi.encodeCall(_timelock.setAfterSubmitDelay, newAfterSubmitDelay),
-                    abi.encodeCall(_timelock.setAfterScheduleDelay, newAfterScheduleDelay)
-                ]
-            )
-        );
+        uint256 updateDelaysProposalId = _timelock.submit(_adminExecutor, callsBuilder.getResult());
         vm.stopPrank();
 
         // as the current after submit delay is 0, proposal may be instantly scheduled

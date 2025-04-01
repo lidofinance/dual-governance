@@ -16,7 +16,7 @@ import {IAragonAgent} from "./interfaces/IAragonAgent.sol";
 import {IAragonVoting} from "./interfaces/IAragonVoting.sol";
 import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
 
-import {EvmScriptUtils} from "./evm-script-utils.sol";
+import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
 
 uint256 constant ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
 
@@ -49,6 +49,8 @@ address constant HOLESKY_DAO_VOTING = 0xdA7d2573Df555002503F29aA4003e398d28cc00f
 address constant HOLESKY_DAO_TOKEN_MANAGER = 0xFaa1692c6eea8eeF534e7819749aD93a1420379A;
 
 library LidoUtils {
+    using CallsScriptBuilder for CallsScriptBuilder.Context;
+
     struct Context {
         // core
         IStETH stETH;
@@ -280,35 +282,14 @@ library LidoUtils {
         if (self.ldoToken.balanceOf(DEFAULT_LDO_WHALE) < self.voting.minAcceptQuorumPct()) {
             setupLDOWhale(self, DEFAULT_LDO_WHALE);
         }
-        bytes memory voteScript = EvmScriptUtils.encodeEvmCallScript(
+        bytes memory voteScript = CallsScriptBuilder.create(
             address(self.voting), abi.encodeCall(self.voting.newVote, (script, description, false, false))
-        );
+        ).getResult();
 
         voteId = self.voting.votesLength();
 
         vm.prank(DEFAULT_LDO_WHALE);
         self.tokenManager.forward(voteScript);
-        supportVoteAndWaitTillDecided(self, voteId, DEFAULT_LDO_WHALE);
-    }
-
-    function adoptVoteEVMScript(
-        Context memory self,
-        bytes memory evmScript,
-        string memory description
-    ) internal returns (uint256 voteId) {
-        if (self.ldoToken.balanceOf(DEFAULT_LDO_WHALE) < self.voting.minAcceptQuorumPct()) {
-            setupLDOWhale(self, DEFAULT_LDO_WHALE);
-        }
-
-        bytes memory voteScript = EvmScriptUtils.encodeEvmCallScript(
-            address(self.voting), abi.encodeCall(self.voting.newVote, (evmScript, description, false, false))
-        );
-
-        vm.prank(DEFAULT_LDO_WHALE);
-        self.tokenManager.forward(voteScript);
-
-        voteId = self.voting.votesLength() - 1;
-
         supportVoteAndWaitTillDecided(self, voteId, DEFAULT_LDO_WHALE);
     }
 

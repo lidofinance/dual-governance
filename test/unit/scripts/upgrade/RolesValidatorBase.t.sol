@@ -5,8 +5,6 @@ import {Test} from "forge-std/Test.sol";
 import {RolesValidatorBase} from "scripts/upgrade/RolesValidatorBase.sol";
 import {AragonRoles} from "scripts/upgrade/libraries/AragonRoles.sol";
 import {OZRoles} from "scripts/upgrade/libraries/OZRoles.sol";
-import {IACL} from "scripts/upgrade/interfaces/IACL.sol";
-import {IOZ} from "scripts/upgrade/interfaces/IOZ.sol";
 
 contract MockACL {
     mapping(address => mapping(bytes32 => address)) private permissionManagers;
@@ -54,17 +52,20 @@ contract TestRolesValidator is RolesValidatorBase {
 }
 
 contract RolesValidatorBaseTest is Test {
+    using OZRoles for OZRoles.Context;
+    using AragonRoles for AragonRoles.Context;
+
     MockACL public aclContract;
     MockOZ public ozContract;
     TestRolesValidator public rolesValidator;
 
-    address private constant ENTITY = address(0x123);
-    address private constant MANAGER = address(0x456);
-    address private constant USER_1 = address(0x789);
-    address private constant USER_2 = address(0xabc);
-    address private constant USER_3 = address(0xdef);
+    string private roleName = "TEST_ROLE";
 
-    string roleName = "TEST_ROLE";
+    address private immutable USER_1 = makeAddr("USER_1");
+    address private immutable USER_2 = makeAddr("USER_2");
+    address private immutable USER_3 = makeAddr("USER_3");
+    address private immutable ENTITY = makeAddr("ENTITY");
+    address private immutable MANAGER = makeAddr("MANAGER");
 
     function setUp() external {
         aclContract = new MockACL();
@@ -72,32 +73,35 @@ contract RolesValidatorBaseTest is Test {
         rolesValidator = new TestRolesValidator(address(aclContract));
     }
 
-    function test_ValidateAragonRole_HappyPath() external {
+    function test_validateAragonRole_HappyPath() external {
         bytes32 roleNameHash = keccak256(bytes(roleName));
 
         aclContract.setPermissionManager(ENTITY, roleNameHash, MANAGER);
         aclContract.setPermission(ENTITY, roleNameHash, USER_1, true);
-        aclContract.setPermission(ENTITY, roleNameHash, USER_2, false);
+        aclContract.setPermission(ENTITY, roleNameHash, USER_2, true);
+        aclContract.setPermission(ENTITY, roleNameHash, USER_3, false);
 
-        address[] memory grantedTo = new address[](1);
-        grantedTo[0] = USER_1;
+        AragonRoles.Context memory role = AragonRoles.manager(MANAGER).granted(USER_1).granted(USER_2).revoked(USER_3);
 
-        address[] memory revokedFrom = new address[](1);
-        revokedFrom[0] = USER_2;
+        assertEq(role.manager, MANAGER);
+        assertEq(role.rolesTracker.grantedTo.length, 2);
+        assertEq(role.rolesTracker.grantedTo[0], USER_1);
+        assertEq(role.rolesTracker.grantedTo[1], USER_2);
+        assertEq(role.rolesTracker.revokedFrom.length, 1);
+        assertEq(role.rolesTracker.revokedFrom[0], USER_3);
 
-        AragonRoles.Context memory roleContext =
-            AragonRoles.Context({manager: MANAGER, grantedTo: grantedTo, revokedFrom: revokedFrom});
-
-        rolesValidator.validateAragonRole(ENTITY, roleName, roleContext);
+        rolesValidator.validateAragonRole(ENTITY, roleName, role);
     }
 
-    function test_ValidateAragonRole_InvalidManager() external {
+    function test_validateAragonRole_InvalidManager() external {
         bytes32 roleNameHash = keccak256(bytes(roleName));
 
         aclContract.setPermissionManager(ENTITY, roleNameHash, USER_1);
 
-        AragonRoles.Context memory roleContext =
-            AragonRoles.Context({manager: MANAGER, grantedTo: new address[](0), revokedFrom: new address[](0)});
+        AragonRoles.Context memory role = AragonRoles.manager(MANAGER);
+        assertEq(role.manager, MANAGER);
+        assertEq(role.rolesTracker.grantedTo.length, 0);
+        assertEq(role.rolesTracker.revokedFrom.length, 0);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -105,52 +109,54 @@ contract RolesValidatorBaseTest is Test {
             )
         );
 
-        rolesValidator.validateAragonRole(ENTITY, roleName, roleContext);
+        rolesValidator.validateAragonRole(ENTITY, roleName, role);
     }
 
-    function test_ValidateAragonRole_PermissionNotGranted() external {
+    function test_validateAragonRole_PermissionNotGranted() external {
         bytes32 roleNameHash = keccak256(bytes(roleName));
 
         aclContract.setPermissionManager(ENTITY, roleNameHash, MANAGER);
         aclContract.setPermission(ENTITY, roleNameHash, USER_1, false);
 
-        address[] memory grantedTo = new address[](1);
-        grantedTo[0] = USER_1;
-
-        AragonRoles.Context memory roleContext =
-            AragonRoles.Context({manager: MANAGER, grantedTo: grantedTo, revokedFrom: new address[](0)});
+        AragonRoles.Context memory role = AragonRoles.manager(MANAGER).granted(USER_1);
+        assertEq(role.manager, MANAGER);
+        assertEq(role.rolesTracker.grantedTo.length, 1);
+        assertEq(role.rolesTracker.grantedTo[0], USER_1);
+        assertEq(role.rolesTracker.revokedFrom.length, 0);
 
         vm.expectRevert(
             abi.encodeWithSelector(RolesValidatorBase.AragonPermissionNotGranted.selector, ENTITY, roleName, USER_1)
         );
 
-        rolesValidator.validateAragonRole(ENTITY, roleName, roleContext);
+        rolesValidator.validateAragonRole(ENTITY, roleName, role);
     }
 
-    function test_ValidateAragonRole_PermissionGranted() external {
+    function test_validateAragonRole_PermissionGranted() external {
         bytes32 roleNameHash = keccak256(bytes(roleName));
 
-        aclContract.setPermissionManager(ENTITY, roleNameHash, MANAGER);
         aclContract.setPermission(ENTITY, roleNameHash, USER_2, true);
 
         address[] memory revokedFrom = new address[](1);
         revokedFrom[0] = USER_2;
 
-        AragonRoles.Context memory roleContext =
-            AragonRoles.Context({manager: MANAGER, grantedTo: new address[](0), revokedFrom: revokedFrom});
+        AragonRoles.Context memory role = AragonRoles.manager(address(0)).revoked(USER_2);
+        assertEq(role.manager, address(0));
+        assertEq(role.rolesTracker.grantedTo.length, 0);
+        assertEq(role.rolesTracker.revokedFrom.length, 1);
+        assertEq(role.rolesTracker.revokedFrom[0], USER_2);
 
         vm.expectRevert(
             abi.encodeWithSelector(RolesValidatorBase.AragonPermissionGranted.selector, ENTITY, roleName, USER_2)
         );
-
-        rolesValidator.validateAragonRole(ENTITY, roleName, roleContext);
+        rolesValidator.validateAragonRole(ENTITY, roleName, role);
     }
 
-    function test_ValidateOZRole_HappyPath() external {
+    function test_validateOZRole_HappyPath() external {
         bytes32 roleHash = keccak256(bytes(roleName));
 
         ozContract.setRole(roleHash, USER_1, true);
         ozContract.setRole(roleHash, USER_2, false);
+        ozContract.setRole(roleHash, USER_3, true);
 
         address[] memory grantedTo = new address[](1);
         grantedTo[0] = USER_1;
@@ -158,12 +164,18 @@ contract RolesValidatorBaseTest is Test {
         address[] memory revokedFrom = new address[](1);
         revokedFrom[0] = USER_2;
 
-        OZRoles.Context memory roleContext = OZRoles.Context({grantedTo: grantedTo, revokedFrom: revokedFrom});
+        OZRoles.Context memory role = OZRoles.granted(USER_1).revoked(USER_2).granted(USER_3);
 
-        rolesValidator.validateOZRole(address(ozContract), roleName, roleContext);
+        assertEq(role.rolesTracker.grantedTo.length, 2);
+        assertEq(role.rolesTracker.grantedTo[0], USER_1);
+        assertEq(role.rolesTracker.grantedTo[1], USER_3);
+        assertEq(role.rolesTracker.revokedFrom.length, 1);
+        assertEq(role.rolesTracker.revokedFrom[0], USER_2);
+
+        rolesValidator.validateOZRole(address(ozContract), roleName, role);
     }
 
-    function test_ValidateOZRole_DefaultAdminRole() external {
+    function test_validateOZRole_DefaultAdminRole() external {
         string memory roleNameDefault = "DEFAULT_ADMIN_ROLE";
         bytes32 roleHash = bytes32(0);
 
@@ -176,61 +188,73 @@ contract RolesValidatorBaseTest is Test {
         address[] memory revokedFrom = new address[](1);
         revokedFrom[0] = USER_2;
 
-        OZRoles.Context memory roleContext = OZRoles.Context({grantedTo: grantedTo, revokedFrom: revokedFrom});
+        OZRoles.Context memory role = OZRoles.granted(USER_1).revoked(USER_2);
 
-        rolesValidator.validateOZRole(address(ozContract), roleNameDefault, roleContext);
+        assertEq(role.rolesTracker.grantedTo.length, 1);
+        assertEq(role.rolesTracker.grantedTo[0], USER_1);
+        assertEq(role.rolesTracker.revokedFrom.length, 1);
+        assertEq(role.rolesTracker.revokedFrom[0], USER_2);
+
+        rolesValidator.validateOZRole(address(ozContract), roleNameDefault, role);
     }
 
-    function test_ValidateOZRole_RoleNotGranted() external {
+    function test_validateOZRole_RoleNotGranted() external {
         bytes32 roleHash = keccak256(bytes(roleName));
 
         ozContract.setRole(roleHash, USER_1, false);
 
-        address[] memory grantedTo = new address[](1);
-        grantedTo[0] = USER_1;
+        OZRoles.Context memory role = OZRoles.granted(USER_1);
 
-        OZRoles.Context memory roleContext = OZRoles.Context({grantedTo: grantedTo, revokedFrom: new address[](0)});
+        assertEq(role.rolesTracker.grantedTo.length, 1);
+        assertEq(role.rolesTracker.grantedTo[0], USER_1);
+        assertEq(role.rolesTracker.revokedFrom.length, 0);
 
         vm.expectRevert(
             abi.encodeWithSelector(RolesValidatorBase.OZRoleNotGranted.selector, address(ozContract), roleName, USER_1)
         );
 
-        rolesValidator.validateOZRole(address(ozContract), roleName, roleContext);
+        rolesValidator.validateOZRole(address(ozContract), roleName, role);
     }
 
-    function test_ValidateOZRole_RoleGranted() external {
+    function test_validateOZRole_RoleGranted() external {
         bytes32 roleHash = keccak256(bytes(roleName));
 
         ozContract.setRole(roleHash, USER_2, true);
 
-        address[] memory revokedFrom = new address[](1);
-        revokedFrom[0] = USER_2;
+        OZRoles.Context memory role = OZRoles.revoked(USER_2);
 
-        OZRoles.Context memory roleContext = OZRoles.Context({grantedTo: new address[](0), revokedFrom: revokedFrom});
+        assertEq(role.rolesTracker.grantedTo.length, 0);
+        assertEq(role.rolesTracker.revokedFrom.length, 1);
+        assertEq(role.rolesTracker.revokedFrom[0], USER_2);
 
         vm.expectRevert(
             abi.encodeWithSelector(RolesValidatorBase.OZRoleGranted.selector, address(ozContract), roleName, USER_2)
         );
-
-        rolesValidator.validateOZRole(address(ozContract), roleName, roleContext);
+        rolesValidator.validateOZRole(address(ozContract), roleName, role);
     }
 
     function test_Events() external {
         bytes32 roleNameHash = keccak256(bytes(roleName));
 
         aclContract.setPermissionManager(ENTITY, roleNameHash, MANAGER);
-        AragonRoles.Context memory aragonRoleContext =
-            AragonRoles.Context({manager: MANAGER, grantedTo: new address[](0), revokedFrom: new address[](0)});
 
-        vm.expectEmit(true, true, true, true);
+        AragonRoles.Context memory aragonRole = AragonRoles.manager(MANAGER);
+        assertEq(aragonRole.manager, MANAGER);
+        assertEq(aragonRole.rolesTracker.grantedTo.length, 0);
+        assertEq(aragonRole.rolesTracker.revokedFrom.length, 0);
+
+        vm.expectEmit(address(rolesValidator));
         emit RolesValidatorBase.RoleValidated(ENTITY, roleName);
-        rolesValidator.validateAragonRole(ENTITY, roleName, aragonRoleContext);
+        rolesValidator.validateAragonRole(ENTITY, roleName, aragonRole);
 
-        OZRoles.Context memory ozRoleContext =
-            OZRoles.Context({grantedTo: new address[](0), revokedFrom: new address[](0)});
+        OZRoles.Context memory ozRole = OZRoles.revoked(USER_1).revoked(USER_2);
+        assertEq(ozRole.rolesTracker.grantedTo.length, 0);
+        assertEq(ozRole.rolesTracker.revokedFrom.length, 2);
+        assertEq(ozRole.rolesTracker.revokedFrom[0], USER_1);
+        assertEq(ozRole.rolesTracker.revokedFrom[1], USER_2);
 
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit(address(rolesValidator));
         emit RolesValidatorBase.RoleValidated(address(ozContract), roleName);
-        rolesValidator.validateOZRole(address(ozContract), roleName, ozRoleContext);
+        rolesValidator.validateOZRole(address(ozContract), roleName, ozRole);
     }
 }

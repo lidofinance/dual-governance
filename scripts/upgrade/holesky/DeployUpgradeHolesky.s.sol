@@ -68,7 +68,7 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
         );
         vm.label(address(launchVerifier), "LAUNCH_VERIFIER");
 
-        RolesValidatorHolesky rolesValidator = new RolesValidatorHolesky();
+        RolesValidatorHolesky rolesValidator = new RolesValidatorHolesky(adminExecutor, resealManager);
         vm.label(address(rolesValidator), "ROLES_VALIDATOR");
 
         TimeConstraints timeConstraints = new TimeConstraints();

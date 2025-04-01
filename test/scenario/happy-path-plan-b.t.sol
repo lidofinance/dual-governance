@@ -9,14 +9,15 @@ import {
     Durations,
     Timestamps,
     ContractsDeployment,
-    IPotentiallyDangerousContract,
     TGScenarioTestSetup,
-    DGScenarioTestSetup,
-    ExternalCall,
-    ExternalCallHelpers
+    DGScenarioTestSetup
 } from "../utils/integration-tests.sol";
 
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
+
 contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     function setUp() external {
         _deployTGSetup({isEmergencyProtectionEnabled: true});
     }
@@ -55,11 +56,7 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
         uint256 maliciousProposalId;
         {
             // Malicious vote was proposed by the attacker with huge LDO wad (but still not the majority)
-            ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
-                address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-            );
-
-            maliciousProposalId = _submitProposal(maliciousCalls, "Rug Pool attempt");
+            maliciousProposalId = _submitProposal(_getMaliciousCalls(), "Rug Pool attempt");
 
             // the call isn't executable until the delay has passed
             _assertProposalSubmitted(maliciousProposalId);
@@ -118,45 +115,58 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
                 sanityCheckParams: _dgDeployConfig.dualGovernance.sanityCheckParams
             });
 
-            ExternalCall[] memory dualGovernanceLaunchCalls = ExternalCallHelpers.create(
-                [
-                    address(_dgDeployedContracts.dualGovernance),
-                    address(_timelock),
-                    address(_timelock),
-                    address(_timelock),
-                    address(_timelock),
-                    address(_timelock),
-                    address(_timelock)
-                ],
-                [
-                    abi.encodeCall(
-                        _dgDeployedContracts.dualGovernance.registerProposer,
-                        (address(_lido.voting), _timelock.getAdminExecutor())
-                    ),
-                    // Only Dual Governance contract can call the Timelock contract
-                    abi.encodeCall(_timelock.setGovernance, (address(_dgDeployedContracts.dualGovernance))),
-                    // Now the emergency mode may be deactivated (all scheduled calls will be canceled)
-                    abi.encodeCall(_timelock.deactivateEmergencyMode, ()),
-                    // Setup emergency committee for some period of time until the Dual Governance is battle tested
-                    abi.encodeCall(
-                        _timelock.setEmergencyProtectionActivationCommittee,
-                        (address(_dgDeployConfig.timelock.emergencyActivationCommittee))
-                    ),
-                    abi.encodeCall(
-                        _timelock.setEmergencyProtectionExecutionCommittee,
-                        (address(_dgDeployConfig.timelock.emergencyExecutionCommittee))
-                    ),
-                    abi.encodeCall(
-                        _timelock.setEmergencyProtectionEndDate,
-                        (_DEFAULT_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
-                    ),
-                    abi.encodeCall(_timelock.setEmergencyModeDuration, (_DEFAULT_EMERGENCY_MODE_DURATION))
-                ]
+            ExternalCallsBuilder.Context memory dgLaunchCallsBuilder = ExternalCallsBuilder.create({callsCount: 7});
+
+            dgLaunchCallsBuilder.addCall(
+                address(_dgDeployedContracts.dualGovernance),
+                abi.encodeCall(
+                    _dgDeployedContracts.dualGovernance.registerProposer,
+                    (address(_lido.voting), _timelock.getAdminExecutor())
+                )
+            );
+
+            // Only Dual Governance contract can call the Timelock contract
+            dgLaunchCallsBuilder.addCall(
+                address(_timelock),
+                abi.encodeCall(_timelock.setGovernance, (address(_dgDeployedContracts.dualGovernance)))
+            );
+
+            // Now the emergency mode may be deactivated (all scheduled calls will be canceled)
+            dgLaunchCallsBuilder.addCall(address(_timelock), abi.encodeCall(_timelock.deactivateEmergencyMode, ()));
+
+            // Setup emergency committee for some period of time until the Dual Governance is battle tested
+            dgLaunchCallsBuilder.addCall(
+                address(_timelock),
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionActivationCommittee,
+                    (address(_dgDeployConfig.timelock.emergencyActivationCommittee))
+                )
+            );
+
+            dgLaunchCallsBuilder.addCall(
+                address(_timelock),
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionExecutionCommittee,
+                    (address(_dgDeployConfig.timelock.emergencyExecutionCommittee))
+                )
+            );
+
+            dgLaunchCallsBuilder.addCall(
+                address(_timelock),
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionEndDate,
+                    (_DEFAULT_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
+                )
+            );
+
+            dgLaunchCallsBuilder.addCall(
+                address(_timelock),
+                abi.encodeCall(_timelock.setEmergencyModeDuration, (_DEFAULT_EMERGENCY_MODE_DURATION))
             );
 
             // The vote to launch Dual Governance is launched and reached the quorum (the major part of LDO holder still have power)
             uint256 dualGovernanceLunchProposalId =
-                _submitProposal(dualGovernanceLaunchCalls, "Launch the Dual Governance");
+                _submitProposal(dgLaunchCallsBuilder.getResult(), "Launch the Dual Governance");
 
             // wait until the after submit delay has passed
             _wait(_getAfterSubmitDelay());
@@ -221,26 +231,35 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
                 sanityCheckParams: _dgDeployConfig.dualGovernance.sanityCheckParams
             });
 
-            ExternalCall[] memory dualGovernanceUpdateCalls = ExternalCallHelpers.create(
-                [address(dualGovernanceV2), address(_timelock), address(_timelock), address(_timelock)],
-                [
-                    abi.encodeCall(
-                        _dgDeployedContracts.dualGovernance.registerProposer,
-                        (address(_lido.voting), _timelock.getAdminExecutor())
-                    ),
-                    // Update the controller for timelock
-                    abi.encodeCall(_timelock.setGovernance, address(dualGovernanceV2)),
-                    // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
-                    abi.encodeCall(
-                        _timelock.setEmergencyProtectionEndDate,
-                        (_DEFAULT_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
-                    ),
-                    abi.encodeCall(_timelock.setEmergencyModeDuration, (Durations.from(30 days)))
-                ]
+            ExternalCallsBuilder.Context memory dualGovernanceUpdateCallsBuilder =
+                ExternalCallsBuilder.create({callsCount: 4});
+
+            dualGovernanceUpdateCallsBuilder.addCall(
+                address(dualGovernanceV2),
+                abi.encodeCall(
+                    _dgDeployedContracts.dualGovernance.registerProposer,
+                    (address(_lido.voting), _timelock.getAdminExecutor())
+                )
+            );
+            // Update the controller for timelock
+            dualGovernanceUpdateCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(_timelock.setGovernance, address(dualGovernanceV2))
+            );
+            // Assembly the emergency committee again, until the new version of Dual Governance is battle tested
+            dualGovernanceUpdateCallsBuilder.addCall(
+                address(_timelock),
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionEndDate,
+                    (_DEFAULT_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
+                )
+            );
+            dualGovernanceUpdateCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(_timelock.setEmergencyModeDuration, (Durations.from(30 days)))
             );
 
-            uint256 updateDualGovernanceProposalId =
-                _submitProposalByAdminProposer(dualGovernanceUpdateCalls, "Update Dual Governance to V2");
+            uint256 updateDualGovernanceProposalId = _submitProposalByAdminProposer(
+                dualGovernanceUpdateCallsBuilder.getResult(), "Update Dual Governance to V2"
+            );
 
             _wait(_getAfterSubmitDelay());
 
@@ -306,14 +325,10 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
     }
 
     function testFork_SubmittedCallsCantBeExecutedAfterEmergencyModeDeactivation() external {
-        ExternalCall[] memory maliciousCalls = ExternalCallHelpers.create(
-            address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-        );
-
         // schedule some malicious call
         uint256 maliciousProposalId;
         {
-            maliciousProposalId = _submitProposal(maliciousCalls, "Rug Pool attempt");
+            maliciousProposalId = _submitProposal(_getMaliciousCalls(), "Rug Pool attempt");
 
             // malicious calls can't be executed until the delays have passed
             _assertCanSchedule(maliciousProposalId, false);
@@ -351,7 +366,7 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
             // emergency mode still active
             assertTrue(_timelock.getEmergencyProtectionDetails().emergencyModeEndsAfter > Timestamps.now());
 
-            anotherMaliciousProposalId = _submitProposal(maliciousCalls, "Another Rug Pool attempt");
+            anotherMaliciousProposalId = _submitProposal(_getMaliciousCalls(), "Another Rug Pool attempt");
 
             // malicious calls can't be executed until the delays have passed
             _assertCanExecute(anotherMaliciousProposalId, false);

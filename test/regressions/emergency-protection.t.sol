@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {DGRegressionTestSetup, ExternalCall} from "../utils/integration-tests.sol";
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
+
+import {DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
 contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
     function setUp() external {
