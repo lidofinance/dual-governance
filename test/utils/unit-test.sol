@@ -5,18 +5,20 @@ import {Duration} from "contracts/types/Duration.sol";
 
 // solhint-disable-next-line
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
+import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 
 contract UnitTest is TestingAssertEqExtender {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     function _wait(Duration duration) internal {
         vm.warp(block.timestamp + Duration.unwrap(duration));
     }
 
     function _getMockTargetRegularStaffCalls(address targetMock) internal pure returns (ExternalCall[] memory) {
-        return ExternalCallHelpers.create(
-            address(targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (42))
-        );
+        ExternalCallsBuilder.Context memory builder = ExternalCallsBuilder.create({callsCount: 1});
+        builder.addCall(address(targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (42)));
+        return builder.getResult();
     }
 }

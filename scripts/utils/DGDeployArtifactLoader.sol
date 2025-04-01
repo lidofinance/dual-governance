@@ -20,7 +20,6 @@ contract DGDeployArtifactLoader is Script {
 
     DGSetupDeployedContracts.Context internal _dgContracts;
     LidoUtils.Context internal _lidoUtils;
-    bytes internal _dgActivationVotingCalldata;
 
     function _loadEnv() internal returns (DGSetupDeployArtifacts.Context memory _deployArtifact) {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
@@ -29,8 +28,6 @@ contract DGDeployArtifactLoader is Script {
 
         _deployArtifact = DGSetupDeployArtifacts.load(deployArtifactFileName);
         _dgContracts = _deployArtifact.deployedContracts;
-
-        _dgActivationVotingCalldata = DGSetupDeployArtifacts.loadDgActivationVotingCalldata(deployArtifactFileName);
 
         if (_deployArtifact.deployConfig.chainId != block.chainid) {
             revert InvalidChainId(_deployArtifact.deployConfig.chainId);
@@ -70,15 +67,6 @@ contract DGDeployArtifactLoader is Script {
             str[1 + i * 2] = alphabet[uint256(uint8(data[i] & 0x0f))];
         }
         return string(str);
-    }
-
-    function _encodeExternalCalls(ExternalCall[] memory calls) internal pure returns (bytes memory result) {
-        result = abi.encodePacked(bytes4(uint32(1)));
-
-        for (uint256 i = 0; i < calls.length; ++i) {
-            ExternalCall memory call = calls[i];
-            result = abi.encodePacked(result, bytes20(call.target), bytes4(uint32(call.payload.length)), call.payload);
-        }
     }
 
     function _wait(Duration duration) internal {

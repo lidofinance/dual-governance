@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
+
 import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
-import {DGScenarioTestSetup, ExternalCall} from "../utils/integration-tests.sol";
+import {DGScenarioTestSetup} from "../utils/integration-tests.sol";
 
 contract ProposalDeploymentModesScenarioTest is DGScenarioTestSetup {
     function setUp() external {}

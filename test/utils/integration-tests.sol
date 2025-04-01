@@ -18,6 +18,7 @@ import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
 
 import {Proposers} from "contracts/libraries/Proposers.sol";
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 
 import {ISignallingEscrow, IRageQuitEscrow} from "contracts/Escrow.sol";
@@ -27,8 +28,6 @@ import {EmergencyProtectedTimelock} from "contracts/EmergencyProtectedTimelock.s
 import {LidoUtils, IStETH, IWstETH, IWithdrawalQueue} from "./lido-utils.sol";
 import {TargetMock} from "./target-mock.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
-// solhint-disable-next-line no-unused-import
-import {ExternalCall, ExternalCallHelpers} from "../utils/executor-calls.sol";
 
 import {
     ContractsDeployment,
@@ -199,6 +198,15 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
             calls[i].target = address(_targetMock);
             calls[i].payload = abi.encodeCall(IPotentiallyDangerousContract.doRegularStaff, (i));
         }
+    }
+
+    function _getMaliciousCalls() internal view returns (ExternalCall[] memory calls) {
+        calls = new ExternalCall[](1);
+        calls[0] = ExternalCall({
+            target: address(_targetMock),
+            value: 0,
+            payload: abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
+        });
     }
 
     function _getEmergencyModeDuration() internal view returns (Duration) {

@@ -7,8 +7,6 @@ import {console} from "forge-std/Test.sol";
 
 import {DGDeployArtifactLoader} from "../utils/DGDeployArtifactLoader.sol";
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
-import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {ExternalCallHelpers} from "test/utils/executor-calls.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
 import {IAragonForwarder} from "test/utils/interfaces/IAragonForwarder.sol";
@@ -25,10 +23,19 @@ import {DeployVerification} from "../utils/DeployVerification.sol";
 
 import {DGSetupDeployArtifacts, DGSetupDeployConfig} from "../utils/contracts-deployment.sol";
 
+import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
+
 contract LaunchAcceptance is DGDeployArtifactLoader {
     using LidoUtils for LidoUtils.Context;
+    using CallsScriptBuilder for CallsScriptBuilder.Context;
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     function run() external {
+        string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
+        bytes memory dgActivationVotingCalldata =
+            DGSetupDeployArtifacts.loadDgActivationVotingCalldata(deployArtifactFileName);
+
         address daoEmergencyGovernance = 0x3B20930B143F21C4a837a837cBBcd15ac0B93504;
 
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
@@ -83,68 +90,48 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
             require(timelock.isEmergencyModeActive() == false, "Emergency mode is active");
 
             // Propose to set Governance, Activation Committee, Execution Committee,  Emergency Mode End Date and Emergency Mode Duration
-            ExternalCall[] memory calls;
+            ExternalCallsBuilder.Context memory builder = ExternalCallsBuilder.create(6);
 
-            calls = ExternalCallHelpers.create(
-                [
-                    ExternalCall({
-                        target: address(timelock),
-                        value: 0,
-                        payload: abi.encodeWithSelector(timelock.setGovernance.selector, address(_dgContracts.dualGovernance))
-                    }),
-                    ExternalCall({
-                        target: address(timelock),
-                        value: 0,
-                        payload: abi.encodeWithSelector(timelock.setEmergencyGovernance.selector, daoEmergencyGovernance)
-                    }),
-                    ExternalCall({
-                        target: address(timelock),
-                        value: 0,
-                        payload: abi.encodeWithSelector(
-                            timelock.setEmergencyProtectionActivationCommittee.selector,
-                            _config.timelock.emergencyActivationCommittee
-                        )
-                    }),
-                    ExternalCall({
-                        target: address(timelock),
-                        value: 0,
-                        payload: abi.encodeWithSelector(
-                            timelock.setEmergencyProtectionExecutionCommittee.selector,
-                            _config.timelock.emergencyExecutionCommittee
-                        )
-                    }),
-                    ExternalCall({
-                        target: address(timelock),
-                        value: 0,
-                        payload: abi.encodeWithSelector(
-                            timelock.setEmergencyProtectionEndDate.selector,
-                            _config.timelock.emergencyProtectionEndDate.toSeconds()
-                        )
-                    }),
-                    ExternalCall({
-                        target: address(timelock),
-                        value: 0,
-                        payload: abi.encodeWithSelector(
-                            timelock.setEmergencyModeDuration.selector, _config.timelock.emergencyModeDuration.toSeconds()
-                        )
-                    })
-                ]
+            builder.addCall(
+                address(timelock), abi.encodeCall(timelock.setGovernance, (address(_dgContracts.dualGovernance)))
+            );
+            builder.addCall(
+                address(timelock), abi.encodeCall(timelock.setEmergencyGovernance, (daoEmergencyGovernance))
+            );
+            builder.addCall(
+                address(timelock),
+                abi.encodeCall(
+                    timelock.setEmergencyProtectionActivationCommittee, (_config.timelock.emergencyActivationCommittee)
+                )
+            );
+            builder.addCall(
+                address(timelock),
+                abi.encodeCall(
+                    timelock.setEmergencyProtectionExecutionCommittee, (_config.timelock.emergencyExecutionCommittee)
+                )
+            );
+            builder.addCall(
+                address(timelock),
+                abi.encodeCall(timelock.setEmergencyProtectionEndDate, (_config.timelock.emergencyProtectionEndDate))
+            );
+            builder.addCall(
+                address(timelock),
+                abi.encodeCall(timelock.setEmergencyModeDuration, (_config.timelock.emergencyModeDuration))
             );
 
             if (fromStep == 3) {
                 console.log("Submit proposal to set DG state calldata");
                 console.logBytes(
-                    abi.encodeWithSelector(
-                        IGovernance.submitProposal.selector,
-                        calls,
-                        "Reset emergency mode and set original DG as governance"
+                    abi.encodeCall(
+                        IGovernance.submitProposal,
+                        (builder.getResult(), "Reset emergency mode and set original DG as governance")
                     )
                 );
             }
 
             vm.prank(_config.timelock.emergencyGovernanceProposer);
             uint256 dgProposalId = _dgContracts.emergencyGovernance.submitProposal(
-                calls, "Reset emergency mode and set original DG as governance"
+                builder.getResult(), "Reset emergency mode and set original DG as governance"
             );
 
             console.log("DG Proposal submitted");
@@ -222,7 +209,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
             );
 
             console.log("Submitting DAO Voting proposal to activate Dual Governance");
-            uint256 voteId = _lidoUtils.adoptVoteEVMScript(_dgActivationVotingCalldata, "Activate Dual Governance");
+            uint256 voteId = _lidoUtils.adoptVote("Activate Dual Governance", dgActivationVotingCalldata);
             console.log("Vote ID", voteId);
         } else {
             console.log("STEP 6 SKIPPED - Dual Governance activation vote already submitted");
@@ -276,26 +263,22 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
         if (fromStep <= 10) {
             console.log("STEP 10 - Verify DAO has no agent forward permission from Voting");
-            // Verify that Voting has no permission to forward to Agent
-            ExternalCall[] memory someAgentForwardCall;
-            someAgentForwardCall = ExternalCallHelpers.create(
-                [
-                    ExternalCall({
-                        target: address(_lidoUtils.acl),
-                        value: 0,
-                        payload: abi.encodeWithSelector(
-                            IAragonACL.revokePermission.selector,
-                            address(_dgContracts.adminExecutor),
-                            _lidoUtils.agent,
-                            IAragonAgent(_lidoUtils.agent).RUN_SCRIPT_ROLE()
-                        )
-                    })
-                ]
-            );
+
+            bytes memory revokePermissionScript = CallsScriptBuilder.create(
+                address(_lidoUtils.acl),
+                abi.encodeCall(
+                    IAragonACL.revokePermission,
+                    (
+                        address(_dgContracts.adminExecutor),
+                        address(_lidoUtils.agent),
+                        IAragonAgent(_lidoUtils.agent).RUN_SCRIPT_ROLE()
+                    )
+                )
+            ).getResult();
 
             vm.expectRevert("ACL_AUTH_NO_MANAGER");
             vm.prank(address(_lidoUtils.voting));
-            IAragonForwarder(_lidoUtils.agent).forward(_encodeExternalCalls(someAgentForwardCall));
+            IAragonForwarder(_lidoUtils.agent).forward(revokePermissionScript);
             console.log("Agent forward permission revoked");
         } else {
             console.log("STEP 10 SKIPPED - Agent forward permission already revoked");

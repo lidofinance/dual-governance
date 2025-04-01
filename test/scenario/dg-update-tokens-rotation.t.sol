@@ -8,15 +8,13 @@ import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {
-    IRageQuitEscrow,
-    ContractsDeployment,
-    DGScenarioTestSetup,
-    ExternalCallHelpers,
-    ExternalCall
-} from "../utils/integration-tests.sol";
+import {IRageQuitEscrow, ContractsDeployment, DGScenarioTestSetup} from "../utils/integration-tests.sol";
+
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
 
 contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
@@ -172,13 +170,12 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
         uint256 maliciousProposalId;
         _step("4. Malicious actor unlock funds from Signalling Escrow");
         {
-            maliciousProposalId = _submitProposalByAdminProposer(
-                ExternalCallHelpers.create({
-                    target: address(_timelock),
-                    payload: abi.encodeCall(_timelock.setGovernance, (_VETOER))
-                }),
-                "Steal control over timelock contract"
-            );
+            ExternalCall[] memory maliciousCalls = new ExternalCall[](1);
+            maliciousCalls[0].target = address(_timelock);
+            maliciousCalls[0].payload = abi.encodeCall(_timelock.setGovernance, (_VETOER));
+
+            maliciousProposalId = _submitProposalByAdminProposer(maliciousCalls, "Steal control over timelock contract");
+
             _unlockStETH(_VETOER);
             _assertVetoSignallingDeactivationState();
         }
@@ -229,24 +226,18 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
         view
         returns (ExternalCall[] memory)
     {
-        return ExternalCallHelpers.create(
-            [
-                // register Aragon Voting as proposer
-                ExternalCall({
-                    value: 0,
-                    target: address(newDualGovernanceInstance),
-                    payload: abi.encodeCall(
-                        DualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor())
-                    )
-                }),
-                ExternalCall({
-                    value: 0,
-                    target: address(_timelock),
-                    payload: abi.encodeCall(_timelock.setGovernance, (address(newDualGovernanceInstance)))
-                })
-                // NOTE: There should be additional calls with the proper setting up of the new DG implementation
-            ]
+        ExternalCallsBuilder.Context memory callsBuilder = ExternalCallsBuilder.create({callsCount: 2});
+
+        callsBuilder.addCall(
+            address(newDualGovernanceInstance),
+            abi.encodeCall(DualGovernance.registerProposer, (address(_lido.voting), _timelock.getAdminExecutor()))
         );
+
+        callsBuilder.addCall(
+            address(_timelock), abi.encodeCall(_timelock.setGovernance, (address(newDualGovernanceInstance)))
+        );
+
+        return callsBuilder.getResult();
     }
 
     function external__submitProposalByAdminProposer(ExternalCall[] memory calls)

@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {
-    DGScenarioTestSetup,
-    ExternalCallHelpers,
-    ExternalCall,
-    IPotentiallyDangerousContract,
-    IRageQuitEscrow
-} from "../utils/integration-tests.sol";
+import {DGScenarioTestSetup, IPotentiallyDangerousContract, IRageQuitEscrow} from "../utils/integration-tests.sol";
 
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
+
 contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     function setUp() external {
         _deployDGSetup({isEmergencyProtectionEnabled: false});
     }
@@ -47,12 +45,11 @@ contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
         {
             _activateNextState();
             _assertRageQuitState();
-            anotherProposalId = _submitProposalByAdminProposer(
-                ExternalCallHelpers.create(
-                    address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-                ),
-                "Another Proposal"
-            );
+
+            ExternalCallsBuilder.Context memory builder = ExternalCallsBuilder.create({callsCount: 1});
+            builder.addCall(address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ()));
+
+            anotherProposalId = _submitProposalByAdminProposer(builder.getResult(), "Another Proposal");
         }
 
         _step("4. Rage quit is finalized");

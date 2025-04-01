@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {DGRegressionTestSetup, PercentsD16, ExternalCall} from "../utils/integration-tests.sol";
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
+
+import {DGRegressionTestSetup, PercentsD16} from "../utils/integration-tests.sol";
 
 import {ISealable} from "../utils/interfaces/ISealable.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";

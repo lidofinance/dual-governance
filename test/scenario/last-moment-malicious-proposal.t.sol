@@ -4,11 +4,13 @@ pragma solidity 0.8.26;
 import {Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
+import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
+
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall} from "../utils/integration-tests.sol";
+import {DGScenarioTestSetup} from "../utils/integration-tests.sol";
 
 contract LastMomentMaliciousProposalSuccessor is DGScenarioTestSetup {
     function setUp() external {
@@ -45,12 +47,16 @@ contract LastMomentMaliciousProposalSuccessor is DGScenarioTestSetup {
         _step("3. Malicious actor submits malicious proposal");
         {
             _assertVetoSignalingState();
-            maliciousProposalId = _submitProposalByAdminProposer(
-                ExternalCallHelpers.create(
-                    address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
-                ),
-                "Malicious Proposal"
-            );
+
+            ExternalCall[] memory maliciousCalls = new ExternalCall[](1);
+
+            maliciousCalls[0] = ExternalCall({
+                target: address(_targetMock),
+                value: 0,
+                payload: abi.encodeCall(IPotentiallyDangerousContract.doRugPool, ())
+            });
+
+            maliciousProposalId = _submitProposalByAdminProposer(maliciousCalls, "Malicious Proposal");
 
             // the both calls aren't executable until the delay has passed
             _assertProposalSubmitted(proposalId);

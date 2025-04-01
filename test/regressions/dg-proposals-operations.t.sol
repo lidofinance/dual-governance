@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {EvmScriptUtils} from "../utils/evm-script-utils.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
-import {ExternalCall} from "../utils/executor-calls.sol";
 import {DGRegressionTestSetup, Proposers} from "../utils/integration-tests.sol";
 
-import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
+import {ExecutableProposals, ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 
-import {LidoUtils, EvmScriptUtils} from "../utils/lido-utils.sol";
+import {LidoUtils} from "../utils/lido-utils.sol";
+
+import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
 
 contract DGProposalOperationsTest is DGRegressionTestSetup {
     using LidoUtils for LidoUtils.Context;
+    using CallsScriptBuilder for CallsScriptBuilder.Context;
 
     function setUp() external {
         _loadOrDeployDGSetup();
@@ -106,9 +107,9 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         agentForwardingCalls[1].payload = abi.encodeCall(
             _lido.agent.forward,
             (
-                EvmScriptUtils.encodeEvmCallScript(
+                CallsScriptBuilder.create(
                     address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doControversialStaff, ())
-                )
+                ).getResult()
             )
         );
 
@@ -162,7 +163,8 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         _step("1. Aragon Vote may be used to submit proposal");
         {
             uint256 dgProposalsCountBefore = _timelock.getProposalsCount();
-            bytes memory voteWithProposalSubmission = EvmScriptUtils.encodeEvmCallScript(
+
+            CallsScriptBuilder.Context memory voteWithProposalSubmissionBuilder = CallsScriptBuilder.create(
                 address(_dgDeployedContracts.dualGovernance),
                 abi.encodeCall(
                     _dgDeployedContracts.dualGovernance.submitProposal,
@@ -170,7 +172,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
                 )
             );
 
-            uint256 voteId = _lido.adoptVote("Submit DG proposal", voteWithProposalSubmission);
+            uint256 voteId = _lido.adoptVote("Submit DG proposal", voteWithProposalSubmissionBuilder.getResult());
             _lido.executeVote(voteId);
 
             assertEq(_timelock.getProposalsCount(), dgProposalsCountBefore + 1);

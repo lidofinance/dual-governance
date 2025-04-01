@@ -3,16 +3,19 @@ pragma solidity 0.8.26;
 
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
+import {TimeConstraints} from "scripts/upgrade/TimeConstraints.sol";
 
-import {TimeConstraints} from "../utils/time-constraints.sol";
-import {ExternalCall, ExternalCallHelpers} from "../utils/executor-calls.sol";
 import {DGRegressionTestSetup} from "../utils/integration-tests.sol";
+
+import {ExternalCall, ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 
 interface ITimeSensitiveContract {
     function timeSensitiveMethod() external;
 }
 
 contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     TimeConstraints internal _timelockConstraints;
 
     Duration private immutable _EXECUTION_DELAY = Durations.from(30 days); // Proposal may be executed not earlier than the 30 days from launch
@@ -26,29 +29,26 @@ contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
 
     function testFork_TimeFrameProposalExecution() external {
         Timestamp executableAfter = _EXECUTION_DELAY.addTo(Timestamps.now());
+
+        ExternalCallsBuilder.Context memory scheduleProposalCallsBuilder = ExternalCallsBuilder.create({callsCount: 3});
+
         // Prepare the call to be launched not earlier than the minExecutionDelay seconds from the creation of the
         // Aragon Voting to submit proposal and only in the day time range [executionStartDayTime, executionEndDayTime] in UTC
-        ExternalCall[] memory scheduledProposalCalls = ExternalCallHelpers.create(
-            [
-                ExternalCall({
-                    target: address(_timelockConstraints),
-                    value: 0 wei,
-                    payload: abi.encodeCall(_timelockConstraints.checkExecuteAfterTimestamp, (executableAfter))
-                }),
-                ExternalCall({
-                    target: address(_timelockConstraints),
-                    value: 0 wei,
-                    payload: abi.encodeCall(
-                        _timelockConstraints.checkExecuteWithinDayTime, (_EXECUTION_START_DAY_TIME, _EXECUTION_END_DAY_TIME)
-                    )
-                }),
-                ExternalCall({
-                    target: address(_targetMock),
-                    value: 0 wei,
-                    payload: abi.encodeCall(ITimeSensitiveContract.timeSensitiveMethod, ())
-                })
-            ]
+        scheduleProposalCallsBuilder.addCall(
+            address(_timelockConstraints),
+            abi.encodeCall(_timelockConstraints.checkExecuteAfterTimestamp, (executableAfter))
         );
+        scheduleProposalCallsBuilder.addCall(
+            address(_timelockConstraints),
+            abi.encodeCall(
+                _timelockConstraints.checkExecuteWithinDayTime, (_EXECUTION_START_DAY_TIME, _EXECUTION_END_DAY_TIME)
+            )
+        );
+        scheduleProposalCallsBuilder.addCall(
+            address(_targetMock), abi.encodeCall(ITimeSensitiveContract.timeSensitiveMethod, ())
+        );
+
+        ExternalCall[] memory scheduledProposalCalls = scheduleProposalCallsBuilder.getResult();
 
         uint256 proposalId;
         _step("1. Submit time sensitive proposal");
@@ -127,7 +127,8 @@ contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
         }
         vm.revertTo(midnightSnapshotId);
 
-        ExternalCall[] memory expectedProposalCalls = ExternalCallHelpers.create([scheduledProposalCalls[2]]);
+        ExternalCall[] memory expectedProposalCalls = new ExternalCall[](1);
+        expectedProposalCalls[0] = scheduledProposalCalls[2];
 
         _step("6.c. Proposal executes successfully at the first second of the allowed range");
         {

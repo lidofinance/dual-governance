@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {DGScenarioTestSetup, ExternalCallHelpers, ExternalCall, Proposers} from "../utils/integration-tests.sol";
+import {ExternalCall, ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+
+import {DGScenarioTestSetup, Proposers} from "../utils/integration-tests.sol";
 
 interface IRegularContract {
     function regularMethod() external;
 }
 
 contract AragonAgentAsExecutorScenarioTest is DGScenarioTestSetup {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     function setUp() external {
         _deployDGSetup({isEmergencyProtectionEnabled: true});
     }
@@ -92,23 +96,22 @@ contract AragonAgentAsExecutorScenarioTest is DGScenarioTestSetup {
 
         uint256 callValue = 1 ether;
         address nonContractAccount = makeAddr("NOT_CONTRACT");
-        ExternalCall[] memory callsToEmptyAccount = ExternalCallHelpers.create(
-            [
-                ExternalCall({value: 0, target: nonContractAccount, payload: new bytes(0)}),
-                ExternalCall({
-                    value: 0,
-                    target: nonContractAccount,
-                    payload: abi.encodeCall(IRegularContract.regularMethod, ())
-                }),
-                ExternalCall({value: uint96(callValue), target: nonContractAccount, payload: new bytes(0)})
-            ]
-        );
+        ExternalCallsBuilder.Context memory callsToEmptyAccountBuilder = ExternalCallsBuilder.create({callsCount: 3});
+
+        callsToEmptyAccountBuilder.addCall(nonContractAccount, new bytes(0));
+        callsToEmptyAccountBuilder.addCall(nonContractAccount, abi.encodeCall(IRegularContract.regularMethod, ()));
+        callsToEmptyAccountBuilder.addCallWithValue({
+            value: uint96(callValue),
+            target: nonContractAccount,
+            payload: new bytes(0)
+        });
+
         uint256 agentBalanceBefore = address(_lido.agent).balance;
         vm.deal(address(_lido.agent), agentBalanceBefore + callValue);
 
         _step("3. Adopt proposal via the Agent proposer with calls to EOA account");
         {
-            _adoptProposal(agentProposer, callsToEmptyAccount, "Make different calls to EOA account");
+            _adoptProposal(agentProposer, callsToEmptyAccountBuilder.getResult(), "Make different calls to EOA account");
         }
 
         _step("4. When the calls is done by Agent, it's not failed and executed successfully");
@@ -123,21 +126,16 @@ contract AragonAgentAsExecutorScenarioTest is DGScenarioTestSetup {
     // ---
 
     function _addAragonAgentProposer(address agentProposer) internal {
-        ExternalCall[] memory externalCalls = ExternalCallHelpers.create(
-            [
-                ExternalCall({
-                    value: 0,
-                    target: address(_dgDeployedContracts.dualGovernance),
-                    payload: abi.encodeCall(
-                        _dgDeployedContracts.dualGovernance.registerProposer, (agentProposer, address(_lido.agent))
-                    )
-                })
-            ]
+        ExternalCallsBuilder.Context memory callsBuilder = ExternalCallsBuilder.create({callsCount: 1});
+
+        callsBuilder.addCall(
+            address(_dgDeployedContracts.dualGovernance),
+            abi.encodeCall(_dgDeployedContracts.dualGovernance.registerProposer, (agentProposer, address(_lido.agent)))
         );
 
         uint256 proposersCountBefore = _getProposers().length;
 
-        _adoptProposalByAdminProposer(externalCalls, "Add Aragon Agent as proposer to the Dual Governance");
+        _adoptProposalByAdminProposer(callsBuilder.getResult(), "Add Aragon Agent as proposer to the Dual Governance");
 
         Proposers.Proposer[] memory proposers = _getProposers();
 
