@@ -61,7 +61,7 @@ emergency_activation_committee = "0x5527372C869743CE93b3459568F359c3d581994e" # 
 emergency_execution_committee = "0x18695e68bEE208861c86a33214fB00a97C2f8063"  # Gnosis Multisig
 emergency_governance_proposer = "0x5C4895aD223653d1ab69D21B4BA59Bb7FD2Ed120"  # Gnosis Multisig
 emergency_mode_duration = 86400                                               # 1 day
-emergency_protection_end_date = 1777928400                                    # Thu Jan 01 2026 00:00:00 GMT+0000
+emergency_protection_end_date = 1777928400                                    # Mon May 04 2026 21:00:00 GMT+0000
 
 # ======================
 # TIEBREAKER CONFIG
