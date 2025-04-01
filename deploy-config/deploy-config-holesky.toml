@@ -59,7 +59,7 @@ max_emergency_protection_duration = 63072000                                  # 
 [timelock.emergency_protection]
 emergency_activation_committee = "0x49e088BafA69a17fC42C9cc12c66EEcF3076981d" # Gnosis Multisig
 emergency_execution_committee = "0x417dEcac0c732D31143F6Ee931fd34f661Dc2AF7"  # Gnosis Multisig
-emergency_governance_proposer = "0x7e04eaD1889e9a5A8270e622771d639649dbEE33"  # Gnosis Multisig
+emergency_governance_proposer = "0x9ed219f90DFFfDe9C2Cc8c8589128ed4DAf1c3ac"  # Gnosis Multisig
 emergency_mode_duration = 86400                                               # 1 day
 emergency_protection_end_date = 1777975200                                    # Tue May 05 2026 10:00:00 GMT+0000
 
