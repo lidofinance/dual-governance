@@ -161,6 +161,11 @@ export class EventsCollector {
         params: [params],
       }),
     });
+
+    if (response.status !== 200) {
+      throw new Error(`JSON RPC Error: ${response.status}`);
+    }
+
     const result: any = await response.json();
 
     if (result.error) {

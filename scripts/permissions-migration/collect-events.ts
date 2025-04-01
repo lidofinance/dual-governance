@@ -4,6 +4,7 @@ import * as path from "path";
 
 import { PermissionsLayout } from "./src/permissions-config";
 import { EventsCollector, DecodedEvent } from "./src/events-collector";
+import { fetchBlockNumber } from "./src/utils";
 
 const BLOCKS_PER_REQUEST = 15_000;
 const EVENTS_DIR_PATH = path.join(__dirname, "events");
@@ -45,7 +46,7 @@ async function main() {
       };
 
   let fromBlock = fetchedEvents.toBlock;
-  const currentBlockNumber = 11473216; // await fetchBlockNumber(rpcURL);
+  const currentBlockNumber = await fetchBlockNumber(rpcURL);
 
   console.log("Network:", network);
   console.log("Current block number:", currentBlockNumber);
