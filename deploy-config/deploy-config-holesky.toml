@@ -12,7 +12,7 @@ sealable_withdrawal_blockers = [
   "0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50",                               # Withdrawal Queue ERC721
   "0xffDDF7025410412deaa05E3E1cE68FE53208afcb"                                # Validators Exit Bus Oracle
 ] 
-reseal_committee = "0x891BCE021d39557E81EA465989869581829C266f"               # Gnosis Multisig
+reseal_committee = "0x17A283c01dCc0F1d3D67b24E341e142DF78807D4"               # Gnosis Multisig
 tiebreaker_activation_timeout = 900                                           # 15 minutes
 
 [dual_governance.signalling_tokens]
@@ -57,9 +57,9 @@ max_emergency_mode_duration = 2592000                                         # 
 max_emergency_protection_duration = 63072000                                  # 2 year
 
 [timelock.emergency_protection]
-emergency_activation_committee = "0x5527372C869743CE93b3459568F359c3d581994e" # Gnosis Multisig
-emergency_execution_committee = "0x18695e68bEE208861c86a33214fB00a97C2f8063"  # Gnosis Multisig
-emergency_governance_proposer = "0x5C4895aD223653d1ab69D21B4BA59Bb7FD2Ed120"  # Gnosis Multisig
+emergency_activation_committee = "0x49e088BafA69a17fC42C9cc12c66EEcF3076981d" # Gnosis Multisig
+emergency_execution_committee = "0x417dEcac0c732D31143F6Ee931fd34f661Dc2AF7"  # Gnosis Multisig
+emergency_governance_proposer = "0x7e04eaD1889e9a5A8270e622771d639649dbEE33"  # Gnosis Multisig
 emergency_mode_duration = 86400                                               # 1 day
 emergency_protection_end_date = 1777975200                                    # Tue May 05 2026 10:00:00 GMT+0000
 
