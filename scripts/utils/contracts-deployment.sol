@@ -553,7 +553,7 @@ library DGSetupDeployArtifacts {
         returns (bytes memory)
     {
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
-        return DGActivationVotingCalldataProvider.load(deployArtifactFilePath).getEVMCallScript();
+        return DGActivationVotingCalldataProvider.load(deployArtifactFilePath).getEVMScript();
     }
 
     function validate(Context memory ctx) internal pure {

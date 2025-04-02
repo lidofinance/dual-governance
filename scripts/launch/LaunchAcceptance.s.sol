@@ -36,7 +36,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
         bytes memory dgActivationVotingCalldata =
             DGSetupDeployArtifacts.loadDgActivationVotingCalldata(deployArtifactFileName);
 
-        address daoEmergencyGovernance = 0x3B20930B143F21C4a837a837cBBcd15ac0B93504;
+        address daoEmergencyGovernance = 0x46c6C7E1Cc438456d658Eed61A764a475abDa0C1;
 
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
 
@@ -276,7 +276,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
                 )
             ).getResult();
 
-            vm.expectRevert("ACL_AUTH_NO_MANAGER");
+            vm.expectRevert("AGENT_CAN_NOT_FORWARD");
             vm.prank(address(_lidoUtils.voting));
             IAragonForwarder(_lidoUtils.agent).forward(revokePermissionScript);
             console.log("Agent forward permission revoked");

@@ -3,5 +3,5 @@
 pragma solidity 0.8.26;
 
 interface IVotingProvider {
-    function getEVMCallScript() external view returns (bytes memory);
+    function getEVMScript() external view returns (bytes memory);
 }
