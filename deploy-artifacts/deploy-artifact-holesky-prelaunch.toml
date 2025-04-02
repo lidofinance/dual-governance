@@ -107,3 +107,9 @@ tiebreaker_sub_committees = [
     "0xf822A746aA1ACC0b68649Ac83A9A93651B98B1b0",
 ]
 timelock = "0xe9c5FfEAd0668AFdBB9aac16163840d649DB76DD"
+
+[dao_voting]
+dg_launch_verifier = "0x5dDD4E52C85313B80809dEd9E909DC391dfcF719"
+roles_validator = "0xf532fC0a18D3339A52b3f1152FcA9925De5855AA"
+time_constraints = "0x4D36598EA14bd70a1040CF59ABF6f9439afBf5d9"
+omnibus_calldata_builder = "0xc76b2c80dc713e99fC616b651F3509238DcD2285"
