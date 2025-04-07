@@ -1,3 +1,4 @@
+import { JsonRpcProvider, Log } from "ethers";
 import bytes, { Address, HexStrPrefixed } from "./bytes";
 import { decodeAddress, decodeBool, decodeBytes32 } from "./utils";
 
@@ -46,12 +47,12 @@ const OZ_ROLE_ADMIN_CHANGED_TOPIC: HexStrPrefixed =
   "0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff";
 
 export class EventsCollector {
-  #rpcURL: string;
   #aragonACL: Address;
   #ozContracts: Address[];
+  #provider: JsonRpcProvider;
 
-  constructor(rpcURL: string, aragonACL: Address, ozContracts: Address[]) {
-    this.#rpcURL = rpcURL;
+  constructor(provider: JsonRpcProvider, aragonACL: Address, ozContracts: Address[]) {
+    this.#provider = provider;
     this.#aragonACL = aragonACL;
     this.#ozContracts = ozContracts;
   }
@@ -140,44 +141,19 @@ export class EventsCollector {
   }
 
   async #fetchLogs(address: Address, topic: HexStrPrefixed, filterRange: FilterRange = {}): Promise<LogItem[]> {
-    const { fromBlock, toBlock } = filterRange;
-    const params: Record<string, any> = { address, topics: [topic] };
-
-    if (fromBlock) {
-      params["fromBlock"] = Number.isInteger(fromBlock) ? bytes.prefix0x(fromBlock.toString(16)) : fromBlock;
-    }
-
-    if (toBlock) {
-      params["toBlock"] = Number.isInteger(toBlock) ? bytes.prefix0x(toBlock.toString(16)) : toBlock;
-    }
-
-    const response = await fetch(this.#rpcURL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_getLogs",
-        params: [params],
-      }),
+    const logs = await this.#provider.getLogs({
+      address,
+      fromBlock: filterRange.fromBlock,
+      toBlock: filterRange.toBlock,
+      topics: [topic],
     });
 
-    if (response.status !== 200) {
-      throw new Error(`JSON RPC Error: ${response.status}`);
-    }
-
-    const result: any = await response.json();
-
-    if (result.error) {
-      throw new Error(`JSON RPC ERROR: ${JSON.stringify(result.error)}`);
-    }
-
-    return result.result.map((logItem: any) => ({
+    return logs.map((logItem: Log) => ({
       blockHash: bytes.normalize(logItem.blockHash),
-      blockNumber: parseInt(logItem.blockNumber, 16),
-      transactionIndex: parseInt(logItem.transactionIndex, 16),
+      blockNumber: logItem.blockNumber,
+      transactionIndex: logItem.transactionIndex,
       address: bytes.normalize(logItem.address),
-      logIndex: parseInt(logItem.logIndex, 16),
+      logIndex: logItem.index,
       data: bytes.normalize(logItem.data),
       removed: logItem.removed,
       topics: logItem.topics.map((topic: string) => bytes.normalize(topic)),

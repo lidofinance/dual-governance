@@ -19,17 +19,25 @@ export interface OZPermissionsSnapshot {
 
 export interface PermissionsSnapshot {
   snapshotBlockNumber: number;
+  lastProcessedBlockNumber: number;
+  lastProcessedTransactionHash: HexStrPrefixed | null;
   aragon: AragonPermissionsSnapshot;
   oz: OZPermissionsSnapshot;
 }
 
 export class RolesReducer {
-  #aragon: AragonPermissionsSnapshot = {}; // Record<Address, Record<string, { roleManager: Address | null; grantedTo: Address[] }>> = {};
-  #oz: OZPermissionsSnapshot = {}; // Record<Address, Record<string, { roleAdmin: HexStrPrefixed; grantedTo: Address[] }>> = {};
+  #aragon: AragonPermissionsSnapshot = {};
+  #oz: OZPermissionsSnapshot = {};
 
+  #snapshotBlockNumber: number = 0;
   #lastProcessedBlockNumber: number = 0;
   #lastProcessedTransactionIndex: number = 0;
   #lastProcessedLogIndex: number = 0;
+  #lastProcessedTransactionHash: HexStrPrefixed | null = null;
+
+  constructor(snapshotBlockNumber: number) {
+    this.#snapshotBlockNumber = snapshotBlockNumber;
+  }
 
   #touchAragonRole(app: Address, role: HexStrPrefixed) {
     if (!this.#aragon[app]) {
@@ -61,6 +69,8 @@ export class RolesReducer {
 
   #revokeAragonPermission(entity: Address, app: Address, role: HexStrPrefixed) {
     this.#touchAragonRole(app, role);
+    // ACL doesn't check if the permission was granted earlier, so doesn't check that
+    // permission was granted earlier
     this.#aragon[app][role].grantedTo = this.#aragon[app][role].grantedTo.filter(
       (grantee) => grantee.address !== entity
     );
@@ -159,13 +169,16 @@ export class RolesReducer {
     }
 
     this.#lastProcessedBlockNumber = event.blockNumber;
-    this.#lastProcessedTransactionIndex = event.transactionIndex;
     this.#lastProcessedLogIndex = event.logIndex;
+    this.#lastProcessedTransactionIndex = event.transactionIndex;
+    this.#lastProcessedTransactionHash = event.transactionHash;
   }
 
   getSnapshot(): PermissionsSnapshot {
     return {
-      snapshotBlockNumber: this.#lastProcessedBlockNumber,
+      lastProcessedBlockNumber: this.#lastProcessedBlockNumber,
+      lastProcessedTransactionHash: this.#lastProcessedTransactionHash,
+      snapshotBlockNumber: this.#snapshotBlockNumber,
       aragon: { ...this.#aragon },
       oz: { ...this.#oz },
     };

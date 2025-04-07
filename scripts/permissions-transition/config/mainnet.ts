@@ -1,11 +1,11 @@
-import { PermissionsConfig } from "../src/permissions-config";
+import { PermissionsConfigData } from "../src/permissions-config";
 
-export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfig = {
-  genesisBlock: 10735445,
+export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
+  genesisBlock: 10_500_000,
   explorerURL: "https://etherscan.io/",
   labels: {
     // Addresses TBD:
-    DGExecutor: "0x",
+    DGAdminExecutor: "0x",
     ResealManager: "0x",
     // Core Protocol
     LidoLocator: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb",
@@ -93,6 +93,8 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfig = {
 
     // Polygon
     ERC20Predicate_Polygon: "0x40ec5B33f54e0E8A33A975908C5BA1c14e5BbbDf",
+    RootChainManagerProxy_Polygon: "0xA0c68C638235ee32657e8f720a23ceC1bFc77C77",
+    ManagerMultisig_Polygon: "0xFa7D2a996aC6350f4b56C043112Da0366a59b74c",
 
     // Base
     L1ERC20TokenBridge_Base: "0x9de443AdC5A411E83F1878Ef24C3F52C61571e72",
@@ -161,11 +163,11 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfig = {
       TRANSFER_ROLE: { manager: "Voting", grantedTo: ["Finance"] },
       RUN_SCRIPT_ROLE: {
         manager: "Agent",
-        grantedTo: ["DGExecutor"],
+        grantedTo: ["DGAdminExecutor"],
       },
       EXECUTE_ROLE: {
         manager: "Agent",
-        grantedTo: ["DGExecutor"],
+        grantedTo: ["DGAdminExecutor"],
       },
       SAFE_EXECUTE_ROLE: { manager: "None" },
       DESIGNATE_SIGNER_ROLE: { manager: "None" },
@@ -204,11 +206,11 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfig = {
       MANAGE_NODE_OPERATOR_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
       SET_NODE_OPERATOR_LIMIT_ROLE: {
         manager: "Agent",
-        grantedTo: ["EvmScriptExecutor", "Agent"],
+        grantedTo: ["EvmScriptExecutor"],
       },
       MANAGE_SIGNING_KEYS: {
         manager: "Agent",
-        grantedTo: ["Agent"],
+        grantedTo: [],
       },
     },
     SimpleDVT: {
@@ -358,8 +360,8 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfig = {
     },
     AllowedTokensRegistry: {
       DEFAULT_ADMIN_ROLE: ["Voting"],
-      ADD_TOKEN_TO_ALLOWED_LIST_ROLE: ["Voting"],
-      REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE: ["Voting"],
+      ADD_TOKEN_TO_ALLOWED_LIST_ROLE: [],
+      REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE: [],
     },
     // Arbitrum
     L1ERC20TokenGateway_Arbitrum: {
@@ -379,8 +381,8 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfig = {
     },
     // Polygon
     ERC20Predicate_Polygon: {
-      DEFAULT_ADMIN_ROLE: [],
-      MANAGER_ROLE: [],
+      DEFAULT_ADMIN_ROLE: ["ManagerMultisig_Polygon"],
+      MANAGER_ROLE: ["RootChainManagerProxy_Polygon"],
     },
     // Base
     L1ERC20TokenBridge_Base: {

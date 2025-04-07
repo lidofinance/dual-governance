@@ -2,11 +2,11 @@ import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
 
-import { PermissionsLayout } from "./src/permissions-config";
+import { PermissionsConfig } from "./src/permissions-config";
 import { EventsCollector, DecodedEvent } from "./src/events-collector";
-import { fetchBlockNumber } from "./src/utils";
+import { JsonRpcProvider } from "ethers";
 
-const BLOCKS_PER_REQUEST = 15_000;
+const BLOCKS_PER_REQUEST = 5_000;
 const EVENTS_DIR_PATH = path.join(__dirname, "events");
 
 interface FetchedEvents {
@@ -19,7 +19,7 @@ async function main() {
   const network = process.env.NETWORK || "mainnet";
   let rpcURL: string | undefined = undefined;
 
-  const permissionsConfig = PermissionsLayout.load(network);
+  const permissionsConfig = PermissionsConfig.load(network);
 
   if (network === "mainnet") {
     rpcURL = process.env.MAINNET_RPC_URL;
@@ -35,6 +35,8 @@ async function main() {
     throw new Error(`"${network.toUpperCase()}_RPC_URL" env variable not set`);
   }
 
+  const provider = new JsonRpcProvider(rpcURL);
+
   const eventsFilePath = path.join(EVENTS_DIR_PATH, `${network}.json`);
 
   const fetchedEvents: FetchedEvents = fs.existsSync(eventsFilePath)
@@ -46,7 +48,7 @@ async function main() {
       };
 
   let fromBlock = fetchedEvents.toBlock;
-  const currentBlockNumber = await fetchBlockNumber(rpcURL);
+  const currentBlockNumber = await provider.getBlockNumber();
 
   console.log("Network:", network);
   console.log("Current block number:", currentBlockNumber);
@@ -61,7 +63,7 @@ async function main() {
   const ozContractAddresses = Object.entries(permissionsConfig.getOZConfig()).map(([label]) =>
     permissionsConfig.getAddressByLabel(label)
   );
-  const eventsCollector = new EventsCollector(rpcURL, acl, ozContractAddresses);
+  const eventsCollector = new EventsCollector(provider, acl, ozContractAddresses);
 
   while (fromBlock < currentBlockNumber) {
     const toBlock = Math.min(fromBlock + BLOCKS_PER_REQUEST, currentBlockNumber);

@@ -3,12 +3,13 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { PermissionsMarkdownFormatter } from "./src/permissions-markdown-formatter";
-import { PermissionsLayout } from "./src/permissions-config";
+import { PermissionsConfig } from "./src/permissions-config";
 import { RolesReducer } from "./src/roles-reducer";
 import { DecodedEvent } from "./src/events-collector";
+import { JsonRpcProvider } from "ethers";
 
 const EVENTS_DIR_PATH = path.join(__dirname, "events");
-const MIGRATION_PLANS_DIR_PATH = path.join(__dirname, "migration-plans");
+const TRANSITION_PLANS_DIR_PATH = path.join(__dirname, "transition-plans");
 
 interface EventsCache {
   fromBlock: number;
@@ -34,38 +35,39 @@ async function main() {
     throw new Error(`"${network.toUpperCase()}_RPC_URL" env variable not set`);
   }
 
+  const provider = new JsonRpcProvider(rpcURL);
   const eventsFileName = path.join(EVENTS_DIR_PATH, `${network}.json`);
 
   if (!fs.existsSync(eventsFileName)) {
     throw new Error(
       [
         `Events file ${eventsFileName} for network "${network}" not found`,
-        `Use "scripts/permissions-migration/collect-events script to collect onchain events"`,
+        `Use "scripts/permissions-transition/collect-events script to collect onchain events"`,
       ].join("\n")
     );
   }
 
   const eventFilesContent: EventsCache = JSON.parse(fs.readFileSync(eventsFileName, "utf-8"));
 
-  const rolesReducer = new RolesReducer();
+  const rolesReducer = new RolesReducer(eventFilesContent.toBlock);
   for (const event of eventFilesContent.events) {
     rolesReducer.process(event);
   }
 
   const snapshot = rolesReducer.getSnapshot();
 
-  const mdPermissionsFormatter = new PermissionsMarkdownFormatter(rpcURL, PermissionsLayout.load(network), snapshot);
+  const mdPermissionsFormatter = new PermissionsMarkdownFormatter(provider, PermissionsConfig.load(network), snapshot);
 
-  console.log(`Preparing migrations plan for network ${network} at block ${snapshot.snapshotBlockNumber}...`);
+  console.log(`Preparing transition plan for the network ${network} at block ${snapshot.snapshotBlockNumber}...`);
 
   const result = await mdPermissionsFormatter.format();
 
-  if (!fs.existsSync(MIGRATION_PLANS_DIR_PATH)) {
-    fs.mkdirSync(MIGRATION_PLANS_DIR_PATH, { recursive: true });
+  if (!fs.existsSync(TRANSITION_PLANS_DIR_PATH)) {
+    fs.mkdirSync(TRANSITION_PLANS_DIR_PATH, { recursive: true });
   }
-  const migrationPlanFilePath = path.join(MIGRATION_PLANS_DIR_PATH, `${network}-${snapshot.snapshotBlockNumber}.md`);
-  fs.writeFileSync(migrationPlanFilePath, result, "utf-8");
-  console.log(`Migration plan was saved into ${migrationPlanFilePath}`);
+  const transitionPlanFilePath = path.join(TRANSITION_PLANS_DIR_PATH, `${network}-${snapshot.snapshotBlockNumber}.md`);
+  fs.writeFileSync(transitionPlanFilePath, result, "utf-8");
+  console.log(`Transition plan was saved into ${transitionPlanFilePath}`);
 }
 
 main().catch((error) => {

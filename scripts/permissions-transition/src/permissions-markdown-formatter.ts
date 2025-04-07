@@ -1,17 +1,12 @@
 import { HexStrPrefixed, Address } from "./bytes";
-import { AragonPermissionsSnapshot, OZPermissionsSnapshot } from "./roles-reducer";
-import { PermissionsLayout } from "./permissions-config";
+import { PermissionsSnapshot } from "./roles-reducer";
+import { PermissionsConfig } from "./permissions-config";
 import { decodeAddress, makeContractCall, ZERO_HASH } from "./utils";
+import { JsonRpcProvider } from "ethers";
 
 interface AccountInfo {
   label: string;
   address: Address | null;
-}
-
-interface PermissionsSnapshot {
-  snapshotBlockNumber: number;
-  aragon: AragonPermissionsSnapshot;
-  oz: OZPermissionsSnapshot;
 }
 
 interface OZContractsPermissions {
@@ -55,44 +50,49 @@ interface OwnershipSectionData {
 }
 
 export class PermissionsMarkdownFormatter {
-  #roleHashesMap: Record<string, HexStrPrefixed> = {};
-  #rpcURL: string;
-  #config: PermissionsLayout;
+  #provider: JsonRpcProvider;
+  #config: PermissionsConfig;
   #snapshot: PermissionsSnapshot;
+  #roleHashesMap: Record<string, HexStrPrefixed> = {};
 
   #ozContractTableColumns: string[] = ["Role", "Role Admin", "Revoked", "Granted"];
   #aragonContractTableColumns: string[] = ["Role", "Role Manager", "Revoked", "Granted"];
   #contractsOwnershipTableColumns: string[] = ["Contract", "Property", "Old Owner", "New Owner"];
 
-  constructor(rpcURL: string, config: PermissionsLayout, snapshot: PermissionsSnapshot) {
-    this.#rpcURL = rpcURL;
+  constructor(provider: JsonRpcProvider, config: PermissionsConfig, snapshot: PermissionsSnapshot) {
+    this.#provider = provider;
     this.#config = config;
     this.#snapshot = snapshot;
   }
 
   async format() {
-    const result: string[] = ["## Lido Permissions Transition\n"];
+    const result: string[] = [
+      "## Lido Permissions Transition\n",
+      this.#formatCollectDataInfo(),
+      this.#formatDocumentHowTo(),
+    ];
     const contractTablesData = await this.#buildContractTablesData();
 
-    const [aragonContractTables, aragonPermissionMigrationSteps, ozRolesMigrationSteps, ozContractTables] =
+    const [aragonContractTables, aragonPermissionTransitionSteps, ozRolesTransitionSteps, ozContractTables] =
       await Promise.all([
         this.#formatAragonContractTables(contractTablesData.aragon),
-        this.#formatAragonPermissionMigrationSteps(contractTablesData.aragon),
-        this.#formatOZRolesMigrationSteps(contractTablesData.oz),
+        this.#formatAragonPermissionTransitionSteps(contractTablesData.aragon),
+        this.#formatOZRolesTransitionSteps(contractTablesData.oz),
         this.#formatOZContractTables(contractTablesData.oz),
       ]);
 
-    let migrationNumber = 1;
+    let transitionStepNumber = 1;
     result.push("### Aragon Permissions");
     for (let i = 0; i < contractTablesData.aragon.length; ++i) {
-      result.push(this.#formatContractHeader(contractTablesData.aragon[i].contractLabel));
+      const isContractModified = contractTablesData.aragon[i].permissionsData.some((d) => d.isModified);
+      result.push(this.#formatContractHeader(contractTablesData.aragon[i].contractLabel, isContractModified));
       result.push(aragonContractTables[i]);
       result.push("");
-      if (aragonPermissionMigrationSteps[i].length > 0) {
-        result.push("##### Migration Steps\n");
+      if (aragonPermissionTransitionSteps[i].length > 0) {
+        result.push("##### Transition Steps\n");
         result.push("```");
-        for (let migrationStep of aragonPermissionMigrationSteps[i]) {
-          result.push(`${migrationNumber++}. ${migrationStep}`);
+        for (let transitionStep of aragonPermissionTransitionSteps[i]) {
+          result.push(`${transitionStepNumber++}. ${transitionStep}`);
         }
         result.push("```\n");
       }
@@ -100,14 +100,15 @@ export class PermissionsMarkdownFormatter {
 
     result.push("### OZ Roles");
     for (let i = 0; i < contractTablesData.oz.length; ++i) {
-      result.push(this.#formatContractHeader(contractTablesData.oz[i].contractLabel));
+      const isContractModified = contractTablesData.oz[i].rolesData.some((d) => d.isModified);
+      result.push(this.#formatContractHeader(contractTablesData.oz[i].contractLabel, isContractModified));
       result.push(ozContractTables[i]);
       result.push("");
-      if (ozRolesMigrationSteps[i].length > 0) {
-        result.push("##### Migration Steps\n");
+      if (ozRolesTransitionSteps[i].length > 0) {
+        result.push("##### Transition Steps\n");
         result.push("```");
-        for (let migrationStep of ozRolesMigrationSteps[i]) {
-          result.push(`${migrationNumber++}. ${migrationStep}`);
+        for (let transitionStep of ozRolesTransitionSteps[i]) {
+          result.push(`${transitionStepNumber++}. ${transitionStep}`);
         }
         result.push("```\n");
       }
@@ -115,13 +116,18 @@ export class PermissionsMarkdownFormatter {
 
     result.push("### Contracts Ownership");
     result.push(this.#formatContractsOwnershipTable(contractTablesData.ownership));
-    result.push("```");
-    result.push(
-      this.#formatContractsOwnershipMigrationSteps(contractTablesData.ownership)
-        .map((migrationStep) => `${migrationNumber++}. ${migrationStep}`)
-        .join("\n")
+    const transitionSteps = this.#formatContractsOwnershipTransitionSteps(contractTablesData.ownership).map(
+      (transitionStep) => `${transitionStepNumber++}. ${transitionStep}`
     );
-    result.push("```");
+
+    result.push("");
+
+    if (transitionSteps.length > 0) {
+      result.push("##### Transition Steps\n");
+      result.push("```", ...transitionSteps, "```");
+    }
+
+    result.push("");
 
     return result.join("\n");
   }
@@ -349,7 +355,13 @@ export class PermissionsMarkdownFormatter {
     const config = this.#config.getOwnershipConfig(contractLabel);
     const address = this.#config.getAddressByLabel(contractLabel);
 
-    const currentlyManagedByAddress = decodeAddress(await makeContractCall(this.#rpcURL, address, config.getter));
+    const currentlyManagedByAddress = decodeAddress(
+      await makeContractCall(this.#provider, {
+        address,
+        methodName: config.getter,
+        blockTag: this.#snapshot.snapshotBlockNumber,
+      })
+    );
     const currentlyManagedByLabel = this.#config.getLabelByAddress(currentlyManagedByAddress);
 
     return {
@@ -362,45 +374,81 @@ export class PermissionsMarkdownFormatter {
     };
   }
 
-  async #formatOZRolesMigrationSteps(contractsData: OZContractsPermissions[]) {
+  #formatCollectDataInfo() {
+    const snapshotBlockNumber = this.#snapshot.snapshotBlockNumber;
+    const snapshotBlockExplorerURL = this.#config.getExplorerBlockURL(snapshotBlockNumber);
+    const lastProcessedBlockNumber = this.#snapshot.lastProcessedBlockNumber;
+    const lastProcessedBlockExplorerURL = this.#config.getExplorerBlockURL(lastProcessedBlockNumber);
+    const lastProcessedTxHash = this.#snapshot.lastProcessedTransactionHash!;
+    const lastProcessedTxExplorerURL = this.#config.getExplorerTxURL(lastProcessedTxHash);
+
+    return [
+      `> - Data was collected at block [\`${snapshotBlockNumber}\`](${snapshotBlockExplorerURL})`,
+      [
+        `> - The last permissions change occurred at block [\`${lastProcessedBlockNumber}\`](${lastProcessedBlockExplorerURL}),`,
+        `transaction [\`${lastProcessedTxHash}\`](${lastProcessedTxExplorerURL})\n`,
+      ].join(" "),
+    ].join("\n");
+  }
+
+  #formatDocumentHowTo() {
+    return [
+      "How to read this document:",
+      [
+        '- If an item is prepended with the "⚠️" icon, it indicates that the item will be changed.',
+        'The required updates are described in the corresponding "Transition Steps" sections.',
+      ].join(" "),
+      '- The special symbol "∅" indicates that:',
+      "  - a permission or role is not granted to any address",
+      "  - revocation of the permission or role is not performed",
+      "  - no manager is set for the permission",
+      '- The notation "`Old Manager` → `New Manager`" means the current manager is being changed to a new one.',
+      [
+        '  - A special case is "`∅` → `New Manager`", which means the permission currently has no manager,',
+        "and the permission should be created before use.\n",
+      ].join(" "),
+    ].join("\n");
+  }
+
+  async #formatOZRolesTransitionSteps(contractsData: OZContractsPermissions[]) {
     const result: string[][] = [];
 
     for (const { contractLabel, rolesData } of contractsData) {
-      const contractMigrationSteps: string[] = [];
+      const contractTransitionSteps: string[] = [];
       for (const roleData of rolesData) {
         for (const newGrantee of roleData.holdersToGrantRole) {
-          contractMigrationSteps.push(`Grant ${roleData.name} to ${newGrantee.label} on ${contractLabel}`);
+          contractTransitionSteps.push(`Grant ${roleData.name} to ${newGrantee.label} on ${contractLabel}`);
         }
         for (const granteesToRevoke of roleData.holdersToRevokeRole) {
-          contractMigrationSteps.push(`Revoke ${roleData.name} from ${granteesToRevoke.label} on ${contractLabel}`);
+          contractTransitionSteps.push(`Revoke ${roleData.name} from ${granteesToRevoke.label} on ${contractLabel}`);
         }
       }
-      result.push(contractMigrationSteps);
+      result.push(contractTransitionSteps);
     }
     return result;
   }
 
-  async #formatAragonPermissionMigrationSteps(contractsData: AragonContractsPermissions[]) {
+  async #formatAragonPermissionTransitionSteps(contractsData: AragonContractsPermissions[]) {
     const result: string[][] = [];
 
     for (const { contractLabel, permissionsData } of contractsData) {
-      const contractMigrationSteps: string[] = [];
+      const contractTransitionSteps: string[] = [];
       for (const permissionData of permissionsData) {
         let isPermissionCreated = permissionData.currentManager.address !== null;
         for (const newGrantee of permissionData.holdersToGrantRole) {
           if (!isPermissionCreated) {
-            contractMigrationSteps.push(
+            contractTransitionSteps.push(
               `Create ${permissionData.name} permission on ${contractLabel} with manager ${permissionData.newManager.label} and grant it to ${newGrantee.label}`
             );
             isPermissionCreated = true;
           } else {
-            contractMigrationSteps.push(
+            contractTransitionSteps.push(
               `Grant ${permissionData.name} permission to ${newGrantee.label} on ${contractLabel}`
             );
           }
         }
         for (const granteesToRevoke of permissionData.holdersToRevokeRole) {
-          contractMigrationSteps.push(
+          contractTransitionSteps.push(
             `Revoke ${permissionData.name} permission from ${granteesToRevoke.label} on ${contractLabel}`
           );
         }
@@ -408,15 +456,15 @@ export class PermissionsMarkdownFormatter {
           permissionData.currentManager.address &&
           permissionData.currentManager.address !== permissionData.newManager.address
         ) {
-          contractMigrationSteps.push(
+          contractTransitionSteps.push(
             `Set ${permissionData.name} manager to ${permissionData.newManager.label} on ${contractLabel}`
           );
         }
         if (!permissionData.currentManager.address && permissionData.newManager.address && !isPermissionCreated) {
-          contractMigrationSteps.push("[ERROR]: To create permission it should be granted to someone");
+          contractTransitionSteps.push("[ERROR]: To create permission it should be granted to someone");
         }
       }
-      result.push(contractMigrationSteps);
+      result.push(contractTransitionSteps);
     }
     return result;
   }
@@ -425,8 +473,8 @@ export class PermissionsMarkdownFormatter {
     const result: string[] = [];
 
     for (const { permissionsData } of contractsData) {
-      const contractMigrationRows: string[] = [];
-      contractMigrationRows.push(this.#formatAragonPermissionsTableHeader());
+      const contractTransitionRows: string[] = [];
+      contractTransitionRows.push(this.#formatAragonPermissionsTableHeader());
 
       const sortedContractTableData = Object.values(permissionsData).sort((a, b) => {
         const isAModified = a.holdersToGrantRole.length > 0 || a.holdersToRevokeRole.length > 0;
@@ -437,10 +485,10 @@ export class PermissionsMarkdownFormatter {
       });
 
       for (const roleData of sortedContractTableData) {
-        contractMigrationRows.push(this.#formatAragonPermissionTableRow(roleData));
+        contractTransitionRows.push(this.#formatAragonPermissionTableRow(roleData));
       }
 
-      result.push(contractMigrationRows.join("\n"));
+      result.push(contractTransitionRows.join("\n"));
     }
     return result;
   }
@@ -448,8 +496,8 @@ export class PermissionsMarkdownFormatter {
   async #formatOZContractTables(contractsData: OZContractsPermissions[]) {
     const result: string[] = [];
     for (const { rolesData } of contractsData) {
-      const contractMigrationRows: string[] = [];
-      contractMigrationRows.push(this.#formatOZRoleTableHeader());
+      const contractTransitionRows: string[] = [];
+      contractTransitionRows.push(this.#formatOZRoleTableHeader());
 
       const sortedContractTableData = Object.values(rolesData).sort((a, b) => {
         const isAModified = a.holdersToGrantRole.length > 0 || a.holdersToRevokeRole.length > 0;
@@ -460,9 +508,9 @@ export class PermissionsMarkdownFormatter {
       });
 
       for (const roleData of sortedContractTableData) {
-        contractMigrationRows.push(this.#formatOZRoleTableRow(roleData));
+        contractTransitionRows.push(this.#formatOZRoleTableRow(roleData));
       }
-      result.push(contractMigrationRows.join("\n"));
+      result.push(contractTransitionRows.join("\n"));
     }
     return result;
   }
@@ -475,11 +523,12 @@ export class PermissionsMarkdownFormatter {
     return result.join("\n");
   }
 
-  #formatContractsOwnershipMigrationSteps(contractsData: OwnershipSectionData[]) {
+  #formatContractsOwnershipTransitionSteps(contractsData: OwnershipSectionData[]) {
     const result: string[] = [];
     for (const roleData of contractsData) {
       if (roleData.isModified) {
-        result.push(`Set admin to ${roleData.newManagedBy.label} on ${roleData.contractLabel}`);
+        const ownershipType = roleData.propertyGetter.toLowerCase().includes("owner") ? "owner" : "admin";
+        result.push(`Set ${ownershipType} to ${roleData.newManagedBy.label} on ${roleData.contractLabel}`);
       }
     }
     return result;
@@ -564,9 +613,9 @@ export class PermissionsMarkdownFormatter {
   #formatContractLabel(contractLabel: string, isModified: boolean) {
     const contractAddress = this.#config.getAddressByLabel(contractLabel);
     if (isModified) {
-      return `⚠️ [\`${contractLabel}\`](${this.#config.getExplorerURL(contractAddress)})`;
+      return `⚠️ [\`${contractLabel}\`](${this.#config.getExplorerAddressURL(contractAddress)})`;
     }
-    return `[\`${contractLabel}\`](${this.#config.getExplorerURL(contractAddress)})`;
+    return `[\`${contractLabel}\`](${this.#config.getExplorerAddressURL(contractAddress)})`;
   }
 
   #formatRoleAdmin(text: string) {
@@ -575,26 +624,28 @@ export class PermissionsMarkdownFormatter {
 
   #formatCurrentRoleHolder(account: AccountInfo) {
     if (account.address) {
-      return `[\`${account.label}\`](${this.#config.getExplorerURL(account.address)})`;
+      return `[\`${account.label}\`](${this.#config.getExplorerAddressURL(account.address)})`;
     }
     return `\`${account.label}\``;
   }
 
   #formatHolderToRevoke(account: AccountInfo) {
     if (account.address) {
-      return `⚠️ [\`${account.label}\`](${this.#config.getExplorerURL(account.address)})`;
+      return `⚠️ [\`${account.label}\`](${this.#config.getExplorerAddressURL(account.address)})`;
     }
     return `⚠️ \`${account.label}\``;
   }
 
-  #formatContractHeader(contractLabel: string) {
+  #formatContractHeader(contractLabel: string, isModified: boolean = false) {
     const contractAddress = this.#config.getAddressByLabel(contractLabel);
-    return `#### ${contractLabel} [${contractAddress}](${this.#config.getExplorerURL(contractAddress)})`;
+    return isModified
+      ? `#### ⚠️ ${contractLabel} [${contractAddress}](${this.#config.getExplorerAddressURL(contractAddress)})`
+      : `#### ${contractLabel} [${contractAddress}](${this.#config.getExplorerAddressURL(contractAddress)})`;
   }
 
   #formatHolderToGrantRole(account: AccountInfo) {
     if (account.address) {
-      return `⚠️ [\`${account.label}\`](${this.#config.getExplorerURL(account.address)})`;
+      return `⚠️ [\`${account.label}\`](${this.#config.getExplorerAddressURL(account.address)})`;
     }
     return `⚠️ \`${account.label}\``;
   }
@@ -603,11 +654,11 @@ export class PermissionsMarkdownFormatter {
     const currentManagerLabel =
       currentManager.address === null
         ? currentManager.label
-        : `[\`${currentManager.label}\`](${this.#config.getExplorerURL(currentManager.address)})`;
+        : `[\`${currentManager.label}\`](${this.#config.getExplorerAddressURL(currentManager.address)})`;
     const newManagerLabel =
       newManager.address === null
         ? newManager.label
-        : `[\`${newManager.label}\`](${this.#config.getExplorerURL(newManager.address)})`;
+        : `[\`${newManager.label}\`](${this.#config.getExplorerAddressURL(newManager.address)})`;
 
     return currentManager.label === newManager.label
       ? currentManagerLabel
@@ -615,17 +666,20 @@ export class PermissionsMarkdownFormatter {
   }
 
   async #getACLPermissionParamsLength(entity: Address, app: Address, role: HexStrPrefixed) {
-    const paramsLengthAbiEncoded = await makeContractCall(
-      this.#rpcURL,
-      this.#config.getAragonACLAddress(),
-      "getPermissionParamsLength",
-      ["address", "address", "bytes32"],
-      [entity, app, role]
-    );
+    const paramsLengthAbiEncoded = await makeContractCall(this.#provider, {
+      address: this.#config.getAragonACLAddress(),
+      methodName: "getPermissionParamsLength",
+      argTypes: ["address", "address", "bytes32"],
+      argValues: [entity, app, role],
+    });
     return parseInt(BigInt(paramsLengthAbiEncoded).toString());
   }
 
   #getRoleHash(address: Address, roleName: string) {
-    return makeContractCall(this.#rpcURL, address, roleName);
+    return makeContractCall(this.#provider, {
+      address,
+      methodName: roleName,
+      blockTag: this.#snapshot.snapshotBlockNumber,
+    });
   }
 }

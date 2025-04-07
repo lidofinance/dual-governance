@@ -1,7 +1,7 @@
 import { HOODI_PERMISSIONS_CONFIG } from "../config/hoodi";
 import { MAINNET_PERMISSIONS_CONFIG } from "../config/mainnet";
 import { HOLESKY_PERMISSIONS_CONFIG } from "../config/holesky";
-import bytes, { Address } from "./bytes";
+import bytes, { Address, HexStr, HexStrPrefixed } from "./bytes";
 
 type OZContractRolesConfig = Record<string, string[]>;
 type OZRolesConfig = Record<string, OZContractRolesConfig>;
@@ -20,7 +20,7 @@ interface OwnershipConfigItem {
 }
 type OwnershipConfig = Record<string, OwnershipConfigItem>;
 
-export interface PermissionsConfig {
+export interface PermissionsConfigData {
   genesisBlock: number;
   explorerURL: string;
   labels: Record<string, Address>;
@@ -29,63 +29,63 @@ export interface PermissionsConfig {
   ownership: OwnershipConfig;
 }
 
-export class PermissionsLayout {
-  #config: PermissionsConfig;
+export class PermissionsConfig {
+  #data: PermissionsConfigData;
 
-  private constructor(config: PermissionsConfig) {
-    this.#config = config;
+  private constructor(config: PermissionsConfigData) {
+    this.#data = config;
   }
 
   static load(network: string) {
     if (network === "mainnet") {
-      return new PermissionsLayout(MAINNET_PERMISSIONS_CONFIG);
+      return new PermissionsConfig(MAINNET_PERMISSIONS_CONFIG);
     } else if (network === "holesky") {
-      return new PermissionsLayout(HOLESKY_PERMISSIONS_CONFIG);
+      return new PermissionsConfig(HOLESKY_PERMISSIONS_CONFIG);
     } else if (network === "hoodi") {
-      return new PermissionsLayout(HOODI_PERMISSIONS_CONFIG);
+      return new PermissionsConfig(HOODI_PERMISSIONS_CONFIG);
     } else {
       throw new Error(`Unsupported network "${network}"`);
     }
   }
 
   getGenesisBlockNumber() {
-    return this.#config.genesisBlock;
+    return this.#data.genesisBlock;
   }
 
   getOZConfig(): OZRolesConfig;
   getOZConfig(contractLabel: string): OZContractRolesConfig;
   getOZConfig(contractLabel?: string) {
     if (!contractLabel) {
-      return this.#config.oz;
+      return this.#data.oz;
     }
-    if (!this.#config.oz[contractLabel]) {
+    if (!this.#data.oz[contractLabel]) {
       throw new Error(`OZ config for contract "${contractLabel}" not found`);
     }
-    return this.#config.oz[contractLabel];
+    return this.#data.oz[contractLabel];
   }
 
   getAragonConfig(): AragonPermissionsConfig;
   getAragonConfig(contractLabel: string): AragonContractPermissionsConfig;
   getAragonConfig(contractLabel?: string) {
     if (!contractLabel) {
-      return this.#config.aragon;
+      return this.#data.aragon;
     }
-    if (!this.#config.aragon[contractLabel]) {
+    if (!this.#data.aragon[contractLabel]) {
       throw new Error(`Aragon config for contract "${contractLabel}" not found`);
     }
-    return this.#config.aragon[contractLabel];
+    return this.#data.aragon[contractLabel];
   }
 
   getOwnershipConfig(): OwnershipConfig;
   getOwnershipConfig(contractLabel: string): OwnershipConfigItem;
   getOwnershipConfig(contractLabel?: string) {
     if (!contractLabel) {
-      return this.#config.ownership;
+      return this.#data.ownership;
     }
-    if (!this.#config.ownership[contractLabel]) {
+    if (!this.#data.ownership[contractLabel]) {
       throw new Error(`Aragon config for contract "${contractLabel}" not found`);
     }
-    return this.#config.ownership[contractLabel];
+    return this.#data.ownership[contractLabel];
   }
 
   getAragonACLAddress() {
@@ -93,7 +93,7 @@ export class PermissionsLayout {
   }
 
   getLabelByAddress(address: Address) {
-    const match = Object.entries(this.#config.labels).find(
+    const match = Object.entries(this.#data.labels).find(
       ([, addr]) => bytes.normalize(addr) === bytes.normalize(address)
     );
     if (!match) {
@@ -103,15 +103,23 @@ export class PermissionsLayout {
   }
 
   getAddressByLabel(label: string) {
-    const match = Object.entries(this.#config.labels).find(([l]) => l === label);
+    const match = Object.entries(this.#data.labels).find(([l]) => l === label);
     if (!match) {
       throw new Error(`Label "${label}" is not found in the config`);
     }
     return bytes.normalize(match[1]);
   }
 
-  getExplorerURL(address: string) {
-    return `${this.#config.explorerURL}/address/${address}`;
+  getExplorerAddressURL(address: string) {
+    return `${this.#data.explorerURL}/address/${address}`;
+  }
+
+  getExplorerBlockURL(blockNumber: number) {
+    return `${this.#data.explorerURL}/block/${blockNumber}`;
+  }
+
+  getExplorerTxURL(transactionHash: HexStrPrefixed) {
+    return `${this.#data.explorerURL}/tx/${transactionHash}`;
   }
 
   #shortenAddress(address: Address) {
