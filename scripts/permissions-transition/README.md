@@ -6,7 +6,7 @@ The generation is based on both historical events and the protocol state at a gi
 
 ## Script Requirements
 
-To run the scripts, ts-node must be installed on your system. Refer to the official repo for installation instructions.
+To run the scripts, make sure to install all dependencies as described in the [setup instructions](../../README.md#setup).
 
 Event collection requires access to a historical or archive RPC node. The RPC URL must be set via environment variables depending on the network:
 
