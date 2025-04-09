@@ -25,7 +25,7 @@ export interface PermissionsSnapshot {
   oz: OZPermissionsSnapshot;
 }
 
-export class RolesReducer {
+export class EventsReducer {
   #aragon: AragonPermissionsSnapshot = {};
   #oz: OZPermissionsSnapshot = {};
 

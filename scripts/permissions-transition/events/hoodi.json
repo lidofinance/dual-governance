@@ -1,6 +1,6 @@
 {
   "fromBlock": 1,
-  "toBlock": 138244,
+  "toBlock": 150011,
   "events": [
     {
       "blockHash": "0x2ae164badcb9a93d396c16a858584d6f868343dd57ec77eeeda9f8997d741f83",
@@ -5374,6 +5374,97 @@
         "role": "0x0ce23c3e399818cfee81a7ab0880f714e53d7672b08df0fa62f2843416e1ea09",
         "account": "0xb6bafbd970a4537077de59cebe33081d794513d6",
         "sender": "0x0534aa41907c9631fae990960bcc72d75fa7cfed"
+      }
+    },
+    {
+      "blockHash": "0x5baf568e4ecb110fa14cf78e26b4291f3cbda28cf0d9fe00d6c25c6ff3506ff7",
+      "blockNumber": 149578,
+      "transactionIndex": 0,
+      "address": "0x78780e70eae33e2935814a327f7db6c01136cc62",
+      "logIndex": 1,
+      "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "removed": false,
+      "topics": [
+        "0x759b9a74d5354b5801710a0c1b283cc9f0d32b607ac8ced10c83ac8e75c77d52",
+        "0x00000000000000000000000079a20fd0fa36453b2f45eabab19bfef43575ba9e",
+        "0x0000000000000000000000000b5236beca68004db89434462dfc3bb074d2c830",
+        "0x78523850fdd761612f46e844cf5a16bda6b3151d6ae961fd7e8e7b92bfbca7f8"
+      ],
+      "transactionHash": "0xb07db8de65c56be470d362db19a89dbe5ffd8f3bdc584d5a28e0a328a16409f7",
+      "name": "SetPermission",
+      "args": {
+        "entity": "0x79a20fd0fa36453b2f45eabab19bfef43575ba9e",
+        "app": "0x0b5236beca68004db89434462dfc3bb074d2c830",
+        "role": "0x78523850fdd761612f46e844cf5a16bda6b3151d6ae961fd7e8e7b92bfbca7f8",
+        "allowed": true
+      }
+    },
+    {
+      "blockHash": "0x5baf568e4ecb110fa14cf78e26b4291f3cbda28cf0d9fe00d6c25c6ff3506ff7",
+      "blockNumber": 149578,
+      "transactionIndex": 0,
+      "address": "0x78780e70eae33e2935814a327f7db6c01136cc62",
+      "logIndex": 3,
+      "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "removed": false,
+      "topics": [
+        "0x759b9a74d5354b5801710a0c1b283cc9f0d32b607ac8ced10c83ac8e75c77d52",
+        "0x00000000000000000000000079a20fd0fa36453b2f45eabab19bfef43575ba9e",
+        "0x0000000000000000000000000b5236beca68004db89434462dfc3bb074d2c830",
+        "0x07b39e0faf2521001ae4e58cb9ffd3840a63e205d288dc9c93c3774f0d794754"
+      ],
+      "transactionHash": "0xb07db8de65c56be470d362db19a89dbe5ffd8f3bdc584d5a28e0a328a16409f7",
+      "name": "SetPermission",
+      "args": {
+        "entity": "0x79a20fd0fa36453b2f45eabab19bfef43575ba9e",
+        "app": "0x0b5236beca68004db89434462dfc3bb074d2c830",
+        "role": "0x07b39e0faf2521001ae4e58cb9ffd3840a63e205d288dc9c93c3774f0d794754",
+        "allowed": true
+      }
+    },
+    {
+      "blockHash": "0x5baf568e4ecb110fa14cf78e26b4291f3cbda28cf0d9fe00d6c25c6ff3506ff7",
+      "blockNumber": 149578,
+      "transactionIndex": 0,
+      "address": "0x78780e70eae33e2935814a327f7db6c01136cc62",
+      "logIndex": 5,
+      "data": "0x",
+      "removed": false,
+      "topics": [
+        "0xf3addc8b8e25ee11528a61b0e65092cae0666ef0ec0c64cb303993c88d689b4d",
+        "0x0000000000000000000000000b5236beca68004db89434462dfc3bb074d2c830",
+        "0x75abc64490e17b40ea1e66691c3eb493647b24430b358bd87ec3e5127f1621ee",
+        "0x00000000000000000000000079a20fd0fa36453b2f45eabab19bfef43575ba9e"
+      ],
+      "transactionHash": "0xb07db8de65c56be470d362db19a89dbe5ffd8f3bdc584d5a28e0a328a16409f7",
+      "name": "ChangePermissionManager",
+      "args": {
+        "app": "0x0b5236beca68004db89434462dfc3bb074d2c830",
+        "role": "0x75abc64490e17b40ea1e66691c3eb493647b24430b358bd87ec3e5127f1621ee",
+        "manager": "0x79a20fd0fa36453b2f45eabab19bfef43575ba9e"
+      }
+    },
+    {
+      "blockHash": "0x5baf568e4ecb110fa14cf78e26b4291f3cbda28cf0d9fe00d6c25c6ff3506ff7",
+      "blockNumber": 149578,
+      "transactionIndex": 0,
+      "address": "0x78780e70eae33e2935814a327f7db6c01136cc62",
+      "logIndex": 7,
+      "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "removed": false,
+      "topics": [
+        "0x759b9a74d5354b5801710a0c1b283cc9f0d32b607ac8ced10c83ac8e75c77d52",
+        "0x00000000000000000000000079a20fd0fa36453b2f45eabab19bfef43575ba9e",
+        "0x0000000000000000000000000b5236beca68004db89434462dfc3bb074d2c830",
+        "0xbb75b874360e0bfd87f964eadd8276d8efb7c942134fc329b513032d0803e0c6"
+      ],
+      "transactionHash": "0xb07db8de65c56be470d362db19a89dbe5ffd8f3bdc584d5a28e0a328a16409f7",
+      "name": "SetPermission",
+      "args": {
+        "entity": "0x79a20fd0fa36453b2f45eabab19bfef43575ba9e",
+        "app": "0x0b5236beca68004db89434462dfc3bb074d2c830",
+        "role": "0xbb75b874360e0bfd87f964eadd8276d8efb7c942134fc329b513032d0803e0c6",
+        "allowed": true
       }
     }
   ]

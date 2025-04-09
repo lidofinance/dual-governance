@@ -1,5 +1,5 @@
 import { HexStrPrefixed, Address } from "./bytes";
-import { PermissionsSnapshot } from "./roles-reducer";
+import { PermissionsSnapshot } from "./events-reducer";
 import { PermissionsConfig } from "./permissions-config";
 import { decodeAddress, makeContractCall, ZERO_HASH } from "./utils";
 import { JsonRpcProvider } from "ethers";

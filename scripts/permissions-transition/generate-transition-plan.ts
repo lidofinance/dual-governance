@@ -4,7 +4,7 @@ import * as path from "path";
 
 import { PermissionsMarkdownFormatter } from "./src/permissions-markdown-formatter";
 import { PermissionsConfig } from "./src/permissions-config";
-import { RolesReducer } from "./src/roles-reducer";
+import { EventsReducer } from "./src/events-reducer";
 import { DecodedEvent } from "./src/events-collector";
 import { JsonRpcProvider } from "ethers";
 
@@ -49,7 +49,7 @@ async function main() {
 
   const eventFilesContent: EventsCache = JSON.parse(fs.readFileSync(eventsFileName, "utf-8"));
 
-  const rolesReducer = new RolesReducer(eventFilesContent.toBlock);
+  const rolesReducer = new EventsReducer(eventFilesContent.toBlock);
   for (const event of eventFilesContent.events) {
     rolesReducer.process(event);
   }

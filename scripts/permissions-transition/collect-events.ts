@@ -39,7 +39,9 @@ async function main() {
 
   const eventsFilePath = path.join(EVENTS_DIR_PATH, `${network}.json`);
 
-  const fetchedEvents: FetchedEvents = fs.existsSync(eventsFilePath)
+  const doesFetchedEventsFileExists = fs.existsSync(eventsFilePath);
+
+  const fetchedEvents: FetchedEvents = doesFetchedEventsFileExists
     ? JSON.parse(fs.readFileSync(eventsFilePath, "utf-8"))
     : {
         fromBlock: permissionsConfig.getGenesisBlockNumber(),
@@ -47,16 +49,24 @@ async function main() {
         events: [],
       };
 
-  let fromBlock = fetchedEvents.toBlock;
   const currentBlockNumber = await provider.getBlockNumber();
+
+  let fromBlock = doesFetchedEventsFileExists ? fetchedEvents.toBlock + 1 : fetchedEvents.fromBlock;
+
+  if (fromBlock > currentBlockNumber) {
+    throw new Error(`Invalid events file: "fromBlock" ${fromBlock} > "currentBlockNumber" ${currentBlockNumber}`);
+  } else if (fromBlock === currentBlockNumber) {
+    console.log("Data is up to date. Exiting...");
+    return;
+  }
 
   console.log("Network:", network);
   console.log("Current block number:", currentBlockNumber);
-  console.log("Last processed block number:", fromBlock);
 
-  if (fromBlock >= currentBlockNumber) {
-    console.log("Data is up to date. Exiting...");
-    return;
+  if (doesFetchedEventsFileExists) {
+    console.log("Last processed block number:", fetchedEvents.toBlock);
+  } else {
+    console.log("Fetching roles starting from genesis block:", fetchedEvents.fromBlock);
   }
 
   const acl = permissionsConfig.getAragonACLAddress();
@@ -68,12 +78,12 @@ async function main() {
   while (fromBlock < currentBlockNumber) {
     const toBlock = Math.min(fromBlock + BLOCKS_PER_REQUEST, currentBlockNumber);
 
-    console.log(`Fetching events for blocks [${fromBlock}, ${toBlock})...`);
+    console.log(`Fetching events for blocks [${fromBlock}, ${toBlock}]...`);
 
     fetchedEvents.events.push(...(await eventsCollector.collect({ fromBlock, toBlock })));
 
+    fetchedEvents.toBlock = toBlock;
     fromBlock = toBlock + 1;
-    fetchedEvents.toBlock = fromBlock;
 
     console.log("Saving data...");
 
