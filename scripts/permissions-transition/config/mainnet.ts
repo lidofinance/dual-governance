@@ -159,25 +159,6 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
       EXECUTE_PAYMENTS_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       MANAGE_PAYMENTS_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
     },
-    Agent: {
-      TRANSFER_ROLE: { manager: "Voting", grantedTo: ["Finance"] },
-      RUN_SCRIPT_ROLE: {
-        manager: "Agent",
-        grantedTo: ["DGAdminExecutor"],
-      },
-      EXECUTE_ROLE: {
-        manager: "Agent",
-        grantedTo: ["DGAdminExecutor"],
-      },
-      SAFE_EXECUTE_ROLE: { manager: "None" },
-      DESIGNATE_SIGNER_ROLE: { manager: "None" },
-      ADD_PRESIGNED_HASH_ROLE: { manager: "None" },
-      ADD_PROTECTED_TOKEN_ROLE: { manager: "None" },
-      REMOVE_PROTECTED_TOKEN_ROLE: { manager: "None" },
-    },
-    ACL: {
-      CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
-    },
     AragonPM: {
       CREATE_REPO_ROLE: { manager: "None" },
     },
@@ -204,14 +185,8 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
     CuratedModule: {
       STAKING_ROUTER_ROLE: { manager: "Agent", grantedTo: ["StakingRouter"] },
       MANAGE_NODE_OPERATOR_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
-      SET_NODE_OPERATOR_LIMIT_ROLE: {
-        manager: "Agent",
-        grantedTo: ["EvmScriptExecutor"],
-      },
-      MANAGE_SIGNING_KEYS: {
-        manager: "Agent",
-        grantedTo: [],
-      },
+      SET_NODE_OPERATOR_LIMIT_ROLE: { manager: "Agent", grantedTo: ["EvmScriptExecutor"] },
+      MANAGE_SIGNING_KEYS: { manager: "Agent", grantedTo: [] },
     },
     SimpleDVT: {
       STAKING_ROUTER_ROLE: {
@@ -230,6 +205,25 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
         manager: "EvmScriptExecutor",
         grantedTo: ["EvmScriptExecutor"],
       },
+    },
+    ACL: {
+      CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
+    },
+    Agent: {
+      TRANSFER_ROLE: { manager: "Voting", grantedTo: ["Finance"] },
+      RUN_SCRIPT_ROLE: {
+        manager: "Agent",
+        grantedTo: ["DGAdminExecutor"],
+      },
+      EXECUTE_ROLE: {
+        manager: "Agent",
+        grantedTo: ["DGAdminExecutor"],
+      },
+      SAFE_EXECUTE_ROLE: { manager: "None" },
+      DESIGNATE_SIGNER_ROLE: { manager: "None" },
+      ADD_PRESIGNED_HASH_ROLE: { manager: "None" },
+      ADD_PROTECTED_TOKEN_ROLE: { manager: "None" },
+      REMOVE_PROTECTED_TOKEN_ROLE: { manager: "None" },
     },
   },
   oz: {

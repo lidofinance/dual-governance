@@ -1,7 +1,7 @@
 import { HOODI_PERMISSIONS_CONFIG } from "../config/hoodi";
 import { MAINNET_PERMISSIONS_CONFIG } from "../config/mainnet";
 import { HOLESKY_PERMISSIONS_CONFIG } from "../config/holesky";
-import bytes, { Address, HexStr, HexStrPrefixed } from "./bytes";
+import bytes, { Address, HexStrPrefixed } from "./bytes";
 
 type OZContractRolesConfig = Record<string, string[]>;
 type OZRolesConfig = Record<string, OZContractRolesConfig>;

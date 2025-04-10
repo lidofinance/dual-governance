@@ -1,8 +1,9 @@
+import { JsonRpcProvider } from "ethers";
+
 import { HexStrPrefixed, Address } from "./bytes";
 import { PermissionsSnapshot } from "./events-reducer";
 import { PermissionsConfig } from "./permissions-config";
 import { decodeAddress, makeContractCall, ZERO_HASH } from "./utils";
-import { JsonRpcProvider } from "ethers";
 
 interface AccountInfo {
   label: string;
@@ -191,12 +192,8 @@ export class PermissionsMarkdownFormatter {
     }
 
     result.ownership.sort((a, b) => {
-      if (a.isModified && !b.isModified) {
-        return -1;
-      }
-      if (!a.isModified && b.isModified) {
-        return 1;
-      }
+      if (a.isModified && !b.isModified) return -1;
+      if (!a.isModified && b.isModified) return 1;
       return 0;
     });
 
@@ -477,10 +474,8 @@ export class PermissionsMarkdownFormatter {
       contractTransitionRows.push(this.#formatAragonPermissionsTableHeader());
 
       const sortedContractTableData = Object.values(permissionsData).sort((a, b) => {
-        const isAModified = a.holdersToGrantRole.length > 0 || a.holdersToRevokeRole.length > 0;
-        const isBModified = b.holdersToGrantRole.length > 0 || b.holdersToRevokeRole.length > 0;
-        if (isAModified && !isBModified) return -1;
-        if (!isAModified && isBModified) return 1;
+        if (a.isModified && !b.isModified) return -1;
+        if (!a.isModified && b.isModified) return 1;
         return 0;
       });
 
@@ -500,10 +495,8 @@ export class PermissionsMarkdownFormatter {
       contractTransitionRows.push(this.#formatOZRoleTableHeader());
 
       const sortedContractTableData = Object.values(rolesData).sort((a, b) => {
-        const isAModified = a.holdersToGrantRole.length > 0 || a.holdersToRevokeRole.length > 0;
-        const isBModified = b.holdersToGrantRole.length > 0 || b.holdersToRevokeRole.length > 0;
-        if (isAModified && !isBModified) return -1;
-        if (!isAModified && isBModified) return 1;
+        if (a.isModified && !b.isModified) return -1;
+        if (!a.isModified && b.isModified) return 1;
         return 0;
       });
 

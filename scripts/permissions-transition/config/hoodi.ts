@@ -87,7 +87,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
       APP_MANAGER_ROLE: { manager: "Agent" },
     },
     Voting: {
-      UNSAFELY_MODIFY_VOTE_TIME_ROLE: { manager: "Voting" },
+      UNSAFELY_MODIFY_VOTE_TIME_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       MODIFY_QUORUM_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       MODIFY_SUPPORT_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       CREATE_VOTES_ROLE: { manager: "Voting", grantedTo: ["TokenManager"] },
@@ -102,7 +102,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
     Finance: {
       CREATE_PAYMENTS_ROLE: {
         manager: "Voting",
-        grantedTo: ["Voting", "EvmScriptExecutor"],
+        grantedTo: ["Voting" /* "EvmScriptExecutor" - payment factories hasn't setup yet */],
       },
       CHANGE_PERIOD_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       CHANGE_BUDGETS_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
@@ -145,10 +145,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
       },
       MANAGE_NODE_OPERATOR_ROLE: { manager: "Agent", grantedTo: ["EvmScriptExecutor", "DevEOA1", "DevEOA2"] },
       SET_NODE_OPERATOR_LIMIT_ROLE: { manager: "Agent", grantedTo: ["EvmScriptExecutor", "DevEOA1", "DevEOA2"] },
-      MANAGE_SIGNING_KEYS: {
-        manager: "EvmScriptExecutor",
-        grantedTo: ["Voting", "EvmScriptExecutor", "DevEOA1", "DevEOA2"],
-      },
+      MANAGE_SIGNING_KEYS: { manager: "EvmScriptExecutor", grantedTo: ["Voting", "DevEOA1", "DevEOA2"] },
     },
     ACL: {
       CREATE_PERMISSIONS_ROLE: { manager: "Agent", grantedTo: ["Agent"] },
