@@ -61,7 +61,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
     EvmScriptExecutor: "0x79a20FD0FA36453B2F45eAbab19bfef43575Ba9E",
 
     // Easy Track Factories for token transfers
-    // AllowedTokensRegistry: "",
+    AllowedTokensRegistry: "0x40Db7E8047C487bD8359289272c717eA3C34D1D3",
 
     // DEV Addresses
     CSMDevEOA: "0x4AF43Ee34a6fcD1fEcA1e1F832124C763561dA53",
@@ -69,7 +69,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
     DevEOA2: "0xF865A1d43D36c713B4DA085f32b7d1e9739B9275",
     DevEOA3: "0x4022E0754d0cB6905B54306105D3346d1547988b",
     EasyTrackManagerEOA: "0xBE2fD5a6Ce6460EB5e9aCC5d486697aE6402fdd2",
-    // DevAgentManager: "",
+    DevAgentManager: "0xD500a8aDB182F55741E267730dfbfb4F1944C205",
     UnlimitedStake: "0x064A4D64040bFD52D0d1dC7f42eA799cb0a8AC40",
   },
   aragon: {
@@ -287,12 +287,11 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
       PAUSE_ROLE: ["Voting", "EasyTrackManagerEOA"],
       UNPAUSE_ROLE: ["Voting", "EasyTrackManagerEOA"],
     },
-    // TODO: uncomment after deployment
-    // AllowedTokensRegistry: {
-    //   DEFAULT_ADMIN_ROLE: ["Voting"],
-    //   ADD_TOKEN_TO_ALLOWED_LIST_ROLE: ["Voting"],
-    //   REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE: ["Voting"],
-    // },
+    AllowedTokensRegistry: {
+      DEFAULT_ADMIN_ROLE: ["Voting"],
+      ADD_TOKEN_TO_ALLOWED_LIST_ROLE: [],
+      REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE: [],
+    },
   },
   ownership: {
     DepositSecurityModule: { owner: "Agent", getter: "getOwner", setter: "setOwner" },
