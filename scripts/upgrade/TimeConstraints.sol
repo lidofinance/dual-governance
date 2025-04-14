@@ -9,6 +9,14 @@ import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 /// @notice Provides functionality to restrict execution of functions based on time constraints.
 contract TimeConstraints {
     // ---
+    // Events
+    // ---
+
+    event PerformedWithinDayTime(Duration startDayTime, Duration endDayTime);
+    event PerformedBeforeTimestamp(Timestamp deadline);
+    event PerformedAfterTimestamp(Timestamp requiredTimestamp);
+
+    // ---
     // Errors
     // ---
 
@@ -33,7 +41,7 @@ contract TimeConstraints {
     /// @notice Checks that the transaction can only be executed within a specific time range during the day.
     /// @param startDayTime The start time of the allowed range in seconds since midnight (UTC).
     /// @param endDayTime The end time of the allowed range in seconds since midnight (UTC).
-    function checkExecuteWithinDayTime(Duration startDayTime, Duration endDayTime) external view {
+    function checkTimeWithinDayTime(Duration startDayTime, Duration endDayTime) public view {
         _validateDayTime(startDayTime);
         _validateDayTime(endDayTime);
 
@@ -47,20 +55,42 @@ contract TimeConstraints {
         }
     }
 
+    /// @notice Checks that the transaction can only be executed within a specific time range during the day and emits an event.
+    /// @param startDayTime The start time of the allowed range in seconds since midnight (UTC).
+    /// @param endDayTime The end time of the allowed range in seconds since midnight (UTC).
+    function checkTimeWithinDayTimeAndEmit(Duration startDayTime, Duration endDayTime) external {
+        checkTimeWithinDayTime(startDayTime, endDayTime);
+        emit PerformedWithinDayTime(startDayTime, endDayTime);
+    }
+
     /// @notice Checks that the transaction can only be executed after a specific timestamp.
     /// @param timestamp The Unix timestamp after which the function can be executed.
-    function checkExecuteAfterTimestamp(Timestamp timestamp) external view {
+    function checkTimeAfterTimestamp(Timestamp timestamp) public view {
         if (Timestamps.now() < timestamp) {
             revert TimestampNotReached(timestamp);
         }
     }
 
+    /// @notice Checks that the transaction can only be executed after a specific timestamp and emits an event.
+    /// @param timestamp The Unix timestamp after which the function can be executed.
+    function checkTimeAfterTimestampAndEmit(Timestamp timestamp) external {
+        checkTimeAfterTimestamp(timestamp);
+        emit PerformedAfterTimestamp(timestamp);
+    }
+
     /// @notice Checks that the transaction can only be executed before a specific timestamp.
     /// @param timestamp The Unix timestamp before which the function can be executed.
-    function checkExecuteBeforeTimestamp(Timestamp timestamp) external view {
+    function checkTimeBeforeTimestamp(Timestamp timestamp) public view {
         if (Timestamps.now() > timestamp) {
             revert TimestampExceeded(timestamp);
         }
+    }
+
+    /// @notice Checks that the transaction can only be executed before a specific timestamp and emits an event.
+    /// @param timestamp The Unix timestamp before which the function can be executed.
+    function checkTimeBeforeTimestampAndEmit(Timestamp timestamp) external {
+        checkTimeBeforeTimestamp(timestamp);
+        emit PerformedBeforeTimestamp(timestamp);
     }
 
     // ---

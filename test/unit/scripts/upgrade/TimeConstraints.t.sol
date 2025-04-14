@@ -34,21 +34,23 @@ contract TimeConstraintsTest is Test {
         assertEq(timeConstraints.getCurrentDayTime().toSeconds(), 0);
     }
 
-    function test_checkExecuteWithinDayTime_HappyPath() external {
+    // checkTimeWithinDayTime
+
+    function test_checkTimeWithinDayTime_HappyPath() external {
         vm.warp(BASE_TIMESTAMP + 15 hours);
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
 
         vm.warp(BASE_TIMESTAMP + 12 hours);
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
 
         vm.warp(BASE_TIMESTAMP + 18 hours);
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
 
         vm.warp(BASE_TIMESTAMP + 12 hours);
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(12 hours), Durations.from(12 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(12 hours));
     }
 
-    function test_checkExecuteWithinDayTime_OutOfRange() public {
+    function test_checkTimeWithinDayTime_OutOfRange() public {
         uint256 baseTimestamp = BASE_TIMESTAMP;
         vm.warp(baseTimestamp + 10 hours);
 
@@ -61,7 +63,7 @@ contract TimeConstraintsTest is Test {
             )
         );
 
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
 
         vm.warp(baseTimestamp + 20 hours);
 
@@ -74,57 +76,108 @@ contract TimeConstraintsTest is Test {
             )
         );
 
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
     }
 
-    function test_checkExecuteWithinDayTime_TimeOverflow() external {
+    function test_checkTimeWithinDayTime_TimeOverflow() external {
         vm.expectRevert(abi.encodeWithSelector(TimeConstraints.DayTimeOverflow.selector));
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(0), Durations.from(24 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(0), Durations.from(24 hours));
 
         vm.expectRevert(abi.encodeWithSelector(TimeConstraints.DayTimeOverflow.selector));
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(30 hours), Durations.from(12 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(30 hours), Durations.from(12 hours));
     }
 
-    function test_checkExecuteWithinDayTime_InvalidRange() public {
+    function test_checkTimeWithinDayTime_InvalidRange() public {
         vm.expectRevert(
             abi.encodeWithSelector(
                 TimeConstraints.InvalidDayTimeRange.selector, Durations.from(18 hours), Durations.from(12 hours)
             )
         );
 
-        timeConstraints.checkExecuteWithinDayTime(Durations.from(18 hours), Durations.from(12 hours));
+        timeConstraints.checkTimeWithinDayTime(Durations.from(18 hours), Durations.from(12 hours));
     }
 
-    function testFuzz_checkExecuteAfterTimestamp_HappyPath(uint32 secondsAfter) public {
+    // checkTimeWithinDayTimeAndEmit
+
+    function test_checkTimeWithinDayTimeAndEmit_HappyPath() external {
+        vm.warp(BASE_TIMESTAMP + 15 hours);
+        vm.expectEmit(true, true, true, true);
+        emit TimeConstraints.PerformedWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(12 hours), Durations.from(18 hours));
+
+        vm.warp(BASE_TIMESTAMP + 12 hours);
+        vm.expectEmit(true, true, true, true);
+        emit TimeConstraints.PerformedWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(12 hours), Durations.from(18 hours));
+
+        vm.warp(BASE_TIMESTAMP + 18 hours);
+        vm.expectEmit(true, true, true, true);
+        emit TimeConstraints.PerformedWithinDayTime(Durations.from(12 hours), Durations.from(18 hours));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(12 hours), Durations.from(18 hours));
+
+        vm.warp(BASE_TIMESTAMP + 12 hours);
+        vm.expectEmit(true, true, true, true);
+        emit TimeConstraints.PerformedWithinDayTime(Durations.from(12 hours), Durations.from(12 hours));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(12 hours), Durations.from(12 hours));
+    }
+
+    // checkTimeAfterTimestamp
+
+    function testFuzz_checkTimeAfterTimestamp_HappyPath(uint32 secondsAfter) public {
         vm.warp(BASE_TIMESTAMP + secondsAfter);
-        timeConstraints.checkExecuteAfterTimestamp(Timestamps.from(BASE_TIMESTAMP));
+        timeConstraints.checkTimeAfterTimestamp(Timestamps.from(BASE_TIMESTAMP));
     }
 
-    function testFuzz_checkExecuteAfterTimestamp_NotReached(uint32 secondsBefore) public {
+    function testFuzz_checkTimeAfterTimestamp_NotReached(uint32 secondsBefore) public {
         vm.assume(secondsBefore < BASE_TIMESTAMP && secondsBefore > 0);
 
         vm.warp(BASE_TIMESTAMP - secondsBefore);
         vm.expectRevert(
             abi.encodeWithSelector(TimeConstraints.TimestampNotReached.selector, Timestamps.from(BASE_TIMESTAMP))
         );
-        timeConstraints.checkExecuteAfterTimestamp(Timestamps.from(BASE_TIMESTAMP));
+        timeConstraints.checkTimeAfterTimestamp(Timestamps.from(BASE_TIMESTAMP));
     }
 
-    function test_checkExecuteBeforeTimestamp_HappyPath() public {
+    // checkTimeAfterTimestampAndEmit
+
+    function testFuzz_checkTimeAfterTimestampAndEmit_HappyPath(uint32 secondsAfter) public {
+        vm.warp(BASE_TIMESTAMP + secondsAfter);
+        vm.expectEmit(true, true, true, true);
+        emit TimeConstraints.PerformedAfterTimestamp(Timestamps.from(BASE_TIMESTAMP));
+        timeConstraints.checkTimeAfterTimestampAndEmit(Timestamps.from(BASE_TIMESTAMP));
+    }
+
+    // checkTimeBeforeTimestamp
+
+    function test_checkTimeBeforeTimestamp_HappyPath() public {
         vm.warp(BASE_TIMESTAMP);
-        timeConstraints.checkExecuteBeforeTimestamp(Timestamps.from(BASE_TIMESTAMP));
+        timeConstraints.checkTimeBeforeTimestamp(Timestamps.from(BASE_TIMESTAMP));
 
         vm.warp(BASE_TIMESTAMP - 1 hours);
-        timeConstraints.checkExecuteBeforeTimestamp(Timestamps.from(BASE_TIMESTAMP));
+        timeConstraints.checkTimeBeforeTimestamp(Timestamps.from(BASE_TIMESTAMP));
     }
 
-    function testFuzz_checkExecuteBeforeTimestamp_Exceed(uint32 secondsAfter) public {
+    function testFuzz_checkTimeBeforeTimestamp_Exceed(uint32 secondsAfter) public {
         vm.assume(secondsAfter > 0);
 
         vm.warp(BASE_TIMESTAMP + secondsAfter);
         vm.expectRevert(
             abi.encodeWithSelector(TimeConstraints.TimestampExceeded.selector, Timestamps.from(BASE_TIMESTAMP))
         );
-        timeConstraints.checkExecuteBeforeTimestamp(Timestamps.from(BASE_TIMESTAMP));
+        timeConstraints.checkTimeBeforeTimestamp(Timestamps.from(BASE_TIMESTAMP));
+    }
+
+    // checkTimeBeforeTimestampAndEmit
+
+    function testFuzz_checkTimeBeforeTimestampAndEmit_HappyPath() public {
+        vm.warp(BASE_TIMESTAMP);
+        vm.expectEmit(true, true, true, true);
+        emit TimeConstraints.PerformedBeforeTimestamp(Timestamps.from(BASE_TIMESTAMP));
+        timeConstraints.checkTimeBeforeTimestampAndEmit(Timestamps.from(BASE_TIMESTAMP));
+
+        vm.warp(BASE_TIMESTAMP - 1 hours);
+        vm.expectEmit(true, true, true, true);
+        emit TimeConstraints.PerformedBeforeTimestamp(Timestamps.from(BASE_TIMESTAMP));
+        timeConstraints.checkTimeBeforeTimestampAndEmit(Timestamps.from(BASE_TIMESTAMP));
     }
 }
