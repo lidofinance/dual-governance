@@ -112,4 +112,4 @@ quorum = 2
 [timelocked_governance]
 
 governance="0xdA7d2573Df555002503F29aA4003e398d28cc00f"                       # DAO Voting
-timelock="<TIMELOCK>" # Fills after main deployment
+timelock="0xe9c5FfEAd0668AFdBB9aac16163840d649DB76DD"
