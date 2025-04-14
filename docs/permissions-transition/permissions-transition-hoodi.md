@@ -6,8 +6,8 @@ During active protocol testing in the testnet, some roles were assigned to EOAs 
 
 ## Permissions Transition Plan (Hoodi)
 
-> - Data was collected at block [`150011`](https://hoodi.etherscan.io//block/150011)
-> - The last permissions change occurred at block [`149578`](https://hoodi.etherscan.io//block/149578), transaction [`0xb07db8de65c56be470d362db19a89dbe5ffd8f3bdc584d5a28e0a328a16409f7`](https://hoodi.etherscan.io//tx/0xb07db8de65c56be470d362db19a89dbe5ffd8f3bdc584d5a28e0a328a16409f7)
+> - Data was collected at block [`186050`](https://hoodi.etherscan.io//block/186050)
+> - The last permissions change occurred at block [`163610`](https://hoodi.etherscan.io//block/163610), transaction [`0xcbe22a75b4bedd856e18a05c064a42901365f3da4cbe11f5cd6b282f340f24eb`](https://hoodi.etherscan.io//tx/0xcbe22a75b4bedd856e18a05c064a42901365f3da4cbe11f5cd6b282f340f24eb)
 
 How to read this document:
 - If an item is prepended with the "⚠️" icon, it indicates that the item will be changed. The required updates are described in the corresponding "Transition Steps" sections.
@@ -257,6 +257,22 @@ How to read this document:
 48. Grant RESUME_ROLE to ResealManager on ValidatorsExitBusOracle
 ```
 
+#### ⚠️ AllowedTokensRegistry [0x40db7e8047c487bd8359289272c717ea3c34d1d3](https://hoodi.etherscan.io//address/0x40db7e8047c487bd8359289272c717ea3c34d1d3)
+| Role | Role Admin | Revoked | Granted |
+| --- | --- | --- | --- |
+| ⚠️ `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://hoodi.etherscan.io//address/0x0534aa41907c9631fae990960bcc72d75fa7cfed) | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) |
+| ⚠️ [`ADD_TOKEN_TO_ALLOWED_LIST_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ADD_TOKEN_TO_ALLOWED_LIST_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://hoodi.etherscan.io//address/0x0534aa41907c9631fae990960bcc72d75fa7cfed) | ∅ |
+| ⚠️ [`REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://hoodi.etherscan.io//address/0x0534aa41907c9631fae990960bcc72d75fa7cfed) | ∅ |
+
+##### Transition Steps
+
+```
+49. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry
+50. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry
+51. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
+52. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
+```
+
 #### StakingRouter [0xcc820558b39ee15c7c45b59390b503b83fb499a8](https://hoodi.etherscan.io//address/0xcc820558b39ee15c7c45b59390b503b83fb499a8)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
@@ -401,5 +417,5 @@ How to read this document:
 ##### Transition Steps
 
 ```
-49. Set admin to Agent on WithdrawalVault
+53. Set admin to Agent on WithdrawalVault
 ```
