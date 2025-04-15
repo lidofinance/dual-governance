@@ -1,0 +1,85 @@
+[deploy_config]
+chain_id = 560048
+
+[deploy_config.dual_governance]
+admin_proposer = "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"
+proposals_canceller = "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"
+reseal_committee = "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"
+sealable_withdrawal_blockers = ["0x00074C2974354C492508905d0268A5d921C999B7"]
+tiebreaker_activation_timeout = 900
+
+[deploy_config.dual_governance.sanity_check_params]
+max_min_assets_lock_duration = 3600
+max_sealable_withdrawal_blockers_count = 255
+max_tiebreaker_activation_timeout = 1800
+min_tiebreaker_activation_timeout = 300
+min_withdrawals_batch_size = 1
+
+[deploy_config.dual_governance.signalling_tokens]
+st_eth = "0x4ecAC76fEd32DADd892aB0697f47622FdcB0F955"
+withdrawal_queue = "0x00074C2974354C492508905d0268A5d921C999B7"
+wst_eth = "0xD3B035A5590aD0FEc95cdce9C54b50BFd108AEa5"
+
+[deploy_config.dual_governance_config_provider]
+first_seal_rage_quit_support = 300
+min_assets_lock_duration = 300
+rage_quit_eth_withdrawals_delay_growth = 1296000
+rage_quit_eth_withdrawals_max_delay = 1800
+rage_quit_eth_withdrawals_min_delay = 300
+rage_quit_extension_period_duration = 300
+second_seal_rage_quit_support = 1500
+veto_cooldown_duration = 300
+veto_signalling_deactivation_max_duration = 1800
+veto_signalling_max_duration = 1500
+veto_signalling_min_active_duration = 300
+veto_signalling_min_duration = 300
+
+[deploy_config.tiebreaker]
+committees_count = 3
+execution_delay = 900
+quorum = 1
+
+[[deploy_config.tiebreaker.committees]]
+members = ["0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"]
+quorum = 1
+
+[[deploy_config.tiebreaker.committees]]
+members = ["0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"]
+quorum = 1
+
+[[deploy_config.tiebreaker.committees]]
+members = ["0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"]
+quorum = 1
+
+[deploy_config.timelock]
+after_schedule_delay = 300
+after_submit_delay = 300
+
+[deploy_config.timelock.emergency_protection]
+emergency_activation_committee = "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"
+emergency_execution_committee = "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"
+emergency_governance_proposer = "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566"
+emergency_mode_duration = 900
+emergency_protection_end_date = 1776263133
+
+[deploy_config.timelock.sanity_check_params]
+max_after_schedule_delay = 1800
+max_after_submit_delay = 1800
+max_emergency_mode_duration = 1800
+max_emergency_protection_duration = 31536000
+min_execution_delay = 300
+
+[deployed_contracts]
+admin_executor = "0x4c9819921723E986a065a28aca6424e7818958A4"
+dual_governance = "0x8648E40335337a8c68C1aC5617dCaE24d3dC8408"
+dual_governance_config_provider = "0x1ade185030f20558a49D1453fe68f4b498A5C9aD"
+emergency_governance = "0x714e4A055452a89A4FC927aA999F95Fc28e53F97"
+escrow_master_copy = "0xe3DEB8d8E97EfAb17cF5021FffEf16657f909D8E"
+reseal_manager = "0x7C02B1493052454B9E685a1abB6FBED07076881E"
+tiebreaker_core_committee = "0x42960994079Ce6111Dc83752daAf92a132EEd9a4"
+tiebreaker_sub_committees = [
+    "0x97E9d49f8a36a23420a06F5a20707496543249Be",
+    "0x3c752Ad7e079FbcCC337f72C7Fd1DEFd06F1De5D",
+    "0xFD4B61F9f62860b522580AE2520d22f753C29568",
+]
+timelock = "0x1e43c35B1087e7f767Dc36E1E6783A3132497A41"
