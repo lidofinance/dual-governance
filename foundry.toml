@@ -26,3 +26,4 @@ multiline_func_header = 'params_first_multi'
 [etherscan]
 mainnet = { key = "${ETHERSCAN_API_KEY}" }
 holesky = { key = "${ETHERSCAN_API_KEY}", chain = "17000" }
+hoodi = { key = "${ETHERSCAN_API_KEY}", chain = "560048", url = "https://api-hoodi.etherscan.io/api" }
