@@ -6,7 +6,7 @@ During active protocol testing in the testnet, some roles were assigned to EOAs 
 
 ## Permissions Transition Plan (Hoodi)
 
-> - Data was collected at block [`186050`](https://hoodi.etherscan.io//block/186050)
+> - Data was collected at block [`197990`](https://hoodi.etherscan.io//block/197990)
 > - The last permissions change occurred at block [`163610`](https://hoodi.etherscan.io//block/163610), transaction [`0xcbe22a75b4bedd856e18a05c064a42901365f3da4cbe11f5cd6b282f340f24eb`](https://hoodi.etherscan.io//tx/0xcbe22a75b4bedd856e18a05c064a42901365f3da4cbe11f5cd6b282f340f24eb)
 
 How to read this document:
@@ -172,7 +172,7 @@ How to read this document:
 #### ⚠️ Agent [0x0534aa41907c9631fae990960bcc72d75fa7cfed](https://hoodi.etherscan.io//address/0x0534aa41907c9631fae990960bcc72d75fa7cfed)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`RUN_SCRIPT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RUN_SCRIPT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) → [`Agent`](https://hoodi.etherscan.io//address/0x0534aa41907c9631fae990960bcc72d75fa7cfed) | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ⚠️ [`DGAdminExecutor`](https://hoodi.etherscan.io//address/0x) |
+| ⚠️ [`RUN_SCRIPT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RUN_SCRIPT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) → [`Agent`](https://hoodi.etherscan.io//address/0x0534aa41907c9631fae990960bcc72d75fa7cfed) | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ⚠️ [`DGAdminExecutor`](https://hoodi.etherscan.io//address/0x) ⚠️ [`DevAgentManager`](https://hoodi.etherscan.io//address/0xd500a8adb182f55741e267730dfbfb4f1944c205) |
 | ⚠️ [`EXECUTE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=EXECUTE_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) → [`Agent`](https://hoodi.etherscan.io//address/0x0534aa41907c9631fae990960bcc72d75fa7cfed) | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ⚠️ [`DGAdminExecutor`](https://hoodi.etherscan.io//address/0x) |
 | [`TRANSFER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=TRANSFER_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ∅ | [`Finance`](https://hoodi.etherscan.io//address/0x254ae22beeba64127f0e59fe8593082f3cd13f6b) |
 | [`SAFE_EXECUTE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SAFE_EXECUTE_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
@@ -185,11 +185,14 @@ How to read this document:
 
 ```
 39. Grant RUN_SCRIPT_ROLE permission to DGAdminExecutor on Agent
-40. Revoke RUN_SCRIPT_ROLE permission from Voting on Agent
+40. Grant RUN_SCRIPT_ROLE permission to DevAgentManager on Agent
+// SKIPPED: __. Revoke RUN_SCRIPT_ROLE permission from Voting on Agent - Will be done as 
+//      the last step of the launch via the Dual Governance proposal
 41. Set RUN_SCRIPT_ROLE manager to Agent on Agent
 42. Grant EXECUTE_ROLE permission to DGAdminExecutor on Agent
-43. Revoke EXECUTE_ROLE permission from Voting on Agent
-44. Set EXECUTE_ROLE manager to Agent on Agent
+// SKIPPED: __. Revoke EXECUTE_ROLE permission from Voting on Agent - Will be done as 
+//      the last step of the launch via the Dual Governance proposal
+43. Set EXECUTE_ROLE manager to Agent on Agent
 ```
 
 #### AragonPM [0x948ffb5fda2961c60ed3eb84c7a31aae42ebedcc](https://hoodi.etherscan.io//address/0x948ffb5fda2961c60ed3eb84c7a31aae42ebedcc)
@@ -236,8 +239,8 @@ How to read this document:
 ##### Transition Steps
 
 ```
-45. Grant PAUSE_ROLE to ResealManager on WithdrawalQueueERC721
-46. Grant RESUME_ROLE to ResealManager on WithdrawalQueueERC721
+44. Grant PAUSE_ROLE to ResealManager on WithdrawalQueueERC721
+45. Grant RESUME_ROLE to ResealManager on WithdrawalQueueERC721
 ```
 
 #### ⚠️ ValidatorsExitBusOracle [0x8664d394c2b3278f26a1b44b967aef99707eeab2](https://hoodi.etherscan.io//address/0x8664d394c2b3278f26a1b44b967aef99707eeab2)
@@ -253,8 +256,8 @@ How to read this document:
 ##### Transition Steps
 
 ```
-47. Grant PAUSE_ROLE to ResealManager on ValidatorsExitBusOracle
-48. Grant RESUME_ROLE to ResealManager on ValidatorsExitBusOracle
+46. Grant PAUSE_ROLE to ResealManager on ValidatorsExitBusOracle
+47. Grant RESUME_ROLE to ResealManager on ValidatorsExitBusOracle
 ```
 
 #### ⚠️ AllowedTokensRegistry [0x40db7e8047c487bd8359289272c717ea3c34d1d3](https://hoodi.etherscan.io//address/0x40db7e8047c487bd8359289272c717ea3c34d1d3)
@@ -267,10 +270,10 @@ How to read this document:
 ##### Transition Steps
 
 ```
-49. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry
-50. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry
-51. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
-52. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
+48. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry
+49. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry
+50. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
+51. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
 ```
 
 #### StakingRouter [0xcc820558b39ee15c7c45b59390b503b83fb499a8](https://hoodi.etherscan.io//address/0xcc820558b39ee15c7c45b59390b503b83fb499a8)
@@ -417,5 +420,5 @@ How to read this document:
 ##### Transition Steps
 
 ```
-53. Set admin to Agent on WithdrawalVault
+52. Set admin to Agent on WithdrawalVault
 ```
