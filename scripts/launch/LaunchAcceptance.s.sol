@@ -216,7 +216,13 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
         if (fromStep <= 7) {
             console.log("STEP 7 - Enacting DAO Voting proposal to activate Dual Governance");
-            uint256 voteId = _lidoUtils.getLastVoteId();
+            uint256 voteId;
+            if (fromStep == 7) {
+                voteId = vm.envUint("OMNIBUS_VOTE_IDS");
+                _lidoUtils.supportVoteAndWaitTillDecided(voteId);
+            } else {
+                voteId = _lidoUtils.getLastVoteId();
+            }
             console.log("Enacting vote with ID", voteId);
             _lidoUtils.executeVote(voteId);
         } else {

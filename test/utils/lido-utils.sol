@@ -264,6 +264,13 @@ library LidoUtils {
         vm.warp(block.timestamp + self.voting.voteTime());
     }
 
+    function supportVoteAndWaitTillDecided(Context memory self, uint256 voteId) internal {
+        if (self.ldoToken.balanceOf(DEFAULT_LDO_WHALE) < self.voting.minAcceptQuorumPct()) {
+            setupLDOWhale(self, DEFAULT_LDO_WHALE);
+        }
+        supportVoteAndWaitTillDecided(self, voteId, DEFAULT_LDO_WHALE);
+    }
+
     function supportVote(Context memory self, uint256 voteId, address voter) internal {
         vote(self, voteId, voter, true);
     }
