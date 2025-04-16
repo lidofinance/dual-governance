@@ -818,7 +818,7 @@ library ContractsDeployment {
         );
 
         contracts.tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
-            owner: deployer, // temporary set owner to deployer, to add sub committees manually
+            owner: address(contracts.adminExecutor),
             dualGovernance: address(contracts.dualGovernance),
             executionDelay: deployConfig.tiebreaker.executionDelay
         });
@@ -944,8 +944,11 @@ library ContractsDeployment {
             coreCommitteeMemberAddresses[i] = address(tiebreakerSubCommittees[i]);
         }
 
-        tiebreakerCoreCommittee.addMembers(coreCommitteeMemberAddresses, tiebreakerConfig.quorum);
-        tiebreakerCoreCommittee.transferOwnership(address(adminExecutor));
+        adminExecutor.execute(
+            address(tiebreakerCoreCommittee),
+            0,
+            abi.encodeCall(tiebreakerCoreCommittee.addMembers, (coreCommitteeMemberAddresses, tiebreakerConfig.quorum))
+        );
 
         adminExecutor.execute(
             address(dualGovernance),
