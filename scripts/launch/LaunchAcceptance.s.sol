@@ -21,7 +21,7 @@ import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 
 import {DeployVerification} from "../utils/DeployVerification.sol";
 
-import {DGSetupDeployArtifacts, DGSetupDeployConfig} from "../utils/contracts-deployment.sol";
+import {DGSetupDeployArtifacts, DGSetupDeployConfig, DGLaunchConfig} from "../utils/contracts-deployment.sol";
 
 import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
@@ -33,10 +33,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
     function run() external {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
-        bytes memory dgActivationVotingCalldata =
-            DGSetupDeployArtifacts.loadDgActivationVotingCalldata(deployArtifactFileName);
-
-        address daoEmergencyGovernance = 0x46c6C7E1Cc438456d658Eed61A764a475abDa0C1;
+        DGLaunchConfig.Context memory dgLaunchConfig = DGSetupDeployArtifacts.loadDGLaunchConfig(deployArtifactFileName);
 
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
 
@@ -96,7 +93,8 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
                 address(timelock), abi.encodeCall(timelock.setGovernance, (address(_dgContracts.dualGovernance)))
             );
             builder.addCall(
-                address(timelock), abi.encodeCall(timelock.setEmergencyGovernance, (daoEmergencyGovernance))
+                address(timelock),
+                abi.encodeCall(timelock.setEmergencyGovernance, (address(dgLaunchConfig.daoEmergencyGovernance)))
             );
             builder.addCall(
                 address(timelock),
@@ -166,7 +164,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
             timelock.execute(dgProposalId);
 
-            _dgContracts.emergencyGovernance = TimelockedGovernance(daoEmergencyGovernance);
+            _dgContracts.emergencyGovernance = dgLaunchConfig.daoEmergencyGovernance;
             ITimelock.ProposalDetails memory proposalDetails = _dgContracts.timelock.getProposalDetails(dgProposalId);
             assert(proposalDetails.status == ProposalStatus.Executed);
 
@@ -209,7 +207,8 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
             );
 
             console.log("Submitting DAO Voting proposal to activate Dual Governance");
-            uint256 voteId = _lidoUtils.adoptVote("Activate Dual Governance", dgActivationVotingCalldata);
+            uint256 voteId =
+                _lidoUtils.adoptVote("Activate Dual Governance", dgLaunchConfig.omnibusContract.getEVMScript());
             console.log("Vote ID", voteId);
         } else {
             console.log("STEP 6 SKIPPED - Dual Governance activation vote already submitted");

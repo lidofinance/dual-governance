@@ -453,26 +453,39 @@ library DualGovernanceConfigProviderContractDeployConfig {
     }
 }
 
-library DGActivationVotingCalldataProvider {
+library DGLaunchConfig {
     using ConfigFileReader for ConfigFileReader.Context;
 
-    function load(string memory configFilePath) internal view returns (IVotingProvider votingCalldataProvider) {
+    struct Context {
+        uint256 chainId;
+        TimelockedGovernance daoEmergencyGovernance;
+        address dgLaunchVerifier;
+        address roleValidator;
+        address timeConstraints;
+        IVotingProvider omnibusContract;
+    }
+
+    function load(string memory configFilePath) internal view returns (Context memory ctx) {
         return load(configFilePath, "");
     }
 
     function load(
         string memory configFilePath,
         string memory configRootKey
-    ) internal view returns (IVotingProvider votingCalldataProvider) {
+    ) internal view returns (Context memory ctx) {
         string memory $ = configRootKey.root();
-
-        string memory $daoVoting = $.key("dao_voting");
 
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
-        address votingCalldataProviderAddress = file.readAddress($daoVoting.key("omnibus_contract"));
+        ctx.chainId = file.readUint($.key("chain_id"));
 
-        votingCalldataProvider = IVotingProvider(votingCalldataProviderAddress);
+        string memory $daoVoting = $.key("dg_launch");
+
+        ctx.daoEmergencyGovernance = TimelockedGovernance(file.readAddress($daoVoting.key("dao_emergency_governance")));
+        ctx.dgLaunchVerifier = file.readAddress($daoVoting.key("dg_launch_verifier"));
+        ctx.roleValidator = file.readAddress($daoVoting.key("role_validator"));
+        ctx.timeConstraints = file.readAddress($daoVoting.key("time_constraints"));
+        ctx.omnibusContract = IVotingProvider(file.readAddress($daoVoting.key("omnibus_contract")));
     }
 }
 
@@ -632,6 +645,7 @@ library DGSetupDeployArtifacts {
     using ConfigFileBuilder for ConfigFileBuilder.Context;
     using DGSetupDeployConfig for DGSetupDeployConfig.Context;
     using DGSetupDeployedContracts for DGSetupDeployedContracts.Context;
+    using DGLaunchConfig for DGLaunchConfig.Context;
 
     struct Context {
         DGSetupDeployConfig.Context deployConfig;
@@ -644,13 +658,13 @@ library DGSetupDeployArtifacts {
         ctx.deployedContracts = DGSetupDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
     }
 
-    function loadDgActivationVotingCalldata(string memory deployArtifactFileName)
+    function loadDGLaunchConfig(string memory deployArtifactFileName)
         internal
         view
-        returns (bytes memory)
+        returns (DGLaunchConfig.Context memory)
     {
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
-        return DGActivationVotingCalldataProvider.load(deployArtifactFilePath).getEVMScript();
+        return DGLaunchConfig.load(deployArtifactFilePath);
     }
 
     function validate(Context memory ctx) internal pure {
