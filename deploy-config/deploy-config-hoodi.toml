@@ -10,9 +10,9 @@ admin_proposer = "0x49B3512c44891bef83F8967d075121Bd1b07a01B"                 # 
 proposals_canceller = "0x49B3512c44891bef83F8967d075121Bd1b07a01B"            # DAO Voting
 sealable_withdrawal_blockers = [
   "0xfe56573178f1bcdf53F01A6E9977670dcBBD9186",                               # Withdrawal Queue ERC721
-  "0x8664d394C2B3278F26A1B44B967aEf99707eeAB2 "                                # Validators Exit Bus Oracle
+  "0x8664d394C2B3278F26A1B44B967aEf99707eeAB2"                                # Validators Exit Bus Oracle
 ] 
-reseal_committee = "0x000000000000000000000000000000000000cafe"               # Gnosis Multisig
+reseal_committee = "0x83BCE68B4e8b7071b2a664a26e6D3Bc17eEe3102"               # GateSeal committee
 tiebreaker_activation_timeout = 900                                           # 15 minutes
 
 [dual_governance.signalling_tokens]
