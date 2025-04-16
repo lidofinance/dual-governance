@@ -50,7 +50,4 @@ interface IWithdrawalQueue is IERC721 {
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds);
-
-    function PAUSE_ROLE() external view returns (bytes32);
-    function RESUME_ROLE() external view returns (bytes32);
 }
