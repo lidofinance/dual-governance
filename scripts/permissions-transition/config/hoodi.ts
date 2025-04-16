@@ -152,7 +152,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
     },
     Agent: {
       TRANSFER_ROLE: { manager: "Voting", grantedTo: ["Finance"] },
-      RUN_SCRIPT_ROLE: { manager: "Agent", grantedTo: ["DGAdminExecutor"] },
+      RUN_SCRIPT_ROLE: { manager: "Agent", grantedTo: ["DGAdminExecutor", "DevAgentManager"] },
       EXECUTE_ROLE: { manager: "Agent", grantedTo: ["DGAdminExecutor"] },
       SAFE_EXECUTE_ROLE: { manager: "None" },
       DESIGNATE_SIGNER_ROLE: { manager: "None" },
