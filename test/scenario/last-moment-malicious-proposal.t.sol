@@ -233,7 +233,7 @@ contract LastMomentMaliciousProposalSuccessor is DGScenarioTestSetup {
         }
     }
 
-    function testFork_ProposalSubmissionFrontRunning() external {
+    function testFork_ProposalsSubmittedInVetoSignalling_CanBeExecutedOnlyNextVetoCooldownOrNormal() external {
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         _step("2. Malicious actor locks first seal threshold to activate VetoSignalling before proposal submission");
         {

@@ -11,7 +11,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
         _loadOrDeployDGSetup();
     }
 
-    function testFork_EmergencyReset() external {
+    function testFork_EmergencyReset_HappyPath() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId;
@@ -60,7 +60,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
         }
     }
 
-    function testFork_EmergencyProtectionExpiration() external {
+    function testFork_EmergencyProtectionExpiration_HappyPath() external {
         _step("1. DAO operates regularly");
         {
             _adoptProposalByAdminProposer(_getMockTargetRegularStaffCalls({callsCount: 5}), "Regular staff calls");
@@ -90,4 +90,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             _adoptProposalByAdminProposer(_getMockTargetRegularStaffCalls({callsCount: 5}), "Regular staff calls");
         }
     }
+
+    // TODO: implement testFork_EmergencyExecution_HappyPath
+    // TODO: implement testDork_EmergencyModeExpiration_HappyPath
 }

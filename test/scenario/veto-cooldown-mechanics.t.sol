@@ -15,7 +15,7 @@ contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
         _deployDGSetup({isEmergencyProtectionEnabled: false});
     }
 
-    function testFork_ProposalSubmittedInRageQuitNonExecutableInTheNextVetoCooldown() external {
+    function testFork_ProposalsSubmittedInRageQuit_CanBeExecutedOnlyNextVetoCooldownOrNormal() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId;

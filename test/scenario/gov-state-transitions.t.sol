@@ -6,6 +6,8 @@ import {PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {DGScenarioTestSetup} from "../utils/integration-tests.sol";
 
+// TODO: rename file to test/scenario/dg-state-transitions.t.sol
+
 contract GovernanceStateTransitions is DGScenarioTestSetup {
     address internal immutable _VETOER = makeAddr("VETOER");
 
@@ -14,7 +16,7 @@ contract GovernanceStateTransitions is DGScenarioTestSetup {
         _setupStETHBalance(_VETOER, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
     }
 
-    function testFork_VetoSignallingStateMinDuration() external {
+    function testFork_VetoSignalling_HappyPath_MinDuration() external {
         _assertNormalState();
 
         _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
@@ -34,7 +36,7 @@ contract GovernanceStateTransitions is DGScenarioTestSetup {
         _assertVetoSignallingDeactivationState();
     }
 
-    function testFork_VetoSignallingStateMaxDuration() public {
+    function testFork_VetoSignalling_HappyPath_MaxDuration() public {
         _assertNormalState();
 
         _lockStETH(_VETOER, _getSecondSealRageQuitSupport());
@@ -59,7 +61,7 @@ contract GovernanceStateTransitions is DGScenarioTestSetup {
         _assertRageQuitState();
     }
 
-    function testFork_VetoSignallingToNormal() public {
+    function testFork_VetoSignalling_HappyPath_TransitionToNormal() public {
         _assertNormalState();
 
         _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
@@ -89,7 +91,7 @@ contract GovernanceStateTransitions is DGScenarioTestSetup {
         _assertNormalState();
     }
 
-    function testFork_VetoSignallingVetoCooldownCycle() public {
+    function testFork_VetoSignalling_HappyPath_VetoCooldownLoop() public {
         _assertNormalState();
 
         _lockStETH(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.from(1));
@@ -114,7 +116,7 @@ contract GovernanceStateTransitions is DGScenarioTestSetup {
         _assertVetoSignalingState();
     }
 
-    function testFork_VetoSignallingToRageQuit() public {
+    function testFork_VetoSignalling_HappyPath_ToRageQuit() public {
         _assertNormalState();
 
         _lockStETH(_VETOER, _getSecondSealRageQuitSupport());

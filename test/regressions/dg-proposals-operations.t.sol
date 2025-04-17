@@ -19,7 +19,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         _loadOrDeployDGSetup();
     }
 
-    function testFork_ProposalLifecycle_HappyPathMultipleCalls() external {
+    function testFork_ProposalLifecycle_HappyPath_MultipleCalls() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls(3);
 
         uint256 proposalId = _submitProposalByAdminProposer(
@@ -49,7 +49,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
     }
 
-    function testFork_ProposalLifecycle_ExternalCallsWithValue() external {
+    function testFork_ProposalLifecycle_HappyPath_ExternalCallsWithValue() external {
         uint256 ethValue = 3 ether;
 
         vm.deal(address(_getAdminExecutor()), ethValue);
@@ -88,7 +88,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         assertEq(adminExecutorValueBefore - ethValue, address(_getAdminExecutor()).balance);
     }
 
-    function testFork_ProposalLifecycle_AgentForwarding() external {
+    function testFork_ProposalLifecycle_HappyPath_AgentForwarding() external {
         _grantAragonAgentExecuteRole(_timelock.getAdminExecutor());
 
         uint256 ethPaymentValue = 1 ether;
@@ -148,7 +148,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         assertEq(agentBalanceBefore - ethPaymentValue, address(_lido.agent).balance);
     }
 
-    function testFork_AragonVotingAsProposer() external {
+    function testFork_AragonVotingAdminProposer_HappyPath() external {
         assertTrue(
             _dgDeployedContracts.dualGovernance.isProposer(address(_lido.voting)), "Aragon Voting is not DG proposer"
         );
@@ -201,8 +201,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         }
     }
 
-    function testFork_ProposalLifecycle_ProposalCancellation() external {
-        // TODO: implement!
+    function testFork_ProposalCancellation_HappyPath() external {
         vm.skip(true);
     }
 }

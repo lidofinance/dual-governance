@@ -30,6 +30,7 @@ contract ExecutorOwnershipTransferScenarioTest is DGScenarioTestSetup {
         _newAdminExecutor.transferOwnership(address(_timelock));
     }
 
+    // TODO: move to regression tests
     function testFork_ExecutorOwnershipTransfer_HappyPath() external {
         uint256 shuffleExecutorsProposalId;
         DualGovernance dualGovernance = DualGovernance(_getGovernance());

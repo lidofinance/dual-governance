@@ -27,7 +27,7 @@ contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
         _timelockConstraints = new TimeConstraints();
     }
 
-    function testFork_TimeFrameProposalExecution() external {
+    function testFork_TimeFrameProposalExecution_HappyPath() external {
         Timestamp executableAfter = _EXECUTION_DELAY.addTo(Timestamps.now());
 
         ExternalCallsBuilder.Context memory scheduleProposalCallsBuilder = ExternalCallsBuilder.create({callsCount: 3});
@@ -169,4 +169,6 @@ contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
         }
         vm.revertTo(midnightSnapshotId);
     }
+
+    // TODO: implement testFork_ProposalUnexecutableAfterCertainTime_HappyPath
 }

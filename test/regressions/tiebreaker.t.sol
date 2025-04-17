@@ -20,7 +20,7 @@ contract TiebreakerRegressionTest is DGRegressionTestSetup {
         _setupStETHBalance(_VETOER, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
     }
 
-    function testFork_ProposalApproval_TiebreakerActivationTimeout() external {
+    function testFork_ProposalApproval_ActivationTimeout() external {
         ITiebreaker.TiebreakerDetails memory details = _dgDeployedContracts.dualGovernance.getTiebreakerDetails();
 
         _step("1. Tiebreaker activation");
@@ -84,7 +84,7 @@ contract TiebreakerRegressionTest is DGRegressionTestSetup {
         }
     }
 
-    function testFork_ResumeWithdrawals() external {
+    function testFork_ResumeSealable_RageQuit_HappyPath() external {
         ITiebreaker.TiebreakerDetails memory details = _dgDeployedContracts.dualGovernance.getTiebreakerDetails();
 
         address[] memory sealableWithdrawalBlockers = _getSealableWithdrawalBlockers();

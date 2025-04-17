@@ -15,6 +15,8 @@ import {
 
 import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
 
+// TODO: rename file to test/scenario/timelocked-governance-launch.t.sol
+
 contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
@@ -22,7 +24,7 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
         _deployTGSetup({isEmergencyProtectionEnabled: true});
     }
 
-    function testFork_TimelockedGovernanceMigrationToDualGovernance() external {
+    function testFork_TimelockedGovernanceLaunch_MigrationToDualGovernance() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
         // ---

@@ -12,6 +12,8 @@ import {IRageQuitEscrow, ContractsDeployment, DGScenarioTestSetup} from "../util
 
 import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
 
+// TODO: move to regression tests, rename to test/regression/dg-upgrade-scenarios.t.sol
+
 contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
@@ -22,7 +24,7 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
         _setupStETHBalance(_VETOER, PercentsD16.fromBasisPoints(30_00));
     }
 
-    function testFork_DualGovernanceUpdate_OldEscrowInstanceAllowsUnlockTokens() external {
+    function testFork_OldEscrowInstanceAllowsUnlockTokens_HappyPath() external {
         DualGovernance newDualGovernanceInstance;
         _step("1. Deploy new Dual Governance implementation");
         {
@@ -131,7 +133,7 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
         }
     }
 
-    function testFork_DualGovernanceUpdate_LastMomentProposalAttack() external {
+    function testFork_ProposalExecution_RevertOn_SubmittedViaOldGovernance() external {
         // DAO initiates the update of the Dual Governance
         // Malicious actor locks funds in the Signalling Escrow to waste the full duration of VetoSignalling
         // At the end of the VetoSignalling, malicious actor unlocks all funds from VetoSignalling and
