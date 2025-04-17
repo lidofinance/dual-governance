@@ -48,6 +48,20 @@ address constant HOLESKY_DAO_AGENT = 0xE92329EC7ddB11D25e25b3c21eeBf11f15eB325d;
 address constant HOLESKY_DAO_VOTING = 0xdA7d2573Df555002503F29aA4003e398d28cc00f;
 address constant HOLESKY_DAO_TOKEN_MANAGER = 0xFaa1692c6eea8eeF534e7819749aD93a1420379A;
 
+// ---
+// Hoodi Addresses
+// ---
+
+address constant HOODI_ST_ETH = 0x3508A952176b3c15387C97BE809eaffB1982176a;
+address constant HOODI_WST_ETH = 0x7E99eE3C66636DE415D2d7C880938F2f40f94De4;
+address constant HOODI_WITHDRAWAL_QUEUE = 0xfe56573178f1bcdf53F01A6E9977670dcBBD9186;
+
+address constant HOODI_DAO_ACL = 0x78780e70Eae33e2935814a327f7dB6c01136cc62;
+address constant HOODI_LDO_TOKEN = 0xEf2573966D009CcEA0Fc74451dee2193564198dc;
+address constant HOODI_DAO_AGENT = 0x0534aA41907c9631fae990960bCC72d75fA7cfeD;
+address constant HOODI_DAO_VOTING = 0x49B3512c44891bef83F8967d075121Bd1b07a01B;
+address constant HOODI_DAO_TOKEN_MANAGER = 0x8ab4a56721Ad8e68c6Ad86F9D9929782A78E39E5;
+
 library LidoUtils {
     using CallsScriptBuilder for CallsScriptBuilder.Context;
 
@@ -90,6 +104,18 @@ library LidoUtils {
         ctx.voting = IAragonVoting(HOLESKY_DAO_VOTING);
         ctx.ldoToken = IERC20(HOLESKY_LDO_TOKEN);
         ctx.tokenManager = IAragonForwarder(HOLESKY_DAO_TOKEN_MANAGER);
+    }
+
+    function hoodi() internal pure returns (Context memory ctx) {
+        ctx.stETH = IStETH(HOODI_ST_ETH);
+        ctx.wstETH = IWstETH(HOODI_WST_ETH);
+        ctx.withdrawalQueue = IWithdrawalQueue(HOODI_WITHDRAWAL_QUEUE);
+
+        ctx.acl = IAragonACL(HOODI_DAO_ACL);
+        ctx.agent = IAragonAgent(HOODI_DAO_AGENT);
+        ctx.voting = IAragonVoting(HOODI_DAO_VOTING);
+        ctx.ldoToken = IERC20(HOODI_LDO_TOKEN);
+        ctx.tokenManager = IAragonForwarder(HOODI_DAO_TOKEN_MANAGER);
     }
 
     function calcAmountFromPercentageOfTVL(

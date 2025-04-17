@@ -37,7 +37,8 @@ contract DGDeployArtifactLoader is Script {
             _lidoUtils = LidoUtils.mainnet();
         } else if (_deployArtifact.deployConfig.chainId == 17000) {
             _lidoUtils = LidoUtils.holesky();
-            // TODO: add support for Hoodi      } else if (_deployArtifact.deployConfig.chainId == 560048) {
+        } else if (_deployArtifact.deployConfig.chainId == 560048) {
+            _lidoUtils = LidoUtils.hoodi();
         } else {
             revert InvalidChainId(_deployArtifact.deployConfig.chainId);
         }
