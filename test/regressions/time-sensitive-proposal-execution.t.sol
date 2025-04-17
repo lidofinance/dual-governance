@@ -74,7 +74,7 @@ contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
             _assertCanExecute(proposalId, true);
             assertTrue(Timestamps.now() < executableAfter);
 
-            vm.expectRevert(abi.encodeWithSelector(TimeConstraints.TimestampNotReached.selector, (executableAfter)));
+            vm.expectRevert(abi.encodeWithSelector(TimeConstraints.TimestampNotPassed.selector, (executableAfter)));
             _executeProposal(proposalId);
         }
 
