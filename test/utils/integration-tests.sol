@@ -49,7 +49,7 @@ uint256 constant HOODI_CHAIN_ID = 560048;
 
 uint256 constant DEFAULT_MAINNET_FORK_BLOCK_NUMBER = 20218312;
 uint256 constant DEFAULT_HOLESKY_FORK_BLOCK_NUMBER = 3209735;
-uint256 constant DEFAULT_HOODI_FORK_BLOCK_NUMBER = 727;
+uint256 constant DEFAULT_HOODI_FORK_BLOCK_NUMBER = 200000;
 
 uint256 constant LATEST_FORK_BLOCK_NUMBER = type(uint256).max;
 
@@ -521,6 +521,8 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
             _setupFork(HOLESKY_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_HOLESKY_FORK_BLOCK_NUMBER));
         } else if (chainId == HOODI_CHAIN_ID) {
             _setupFork(HOODI_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_HOODI_FORK_BLOCK_NUMBER));
+        } else {
+            revert UnsupportedChainId(chainId);
         }
     }
 
