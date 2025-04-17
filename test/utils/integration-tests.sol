@@ -45,9 +45,12 @@ import {
 
 uint256 constant MAINNET_CHAIN_ID = 1;
 uint256 constant HOLESKY_CHAIN_ID = 17000;
+uint256 constant HOODI_CHAIN_ID = 560048;
 
-uint256 constant DEFAULT_HOLESKY_FORK_BLOCK_NUMBER = 3209735;
 uint256 constant DEFAULT_MAINNET_FORK_BLOCK_NUMBER = 20218312;
+uint256 constant DEFAULT_HOLESKY_FORK_BLOCK_NUMBER = 3209735;
+uint256 constant DEFAULT_HOODI_FORK_BLOCK_NUMBER = 727;
+
 uint256 constant LATEST_FORK_BLOCK_NUMBER = type(uint256).max;
 
 abstract contract ForkTestSetup is Test {
@@ -63,6 +66,9 @@ abstract contract ForkTestSetup is Test {
         } else if (chainId == HOLESKY_CHAIN_ID) {
             vm.createSelectFork(vm.envString("HOLESKY_RPC_URL"));
             _lido = LidoUtils.holesky();
+        } else if (chainId == HOODI_CHAIN_ID) {
+            vm.createSelectFork(vm.envString("HOODI_RPC_URL"));
+            _lido = LidoUtils.hoodi();
         } else {
             revert UnsupportedChainId(chainId);
         }
@@ -480,7 +486,11 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     }
 
     function _deployDGSetup(bool isEmergencyProtectionEnabled) internal {
-        _setupFork(MAINNET_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_MAINNET_FORK_BLOCK_NUMBER));
+        _deployDGSetup(isEmergencyProtectionEnabled, MAINNET_CHAIN_ID);
+    }
+
+    function _deployDGSetup(bool isEmergencyProtectionEnabled, uint256 chainId) internal {
+        _setupForkForDGDeploySetup(chainId);
         _setDGDeployConfig(_getDefaultDGDeployConfig(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0)));
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
@@ -496,12 +506,22 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     }
 
     function _deployDGSetup(address emergencyGovernanceProposer) internal {
-        _setupFork(MAINNET_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_MAINNET_FORK_BLOCK_NUMBER));
+        _setupForkForDGDeploySetup(MAINNET_CHAIN_ID);
         _setDGDeployConfig(_getDefaultDGDeployConfig(emergencyGovernanceProposer));
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
         _setTimelock(_dgDeployedContracts.timelock);
         _lido.removeStakingLimit();
+    }
+
+    function _setupForkForDGDeploySetup(uint256 chainId) internal {
+        if (chainId == MAINNET_CHAIN_ID) {
+            _setupFork(MAINNET_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_MAINNET_FORK_BLOCK_NUMBER));
+        } else if (chainId == HOLESKY_CHAIN_ID) {
+            _setupFork(HOLESKY_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_HOLESKY_FORK_BLOCK_NUMBER));
+        } else if (chainId == HOODI_CHAIN_ID) {
+            _setupFork(HOODI_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_HOODI_FORK_BLOCK_NUMBER));
+        }
     }
 
     function _adoptProposalByAdminProposer(
