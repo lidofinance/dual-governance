@@ -55,8 +55,19 @@ contract TimeConstraintsTest is Test {
         timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(from), Durations.from(to));
     }
 
-    function testFuzz_checkTimeWithinDayTime_HappyPath_EdgeCases() external {
+    function testFuzz_checkTimeWithinDayTime_HappyPath() external {
+        // Time period from 08:00:00 to 17:00:00
+        vm.warp(8 hours - 1);
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTime(Durations.from(8 hours), Durations.from(17 hours));
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTimeAndEmit(Durations.from(8 hours), Durations.from(17 hours));
+
         vm.warp(8 hours);
+        timeConstraints.checkTimeWithinDayTime(Durations.from(8 hours), Durations.from(17 hours));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(8 hours), Durations.from(17 hours));
+
+        vm.warp(11 hours + 30 minutes);
         timeConstraints.checkTimeWithinDayTime(Durations.from(8 hours), Durations.from(17 hours));
         timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(8 hours), Durations.from(17 hours));
 
@@ -64,7 +75,26 @@ contract TimeConstraintsTest is Test {
         timeConstraints.checkTimeWithinDayTime(Durations.from(8 hours), Durations.from(17 hours));
         timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(8 hours), Durations.from(17 hours));
 
+        vm.warp(17 hours + 1);
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTime(Durations.from(8 hours), Durations.from(17 hours));
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTimeAndEmit(Durations.from(8 hours), Durations.from(17 hours));
+    }
+
+    function testFuzz_checkTimeWithinDayTime_HappyPath_Overnight() external {
+        // Time period from 22:00:00 to 06:00:00
+        vm.warp(22 hours - 1);
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTime(Durations.from(22 hours), Durations.from(6 hours));
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTimeAndEmit(Durations.from(22 hours), Durations.from(6 hours));
+
         vm.warp(22 hours);
+        timeConstraints.checkTimeWithinDayTime(Durations.from(22 hours), Durations.from(6 hours));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(22 hours), Durations.from(6 hours));
+
+        vm.warp(0);
         timeConstraints.checkTimeWithinDayTime(Durations.from(22 hours), Durations.from(6 hours));
         timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(22 hours), Durations.from(6 hours));
 
@@ -72,21 +102,64 @@ contract TimeConstraintsTest is Test {
         timeConstraints.checkTimeWithinDayTime(Durations.from(22 hours), Durations.from(6 hours));
         timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(22 hours), Durations.from(6 hours));
 
-        vm.warp(0);
-        timeConstraints.checkTimeWithinDayTime(Durations.from(0), Durations.from(8 hours));
-        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(0), Durations.from(8 hours));
+        vm.warp(6 hours + 1);
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTime(Durations.from(22 hours), Durations.from(6 hours));
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTimeAndEmit(Durations.from(22 hours), Durations.from(6 hours));
+    }
 
-        vm.warp(24 hours - 1);
-        timeConstraints.checkTimeWithinDayTime(Durations.from(8 hours), Durations.from(24 hours - 1));
-        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(8 hours), Durations.from(24 hours - 1));
+    function testFuzz_checkTimeWithinDayTime_HappyPath_EdgeCases() external {
+        // Time period from 00:00:00 to 23:59:59
+        vm.warp(0);
+        timeConstraints.checkTimeWithinDayTime(Durations.from(0), Durations.from(24 hours - 1));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(0), Durations.from(24 hours - 1));
 
         vm.warp(12 hours);
         timeConstraints.checkTimeWithinDayTime(Durations.from(0), Durations.from(24 hours - 1));
         timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(0), Durations.from(24 hours - 1));
 
+        vm.warp(24 hours - 1);
+        timeConstraints.checkTimeWithinDayTime(Durations.from(0), Durations.from(24 hours - 1));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(0), Durations.from(24 hours - 1));
+
+        // Time period from 12:00:00 to 12:00:00
+        vm.warp(12 hours - 1);
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(12 hours));
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTimeAndEmit(Durations.from(12 hours), Durations.from(12 hours));
+
         vm.warp(12 hours);
         timeConstraints.checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(12 hours));
         timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(12 hours), Durations.from(12 hours));
+
+        vm.warp(12 hours + 1);
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTime(Durations.from(12 hours), Durations.from(12 hours));
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTimeAndEmit(Durations.from(12 hours), Durations.from(12 hours));
+
+        // Time period from 23:59:59 to 00:00:00
+        vm.warp(24 hours - 2);
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTime(Durations.from(24 hours - 1), Durations.from(0));
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTimeAndEmit(Durations.from(24 hours - 1), Durations.from(0));
+
+        vm.warp(24 hours - 1);
+        timeConstraints.checkTimeWithinDayTime(Durations.from(24 hours - 1), Durations.from(0));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(24 hours - 1), Durations.from(0));
+
+        vm.warp(0);
+        timeConstraints.checkTimeWithinDayTime(Durations.from(24 hours - 1), Durations.from(0));
+        timeConstraints.checkTimeWithinDayTimeAndEmit(Durations.from(24 hours - 1), Durations.from(0));
+
+        vm.warp(1);
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTime(Durations.from(24 hours - 1), Durations.from(0));
+        vm.expectRevert();
+        this.external__checkTimeWithinDayTimeAndEmit(Durations.from(24 hours - 1), Durations.from(0));
     }
 
     function testFuzz_checkTimeWithinDayTime_RevertOn_OutOfRange_Regular(

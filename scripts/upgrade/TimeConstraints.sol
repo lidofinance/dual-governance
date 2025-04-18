@@ -117,7 +117,7 @@ contract TimeConstraints {
     // ---
 
     /// @notice Gets the current time in seconds since midnight (UTC).
-    /// @return The current time in seconds since midnight.
+    /// @return Current time of day in seconds since midnight (UTC).
     function getCurrentDayTime() public view returns (Duration) {
         return Durations.from(block.timestamp % DAY_DURATION.toSeconds());
     }
