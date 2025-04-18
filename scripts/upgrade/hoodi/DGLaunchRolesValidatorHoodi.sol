@@ -35,7 +35,7 @@ contract DGLaunchRolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, 
         _validate(KERNEL, "APP_MANAGER_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
 
         // Voting
-        _validate(VOTING, "UNSAFELY_MODIFY_VOTE_TIME_ROLE", AragonRoles.manager(VOTING).revoked(VOTING));
+        _validate(VOTING, "UNSAFELY_MODIFY_VOTE_TIME_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
 
         // TokenManager
         _validate(TOKEN_MANAGER, "MINT_ROLE", AragonRoles.manager(VOTING).granted(VOTING));

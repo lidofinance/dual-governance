@@ -17,7 +17,7 @@ contract LidoAddressesHoodi {
     address public constant WITHDRAWAL_QUEUE = 0xfe56573178f1bcdf53F01A6E9977670dcBBD9186;
     address public constant VEBO = 0x8664d394C2B3278F26A1B44B967aEf99707eeAB2;
     address public constant STAKING_ROUTER = 0xCc820558B39ee15C7C45B59390B503b83fb499A8;
-    address public constant ORACLES_GATE_SEAL = 0xAE6eCd77DCC656c5533c4209454Fd56fB46e1778;
+    address public constant ORACLES_GATE_SEAL = 0x2168Ea6D948Ab49c3D34c667A7e02F92369F3A9C;
     address public constant EVM_SCRIPT_EXECUTOR = 0x79a20FD0FA36453B2F45eAbab19bfef43575Ba9E;
 
     // Dev Addresses And Contracts
