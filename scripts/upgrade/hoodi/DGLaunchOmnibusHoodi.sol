@@ -26,7 +26,7 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
     bytes32 private constant SET_NODE_OPERATOR_LIMIT_ROLE = keccak256("SET_NODE_OPERATOR_LIMIT_ROLE");
     bytes32 private constant MANAGE_NODE_OPERATOR_ROLE = keccak256("MANAGE_NODE_OPERATOR_ROLE");
 
-    uint256 public constant VOTE_ITEMS_COUNT = 54;
+    uint256 public constant VOTE_ITEMS_COUNT = 56;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
 
     address public immutable DUAL_GOVERNANCE;
@@ -407,17 +407,27 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
             });
 
             voteItems[index++] = VoteItem({
-                description: "49. Set RUN_SCRIPT_ROLE manager to Agent on Agent",
+                description: "49. Grant RUN_SCRIPT_ROLE permission to Agent Manager on Agent",
+                call: _votingCall(ACL, abi.encodeCall(IACL.grantPermission, (AGENT_MANAGER, AGENT, RUN_SCRIPT_ROLE)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "50. Set RUN_SCRIPT_ROLE manager to Agent on Agent",
                 call: _votingCall(ACL, abi.encodeCall(IACL.setPermissionManager, (AGENT, AGENT, RUN_SCRIPT_ROLE)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "50. Grant EXECUTE_ROLE to DualGovernance Executor on Agent",
+                description: "51. Grant EXECUTE_ROLE to DualGovernance Executor on Agent",
                 call: _votingCall(ACL, abi.encodeCall(IACL.grantPermission, (ADMIN_EXECUTOR, AGENT, EXECUTE_ROLE)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "51. Set EXECUTE_ROLE manager to Agent on Agent",
+                description: "52. Grant EXECUTE_ROLE to Agent Manager on Agent",
+                call: _votingCall(ACL, abi.encodeCall(IACL.grantPermission, (AGENT_MANAGER, AGENT, EXECUTE_ROLE)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "53. Set EXECUTE_ROLE manager to Agent on Agent",
                 call: _votingCall(ACL, abi.encodeCall(IACL.setPermissionManager, (AGENT, AGENT, EXECUTE_ROLE)))
             });
         }
@@ -457,7 +467,7 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
             );
 
             voteItems[index++] = VoteItem({
-                description: "52. Submit a proposal to the Dual Governance to revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting",
+                description: "54. Submit a proposal to the Dual Governance to revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting",
                 call: _votingCall(
                     DUAL_GOVERNANCE,
                     abi.encodeCall(
@@ -474,7 +484,7 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
         // Verify state of the DG after launch
         {
             voteItems[index++] = VoteItem({
-                description: "53. Verify Dual Governance launch state",
+                description: "55. Verify Dual Governance launch state",
                 call: _votingCall(LAUNCH_VERIFIER, abi.encodeCall(IDGLaunchVerifier.verify, ()))
             });
         }
@@ -482,7 +492,7 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
         // Add "expiration date" to the omnibus
         {
             voteItems[index++] = VoteItem({
-                description: "54. Introduce an expiration deadline after which the omnibus can no longer be enacted",
+                description: "56. Introduce an expiration deadline after which the omnibus can no longer be enacted",
                 call: _votingCall(
                     TIME_CONSTRAINTS,
                     // 1748563200 is Friday, 30 May 2025 00:00:00

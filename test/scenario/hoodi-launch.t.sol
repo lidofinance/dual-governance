@@ -188,6 +188,9 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
             vm.assertFalse(IACL(ACL).hasPermission(address(_dgDeployedContracts.adminExecutor), AGENT, RUN_SCRIPT_ROLE));
             vm.assertFalse(IACL(ACL).hasPermission(address(_dgDeployedContracts.adminExecutor), AGENT, EXECUTE_ROLE));
 
+            vm.assertFalse(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, RUN_SCRIPT_ROLE));
+            vm.assertFalse(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, EXECUTE_ROLE));
+
             // WithdrawalQueue and VEBO permissions checks
             vm.assertFalse(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
             vm.assertFalse(IOZ(WITHDRAWAL_QUEUE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
@@ -314,6 +317,9 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
             vm.assertTrue(IACL(ACL).hasPermission(address(_dgDeployedContracts.adminExecutor), AGENT, RUN_SCRIPT_ROLE));
             vm.assertTrue(IACL(ACL).hasPermission(address(_dgDeployedContracts.adminExecutor), AGENT, EXECUTE_ROLE));
 
+            vm.assertTrue(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, RUN_SCRIPT_ROLE));
+            vm.assertTrue(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, EXECUTE_ROLE));
+
             // AllowedTokensRegistry permissions checks
             vm.assertFalse(IOZ(ALLOWED_TOKENS_REGISTRY).hasRole(DEFAULT_ADMIN_ROLE, AGENT));
             vm.assertFalse(IOZ(ALLOWED_TOKENS_REGISTRY).hasRole(ADD_TOKEN_TO_ALLOWED_LIST_ROLE, AGENT));
@@ -356,6 +362,9 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
             // After launch roles and permissions checks
             vm.assertFalse(IACL(ACL).hasPermission(VOTING, AGENT, RUN_SCRIPT_ROLE));
             vm.assertFalse(IACL(ACL).hasPermission(VOTING, AGENT, EXECUTE_ROLE));
+
+            vm.assertTrue(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, RUN_SCRIPT_ROLE));
+            vm.assertTrue(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, EXECUTE_ROLE));
         }
     }
 }

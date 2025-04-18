@@ -28,5 +28,5 @@ contract LidoAddressesHoodi {
 
     // Additional grantee of the Agent.RUN_SCRIPT_ROLE, which may be used
     // for development purposes or as a fallback recovery mechanism.
-    address public constant AGENT_MANAGER = 0x0000000000000000000000000000000000000000;
+    address public constant AGENT_MANAGER = 0xD500a8aDB182F55741E267730dfbfb4F1944C205;
 }
