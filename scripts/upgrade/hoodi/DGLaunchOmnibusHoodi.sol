@@ -26,7 +26,7 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
     bytes32 private constant SET_NODE_OPERATOR_LIMIT_ROLE = keccak256("SET_NODE_OPERATOR_LIMIT_ROLE");
     bytes32 private constant MANAGE_NODE_OPERATOR_ROLE = keccak256("MANAGE_NODE_OPERATOR_ROLE");
 
-    uint256 public constant VOTE_ITEMS_COUNT = 56;
+    uint256 public constant VOTE_ITEMS_COUNT = 54;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
 
     address public immutable DUAL_GOVERNANCE;
@@ -332,48 +332,15 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
             });
         }
 
-        // Agent Permissions Transition
-        {
-            voteItems[index++] = VoteItem({
-                description: "39. Grant RUN_SCRIPT_ROLE permission to DualGovernance Executor on Agent",
-                call: _votingCall(ACL, abi.encodeCall(IACL.grantPermission, (ADMIN_EXECUTOR, AGENT, RUN_SCRIPT_ROLE)))
-            });
-
-            voteItems[index++] = VoteItem({
-                description: "40. Revoke RUN_SCRIPT_ROLE permission from Voting on Agent",
-                call: _votingCall(ACL, abi.encodeCall(IACL.revokePermission, (VOTING, AGENT, RUN_SCRIPT_ROLE)))
-            });
-
-            voteItems[index++] = VoteItem({
-                description: "41. Set RUN_SCRIPT_ROLE manager to Agent on Agent",
-                call: _votingCall(ACL, abi.encodeCall(IACL.setPermissionManager, (AGENT, AGENT, RUN_SCRIPT_ROLE)))
-            });
-
-            voteItems[index++] = VoteItem({
-                description: "42. Grant EXECUTE_ROLE to DualGovernance Executor on Agent",
-                call: _votingCall(ACL, abi.encodeCall(IACL.grantPermission, (ADMIN_EXECUTOR, AGENT, EXECUTE_ROLE)))
-            });
-
-            voteItems[index++] = VoteItem({
-                description: "43. Revoke EXECUTE_ROLE permission from Voting on Agent",
-                call: _votingCall(ACL, abi.encodeCall(IACL.revokePermission, (VOTING, AGENT, EXECUTE_ROLE)))
-            });
-
-            voteItems[index++] = VoteItem({
-                description: "44. Set EXECUTE_ROLE manager to Agent on Agent",
-                call: _votingCall(ACL, abi.encodeCall(IACL.setPermissionManager, (AGENT, AGENT, EXECUTE_ROLE)))
-            });
-        }
-
         // WithdrawalQueue Roles Transition
         {
             voteItems[index++] = VoteItem({
-                description: "45. Grant PAUSE_ROLE to ResealManager on WithdrawalQueue",
+                description: "39. Grant PAUSE_ROLE to ResealManager on WithdrawalQueue",
                 call: _forwardCall(AGENT, WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "46. Grant RESUME_ROLE to ResealManager on WithdrawalQueue",
+                description: "40. Grant RESUME_ROLE to ResealManager on WithdrawalQueue",
                 call: _forwardCall(AGENT, WITHDRAWAL_QUEUE, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
             });
         }
@@ -381,12 +348,12 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
         // VEBO Roles Transition
         {
             voteItems[index++] = VoteItem({
-                description: "47. Grant PAUSE_ROLE to ResealManager on VEBO",
+                description: "41. Grant PAUSE_ROLE to ResealManager on VEBO",
                 call: _forwardCall(AGENT, VEBO, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "48. Grant RESUME_ROLE to ResealManager on VEBO",
+                description: "42. Grant RESUME_ROLE to ResealManager on VEBO",
                 call: _forwardCall(AGENT, VEBO, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
             });
         }
@@ -398,26 +365,26 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
             bytes32 REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE = keccak256("REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE");
 
             voteItems[index++] = VoteItem({
-                description: "49. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry",
+                description: "43. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry",
                 call: _forwardCall(
                     AGENT, ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.grantRole, (DEFAULT_ADMIN_ROLE, VOTING))
                 )
             });
 
             voteItems[index++] = VoteItem({
-                description: "50. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry",
+                description: "44. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry",
                 call: _votingCall(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (DEFAULT_ADMIN_ROLE, AGENT)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "51. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry",
+                description: "45. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry",
                 call: _votingCall(
                     ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (ADD_TOKEN_TO_ALLOWED_LIST_ROLE, AGENT))
                 )
             });
 
             voteItems[index++] = VoteItem({
-                description: "52. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry",
+                description: "46. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry",
                 call: _votingCall(
                     ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE, AGENT))
                 )
@@ -427,8 +394,31 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
         // WithdrawalVault Roles Transition
         {
             voteItems[index++] = VoteItem({
-                description: "53. Set admin to Agent on WithdrawalVault",
+                description: "47. Set admin to Agent on WithdrawalVault",
                 call: _votingCall(WITHDRAWAL_VAULT, abi.encodeCall(IWithdrawalVaultProxy.proxy_changeAdmin, (AGENT)))
+            });
+        }
+
+        // Agent Permissions Transition
+        {
+            voteItems[index++] = VoteItem({
+                description: "48. Grant RUN_SCRIPT_ROLE permission to DualGovernance Executor on Agent",
+                call: _votingCall(ACL, abi.encodeCall(IACL.grantPermission, (ADMIN_EXECUTOR, AGENT, RUN_SCRIPT_ROLE)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "49. Set RUN_SCRIPT_ROLE manager to Agent on Agent",
+                call: _votingCall(ACL, abi.encodeCall(IACL.setPermissionManager, (AGENT, AGENT, RUN_SCRIPT_ROLE)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "50. Grant EXECUTE_ROLE to DualGovernance Executor on Agent",
+                call: _votingCall(ACL, abi.encodeCall(IACL.grantPermission, (ADMIN_EXECUTOR, AGENT, EXECUTE_ROLE)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "51. Set EXECUTE_ROLE manager to Agent on Agent",
+                call: _votingCall(ACL, abi.encodeCall(IACL.setPermissionManager, (AGENT, AGENT, EXECUTE_ROLE)))
             });
         }
 
@@ -437,10 +427,10 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
             ExternalCallsBuilder.Context memory dgProposalCallsBuilder =
                 ExternalCallsBuilder.create({callsCount: DG_PROPOSAL_CALLS_COUNT});
 
-            // 1. Execution is allowed before Wednesday, 30 April 2025 00:00:00
+            // 1. Execution is allowed before Friday, 30 May 2025 00:00:00
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
-                abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1745971200)))
+                abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1748563200)))
             );
 
             // 2. Execution is allowed since 04:00 to 22:00 UTC
@@ -467,7 +457,7 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
             );
 
             voteItems[index++] = VoteItem({
-                description: "54. Submit a proposal to the Dual Governance to revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting",
+                description: "52. Submit a proposal to the Dual Governance to revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting",
                 call: _votingCall(
                     DUAL_GOVERNANCE,
                     abi.encodeCall(
@@ -484,7 +474,7 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
         // Verify state of the DG after launch
         {
             voteItems[index++] = VoteItem({
-                description: "55. Verify Dual Governance launch state",
+                description: "53. Verify Dual Governance launch state",
                 call: _votingCall(LAUNCH_VERIFIER, abi.encodeCall(IDGLaunchVerifier.verify, ()))
             });
         }
@@ -492,11 +482,11 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
         // Add "expiration date" to the omnibus
         {
             voteItems[index++] = VoteItem({
-                description: "56. Introduce an expiration deadline after which the omnibus can no longer be enacted",
+                description: "54. Introduce an expiration deadline after which the omnibus can no longer be enacted",
                 call: _votingCall(
                     TIME_CONSTRAINTS,
-                    // 1745971200 is Wednesday, 30 April 2025 00:00:00
-                    abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1745971200)))
+                    // 1748563200 is Friday, 30 May 2025 00:00:00
+                    abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1748563200)))
                 )
             });
         }
