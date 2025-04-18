@@ -297,6 +297,11 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         assertEq(_getEmergencyModeEndsAfter(), _getEmergencyModeDuration().addTo(Timestamps.now()));
     }
 
+    function _deactivateEmergencyMode() internal {
+        _timelock.deactivateEmergencyMode();
+        assertFalse(_timelock.isEmergencyModeActive());
+    }
+
     function _emergencyReset() internal {
         assertTrue(_timelock.isEmergencyModeActive());
         assertNotEq(_timelock.getEmergencyGovernance(), _timelock.getGovernance());
@@ -405,6 +410,10 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
 
     function external__activateEmergencyMode() external {
         _activateEmergencyMode();
+    }
+
+    function external__emergencyExecute(uint256 proposalId) external {
+        _emergencyExecute(proposalId);
     }
 }
 
@@ -552,6 +561,15 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         proposalId = _submitProposal(_getFirstAdminProposer(), calls, metadata);
     }
 
+    function _cancelAllPendingProposalsByProposalsCanceller() internal returns (bool) {
+        vm.prank(_getProposalsCanceller());
+        return _dgDeployedContracts.dualGovernance.cancelAllPendingProposals();
+    }
+
+    function _getProposalsCanceller() internal returns (address) {
+        return _dgDeployedContracts.dualGovernance.getProposalsCanceller();
+    }
+
     function _getProposers() internal view returns (Proposers.Proposer[] memory) {
         return _dgDeployedContracts.dualGovernance.getProposers();
     }
@@ -578,6 +596,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
     function _getSealableWithdrawalBlockers() internal view returns (address[] memory) {
         return _dgDeployedContracts.dualGovernance.getTiebreakerDetails().sealableWithdrawalBlockers;
+    }
+
+    function _getResealCommittee() internal view returns (address) {
+        return _dgDeployedContracts.dualGovernance.getResealCommittee();
     }
 
     function _getMinAssetsLockDuration() internal view returns (Duration) {
@@ -709,6 +731,11 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
     function _simulateRebase(PercentD16 rebaseFactor) internal {
         _lido.simulateRebase(rebaseFactor);
+    }
+
+    function _resealSealable(address sealable) internal {
+        vm.prank(_getResealCommittee());
+        _dgDeployedContracts.dualGovernance.resealSealable(sealable);
     }
 
     // ---

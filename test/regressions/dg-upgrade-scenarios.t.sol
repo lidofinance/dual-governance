@@ -8,19 +8,17 @@ import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {IRageQuitEscrow, ContractsDeployment, DGScenarioTestSetup} from "../utils/integration-tests.sol";
+import {IRageQuitEscrow, ContractsDeployment, DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
 import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
 
-// TODO: move to regression tests, rename to test/regression/dg-upgrade-scenarios.t.sol
-
-contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
+contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
-        _deployDGSetup({isEmergencyProtectionEnabled: false});
+        _loadOrDeployDGSetup();
         _setupStETHBalance(_VETOER, PercentsD16.fromBasisPoints(30_00));
     }
 

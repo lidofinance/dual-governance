@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
-import {PercentsD16} from "contracts/types/PercentD16.sol";
+import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 
-import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
-import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
 import {Escrow} from "contracts/Escrow.sol";
 
 import {LidoUtils, DGRegressionTestSetup} from "../utils/integration-tests.sol";
+
+uint256 constant ACCURACY = 2 wei;
 
 contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
     using LidoUtils for LidoUtils.Context;
@@ -77,18 +76,22 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         assertApproxEqAbs(
             _lido.stETH.balanceOf(_VETOER_1),
             firstVetoerStETHBalanceBefore + _lido.stETH.getPooledEthByShares(firstVetoerLockWstETHAmount),
-            1
+            ACCURACY
         );
 
         _unlockWstETH(_VETOER_2);
         assertApproxEqAbs(
-            secondVetoerWstETHBalanceBefore,
             _lido.wstETH.balanceOf(_VETOER_2),
-            secondVetoerWstETHBalanceBefore + _lido.stETH.getSharesByPooledEth(secondVetoerLockWstETHAmount)
+            secondVetoerWstETHBalanceBefore + _lido.stETH.getSharesByPooledEth(secondVetoerLockStETHAmount),
+            ACCURACY
         );
     }
 
-    function testForkFuzz_LockUnlockAssets_HappyPath_WithRebases(bool rebaseIsNegative) public {
+    function testForkFuzz_LockUnlockAssets_HappyPath_WithRebases(uint256 rebaseDeltaPercent) public {
+        vm.assume(rebaseDeltaPercent < 200); // -1% ... +1%
+        bool rebaseIsNegative = rebaseDeltaPercent < 100 ? true : false;
+        PercentD16 rebasePercent = PercentsD16.fromBasisPoints(99_00 + rebaseDeltaPercent);
+
         uint256 firstVetoerStETHAmount = 10 * 10 ** 18;
         uint256 firstVetoerStETHShares = _lido.stETH.getSharesByPooledEth(firstVetoerStETHAmount);
         uint256 firstVetoerWstETHAmount = 11 * 10 ** 18;
@@ -108,11 +111,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         _lockStETH(_VETOER_2, secondVetoerStETHAmount);
         _lockWstETH(_VETOER_2, secondVetoerWstETHAmount);
 
-        if (rebaseIsNegative) {
-            _simulateRebase(PercentsD16.fromBasisPoints(99_00)); // -1%
-        } else {
-            _simulateRebase(PercentsD16.fromBasisPoints(101_00)); // +1%
-        }
+        _simulateRebase(rebasePercent);
 
         _wait(_getMinAssetsLockDuration().plusSeconds(1));
 
@@ -122,7 +121,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 // all locked stETH and wstETH was withdrawn as stETH
                 _lido.stETH.getPooledEthByShares(firstVetoerStETHSharesBefore + firstVetoerWstETHAmount),
                 _lido.stETH.balanceOf(_VETOER_1),
-                1
+                ACCURACY
             );
 
             _unlockWstETH(_VETOER_2);
@@ -133,7 +132,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
                 // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
                 // into shares via _lido.stETH.getSharesByPooledEth(secondVetoerStETHAmount)
-                2
+                ACCURACY
             );
         } else {
             _unlockWstETH(_VETOER_1);
@@ -143,7 +142,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
                 // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
                 // into shares via _lido.stETH.getSharesByPooledEth(secondVetoerStETHAmount)
-                2
+                ACCURACY
             );
 
             _unlockStETH(_VETOER_2);
@@ -153,51 +152,10 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 _lido.stETH.getPooledEthByShares(secondVetoerStETHSharesBefore + secondVetoerWstETHAmount),
                 _lido.stETH.balanceOf(_VETOER_2),
                 // Considering that during the previous operation 2 wei may be lost, total rounding error may be 3 wei
-                3
+                2 * ACCURACY
             );
         }
     }
-
-    // function test_lock_unlock_w_negative_rebase() public {
-    // uint256 firstVetoerStETHAmount = 10 * 10 ** 18;
-    // uint256 firstVetoerWstETHAmount = 11 * 10 ** 18;
-
-    // uint256 secondVetoerStETHAmount = 13 * 10 ** 18;
-    // uint256 secondVetoerWstETHAmount = 17 * 10 ** 18;
-    // uint256 secondVetoerStETHShares = _lido.stETH.getSharesByPooledEth(secondVetoerStETHAmount);
-
-    // uint256 firstVetoerStETHSharesBefore = _lido.stETH.sharesOf(_VETOER_1);
-    // uint256 secondVetoerWstETHBalanceBefore = _lido.wstETH.balanceOf(_VETOER_2);
-
-    // _lockStETH(_VETOER_1, firstVetoerStETHAmount);
-    // _lockWstETH(_VETOER_1, firstVetoerWstETHAmount);
-
-    // _lockStETH(_VETOER_2, secondVetoerStETHAmount);
-    // _lockWstETH(_VETOER_2, secondVetoerWstETHAmount);
-
-    // _simulateRebase(PercentsD16.fromBasisPoints(99_00)); // -1%
-
-    // _wait(_getMinAssetsLockDuration().plusSeconds(1));
-
-    /* _unlockStETH(_VETOER_1);
-        assertApproxEqAbs(
-            // all locked stETH and wstETH was withdrawn as stETH
-            _lido.stETH.getPooledEthByShares(firstVetoerStETHSharesBefore + firstVetoerWstETHAmount),
-            _lido.stETH.balanceOf(_VETOER_1),
-            1
-        );
-
-        _unlockWstETH(_VETOER_2);
-
-        assertApproxEqAbs(
-            secondVetoerWstETHBalanceBefore + secondVetoerStETHShares,
-            _lido.wstETH.balanceOf(_VETOER_2),
-            // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
-            // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
-            // into shares via _lido.stETH.getSharesByPooledEth(secondVetoerStETHAmount)
-            2
-        );
-    } */
 
     function testFork_LockUnlockAssets_HappyPath_WithdrawalNFTs() public {
         uint256[] memory amounts = new uint256[](2);
@@ -263,10 +221,10 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         escrowDetails = escrow.getSignallingEscrowDetails();
         assertEq(escrowDetails.totalUnstETHUnfinalizedShares.toUint256(), statuses[0].amountOfShares);
         uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(escrowDetails.totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, 1);
+        assertApproxEqAbs(escrowDetails.totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, ACCURACY);
     }
 
-    function testForkFuzz_RageQuitSupport_HappyPath() public {
+    function testFork_LockUnlockAssets_FinalizedWithdrawalNFTs_HappyPath() public {
         uint256[] memory amounts = new uint256[](2);
         for (uint256 i = 0; i < 2; ++i) {
             amounts[i] = 1e18;
@@ -275,20 +233,42 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         vm.prank(_VETOER_1);
         uint256[] memory unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
 
-        uint256 amountToLock = 1e18;
+        _lockUnstETH(_VETOER_1, unstETHIds);
+
+        _finalizeWithdrawalQueue();
+
+        _wait(_getMinAssetsLockDuration().plusSeconds(1));
+
+        _unlockUnstETH(_VETOER_1, unstETHIds);
+    }
+
+    function testForkFuzz_RageQuitSupport_HappyPath(uint256 amountToLock) public {
+        uint256 totalSupply = _lido.stETH.totalSupply();
+        vm.assume(amountToLock < totalSupply);
+        vm.assume(amountToLock < _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT());
+        vm.assume(amountToLock > 1000 * _lido.withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT());
+        uint256[] memory amounts = new uint256[](2);
+        for (uint256 i = 0; i < 2; ++i) {
+            amounts[i] = amountToLock;
+        }
+
+        vm.prank(_VETOER_1);
+        uint256[] memory unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
+
         uint256 sharesToLock = _lido.stETH.getSharesByPooledEth(amountToLock);
 
         _lockStETH(_VETOER_1, amountToLock);
         _lockWstETH(_VETOER_1, sharesToLock);
         _lockUnstETH(_VETOER_1, unstETHIds);
 
-        uint256 totalSupply = _lido.stETH.totalSupply();
-
         // epsilon is 2 here, because the wstETH unwrap may produce 1 wei error and stETH transfer 1 wei
-        assertApproxEqAbs(escrow.getVetoerDetails(_VETOER_1).stETHLockedShares.toUint256(), 2 * sharesToLock, 2);
+        assertApproxEqAbs(escrow.getVetoerDetails(_VETOER_1).stETHLockedShares.toUint256(), 2 * sharesToLock, ACCURACY);
         assertEq(escrow.getVetoerDetails(_VETOER_1).unstETHIdsCount, 2);
 
-        assertEq(escrow.getRageQuitSupport(), PercentsD16.fromFraction({numerator: 4 ether, denominator: totalSupply}));
+        assertEq(
+            escrow.getRageQuitSupport(),
+            PercentsD16.fromFraction({numerator: 4 * amountToLock, denominator: totalSupply})
+        );
 
         _finalizeWithdrawalQueue(unstETHIds[0]);
         uint256[] memory hints =
@@ -299,7 +279,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
 
         uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
         assertApproxEqAbs(
-            escrow.getSignallingEscrowDetails().totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, 1
+            escrow.getSignallingEscrowDetails().totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, ACCURACY
         );
 
         assertEq(

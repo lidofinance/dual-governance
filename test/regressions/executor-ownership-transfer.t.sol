@@ -6,7 +6,7 @@ import {Durations} from "contracts/types/Duration.sol";
 import {Executor} from "contracts/Executor.sol";
 import {Proposers} from "contracts/libraries/Proposers.sol";
 
-import {DGScenarioTestSetup, DualGovernance} from "../utils/integration-tests.sol";
+import {DGRegressionTestSetup, DualGovernance} from "../utils/integration-tests.sol";
 
 import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 
@@ -14,7 +14,7 @@ interface ISomeContract {
     function someMethod(uint256 someParameter) external;
 }
 
-contract ExecutorOwnershipTransferScenarioTest is DGScenarioTestSetup {
+contract ExecutorOwnershipTransferRegressionTest is DGRegressionTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     address private immutable _NEW_REGULAR_PROPOSER = makeAddr("NEW_REGULAR_PROPOSER");
@@ -23,14 +23,13 @@ contract ExecutorOwnershipTransferScenarioTest is DGScenarioTestSetup {
     Executor private _newAdminExecutor;
 
     function setUp() external {
-        _deployDGSetup({isEmergencyProtectionEnabled: false});
+        _loadOrDeployDGSetup();
         _newAdminExecutor = new Executor({owner: address(this)});
 
         _oldAdminExecutor = Executor(payable(_getAdminExecutor()));
         _newAdminExecutor.transferOwnership(address(_timelock));
     }
 
-    // TODO: move to regression tests
     function testFork_ExecutorOwnershipTransfer_HappyPath() external {
         uint256 shuffleExecutorsProposalId;
         DualGovernance dualGovernance = DualGovernance(_getGovernance());

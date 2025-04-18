@@ -5,9 +5,6 @@ import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 
-import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
-import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
-
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
@@ -15,8 +12,6 @@ import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsA
 import {Escrow} from "contracts/Escrow.sol";
 
 import {LidoUtils, DGScenarioTestSetup} from "../utils/integration-tests.sol";
-
-// TODO: rename file to escrow-operations.t.sol
 
 contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
     using LidoUtils for LidoUtils.Context;
@@ -53,7 +48,7 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         _lido.stETH.approve(address(_lido.withdrawalQueue), type(uint256).max);
         _lido.wstETH.approve(address(escrow), type(uint256).max);
 
-        _lido.wstETH.wrap(100_000 * 10 ** 18);
+        _lido.wstETH.wrap(1_000_000 * 10 ** 18);
         vm.stopPrank();
     }
 
@@ -144,11 +139,18 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         this.externalUnlockUnstETH(_VETOER_1, lockedWithdrawalNfts);
     }
 
-    // TODO: rewrite this test to use all stETH/wstETH/unstETH tokens
     function testFork_RageQuit_RevertOn_FrontRunWithTokensUnlock() external {
+        uint256[] memory amounts = new uint256[](5);
+        for (uint256 i = 0; i < 5; ++i) {
+            amounts[i] = _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT() - 1;
+        }
+
+        vm.prank(_VETOER_1);
+        uint256[] memory unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
         // lock enough funds to initiate RageQuit
-        _lockStETH(_VETOER_1, PercentsD16.fromBasisPoints(7_99));
-        _lockStETH(_VETOER_2, PercentsD16.fromBasisPoints(7_99));
+        _lockStETH(_VETOER_1, PercentsD16.fromBasisPoints(7_50));
+        _lockWstETH(_VETOER_2, PercentsD16.fromBasisPoints(7_49));
+        _lockUnstETH(_VETOER_1, unstETHIds);
         _assertVetoSignalingState();
 
         // wait till the last second of the dynamic timelock duration
@@ -161,6 +163,18 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         // validate that while the VetoSignalling has not passed, vetoer can unlock funds from Escrow
         uint256 snapshotId = vm.snapshot();
         _unlockStETH(_VETOER_1);
+        _assertVetoSignallingDeactivationState();
+
+        // Rollback the state of the node before vetoer unlocked his funds
+        vm.revertTo(snapshotId);
+
+        _unlockWstETH(_VETOER_2);
+        _assertVetoSignallingDeactivationState();
+
+        // Rollback the state of the node before vetoer unlocked his funds
+        vm.revertTo(snapshotId);
+
+        _unlockUnstETH(_VETOER_1, unstETHIds);
         _assertVetoSignallingDeactivationState();
 
         // Rollback the state of the node before vetoer unlocked his funds
@@ -184,6 +198,20 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         // The attempt to unlock funds from Escrow will fail
         vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
         this.externalUnlockStETH(_VETOER_1);
+
+        // Rollback the state of the node as it was before RageQuit activation
+        vm.revertTo(snapshotId);
+
+        // The attempt to unlock funds from Escrow will fail
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
+        this.externalUnlockWstETH(_VETOER_2);
+
+        // Rollback the state of the node as it was before RageQuit activation
+        vm.revertTo(snapshotId);
+
+        // The attempt to unlock funds from Escrow will fail
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
+        this.externalUnlockUnstETH(_VETOER_1, unstETHIds);
     }
 
     function testFork_ClaimingUnstETH_RevertOn_UnstETHFromWithdrawalBatch() external {

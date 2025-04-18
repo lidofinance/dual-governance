@@ -169,6 +169,4 @@ contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
         }
         vm.revertTo(midnightSnapshotId);
     }
-
-    // TODO: implement testFork_ProposalUnexecutableAfterCertainTime_HappyPath
 }

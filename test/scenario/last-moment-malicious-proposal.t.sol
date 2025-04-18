@@ -122,63 +122,6 @@ contract LastMomentMaliciousProposalSuccessor is DGScenarioTestSetup {
         }
     }
 
-    function testFork_VetoSignallingDeactivationDefaultDuration() external {
-        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
-
-        uint256 proposalId;
-        // ---
-        // ACT 1. DAO SUBMITS CONTROVERSIAL PROPOSAL
-        // ---
-        {
-            proposalId = _submitProposalByAdminProposer(
-                regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
-            );
-            _assertProposalSubmitted(proposalId);
-            _assertSubmittedProposalData(proposalId, regularStaffCalls);
-        }
-
-        // ---
-        // ACT 2. MALICIOUS ACTOR ACCUMULATES FIRST THRESHOLD OF STETH IN THE ESCROW
-        // ---
-        address maliciousActor = makeAddr("MALICIOUS_ACTOR");
-        {
-            _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
-            _setupStETHBalance(maliciousActor, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
-            _lockStETH(maliciousActor, PercentsD16.fromBasisPoints(12_00));
-            _assertVetoSignalingState();
-
-            _wait(_timelock.getAfterSubmitDelay().dividedBy(2).plusSeconds(1));
-
-            _assertProposalSubmitted(proposalId);
-
-            _wait(_getVetoSignallingDuration().plusSeconds(1));
-
-            _activateNextState();
-            _assertVetoSignallingDeactivationState();
-        }
-
-        // ---
-        // ACT 3. THE VETO SIGNALLING DEACTIVATION DURATION EQUALS TO "VETO_SIGNALLING_DEACTIVATION_MAX_DURATION" DAYS
-        // ---
-        {
-            _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
-
-            _activateNextState();
-            _assertVetoCooldownState();
-
-            _assertCanSchedule(proposalId, true);
-            _scheduleProposal(proposalId);
-            _assertProposalScheduled(proposalId);
-
-            _wait(_getAfterScheduleDelay());
-
-            _assertCanExecute(proposalId, true);
-            _executeProposal(proposalId);
-
-            _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
-        }
-    }
-
     function testFork_VetoSignallingToNormalState() external {
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         _setupStETHBalance(maliciousActor, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));

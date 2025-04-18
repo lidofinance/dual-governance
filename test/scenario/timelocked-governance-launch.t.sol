@@ -15,9 +15,7 @@ import {
 
 import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
 
-// TODO: rename file to test/scenario/timelocked-governance-launch.t.sol
-
-contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
+contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenarioTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     function setUp() external {
@@ -167,23 +165,23 @@ contract PlanBSetup is TGScenarioTestSetup, DGScenarioTestSetup {
             );
 
             // The vote to launch Dual Governance is launched and reached the quorum (the major part of LDO holder still have power)
-            uint256 dualGovernanceLunchProposalId =
+            uint256 dualGovernanceLaunchProposalId =
                 _submitProposal(dgLaunchCallsBuilder.getResult(), "Launch the Dual Governance");
 
             // wait until the after submit delay has passed
             _wait(_getAfterSubmitDelay());
 
-            _assertCanSchedule(dualGovernanceLunchProposalId, true);
-            _scheduleProposal(dualGovernanceLunchProposalId);
-            _assertProposalScheduled(dualGovernanceLunchProposalId);
+            _assertCanSchedule(dualGovernanceLaunchProposalId, true);
+            _scheduleProposal(dualGovernanceLaunchProposalId);
+            _assertProposalScheduled(dualGovernanceLaunchProposalId);
 
             _wait(_getAfterScheduleDelay());
 
             // now emergency committee may execute the proposal
-            _emergencyExecute(dualGovernanceLunchProposalId);
+            _emergencyExecute(dualGovernanceLaunchProposalId);
 
             assertEq(_timelock.getGovernance(), address(_dgDeployedContracts.dualGovernance));
-            // TODO: check emergency protection also was applied
+            assertTrue(_timelock.isEmergencyProtectionEnabled());
 
             // malicious proposal now cancelled
             _assertProposalCancelled(maliciousProposalId);
