@@ -39,7 +39,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
         DGSetupDeployConfig.Context memory _config = _deployArtifact.deployConfig;
         uint256 fromStep = vm.envUint("FROM_STEP");
-        require(fromStep < 10, "Invalid value of env variable FROM_STEP, should not exceed 10");
+        require(fromStep <= 10, "Invalid value of env variable FROM_STEP, should not exceed 10");
 
         console.log("========= Starting from step ", fromStep, " =========");
 
@@ -218,7 +218,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
             console.log("STEP 7 - Enacting DAO Voting proposal to activate Dual Governance");
             uint256 voteId;
             if (fromStep == 7) {
-                voteId = vm.envUint("OMNIBUS_VOTE_IDS");
+                voteId = vm.envUint("OMNIBUS_VOTE_ID");
                 _lidoUtils.supportVoteAndWaitTillDecided(voteId);
             } else {
                 voteId = _lidoUtils.getLastVoteId();

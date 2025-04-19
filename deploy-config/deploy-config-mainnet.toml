@@ -50,7 +50,7 @@ min_tiebreaker_activation_timeout = 15768000                                  # 
 
 # The minimum number of withdrawal requests allowed to create during a single call of
 # the `Escrow.requestNextWithdrawalsBatch(batchSize)` method.
-min_withdrawals_batch_size = 1                                                # ****
+min_withdrawals_batch_size = 4                                                # ****
 
 [dual_governance_config_provider]
 
@@ -130,7 +130,7 @@ emergency_governance_proposer = "0x000000000000000000000000000000000000cafe"  # 
 emergency_mode_duration = 2592000                                             # 1 month
 
 # Duration of the emergency protection in seconds while emergency activation committee is active
-emergency_protection_end_date = 1778878800                                    # Fri May 15 2026 21:00:00 GMT+0000 ****
+emergency_protection_end_date = 1781913600                                    # Sat Jun 20 2026 00:00:00 GMT+0000 ****
 
 # ======================
 # TIEBREAKER CONFIG

@@ -53,8 +53,8 @@ after_schedule_delay = 120                                                    # 
 min_execution_delay = 120                                                     # 2 minutes
 max_after_submit_delay = 1800                                                 # 30 minutes
 max_after_schedule_delay = 1800                                               # 30 minutes
-max_emergency_mode_duration = 2592000                                         # 30 day
-max_emergency_protection_duration = 63072000                                  # 2 year
+max_emergency_mode_duration = 2592000                                         # 30 days
+max_emergency_protection_duration = 63072000                                  # 2 years
 
 [timelock.emergency_protection]
 emergency_activation_committee = "0x000000000000000000000000000000000000cafe" # Gnosis Multisig

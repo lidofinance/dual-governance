@@ -241,7 +241,7 @@ library TiebreakerContractDeployConfig {
 
         for (uint256 i = 0; i < ctx.committeesCount; ++i) {
             console.log("===== Tiebreaker Committee [%d]", i);
-            console.log("Committee quorum: %d", i, ctx.committees[i].quorum);
+            console.log("Committee quorum: %d", ctx.committees[i].quorum);
             console.log("Committee members:");
             for (uint256 j = 0; j < ctx.committees[i].members.length; ++j) {
                 console.log("Committee member [%d] %s", j, ctx.committees[i].members[j]);
@@ -460,7 +460,7 @@ library DGLaunchConfig {
         uint256 chainId;
         TimelockedGovernance daoEmergencyGovernance;
         address dgLaunchVerifier;
-        address roleValidator;
+        address rolesValidator;
         address timeConstraints;
         IVotingProvider omnibusContract;
     }
@@ -477,13 +477,11 @@ library DGLaunchConfig {
 
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
-        ctx.chainId = file.readUint($.key("chain_id"));
-
         string memory $daoVoting = $.key("dg_launch");
 
         ctx.daoEmergencyGovernance = TimelockedGovernance(file.readAddress($daoVoting.key("dao_emergency_governance")));
         ctx.dgLaunchVerifier = file.readAddress($daoVoting.key("dg_launch_verifier"));
-        ctx.roleValidator = file.readAddress($daoVoting.key("role_validator"));
+        ctx.rolesValidator = file.readAddress($daoVoting.key("roles_validator"));
         ctx.timeConstraints = file.readAddress($daoVoting.key("time_constraints"));
         ctx.omnibusContract = IVotingProvider(file.readAddress($daoVoting.key("omnibus_contract")));
     }
