@@ -21,7 +21,7 @@ import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 
 import {DeployVerification} from "../utils/DeployVerification.sol";
 
-import {DGSetupDeployArtifacts, DGSetupDeployConfig} from "../utils/contracts-deployment.sol";
+import {DGSetupDeployArtifacts, DGSetupDeployConfig, DGLaunchConfig} from "../utils/contracts-deployment.sol";
 
 import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
@@ -33,16 +33,13 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
     function run() external {
         string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
-        bytes memory dgActivationVotingCalldata =
-            DGSetupDeployArtifacts.loadDgActivationVotingCalldata(deployArtifactFileName);
-
-        address daoEmergencyGovernance = 0x46c6C7E1Cc438456d658Eed61A764a475abDa0C1;
+        DGLaunchConfig.Context memory dgLaunchConfig = DGSetupDeployArtifacts.loadDGLaunchConfig(deployArtifactFileName);
 
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
 
         DGSetupDeployConfig.Context memory _config = _deployArtifact.deployConfig;
         uint256 fromStep = vm.envUint("FROM_STEP");
-        require(fromStep < 10, "Invalid value of env variable FROM_STEP, should not exceed 10");
+        require(fromStep <= 10, "Invalid value of env variable FROM_STEP, should not exceed 10");
 
         console.log("========= Starting from step ", fromStep, " =========");
 
@@ -96,7 +93,8 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
                 address(timelock), abi.encodeCall(timelock.setGovernance, (address(_dgContracts.dualGovernance)))
             );
             builder.addCall(
-                address(timelock), abi.encodeCall(timelock.setEmergencyGovernance, (daoEmergencyGovernance))
+                address(timelock),
+                abi.encodeCall(timelock.setEmergencyGovernance, (address(dgLaunchConfig.daoEmergencyGovernance)))
             );
             builder.addCall(
                 address(timelock),
@@ -166,7 +164,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
             timelock.execute(dgProposalId);
 
-            _dgContracts.emergencyGovernance = TimelockedGovernance(daoEmergencyGovernance);
+            _dgContracts.emergencyGovernance = dgLaunchConfig.daoEmergencyGovernance;
             ITimelock.ProposalDetails memory proposalDetails = _dgContracts.timelock.getProposalDetails(dgProposalId);
             assert(proposalDetails.status == ProposalStatus.Executed);
 
@@ -209,7 +207,8 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
             );
 
             console.log("Submitting DAO Voting proposal to activate Dual Governance");
-            uint256 voteId = _lidoUtils.adoptVote("Activate Dual Governance", dgActivationVotingCalldata);
+            uint256 voteId =
+                _lidoUtils.adoptVote("Activate Dual Governance", dgLaunchConfig.omnibusContract.getEVMScript());
             console.log("Vote ID", voteId);
         } else {
             console.log("STEP 6 SKIPPED - Dual Governance activation vote already submitted");
@@ -217,7 +216,13 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
         if (fromStep <= 7) {
             console.log("STEP 7 - Enacting DAO Voting proposal to activate Dual Governance");
-            uint256 voteId = _lidoUtils.getLastVoteId();
+            uint256 voteId;
+            if (fromStep == 7) {
+                voteId = vm.envUint("OMNIBUS_VOTE_ID");
+                _lidoUtils.supportVoteAndWaitTillDecided(voteId);
+            } else {
+                voteId = _lidoUtils.getLastVoteId();
+            }
             console.log("Enacting vote with ID", voteId);
             _lidoUtils.executeVote(voteId);
         } else {

@@ -131,6 +131,29 @@ library TimelockContractDeployConfig {
 
         return builder.content;
     }
+
+    function print(Context memory ctx) internal pure {
+        console.log("===== Timelock");
+        console.log("After submit delay", ctx.afterSubmitDelay.toSeconds());
+        console.log("After schedule delay", ctx.afterScheduleDelay.toSeconds());
+        console.log("\n");
+        console.log("===== Timelock. Sanity check params");
+        console.log("Min execution delay", ctx.sanityCheckParams.minExecutionDelay.toSeconds());
+        console.log("Max after submit delay", ctx.sanityCheckParams.maxAfterSubmitDelay.toSeconds());
+        console.log("Max after schedule delay", ctx.sanityCheckParams.maxAfterScheduleDelay.toSeconds());
+        console.log("Max emergency mode duration", ctx.sanityCheckParams.maxEmergencyModeDuration.toSeconds());
+        console.log(
+            "Max emergency protection duration", ctx.sanityCheckParams.maxEmergencyProtectionDuration.toSeconds()
+        );
+        console.log("\n");
+        console.log("===== Timelock. Emergency protection");
+        console.log("Emergency activation committee", ctx.emergencyActivationCommittee);
+        console.log("Emergency execution committee", ctx.emergencyExecutionCommittee);
+        console.log("Emergency governance proposer", ctx.emergencyGovernanceProposer);
+        console.log("Emergency mode duration", ctx.emergencyModeDuration.toSeconds());
+        console.log("Emergency protection end date", ctx.emergencyProtectionEndDate.toSeconds());
+        console.log("\n");
+    }
 }
 
 struct TiebreakerCommitteeDeployConfig {
@@ -207,6 +230,24 @@ library TiebreakerContractDeployConfig {
         builder.set("committees", tiebreakerCommitteesContent);
 
         return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("===== Tiebreaker");
+        console.log("Tiebreaker Committees count", ctx.committeesCount);
+        console.log("Tiebreaker Quorum", ctx.quorum);
+        console.log("Tiebreaker Execution delay", ctx.executionDelay.toSeconds());
+        console.log("\n");
+
+        for (uint256 i = 0; i < ctx.committeesCount; ++i) {
+            console.log("===== Tiebreaker Committee [%d]", i);
+            console.log("Committee quorum: %d", ctx.committees[i].quorum);
+            console.log("Committee members:");
+            for (uint256 j = 0; j < ctx.committees[i].members.length; ++j) {
+                console.log("Committee member [%d] %s", j, ctx.committees[i].members[j]);
+            }
+            console.log("\n");
+        }
     }
 }
 
@@ -302,6 +343,34 @@ library DualGovernanceContractDeployConfig {
 
         return builder.content;
     }
+
+    function print(Context memory ctx) internal pure {
+        console.log("===== DualGovernance");
+        console.log("Admin proposer", ctx.adminProposer);
+        console.log("Reseal committee", ctx.resealCommittee);
+        console.log("Proposals canceller", ctx.proposalsCanceller);
+        console.log("Tiebreaker activation timeout", ctx.tiebreakerActivationTimeout.toSeconds());
+        for (uint256 i = 0; i < ctx.sealableWithdrawalBlockers.length; ++i) {
+            console.log("Sealable withdrawal blocker [%d] %s", i, ctx.sealableWithdrawalBlockers[i]);
+        }
+        console.log("\n");
+        console.log("===== DualGovernance. Signalling tokens");
+        console.log("stETH address", address(ctx.signallingTokens.stETH));
+        console.log("wstETH address", address(ctx.signallingTokens.wstETH));
+        console.log("Withdrawal queue address", address(ctx.signallingTokens.withdrawalQueue));
+        console.log("\n");
+        console.log("===== DualGovernance. Sanity check params");
+        console.log("Max min assets lock duration", ctx.sanityCheckParams.maxMinAssetsLockDuration.toSeconds());
+        console.log("Max sealable withdrawal blockers count", ctx.sanityCheckParams.maxSealableWithdrawalBlockersCount);
+        console.log(
+            "Min tiebreaker activation timeout", ctx.sanityCheckParams.minTiebreakerActivationTimeout.toSeconds()
+        );
+        console.log(
+            "Max tiebreaker activation timeout", ctx.sanityCheckParams.maxTiebreakerActivationTimeout.toSeconds()
+        );
+        console.log("Min withdrawals batch size", ctx.sanityCheckParams.minWithdrawalsBatchSize);
+        console.log("\n");
+    }
 }
 
 library DualGovernanceConfigProviderContractDeployConfig {
@@ -363,28 +432,58 @@ library DualGovernanceConfigProviderContractDeployConfig {
 
         return builder.content;
     }
+
+    function print(DualGovernanceConfig.Context memory ctx) internal pure {
+        console.log("===== DualGovernanceConfigProvider");
+        console.log("First seal rage quit support", ctx.firstSealRageQuitSupport.toUint256());
+        console.log("Second seal rage quit support", ctx.secondSealRageQuitSupport.toUint256());
+        console.log("Min assets lock duration", ctx.minAssetsLockDuration.toSeconds());
+        console.log("\n");
+        console.log("Rage quit ETH withdrawals delay growth", ctx.rageQuitEthWithdrawalsDelayGrowth.toSeconds());
+        console.log("Rage quit ETH withdrawals min delay", ctx.rageQuitEthWithdrawalsMinDelay.toSeconds());
+        console.log("Rage quit ETH withdrawals max delay", ctx.rageQuitEthWithdrawalsMaxDelay.toSeconds());
+        console.log("Rage quit extension period duration", ctx.rageQuitExtensionPeriodDuration.toSeconds());
+        console.log("\n");
+        console.log("Veto signalling min active duration", ctx.vetoSignallingMinActiveDuration.toSeconds());
+        console.log("Veto signalling deactivation max duration", ctx.vetoSignallingDeactivationMaxDuration.toSeconds());
+        console.log("Veto signalling max duration", ctx.vetoSignallingMaxDuration.toSeconds());
+        console.log("Veto cooldown duration", ctx.vetoCooldownDuration.toSeconds());
+        console.log("Veto signalling min duration", ctx.vetoSignallingMinDuration.toSeconds());
+        console.log("\n");
+    }
 }
 
-library DGActivationVotingCalldataProvider {
+library DGLaunchConfig {
     using ConfigFileReader for ConfigFileReader.Context;
 
-    function load(string memory configFilePath) internal view returns (IVotingProvider votingCalldataProvider) {
+    struct Context {
+        uint256 chainId;
+        TimelockedGovernance daoEmergencyGovernance;
+        address dgLaunchVerifier;
+        address rolesValidator;
+        address timeConstraints;
+        IVotingProvider omnibusContract;
+    }
+
+    function load(string memory configFilePath) internal view returns (Context memory ctx) {
         return load(configFilePath, "");
     }
 
     function load(
         string memory configFilePath,
         string memory configRootKey
-    ) internal view returns (IVotingProvider votingCalldataProvider) {
+    ) internal view returns (Context memory ctx) {
         string memory $ = configRootKey.root();
-
-        string memory $daoVoting = $.key("dao_voting");
 
         ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
 
-        address votingCalldataProviderAddress = file.readAddress($daoVoting.key("omnibus_calldata_builder"));
+        string memory $daoVoting = $.key("dg_launch");
 
-        votingCalldataProvider = IVotingProvider(votingCalldataProviderAddress);
+        ctx.daoEmergencyGovernance = TimelockedGovernance(file.readAddress($daoVoting.key("dao_emergency_governance")));
+        ctx.dgLaunchVerifier = file.readAddress($daoVoting.key("dg_launch_verifier"));
+        ctx.rolesValidator = file.readAddress($daoVoting.key("roles_validator"));
+        ctx.timeConstraints = file.readAddress($daoVoting.key("time_constraints"));
+        ctx.omnibusContract = IVotingProvider(file.readAddress($daoVoting.key("omnibus_contract")));
     }
 }
 
@@ -440,6 +539,15 @@ library DGSetupDeployConfig {
         builder.set("dual_governance_config_provider", ctx.dualGovernanceConfigProvider.toJSON());
 
         return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("Chain ID", ctx.chainId);
+
+        ctx.dualGovernance.print();
+        ctx.dualGovernanceConfigProvider.print();
+        ctx.timelock.print();
+        ctx.tiebreaker.print();
     }
 }
 
@@ -535,6 +643,7 @@ library DGSetupDeployArtifacts {
     using ConfigFileBuilder for ConfigFileBuilder.Context;
     using DGSetupDeployConfig for DGSetupDeployConfig.Context;
     using DGSetupDeployedContracts for DGSetupDeployedContracts.Context;
+    using DGLaunchConfig for DGLaunchConfig.Context;
 
     struct Context {
         DGSetupDeployConfig.Context deployConfig;
@@ -547,13 +656,13 @@ library DGSetupDeployArtifacts {
         ctx.deployedContracts = DGSetupDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
     }
 
-    function loadDgActivationVotingCalldata(string memory deployArtifactFileName)
+    function loadDGLaunchConfig(string memory deployArtifactFileName)
         internal
         view
-        returns (bytes memory)
+        returns (DGLaunchConfig.Context memory)
     {
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
-        return DGActivationVotingCalldataProvider.load(deployArtifactFilePath).getEVMScript();
+        return DGLaunchConfig.load(deployArtifactFilePath);
     }
 
     function validate(Context memory ctx) internal pure {
@@ -721,7 +830,7 @@ library ContractsDeployment {
         );
 
         contracts.tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
-            owner: deployer, // temporary set owner to deployer, to add sub committees manually
+            owner: address(contracts.adminExecutor),
             dualGovernance: address(contracts.dualGovernance),
             executionDelay: deployConfig.tiebreaker.executionDelay
         });
@@ -847,8 +956,11 @@ library ContractsDeployment {
             coreCommitteeMemberAddresses[i] = address(tiebreakerSubCommittees[i]);
         }
 
-        tiebreakerCoreCommittee.addMembers(coreCommitteeMemberAddresses, tiebreakerConfig.quorum);
-        tiebreakerCoreCommittee.transferOwnership(address(adminExecutor));
+        adminExecutor.execute(
+            address(tiebreakerCoreCommittee),
+            0,
+            abi.encodeCall(tiebreakerCoreCommittee.addMembers, (coreCommitteeMemberAddresses, tiebreakerConfig.quorum))
+        );
 
         adminExecutor.execute(
             address(dualGovernance),

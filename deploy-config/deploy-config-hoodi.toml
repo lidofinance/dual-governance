@@ -1,0 +1,115 @@
+chain_id = 560048
+
+# ======================
+# DUAL GOVERNANCE CONFIG
+# ======================
+
+[dual_governance]
+
+admin_proposer = "0x49B3512c44891bef83F8967d075121Bd1b07a01B"                 # DAO Voting
+proposals_canceller = "0x49B3512c44891bef83F8967d075121Bd1b07a01B"            # DAO Voting
+sealable_withdrawal_blockers = [
+  "0xfe56573178f1bcdf53F01A6E9977670dcBBD9186",                               # Withdrawal Queue ERC721
+  "0x8664d394C2B3278F26A1B44B967aEf99707eeAB2"                                # Validators Exit Bus Oracle
+] 
+reseal_committee = "0x83BCE68B4e8b7071b2a664a26e6D3Bc17eEe3102"               # GateSeal activation committee (EOA)
+tiebreaker_activation_timeout = 900                                           # 15 minutes
+
+[dual_governance.signalling_tokens]
+st_eth = "0x3508A952176b3c15387C97BE809eaffB1982176a"                         # stETH token
+withdrawal_queue = "0xfe56573178f1bcdf53F01A6E9977670dcBBD9186"               # Withdrawal Queue ERC721
+wst_eth = "0x7E99eE3C66636DE415D2d7C880938F2f40f94De4"                        # wstETH token
+
+[dual_governance.sanity_check_params]
+max_min_assets_lock_duration = 3600                                           # 1 hour
+max_sealable_withdrawal_blockers_count = 255
+min_tiebreaker_activation_timeout = 300                                       # 5 minutes
+max_tiebreaker_activation_timeout = 1800                                      # 30 minutes
+min_withdrawals_batch_size = 4
+
+[dual_governance_config_provider]
+first_seal_rage_quit_support = 3_00                                           # 3 %
+second_seal_rage_quit_support = 15_00                                         # 15 %
+min_assets_lock_duration = 300                                                # 5 minutes
+rage_quit_eth_withdrawals_delay_growth = 1200                                 # 20 minutes
+rage_quit_eth_withdrawals_min_delay = 600                                     # 10 minutes
+rage_quit_eth_withdrawals_max_delay = 3600                                    # 1 hour
+rage_quit_extension_period_duration = 180                                     # 3 minutes
+veto_cooldown_duration = 180                                                  # 3 minutes
+veto_signalling_deactivation_max_duration = 300                               # 5 minutes
+veto_signalling_min_duration = 300                                            # 5 minutes
+veto_signalling_max_duration = 1800                                           # 30 minutes
+veto_signalling_min_active_duration = 180                                     # 3 minutes
+
+# ======================
+# EMERGENCY PROTECTED TIMELOCK CONFIG
+# ======================
+
+[timelock]
+after_submit_delay = 120                                                      # 2 minutes
+after_schedule_delay = 120                                                    # 2 minutes
+
+[timelock.sanity_check_params]
+min_execution_delay = 120                                                     # 2 minutes
+max_after_submit_delay = 1800                                                 # 30 minutes
+max_after_schedule_delay = 1800                                               # 30 minutes
+max_emergency_mode_duration = 2592000                                         # 30 days
+max_emergency_protection_duration = 63072000                                  # 2 years
+
+[timelock.emergency_protection]
+emergency_activation_committee = "0xA678c29cbFde2C74aF15C7724EE4b1527A50D45B" # Gnosis Multisig
+emergency_execution_committee = "0x8E1Ce8995E370222CbD825fFD7Dce2A5BfE1E631"  # Gnosis Multisig
+emergency_governance_proposer = "0x4EdF1162Bd6A52AD119e0f5AC40325Ee01F5A092"  # Gnosis Multisig
+emergency_mode_duration = 86400                                               # 1 day
+emergency_protection_end_date = 1777975200                                    # Tue May 05 2026 10:00:00 GMT+0000
+
+# ======================
+# TIEBREAKER CONFIG
+# ======================
+
+[tiebreaker]
+committees_count = 3
+execution_delay = 900                                                         # 15 minutes
+quorum = 2
+
+[[tiebreaker.committees]] # Influencers (participants from Devnet dry run multisig)
+members = [
+    "0x36c648351274bb4455ba6aaabf3f976824a93af4",
+    "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
+    "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
+    "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
+    "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566",
+    "0x6389CBcF38172a1e8eCF1C34c00cd7f603AfB80C"
+]
+quorum = 2
+
+[[tiebreaker.committees]] # Node Operators (participants from Devnet dry run multisig)
+members = [
+    "0x36c648351274bb4455ba6aaabf3f976824a93af4",
+    "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
+    "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
+    "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
+    "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566",
+    "0x6389CBcF38172a1e8eCF1C34c00cd7f603AfB80C"
+]
+quorum = 2
+
+[[tiebreaker.committees]] # Protocols (participants from Devnet dry run multisig)
+members = [
+    "0x36c648351274bb4455ba6aaabf3f976824a93af4",
+    "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
+    "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
+    "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
+    "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566",
+    "0x6389CBcF38172a1e8eCF1C34c00cd7f603AfB80C"
+]
+quorum = 2
+
+# ======================
+# DAO TIMELOCKED GOVERNANCE
+# ======================
+
+[timelocked_governance]
+
+governance="0x49B3512c44891bef83F8967d075121Bd1b07a01B"                       # DAO Voting
+timelock="<TIMELOCK>"

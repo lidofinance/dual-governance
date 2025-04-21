@@ -34,7 +34,8 @@ contract DeployConfigurable is Script {
         }
 
         console.log("Loaded config file: ");
-        console.log(deployConfig.toJSON());
+        console.log("\n");
+        deployConfig.print();
 
         deployConfig.validate();
 
