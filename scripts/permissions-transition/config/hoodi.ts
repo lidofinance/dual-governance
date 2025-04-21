@@ -244,7 +244,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
       RECOVERER_ROLE: [],
       REPORT_EL_REWARDS_STEALING_PENALTY_ROLE: ["CSMDevEOA"],
       RESUME_ROLE: [],
-      SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE: ["EvmScriptExecutor", "CSMDevEOA"],
+      SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE: ["EvmScriptExecutor"],
       STAKING_ROUTER_ROLE: ["StakingRouter"],
       VERIFIER_ROLE: ["CSVerifier"],
     },
