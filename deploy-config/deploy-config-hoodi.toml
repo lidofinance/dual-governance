@@ -12,7 +12,7 @@ sealable_withdrawal_blockers = [
   "0xfe56573178f1bcdf53F01A6E9977670dcBBD9186",                               # Withdrawal Queue ERC721
   "0x8664d394C2B3278F26A1B44B967aEf99707eeAB2"                                # Validators Exit Bus Oracle
 ] 
-reseal_committee = "0x83BCE68B4e8b7071b2a664a26e6D3Bc17eEe3102"               # GateSeal committee
+reseal_committee = "0x83BCE68B4e8b7071b2a664a26e6D3Bc17eEe3102"               # GateSeal activation committee (EOA)
 tiebreaker_activation_timeout = 900                                           # 15 minutes
 
 [dual_governance.signalling_tokens]
@@ -25,7 +25,7 @@ max_min_assets_lock_duration = 3600                                           # 
 max_sealable_withdrawal_blockers_count = 255
 min_tiebreaker_activation_timeout = 300                                       # 5 minutes
 max_tiebreaker_activation_timeout = 1800                                      # 30 minutes
-min_withdrawals_batch_size = 1
+min_withdrawals_batch_size = 4
 
 [dual_governance_config_provider]
 first_seal_rage_quit_support = 3_00                                           # 3 %
@@ -57,9 +57,9 @@ max_emergency_mode_duration = 2592000                                         # 
 max_emergency_protection_duration = 63072000                                  # 2 years
 
 [timelock.emergency_protection]
-emergency_activation_committee = "0x000000000000000000000000000000000000cafe" # Gnosis Multisig
-emergency_execution_committee = "0x000000000000000000000000000000000000cafe"  # Gnosis Multisig
-emergency_governance_proposer = "0x000000000000000000000000000000000000cafe"  # Gnosis Multisig
+emergency_activation_committee = "0xA678c29cbFde2C74aF15C7724EE4b1527A50D45B" # Gnosis Multisig
+emergency_execution_committee = "0x8E1Ce8995E370222CbD825fFD7Dce2A5BfE1E631"  # Gnosis Multisig
+emergency_governance_proposer = "0x4EdF1162Bd6A52AD119e0f5AC40325Ee01F5A092"  # Gnosis Multisig
 emergency_mode_duration = 86400                                               # 1 day
 emergency_protection_end_date = 1777975200                                    # Tue May 05 2026 10:00:00 GMT+0000
 
@@ -74,7 +74,7 @@ quorum = 2
 
 [[tiebreaker.committees]] # Influencers (participants from Devnet dry run multisig)
 members = [
-    "0x14df797E7910D320931016E87133D0977eCa3c54",
+    "0x36c648351274bb4455ba6aaabf3f976824a93af4",
     "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
     "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
     "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
@@ -85,7 +85,7 @@ quorum = 2
 
 [[tiebreaker.committees]] # Node Operators (participants from Devnet dry run multisig)
 members = [
-    "0x14df797E7910D320931016E87133D0977eCa3c54",
+    "0x36c648351274bb4455ba6aaabf3f976824a93af4",
     "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
     "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
     "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
@@ -96,7 +96,7 @@ quorum = 2
 
 [[tiebreaker.committees]] # Protocols (participants from Devnet dry run multisig)
 members = [
-    "0x14df797E7910D320931016E87133D0977eCa3c54",
+    "0x36c648351274bb4455ba6aaabf3f976824a93af4",
     "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
     "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
     "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
