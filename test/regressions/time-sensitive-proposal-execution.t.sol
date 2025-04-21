@@ -36,12 +36,12 @@ contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
         // Aragon Voting to submit proposal and only in the day time range [executionStartDayTime, executionEndDayTime] in UTC
         scheduleProposalCallsBuilder.addCall(
             address(_timelockConstraints),
-            abi.encodeCall(_timelockConstraints.checkExecuteAfterTimestamp, (executableAfter))
+            abi.encodeCall(_timelockConstraints.checkTimeAfterTimestamp, (executableAfter))
         );
         scheduleProposalCallsBuilder.addCall(
             address(_timelockConstraints),
             abi.encodeCall(
-                _timelockConstraints.checkExecuteWithinDayTime, (_EXECUTION_START_DAY_TIME, _EXECUTION_END_DAY_TIME)
+                _timelockConstraints.checkTimeWithinDayTime, (_EXECUTION_START_DAY_TIME, _EXECUTION_END_DAY_TIME)
             )
         );
         scheduleProposalCallsBuilder.addCall(
@@ -74,7 +74,7 @@ contract TimeSensitiveProposalsRegressionTest is DGRegressionTestSetup {
             _assertCanExecute(proposalId, true);
             assertTrue(Timestamps.now() < executableAfter);
 
-            vm.expectRevert(abi.encodeWithSelector(TimeConstraints.TimestampNotReached.selector, (executableAfter)));
+            vm.expectRevert(abi.encodeWithSelector(TimeConstraints.TimestampNotPassed.selector, (executableAfter)));
             _executeProposal(proposalId);
         }
 
