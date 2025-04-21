@@ -6,8 +6,8 @@ During active protocol testing in the testnet, some roles were assigned to EOAs 
 
 ## Permissions Transition Plan (Hoodi)
 
-> - Data was collected at block [`197990`](https://hoodi.etherscan.io//block/197990)
-> - The last permissions change occurred at block [`163610`](https://hoodi.etherscan.io//block/163610), transaction [`0xcbe22a75b4bedd856e18a05c064a42901365f3da4cbe11f5cd6b282f340f24eb`](https://hoodi.etherscan.io//tx/0xcbe22a75b4bedd856e18a05c064a42901365f3da4cbe11f5cd6b282f340f24eb)
+> - Data was collected at block [`235321`](https://hoodi.etherscan.io//block/235321)
+> - The last permissions change occurred at block [`232218`](https://hoodi.etherscan.io//block/232218), transaction [`0xc69fac69d040af3786ffe8b8da5c3f52cd60fcaa563d56b63665d83f2e8a435e`](https://hoodi.etherscan.io//tx/0xc69fac69d040af3786ffe8b8da5c3f52cd60fcaa563d56b63665d83f2e8a435e)
 
 How to read this document:
 - If an item is prepended with the "⚠️" icon, it indicates that the item will be changed. The required updates are described in the corresponding "Transition Steps" sections.
@@ -354,7 +354,7 @@ How to read this document:
 | [`RECOVERER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RECOVERER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`REPORT_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REPORT_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSMDevEOA`](https://hoodi.etherscan.io//address/0x4af43ee34a6fcd1feca1e1f832124c763561da53) |
 | [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSMDevEOA`](https://hoodi.etherscan.io//address/0x4af43ee34a6fcd1feca1e1f832124c763561da53) [`EvmScriptExecutor`](https://hoodi.etherscan.io//address/0x79a20fd0fa36453b2f45eabab19bfef43575ba9e) |
+| [`SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`EvmScriptExecutor`](https://hoodi.etherscan.io//address/0x79a20fd0fa36453b2f45eabab19bfef43575ba9e) |
 | [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`StakingRouter`](https://hoodi.etherscan.io//address/0xcc820558b39ee15c7c45b59390b503b83fb499a8) |
 | [`VERIFIER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=VERIFIER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSVerifier`](https://hoodi.etherscan.io//address/0xb6bafbd970a4537077de59cebe33081d794513d6) |
 
