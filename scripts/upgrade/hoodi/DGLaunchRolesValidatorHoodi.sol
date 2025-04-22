@@ -2,12 +2,13 @@
 pragma solidity 0.8.26;
 
 import {LidoAddressesHoodi} from "./LidoAddressesHoodi.sol";
+import {RolesValidatorBase} from "../RolesValidatorBase.sol";
+
+import {IRolesValidator} from "../interfaces/IRolesValidator.sol";
+import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 
 import {AragonRoles} from "../libraries/AragonRoles.sol";
 import {OZRoles} from "../libraries/OZRoles.sol";
-import {IRolesValidator} from "../interfaces/utils.sol";
-import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
-import {RolesValidatorBase} from "../RolesValidatorBase.sol";
 
 contract DGLaunchRolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, IRolesValidator {
     using OZRoles for OZRoles.Context;

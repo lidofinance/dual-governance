@@ -5,7 +5,7 @@ import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
 
 import {AragonRoles} from "../libraries/AragonRoles.sol";
 import {OZRoles} from "../libraries/OZRoles.sol";
-import {IRolesValidator} from "../interfaces/utils.sol";
+import {IRolesValidator} from "../interfaces/IRolesValidator.sol";
 import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 import {RolesValidatorBase} from "../RolesValidatorBase.sol";
 

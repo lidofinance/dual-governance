@@ -5,13 +5,15 @@ import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 
-import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
-import {OmnibusBase} from "../OmnibusBase.sol";
-
+import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
+import {IRolesValidator} from "../interfaces/IRolesValidator.sol";
+import {ITimeConstraints} from "../interfaces/ITimeConstraints.sol";
+import {IDGLaunchVerifier} from "../interfaces/IDGLaunchVerifier.sol";
 import {IOZ} from "../interfaces/IOZ.sol";
 import {IACL} from "../interfaces/IACL.sol";
-import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
-import {IRolesValidator, IDGLaunchVerifier, ITimeConstraints} from "../interfaces/utils.sol";
+
+import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
+import {OmnibusBase} from "../OmnibusBase.sol";
 
 import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 
@@ -444,14 +446,14 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
             // 1. Execution is allowed before Wednesday, 30 April 2025 00:00:00
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
-                abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1745971200)))
+                abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestamp, (Timestamps.from(1745971200)))
             );
 
             // 2. Execution is allowed since 04:00 to 22:00 UTC
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
                 abi.encodeCall(
-                    ITimeConstraints.checkExecuteWithinDayTime, (Durations.from(4 hours), Durations.from(22 hours))
+                    ITimeConstraints.checkTimeWithinDayTime, (Durations.from(4 hours), Durations.from(22 hours))
                 )
             );
 
@@ -500,7 +502,7 @@ contract DGUpgradeHolesky is OmnibusBase, LidoAddressesHolesky {
                 call: _votingCall(
                     TIME_CONSTRAINTS,
                     // 1745971200 is Wednesday, 30 April 2025 00:00:00
-                    abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1745971200)))
+                    abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestamp, (Timestamps.from(1745971200)))
                 )
             });
         }

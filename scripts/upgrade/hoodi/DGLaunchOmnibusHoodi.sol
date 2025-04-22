@@ -7,14 +7,27 @@ import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 
 import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 
+import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
+import {IRolesValidator} from "../interfaces/IRolesValidator.sol";
+import {ITimeConstraints} from "../interfaces/ITimeConstraints.sol";
+import {IDGLaunchVerifier} from "../interfaces/IDGLaunchVerifier.sol";
 import {IOZ} from "../interfaces/IOZ.sol";
 import {IACL} from "../interfaces/IACL.sol";
-import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
-import {IRolesValidator, IDGLaunchVerifier, ITimeConstraints} from "../interfaces/utils.sol";
 
 import {LidoAddressesHoodi} from "./LidoAddressesHoodi.sol";
 import {OmnibusBase} from "../OmnibusBase.sol";
 
+/// @title DGLaunchOmnibusHoodi
+/// @notice Script for migrating Lido to Dual Governance on Hoodi testnet
+///
+/// @dev This contract prepares the complete transition of the Lido protocol
+/// critical roles and ownerships from direct Aragon Voting control to Dual Governance
+/// on the Hoodi testnet. It contains 56 items that includes:
+///     1. Revoking critical permissions from Voting and transferring permission management to Agent
+///     2. Transferring ownerships to Agent over critical protocol contracts
+///     4. Validating the roles transfer to ensure proper role configuration
+///     5. Submitting the first proposal through the Dual Governance
+///     6. Verifying the successful launch of Dual Governance
 contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
@@ -443,14 +456,14 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
             // 1. Execution is allowed before Friday, 30 May 2025 00:00:00
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
-                abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1748563200)))
+                abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, (Timestamps.from(1748563200)))
             );
 
             // 2. Execution is allowed since 04:00 to 22:00 UTC
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
                 abi.encodeCall(
-                    ITimeConstraints.checkExecuteWithinDayTime, (Durations.from(4 hours), Durations.from(22 hours))
+                    ITimeConstraints.checkTimeWithinDayTimeAndEmit, (Durations.from(4 hours), Durations.from(22 hours))
                 )
             );
 
@@ -499,7 +512,7 @@ contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
                 call: _votingCall(
                     TIME_CONSTRAINTS,
                     // 1748563200 is Friday, 30 May 2025 00:00:00
-                    abi.encodeCall(ITimeConstraints.checkExecuteBeforeTimestamp, (Timestamps.from(1748563200)))
+                    abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, (Timestamps.from(1748563200)))
                 )
             });
         }
