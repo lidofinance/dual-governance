@@ -55,12 +55,12 @@ contract DGLaunchRolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, 
         _validate(
             CURATED_MODULE,
             "STAKING_ROUTER_ROLE",
-            AragonRoles.manager(AGENT).granted(STAKING_ROUTER).granted(DEV_EOA_2).granted(DEV_EOA_1)
+            AragonRoles.manager(AGENT).granted(STAKING_ROUTER).granted(DEV_EOA_1).granted(DEV_EOA_2)
         );
         _validate(
             CURATED_MODULE,
             "MANAGE_NODE_OPERATOR_ROLE",
-            AragonRoles.manager(AGENT).granted(AGENT).granted(DEV_EOA_2).granted(DEV_EOA_1)
+            AragonRoles.manager(AGENT).granted(AGENT).granted(DEV_EOA_1).granted(DEV_EOA_2)
         );
         _validate(
             CURATED_MODULE,
@@ -79,15 +79,15 @@ contract DGLaunchRolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, 
         _validate(
             SDVT_MODULE,
             "STAKING_ROUTER_ROLE",
-            AragonRoles.manager(AGENT).revoked(VOTING).granted(STAKING_ROUTER).granted(AGENT).granted(
-                EVM_SCRIPT_EXECUTOR
-            ).granted(DEV_EOA_1).granted(DEV_EOA_2)
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(STAKING_ROUTER).granted(AGENT).granted(DEV_EOA_2).granted(
+                DEV_EOA_1
+            ).granted(EVM_SCRIPT_EXECUTOR)
         );
         _validate(
             SDVT_MODULE,
             "MANAGE_NODE_OPERATOR_ROLE",
-            AragonRoles.manager(AGENT).revoked(VOTING).granted(EVM_SCRIPT_EXECUTOR).granted(DEV_EOA_1).granted(
-                DEV_EOA_2
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(DEV_EOA_2).granted(DEV_EOA_1).granted(
+                EVM_SCRIPT_EXECUTOR
             )
         );
         _validate(
@@ -112,11 +112,7 @@ contract DGLaunchRolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, 
             "RUN_SCRIPT_ROLE",
             AragonRoles.manager(AGENT).granted(VOTING).granted(ADMIN_EXECUTOR).granted(AGENT_MANAGER)
         );
-        _validate(
-            AGENT,
-            "EXECUTE_ROLE",
-            AragonRoles.manager(AGENT).granted(VOTING).granted(ADMIN_EXECUTOR).granted(AGENT_MANAGER)
-        );
+        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).granted(VOTING).granted(ADMIN_EXECUTOR));
 
         // WithdrawalQueue
         _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
@@ -145,10 +141,6 @@ contract DGLaunchRolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, 
             "RUN_SCRIPT_ROLE",
             AragonRoles.manager(AGENT).revoked(VOTING).granted(ADMIN_EXECUTOR).granted(AGENT_MANAGER)
         );
-        _validate(
-            AGENT,
-            "EXECUTE_ROLE",
-            AragonRoles.manager(AGENT).revoked(VOTING).granted(ADMIN_EXECUTOR).granted(AGENT_MANAGER)
-        );
+        _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).revoked(VOTING).granted(ADMIN_EXECUTOR));
     }
 }

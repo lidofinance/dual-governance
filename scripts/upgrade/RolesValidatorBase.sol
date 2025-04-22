@@ -12,7 +12,10 @@ import {IOZ} from "./interfaces/IOZ.sol";
 ///     This base contract provides functionality to check if entities have the correct permissions
 ///     according to predefined role configurations.
 abstract contract RolesValidatorBase {
-    event RoleValidated(address entity, string roleName);
+    event OZRoleValidated(address entity, string roleName, address[] grantedTo, address[] revokedFrom);
+    event AragonPermissionValidated(
+        address entity, string roleName, address manager, address[] grantedTo, address[] revokedFrom
+    );
 
     error OZRoleGranted(address entity, string roleName, address app);
     error OZRoleNotGranted(address entity, string roleName, address app);
@@ -60,7 +63,7 @@ abstract contract RolesValidatorBase {
             }
         }
 
-        emit RoleValidated(entity, roleName);
+        emit AragonPermissionValidated(entity, roleName, role.manager, grantedTo, revokedFrom);
     }
 
     /// @dev Validates OpenZeppelin role assignments for a specific entity.
@@ -92,6 +95,6 @@ abstract contract RolesValidatorBase {
             }
         }
 
-        emit RoleValidated(entity, roleName);
+        emit OZRoleValidated(entity, roleName, grantedTo, revokedFrom);
     }
 }

@@ -23,7 +23,6 @@ import {IACL} from "scripts/upgrade/interfaces/IACL.sol";
 contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
     using LidoUtils for LidoUtils.Context;
 
-    LidoUtils.Context internal _lidoUtils;
     DGLaunchOmnibusHoodi internal launchOmnibus;
 
     bytes32 internal STAKING_CONTROL_ROLE = keccak256("STAKING_CONTROL_ROLE");
@@ -54,8 +53,6 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
 
     function setUp() external {
         _deployDGSetup({isEmergencyProtectionEnabled: true, chainId: HOODI_CHAIN_ID, grantRolesToResealManager: false});
-
-        _lidoUtils = LidoUtils.hoodi();
     }
 
     function testFork_HoodyLaunch_HappyPath() external {
@@ -214,11 +211,11 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
         {
             // Create and pass the aragon vote to launch DualGovernance
 
-            uint256 voteId = _lidoUtils.adoptVote("Activate Dual Governance", launchOmnibus.getEVMScript());
+            uint256 voteId = _lido.adoptVote("Activate Dual Governance", launchOmnibus.getEVMScript());
 
-            _lidoUtils.executeVote(voteId);
-            (, bool executed,,,,,,,,,) = _lidoUtils.voting.getVote(voteId);
-            assert(executed);
+            _lido.executeVote(voteId);
+            (, bool executed,,,,,,,,,) = _lido.voting.getVote(voteId);
+            assertTrue(executed);
         }
 
         {
@@ -318,7 +315,6 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
             vm.assertTrue(IACL(ACL).hasPermission(address(_dgDeployedContracts.adminExecutor), AGENT, EXECUTE_ROLE));
 
             vm.assertTrue(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, RUN_SCRIPT_ROLE));
-            vm.assertTrue(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, EXECUTE_ROLE));
 
             // AllowedTokensRegistry permissions checks
             vm.assertFalse(IOZ(ALLOWED_TOKENS_REGISTRY).hasRole(DEFAULT_ADMIN_ROLE, AGENT));
@@ -364,7 +360,6 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
             vm.assertFalse(IACL(ACL).hasPermission(VOTING, AGENT, EXECUTE_ROLE));
 
             vm.assertTrue(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, RUN_SCRIPT_ROLE));
-            vm.assertTrue(IACL(ACL).hasPermission(AGENT_MANAGER, AGENT, EXECUTE_ROLE));
         }
     }
 }

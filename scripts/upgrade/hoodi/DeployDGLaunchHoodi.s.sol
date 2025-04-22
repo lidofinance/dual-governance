@@ -5,6 +5,7 @@ pragma solidity 0.8.26;
 
 import {DGDeployArtifactLoader} from "scripts/utils/DGDeployArtifactLoader.sol";
 import {DGSetupDeployArtifacts} from "scripts/utils/contracts-deployment.sol";
+import {DGLaunchConfig} from "scripts/utils/contracts-deployment.sol";
 
 import {DGLaunchRolesValidatorHoodi} from "./DGLaunchRolesValidatorHoodi.sol";
 import {DGLaunchOmnibusHoodi} from "./DGLaunchOmnibusHoodi.sol";
@@ -17,7 +18,7 @@ import {TimeConstraints} from "../TimeConstraints.sol";
 
 import {console} from "forge-std/console.sol";
 
-contract DeployUpgradeHoodi is DGDeployArtifactLoader {
+contract DeployDGLaunchHoodi is DGDeployArtifactLoader {
     function run() public {
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
