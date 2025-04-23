@@ -23,11 +23,14 @@ contract DeployDGLaunchHoodi is DGDeployArtifactLoader {
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
 
+        string memory deployArtifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
+
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
+        DGLaunchConfig.Context memory dgLaunchConfig = DGSetupDeployArtifacts.loadDGLaunchConfig(deployArtifactFileName);
 
         address timelock = address(_deployArtifact.deployedContracts.timelock);
         address dualGovernance = address(_deployArtifact.deployedContracts.dualGovernance);
-        address emergencyGovernance = address(_deployArtifact.deployedContracts.emergencyGovernance);
+        address emergencyGovernance = address(dgLaunchConfig.daoEmergencyGovernance);
         address emergencyActivationCommittee = _deployArtifact.deployConfig.timelock.emergencyActivationCommittee;
         address emergencyExecutionCommittee = _deployArtifact.deployConfig.timelock.emergencyExecutionCommittee;
         Timestamp emergencyProtectionEndDate = _deployArtifact.deployConfig.timelock.emergencyProtectionEndDate;
