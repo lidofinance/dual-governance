@@ -11,7 +11,7 @@ import {DGRegressionTestSetup, ExternalCall, MAINNET_CHAIN_ID, HOLESKY_CHAIN_ID}
 import {LidoUtils, MAINNET_ST_ETH, HOLESKY_ST_ETH} from "../utils/lido-utils.sol";
 
 uint256 constant ACCURACY = 2 wei;
-uint256 constant GAS_COST_PER_VETOER = 10000 wei;
+uint256 constant POOL_ACCUMULATED_ERROR = 150 wei;
 uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 1000;
 uint256 constant WITHDRAWALS_BATCH_SIZE = 128;
 uint256 constant MIN_LOCKABLE_AMOUNT = 1000 wei;
@@ -262,7 +262,8 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                     assertApproxEqAbs(
                         vetoers[i].balance,
                         vetoersBalancesBefore[i] + vetoersStEthBalancesBefore[i],
-                        ACCURACY + GAS_COST_PER_VETOER
+                        ACCURACY + POOL_ACCUMULATED_ERROR,
+                        "Check for ETH amount returned to vetoer failed. Try to increase delta(POOL_ACCUMULATED_ERROR) value"
                     );
                 }
             }
