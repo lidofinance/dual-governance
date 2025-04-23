@@ -34,6 +34,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     }
 
     function testFork_RageQuitExodus_HappyPath_MultipleRounds() external {
+        vm.pauseGasMetering();
         console.log("-------------------------");
 
         if (
@@ -114,6 +115,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         console.log(
             "wstETH total supply decreased for %s%", 100 - _lido.wstETH.totalSupply() * 100 / initialWStEthTotalSupply
         );
+        vm.resumeGasMetering();
     }
 
     function _selectVetoers() internal returns (address[] memory vetoers) {
