@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
+import {LidoAddressesHoodi} from "./LidoAddressesHoodi.sol";
+import {RolesValidatorBase} from "../RolesValidatorBase.sol";
+
+import {IRolesValidator} from "../interfaces/IRolesValidator.sol";
+import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 
 import {AragonRoles} from "../libraries/AragonRoles.sol";
 import {OZRoles} from "../libraries/OZRoles.sol";
-import {IRolesValidator} from "../interfaces/IRolesValidator.sol";
-import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
-import {RolesValidatorBase} from "../RolesValidatorBase.sol";
 
-contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky, IRolesValidator {
+contract DGLaunchRolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, IRolesValidator {
     using OZRoles for OZRoles.Context;
     using AragonRoles for AragonRoles.Context;
 
@@ -25,11 +26,7 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky, IRol
 
     function validateVotingLaunchPhase() external {
         // Lido
-        _validate(
-            LIDO,
-            "STAKING_CONTROL_ROLE",
-            AragonRoles.manager(AGENT).revoked(VOTING).granted(DEV_EOA_1).granted(UNLIMITED_STAKE)
-        );
+        _validate(LIDO, "STAKING_CONTROL_ROLE", AragonRoles.manager(AGENT).revoked(VOTING).granted(UNLIMITED_STAKE));
         _validate(LIDO, "RESUME_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
         _validate(LIDO, "PAUSE_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
         _validate(LIDO, "UNSAFE_CHANGE_DEPOSITED_VALIDATORS_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
@@ -37,6 +34,9 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky, IRol
 
         // DAOKernel
         _validate(KERNEL, "APP_MANAGER_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+
+        // Voting
+        _validate(VOTING, "UNSAFELY_MODIFY_VOTE_TIME_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
 
         // TokenManager
         _validate(TOKEN_MANAGER, "MINT_ROLE", AragonRoles.manager(VOTING).granted(VOTING));
@@ -55,8 +55,13 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky, IRol
         // CuratedModule
         _validate(
             CURATED_MODULE,
+            "STAKING_ROUTER_ROLE",
+            AragonRoles.manager(AGENT).granted(STAKING_ROUTER).granted(DEV_EOA_1).granted(DEV_EOA_2)
+        );
+        _validate(
+            CURATED_MODULE,
             "MANAGE_NODE_OPERATOR_ROLE",
-            AragonRoles.manager(AGENT).revoked(VOTING).granted(DEV_EOA_2).granted(DEV_EOA_1)
+            AragonRoles.manager(AGENT).granted(AGENT).granted(DEV_EOA_1).granted(DEV_EOA_2)
         );
         _validate(
             CURATED_MODULE,
@@ -65,28 +70,33 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky, IRol
                 EVM_SCRIPT_EXECUTOR
             )
         );
-        _validate(CURATED_MODULE, "MANAGE_SIGNING_KEYS", AragonRoles.manager(AGENT).revoked(VOTING));
         _validate(
             CURATED_MODULE,
-            "STAKING_ROUTER_ROLE",
-            AragonRoles.manager(AGENT).granted(STAKING_ROUTER).granted(DEV_EOA_2).granted(DEV_EOA_1)
+            "MANAGE_SIGNING_KEYS",
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(DEV_EOA_1).granted(DEV_EOA_2)
         );
 
         // SDVTModule
         _validate(
             SDVT_MODULE,
             "STAKING_ROUTER_ROLE",
-            AragonRoles.manager(AGENT).granted(STAKING_ROUTER).granted(EVM_SCRIPT_EXECUTOR).granted(DEV_EOA_3)
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(STAKING_ROUTER).granted(AGENT).granted(DEV_EOA_2).granted(
+                DEV_EOA_1
+            ).granted(EVM_SCRIPT_EXECUTOR)
         );
         _validate(
             SDVT_MODULE,
             "MANAGE_NODE_OPERATOR_ROLE",
-            AragonRoles.manager(AGENT).granted(EVM_SCRIPT_EXECUTOR).granted(DEV_EOA_3)
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(DEV_EOA_2).granted(DEV_EOA_1).granted(
+                EVM_SCRIPT_EXECUTOR
+            )
         );
         _validate(
             SDVT_MODULE,
             "SET_NODE_OPERATOR_LIMIT_ROLE",
-            AragonRoles.manager(AGENT).granted(EVM_SCRIPT_EXECUTOR).granted(DEV_EOA_3)
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(EVM_SCRIPT_EXECUTOR).granted(DEV_EOA_1).granted(
+                DEV_EOA_2
+            )
         );
 
         // ACL
@@ -115,10 +125,8 @@ contract RolesValidatorHolesky is RolesValidatorBase, LidoAddressesHolesky, IRol
 
         // AllowedTokensRegistry
         _validate(ALLOWED_TOKENS_REGISTRY, "DEFAULT_ADMIN_ROLE", OZRoles.revoked(AGENT).granted(VOTING));
-        _validate(ALLOWED_TOKENS_REGISTRY, "ADD_TOKEN_TO_ALLOWED_LIST_ROLE", OZRoles.revoked(AGENT).granted(VOTING));
-        _validate(
-            ALLOWED_TOKENS_REGISTRY, "REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE", OZRoles.revoked(AGENT).granted(VOTING)
-        );
+        _validate(ALLOWED_TOKENS_REGISTRY, "ADD_TOKEN_TO_ALLOWED_LIST_ROLE", OZRoles.revoked(AGENT));
+        _validate(ALLOWED_TOKENS_REGISTRY, "REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE", OZRoles.revoked(AGENT));
 
         // WithdrawalVault
         address withdrawalVaultProxyAdmin = IWithdrawalVaultProxy(WITHDRAWAL_VAULT).proxy_getAdmin();

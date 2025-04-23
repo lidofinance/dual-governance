@@ -5,6 +5,8 @@ pragma solidity 0.8.26;
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 
+import {ITimeConstraints} from "scripts/upgrade/interfaces/ITimeConstraints.sol";
+
 /// @title Time Constraints Contract
 /// @notice Provides mechanisms to validate time-based constraints against the current
 ///     network time (`block.timestamp`). Can be used within a transaction to ensure
@@ -14,7 +16,7 @@ import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 ///           overnight ranges (e.g., 20:00 – 06:00).
 ///     - A deadline: checks that the current time is before a specified timestamp.
 ///     - A start time: checks that the current time is after a specified timestamp.
-contract TimeConstraints {
+contract TimeConstraints is ITimeConstraints {
     // ---
     // Events
     // ---

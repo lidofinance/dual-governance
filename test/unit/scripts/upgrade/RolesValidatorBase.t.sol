@@ -244,7 +244,9 @@ contract RolesValidatorBaseTest is Test {
         assertEq(aragonRole.rolesTracker.revokedFrom.length, 0);
 
         vm.expectEmit(address(rolesValidator));
-        emit RolesValidatorBase.RoleValidated(ENTITY, roleName);
+        emit RolesValidatorBase.AragonPermissionValidated(
+            ENTITY, roleName, MANAGER, aragonRole.rolesTracker.grantedTo, aragonRole.rolesTracker.revokedFrom
+        );
         rolesValidator.validateAragonRole(ENTITY, roleName, aragonRole);
 
         OZRoles.Context memory ozRole = OZRoles.revoked(USER_1).revoked(USER_2);
@@ -254,7 +256,9 @@ contract RolesValidatorBaseTest is Test {
         assertEq(ozRole.rolesTracker.revokedFrom[1], USER_2);
 
         vm.expectEmit(address(rolesValidator));
-        emit RolesValidatorBase.RoleValidated(address(ozContract), roleName);
+        emit RolesValidatorBase.OZRoleValidated(
+            address(ozContract), roleName, ozRole.rolesTracker.grantedTo, ozRole.rolesTracker.revokedFrom
+        );
         rolesValidator.validateOZRole(address(ozContract), roleName, ozRole);
     }
 }

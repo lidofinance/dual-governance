@@ -486,20 +486,28 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     }
 
     function _deployDGSetup(bool isEmergencyProtectionEnabled) internal {
-        _deployDGSetup(isEmergencyProtectionEnabled, MAINNET_CHAIN_ID);
+        _deployDGSetup(isEmergencyProtectionEnabled, MAINNET_CHAIN_ID, true);
     }
 
-    function _deployDGSetup(bool isEmergencyProtectionEnabled, uint256 chainId) internal {
+    function _deployDGSetup(
+        bool isEmergencyProtectionEnabled,
+        uint256 chainId,
+        bool grantRolesToResealManager
+    ) internal {
         _setupForkForDGDeploySetup(chainId);
         _setDGDeployConfig(_getDefaultDGDeployConfig(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0)));
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
-        vm.startPrank(address(_lido.agent));
-        _lido.withdrawalQueue.grantRole(_lido.withdrawalQueue.PAUSE_ROLE(), address(_dgDeployedContracts.resealManager));
-        _lido.withdrawalQueue.grantRole(
-            _lido.withdrawalQueue.RESUME_ROLE(), address(_dgDeployedContracts.resealManager)
-        );
-        vm.stopPrank();
+        if (grantRolesToResealManager) {
+            vm.startPrank(address(_lido.agent));
+            _lido.withdrawalQueue.grantRole(
+                _lido.withdrawalQueue.PAUSE_ROLE(), address(_dgDeployedContracts.resealManager)
+            );
+            _lido.withdrawalQueue.grantRole(
+                _lido.withdrawalQueue.RESUME_ROLE(), address(_dgDeployedContracts.resealManager)
+            );
+            vm.stopPrank();
+        }
 
         _setTimelock(_dgDeployedContracts.timelock);
         _lido.removeStakingLimit();
