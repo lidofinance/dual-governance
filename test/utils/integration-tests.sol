@@ -855,6 +855,18 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     function external__scheduleProposal(uint256 proposalId) external {
         _scheduleProposal(proposalId);
     }
+
+    function external__unlockStETH(address vetoer) external {
+        _unlockStETH(vetoer);
+    }
+
+    function external__unlockWstETH(address vetoer) external {
+        _unlockWstETH(vetoer);
+    }
+
+    function external__unlockUnstETH(address vetoer, uint256[] memory unstETHIds) external {
+        _unlockUnstETH(vetoer, unstETHIds);
+    }
 }
 
 contract DGRegressionTestSetup is DGScenarioTestSetup {
