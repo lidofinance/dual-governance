@@ -1,3 +1,5 @@
+> Original research repository: [20squares/dual-governance-public](https://github.com/20squares/dual-governance-public)
+
 # Table of contents
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 - [Table of contents](#table-of-contents)
@@ -86,7 +88,7 @@ A crucial aspect in modelling (in general) is the question of where to draw the 
 
 Most of our game theoretic analysis focuses on the mechanism proper. However, we add empirical analyses as well as approximations or back-of-the-envelope calculations for factors that influence the mechanism. This also includes some of the parameter choices as they cannot be pinned down by the game theoretic analysis alone and are also partly exogenous. One example includes the availability of (w)stETH. The mechanism relies on time duration in which execution is paused. It is crucial that some time windows allow sufficient stETH holders to react. But this requires that stETH is not locked in some contracts but readily available.
 
-Throughout our analysis detailed knowledge of the mechanism and its [publicly available specification](https://github.com/lidofinance/dual-governance/blob/develop/docs/mechanism.md** is assumed.
+Throughout our analysis detailed knowledge of the mechanism and its [publicly available specification](https://github.com/lidofinance/dual-governance/blob/develop/docs/mechanism.md) is assumed.
 
 
 ## Main results
