@@ -41,7 +41,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             _assertCanExecute(proposalId, false);
         }
 
-        _step("3. Emergency mode activated &  governance reset");
+        _step("3. Emergency mode activated & governance reset");
         {
             // some time passes and emergency committee activates emergency mode
             // and resets the controller

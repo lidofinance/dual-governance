@@ -10,6 +10,7 @@ cache_path = 'cache_forge'
 optimizer=true
 no-match-path = 'test/kontrol/*'
 fs_permissions = [
+    { access = "read", path = "./test/regressions"},
     { access = "read-write", path = "./deploy-config"},
     { access = "read-write", path = "./deploy-artifacts"}
 ]
