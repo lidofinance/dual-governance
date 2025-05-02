@@ -7,7 +7,7 @@ import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDan
 
 import {DGRegressionTestSetup, Proposers} from "../utils/integration-tests.sol";
 
-import {ExecutableProposals, ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
+import {ExecutableProposals, ExternalCall, Status} from "contracts/libraries/ExecutableProposals.sol";
 
 import {LidoUtils} from "../utils/lido-utils.sol";
 
@@ -224,10 +224,11 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
             _assertVetoSignalingState();
         }
 
-        _step("3. Proposal can't be executed in the veto cooldown state");
+        _step("3. Proposal can't be executed in the veto signalling state");
         {
             _wait(_getAfterSubmitDelay().plusSeconds(1));
 
+            _assertVetoSignalingState();
             vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
             this.external__scheduleProposal(proposalId);
 
@@ -261,6 +262,15 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
 
             _assertNormalState();
             _assertProposalCancelled(proposalId);
+
+            vm.startPrank(_timelock.getGovernance());
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, Status.Cancelled
+                )
+            );
+            _timelock.schedule(proposalId);
+            vm.stopPrank();
         }
     }
 }

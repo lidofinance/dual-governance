@@ -404,7 +404,7 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         assertEq(
             _timelock.getProposalDetails(proposalId).status,
             ProposalStatus.Cancelled,
-            "Proposal not in 'Canceled' state"
+            "Proposal not in 'Cancelled' state"
         );
     }
 

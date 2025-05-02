@@ -16,15 +16,15 @@ contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
     }
 
     function testFork_ProposalsSubmittedInRageQuit_CanBeExecutedOnlyNextVetoCooldownOrNormal() external {
-        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
+        ExternalCall[] memory regularStuffCalls = _getMockTargetRegularStaffCalls();
 
         uint256 proposalId;
         _step("1. The proposal is submitted");
         {
             proposalId =
-                _submitProposalByAdminProposer(regularStaffCalls, "Propose to doSmth on target passing dual governance");
+                _submitProposalByAdminProposer(regularStuffCalls, "Propose to doSmth on target passing dual governance");
 
-            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStaffCalls);
+            _assertSubmittedProposalData(proposalId, _timelock.getAdminExecutor(), regularStuffCalls);
             _assertCanSchedule(proposalId, false);
         }
 
@@ -78,7 +78,7 @@ contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
             _activateNextState();
             _assertVetoCooldownState();
 
-            this.external__scheduleProposal(proposalId);
+            _scheduleProposal(proposalId);
             _assertProposalScheduled(proposalId);
         }
 
@@ -91,6 +91,31 @@ contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
                 abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, anotherProposalId)
             );
             this.external__scheduleProposal(anotherProposalId);
+        }
+
+        _step("7. Proposal submitted before rage quit is executed");
+        {
+            _wait(_getAfterScheduleDelay());
+
+            _assertVetoCooldownState();
+            _executeProposal(proposalId);
+            _assertProposalExecuted(proposalId);
+        }
+
+        _step("8. When DG enters Normal state again the proposal submitted during rage quit becomes executable");
+        {
+            _wait(_getVetoCooldownDuration().plusSeconds(1));
+            _activateNextState();
+
+            _assertNormalState();
+
+            _scheduleProposal(anotherProposalId);
+            _assertProposalScheduled(anotherProposalId);
+
+            _wait(_getAfterScheduleDelay());
+
+            _executeProposal(anotherProposalId);
+            _assertProposalExecuted(anotherProposalId);
         }
     }
 }

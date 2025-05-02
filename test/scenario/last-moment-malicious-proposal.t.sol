@@ -122,60 +122,6 @@ contract LastMomentMaliciousProposalSuccessor is DGScenarioTestSetup {
         }
     }
 
-    function testFork_VetoSignallingToNormalState() external {
-        address maliciousActor = makeAddr("MALICIOUS_ACTOR");
-        _setupStETHBalance(maliciousActor, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
-        _step("2. Malicious actor locks first seal threshold to activate veto signalling before proposal submission");
-        {
-            _lockStETH(maliciousActor, _getFirstSealRageQuitSupport());
-            _assertVetoSignalingState();
-        }
-
-        uint256 proposalId;
-        ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
-        _step("2. DAO submits proposal with regular staff");
-        {
-            _wait(_getVetoSignallingDuration().dividedBy(2));
-
-            proposalId = _submitProposalByAdminProposer(
-                regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
-            );
-            _assertProposalSubmitted(proposalId);
-            _assertSubmittedProposalData(proposalId, regularStaffCalls);
-        }
-
-        _step("3. The veto Signalling & Deactivation passed but proposal still not executable");
-        {
-            _wait(_getVetoSignallingDuration().plusSeconds(1));
-            _activateNextState();
-            _assertVetoSignallingDeactivationState();
-
-            _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
-            _activateNextState();
-            _assertVetoCooldownState();
-
-            vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
-            this.external__scheduleProposal(proposalId);
-        }
-
-        _step("4. After the VetoCooldown governance transitions into Normal state");
-        {
-            _unlockStETH(maliciousActor);
-            _wait(_getVetoCooldownDuration().plusSeconds(1));
-            _activateNextState();
-            _assertNormalState();
-        }
-
-        _step("5. Proposal executable in the normal state");
-        {
-            _scheduleProposal(proposalId);
-            _assertProposalScheduled(proposalId);
-            _wait(_getAfterScheduleDelay());
-            _executeProposal(proposalId);
-            _assertProposalExecuted(proposalId);
-        }
-    }
-
     function testFork_ProposalsSubmittedInVetoSignalling_CanBeExecutedOnlyNextVetoCooldownOrNormal() external {
         address maliciousActor = makeAddr("MALICIOUS_ACTOR");
         _step("2. Malicious actor locks first seal threshold to activate VetoSignalling before proposal submission");
