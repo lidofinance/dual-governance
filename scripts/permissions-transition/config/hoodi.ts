@@ -102,7 +102,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
     Finance: {
       CREATE_PAYMENTS_ROLE: {
         manager: "Voting",
-        grantedTo: ["Voting" /* "EvmScriptExecutor" - payment factories hasn't setup yet */],
+        grantedTo: ["Voting", "EvmScriptExecutor"],
       },
       CHANGE_PERIOD_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       CHANGE_BUDGETS_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
@@ -277,7 +277,7 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
       DISABLE_CONSENSUS_ROLE: [],
       MANAGE_FAST_LANE_CONFIG_ROLE: ["DevEOA1", "DevEOA3"],
       MANAGE_FRAME_CONFIG_ROLE: ["DevEOA1", "DevEOA3"],
-      MANAGE_MEMBERS_AND_QUORUM_ROLE: ["DevEOA1", "DevEOA3"],
+      MANAGE_MEMBERS_AND_QUORUM_ROLE: ["Agent", "DevEOA1", "DevEOA3"],
       MANAGE_REPORT_PROCESSOR_ROLE: [],
     },
     // Easy Track
