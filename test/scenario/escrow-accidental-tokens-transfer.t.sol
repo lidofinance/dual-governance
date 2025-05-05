@@ -26,6 +26,8 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
     address internal immutable _VETOER_2 = makeAddr("VETOER_2");
     address internal immutable _VETOER_3 = makeAddr("VETOER_3");
     uint256 internal _proposalId;
+    uint256 internal transferredEthAmount = 10 ether;
+    uint256[] internal vetoer3UnstETHIds;
 
     function setUp() external {
         _deployDGSetup({isEmergencyProtectionEnabled: false});
@@ -56,6 +58,14 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
 
         _setupStETHBalance(_VETOER_3, 500 ether);
         _setupWstETHBalance(_VETOER_3, 50 ether);
+
+        vm.startPrank(_VETOER_3);
+        _lido.stETH.approve(address(_lido.wstETH), type(uint256).max);
+        _lido.stETH.approve(address(escrow), type(uint256).max);
+        _lido.stETH.approve(address(_lido.withdrawalQueue), type(uint256).max);
+        _lido.wstETH.approve(address(escrow), type(uint256).max);
+
+        vm.stopPrank();
     }
 
     function testFork_AccidentallyTransferredTokens_MayNotBeUnlocked_From_VetoSignallingEscrow() external {
@@ -107,7 +117,9 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             );
         }
 
-        _step("2. Vetoer2 accidentally transfers stETH, wstETH and unstETH to VetoSignalling escrow");
+        _step(
+            "2. Vetoer2 accidentally transfers stETH, wstETH and unstETH to VetoSignalling escrow (and some contract transfers there ETH during selfdestruct)"
+        );
         {
             vetoer2UnstETHIds =
                 _getSingleUnstEth(_VETOER_2, _lido.stETH.getPooledEthByShares(vetoer2TransferredUnStEthShares));
@@ -118,6 +130,10 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             _lido.wstETH.transfer(address(escrow), vetoer2TransferredWStEthAmount);
             _lido.withdrawalQueue.transferFrom(_VETOER_2, address(escrow), vetoer2UnstETHIds[0]);
             vm.stopPrank();
+
+            // The current Escrow implementation accepts ETH only from the WithdrawalQueue contract, so a direct transfer isn’t possible.
+            // vm.deal() call here simulates a selfdestruct for simplicity.
+            vm.deal(address(escrow), transferredEthAmount);
 
             _activateNextState();
             _assertNormalState();
@@ -135,6 +151,7 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
                 vetoer2TransferredUnStEthShares,
                 ACCURACY
             );
+            assertEq(address(escrow).balance, transferredEthAmount);
         }
 
         _step("3. Positive rebase happened");
@@ -200,7 +217,7 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
         }
 
         _step(
-            "5. Vetoer2's accidentally transferred stETH, wStETH and unstETH are still in VetoSignalling escrow and cannot be unlocked"
+            "5. Vetoer2's accidentally transferred stETH, wStETH and unstETH are still in VetoSignalling escrow and cannot be unlocked (and transferred ETH as well)"
         );
         {
             _assertNormalState();
@@ -229,6 +246,8 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
                 abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, vetoer2UnstETHIds[0], _VETOER_2)
             );
             this.external__unlockUnstETH(_VETOER_2, vetoer2UnstETHIds);
+
+            assertEq(address(escrow).balance, transferredEthAmount);
         }
     }
 
@@ -270,7 +289,9 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             _assertProposalScheduled(_proposalId);
         }
 
-        _step("3. Vetoer2 accidentally transfers stETH, wstETH and unstETH to VetoSignalling escrow.");
+        _step(
+            "3. Vetoer2 accidentally transfers stETH, wstETH and unstETH to VetoSignalling escrow (and some contract transfers there ETH during selfdestruct)."
+        );
         {
             vetoer2UnstETHIds = _getSingleUnstEth(_VETOER_2, _lido.stETH.getPooledEthByShares(transferredUnStEthShares));
             assertEq(_lido.withdrawalQueue.ownerOf(vetoer2UnstETHIds[0]), _VETOER_2);
@@ -280,6 +301,10 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             _lido.wstETH.transfer(address(escrow), transferredWStEthAmount);
             _lido.withdrawalQueue.transferFrom(_VETOER_2, address(escrow), vetoer2UnstETHIds[0]);
             vm.stopPrank();
+
+            // The current Escrow implementation accepts ETH only from the WithdrawalQueue contract, so a direct transfer isn’t possible.
+            // vm.deal() call here simulates a selfdestruct for simplicity.
+            vm.deal(address(escrow), transferredEthAmount);
 
             _activateNextState();
             _assertNormalState();
@@ -294,6 +319,7 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
                 transferredUnStEthShares,
                 ACCURACY
             );
+            assertEq(address(escrow).balance, transferredEthAmount);
         }
 
         _step("4. Vetoer1 locks funds in escrow.");
@@ -331,12 +357,21 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             _assertRageQuitState();
         }
 
-        _step("6. Vetoer3 accidentally transfers stETH, wstETH to RageQuitEscrow.");
+        _step("6. Vetoer3 accidentally transfers stETH, wstETH and unstETH to RageQuitEscrow.");
         {
+            // solhint-disable-next-line reentrancy
+            vetoer3UnstETHIds = _getSingleUnstEth(_VETOER_3, _lido.stETH.getPooledEthByShares(lockedUnStEthShares));
+            assertEq(_lido.withdrawalQueue.ownerOf(vetoer3UnstETHIds[0]), _VETOER_3);
+
             vm.startPrank(_VETOER_3);
             _lido.stETH.transferShares(address(escrow), transferredStEthShares);
             _lido.wstETH.transfer(address(escrow), transferredWStEthAmount);
+            _lido.withdrawalQueue.transferFrom(_VETOER_3, address(escrow), vetoer3UnstETHIds[0]);
             vm.stopPrank();
+
+            // The current Escrow implementation accepts ETH only from the WithdrawalQueue contract, so a direct transfer isn’t possible.
+            // vm.deal() call here simulates a selfdestruct for simplicity.
+            vm.deal(address(escrow), address(escrow).balance + transferredEthAmount);
 
             _activateNextState();
             _assertRageQuitState();
@@ -349,6 +384,15 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             assertApproxEqAbs(_lido.stETH.sharesOf(address(escrow)), expectedEscrowShares, ACCURACY);
 
             assertEq(_lido.wstETH.balanceOf(address(escrow)), transferredWStEthAmount + transferredWStEthAmount);
+
+            assertEq(_lido.withdrawalQueue.ownerOf(vetoer3UnstETHIds[0]), address(escrow));
+            assertApproxEqAbs(
+                _lido.withdrawalQueue.getWithdrawalStatus(vetoer3UnstETHIds)[0].amountOfShares,
+                lockedUnStEthShares,
+                ACCURACY
+            );
+
+            assertEq(address(escrow).balance, 2 * transferredEthAmount);
         }
 
         _step("7. Claiming withdrawals and end of Rage Quit.");
@@ -394,7 +438,7 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
         }
 
         _step(
-            "10. Vetoer2's and Vetoer3's accidentally transferred wStETH and unstETH are buried in RageQuitEscrow forever."
+            "10. Vetoer2's and Vetoer3's accidentally transferred wStETH and unstETH are buried in RageQuitEscrow forever (and transferred ETH as well)."
         );
         {
             _assertNormalState();
@@ -403,14 +447,22 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             assertApproxEqAbs(_lido.stETH.balanceOf(address(escrow)), 0, ACCURACY);
             assertEq(_lido.wstETH.balanceOf(address(escrow)), 2 * transferredWStEthAmount); // Vetoer2's + Vetoer3's wStETH
             assertEq(_lido.withdrawalQueue.ownerOf(vetoer2UnstETHIds[0]), address(escrow));
+            assertEq(_lido.withdrawalQueue.ownerOf(vetoer3UnstETHIds[0]), address(escrow));
             assertApproxEqAbs(
                 _lido.withdrawalQueue.getWithdrawalStatus(vetoer2UnstETHIds)[0].amountOfShares,
                 transferredUnStEthShares, // Vetoer2's unStETH
                 ACCURACY
             );
+            assertApproxEqAbs(
+                _lido.withdrawalQueue.getWithdrawalStatus(vetoer3UnstETHIds)[0].amountOfShares,
+                transferredUnStEthShares, // Vetoer3's unStETH
+                ACCURACY
+            );
 
             assertNotEq(address(escrow), address(_getVetoSignallingEscrow())); // escrow address is not equal to the actual VetoSignalling escrow instance
             assert(escrow.getEscrowState() == State.RageQuitEscrow); // and it's forever in RageQuit state, so tokens unlock is not possible
+
+            assertEq(address(escrow).balance, 2 * transferredEthAmount);
         }
     }
 
