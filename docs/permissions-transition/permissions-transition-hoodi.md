@@ -6,8 +6,8 @@ During active protocol testing in the testnet, some roles were assigned to EOAs 
 
 ## Permissions Transition Plan (Hoodi)
 
-> - Data was collected at block [`235321`](https://hoodi.etherscan.io//block/235321)
-> - The last permissions change occurred at block [`232218`](https://hoodi.etherscan.io//block/232218), transaction [`0xc69fac69d040af3786ffe8b8da5c3f52cd60fcaa563d56b63665d83f2e8a435e`](https://hoodi.etherscan.io//tx/0xc69fac69d040af3786ffe8b8da5c3f52cd60fcaa563d56b63665d83f2e8a435e)
+> - Data was collected at block [`328437`](https://hoodi.etherscan.io//block/328437)
+> - The last permissions change occurred at block [`303487`](https://hoodi.etherscan.io//block/303487), transaction [`0xc14fab41be2e07b7c0e0320c3750c466db88db0a01214228e62e6ae9422bdba3`](https://hoodi.etherscan.io//tx/0xc14fab41be2e07b7c0e0320c3750c466db88db0a01214228e62e6ae9422bdba3)
 
 How to read this document:
 - If an item is prepended with the "⚠️" icon, it indicates that the item will be changed. The required updates are described in the corresponding "Transition Steps" sections.
@@ -92,7 +92,7 @@ How to read this document:
 | --- | --- | --- | --- |
 | ⚠️ [`CHANGE_PERIOD_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CHANGE_PERIOD_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ∅ | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) |
 | ⚠️ [`CHANGE_BUDGETS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CHANGE_BUDGETS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ∅ | ⚠️ [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) |
-| [`CREATE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ∅ | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) |
+| [`CREATE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ∅ | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) [`EvmScriptExecutor`](https://hoodi.etherscan.io//address/0x79a20fd0fa36453b2f45eabab19bfef43575ba9e) |
 | [`EXECUTE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=EXECUTE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ∅ | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) |
 | [`MANAGE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) | ∅ | [`Voting`](https://hoodi.etherscan.io//address/0x49b3512c44891bef83f8967d075121bd1b07a01b) |
 
@@ -395,7 +395,7 @@ How to read this document:
 | [`DISABLE_CONSENSUS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DISABLE_CONSENSUS_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_FAST_LANE_CONFIG_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_FAST_LANE_CONFIG_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`DevEOA3`](https://hoodi.etherscan.io//address/0x4022e0754d0cb6905b54306105d3346d1547988b) [`DevEOA1`](https://hoodi.etherscan.io//address/0xe28f573b732632fde03bd5507a7d475383e8512e) |
 | [`MANAGE_FRAME_CONFIG_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_FRAME_CONFIG_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`DevEOA3`](https://hoodi.etherscan.io//address/0x4022e0754d0cb6905b54306105d3346d1547988b) [`DevEOA1`](https://hoodi.etherscan.io//address/0xe28f573b732632fde03bd5507a7d475383e8512e) |
-| [`MANAGE_MEMBERS_AND_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_MEMBERS_AND_QUORUM_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`DevEOA3`](https://hoodi.etherscan.io//address/0x4022e0754d0cb6905b54306105d3346d1547988b) [`DevEOA1`](https://hoodi.etherscan.io//address/0xe28f573b732632fde03bd5507a7d475383e8512e) |
+| [`MANAGE_MEMBERS_AND_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_MEMBERS_AND_QUORUM_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`DevEOA3`](https://hoodi.etherscan.io//address/0x4022e0754d0cb6905b54306105d3346d1547988b) [`DevEOA1`](https://hoodi.etherscan.io//address/0xe28f573b732632fde03bd5507a7d475383e8512e) [`Agent`](https://hoodi.etherscan.io//address/0x0534aa41907c9631fae990960bcc72d75fa7cfed) |
 | [`MANAGE_REPORT_PROCESSOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_REPORT_PROCESSOR_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
 #### EasyTrack [0x284d91a7d47850d21a6deaac6e538ac7e5e6fc2a](https://hoodi.etherscan.io//address/0x284d91a7d47850d21a6deaac6e538ac7e5e6fc2a)
