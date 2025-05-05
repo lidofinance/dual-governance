@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-export $(grep -v '^#' .env | xargs)
+export $(grep -vE '^\s*#' .env | sed -E 's/[[:space:]]+#.*$//' | xargs)
 
 SCRIPT_PATH="$1"
 shift
