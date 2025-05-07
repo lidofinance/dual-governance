@@ -164,13 +164,10 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
 
             timelock.execute(dgProposalId);
 
-            _dgContracts.emergencyGovernance = dgLaunchConfig.daoEmergencyGovernance;
             ITimelock.ProposalDetails memory proposalDetails = _dgContracts.timelock.getProposalDetails(dgProposalId);
             assert(proposalDetails.status == ProposalStatus.Executed);
 
             console.log("DG proposal executed: ", dgProposalId);
-
-            console.log("Emergency Governance set to", address(_dgContracts.emergencyGovernance));
         } else {
             console.log("STEP 5 SKIPPED - Proposal to set DG state already executed");
         }
@@ -183,8 +180,8 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
                 "Incorrect governance address in EmergencyProtectedTimelock"
             );
             require(
-                timelock.getEmergencyGovernance() == address(_dgContracts.emergencyGovernance),
-                "Incorrect governance address in EmergencyProtectedTimelock"
+                timelock.getEmergencyGovernance() == address(dgLaunchConfig.daoEmergencyGovernance),
+                "Incorrect emergency governance address in EmergencyProtectedTimelock"
             );
             require(timelock.isEmergencyModeActive() == false, "Emergency mode is not active");
             require(
