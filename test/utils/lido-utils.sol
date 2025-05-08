@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+/* solhint-disable no-console */
+
 import {Vm} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -22,6 +25,7 @@ import {IAragonVoting} from "./interfaces/IAragonVoting.sol";
 import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
 
 import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
+import {DecimalsFormatting} from "test/utils/formatting.sol";
 
 uint256 constant ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
 
@@ -73,7 +77,10 @@ address constant HOODI_DAO_AGENT = 0x0534aA41907c9631fae990960bCC72d75fA7cfeD;
 address constant HOODI_DAO_VOTING = 0x49B3512c44891bef83F8967d075121Bd1b07a01B;
 address constant HOODI_DAO_TOKEN_MANAGER = 0x8ab4a56721Ad8e68c6Ad86F9D9929782A78E39E5;
 
+Vm constant VM = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
 library LidoUtils {
+    using DecimalsFormatting for uint256;
     using CallsScriptBuilder for CallsScriptBuilder.Context;
 
     struct Context {
@@ -95,7 +102,7 @@ library LidoUtils {
         IAragonForwarder tokenManager;
     }
 
-    Vm internal constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     address internal constant DEFAULT_LDO_WHALE = address(0x1D0_1D0_1D0_1D0_1d0_1D0_1D0_1D0_1D0_1d0_1d0_1d0_1D0_1);
 
@@ -225,41 +232,6 @@ library LidoUtils {
         vm.stopPrank();
     }
 
-    function _getSharesToBurn(Context memory self) private returns (uint256) {
-        (uint256 coverShares, uint256 nonCoverShares) = self.burner.getSharesRequestedToBurn();
-        return coverShares + nonCoverShares;
-    }
-
-    function _getPostCLBalance(Context memory self, uint256 clDiff) private returns (uint256) {
-        (,, uint256 beaconBalance) = self.stETH.getBeaconStat();
-        return beaconBalance + clDiff;
-    }
-
-    function _getPostBeaconValidators(Context memory self, uint256 clAppearedValidators) private returns (uint256) {
-        (, uint256 beaconValidators,) = self.stETH.getBeaconStat();
-        return beaconValidators + clAppearedValidators;
-    }
-
-    function waitNextAvailableReportTime(Context memory self) internal {
-        (uint256 slotsPerEpoch,,) = self.hashConsensus.getChainConfig();
-        (, uint256 epochsPerFrame,) = self.hashConsensus.getFrameConfig();
-        (uint256 refSlot,) = self.hashConsensus.getCurrentFrame();
-
-        uint256 slotsPerFrame = slotsPerEpoch * epochsPerFrame;
-
-        ReportTimeElapsed memory timeElapsed = getReportTimeElapsed(self);
-
-        vm.warp(block.timestamp + timeElapsed.timeElapsed);
-
-        uint256 timeAfterWarp = block.timestamp;
-
-        (uint256 nextRefSlot,) = self.hashConsensus.getCurrentFrame();
-
-        if (nextRefSlot != refSlot + slotsPerFrame) {
-            revert("Next frame refSlot is incorrect");
-        }
-    }
-
     struct ReportTimeElapsed {
         uint256 time;
         uint256 timeElapsed;
@@ -267,7 +239,7 @@ library LidoUtils {
         uint256 nextFrameStartWithOffset;
     }
 
-    function getReportTimeElapsed(Context memory self) internal returns (ReportTimeElapsed memory) {
+    function getReportTimeElapsed(Context memory self) internal view returns (ReportTimeElapsed memory) {
         (uint256 slotsPerEpoch, uint256 secondsPerSlot, uint256 genesisTime) = self.hashConsensus.getChainConfig();
         (uint256 refSlot,) = self.hashConsensus.getCurrentFrame();
         (, uint256 epochsPerFrame,) = self.hashConsensus.getFrameConfig();
@@ -288,73 +260,28 @@ library LidoUtils {
         });
     }
 
-    // Simulates Oracle Report. The implementation is based on:
-    //     https://github.com/lidofinance/core/blob/d186530e74e07569295ac5de399389e5438bf567/lib/protocol/helpers/accounting.ts#L75
-    function report(Context memory self, uint256 lastReportId) internal {
-        waitNextAvailableReportTime(self);
-        uint256 withdrawalVaultBalanceBefore = address(self.withdrawalVault).balance;
-
-        (uint256 refSlot,) = self.hashConsensus.getCurrentFrame();
-        uint256 postCLBalance = _getPostCLBalance(self, 0);
-        uint256 postBeaconValidators = _getPostBeaconValidators(self, 0);
-
-        SimulateReportResult memory report = simulateReport(
-            self,
-            SimulateReportParams({
-                refSlot: refSlot,
-                beaconValidators: postBeaconValidators,
-                clBalance: postCLBalance,
-                withdrawalVaultBalance: self.withdrawalVault.balance,
-                elRewardsVaultBalance: self.elRewardsVault.balance
-            })
-        );
-
-        uint256 simulatedShareRate = report.postTotalPooledEther * 10 ** 27 / report.postTotalShares;
-
-        uint256[] memory withdrawalBatches = getFinalizationBatches(
-            self,
-            FinalizationBatchesParams({
-                shareRate: report.postTotalPooledEther * 10 ** 27 / report.postTotalShares,
-                limitedWithdrawalVaultBalance: report.withdrawals,
-                limitedElRewardsVaultBalance: report.elRewards
-            })
-        );
-
-        if (withdrawalBatches.length > 0 && withdrawalBatches[withdrawalBatches.length - 1] > lastReportId) {
-            withdrawalBatches[withdrawalBatches.length - 1] = lastReportId;
-        }
-
-        bool isBunkerMode = self.stETH.getTotalPooledEther() > report.postTotalPooledEther;
-
-        uint256[] memory numExitedValidatorsByStakingModule = new uint256[](1);
-        numExitedValidatorsByStakingModule[0] = 30;
-
-        submitReport(
-            self,
-            SubmitReportParams({
-                refSlot: refSlot,
-                clBalance: postCLBalance,
-                numValidators: postBeaconValidators,
-                withdrawalVaultBalance: self.withdrawalVault.balance,
-                elRewardsVaultBalance: self.elRewardsVault.balance,
-                sharesRequestedToBurn: _getSharesToBurn(self),
-                simulatedShareRate: simulatedShareRate,
-                stakingModuleIdsWithNewlyExitedValidators: _getStakingModuleIdsWithNewlyExitedValidators(),
-                numExitedValidatorsByStakingModule: new uint256[](0),
-                withdrawalFinalizationBatches: withdrawalBatches,
-                isBunkerMode: isBunkerMode,
-                extraDataFormat: 0,
-                extraDataHash: bytes32(0),
-                extraDataItemsCount: 0,
-                extraDataList: new bytes(0)
-            })
-        );
-    }
-
-    function _getStakingModuleIdsWithNewlyExitedValidators() internal returns (uint256[] memory) {
+    function _getStakingModuleIdsWithNewlyExitedValidators() internal pure returns (uint256[] memory) {
         uint256[] memory stakingModuleIdsWithNewlyExitedValidators = new uint256[](1);
         stakingModuleIdsWithNewlyExitedValidators[0] = 1;
         return stakingModuleIdsWithNewlyExitedValidators;
+    }
+
+    function _getSharesToBurn(Context memory self) private view returns (uint256) {
+        (uint256 coverShares, uint256 nonCoverShares) = self.burner.getSharesRequestedToBurn();
+        return coverShares + nonCoverShares;
+    }
+
+    function _getPostCLBalance(Context memory self, uint256 clDiff) private view returns (uint256) {
+        (,, uint256 beaconBalance) = self.stETH.getBeaconStat();
+        return beaconBalance + clDiff;
+    }
+
+    function _getPostBeaconValidators(
+        Context memory self,
+        uint256 clAppearedValidators
+    ) private view returns (uint256) {
+        (, uint256 beaconValidators,) = self.stETH.getBeaconStat();
+        return beaconValidators + clAppearedValidators;
     }
 
     struct SimulateReportParams {
@@ -365,46 +292,255 @@ library LidoUtils {
         uint256 elRewardsVaultBalance;
     }
 
+    function simulateRebase(Context memory self, PercentD16 rebaseFactor) internal {
+        performRebase(self, rebaseFactor, self.withdrawalQueue.getLastFinalizedRequestId());
+    }
+
+    function performRebase(Context memory self, PercentD16 rebaseFactor, uint256 lastUnstETHIdToFinalize) internal {
+        console.log("----- Perform Oracle rebase ----");
+
+        vm.startPrank(address(self.agent));
+        self.oracleReportSanityChecker.grantRole(
+            self.oracleReportSanityChecker.ANNUAL_BALANCE_INCREASE_LIMIT_MANAGER_ROLE(), address(self.agent)
+        );
+        self.oracleReportSanityChecker.grantRole(
+            self.oracleReportSanityChecker.REQUEST_TIMESTAMP_MARGIN_MANAGER_ROLE(), address(self.agent)
+        );
+        self.oracleReportSanityChecker.setAnnualBalanceIncreaseBPLimit(100_00);
+        self.oracleReportSanityChecker.setRequestTimestampMargin(0);
+        vm.stopPrank();
+
+        // uint256 totalShares = self.stETH.getTotalShares();
+        // uint256 totalSupply = self.stETH.totalSupply();
+        // uint256 pooledEtherBefore = self.stETH.getTotalPooledEther();
+
+        uint256 clBalance = _sweepBufferedEther(self);
+
+        uint256 shareRateBefore = self.stETH.getPooledEthByShares(10 ** 27);
+
+        uint256 newCLBalance = PercentD16.unwrap(rebaseFactor) * clBalance / 10 ** 18;
+
+        vm.deal(self.elRewardsVault, 0);
+        // console.log("EL vault balance: %s", self.elRewardsVault.balance.formatEther());
+
+        // console.log("Buffered ether before: %s", self.stETH.getBufferedEther().formatEther());
+        // console.log("Withdrawal vault balance before: %s", self.withdrawalVault.balance.formatEther());
+        // console.log("clBalance: %s, newCLBalance: %s", clBalance.formatEther(), newCLBalance.formatEther());
+
+        _handleOracleReport(self, int256(newCLBalance) - int256(clBalance), lastUnstETHIdToFinalize);
+
+        uint256 shareRateAfter = self.stETH.getPooledEthByShares(10 ** 27);
+
+        console.log("Share Rate Before: %s", shareRateBefore.formatRay());
+        console.log("Share Rate After: %s", shareRateAfter.formatRay());
+        console.log("--------");
+
+        // uint256 withdrawalVaultBalanceAfter = self.withdrawalVault.balance;
+
+        // console.log("Total Supply before: %s", totalSupply.formatEther());
+        // console.log("Total Supply after: %s", self.stETH.totalSupply().formatEther());
+
+        // console.log("Total Shares before: %s", totalShares.formatEther());
+        // console.log("Total Shares after: %s", self.stETH.getTotalShares().formatEther());
+
+        // console.log("Pooled Ether Before:", pooledEtherBefore.formatEther());
+        // console.log("Pooled Ether After:", self.stETH.getTotalPooledEther().formatEther());
+
+        // console.log("WVB", withdrawalVaultBalanceAfter.formatEther());
+
+        // console.log("Unfinalized stETH After: %s", self.withdrawalQueue.unfinalizedStETH().formatEther());
+        // console.log("Finalized stETH: %s", finalizedStETH.formatEther());
+
+        // TODO: implement sanity checks based on resulting share rate
+    }
+
+    function _sweepBufferedEther(Context memory self) internal returns (uint256 clBalance) {
+        bytes32 bufferedEtherSlot = keccak256("lido.Lido.bufferedEther");
+        bytes32 clBalanceSlot = keccak256("lido.Lido.beaconBalance");
+
+        clBalance = uint256(vm.load(address(self.stETH), clBalanceSlot));
+        uint256 bufferedEther = uint256(vm.load(address(self.stETH), bufferedEtherSlot));
+
+        // for the simplicity of the accounting, move all buffered ether to the cl balance
+        // as it was deposited
+        if (bufferedEther > 0) {
+            vm.deal(address(self.stETH), address(self.stETH).balance - bufferedEther);
+            vm.deal(self.withdrawalVault, self.withdrawalVault.balance + bufferedEther);
+
+            clBalance += bufferedEther;
+            vm.store(address(self.stETH), bufferedEtherSlot, bytes32(0));
+            vm.store(address(self.stETH), clBalanceSlot, bytes32(clBalance));
+
+            (,, uint256 updatedCLBalance) = self.stETH.getBeaconStat();
+            require(updatedCLBalance == clBalance, "Unexpected CL Balance");
+            require(self.stETH.getBufferedEther() == 0, "Non Zero Buffered Ether");
+        }
+    }
+
+    function _calculateUnfinalizedStETH(
+        Context memory self,
+        uint256 lastUnstETHIdToFinalize
+    ) private view returns (uint256) {
+        uint256 lastFinalizedUnstETHId = self.withdrawalQueue.getLastFinalizedRequestId();
+        if (lastUnstETHIdToFinalize <= lastFinalizedUnstETHId) {
+            return 0;
+        }
+
+        uint256 lastUnstETHId = self.withdrawalQueue.getLastRequestId();
+        if (lastUnstETHIdToFinalize >= lastUnstETHId) {
+            return self.withdrawalQueue.unfinalizedStETH();
+        }
+
+        uint256[] memory requestIdsToFinalize = new uint256[](lastUnstETHIdToFinalize - lastFinalizedUnstETHId);
+
+        for (uint256 i = 0; i < requestIdsToFinalize.length; ++i) {
+            requestIdsToFinalize[i] = lastFinalizedUnstETHId + i + 1;
+        }
+
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            self.withdrawalQueue.getWithdrawalStatus(requestIdsToFinalize);
+        uint256 unfinalizedStETH = 0;
+
+        for (uint256 i = 0; i < statuses.length; ++i) {
+            unfinalizedStETH += statuses[i].amountOfStETH;
+        }
+        return unfinalizedStETH;
+    }
+
+    function _handleOracleReport(
+        Context memory self,
+        int256 clBalanceChange,
+        uint256 lastUnstETHIdToFinalize
+    ) internal returns (uint256 finalizedStETH) {
+        (, uint256 beaconValidators, uint256 oldCLBalance) = self.stETH.getBeaconStat();
+        uint256 newCLBalance = uint256(int256(oldCLBalance) + clBalanceChange);
+
+        {
+            finalizedStETH = _calculateUnfinalizedStETH(self, lastUnstETHIdToFinalize);
+            // console.log("unfinalized", finalizedStETH.formatEther());
+
+            // uint256 withdrawalVaultBalance = self.withdrawalVault.balance;
+            vm.deal(self.withdrawalVault, finalizedStETH);
+
+            newCLBalance -= finalizedStETH;
+        }
+
+        uint256 simulatedShareRate;
+        uint256[] memory withdrawalBatches;
+        {
+            SimulateReportResult memory simulatedReport = _simulateReport(self, beaconValidators, newCLBalance);
+            simulatedShareRate = simulatedReport.postTotalPooledEther * 10 ** 27 / simulatedReport.postTotalShares;
+
+            if (finalizedStETH > 0) {
+                IWithdrawalQueue.BatchesCalculationState memory batchesState = getFinalizationBatches(
+                    self,
+                    FinalizationBatchesParams({
+                        shareRate: simulatedShareRate,
+                        limitedWithdrawalVaultBalance: simulatedReport.withdrawals,
+                        limitedElRewardsVaultBalance: simulatedReport.elRewards
+                    })
+                );
+
+                if (batchesState.batchesLength > 0) {
+                    // require(batchesState.batches[batchesState.batchesLength - 1] == lastUnstETHIdToFinalize, "Invalid Batch");
+                }
+
+                withdrawalBatches = new uint256[](batchesState.batchesLength);
+
+                for (uint256 i = 0; i < batchesState.batchesLength; ++i) {
+                    withdrawalBatches[i] = batchesState.batches[i];
+                }
+            }
+        }
+
+        {
+            vm.prank(address(self.accountingOracle));
+            _handleOracleReport(
+                self,
+                HandleOracleReportParams({
+                    reportTimestamp: block.timestamp,
+                    timeElapsed: 1 days,
+                    clValidators: beaconValidators,
+                    clBalance: newCLBalance,
+                    withdrawalVaultBalance: self.withdrawalVault.balance,
+                    elRewardsVaultBalance: self.elRewardsVault.balance,
+                    sharesRequestedToBurn: 0,
+                    withdrawalFinalizationBatches: withdrawalBatches,
+                    simulatedShareRate: simulatedShareRate
+                })
+            );
+        }
+    }
+
+    struct HandleOracleReportParams {
+        // Oracle timings
+        uint256 reportTimestamp;
+        uint256 timeElapsed;
+        // CL values
+        uint256 clValidators;
+        uint256 clBalance;
+        // EL values
+        uint256 withdrawalVaultBalance;
+        uint256 elRewardsVaultBalance;
+        uint256 sharesRequestedToBurn;
+        // Decision about withdrawals processing
+        uint256[] withdrawalFinalizationBatches;
+        uint256 simulatedShareRate;
+    }
+
+    function _handleOracleReport(
+        Context memory self,
+        HandleOracleReportParams memory params
+    ) private returns (SimulateReportResult memory res) {
+        uint256[4] memory simulatedPostRebaseAmounts = self.stETH.handleOracleReport({
+            _reportTimestamp: params.reportTimestamp,
+            _timeElapsed: params.timeElapsed,
+            _clValidators: params.clValidators,
+            _clBalance: params.clBalance,
+            _withdrawalVaultBalance: params.withdrawalVaultBalance,
+            _elRewardsVaultBalance: params.elRewardsVaultBalance,
+            _sharesRequestedToBurn: params.sharesRequestedToBurn,
+            _withdrawalFinalizationBatches: params.withdrawalFinalizationBatches,
+            _simulatedShareRate: params.simulatedShareRate
+        });
+
+        res.postTotalPooledEther = simulatedPostRebaseAmounts[0];
+        res.postTotalShares = simulatedPostRebaseAmounts[1];
+        res.withdrawals = simulatedPostRebaseAmounts[2];
+        res.elRewards = simulatedPostRebaseAmounts[3];
+    }
+
+    function _simulateReport(
+        Context memory self,
+        uint256 beaconValidators,
+        uint256 newCLBalance
+    ) internal returns (SimulateReportResult memory res) {
+        uint256 snapshotId = vm.snapshot();
+
+        vm.prank(address(self.accountingOracle));
+        res = _handleOracleReport(
+            self,
+            HandleOracleReportParams({
+                reportTimestamp: block.timestamp,
+                timeElapsed: 1 days,
+                clValidators: beaconValidators,
+                clBalance: newCLBalance,
+                withdrawalVaultBalance: self.withdrawalVault.balance,
+                elRewardsVaultBalance: self.elRewardsVault.balance,
+                sharesRequestedToBurn: 0,
+                withdrawalFinalizationBatches: new uint256[](0),
+                simulatedShareRate: 0
+            })
+        );
+
+        vm.revertTo(snapshotId);
+    }
+
     struct SimulateReportResult {
         uint256 postTotalPooledEther;
         uint256 postTotalShares;
         uint256 withdrawals;
         uint256 elRewards;
-    }
-
-    function simulateReport(
-        Context memory self,
-        SimulateReportParams memory params
-    ) internal returns (SimulateReportResult memory res) {
-        (, uint256 secondsPerSlot, uint256 genesisTime) = self.hashConsensus.getChainConfig();
-        uint256 reportTimestamp = genesisTime + params.refSlot * secondsPerSlot;
-
-        uint256 snapshotId = vm.snapshot();
-
-        vm.store(
-            address(self.accountingOracle), keccak256("lido.BaseOracle.lastProcessingRefSlot"), bytes32(params.refSlot)
-        );
-
-        vm.prank(address(self.accountingOracle));
-
-        uint256[4] memory postRebaseAmounts = self.stETH.handleOracleReport(
-            reportTimestamp,
-            1 days,
-            params.beaconValidators,
-            params.clBalance,
-            params.withdrawalVaultBalance,
-            params.elRewardsVaultBalance,
-            0,
-            new uint256[](0),
-            0
-        );
-
-        res.postTotalPooledEther = postRebaseAmounts[0];
-        res.postTotalShares = postRebaseAmounts[1];
-        res.withdrawals = postRebaseAmounts[2];
-        res.elRewards = postRebaseAmounts[3];
-
-        vm.revertTo(snapshotId);
     }
 
     struct FinalizationBatchesParams {
@@ -416,7 +552,7 @@ library LidoUtils {
     function getFinalizationBatches(
         Context memory self,
         FinalizationBatchesParams memory params
-    ) internal returns (uint256[] memory resBatches) {
+    ) internal view returns (IWithdrawalQueue.BatchesCalculationState memory batchesState) {
         IOracleReportSanityChecker.LimitsList memory limits = self.oracleReportSanityChecker.getOracleReportLimits();
         uint256 bufferedEther = self.stETH.getBufferedEther();
         uint256 unfinalizedStETH = self.withdrawalQueue.unfinalizedStETH();
@@ -433,207 +569,21 @@ library LidoUtils {
             revert("No available ETH");
         }
 
-        uint256[36] memory batches;
-
-        IWithdrawalQueue.BatchesCalculationState memory batchesState = self.withdrawalQueue.calculateFinalizationBatches(
-            params.shareRate,
-            maxTimestamp,
-            MAX_REQUESTS_PER_CALL,
-            IWithdrawalQueue.BatchesCalculationState({
-                remainingEthBudget: availableEth,
-                finished: false,
-                batches: batches,
-                batchesLength: 0
-            })
-        );
+        batchesState.remainingEthBudget = availableEth;
 
         while (!batchesState.finished) {
-            IWithdrawalQueue.BatchesCalculationState memory state = IWithdrawalQueue.BatchesCalculationState({
-                remainingEthBudget: batchesState.remainingEthBudget,
-                finished: batchesState.finished,
-                batches: batchesState.batches,
-                batchesLength: batchesState.batchesLength
-            });
-
             batchesState = self.withdrawalQueue.calculateFinalizationBatches(
-                params.shareRate, maxTimestamp, MAX_REQUESTS_PER_CALL, state
+                params.shareRate, maxTimestamp, MAX_REQUESTS_PER_CALL, batchesState
             );
         }
-
-        uint256 nonZeroBatchesLength = 0;
-
-        for (uint256 i = 0; i < batchesState.batches.length; ++i) {
-            if (batchesState.batches[i] > 0) {
-                nonZeroBatchesLength += 1;
-            }
-        }
-
-        resBatches = new uint256[](nonZeroBatchesLength);
-
-        uint256 j = 0;
-        for (uint256 i = 0; i < batchesState.batches.length; ++i) {
-            if (batchesState.batches[i] > 0) {
-                resBatches[j] = batchesState.batches[i];
-                ++j;
-            }
-        }
-    }
-
-    struct SubmitReportParams {
-        uint256 refSlot;
-        uint256 clBalance;
-        uint256 numValidators;
-        uint256 withdrawalVaultBalance;
-        uint256 elRewardsVaultBalance;
-        uint256 sharesRequestedToBurn;
-        uint256 simulatedShareRate;
-        uint256[] stakingModuleIdsWithNewlyExitedValidators;
-        uint256[] numExitedValidatorsByStakingModule;
-        uint256[] withdrawalFinalizationBatches;
-        bool isBunkerMode;
-        uint256 extraDataFormat;
-        bytes32 extraDataHash;
-        uint256 extraDataItemsCount;
-        bytes extraDataList;
-    }
-
-    function submitReport(Context memory self, SubmitReportParams memory params) internal {
-        uint256 consensusVersion = self.accountingOracle.getConsensusVersion();
-        uint256 oracleVersion = self.accountingOracle.getContractVersion();
-
-        IAccountingOracle.ReportData memory reportData = IAccountingOracle.ReportData({
-            consensusVersion: self.accountingOracle.getConsensusVersion(),
-            refSlot: params.refSlot,
-            clBalanceGwei: params.clBalance / 1 gwei,
-            numValidators: params.numValidators,
-            withdrawalVaultBalance: params.withdrawalVaultBalance,
-            elRewardsVaultBalance: params.elRewardsVaultBalance,
-            sharesRequestedToBurn: params.sharesRequestedToBurn,
-            simulatedShareRate: params.simulatedShareRate,
-            stakingModuleIdsWithNewlyExitedValidators: params.stakingModuleIdsWithNewlyExitedValidators,
-            numExitedValidatorsByStakingModule: params.numExitedValidatorsByStakingModule,
-            withdrawalFinalizationBatches: params.withdrawalFinalizationBatches,
-            isBunkerMode: params.isBunkerMode,
-            extraDataFormat: params.extraDataFormat,
-            extraDataHash: params.extraDataHash,
-            extraDataItemsCount: params.extraDataItemsCount
-        });
-
-        bytes32 digest = keccak256(abi.encode(reportData));
-
-        address submitter = reachConsensus(self, params.refSlot, digest, consensusVersion);
-
-        vm.prank(submitter);
-        self.accountingOracle.submitReportData(reportData, oracleVersion);
-
-        vm.prank(submitter);
-        if (params.extraDataFormat > 0) {
-            self.accountingOracle.submitReportExtraDataList(params.extraDataList);
-        } else {
-            self.accountingOracle.submitReportExtraDataEmpty();
-        }
-
-        IAccountingOracle.ProcessingState memory state = self.accountingOracle.getProcessingState();
-
-        if (state.currentFrameRefSlot != params.refSlot) {
-            revert("Processing state ref slot is incorrect");
-        }
-    }
-
-    function reachConsensus(
-        Context memory self,
-        uint256 refSlot,
-        bytes32 reportHash,
-        uint256 consensusVersion
-    ) internal returns (address) {
-        (address[] memory addresses,) = self.hashConsensus.getFastLaneMembers();
-
-        address submitter;
-        for (uint256 i = 0; i < addresses.length; ++i) {
-            if (submitter == address(0)) {
-                submitter = addresses[i];
-            }
-            vm.deal(addresses[i], 1 ether);
-            vm.prank(addresses[i]);
-            self.hashConsensus.submitReport(refSlot, reportHash, consensusVersion);
-        }
-
-        (, bytes32 consensusReport,) = self.hashConsensus.getConsensusState();
-
-        if (consensusReport != reportHash) {
-            revert("Consensus report is incorrect");
-        }
-        return submitter;
     }
 
     function finalizeWithdrawalQueue(Context memory self) internal {
-        uint256 lastWithdrawalId = self.withdrawalQueue.getLastRequestId();
-        uint256 lastFinalizedWithdrawalId = self.withdrawalQueue.getLastFinalizedRequestId();
-
-        if (lastFinalizedWithdrawalId < lastWithdrawalId) {
-            finalizeWithdrawalQueue(self, lastWithdrawalId);
-        }
+        performRebase(self, PercentsD16.fromBasisPoints(100_00), self.withdrawalQueue.getLastRequestId());
     }
 
     function finalizeWithdrawalQueue(Context memory self, uint256 id) internal {
-        vm.deal(address(self.withdrawalQueue), 10_000_000 ether);
-        uint256 finalizationShareRate = self.stETH.getPooledEthByShares(1e27) + 1e9; // TODO check finalization rate
-        vm.prank(address(self.stETH));
-        self.withdrawalQueue.finalize(id, finalizationShareRate);
-
-        bytes32 lockedEtherAmountSlot = 0x0e27eaa2e71c8572ab988fef0b54cd45bbd1740de1e22343fb6cda7536edc12f; // keccak256("lido.WithdrawalQueue.lockedEtherAmount");
-
-        vm.store(address(self.withdrawalQueue), lockedEtherAmountSlot, bytes32(address(self.withdrawalQueue).balance));
-    }
-
-    function finalizeWithdrawalQueueByOracleReport(Context memory self, uint256 id) internal {
-        uint256 lastRequestId = self.withdrawalQueue.getLastRequestId();
-        uint256 lastFinalizedId = self.withdrawalQueue.getLastFinalizedRequestId();
-
-        if (lastRequestId == lastFinalizedId) {
-            return;
-        }
-
-        uint256 totalAmountOfStETHToFinalize = 0;
-        uint256[] memory requestIdsToFinalize = new uint256[](lastRequestId - lastFinalizedId);
-
-        for (uint256 i = 0; i < requestIdsToFinalize.length; ++i) {
-            requestIdsToFinalize[i] = lastFinalizedId + 1 + i;
-        }
-
-        IWithdrawalQueue.WithdrawalRequestStatus[] memory requestsToFinalize =
-            self.withdrawalQueue.getWithdrawalStatus(requestIdsToFinalize);
-
-        for (uint256 i = 0; i < requestsToFinalize.length; ++i) {
-            totalAmountOfStETHToFinalize += requestsToFinalize[i].amountOfStETH;
-        }
-
-        vm.deal(address(self.withdrawalVault), address(self.withdrawalVault).balance + totalAmountOfStETHToFinalize);
-
-        report(self, lastRequestId);
-    }
-
-    /// @param rebaseFactor - rebase factor with 10 ** 16 precision
-    /// 10 ** 18     => equal to no rebase
-    /// 10 ** 18 - 1 => equal to decrease equal to 10 ** -18 %
-    /// 10 ** 18 + 1 => equal to increase equal to 10 ** -18 %
-    function simulateRebase(Context memory self, PercentD16 rebaseFactor) internal {
-        bytes32 clBeaconBalanceSlot = keccak256("lido.Lido.beaconBalance");
-        uint256 totalSupply = self.stETH.totalSupply();
-
-        uint256 oldClBalance = uint256(vm.load(address(self.stETH), clBeaconBalanceSlot));
-        uint256 newClBalance = PercentD16.unwrap(rebaseFactor) * oldClBalance / 10 ** 18;
-
-        vm.store(address(self.stETH), clBeaconBalanceSlot, bytes32(newClBalance));
-
-        // validate that total supply of the token updated expectedly
-        if (rebaseFactor > PercentsD16.fromBasisPoints(100_00)) {
-            uint256 clBalanceDelta = newClBalance - oldClBalance;
-            assert(self.stETH.totalSupply() == totalSupply + clBalanceDelta);
-        } else {
-            uint256 clBalanceDelta = oldClBalance - newClBalance;
-            assert(self.stETH.totalSupply() == totalSupply - clBalanceDelta);
-        }
+        performRebase(self, PercentsD16.fromBasisPoints(100_00), id);
     }
 
     function removeStakingLimit(Context memory self) external {

@@ -566,7 +566,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         return _dgDeployedContracts.dualGovernance.cancelAllPendingProposals();
     }
 
-    function _getProposalsCanceller() internal returns (address) {
+    function _getProposalsCanceller() internal view returns (address) {
         return _dgDeployedContracts.dualGovernance.getProposalsCanceller();
     }
 

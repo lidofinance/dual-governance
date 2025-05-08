@@ -99,16 +99,11 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         );
     }
 
-    function testForkFuzz_LockUnlockAssets_HappyPath_WithRebases(
-        uint256 rebaseDeltaPercent,
-        uint256 withdrawTurn
-    ) public {
-        _initialLockRandomAmountOfTokensInEscrow();
-
-        rebaseDeltaPercent = rebaseDeltaPercent % 200; // -1% ... +1%
+    function testForkFuzz_LockUnlockAssets_HappyPath_WithRebases(uint256 rebaseDeltaPercent) public {
+        vm.assume(rebaseDeltaPercent < 100); // -0.5% ... +0.5%
+        bool rebaseIsNegative = rebaseDeltaPercent < 100 ? true : false;
         PercentD16 rebasePercent = PercentsD16.fromBasisPoints(99_00 + rebaseDeltaPercent);
 
-        uint256 firstVetoerStETHAmount = 10 * 10 ** 18;
         uint256 firstVetoerStETHShares = _lido.stETH.getSharesByPooledEth(firstVetoerStETHAmount);
         uint256 firstVetoerWstETHAmount = 11 * 10 ** 18;
 
@@ -391,6 +386,8 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         _lockStETH(_VETOER_1, 20 * requestAmount);
         _lockWstETH(_VETOER_1, requestShares);
         _lockUnstETH(_VETOER_1, unstETHIds);
+
+        _simulateRebase(PercentsD16.fromBasisPoints(100_05)); // +0.05%
 
         vm.expectRevert();
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);

@@ -70,4 +70,6 @@ interface IWithdrawalQueue is IWithdrawalQueueBase {
         uint256[] calldata _amounts,
         address _owner
     ) external returns (uint256[] memory requestIds);
+
+    function getWithdrawalRequests(address _owner) external returns (uint256[] memory);
 }
