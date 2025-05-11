@@ -8,21 +8,21 @@ import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries
 
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {IRageQuitEscrow, ContractsDeployment, DGScenarioTestSetup} from "../utils/integration-tests.sol";
+import {IRageQuitEscrow, ContractsDeployment, DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
 import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
 
-contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
+contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
-        _deployDGSetup({isEmergencyProtectionEnabled: false});
+        _loadOrDeployDGSetup();
         _setupStETHBalance(_VETOER, PercentsD16.fromBasisPoints(30_00));
     }
 
-    function testFork_DualGovernanceUpdate_OldEscrowInstanceAllowsUnlockTokens() external {
+    function testFork_OldEscrowInstanceAllowsUnlockTokens_HappyPath() external {
         DualGovernance newDualGovernanceInstance;
         _step("1. Deploy new Dual Governance implementation");
         {
@@ -131,7 +131,7 @@ contract DualGovernanceUpdateTokensRotation is DGScenarioTestSetup {
         }
     }
 
-    function testFork_DualGovernanceUpdate_LastMomentProposalAttack() external {
+    function testFork_ProposalExecution_RevertOn_SubmittedViaOldGovernance() external {
         // DAO initiates the update of the Dual Governance
         // Malicious actor locks funds in the Signalling Escrow to waste the full duration of VetoSignalling
         // At the end of the VetoSignalling, malicious actor unlocks all funds from VetoSignalling and

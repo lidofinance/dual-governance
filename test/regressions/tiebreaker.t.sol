@@ -20,7 +20,7 @@ contract TiebreakerRegressionTest is DGRegressionTestSetup {
         _setupStETHBalance(_VETOER, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
     }
 
-    function testFork_ProposalApproval_TiebreakerActivationTimeout() external {
+    function testFork_ProposalApproval_ActivationTimeout() external {
         ITiebreaker.TiebreakerDetails memory details = _dgDeployedContracts.dualGovernance.getTiebreakerDetails();
 
         _step("1. Tiebreaker activation");
@@ -84,7 +84,7 @@ contract TiebreakerRegressionTest is DGRegressionTestSetup {
         }
     }
 
-    function testFork_ResumeWithdrawals() external {
+    function testFork_ResumeSealable_RageQuit_HappyPath() external {
         ITiebreaker.TiebreakerDetails memory details = _dgDeployedContracts.dualGovernance.getTiebreakerDetails();
 
         address[] memory sealableWithdrawalBlockers = _getSealableWithdrawalBlockers();
@@ -93,15 +93,8 @@ contract TiebreakerRegressionTest is DGRegressionTestSetup {
             assertTrue(sealableWithdrawalBlockers.length > 0);
         }
 
-        _step("2. Pause sealable withdrawal blockers manually");
-
-        ISealable pausedSealable = ISealable(sealableWithdrawalBlockers[0]);
-        if (!pausedSealable.isPaused()) {
-            vm.startPrank(address(_dgDeployedContracts.resealManager));
-            pausedSealable.pauseFor(pausedSealable.PAUSE_INFINITELY());
-            vm.stopPrank();
-            assertTrue(pausedSealable.isPaused());
-        }
+        _step("2. Pause sealables withdrawal blockers manually");
+        _pauseSealables(sealableWithdrawalBlockers);
 
         // Tiebreak activation
         _step("3. Rage Quit state is entered");
@@ -116,36 +109,60 @@ contract TiebreakerRegressionTest is DGRegressionTestSetup {
         }
 
         _step("4. Tiebreaker votes to resume paused sealable");
+        _tiebreakerVoteForSealablesResume(details.tiebreakerCommittee, sealableWithdrawalBlockers);
+
+        _step("5. Sealable is resumed and rage quit may be finalized");
         {
+            for (uint256 sealableIndex = 0; sealableIndex < sealableWithdrawalBlockers.length; ++sealableIndex) {
+                assertFalse(ISealable(sealableWithdrawalBlockers[sealableIndex]).isPaused());
+            }
+        }
+    }
+
+    function _pauseSealables(address[] memory sealableWithdrawalBlockers) internal {
+        for (uint256 i = 0; i < sealableWithdrawalBlockers.length; ++i) {
+            ISealable pausedSealable = ISealable(sealableWithdrawalBlockers[0]);
+            if (!pausedSealable.isPaused()) {
+                vm.startPrank(address(_dgDeployedContracts.resealManager));
+                pausedSealable.pauseFor(pausedSealable.PAUSE_INFINITELY());
+                vm.stopPrank();
+                assertTrue(pausedSealable.isPaused());
+            }
+        }
+    }
+
+    function _tiebreakerVoteForSealablesResume(
+        address tiebreakerCommittee,
+        address[] memory sealableWithdrawalBlockers
+    ) internal {
+        TiebreakerCoreCommittee coreTiebreaker = TiebreakerCoreCommittee(tiebreakerCommittee);
+        address[] memory subTiebreakers = coreTiebreaker.getMembers();
+
+        for (uint256 sealableIndex = 0; sealableIndex < sealableWithdrawalBlockers.length; ++sealableIndex) {
             uint256 quorum;
             uint256 support;
             bool isExecuted;
-            TiebreakerCoreCommittee coreTiebreaker = TiebreakerCoreCommittee(details.tiebreakerCommittee);
-            address[] memory subTiebreakers = coreTiebreaker.getMembers();
 
             for (uint256 i = 0; i < coreTiebreaker.getQuorum(); ++i) {
                 TiebreakerSubCommittee subTiebreaker = TiebreakerSubCommittee(subTiebreakers[i]);
 
-                _executeResumeProposalBySubCommittee(subTiebreaker, address(pausedSealable));
+                _executeResumeProposalBySubCommittee(subTiebreaker, sealableWithdrawalBlockers[sealableIndex]);
 
                 (support, quorum, /* quorumAt */, isExecuted) = coreTiebreaker.getSealableResumeState(
-                    address(pausedSealable), coreTiebreaker.getSealableResumeNonce(address(pausedSealable))
+                    sealableWithdrawalBlockers[0], coreTiebreaker.getSealableResumeNonce(sealableWithdrawalBlockers[0])
                 );
 
                 assertFalse(isExecuted);
                 assertEq(support, i + 1);
             }
             assertEq(support, quorum);
-
-            // Waiting for submit delay pass
-            _wait(coreTiebreaker.getTimelockDuration());
-
-            coreTiebreaker.executeSealableResume(address(pausedSealable));
         }
 
-        _step("5. Sealable is resumed and rage quit may be finalized");
-        {
-            assertFalse(pausedSealable.isPaused());
+        // Waiting for submit delay pass
+        _wait(coreTiebreaker.getTimelockDuration());
+
+        for (uint256 sealableIndex = 0; sealableIndex < sealableWithdrawalBlockers.length; ++sealableIndex) {
+            coreTiebreaker.executeSealableResume(sealableWithdrawalBlockers[sealableIndex]);
         }
     }
 

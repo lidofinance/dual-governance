@@ -130,7 +130,7 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
         }
     }
 
-    function testFork_TimelockedGovernanceUpgradeToDualGovernanceAndEmergencyReset() external {
+    function testFork_UpgradeToDualGovernanceAndEmergencyReset() external {
         _step("1. DAO operates as usually. Emergency protection is enabled");
         {
             _adoptProposal(_getMockTargetRegularStaffCalls({callsCount: 5}), "Regular staff calls");

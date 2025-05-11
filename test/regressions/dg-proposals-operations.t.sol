@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {PercentsD16} from "contracts/types/PercentD16.sol";
+import {DualGovernance} from "contracts/DualGovernance.sol";
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
 import {DGRegressionTestSetup, Proposers} from "../utils/integration-tests.sol";
 
-import {ExecutableProposals, ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
+import {ExecutableProposals, ExternalCall, Status} from "contracts/libraries/ExecutableProposals.sol";
 
 import {LidoUtils} from "../utils/lido-utils.sol";
 
 import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
 
-contract DGProposalOperationsTest is DGRegressionTestSetup {
+contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
     using LidoUtils for LidoUtils.Context;
     using CallsScriptBuilder for CallsScriptBuilder.Context;
 
@@ -19,7 +21,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         _loadOrDeployDGSetup();
     }
 
-    function testFork_ProposalLifecycle_HappyPathMultipleCalls() external {
+    function testFork_ProposalLifecycle_HappyPath_MultipleCalls() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls(3);
 
         uint256 proposalId = _submitProposalByAdminProposer(
@@ -49,7 +51,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
     }
 
-    function testFork_ProposalLifecycle_ExternalCallsWithValue() external {
+    function testFork_ProposalLifecycle_HappyPath_ExternalCallsWithValue() external {
         uint256 ethValue = 3 ether;
 
         vm.deal(address(_getAdminExecutor()), ethValue);
@@ -88,7 +90,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         assertEq(adminExecutorValueBefore - ethValue, address(_getAdminExecutor()).balance);
     }
 
-    function testFork_ProposalLifecycle_AgentForwarding() external {
+    function testFork_ProposalLifecycle_HappyPath_AgentForwarding() external {
         _grantAragonAgentExecuteRole(_timelock.getAdminExecutor());
 
         uint256 ethPaymentValue = 1 ether;
@@ -148,7 +150,7 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         assertEq(agentBalanceBefore - ethPaymentValue, address(_lido.agent).balance);
     }
 
-    function testFork_AragonVotingAsProposer() external {
+    function testFork_AragonVotingAdminProposer_HappyPath() external {
         assertTrue(
             _dgDeployedContracts.dualGovernance.isProposer(address(_lido.voting)), "Aragon Voting is not DG proposer"
         );
@@ -201,8 +203,74 @@ contract DGProposalOperationsTest is DGRegressionTestSetup {
         }
     }
 
-    function testFork_ProposalLifecycle_ProposalCancellation() external {
-        // TODO: implement!
-        vm.skip(true);
+    function testFork_ProposalCancellation_HappyPath() external {
+        ExternalCall[] memory regularStuffCalls = _getMockTargetRegularStaffCalls();
+
+        uint256 proposalId;
+        _step("1. DAO submits suspicious proposal");
+        {
+            proposalId = _submitProposalByAdminProposer(
+                regularStuffCalls, "DAO does regular stuff on potentially dangerous contract"
+            );
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStuffCalls);
+        }
+
+        address stEthHolders = makeAddr("STETH_WHALE");
+        _setupStETHBalance(stEthHolders, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
+        _step("2. StETH holders acquiring quorum to veto proposal");
+        {
+            _lockStETH(stEthHolders, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1));
+            _assertVetoSignalingState();
+        }
+
+        _step("3. Proposal can't be executed in the veto signalling state");
+        {
+            _wait(_getAfterSubmitDelay().plusSeconds(1));
+
+            _assertVetoSignalingState();
+            vm.expectRevert(abi.encodeWithSelector(DualGovernance.ProposalSchedulingBlocked.selector, proposalId));
+            this.external__scheduleProposal(proposalId);
+
+            _assertProposalSubmitted(proposalId);
+        }
+
+        _step("4. DAO cancels suspicious proposal");
+        {
+            bool cancelled = _cancelAllPendingProposalsByProposalsCanceller();
+            assertTrue(cancelled);
+        }
+
+        _step("5. StETH holders withdraw locked funds, DG is back to normal state, proposal is cancelled");
+        {
+            _assertVetoSignalingState();
+            _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
+
+            _activateNextState();
+            _assertVetoSignallingDeactivationState();
+            _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
+
+            _activateNextState();
+            _assertVetoCooldownState();
+
+            vm.startPrank(stEthHolders);
+            _getVetoSignallingEscrow().unlockStETH();
+            vm.stopPrank();
+
+            _wait(_getVetoCooldownDuration().plusSeconds(1));
+            _activateNextState();
+
+            _assertNormalState();
+            _assertProposalCancelled(proposalId);
+
+            vm.startPrank(_timelock.getGovernance());
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    ExecutableProposals.UnexpectedProposalStatus.selector, proposalId, Status.Cancelled
+                )
+            );
+            _timelock.schedule(proposalId);
+            vm.stopPrank();
+        }
     }
 }
