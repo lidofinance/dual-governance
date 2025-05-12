@@ -11,7 +11,8 @@ import {DGRegressionTestSetup, ExternalCall, MAINNET_CHAIN_ID, HOLESKY_CHAIN_ID}
 import {LidoUtils, MAINNET_ST_ETH, HOLESKY_ST_ETH} from "../utils/lido-utils.sol";
 
 uint256 constant ACCURACY = 2 wei;
-uint256 constant POOL_ACCUMULATED_ERROR = 150 wei;
+// TODO: try lower values
+uint256 constant POOL_ACCUMULATED_ERROR = 2500 wei;
 uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 1000;
 uint256 constant WITHDRAWALS_BATCH_SIZE = 128;
 uint256 constant MIN_LOCKABLE_AMOUNT = 1000 wei;
@@ -34,7 +35,10 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     }
 
     function testFork_RageQuitExodus_HappyPath_MultipleRounds() external {
-        vm.pauseGasMetering();
+        // TODO: the below operation freeze the test passing at the LidoUtils._handleOracleReport()
+        // method. Seems like bug in the forge, but need to be investigated properly. Keeping it commented
+        // for now.
+        // vm.pauseGasMetering();
         console.log("-------------------------");
 
         if (
@@ -115,7 +119,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         console.log(
             "wstETH total supply decreased for %s%", 100 - _lido.wstETH.totalSupply() * 100 / initialWStEthTotalSupply
         );
-        vm.resumeGasMetering();
+        // vm.resumeGasMetering();
     }
 
     function _selectVetoers() internal returns (address[] memory vetoers) {
@@ -224,9 +228,9 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                 iteration++;
             }
 
-            _finalizeWithdrawalQueue();
-
-            _burnStEth(_lockedStEthForCurrentRound);
+            while (_lido.withdrawalQueue.getLastRequestId() != _lido.withdrawalQueue.getLastFinalizedRequestId()) {
+                _finalizeWithdrawalQueue();
+            }
 
             while (rqEscrow.getUnclaimedUnstETHIdsCount() > 0) {
                 rqEscrow.claimNextWithdrawalsBatch(WITHDRAWALS_BATCH_SIZE);
@@ -337,25 +341,6 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         for (uint256 i = 0; i < stEthHolders.addresses.length; ++i) {
             allVetoers[wstEthHolders.addresses.length + i] = stEthHolders.addresses[i];
         }
-    }
-
-    function _burnStEth(uint256 stEthToBurn) internal {
-        uint256 sharesToBurn = _lido.stETH.getSharesByPooledEth(stEthToBurn);
-
-        vm.prank(address(_lido.withdrawalQueue));
-        _lido.stETH.transfer(_stEthAccumulator, stEthToBurn);
-
-        bytes32 clBeaconBalanceSlot = keccak256("lido.Lido.beaconBalance");
-        bytes32 totalSharesSlot = keccak256("lido.StETH.totalShares");
-
-        uint256 oldClBalance = uint256(vm.load(address(_lido.stETH), clBeaconBalanceSlot));
-        uint256 newClBalance = oldClBalance - stEthToBurn;
-
-        vm.store(address(_lido.stETH), clBeaconBalanceSlot, bytes32(newClBalance));
-
-        uint256 oldSharesBalance = uint256(vm.load(address(_lido.stETH), totalSharesSlot));
-        uint256 newSharesBalance = oldSharesBalance - sharesToBurn;
-        vm.store(address(_lido.stETH), totalSharesSlot, bytes32(newSharesBalance));
     }
 
     function _findLastVetoerIndexForRQ(

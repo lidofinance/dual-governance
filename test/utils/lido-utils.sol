@@ -310,10 +310,6 @@ library LidoUtils {
         self.oracleReportSanityChecker.setRequestTimestampMargin(0);
         vm.stopPrank();
 
-        // uint256 totalShares = self.stETH.getTotalShares();
-        // uint256 totalSupply = self.stETH.totalSupply();
-        // uint256 pooledEtherBefore = self.stETH.getTotalPooledEther();
-
         uint256 clBalance = _sweepBufferedEther(self);
 
         uint256 shareRateBefore = self.stETH.getPooledEthByShares(10 ** 27);
@@ -321,12 +317,6 @@ library LidoUtils {
         uint256 newCLBalance = PercentD16.unwrap(rebaseFactor) * clBalance / 10 ** 18;
 
         vm.deal(self.elRewardsVault, 0);
-        // console.log("EL vault balance: %s", self.elRewardsVault.balance.formatEther());
-
-        // console.log("Buffered ether before: %s", self.stETH.getBufferedEther().formatEther());
-        // console.log("Withdrawal vault balance before: %s", self.withdrawalVault.balance.formatEther());
-        // console.log("clBalance: %s, newCLBalance: %s", clBalance.formatEther(), newCLBalance.formatEther());
-
         _handleOracleReport(self, int256(newCLBalance) - int256(clBalance), lastUnstETHIdToFinalize);
 
         uint256 shareRateAfter = self.stETH.getPooledEthByShares(10 ** 27);
@@ -334,22 +324,6 @@ library LidoUtils {
         console.log("Share Rate Before: %s", shareRateBefore.formatRay());
         console.log("Share Rate After: %s", shareRateAfter.formatRay());
         console.log("--------");
-
-        // uint256 withdrawalVaultBalanceAfter = self.withdrawalVault.balance;
-
-        // console.log("Total Supply before: %s", totalSupply.formatEther());
-        // console.log("Total Supply after: %s", self.stETH.totalSupply().formatEther());
-
-        // console.log("Total Shares before: %s", totalShares.formatEther());
-        // console.log("Total Shares after: %s", self.stETH.getTotalShares().formatEther());
-
-        // console.log("Pooled Ether Before:", pooledEtherBefore.formatEther());
-        // console.log("Pooled Ether After:", self.stETH.getTotalPooledEther().formatEther());
-
-        // console.log("WVB", withdrawalVaultBalanceAfter.formatEther());
-
-        // console.log("Unfinalized stETH After: %s", self.withdrawalQueue.unfinalizedStETH().formatEther());
-        // console.log("Finalized stETH: %s", finalizedStETH.formatEther());
 
         // TODO: implement sanity checks based on resulting share rate
     }
@@ -417,9 +391,6 @@ library LidoUtils {
 
         {
             finalizedStETH = _calculateUnfinalizedStETH(self, lastUnstETHIdToFinalize);
-            // console.log("unfinalized", finalizedStETH.formatEther());
-
-            // uint256 withdrawalVaultBalance = self.withdrawalVault.balance;
             vm.deal(self.withdrawalVault, finalizedStETH);
 
             newCLBalance -= finalizedStETH;
@@ -441,10 +412,6 @@ library LidoUtils {
                     })
                 );
 
-                if (batchesState.batchesLength > 0) {
-                    // require(batchesState.batches[batchesState.batchesLength - 1] == lastUnstETHIdToFinalize, "Invalid Batch");
-                }
-
                 withdrawalBatches = new uint256[](batchesState.batchesLength);
 
                 for (uint256 i = 0; i < batchesState.batchesLength; ++i) {
@@ -454,7 +421,7 @@ library LidoUtils {
         }
 
         {
-            vm.prank(address(self.accountingOracle));
+            vm.startPrank(address(self.accountingOracle));
             _handleOracleReport(
                 self,
                 HandleOracleReportParams({
@@ -469,6 +436,7 @@ library LidoUtils {
                     simulatedShareRate: simulatedShareRate
                 })
             );
+            vm.stopPrank();
         }
     }
 
@@ -516,8 +484,7 @@ library LidoUtils {
         uint256 newCLBalance
     ) internal returns (SimulateReportResult memory res) {
         uint256 snapshotId = vm.snapshot();
-
-        vm.prank(address(self.accountingOracle));
+        vm.startPrank(address(self.accountingOracle));
         res = _handleOracleReport(
             self,
             HandleOracleReportParams({
@@ -532,6 +499,7 @@ library LidoUtils {
                 simulatedShareRate: 0
             })
         );
+        vm.stopPrank();
 
         vm.revertTo(snapshotId);
     }

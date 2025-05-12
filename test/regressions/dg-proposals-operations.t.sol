@@ -81,12 +81,14 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
 
         _wait(_getAfterScheduleDelay());
 
+        uint256 targetMockBalanceBefore = address(_targetMock).balance;
+
         _assertCanExecute(proposalId, true);
         _executeProposal(proposalId);
 
         _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
 
-        assertEq(address(_targetMock).balance, ethValue);
+        assertEq(address(_targetMock).balance, targetMockBalanceBefore + ethValue);
         assertEq(adminExecutorValueBefore - ethValue, address(_getAdminExecutor()).balance);
     }
 
@@ -134,6 +136,8 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
 
         _wait(_getAfterScheduleDelay());
 
+        uint256 targetMockBalanceBefore = address(_targetMock).balance;
+
         _assertCanExecute(proposalId, true);
         _executeProposal(proposalId);
 
@@ -146,7 +150,7 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
         expectedTargetMockCalls[1].payload = abi.encodeCall(IPotentiallyDangerousContract.doControversialStaff, ());
 
         _assertTargetMockCalls(address(_lido.agent), expectedTargetMockCalls);
-        assertEq(address(_targetMock).balance, ethPaymentValue);
+        assertEq(address(_targetMock).balance, targetMockBalanceBefore + ethPaymentValue);
         assertEq(agentBalanceBefore - ethPaymentValue, address(_lido.agent).balance);
     }
 
