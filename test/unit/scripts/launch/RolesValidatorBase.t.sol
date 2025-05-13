@@ -2,9 +2,9 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {RolesValidatorBase} from "scripts/upgrade/RolesValidatorBase.sol";
-import {AragonRoles} from "scripts/upgrade/libraries/AragonRoles.sol";
-import {OZRoles} from "scripts/upgrade/libraries/OZRoles.sol";
+import {RolesValidatorBase} from "scripts/launch/RolesValidatorBase.sol";
+import {AragonRoles} from "scripts/launch/libraries/AragonRoles.sol";
+import {OZRoles} from "scripts/launch/libraries/OZRoles.sol";
 
 contract MockACL {
     mapping(address => mapping(bytes32 => address)) private permissionManagers;

@@ -4,9 +4,9 @@ pragma solidity 0.8.26;
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
-import {IDGLaunchVerifier} from "scripts/upgrade/interfaces/IDGLaunchVerifier.sol";
+import {IDGLaunchVerifier} from "scripts/launch/interfaces/IDGLaunchVerifier.sol";
 
-contract DGLaunchVerifier is IDGLaunchVerifier {
+contract DGLaunchStateVerifier is IDGLaunchVerifier {
     event DGLaunchConfigurationValidated();
 
     error EmergencyModeEnabledAfterLaunch();

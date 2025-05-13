@@ -7,9 +7,9 @@ import {DGDeployArtifactLoader} from "scripts/utils/DGDeployArtifactLoader.sol";
 import {DGSetupDeployArtifacts} from "scripts/utils/contracts-deployment.sol";
 import {DGLaunchConfig} from "scripts/utils/contracts-deployment.sol";
 
-import {DGLaunchRolesValidatorHoodi} from "./DGLaunchRolesValidatorHoodi.sol";
-import {DGLaunchOmnibusHoodi} from "./DGLaunchOmnibusHoodi.sol";
-import {DGLaunchVerifier} from "../DGLaunchVerifier.sol";
+import {RolesValidatorHoodi} from "./RolesValidatorHoodi.sol";
+import {LaunchOmnibusHoodi} from "./LaunchOmnibusHoodi.sol";
+import {DGLaunchStateVerifier} from "../DGLaunchStateVerifier.sol";
 
 import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
@@ -18,7 +18,7 @@ import {TimeConstraints} from "../TimeConstraints.sol";
 
 import {console} from "forge-std/console.sol";
 
-contract DeployDGLaunchHoodi is DGDeployArtifactLoader {
+contract DeployLaunchHoodi is DGDeployArtifactLoader {
     function run() public {
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
@@ -58,8 +58,8 @@ contract DeployDGLaunchHoodi is DGDeployArtifactLoader {
         console.log("Proposals Count:", proposalsCount);
         console.log("=====================================");
 
-        DGLaunchVerifier launchVerifier = new DGLaunchVerifier(
-            DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier launchVerifier = new DGLaunchStateVerifier(
+            DGLaunchStateVerifier.ConstructorParams({
                 timelock: timelock,
                 dualGovernance: dualGovernance,
                 emergencyGovernance: emergencyGovernance,
@@ -72,7 +72,7 @@ contract DeployDGLaunchHoodi is DGDeployArtifactLoader {
         );
         vm.label(address(launchVerifier), "LAUNCH_VERIFIER");
 
-        DGLaunchRolesValidatorHoodi rolesValidator = new DGLaunchRolesValidatorHoodi(adminExecutor, resealManager);
+        RolesValidatorHoodi rolesValidator = new RolesValidatorHoodi(adminExecutor, resealManager);
         vm.label(address(rolesValidator), "ROLES_VALIDATOR");
 
         TimeConstraints timeConstraints = new TimeConstraints();
@@ -88,7 +88,7 @@ contract DeployDGLaunchHoodi is DGDeployArtifactLoader {
         console.log("Time Constraints (deployed):", address(timeConstraints));
         console.log("=====================================");
 
-        DGLaunchOmnibusHoodi dgUpgradeHoodi = new DGLaunchOmnibusHoodi(
+        LaunchOmnibusHoodi dgUpgradeHoodi = new LaunchOmnibusHoodi(
             address(dualGovernance),
             address(adminExecutor),
             address(resealManager),
@@ -99,9 +99,9 @@ contract DeployDGLaunchHoodi is DGDeployArtifactLoader {
         vm.label(address(dgUpgradeHoodi), "DG_UPGRADE_CONTRACT");
         vm.stopBroadcast();
 
-        console.log("DGLaunchVerifier deployed successfully at ", address(launchVerifier));
-        console.log("DGLaunchRolesValidatorHoodi deployed successfully at ", address(rolesValidator));
+        console.log("DGLaunchStateVerifier deployed successfully at ", address(launchVerifier));
+        console.log("RolesValidatorHoodi deployed successfully at ", address(rolesValidator));
         console.log("TimeConstraints deployed successfully at ", address(timeConstraints));
-        console.log("DGLaunchOmnibusHoodi deployed successfully at ", address(dgUpgradeHoodi));
+        console.log("LaunchOmnibusHoodi deployed successfully at ", address(dgUpgradeHoodi));
     }
 }
