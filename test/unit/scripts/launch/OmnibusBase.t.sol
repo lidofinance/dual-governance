@@ -2,10 +2,10 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {OmnibusBase} from "scripts/upgrade/OmnibusBase.sol";
+import {OmnibusBase} from "scripts/launch/OmnibusBase.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {IForwarder} from "scripts/upgrade/interfaces/IForwarder.sol";
-import {IVoting} from "scripts/upgrade/interfaces/IVoting.sol";
+import {IForwarder} from "scripts/launch/interfaces/IForwarder.sol";
+import {IVoting} from "scripts/launch/interfaces/IVoting.sol";
 import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
 
 contract TestOmnibus is OmnibusBase {

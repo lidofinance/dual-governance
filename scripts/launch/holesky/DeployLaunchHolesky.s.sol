@@ -7,8 +7,8 @@ import {DGDeployArtifactLoader} from "scripts/utils/DGDeployArtifactLoader.sol";
 import {DGSetupDeployArtifacts} from "scripts/utils/contracts-deployment.sol";
 
 import {RolesValidatorHolesky} from "./RolesValidatorHolesky.sol";
-import {DGUpgradeHolesky} from "./DGUpgradeHolesky.sol";
-import {DGLaunchVerifier} from "../DGLaunchVerifier.sol";
+import {LaunchOmnibusHolesky} from "./LaunchOmnibusHolesky.sol";
+import {DGLaunchStateVerifier} from "../DGLaunchStateVerifier.sol";
 
 import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp} from "contracts/types/Timestamp.sol";
@@ -17,7 +17,7 @@ import {TimeConstraints} from "../TimeConstraints.sol";
 
 import {console} from "forge-std/console.sol";
 
-contract DeployUpgradeHolesky is DGDeployArtifactLoader {
+contract DeployLaunchHolesky is DGDeployArtifactLoader {
     function run() public {
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
@@ -54,8 +54,8 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
         console.log("Proposals Count:", proposalsCount);
         console.log("=====================================");
 
-        DGLaunchVerifier launchVerifier = new DGLaunchVerifier(
-            DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier launchVerifier = new DGLaunchStateVerifier(
+            DGLaunchStateVerifier.ConstructorParams({
                 timelock: timelock,
                 dualGovernance: dualGovernance,
                 emergencyGovernance: emergencyGovernance,
@@ -84,7 +84,7 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
         console.log("Time Constraints (deployed):", address(timeConstraints));
         console.log("=====================================");
 
-        DGUpgradeHolesky dgUpgradeHolesky = new DGUpgradeHolesky(
+        LaunchOmnibusHolesky launchOmnibusHolesky = new LaunchOmnibusHolesky(
             address(dualGovernance),
             address(adminExecutor),
             address(resealManager),
@@ -92,12 +92,12 @@ contract DeployUpgradeHolesky is DGDeployArtifactLoader {
             address(launchVerifier),
             address(timeConstraints)
         );
-        vm.label(address(dgUpgradeHolesky), "DG_UPGRADE_CONTRACT");
+        vm.label(address(launchOmnibusHolesky), "LAUNCH_OMNIBUS_CONTRACT");
         vm.stopBroadcast();
 
-        console.log("DGLaunchVerifier deployed successfully at ", address(launchVerifier));
+        console.log("DGLaunchStateVerifier deployed successfully at ", address(launchVerifier));
         console.log("RolesValidatorHolesky deployed successfully at ", address(rolesValidator));
         console.log("TimeConstraints deployed successfully at ", address(timeConstraints));
-        console.log("DGUpgradeHolesky deployed successfully at ", address(dgUpgradeHolesky));
+        console.log("LaunchOmnibusHolesky deployed successfully at ", address(launchOmnibusHolesky));
     }
 }

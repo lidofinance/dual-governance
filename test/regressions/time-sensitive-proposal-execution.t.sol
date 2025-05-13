@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
-import {TimeConstraints} from "scripts/upgrade/TimeConstraints.sol";
+import {TimeConstraints} from "scripts/launch/TimeConstraints.sol";
 
 import {DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
