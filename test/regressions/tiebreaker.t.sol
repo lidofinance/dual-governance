@@ -121,7 +121,7 @@ contract TiebreakerRegressionTest is DGRegressionTestSetup {
 
     function _pauseSealables(address[] memory sealableWithdrawalBlockers) internal {
         for (uint256 i = 0; i < sealableWithdrawalBlockers.length; ++i) {
-            ISealable pausedSealable = ISealable(sealableWithdrawalBlockers[0]);
+            ISealable pausedSealable = ISealable(sealableWithdrawalBlockers[i]);
             if (!pausedSealable.isPaused()) {
                 vm.startPrank(address(_dgDeployedContracts.resealManager));
                 pausedSealable.pauseFor(pausedSealable.PAUSE_INFINITELY());
@@ -149,7 +149,8 @@ contract TiebreakerRegressionTest is DGRegressionTestSetup {
                 _executeResumeProposalBySubCommittee(subTiebreaker, sealableWithdrawalBlockers[sealableIndex]);
 
                 (support, quorum, /* quorumAt */, isExecuted) = coreTiebreaker.getSealableResumeState(
-                    sealableWithdrawalBlockers[0], coreTiebreaker.getSealableResumeNonce(sealableWithdrawalBlockers[0])
+                    sealableWithdrawalBlockers[sealableIndex],
+                    coreTiebreaker.getSealableResumeNonce(sealableWithdrawalBlockers[0])
                 );
 
                 assertFalse(isExecuted);
