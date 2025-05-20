@@ -399,17 +399,17 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             ExternalCallsBuilder.Context memory dgProposalCallsBuilder =
                 ExternalCallsBuilder.create({callsCount: DG_PROPOSAL_CALLS_COUNT});
 
-            // 1. Execution is allowed before Tuesday, 1 July 2025 00:00:00
+            // 1. Execution is allowed before Saturday, 2 August 2025 0:00:00
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
-                abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestamp, (Timestamps.from(1751328000)))
+                abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, (Timestamps.from(1754092800)))
             );
 
             // 2. Execution is allowed since 04:00 to 22:00 UTC
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
                 abi.encodeCall(
-                    ITimeConstraints.checkTimeWithinDayTime, (Durations.from(4 hours), Durations.from(22 hours))
+                    ITimeConstraints.checkTimeWithinDayTimeAndEmit, (Durations.from(4 hours), Durations.from(22 hours))
                 )
             );
 
@@ -457,8 +457,8 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
                 description: "48. Introduce an expiration deadline after which the omnibus can no longer be enacted",
                 call: _votingCall(
                     TIME_CONSTRAINTS,
-                    // 1751328000 is Tuesday, 1 July 2025 00:00:00
-                    abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestamp, (Timestamps.from(1751328000)))
+                    // Enactment is allowed before Saturday, 26 July 2025 0:00:00
+                    abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, (Timestamps.from(1753488000)))
                 )
             });
         }
