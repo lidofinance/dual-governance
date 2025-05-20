@@ -10,6 +10,7 @@ import {
 } from "test/utils/integration-tests.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
+import {OmnibusBase} from "scripts/launch/OmnibusBase.sol";
 import {TimeConstraints} from "scripts/launch/TimeConstraints.sol";
 import {DGLaunchStateVerifier} from "scripts/launch/DGLaunchStateVerifier.sol";
 import {LaunchOmnibusMainnet} from "scripts/launch/mainnet/LaunchOmnibusMainnet.sol";
@@ -53,41 +54,36 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
     function setUp() external {
         _deployDGSetup({isEmergencyProtectionEnabled: true, chainId: MAINNET_CHAIN_ID, grantRolesToResealManager: false});
+
+        TimeConstraints timeConstraints = new TimeConstraints();
+        DGLaunchStateVerifier launchVerifier = new DGLaunchStateVerifier(
+            DGLaunchStateVerifier.ConstructorParams({
+                timelock: address(_dgDeployedContracts.timelock),
+                dualGovernance: address(_dgDeployedContracts.dualGovernance),
+                emergencyGovernance: address(_dgDeployedContracts.emergencyGovernance),
+                emergencyActivationCommittee: _dgDeployedContracts.timelock.getEmergencyActivationCommittee(),
+                emergencyExecutionCommittee: _dgDeployedContracts.timelock.getEmergencyExecutionCommittee(),
+                emergencyProtectionEndDate: _dgDeployedContracts.timelock.getEmergencyProtectionDetails()
+                    .emergencyProtectionEndsAfter,
+                emergencyModeDuration: _dgDeployedContracts.timelock.getEmergencyProtectionDetails().emergencyModeDuration,
+                proposalsCount: 1
+            })
+        );
+
+        RolesValidatorMainnet rolesValidator = new RolesValidatorMainnet(
+            address(_dgDeployedContracts.adminExecutor), address(_dgDeployedContracts.resealManager)
+        );
+        launchOmnibus = new LaunchOmnibusMainnet(
+            address(_dgDeployedContracts.dualGovernance),
+            address(_dgDeployedContracts.adminExecutor),
+            address(_dgDeployedContracts.resealManager),
+            address(rolesValidator),
+            address(launchVerifier),
+            address(timeConstraints)
+        );
     }
 
     function testFork_MainnetLaunch_HappyPath() external {
-        {
-            // Initialize all necessary contracts for the launch
-
-            TimeConstraints timeConstraints = new TimeConstraints();
-            DGLaunchStateVerifier launchVerifier = new DGLaunchStateVerifier(
-                DGLaunchStateVerifier.ConstructorParams({
-                    timelock: address(_dgDeployedContracts.timelock),
-                    dualGovernance: address(_dgDeployedContracts.dualGovernance),
-                    emergencyGovernance: address(_dgDeployedContracts.emergencyGovernance),
-                    emergencyActivationCommittee: _dgDeployedContracts.timelock.getEmergencyActivationCommittee(),
-                    emergencyExecutionCommittee: _dgDeployedContracts.timelock.getEmergencyExecutionCommittee(),
-                    emergencyProtectionEndDate: _dgDeployedContracts.timelock.getEmergencyProtectionDetails()
-                        .emergencyProtectionEndsAfter,
-                    emergencyModeDuration: _dgDeployedContracts.timelock.getEmergencyProtectionDetails()
-                        .emergencyModeDuration,
-                    proposalsCount: 1
-                })
-            );
-
-            RolesValidatorMainnet rolesValidator = new RolesValidatorMainnet(
-                address(_dgDeployedContracts.adminExecutor), address(_dgDeployedContracts.resealManager)
-            );
-            launchOmnibus = new LaunchOmnibusMainnet(
-                address(_dgDeployedContracts.dualGovernance),
-                address(_dgDeployedContracts.adminExecutor),
-                address(_dgDeployedContracts.resealManager),
-                address(rolesValidator),
-                address(launchVerifier),
-                address(timeConstraints)
-            );
-        }
-
         {
             // Pre-launch roles and permissions checks
             // Lido permissions checks
@@ -301,6 +297,16 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
             // After launch roles and permissions checks
             vm.assertFalse(IACL(ACL).hasPermission(VOTING, AGENT, RUN_SCRIPT_ROLE));
             vm.assertFalse(IACL(ACL).hasPermission(VOTING, AGENT, EXECUTE_ROLE));
+        }
+    }
+
+    function test_getEVMScript_NoEmptyItems() external view {
+        OmnibusBase.VoteItem[] memory voteItems = launchOmnibus.getVoteItems();
+
+        for (uint256 i = 0; i < voteItems.length; i++) {
+            vm.assertTrue(bytes(voteItems[i].description).length != 0);
+            vm.assertTrue(voteItems[i].call.to != address(0));
+            vm.assertTrue(voteItems[i].call.data.length > 0);
         }
     }
 }
