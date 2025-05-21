@@ -127,7 +127,8 @@ emergency_governance_proposer = "0xdd778153c3d0AE1B70fe81E0219b5D2C3e3951C2"  # 
 # Duration of the emergency mode in seconds
 emergency_mode_duration = 2592000                                             # 1 month
 
-# Duration of the emergency protection in seconds while emergency activation committee is active
+# This parameter defines the end timestamp (in seconds since the Unix epoch) for the emergency protection period,
+# during which the Emergency Activation Committee retains its powers.
 emergency_protection_end_date = 1781913600                                    # Sat Jun 20 2026 00:00:00 GMT+0000 ****
 
 # ======================
