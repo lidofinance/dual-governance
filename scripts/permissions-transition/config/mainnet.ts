@@ -53,7 +53,7 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
     CSFeeOracle: "0x4D4074628678Bd302921c20573EEa1ed38DdF7FB",
     CSHashConsensus: "0x71093efF8D8599b5fA340D665Ad60fA7C80688e4",
     CSCommitteeMultisig: "0xc52fc3081123073078698f1eac2f1dc7bd71880f",
-    CSVerifier: "0x3dfc50f22aca652a0a6f28a0f892ab62074b5583",
+    CSVerifier: "0x0c345dFa318f9F4977cdd4f33d80F9D0ffA38e8B",
 
     // Anchor Integration
     AnchorVault: "0xA2F987A546D4CD1c607Ee8141276876C26b72Bdf",
