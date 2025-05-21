@@ -89,8 +89,8 @@ Note: there's a full-blown ["role model research"](https://github.com/lidofinanc
 
 ## Permissions Transition Plan
 
-> - Data was collected at block [`22230698`](https://etherscan.io//block/22230698)
-> - The last permissions change occurred at block [`22095872`](https://etherscan.io//block/22095872), transaction [`0x28eca05f2eab7a4975ab2b3f420e9ee5609daf1e31ee78b3f0d32d92daac30f3`](https://etherscan.io//tx/0x28eca05f2eab7a4975ab2b3f420e9ee5609daf1e31ee78b3f0d32d92daac30f3)
+> - Data was collected at block [`22529868`](https://etherscan.io//block/22529868)
+> - The last permissions change occurred at block [`22368161`](https://etherscan.io//block/22368161), transaction [`0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598`](https://etherscan.io//tx/0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598)
 
 How to read this document:
 - If an item is prepended with the "⚠️" icon, it indicates that the item will be changed. The required updates are described in the corresponding "Transition Steps" sections.
@@ -247,11 +247,13 @@ How to read this document:
 
 ```
 31. Grant RUN_SCRIPT_ROLE permission to DGAdminExecutor on Agent
-32. Revoke RUN_SCRIPT_ROLE permission from Voting on Agent
-33. Set RUN_SCRIPT_ROLE manager to Agent on Agent
-34. Grant EXECUTE_ROLE permission to DGAdminExecutor on Agent
-35. Revoke EXECUTE_ROLE permission from Voting on Agent
-36. Set EXECUTE_ROLE manager to Agent on Agent
+// SKIPPED: __. Revoke RUN_SCRIPT_ROLE permission from Voting on Agent - Will be done as 
+//      the last step of the launch via the Dual Governance proposal
+32. Set RUN_SCRIPT_ROLE manager to Agent on Agent
+33. Grant EXECUTE_ROLE permission to DGAdminExecutor on Agent
+// SKIPPED: __. Revoke EXECUTE_ROLE permission from Voting on Agent - Will be done as 
+//      the last step of the launch via the Dual Governance proposal
+34. Set EXECUTE_ROLE manager to Agent on Agent
 ```
 
 #### Voting [0x2e59a20f205bb85a89c53f1936454680651e618e](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e)
@@ -306,8 +308,8 @@ How to read this document:
 ##### Transition Steps
 
 ```
-37. Grant PAUSE_ROLE to ResealManager on WithdrawalQueueERC721
-38. Grant RESUME_ROLE to ResealManager on WithdrawalQueueERC721
+35. Grant PAUSE_ROLE to ResealManager on WithdrawalQueueERC721
+36. Grant RESUME_ROLE to ResealManager on WithdrawalQueueERC721
 ```
 
 #### ⚠️ ValidatorsExitBusOracle [0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e](https://etherscan.io//address/0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e)
@@ -323,8 +325,8 @@ How to read this document:
 ##### Transition Steps
 
 ```
-39. Grant PAUSE_ROLE to ResealManager on ValidatorsExitBusOracle
-40. Grant RESUME_ROLE to ResealManager on ValidatorsExitBusOracle
+37. Grant PAUSE_ROLE to ResealManager on ValidatorsExitBusOracle
+38. Grant RESUME_ROLE to ResealManager on ValidatorsExitBusOracle
 ```
 
 #### ⚠️ AllowedTokensRegistry [0x4ac40c34f8992bb1e5e856a448792158022551ca](https://etherscan.io//address/0x4ac40c34f8992bb1e5e856a448792158022551ca)
@@ -337,10 +339,10 @@ How to read this document:
 ##### Transition Steps
 
 ```
-41. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry
-42. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry
-43. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
-44. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
+39. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry
+40. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry
+41. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
+42. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
 ```
 
 #### StakingRouter [0xfddf38947afb03c621c71b06c9c70bce73f12999](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999)
@@ -423,7 +425,7 @@ How to read this document:
 | [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
 | [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`StakingRouter`](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999) |
-| [`VERIFIER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=VERIFIER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSVerifier`](https://etherscan.io//address/0x3dfc50f22aca652a0a6f28a0f892ab62074b5583) |
+| [`VERIFIER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=VERIFIER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSVerifier`](https://etherscan.io//address/0x0c345dfa318f9f4977cdd4f33d80f9d0ffa38e8b) |
 
 #### CSAccounting [0x4d72bff1beac69925f8bd12526a39baab069e5da](https://etherscan.io//address/0x4d72bff1beac69925f8bd12526a39baab069e5da)
 | Role | Role Admin | Revoked | Granted |
@@ -568,6 +570,6 @@ How to read this document:
 ##### Transition Steps
 
 ```
-45. Set admin to Agent on WithdrawalVault
-46. Set owner to Voting on InsuranceFund
+43. Set admin to Agent on WithdrawalVault
+44. Set owner to Voting on InsuranceFund
 ```
