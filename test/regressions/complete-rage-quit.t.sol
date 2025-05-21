@@ -25,7 +25,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
 
     address private _stEthAccumulator = makeAddr("stEthAccumulator");
     uint8 private _round = 1;
-    uint256 private _lastVetoerIndex;
+    uint256 private _lastVetoerIndexForPreviousRound;
     uint256 private _lockedStEthForCurrentRound;
     address[] private _allVetoers;
 
@@ -68,42 +68,29 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
 
         console.log("stEth will be locked for RQ:", stEthRQAmount);
 
-        _newRageQuitRound(1);
-        address[] memory vetoers = _selectVetoers();
-        _executeRQ(vetoers);
+        address[] memory vetoers;
+        uint8 roundNumber = 1;
+        bool hasMoreVetoers = true;
 
-        console.log("-------------------------");
+        while (hasMoreVetoers && roundNumber <= 10) {
+            _newRageQuitRound(roundNumber);
+            vetoers = _selectVetoers();
 
-        stEthRQAmount = _getStEthAmountForRageQuit(_round);
+            if (vetoers.length == 0) {
+                console.log("No more vetoers available. Ending test after %s rounds.", roundNumber - 1);
+                hasMoreVetoers = false;
+                break;
+            }
 
-        console.log("stEth will be locked for RQ:", stEthRQAmount);
-        console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
+            _executeRQ(vetoers);
 
-        _newRageQuitRound(2);
-        vetoers = _selectVetoers();
-        _executeRQ(vetoers);
+            console.log("-------------------------");
+            stEthRQAmount = _getStEthAmountForRageQuit(_round);
+            console.log("stEth will be locked for RQ:", stEthRQAmount);
+            console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
 
-        console.log("-------------------------");
-
-        stEthRQAmount = _getStEthAmountForRageQuit(_round);
-
-        console.log("stEth will be locked for RQ:", stEthRQAmount);
-        console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
-
-        _newRageQuitRound(3);
-        vetoers = _selectVetoers();
-        _executeRQ(vetoers);
-
-        console.log("-------------------------");
-
-        stEthRQAmount = _getStEthAmountForRageQuit(_round);
-
-        console.log("stEth will be locked for RQ:", stEthRQAmount);
-        console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
-
-        _newRageQuitRound(4);
-        vetoers = _selectVetoers();
-        _executeRQ(vetoers);
+            roundNumber++;
+        }
 
         console.log("-------------------------");
 
@@ -120,21 +107,46 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
 
     function _selectVetoers() internal returns (address[] memory vetoers) {
         _step(_stepMsg("0. Balances preparation."));
-        uint256 lastVetoerIndexForCurrentRound = _findLastVetoerIndexForRQ(_allVetoers, _lastVetoerIndex, _round);
-        uint256 vetoersCount = lastVetoerIndexForCurrentRound - _lastVetoerIndex + 1;
-        console.log("Vetoers for round %s: %s", _round, vetoersCount);
 
-        vetoers = new address[](vetoersCount);
+        uint256 lastIndex = _findLastVetoerIndexForRound(_allVetoers, _lastVetoerIndexForPreviousRound, _round);
+        uint256 firstIndex = _lastVetoerIndexForPreviousRound;
 
-        uint256 j;
-        for (uint256 i = _lastVetoerIndex; i <= lastVetoerIndexForCurrentRound; ++i) {
-            vetoers[j] = _prepareVetoer(_allVetoers[i], i);
-            ++j;
+        uint256 originalVetoersCount = (lastIndex >= firstIndex) ? (lastIndex - firstIndex + 1) : 0;
+        console.log("Original vetoers for round %s: %s", _round, originalVetoersCount);
+
+        if (originalVetoersCount == 0) {
+            return new address[](0);
         }
-        _lastVetoerIndex = lastVetoerIndexForCurrentRound + 1;
+
+        uint256 totalVetoersCount = 0;
+        address[][] memory preparedVetoerGroups = new address[][](originalVetoersCount);
+
+        for (uint256 i = 0; i < originalVetoersCount; ++i) {
+            preparedVetoerGroups[i] = _prepareVetoer(_allVetoers[firstIndex + i], firstIndex + i);
+            totalVetoersCount += preparedVetoerGroups[i].length;
+        }
+
+        console.log("Total vetoers after splitting for round %s: %s", _round, totalVetoersCount);
+
+        vetoers = new address[](totalVetoersCount);
+
+        uint256 vetoerIndex = 0;
+        for (uint256 i = 0; i < originalVetoersCount; ++i) {
+            for (uint256 j = 0; j < preparedVetoerGroups[i].length; ++j) {
+                vetoers[vetoerIndex] = preparedVetoerGroups[i][j];
+                vetoerIndex++;
+            }
+        }
+
+        _lastVetoerIndexForPreviousRound = lastIndex + 1;
     }
 
     function _executeRQ(address[] memory vetoers) internal {
+        if (vetoers.length == 0) {
+            console.log("Skipping RQ execution for round %s as there are no vetoers available", _round);
+            return;
+        }
+
         uint256 proposalId;
         uint256[] memory vetoersStEthBalancesBefore = new uint256[](vetoers.length);
         uint256[] memory vetoersBalancesBefore = new uint256[](vetoers.length);
@@ -279,29 +291,71 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         }
     }
 
-    function _prepareVetoer(address vetoerCandidate, uint256 index) internal returns (address vetoer) {
-        if (vetoerCandidate.code.length > 0) {
-            // vetoerCandidate is a contract, transferring stEth to new address
-            vetoer = makeAddr(string.concat("VETOER", vm.toString(index)));
+    function _prepareVetoer(address vetoerCandidate, uint256 index) internal returns (address[] memory vetoers) {
+        uint256 VETOER_MAX_BALANCE_THRESHOLD = (_lido.stETH.totalSupply() * 5) / 100;
 
-            uint256 vetoerStEthBalance = _lido.stETH.balanceOf(vetoerCandidate);
-            uint256 vetoerWStEthBalance = _lido.wstETH.balanceOf(vetoerCandidate);
-
-            vm.startPrank(vetoerCandidate);
-            if (vetoerStEthBalance > MIN_LOCKABLE_AMOUNT) {
-                _lido.stETH.transfer(vetoer, vetoerStEthBalance);
-            }
-            if (vetoerWStEthBalance > MIN_LOCKABLE_AMOUNT) {
-                _lido.wstETH.transfer(vetoer, vetoerWStEthBalance);
-            }
-            vm.stopPrank();
-        } else {
-            vetoer = vetoerCandidate;
-            vm.label(vetoer, string.concat("VETOER", vm.toString(index)));
+        if (vetoerCandidate.code.length == 0) {
+            vetoers = new address[](1);
+            vetoers[0] = vetoerCandidate;
+            vm.label(vetoers[0], string.concat("VETOER", vm.toString(index)));
+            vm.deal(vetoers[0], vetoers[0].balance + 0.1 ether);
+            return vetoers;
         }
 
-        // Add some ETH to vetoer to cover gas costs
-        vm.deal(vetoer, vetoer.balance + 0.1 ether);
+        uint256 vetoerStEthBalance = _lido.stETH.balanceOf(vetoerCandidate);
+        uint256 vetoerWStEthBalance = _lido.wstETH.balanceOf(vetoerCandidate);
+        uint256 totalStEthEquivalent = vetoerStEthBalance;
+
+        if (vetoerWStEthBalance > 0) {
+            totalStEthEquivalent += _lido.wstETH.getStETHByWstETH(vetoerWStEthBalance);
+        }
+
+        uint256 numSplits = 0;
+
+        if (totalStEthEquivalent > VETOER_MAX_BALANCE_THRESHOLD) {
+            numSplits = totalStEthEquivalent / VETOER_MAX_BALANCE_THRESHOLD;
+            console.log("Splitting large balance (%s stETH) into %s vetoers", totalStEthEquivalent, numSplits + 1);
+        }
+
+        vetoers = new address[](numSplits + 1);
+        vetoers[0] = makeAddr(string.concat("VETOER", vm.toString(index)));
+
+        for (uint256 i = 0; i < numSplits; i++) {
+            vetoers[i + 1] = makeAddr(string.concat("VETOER", vm.toString(index), "_SPLIT_", vm.toString(i + 1)));
+        }
+
+        for (uint256 i = 0; i < vetoers.length; i++) {
+            vm.deal(vetoers[i], 0.1 ether);
+        }
+
+        _transferTokensToVetoers(vetoerCandidate, vetoers, vetoerStEthBalance, true);
+        _transferTokensToVetoers(vetoerCandidate, vetoers, vetoerWStEthBalance, false);
+
+        return vetoers;
+    }
+
+    function _transferTokensToVetoers(address from, address[] memory to, uint256 amount, bool isStEth) internal {
+        if (amount <= MIN_LOCKABLE_AMOUNT) return;
+
+        vm.startPrank(from);
+        uint256 amountPerVetoer = amount / to.length;
+        uint256 remainder = amount - amountPerVetoer * to.length;
+
+        for (uint256 i = 0; i < to.length; i++) {
+            uint256 transferAmount = amountPerVetoer;
+
+            if (i == to.length - 1 && remainder > 0) {
+                transferAmount += remainder;
+            }
+
+            if (isStEth) {
+                _lido.stETH.transfer(to[i], transferAmount);
+            } else {
+                _lido.wstETH.transfer(to[i], transferAmount);
+            }
+        }
+
+        vm.stopPrank();
     }
 
     function _newRageQuitRound(uint8 round) internal {
@@ -358,7 +412,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         vm.store(address(_lido.stETH), totalSharesSlot, bytes32(newSharesBalance));
     }
 
-    function _findLastVetoerIndexForRQ(
+    function _findLastVetoerIndexForRound(
         address[] memory vetoers,
         uint256 startPos,
         uint256 round
@@ -377,7 +431,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         }
 
         console.log("RQ possible:", stEthRQAmount < holdersHaveStEthActualBalance);
-        return vetoers.length;
+        return vetoers.length > 0 ? vetoers.length - 1 : 0;
     }
 
     function _getStEthAmountForRageQuit(uint256 round) internal view returns (uint256) {
