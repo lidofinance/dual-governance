@@ -19,7 +19,7 @@ sealable_withdrawal_blockers = [
 
 # Committee that can extend the pause of sealable withdrawal blockers 
 # to permanent pause if it were paused by the GateSeal committee before
-reseal_committee = "0x000000000000000000000000000000000000cafe"               # Gnosis Multisig TBD ***
+reseal_committee = "0xFFe21561251c49AdccFad065C94Fb4931dF49081"               # Gnosis Multisig TBD ***
 
 # Delay of tiebreaker activation after governance locking
 tiebreaker_activation_timeout = 31536000                                      # 1 year **
@@ -40,8 +40,6 @@ max_min_assets_lock_duration = 4147200                                        # 
 # registered in the Dual Governance. This parameter prevents filling the sealable withdrawal blockers
 # with so many items that tiebreaker calls would revert due to out-of-gas errors.
 max_sealable_withdrawal_blockers_count = 255                                  # ****
-
-
 
 # The lower and upper bound for the time the Dual Governance must spend in the "locked" state
 # before the tiebreaker committee is allowed to schedule proposals.
@@ -118,13 +116,13 @@ max_emergency_protection_duration = 94608000                                  # 
 [timelock.emergency_protection]
 
 # Committee that can activate the emergency protection mechanism
-emergency_activation_committee = "0x000000000000000000000000000000000000cafe" # Gnosis Multisig TBD ***
+emergency_activation_committee = "0x8B7854488Fde088d686Ea672B6ba1A5242515f45" # Gnosis Multisig 4 of 7 ***
 
 # Committee that can execute proposals during the emergency protection or reset governance to emergency governance
-emergency_execution_committee = "0x000000000000000000000000000000000000cafe"  # Gnosis Multisig TBD ***
+emergency_execution_committee = "0xC7792b3F2B399bB0EdF53fECDceCeB97FBEB18AF"  # Gnosis Multisig 5 of 7 ***
 
 # The address of the proposer that can make proposals during if emergency governance is activated
-emergency_governance_proposer = "0x000000000000000000000000000000000000cafe"  # Gnosis Multisig for Dry run TBD ***
+emergency_governance_proposer = "0xdd778153c3d0AE1B70fe81E0219b5D2C3e3951C2"  # Gnosis Multisig for Dry run 3 of 5 ***
 
 # Duration of the emergency mode in seconds
 emergency_mode_duration = 2592000                                             # 1 month
