@@ -52,7 +52,7 @@ abstract contract OmnibusBase {
         return scriptBuilder.getResult();
     }
 
-    /// @notice Validates the specific vote on Aragon Voting contract.
+    /// @notice Validates the specific vote on Aragon Voting contract against the vote items.
     /// @return A boolean value indicating whether the vote is valid.
     function isValidVoteScript(uint256 voteId) external view returns (bool) {
         ( /*open*/

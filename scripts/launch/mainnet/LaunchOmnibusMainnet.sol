@@ -19,16 +19,32 @@ import {OmnibusBase} from "../OmnibusBase.sol";
 import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 
 /// @title LaunchOmnibusMainnet
-/// @notice Script for migrating Lido to Dual Governance on Mainnet
+/// @notice Contains vote items for execution via Aragon Voting to migrate control of Lido’s critial roles,
+/// permissions, and contracts to Dual Governance. Provides a mechanism for validating a Lido Aragon vote
+/// against the actions in this contract, by passing the vote ID.
 ///
-/// @dev This contract prepares the complete transition of the Lido protocol
-/// critical roles and ownerships from direct Aragon Voting control to Dual Governance
-/// on the Mainnet. It contains 48 items that includes:
-///     1. Revoking critical permissions from Voting and transferring permission management to Agent
-///     2. Transferring ownerships to Agent over critical protocol contracts
-///     4. Validating the roles transfer to ensure proper role configuration
-///     5. Submitting the first proposal through the Dual Governance
-///     6. Verifying the successful launch of Dual Governance
+/// @dev This contract defines the complete set of governance actions required to migrate Lido protocol control
+/// from Aragon Voting to the Dual Governance on Ethereum Mainnet.
+///
+/// It provides:
+/// - A list of 48 vote items that must be submitted and executed through an Aragon vote to perform the migration.
+/// - Includes:
+///     1. Reassigning critical permissions and permission managers from the Aragon Voting to the Agent
+///     2. Creating permissions needed for Aragon Voting to operate under Dual Governance
+///     3. Transferring ownership of WithdrawalVault contract to Agent
+///     4. Transferring ownership of InsuranceFund contract to Aragon Voting
+///     5. Validating that all role, ownership and permission migrations were completed correctly
+///     6. Submitting the first proposal to Dual Governance to finalize migration
+///     7. Enforcing time constraints on enactment and execution
+///
+/// Additionally, the contract provides a mechanism to validate whether an existing Aragon vote corresponds
+/// exactly to the migration actions defined here. This ensures consistency and guards against
+/// misconfigured or malicious votes.
+///
+/// Note: The contract is intended to be used as a reference and validation tool for constructing
+/// a governance vote that initiates the migration of critical roles, permissions and ownerships to Dual Governance.
+/// It must be used by the Aragon Voting and couldn't be executed directly.
+
 contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
