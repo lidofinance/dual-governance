@@ -19,8 +19,8 @@ import {OmnibusBase} from "../OmnibusBase.sol";
 import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 
 /// @title LaunchOmnibusMainnet
-/// @notice Contains vote items for execution via Aragon Voting to migrate control of Lido’s critial roles,
-/// permissions, and contracts to Dual Governance. Provides a mechanism for validating a Lido Aragon vote
+/// @notice Contains vote items for execution via Aragon Voting to migrate control of Lido’s critical roles,
+/// permissions, and contracts to Dual Governance. Provides a mechanism for validating an Aragon vote
 /// against the actions in this contract, by passing the vote ID.
 ///
 /// @dev This contract defines the complete set of governance actions required to migrate Lido protocol control
@@ -29,9 +29,9 @@ import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 /// It provides:
 /// - A list of 48 vote items that must be submitted and executed through an Aragon vote to perform the migration.
 /// - Includes:
-///     1. Reassigning critical permissions and permission managers from the Aragon Voting to the Agent
+///     1. Reassigning critical permissions and permission managers from the Aragon Voting to the Aragon Agent
 ///     2. Creating permissions needed for Aragon Voting to operate under Dual Governance
-///     3. Transferring ownership of WithdrawalVault contract to Agent
+///     3. Transferring ownership of WithdrawalVault contract to Aragon Agent
 ///     4. Transferring ownership of InsuranceFund contract to Aragon Voting
 ///     5. Validating that all role, ownership and permission migrations were completed correctly
 ///     6. Submitting the first proposal to Dual Governance to finalize migration
