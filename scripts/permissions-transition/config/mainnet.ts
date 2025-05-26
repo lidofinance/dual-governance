@@ -307,7 +307,7 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
       PAUSE_ROLE: ["CSGateSeal", "ResealManager"],
       RECOVERER_ROLE: [],
       REPORT_EL_REWARDS_STEALING_PENALTY_ROLE: ["CSCommitteeMultisig"],
-      RESUME_ROLE: [],
+      RESUME_ROLE: ["ResealManager"],
       SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE: ["EvmScriptExecutor"],
       STAKING_ROUTER_ROLE: ["StakingRouter"],
       VERIFIER_ROLE: ["CSVerifier"],
@@ -319,7 +319,7 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
       PAUSE_ROLE: ["CSGateSeal", "ResealManager"],
       RECOVERER_ROLE: [],
       RESET_BOND_CURVE_ROLE: ["CSModule", "CSCommitteeMultisig"],
-      RESUME_ROLE: [],
+      RESUME_ROLE: ["ResealManager"],
       SET_BOND_CURVE_ROLE: ["CSModule", "CSCommitteeMultisig"],
     },
     CSFeeDistributor: {
@@ -333,7 +333,7 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
       MANAGE_CONSENSUS_VERSION_ROLE: [],
       PAUSE_ROLE: ["CSGateSeal", "ResealManager"],
       RECOVERER_ROLE: [],
-      RESUME_ROLE: [],
+      RESUME_ROLE: ["ResealManager"],
       SUBMIT_DATA_ROLE: [],
     },
     CSHashConsensus: {
