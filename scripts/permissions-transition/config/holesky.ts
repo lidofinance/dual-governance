@@ -2,11 +2,10 @@ import { PermissionsConfigData } from "../src/permissions-config";
 
 export const HOLESKY_PERMISSIONS_CONFIG: PermissionsConfigData = {
   genesisBlock: 1,
-  explorerURL: "https://holesky.etherscan.io/",
+  explorerURL: "https://holesky.etherscan.io",
   labels: {
-    // Addresses TBD:
-    DGAdminExecutor: "0x",
-    ResealManager: "0x",
+    DGAdminExecutor: "0x8BD0a916faDa88Ba3accb595a3Acd28F467130e8",
+    ResealManager: "0x9dE2273f9f1e81145171CcA927EFeE7aCC64c9fb",
     // Core Protocol
     LidoLocator: "0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8",
     Lido: "0x3F1c547b21f65e10480dE3ad8E19fAAC46C95034",

@@ -2,11 +2,10 @@ import { PermissionsConfigData } from "../src/permissions-config";
 
 export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
   genesisBlock: 10_500_000,
-  explorerURL: "https://etherscan.io/",
+  explorerURL: "https://etherscan.io",
   labels: {
-    // Addresses TBD:
-    DGAdminExecutor: "0x",
-    ResealManager: "0x",
+    DGAdminExecutor: "0x23E0B465633FF5178808F4A75186E2F2F9537021",
+    ResealManager: "0x7914b5a1539b97Bd0bbd155757F25FD79A522d24",
     // Core Protocol
     LidoLocator: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb",
     Lido: "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",

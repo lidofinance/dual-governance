@@ -2,11 +2,10 @@ import { PermissionsConfigData } from "../src/permissions-config";
 
 export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
   genesisBlock: 1,
-  explorerURL: "https://hoodi.etherscan.io/",
+  explorerURL: "https://hoodi.etherscan.io",
   labels: {
-    // Addresses TBD:
-    DGAdminExecutor: "0x",
-    ResealManager: "0x",
+    DGAdminExecutor: "0x0eCc17597D292271836691358B22340b78F3035B",
+    ResealManager: "0x05172CbCDb7307228F781436b327679e4DAE166B",
     // Core Protocol
     LidoLocator: "0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8",
     Lido: "0x3508A952176b3c15387C97BE809eaffB1982176a",
@@ -52,7 +51,6 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
     CSGateSeal: "0xEe1f7f0ebB5900F348f2CfbcC641FB1681359B8a",
     CSFeeOracle: "0xe7314f561B2e72f9543F1004e741bab6Fc51028B",
     CSHashConsensus: "0x54f74a10e4397dDeF85C4854d9dfcA129D72C637",
-    // CSCommitteeMultisig: "",
     CSVerifier: "0xB6bafBD970a4537077dE59cebE33081d794513d6",
     SandboxStakingModule: "0x682E94d2630846a503BDeE8b6810DF71C9806891",
 
