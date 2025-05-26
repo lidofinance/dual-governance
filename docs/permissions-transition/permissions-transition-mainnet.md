@@ -333,11 +333,11 @@ How to read this document:
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io//address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
 | `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`MODULE_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODULE_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`RECOVERER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RECOVERER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`REPORT_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REPORT_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSCommitteeMultisig`](https://etherscan.io//address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
-| [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
 | [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`StakingRouter`](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999) |
 | [`VERIFIER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=VERIFIER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSVerifier`](https://etherscan.io//address/0x0c345dfa318f9f4977cdd4f33d80f9d0ffa38e8b) |
@@ -346,42 +346,45 @@ How to read this document:
 
 ```
 39. Grant PAUSE_ROLE to ResealManager on CSModule
+40. Grant RESUME_ROLE to ResealManager on CSModule
 ```
 
 #### ⚠️ CSAccounting [0x4d72bff1beac69925f8bd12526a39baab069e5da](https://etherscan.io//address/0x4d72bff1beac69925f8bd12526a39baab069e5da)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io//address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
 | `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`ACCOUNTING_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ACCOUNTING_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_BOND_CURVES_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_BOND_CURVES_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`RECOVERER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RECOVERER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`RESET_BOND_CURVE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESET_BOND_CURVE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSModule`](https://etherscan.io//address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f) [`CSCommitteeMultisig`](https://etherscan.io//address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
-| [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`SET_BOND_CURVE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_BOND_CURVE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSModule`](https://etherscan.io//address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f) [`CSCommitteeMultisig`](https://etherscan.io//address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
 
 ##### Transition Steps
 
 ```
-40. Grant PAUSE_ROLE to ResealManager on CSAccounting
+41. Grant PAUSE_ROLE to ResealManager on CSAccounting
+42. Grant RESUME_ROLE to ResealManager on CSAccounting
 ```
 
 #### ⚠️ CSFeeOracle [0x4d4074628678bd302921c20573eea1ed38ddf7fb](https://etherscan.io//address/0x4d4074628678bd302921c20573eea1ed38ddf7fb)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io//address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
 | `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`CONTRACT_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CONTRACT_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_CONSENSUS_CONTRACT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_CONSENSUS_CONTRACT_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_CONSENSUS_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_CONSENSUS_VERSION_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`RECOVERER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RECOVERER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`SUBMIT_DATA_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SUBMIT_DATA_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
 ##### Transition Steps
 
 ```
-41. Grant PAUSE_ROLE to ResealManager on CSFeeOracle
+43. Grant PAUSE_ROLE to ResealManager on CSFeeOracle
+44. Grant RESUME_ROLE to ResealManager on CSFeeOracle
 ```
 
 #### ⚠️ AllowedTokensRegistry [0x4ac40c34f8992bb1e5e856a448792158022551ca](https://etherscan.io//address/0x4ac40c34f8992bb1e5e856a448792158022551ca)
@@ -394,10 +397,10 @@ How to read this document:
 ##### Transition Steps
 
 ```
-42. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry
-43. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry
-44. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
-45. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
+45. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry
+46. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry
+47. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
+48. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
 ```
 
 #### StakingRouter [0xfddf38947afb03c621c71b06c9c70bce73f12999](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999)
@@ -588,6 +591,6 @@ How to read this document:
 ##### Transition Steps
 
 ```
-46. Set admin to Agent on WithdrawalVault
-47. Set owner to Voting on InsuranceFund
+49. Set admin to Agent on WithdrawalVault
+50. Set owner to Voting on InsuranceFund
 ```
