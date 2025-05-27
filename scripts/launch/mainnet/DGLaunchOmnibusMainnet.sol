@@ -50,8 +50,8 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
     uint256 public constant VOTE_ITEMS_COUNT = 54;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
 
-    Timestamp public constant OMNIBUS_EXPIRATION_TIMESTAMP = Timestamp.wrap(1753466400); // Friday, 25 July 2025 18:00:00
-    Timestamp public constant DG_PROPOSAL_EXPIRATION_TIMESTAMP = Timestamp.wrap(1754071200); // Friday, 1 August 2025 18:00:00
+    Timestamp public constant OMNIBUS_EXPIRATION_TIMESTAMP = Timestamp.wrap(1753466400); // Friday, 25 July 2025 18:00:00 UTC
+    Timestamp public constant DG_PROPOSAL_EXPIRATION_TIMESTAMP = Timestamp.wrap(1754071200); // Friday, 1 August 2025 18:00:00 UTC
     Duration public constant DG_PROPOSAL_EXECUTABLE_FROM_DAY_TIME = Duration.wrap(6 hours); // 06:00 UTC
     Duration public constant DG_PROPOSAL_EXECUTABLE_TILL_DAY_TIME = Duration.wrap(18 hours); // 18:00 UTC
 
