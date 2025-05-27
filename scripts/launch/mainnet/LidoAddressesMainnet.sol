@@ -18,6 +18,9 @@ contract LidoAddressesMainnet {
     address public constant VEBO = 0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e;
     address public constant STAKING_ROUTER = 0xFdDf38947aFB03C621C71b06C9C70bce73f12999;
     address public constant ORACLES_GATE_SEAL = 0xf9C9fDB4A5D2AA1D836D5370AB9b28BC1847e178;
-    address public constant EVM_SCRIPT_EXECUTOR = 0xFE5986E06210aC1eCC1aDCafc0cc7f8D63B3F977;
     address public constant INSURANCE_FUND = 0x8B3f33234ABD88493c0Cd28De33D583B70beDe35;
+    address public constant CS_MODULE = 0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F;
+    address public constant CS_ACCOUNTING = 0x4d72BFF1BeaC69925F8Bd12526a39BAAb069e5Da;
+    address public constant CS_FEE_ORACLE = 0x4D4074628678Bd302921c20573EEa1ed38DdF7FB;
+    address public constant CS_GATE_SEAL = 0x16Dbd4B85a448bE564f1742d5c8cCdD2bB3185D0;
 }

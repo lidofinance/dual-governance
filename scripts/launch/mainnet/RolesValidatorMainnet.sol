@@ -71,12 +71,20 @@ contract RolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IRol
         _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).granted(VOTING).granted(ADMIN_EXECUTOR));
 
         // WithdrawalQueue
-        _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER));
+        _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
         _validate(WITHDRAWAL_QUEUE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
         // VEBO
-        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER));
+        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
         _validate(VEBO, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
+
+        // CSM
+        _validate(CS_MODULE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
+        _validate(CS_MODULE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
+        _validate(CS_ACCOUNTING, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
+        _validate(CS_ACCOUNTING, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
+        _validate(CS_FEE_ORACLE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
+        _validate(CS_FEE_ORACLE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
         // AllowedTokensRegistry
         _validate(ALLOWED_TOKENS_REGISTRY, "DEFAULT_ADMIN_ROLE", OZRoles.revoked(AGENT).granted(VOTING));

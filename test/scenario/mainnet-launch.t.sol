@@ -155,9 +155,22 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
             // WithdrawalQueue and VEBO permissions checks
             vm.assertFalse(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, ORACLES_GATE_SEAL));
             vm.assertFalse(IOZ(WITHDRAWAL_QUEUE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
             vm.assertFalse(IOZ(VEBO).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(VEBO).hasRole(PAUSE_ROLE, ORACLES_GATE_SEAL));
             vm.assertFalse(IOZ(VEBO).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
+
+            // CSM permissions checks
+            vm.assertFalse(IOZ(CS_MODULE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(CS_MODULE).hasRole(PAUSE_ROLE, CS_GATE_SEAL));
+            vm.assertFalse(IOZ(CS_MODULE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertFalse(IOZ(CS_ACCOUNTING).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(CS_ACCOUNTING).hasRole(PAUSE_ROLE, CS_GATE_SEAL));
+            vm.assertFalse(IOZ(CS_ACCOUNTING).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertFalse(IOZ(CS_FEE_ORACLE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(CS_FEE_ORACLE).hasRole(PAUSE_ROLE, CS_GATE_SEAL));
+            vm.assertFalse(IOZ(CS_FEE_ORACLE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
 
             // AllowedTokensRegistry permissions checks
             vm.assertTrue(IOZ(ALLOWED_TOKENS_REGISTRY).hasRole(DEFAULT_ADMIN_ROLE, AGENT));
@@ -255,9 +268,22 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
             // WithdrawalQueue and VEBO permissions checks
             vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, ORACLES_GATE_SEAL));
             vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
             vm.assertTrue(IOZ(VEBO).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(VEBO).hasRole(PAUSE_ROLE, ORACLES_GATE_SEAL));
             vm.assertTrue(IOZ(VEBO).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
+
+            // CSM permissions checks
+            vm.assertTrue(IOZ(CS_MODULE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(CS_MODULE).hasRole(PAUSE_ROLE, CS_GATE_SEAL));
+            vm.assertTrue(IOZ(CS_MODULE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(CS_ACCOUNTING).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(CS_ACCOUNTING).hasRole(PAUSE_ROLE, CS_GATE_SEAL));
+            vm.assertTrue(IOZ(CS_ACCOUNTING).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(CS_FEE_ORACLE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
+            vm.assertTrue(IOZ(CS_FEE_ORACLE).hasRole(PAUSE_ROLE, CS_GATE_SEAL));
+            vm.assertTrue(IOZ(CS_FEE_ORACLE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
 
             // AllowedTokensRegistry permissions checks
             vm.assertFalse(IOZ(ALLOWED_TOKENS_REGISTRY).hasRole(DEFAULT_ADMIN_ROLE, AGENT));

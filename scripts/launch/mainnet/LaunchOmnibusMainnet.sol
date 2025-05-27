@@ -27,7 +27,7 @@ import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 /// from Aragon Voting to the Dual Governance on Ethereum Mainnet.
 ///
 /// It provides:
-/// - A list of 48 vote items that must be submitted and executed through an Aragon vote to perform the migration.
+/// - A list of 54 vote items that must be submitted and executed through an Aragon vote to perform the migration.
 /// - Includes:
 ///     1. Reassigning critical permissions and permission managers from the Aragon Voting to the Aragon Agent
 ///     2. Creating permissions needed for Aragon Voting to operate under Dual Governance
@@ -56,7 +56,7 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
     bytes32 private constant SET_NODE_OPERATOR_LIMIT_ROLE = keccak256("SET_NODE_OPERATOR_LIMIT_ROLE");
     bytes32 private constant MANAGE_NODE_OPERATOR_ROLE = keccak256("MANAGE_NODE_OPERATOR_ROLE");
 
-    uint256 public constant VOTE_ITEMS_COUNT = 48;
+    uint256 public constant VOTE_ITEMS_COUNT = 54;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
 
     address public immutable DUAL_GOVERNANCE;
@@ -353,6 +353,39 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             });
         }
 
+        // CSM Roles Transition
+        {
+            voteItems[index++] = VoteItem({
+                description: "39. Grant PAUSE_ROLE to ResealManager on CS Module",
+                call: _forwardCall(AGENT, CS_MODULE, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "40. Grant RESUME_ROLE to ResealManager on CS Module",
+                call: _forwardCall(AGENT, CS_MODULE, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "41. Grant PAUSE_ROLE to ResealManager on CS Accounting",
+                call: _forwardCall(AGENT, CS_ACCOUNTING, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "42. Grant RESUME_ROLE to ResealManager on CS Accounting",
+                call: _forwardCall(AGENT, CS_ACCOUNTING, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "43. Grant PAUSE_ROLE to ResealManager on CS Fee Oracle",
+                call: _forwardCall(AGENT, CS_FEE_ORACLE, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "44. Grant RESUME_ROLE to ResealManager on CS Fee Oracle",
+                call: _forwardCall(AGENT, CS_FEE_ORACLE, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
+            });
+        }
+
         // AllowedTokensRegistry Roles Transition
         {
             bytes32 DEFAULT_ADMIN_ROLE = bytes32(0);
@@ -360,26 +393,26 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             bytes32 REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE = keccak256("REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE");
 
             voteItems[index++] = VoteItem({
-                description: "39. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry",
+                description: "45. Grant DEFAULT_ADMIN_ROLE to Voting on AllowedTokensRegistry",
                 call: _forwardCall(
                     AGENT, ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.grantRole, (DEFAULT_ADMIN_ROLE, VOTING))
                 )
             });
 
             voteItems[index++] = VoteItem({
-                description: "40. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry",
+                description: "46. Revoke DEFAULT_ADMIN_ROLE from Agent on AllowedTokensRegistry",
                 call: _votingCall(ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (DEFAULT_ADMIN_ROLE, AGENT)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "41. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry",
+                description: "47. Revoke ADD_TOKEN_TO_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry",
                 call: _votingCall(
                     ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (ADD_TOKEN_TO_ALLOWED_LIST_ROLE, AGENT))
                 )
             });
 
             voteItems[index++] = VoteItem({
-                description: "42. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry",
+                description: "48. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry",
                 call: _votingCall(
                     ALLOWED_TOKENS_REGISTRY, abi.encodeCall(IOZ.revokeRole, (REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE, AGENT))
                 )
@@ -389,7 +422,7 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
         // WithdrawalVault admin transition
         {
             voteItems[index++] = VoteItem({
-                description: "43. Set admin to Agent on WithdrawalVault",
+                description: "49. Set admin to Agent on WithdrawalVault",
                 call: _votingCall(WITHDRAWAL_VAULT, abi.encodeCall(IWithdrawalVaultProxy.proxy_changeAdmin, (AGENT)))
             });
         }
@@ -397,7 +430,7 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
         // InsuranceFund owner transition
         {
             voteItems[index++] = VoteItem({
-                description: "44. Set owner to Voting on InsuranceFund",
+                description: "50. Set owner to Voting on InsuranceFund",
                 call: _forwardCall(AGENT, INSURANCE_FUND, abi.encodeCall(IInsuranceFund.transferOwnership, (VOTING)))
             });
         }
@@ -405,7 +438,7 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
         // Validate transferred roles
         {
             voteItems[index++] = VoteItem({
-                description: "45. Validate transferred roles",
+                description: "51. Validate transferred roles",
                 call: _votingCall(ROLES_VALIDATOR, abi.encodeCall(IRolesValidator.validateVotingLaunchPhase, ()))
             });
         }
@@ -445,7 +478,7 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             );
 
             voteItems[index++] = VoteItem({
-                description: "46. Submit a proposal to the Dual Governance to revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting",
+                description: "52. Submit a proposal to the Dual Governance to revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting",
                 call: _votingCall(
                     DUAL_GOVERNANCE,
                     abi.encodeCall(
@@ -462,7 +495,7 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
         // Verify state of the DG after launch
         {
             voteItems[index++] = VoteItem({
-                description: "47. Verify Dual Governance launch state",
+                description: "53. Verify Dual Governance launch state",
                 call: _votingCall(LAUNCH_VERIFIER, abi.encodeCall(IDGLaunchVerifier.verify, ()))
             });
         }
@@ -470,7 +503,7 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
         // Add "expiration date" to the omnibus
         {
             voteItems[index++] = VoteItem({
-                description: "48. Introduce an expiration deadline after which the omnibus can no longer be enacted",
+                description: "54. Introduce an expiration deadline after which the omnibus can no longer be enacted",
                 call: _votingCall(
                     TIME_CONSTRAINTS,
                     // Enactment is allowed before Saturday, 26 July 2025 0:00:00
