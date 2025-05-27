@@ -126,18 +126,24 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
             // CuratedModule permissions checks
             vm.assertTrue(IACL(ACL).getPermissionManager(CURATED_MODULE, STAKING_ROUTER_ROLE) == VOTING);
+            vm.assertTrue(IACL(ACL).hasPermission(STAKING_ROUTER, CURATED_MODULE, STAKING_ROUTER_ROLE));
             vm.assertTrue(IACL(ACL).getPermissionManager(CURATED_MODULE, MANAGE_NODE_OPERATOR_ROLE) == VOTING);
 
             vm.assertTrue(IACL(ACL).getPermissionManager(CURATED_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE) == VOTING);
             vm.assertTrue(IACL(ACL).hasPermission(VOTING, CURATED_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE));
+            vm.assertTrue(IACL(ACL).hasPermission(EVM_SCRIPT_EXECUTOR, CURATED_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE));
 
             vm.assertTrue(IACL(ACL).getPermissionManager(CURATED_MODULE, MANAGE_SIGNING_KEYS) == VOTING);
             vm.assertTrue(IACL(ACL).hasPermission(VOTING, CURATED_MODULE, MANAGE_SIGNING_KEYS));
 
             // SimpleDVT Module permissions checks
             vm.assertTrue(IACL(ACL).getPermissionManager(SDVT_MODULE, STAKING_ROUTER_ROLE) == VOTING);
+            vm.assertTrue(IACL(ACL).hasPermission(STAKING_ROUTER, SDVT_MODULE, STAKING_ROUTER_ROLE));
+            vm.assertTrue(IACL(ACL).hasPermission(EVM_SCRIPT_EXECUTOR, SDVT_MODULE, STAKING_ROUTER_ROLE));
             vm.assertTrue(IACL(ACL).getPermissionManager(SDVT_MODULE, MANAGE_NODE_OPERATOR_ROLE) == VOTING);
+            vm.assertTrue(IACL(ACL).hasPermission(EVM_SCRIPT_EXECUTOR, SDVT_MODULE, MANAGE_NODE_OPERATOR_ROLE));
             vm.assertTrue(IACL(ACL).getPermissionManager(SDVT_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE) == VOTING);
+            vm.assertTrue(IACL(ACL).hasPermission(EVM_SCRIPT_EXECUTOR, SDVT_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE));
 
             // ACL permissions checks
             vm.assertTrue(IACL(ACL).getPermissionManager(ACL, CREATE_PERMISSIONS_ROLE) == VOTING);
@@ -242,8 +248,10 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
             // CuratedModule permissions checks
             vm.assertTrue(IACL(ACL).getPermissionManager(CURATED_MODULE, STAKING_ROUTER_ROLE) == AGENT);
+            vm.assertTrue(IACL(ACL).hasPermission(STAKING_ROUTER, CURATED_MODULE, STAKING_ROUTER_ROLE));
             vm.assertTrue(IACL(ACL).getPermissionManager(CURATED_MODULE, MANAGE_NODE_OPERATOR_ROLE) == AGENT);
             vm.assertTrue(IACL(ACL).getPermissionManager(CURATED_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE) == AGENT);
+            vm.assertTrue(IACL(ACL).hasPermission(EVM_SCRIPT_EXECUTOR, CURATED_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE));
             vm.assertTrue(IACL(ACL).getPermissionManager(CURATED_MODULE, MANAGE_SIGNING_KEYS) == AGENT);
 
             vm.assertFalse(IACL(ACL).hasPermission(VOTING, CURATED_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE));
@@ -251,8 +259,12 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
             // Simple DVT Module permissions checks
             vm.assertTrue(IACL(ACL).getPermissionManager(SDVT_MODULE, STAKING_ROUTER_ROLE) == AGENT);
+            vm.assertTrue(IACL(ACL).hasPermission(STAKING_ROUTER, SDVT_MODULE, STAKING_ROUTER_ROLE));
+            vm.assertTrue(IACL(ACL).hasPermission(EVM_SCRIPT_EXECUTOR, SDVT_MODULE, STAKING_ROUTER_ROLE));
             vm.assertTrue(IACL(ACL).getPermissionManager(SDVT_MODULE, MANAGE_NODE_OPERATOR_ROLE) == AGENT);
+            vm.assertTrue(IACL(ACL).hasPermission(EVM_SCRIPT_EXECUTOR, SDVT_MODULE, MANAGE_NODE_OPERATOR_ROLE));
             vm.assertTrue(IACL(ACL).getPermissionManager(SDVT_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE) == AGENT);
+            vm.assertTrue(IACL(ACL).hasPermission(EVM_SCRIPT_EXECUTOR, SDVT_MODULE, SET_NODE_OPERATOR_LIMIT_ROLE));
 
             // ACL permissions checks
             vm.assertTrue(IACL(ACL).getPermissionManager(ACL, CREATE_PERMISSIONS_ROLE) == AGENT);
