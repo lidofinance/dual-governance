@@ -48,15 +48,23 @@ contract DGRolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IR
         _validate(EVM_SCRIPT_REGISTRY, "REGISTRY_MANAGER_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
 
         // CuratedModule
-        _validate(CURATED_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.manager(AGENT));
-        _validate(CURATED_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT));
-        _validate(CURATED_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+        _validate(CURATED_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.manager(AGENT).granted(STAKING_ROUTER));
+        _validate(CURATED_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT).granted(AGENT));
+        _validate(
+            CURATED_MODULE,
+            "SET_NODE_OPERATOR_LIMIT_ROLE",
+            AragonRoles.manager(AGENT).granted(EVM_SCRIPT_EXECUTOR).revoked(VOTING)
+        );
         _validate(CURATED_MODULE, "MANAGE_SIGNING_KEYS", AragonRoles.manager(AGENT).revoked(VOTING));
 
         // SimpleDVT Module
-        _validate(SDVT_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.manager(AGENT));
-        _validate(SDVT_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT));
-        _validate(SDVT_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.manager(AGENT));
+        _validate(
+            SDVT_MODULE,
+            "STAKING_ROUTER_ROLE",
+            AragonRoles.manager(AGENT).granted(STAKING_ROUTER).granted(EVM_SCRIPT_EXECUTOR)
+        );
+        _validate(SDVT_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT).granted(EVM_SCRIPT_EXECUTOR));
+        _validate(SDVT_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.manager(AGENT).granted(EVM_SCRIPT_EXECUTOR));
 
         // ACL
         _validate(ACL, "CREATE_PERMISSIONS_ROLE", AragonRoles.manager(AGENT).revoked(VOTING).granted(AGENT));
