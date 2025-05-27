@@ -15,7 +15,7 @@ import {DeployVerification} from "scripts/utils/DeployVerification.sol";
 import {DGSetupDeployArtifacts} from "scripts/utils/contracts-deployment.sol";
 
 import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
-import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBuilder.sol";
 
 contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
     using LidoUtils for LidoUtils.Context;

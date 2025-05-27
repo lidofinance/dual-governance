@@ -23,7 +23,7 @@ import {DeployVerification} from "../utils/DeployVerification.sol";
 
 import {DGSetupDeployArtifacts, DGSetupDeployConfig, DGLaunchConfig} from "../utils/contracts-deployment.sol";
 
-import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
 
 contract LaunchAcceptance is DGDeployArtifactLoader {

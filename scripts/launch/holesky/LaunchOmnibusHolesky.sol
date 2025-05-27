@@ -15,7 +15,7 @@ import {IACL} from "../interfaces/IACL.sol";
 import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
 import {OmnibusBase} from "../OmnibusBase.sol";
 
-import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 
 /// @title LaunchOmnibusHolesky
 /// @notice Script for migrating Lido to Dual Governance on Holesky testnet

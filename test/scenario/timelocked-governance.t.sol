@@ -8,7 +8,7 @@ import {ContractsDeployment, TGScenarioTestSetup, DGScenarioTestSetup} from "../
 
 import {IPotentiallyDangerousContract} from "../utils/interfaces/IPotentiallyDangerousContract.sol";
 
-import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 
 contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;

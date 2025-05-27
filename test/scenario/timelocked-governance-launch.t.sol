@@ -13,7 +13,7 @@ import {
     DGScenarioTestSetup
 } from "../utils/integration-tests.sol";
 
-import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBuilder.sol";
 
 contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenarioTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;

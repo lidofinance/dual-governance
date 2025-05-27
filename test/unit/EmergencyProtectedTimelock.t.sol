@@ -19,7 +19,7 @@ import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/target-mock.sol";
-import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBuilder.sol";
 
 contract EmergencyProtectedTimelockUnitTests is UnitTest {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;

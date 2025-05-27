@@ -16,7 +16,7 @@ import {IACL} from "../interfaces/IACL.sol";
 import {LidoAddressesMainnet} from "./LidoAddressesMainnet.sol";
 import {OmnibusBase} from "../OmnibusBase.sol";
 
-import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 
 /// @title LaunchOmnibusMainnet
 /// @notice Contains vote items for execution via Aragon Voting to migrate control of Lido’s critical roles,

@@ -6,7 +6,7 @@ import {DGScenarioTestSetup, IPotentiallyDangerousContract, IRageQuitEscrow} fro
 import {PercentsD16} from "contracts/types/PercentD16.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
-import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBuilder.sol";
 
 contract VetoCooldownMechanicsTest is DGScenarioTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;

@@ -10,7 +10,7 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 
 import {IRageQuitEscrow, ContractsDeployment, DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
-import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBuilder.sol";
 
 contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
