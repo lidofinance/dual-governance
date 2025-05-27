@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
-import {Durations} from "contracts/types/Duration.sol";
+import {Timestamp} from "contracts/types/Timestamp.sol";
+import {Duration} from "contracts/types/Duration.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 
 import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
@@ -47,16 +47,13 @@ import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
-    bytes32 private constant PAUSE_ROLE = keccak256("PAUSE_ROLE");
-    bytes32 private constant RESUME_ROLE = keccak256("RESUME_ROLE");
-    bytes32 private constant RUN_SCRIPT_ROLE = keccak256("RUN_SCRIPT_ROLE");
-    bytes32 private constant EXECUTE_ROLE = keccak256("EXECUTE_ROLE");
-    bytes32 private constant STAKING_ROUTER_ROLE = keccak256("STAKING_ROUTER_ROLE");
-    bytes32 private constant SET_NODE_OPERATOR_LIMIT_ROLE = keccak256("SET_NODE_OPERATOR_LIMIT_ROLE");
-    bytes32 private constant MANAGE_NODE_OPERATOR_ROLE = keccak256("MANAGE_NODE_OPERATOR_ROLE");
-
     uint256 public constant VOTE_ITEMS_COUNT = 54;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
+
+    Timestamp public constant OMNIBUS_EXPIRATION_TIMESTAMP = Timestamp.wrap(1753488000); // Saturday, 26 July 2025 00:00:00 UTC
+    Timestamp public constant DG_PROPOSAL_EXPIRATION_TIMESTAMP = Timestamp.wrap(1754092800); // Friday, 2 August 2025 00:00:00 UTC
+    Duration public immutable DG_PROPOSAL_EXECUTABLE_FROM_DAY_TIME = Duration.wrap(4 hours); // 04:00 UTC
+    Duration public immutable DG_PROPOSAL_EXECUTABLE_TILL_DAY_TIME = Duration.wrap(22 hours); // 22:00 UTC
 
     address public immutable DUAL_GOVERNANCE;
     address public immutable ADMIN_EXECUTOR;
@@ -84,6 +81,14 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
     function getVoteItems() public view override returns (VoteItem[] memory voteItems) {
         voteItems = new VoteItem[](VOTE_ITEMS_COUNT);
         uint256 index = 0;
+
+        bytes32 PAUSE_ROLE = keccak256("PAUSE_ROLE");
+        bytes32 RESUME_ROLE = keccak256("RESUME_ROLE");
+        bytes32 RUN_SCRIPT_ROLE = keccak256("RUN_SCRIPT_ROLE");
+        bytes32 EXECUTE_ROLE = keccak256("EXECUTE_ROLE");
+        bytes32 STAKING_ROUTER_ROLE = keccak256("STAKING_ROUTER_ROLE");
+        bytes32 SET_NODE_OPERATOR_LIMIT_ROLE = keccak256("SET_NODE_OPERATOR_LIMIT_ROLE");
+        bytes32 MANAGE_NODE_OPERATOR_ROLE = keccak256("MANAGE_NODE_OPERATOR_ROLE");
 
         // Lido Permissions Transition
         {
@@ -352,35 +357,41 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             });
         }
 
-        // CSM Roles Transition
+        // CS Module Roles Transition
         {
             voteItems[index++] = VoteItem({
-                description: "39. Grant PAUSE_ROLE to ResealManager on CS Module",
+                description: "39. Grant PAUSE_ROLE to ResealManager on CSModule",
                 call: _forwardCall(AGENT, CS_MODULE, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "40. Grant RESUME_ROLE to ResealManager on CS Module",
+                description: "40. Grant RESUME_ROLE to ResealManager on CSModule",
                 call: _forwardCall(AGENT, CS_MODULE, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
             });
+        }
 
+        // CS Accounting Roles Transition
+        {
             voteItems[index++] = VoteItem({
-                description: "41. Grant PAUSE_ROLE to ResealManager on CS Accounting",
+                description: "41. Grant PAUSE_ROLE to ResealManager on CSAccounting",
                 call: _forwardCall(AGENT, CS_ACCOUNTING, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "42. Grant RESUME_ROLE to ResealManager on CS Accounting",
+                description: "42. Grant RESUME_ROLE to ResealManager on CSAccounting",
                 call: _forwardCall(AGENT, CS_ACCOUNTING, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
             });
+        }
 
+        // CS Fee Oracle Roles Transition
+        {
             voteItems[index++] = VoteItem({
-                description: "43. Grant PAUSE_ROLE to ResealManager on CS Fee Oracle",
+                description: "43. Grant PAUSE_ROLE to ResealManager on CSFeeOracle",
                 call: _forwardCall(AGENT, CS_FEE_ORACLE, abi.encodeCall(IOZ.grantRole, (PAUSE_ROLE, RESEAL_MANAGER)))
             });
 
             voteItems[index++] = VoteItem({
-                description: "44. Grant RESUME_ROLE to ResealManager on CS Fee Oracle",
+                description: "44. Grant RESUME_ROLE to ResealManager on CSFeeOracle",
                 call: _forwardCall(AGENT, CS_FEE_ORACLE, abi.encodeCall(IOZ.grantRole, (RESUME_ROLE, RESEAL_MANAGER)))
             });
         }
@@ -448,17 +459,17 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
                 ExternalCallsBuilder.create({callsCount: DG_PROPOSAL_CALLS_COUNT});
 
             // 1. Execution is allowed before Saturday, 2 August 2025 0:00:00
-            Timestamp dgProposalExpirationTimestamp = Timestamps.from(1754092800);
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
-                abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, dgProposalExpirationTimestamp)
+                abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, DG_PROPOSAL_EXPIRATION_TIMESTAMP)
             );
 
             // 2. Execution is allowed since 04:00 to 22:00 UTC
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
                 abi.encodeCall(
-                    ITimeConstraints.checkTimeWithinDayTimeAndEmit, (Durations.from(4 hours), Durations.from(22 hours))
+                    ITimeConstraints.checkTimeWithinDayTimeAndEmit,
+                    (DG_PROPOSAL_EXECUTABLE_FROM_DAY_TIME, DG_PROPOSAL_EXECUTABLE_TILL_DAY_TIME)
                 )
             );
 
@@ -502,13 +513,12 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
 
         // Add "expiration date" to the omnibus
         {
-            Timestamp omnibusExpirationTimestamp = Timestamps.from(1753488000);
             voteItems[index++] = VoteItem({
                 description: "54. Introduce an expiration deadline after which the omnibus can no longer be enacted",
                 call: _votingCall(
                     TIME_CONSTRAINTS,
                     // Enactment is allowed before Saturday, 26 July 2025 0:00:00
-                    abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, omnibusExpirationTimestamp)
+                    abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, OMNIBUS_EXPIRATION_TIMESTAMP)
                 )
             });
         }

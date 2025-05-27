@@ -53,7 +53,7 @@ contract DGRolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IR
         _validate(
             CURATED_MODULE,
             "SET_NODE_OPERATOR_LIMIT_ROLE",
-            AragonRoles.manager(AGENT).granted(EVM_SCRIPT_EXECUTOR).revoked(VOTING)
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(EVM_SCRIPT_EXECUTOR)
         );
         _validate(CURATED_MODULE, "MANAGE_SIGNING_KEYS", AragonRoles.manager(AGENT).revoked(VOTING));
 
@@ -86,11 +86,15 @@ contract DGRolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IR
         _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
         _validate(VEBO, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
-        // CSM
+        // CS Module
         _validate(CS_MODULE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
         _validate(CS_MODULE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
+
+        // CS Accounting
         _validate(CS_ACCOUNTING, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
         _validate(CS_ACCOUNTING, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
+
+        // CS Fee Oracle
         _validate(CS_FEE_ORACLE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
         _validate(CS_FEE_ORACLE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
