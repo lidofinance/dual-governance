@@ -52,8 +52,8 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
 
     Timestamp public constant OMNIBUS_EXPIRATION_TIMESTAMP = Timestamp.wrap(1753488000); // Saturday, 26 July 2025 00:00:00 UTC
     Timestamp public constant DG_PROPOSAL_EXPIRATION_TIMESTAMP = Timestamp.wrap(1754092800); // Friday, 2 August 2025 00:00:00 UTC
-    Duration public immutable DG_PROPOSAL_EXECUTABLE_FROM_DAY_TIME = Duration.wrap(4 hours); // 04:00 UTC
-    Duration public immutable DG_PROPOSAL_EXECUTABLE_TILL_DAY_TIME = Duration.wrap(22 hours); // 22:00 UTC
+    Duration public constant DG_PROPOSAL_EXECUTABLE_FROM_DAY_TIME = Duration.wrap(4 hours); // 04:00 UTC
+    Duration public constant DG_PROPOSAL_EXECUTABLE_TILL_DAY_TIME = Duration.wrap(22 hours); // 22:00 UTC
 
     address public immutable DUAL_GOVERNANCE;
     address public immutable ADMIN_EXECUTOR;
