@@ -50,10 +50,10 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
     uint256 public constant VOTE_ITEMS_COUNT = 54;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
 
-    Timestamp public constant OMNIBUS_EXPIRATION_TIMESTAMP = Timestamp.wrap(1753488000); // Saturday, 26 July 2025 00:00:00 UTC
-    Timestamp public constant DG_PROPOSAL_EXPIRATION_TIMESTAMP = Timestamp.wrap(1754092800); // Friday, 2 August 2025 00:00:00 UTC
-    Duration public constant DG_PROPOSAL_EXECUTABLE_FROM_DAY_TIME = Duration.wrap(4 hours); // 04:00 UTC
-    Duration public constant DG_PROPOSAL_EXECUTABLE_TILL_DAY_TIME = Duration.wrap(22 hours); // 22:00 UTC
+    Timestamp public constant OMNIBUS_EXPIRATION_TIMESTAMP = Timestamp.wrap(1753466400); // Friday, 25 July 2025 18:00:00
+    Timestamp public constant DG_PROPOSAL_EXPIRATION_TIMESTAMP = Timestamp.wrap(1754071200); // Friday, 1 August 2025 18:00:00
+    Duration public constant DG_PROPOSAL_EXECUTABLE_FROM_DAY_TIME = Duration.wrap(6 hours); // 06:00 UTC
+    Duration public constant DG_PROPOSAL_EXECUTABLE_TILL_DAY_TIME = Duration.wrap(18 hours); // 18:00 UTC
 
     address public immutable DUAL_GOVERNANCE;
     address public immutable ADMIN_EXECUTOR;
@@ -458,7 +458,7 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             ExternalCallsBuilder.Context memory dgProposalCallsBuilder =
                 ExternalCallsBuilder.create({callsCount: DG_PROPOSAL_CALLS_COUNT});
 
-            // 1. Execution is allowed before Saturday, 2 August 2025 0:00:00
+            // 1. Add the "expiration date" to the Dual Governance proposal
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
                 abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, DG_PROPOSAL_EXPIRATION_TIMESTAMP)
@@ -511,13 +511,12 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             });
         }
 
-        // Add "expiration date" to the omnibus
+        // Add the "expiration date" to the omnibus
         {
             voteItems[index++] = VoteItem({
                 description: "54. Introduce an expiration deadline after which the omnibus can no longer be enacted",
                 call: _votingCall(
                     TIME_CONSTRAINTS,
-                    // Enactment is allowed before Saturday, 26 July 2025 0:00:00
                     abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, OMNIBUS_EXPIRATION_TIMESTAMP)
                 )
             });

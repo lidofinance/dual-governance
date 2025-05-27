@@ -219,9 +219,10 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
         {
             // Create and pass the aragon vote to launch DualGovernance
+            uint256 testDay = block.timestamp - (block.timestamp % 1 days) + 13 hours;
+            vm.warp(testDay);
 
             uint256 voteId = _lido.adoptVote("Activate Dual Governance", launchOmnibus.getEVMScript());
-
             _lido.executeVote(voteId);
             (, bool executed,,,,,,,,,) = _lido.voting.getVote(voteId);
             assertTrue(executed);
