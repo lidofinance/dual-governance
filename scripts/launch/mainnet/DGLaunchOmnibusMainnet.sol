@@ -464,7 +464,7 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
                 abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, DG_PROPOSAL_EXPIRATION_TIMESTAMP)
             );
 
-            // 2. Execution is allowed since 04:00 to 22:00 UTC
+            // 2. Add the "execution time window" to the Dual Governance proposal
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
                 abi.encodeCall(
