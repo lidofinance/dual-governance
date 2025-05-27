@@ -180,4 +180,4 @@ quorum = 3
 
 # The address of the DAO Voting contract that will be use as proposer in case of emergency reset
 governance="0x2e59A20f205bB85a89C53f1936454680651E618e"                       # DAO Voting *
-timelock="<TIMELOCK>"                                                         # Fills after main deployment
+timelock="0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316"
