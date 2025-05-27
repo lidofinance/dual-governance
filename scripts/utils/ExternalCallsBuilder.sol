@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 
 import {IForwarder} from "scripts/launch/interfaces/IForwarder.sol";
-import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
+import {CallsScriptBuilder} from "scripts/utils/CallsScriptBuilder.sol";
 
 library ExternalCallsBuilder {
     using CallsScriptBuilder for CallsScriptBuilder.Context;

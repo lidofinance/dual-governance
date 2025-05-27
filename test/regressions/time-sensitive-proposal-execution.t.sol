@@ -7,7 +7,7 @@ import {TimeConstraints} from "scripts/launch/TimeConstraints.sol";
 
 import {DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
-import {ExternalCall, ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCall, ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 
 interface ITimeSensitiveContract {
     function timeSensitiveMethod() external;

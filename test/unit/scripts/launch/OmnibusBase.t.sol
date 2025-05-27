@@ -6,7 +6,7 @@ import {OmnibusBase} from "scripts/launch/OmnibusBase.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {IForwarder} from "scripts/launch/interfaces/IForwarder.sol";
 import {IVoting} from "scripts/launch/interfaces/IVoting.sol";
-import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
+import {CallsScriptBuilder} from "scripts/utils/CallsScriptBuilder.sol";
 
 contract TestOmnibus is OmnibusBase {
     OmnibusBase.VoteItem[] private voteItems;

@@ -10,7 +10,7 @@ import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 import {IInsuranceFund} from "../interfaces/IInsuranceFund.sol";
 import {RolesValidatorBase} from "../RolesValidatorBase.sol";
 
-contract RolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IRolesValidator {
+contract DGRolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IRolesValidator {
     using OZRoles for OZRoles.Context;
     using AragonRoles for AragonRoles.Context;
 
@@ -48,15 +48,23 @@ contract RolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IRol
         _validate(EVM_SCRIPT_REGISTRY, "REGISTRY_MANAGER_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
 
         // CuratedModule
-        _validate(CURATED_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.manager(AGENT));
-        _validate(CURATED_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT));
-        _validate(CURATED_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.manager(AGENT).revoked(VOTING));
+        _validate(CURATED_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.manager(AGENT).granted(STAKING_ROUTER));
+        _validate(CURATED_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT).granted(AGENT));
+        _validate(
+            CURATED_MODULE,
+            "SET_NODE_OPERATOR_LIMIT_ROLE",
+            AragonRoles.manager(AGENT).revoked(VOTING).granted(EVM_SCRIPT_EXECUTOR)
+        );
         _validate(CURATED_MODULE, "MANAGE_SIGNING_KEYS", AragonRoles.manager(AGENT).revoked(VOTING));
 
         // SimpleDVT Module
-        _validate(SDVT_MODULE, "STAKING_ROUTER_ROLE", AragonRoles.manager(AGENT));
-        _validate(SDVT_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT));
-        _validate(SDVT_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.manager(AGENT));
+        _validate(
+            SDVT_MODULE,
+            "STAKING_ROUTER_ROLE",
+            AragonRoles.manager(AGENT).granted(STAKING_ROUTER).granted(EVM_SCRIPT_EXECUTOR)
+        );
+        _validate(SDVT_MODULE, "MANAGE_NODE_OPERATOR_ROLE", AragonRoles.manager(AGENT).granted(EVM_SCRIPT_EXECUTOR));
+        _validate(SDVT_MODULE, "SET_NODE_OPERATOR_LIMIT_ROLE", AragonRoles.manager(AGENT).granted(EVM_SCRIPT_EXECUTOR));
 
         // ACL
         _validate(ACL, "CREATE_PERMISSIONS_ROLE", AragonRoles.manager(AGENT).revoked(VOTING).granted(AGENT));
@@ -71,12 +79,24 @@ contract RolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IRol
         _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).granted(VOTING).granted(ADMIN_EXECUTOR));
 
         // WithdrawalQueue
-        _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER));
+        _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
         _validate(WITHDRAWAL_QUEUE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
         // VEBO
-        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER));
+        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
         _validate(VEBO, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
+
+        // CS Module
+        _validate(CS_MODULE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
+        _validate(CS_MODULE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
+
+        // CS Accounting
+        _validate(CS_ACCOUNTING, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
+        _validate(CS_ACCOUNTING, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
+
+        // CS Fee Oracle
+        _validate(CS_FEE_ORACLE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(CS_GATE_SEAL));
+        _validate(CS_FEE_ORACLE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
         // AllowedTokensRegistry
         _validate(ALLOWED_TOKENS_REGISTRY, "DEFAULT_ADMIN_ROLE", OZRoles.revoked(AGENT).granted(VOTING));
