@@ -7,8 +7,8 @@ import {DGDeployArtifactLoader} from "scripts/utils/DGDeployArtifactLoader.sol";
 import {DGSetupDeployArtifacts} from "scripts/utils/contracts-deployment.sol";
 import {DGLaunchConfig} from "scripts/utils/contracts-deployment.sol";
 
-import {RolesValidatorMainnet} from "./RolesValidatorMainnet.sol";
-import {LaunchOmnibusMainnet} from "./LaunchOmnibusMainnet.sol";
+import {DGRolesValidatorMainnet} from "./DGRolesValidatorMainnet.sol";
+import {DGLaunchOmnibusMainnet} from "./DGLaunchOmnibusMainnet.sol";
 import {DGLaunchStateVerifier} from "../DGLaunchStateVerifier.sol";
 
 import {Duration} from "contracts/types/Duration.sol";
@@ -72,7 +72,7 @@ contract DeployLaunchMainnet is DGDeployArtifactLoader {
         );
         vm.label(address(launchVerifier), "LAUNCH_VERIFIER");
 
-        RolesValidatorMainnet rolesValidator = new RolesValidatorMainnet(adminExecutor, resealManager);
+        DGRolesValidatorMainnet rolesValidator = new DGRolesValidatorMainnet(adminExecutor, resealManager);
         vm.label(address(rolesValidator), "ROLES_VALIDATOR");
 
         TimeConstraints timeConstraints = new TimeConstraints();
@@ -88,7 +88,7 @@ contract DeployLaunchMainnet is DGDeployArtifactLoader {
         console.log("Time Constraints (deployed):", address(timeConstraints));
         console.log("=====================================");
 
-        LaunchOmnibusMainnet dgLaunchMainnet = new LaunchOmnibusMainnet(
+        DGLaunchOmnibusMainnet dgLaunchMainnet = new DGLaunchOmnibusMainnet(
             address(dualGovernance),
             address(adminExecutor),
             address(resealManager),

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Timestamps} from "contracts/types/Timestamp.sol";
+import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 
@@ -44,8 +44,7 @@ import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
 /// Note: The contract is intended to be used as a reference and validation tool for constructing
 /// a governance vote that initiates the migration of critical roles, permissions and ownerships to Dual Governance.
 /// It must be used by the Aragon Voting and couldn't be executed directly.
-
-contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
+contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     bytes32 private constant PAUSE_ROLE = keccak256("PAUSE_ROLE");
@@ -449,9 +448,10 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
                 ExternalCallsBuilder.create({callsCount: DG_PROPOSAL_CALLS_COUNT});
 
             // 1. Execution is allowed before Saturday, 2 August 2025 0:00:00
+            Timestamp dgProposalExpirationTimestamp = Timestamps.from(1754092800);
             dgProposalCallsBuilder.addCall(
                 TIME_CONSTRAINTS,
-                abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, (Timestamps.from(1754092800)))
+                abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, dgProposalExpirationTimestamp)
             );
 
             // 2. Execution is allowed since 04:00 to 22:00 UTC
@@ -502,12 +502,13 @@ contract LaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
 
         // Add "expiration date" to the omnibus
         {
+            Timestamp omnibusExpirationTimestamp = Timestamps.from(1753488000);
             voteItems[index++] = VoteItem({
                 description: "54. Introduce an expiration deadline after which the omnibus can no longer be enacted",
                 call: _votingCall(
                     TIME_CONSTRAINTS,
                     // Enactment is allowed before Saturday, 26 July 2025 0:00:00
-                    abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, (Timestamps.from(1753488000)))
+                    abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, omnibusExpirationTimestamp)
                 )
             });
         }

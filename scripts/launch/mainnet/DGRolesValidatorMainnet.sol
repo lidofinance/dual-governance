@@ -10,7 +10,7 @@ import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 import {IInsuranceFund} from "../interfaces/IInsuranceFund.sol";
 import {RolesValidatorBase} from "../RolesValidatorBase.sol";
 
-contract RolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IRolesValidator {
+contract DGRolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IRolesValidator {
     using OZRoles for OZRoles.Context;
     using AragonRoles for AragonRoles.Context;
 

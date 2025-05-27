@@ -13,9 +13,9 @@ import {LidoUtils} from "test/utils/lido-utils.sol";
 import {OmnibusBase} from "scripts/launch/OmnibusBase.sol";
 import {TimeConstraints} from "scripts/launch/TimeConstraints.sol";
 import {DGLaunchStateVerifier} from "scripts/launch/DGLaunchStateVerifier.sol";
-import {LaunchOmnibusMainnet} from "scripts/launch/mainnet/LaunchOmnibusMainnet.sol";
+import {DGLaunchOmnibusMainnet} from "scripts/launch/mainnet/DGLaunchOmnibusMainnet.sol";
 import {LidoAddressesMainnet} from "scripts/launch/mainnet/LidoAddressesMainnet.sol";
-import {RolesValidatorMainnet} from "scripts/launch/mainnet/RolesValidatorMainnet.sol";
+import {DGRolesValidatorMainnet} from "scripts/launch/mainnet/DGRolesValidatorMainnet.sol";
 
 import {IWithdrawalVaultProxy} from "scripts/launch/interfaces/IWithdrawalVaultProxy.sol";
 import {IOZ} from "scripts/launch/interfaces/IOZ.sol";
@@ -25,7 +25,7 @@ import {IInsuranceFund} from "scripts/launch/interfaces/IInsuranceFund.sol";
 contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
     using LidoUtils for LidoUtils.Context;
 
-    LaunchOmnibusMainnet internal launchOmnibus;
+    DGLaunchOmnibusMainnet internal launchOmnibus;
 
     bytes32 internal STAKING_CONTROL_ROLE = keccak256("STAKING_CONTROL_ROLE");
     bytes32 internal RESUME_ROLE = keccak256("RESUME_ROLE");
@@ -70,10 +70,10 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
             })
         );
 
-        RolesValidatorMainnet rolesValidator = new RolesValidatorMainnet(
+        DGRolesValidatorMainnet rolesValidator = new DGRolesValidatorMainnet(
             address(_dgDeployedContracts.adminExecutor), address(_dgDeployedContracts.resealManager)
         );
-        launchOmnibus = new LaunchOmnibusMainnet(
+        launchOmnibus = new DGLaunchOmnibusMainnet(
             address(_dgDeployedContracts.dualGovernance),
             address(_dgDeployedContracts.adminExecutor),
             address(_dgDeployedContracts.resealManager),
