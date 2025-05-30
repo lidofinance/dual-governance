@@ -89,8 +89,6 @@ Note: there's a full-blown ["role model research"](https://github.com/lidofinanc
 
 ## Permissions Transition Plan
 
-## Lido Permissions Transition
-
 > - Data was collected at block [`22588287`](https://etherscan.io/block/22588287)
 > - The last permissions change occurred at block [`22368161`](https://etherscan.io/block/22368161), transaction [`0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598`](https://etherscan.io/tx/0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598)
 
