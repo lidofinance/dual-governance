@@ -89,8 +89,10 @@ Note: there's a full-blown ["role model research"](https://github.com/lidofinanc
 
 ## Permissions Transition Plan
 
-> - Data was collected at block [`22529868`](https://etherscan.io//block/22529868)
-> - The last permissions change occurred at block [`22368161`](https://etherscan.io//block/22368161), transaction [`0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598`](https://etherscan.io//tx/0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598)
+## Lido Permissions Transition
+
+> - Data was collected at block [`22588287`](https://etherscan.io/block/22588287)
+> - The last permissions change occurred at block [`22368161`](https://etherscan.io/block/22368161), transaction [`0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598`](https://etherscan.io/tx/0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598)
 
 How to read this document:
 - If an item is prepended with the "⚠️" icon, it indicates that the item will be changed. The required updates are described in the corresponding "Transition Steps" sections.
@@ -102,13 +104,13 @@ How to read this document:
   - A special case is "`∅` → `New Manager`", which means the permission currently has no manager, and the permission should be created before use.
 
 ### Aragon Permissions
-#### ⚠️ Lido [0xae7ab96520de3a18e5e111b5eaab095312d7fe84](https://etherscan.io//address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84)
+#### ⚠️ Lido [0xae7ab96520de3a18e5e111b5eaab095312d7fe84](https://etherscan.io/address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`STAKING_CONTROL_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_CONTROL_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
-| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
-| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
-| ⚠️ [`STAKING_PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_PAUSE_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
+| ⚠️ [`STAKING_CONTROL_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_CONTROL_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
+| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
+| ⚠️ [`STAKING_PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_PAUSE_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
 | [`UNSAFE_CHANGE_DEPOSITED_VALIDATORS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNSAFE_CHANGE_DEPOSITED_VALIDATORS_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 
 ##### Transition Steps
@@ -124,10 +126,10 @@ How to read this document:
 8. Set STAKING_PAUSE_ROLE manager to Agent on Lido
 ```
 
-#### ⚠️ DAOKernel [0xb8ffc3cd6e7cf5a098a1c92f48009765b24088dc](https://etherscan.io//address/0xb8ffc3cd6e7cf5a098a1c92f48009765b24088dc)
+#### ⚠️ DAOKernel [0xb8ffc3cd6e7cf5a098a1c92f48009765b24088dc](https://etherscan.io/address/0xb8ffc3cd6e7cf5a098a1c92f48009765b24088dc)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`APP_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=APP_MANAGER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
+| ⚠️ [`APP_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=APP_MANAGER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
 
 ##### Transition Steps
 
@@ -136,14 +138,14 @@ How to read this document:
 10. Set APP_MANAGER_ROLE manager to Agent on DAOKernel
 ```
 
-#### ⚠️ TokenManager [0xf73a1260d222f447210581ddf212d915c09a3249](https://etherscan.io//address/0xf73a1260d222f447210581ddf212d915c09a3249)
+#### ⚠️ TokenManager [0xf73a1260d222f447210581ddf212d915c09a3249](https://etherscan.io/address/0xf73a1260d222f447210581ddf212d915c09a3249)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`MINT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MINT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| ⚠️ [`REVOKE_VESTINGS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REVOKE_VESTINGS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`ISSUE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ISSUE_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ∅ |
-| [`ASSIGN_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ASSIGN_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`BURN_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=BURN_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ∅ |
+| ⚠️ [`MINT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MINT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| ⚠️ [`REVOKE_VESTINGS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REVOKE_VESTINGS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`ISSUE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ISSUE_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ∅ |
+| [`ASSIGN_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ASSIGN_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`BURN_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=BURN_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ∅ |
 
 ##### Transition Steps
 
@@ -152,14 +154,14 @@ How to read this document:
 12. Create REVOKE_VESTINGS_ROLE permission on TokenManager with manager Voting and grant it to Voting
 ```
 
-#### ⚠️ Finance [0xb9e5cbb9ca5b0d659238807e84d0176930753d86](https://etherscan.io//address/0xb9e5cbb9ca5b0d659238807e84d0176930753d86)
+#### ⚠️ Finance [0xb9e5cbb9ca5b0d659238807e84d0176930753d86](https://etherscan.io/address/0xb9e5cbb9ca5b0d659238807e84d0176930753d86)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`CHANGE_PERIOD_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CHANGE_PERIOD_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| ⚠️ [`CHANGE_BUDGETS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CHANGE_BUDGETS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`CREATE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
-| [`EXECUTE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=EXECUTE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`MANAGE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| ⚠️ [`CHANGE_PERIOD_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CHANGE_PERIOD_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| ⚠️ [`CHANGE_BUDGETS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CHANGE_BUDGETS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`CREATE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
+| [`EXECUTE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=EXECUTE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`MANAGE_PAYMENTS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_PAYMENTS_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
 
 ##### Transition Steps
 
@@ -168,11 +170,11 @@ How to read this document:
 14. Create CHANGE_BUDGETS_ROLE permission on Finance with manager Voting and grant it to Voting
 ```
 
-#### ⚠️ EVMScriptRegistry [0x853cc0d5917f49b57b8e9f89e491f5e18919093a](https://etherscan.io//address/0x853cc0d5917f49b57b8e9f89e491f5e18919093a)
+#### ⚠️ EVMScriptRegistry [0x853cc0d5917f49b57b8e9f89e491f5e18919093a](https://etherscan.io/address/0x853cc0d5917f49b57b8e9f89e491f5e18919093a)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`REGISTRY_ADD_EXECUTOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REGISTRY_ADD_EXECUTOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
-| ⚠️ [`REGISTRY_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REGISTRY_MANAGER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
+| ⚠️ [`REGISTRY_ADD_EXECUTOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REGISTRY_ADD_EXECUTOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
+| ⚠️ [`REGISTRY_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REGISTRY_MANAGER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
 
 ##### Transition Steps
 
@@ -183,13 +185,13 @@ How to read this document:
 18. Set REGISTRY_MANAGER_ROLE manager to Agent on EVMScriptRegistry
 ```
 
-#### ⚠️ CuratedModule [0x55032650b14df07b85bf18a3a3ec8e0af2e028d5](https://etherscan.io//address/0x55032650b14df07b85bf18a3a3ec8e0af2e028d5)
+#### ⚠️ CuratedModule [0x55032650b14df07b85bf18a3a3ec8e0af2e028d5](https://etherscan.io/address/0x55032650b14df07b85bf18a3a3ec8e0af2e028d5)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`StakingRouter`](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999) |
-| ⚠️ [`MANAGE_NODE_OPERATOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_NODE_OPERATOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| ⚠️ [`SET_NODE_OPERATOR_LIMIT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_NODE_OPERATOR_LIMIT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
-| ⚠️ [`MANAGE_SIGNING_KEYS`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_SIGNING_KEYS&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
+| ⚠️ [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`StakingRouter`](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999) |
+| ⚠️ [`MANAGE_NODE_OPERATOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_NODE_OPERATOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| ⚠️ [`SET_NODE_OPERATOR_LIMIT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_NODE_OPERATOR_LIMIT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
+| ⚠️ [`MANAGE_SIGNING_KEYS`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_SIGNING_KEYS&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
 
 ##### Transition Steps
 
@@ -202,13 +204,13 @@ How to read this document:
 24. Set MANAGE_SIGNING_KEYS manager to Agent on CuratedModule
 ```
 
-#### ⚠️ SimpleDVT [0xae7b191a31f627b4eb1d4dac64eab9976995b433](https://etherscan.io//address/0xae7b191a31f627b4eb1d4dac64eab9976995b433)
+#### ⚠️ SimpleDVT [0xae7b191a31f627b4eb1d4dac64eab9976995b433](https://etherscan.io/address/0xae7b191a31f627b4eb1d4dac64eab9976995b433)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`StakingRouter`](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999) [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
-| ⚠️ [`MANAGE_NODE_OPERATOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_NODE_OPERATOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
-| ⚠️ [`SET_NODE_OPERATOR_LIMIT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_NODE_OPERATOR_LIMIT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
-| [`MANAGE_SIGNING_KEYS`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_SIGNING_KEYS&input_type=utf-8&output_type=hex) | [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) | ∅ | [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) `+82 Simple DVT Operator(s)` |
+| ⚠️ [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`StakingRouter`](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999) [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
+| ⚠️ [`MANAGE_NODE_OPERATOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_NODE_OPERATOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
+| ⚠️ [`SET_NODE_OPERATOR_LIMIT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_NODE_OPERATOR_LIMIT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
+| [`MANAGE_SIGNING_KEYS`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_SIGNING_KEYS&input_type=utf-8&output_type=hex) | [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) | ∅ | [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) `+82 Simple DVT Operator(s)` |
 
 ##### Transition Steps
 
@@ -218,10 +220,10 @@ How to read this document:
 27. Set SET_NODE_OPERATOR_LIMIT_ROLE manager to Agent on SimpleDVT
 ```
 
-#### ⚠️ ACL [0x9895f0f17cc1d1891b6f18ee0b483b6f221b37bb](https://etherscan.io//address/0x9895f0f17cc1d1891b6f18ee0b483b6f221b37bb)
+#### ⚠️ ACL [0x9895f0f17cc1d1891b6f18ee0b483b6f221b37bb](https://etherscan.io/address/0x9895f0f17cc1d1891b6f18ee0b483b6f221b37bb)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`CREATE_PERMISSIONS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_PERMISSIONS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| ⚠️ [`CREATE_PERMISSIONS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_PERMISSIONS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
 ##### Transition Steps
 
@@ -231,12 +233,12 @@ How to read this document:
 30. Set CREATE_PERMISSIONS_ROLE manager to Agent on ACL
 ```
 
-#### ⚠️ Agent [0x3e40d73eb977dc6a537af587d48316fee66e9c8c](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c)
+#### ⚠️ Agent [0x3e40d73eb977dc6a537af587d48316fee66e9c8c](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`RUN_SCRIPT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RUN_SCRIPT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`DGAdminExecutor`](https://etherscan.io//address/0x23e0b465633ff5178808f4a75186e2f2f9537021) |
-| ⚠️ [`EXECUTE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=EXECUTE_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`DGAdminExecutor`](https://etherscan.io//address/0x23e0b465633ff5178808f4a75186e2f2f9537021) |
-| [`TRANSFER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=TRANSFER_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Finance`](https://etherscan.io//address/0xb9e5cbb9ca5b0d659238807e84d0176930753d86) |
+| ⚠️ [`RUN_SCRIPT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RUN_SCRIPT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`DGAdminExecutor`](https://etherscan.io/address/0x23e0b465633ff5178808f4a75186e2f2f9537021) |
+| ⚠️ [`EXECUTE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=EXECUTE_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`DGAdminExecutor`](https://etherscan.io/address/0x23e0b465633ff5178808f4a75186e2f2f9537021) |
+| [`TRANSFER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=TRANSFER_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Finance`](https://etherscan.io/address/0xb9e5cbb9ca5b0d659238807e84d0176930753d86) |
 | [`SAFE_EXECUTE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SAFE_EXECUTE_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 | [`DESIGNATE_SIGNER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DESIGNATE_SIGNER_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 | [`ADD_PRESIGNED_HASH_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ADD_PRESIGNED_HASH_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
@@ -247,63 +249,63 @@ How to read this document:
 
 ```
 31. Grant RUN_SCRIPT_ROLE permission to DGAdminExecutor on Agent
-// SKIPPED: __. Revoke RUN_SCRIPT_ROLE permission from Voting on Agent - Will be done as 
+// DONE VIA DG PROPOSAL: __. Revoke RUN_SCRIPT_ROLE permission from Voting on Agent - Will be done as 
 //      the last step of the launch via the Dual Governance proposal
 32. Set RUN_SCRIPT_ROLE manager to Agent on Agent
 33. Grant EXECUTE_ROLE permission to DGAdminExecutor on Agent
-// SKIPPED: __. Revoke EXECUTE_ROLE permission from Voting on Agent - Will be done as 
+// DONE VIA DG PROPOSAL: __. Revoke EXECUTE_ROLE permission from Voting on Agent - Will be done as 
 //      the last step of the launch via the Dual Governance proposal
 34. Set EXECUTE_ROLE manager to Agent on Agent
 ```
 
-#### Voting [0x2e59a20f205bb85a89c53f1936454680651e618e](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e)
+#### Voting [0x2e59a20f205bb85a89c53f1936454680651e618e](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
-| [`UNSAFELY_MODIFY_VOTE_TIME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNSAFELY_MODIFY_VOTE_TIME_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ∅ |
-| [`MODIFY_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODIFY_QUORUM_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`MODIFY_SUPPORT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODIFY_SUPPORT_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`CREATE_VOTES_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VOTES_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`TokenManager`](https://etherscan.io//address/0xf73a1260d222f447210581ddf212d915c09a3249) |
+| [`UNSAFELY_MODIFY_VOTE_TIME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNSAFELY_MODIFY_VOTE_TIME_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ∅ |
+| [`MODIFY_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODIFY_QUORUM_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`MODIFY_SUPPORT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODIFY_SUPPORT_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`CREATE_VOTES_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VOTES_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`TokenManager`](https://etherscan.io/address/0xf73a1260d222f447210581ddf212d915c09a3249) |
 
-#### AragonPM [0x0cb113890b04b49455dfe06554e2d784598a29c9](https://etherscan.io//address/0x0cb113890b04b49455dfe06554e2d784598a29c9)
+#### AragonPM [0x0cb113890b04b49455dfe06554e2d784598a29c9](https://etherscan.io/address/0x0cb113890b04b49455dfe06554e2d784598a29c9)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | [`CREATE_REPO_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_REPO_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 
-#### VotingRepo [0x4ee3118e3858e8d7164a634825bfe0f73d99c792](https://etherscan.io//address/0x4ee3118e3858e8d7164a634825bfe0f73d99c792)
+#### VotingRepo [0x4ee3118e3858e8d7164a634825bfe0f73d99c792](https://etherscan.io/address/0x4ee3118e3858e8d7164a634825bfe0f73d99c792)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 
-#### LidoRepo [0xf5dc67e54fc96f993cd06073f71ca732c1e654b1](https://etherscan.io//address/0xf5dc67e54fc96f993cd06073f71ca732c1e654b1)
+#### LidoRepo [0xf5dc67e54fc96f993cd06073f71ca732c1e654b1](https://etherscan.io/address/0xf5dc67e54fc96f993cd06073f71ca732c1e654b1)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 
-#### LegacyOracleRepo [0xf9339de629973c60c4d2b76749c81e6f40960e3a](https://etherscan.io//address/0xf9339de629973c60c4d2b76749c81e6f40960e3a)
+#### LegacyOracleRepo [0xf9339de629973c60c4d2b76749c81e6f40960e3a](https://etherscan.io/address/0xf9339de629973c60c4d2b76749c81e6f40960e3a)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 
-#### CuratedModuleRepo [0x0d97e876ad14db2b183cfeeb8aa1a5c788eb1831](https://etherscan.io//address/0x0d97e876ad14db2b183cfeeb8aa1a5c788eb1831)
+#### CuratedModuleRepo [0x0d97e876ad14db2b183cfeeb8aa1a5c788eb1831](https://etherscan.io/address/0x0d97e876ad14db2b183cfeeb8aa1a5c788eb1831)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 
-#### SimpleDVTRepo [0x2325b0a607808de42d918db07f925ffccfbb2968](https://etherscan.io//address/0x2325b0a607808de42d918db07f925ffccfbb2968)
+#### SimpleDVTRepo [0x2325b0a607808de42d918db07f925ffccfbb2968](https://etherscan.io/address/0x2325b0a607808de42d918db07f925ffccfbb2968)
 | Role | Role Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 
 ### OZ Roles
-#### ⚠️ WithdrawalQueueERC721 [0x889edc2edab5f40e902b864ad4d7ade8e412f9b1](https://etherscan.io//address/0x889edc2edab5f40e902b864ad4d7ade8e412f9b1)
+#### ⚠️ WithdrawalQueueERC721 [0x889edc2edab5f40e902b864ad4d7ade8e412f9b1](https://etherscan.io/address/0x889edc2edab5f40e902b864ad4d7ade8e412f9b1)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`OraclesGateSeal`](https://etherscan.io//address/0xf9c9fdb4a5d2aa1d836d5370ab9b28bc1847e178) |
-| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`FINALIZE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=FINALIZE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Lido`](https://etherscan.io//address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84) |
+| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`OraclesGateSeal`](https://etherscan.io/address/0xf9c9fdb4a5d2aa1d836d5370ab9b28bc1847e178) |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`FINALIZE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=FINALIZE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Lido`](https://etherscan.io/address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84) |
 | [`MANAGE_TOKEN_URI_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_TOKEN_URI_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`ORACLE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ORACLE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`AccountingOracle`](https://etherscan.io//address/0x852ded011285fe67063a08005c71a85690503cee) |
+| [`ORACLE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ORACLE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`AccountingOracle`](https://etherscan.io/address/0x852ded011285fe67063a08005c71a85690503cee) |
 
 ##### Transition Steps
 
@@ -312,12 +314,12 @@ How to read this document:
 36. Grant RESUME_ROLE to ResealManager on WithdrawalQueueERC721
 ```
 
-#### ⚠️ ValidatorsExitBusOracle [0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e](https://etherscan.io//address/0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e)
+#### ⚠️ ValidatorsExitBusOracle [0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e](https://etherscan.io/address/0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`OraclesGateSeal`](https://etherscan.io//address/0xf9c9fdb4a5d2aa1d836d5370ab9b28bc1847e178) |
-| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`OraclesGateSeal`](https://etherscan.io/address/0xf9c9fdb4a5d2aa1d836d5370ab9b28bc1847e178) |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`MANAGE_CONSENSUS_CONTRACT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_CONSENSUS_CONTRACT_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_CONSENSUS_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_CONSENSUS_VERSION_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`SUBMIT_DATA_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SUBMIT_DATA_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
@@ -329,18 +331,18 @@ How to read this document:
 38. Grant RESUME_ROLE to ResealManager on ValidatorsExitBusOracle
 ```
 
-#### ⚠️ CSModule [0xda7de2ecddfccc6c3af10108db212acbbf9ea83f](https://etherscan.io//address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f)
+#### ⚠️ CSModule [0xda7de2ecddfccc6c3af10108db212acbbf9ea83f](https://etherscan.io/address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io//address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
-| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io/address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`MODULE_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODULE_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`RECOVERER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RECOVERER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`REPORT_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REPORT_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSCommitteeMultisig`](https://etherscan.io//address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
-| [`SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`EvmScriptExecutor`](https://etherscan.io//address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
-| [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`StakingRouter`](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999) |
-| [`VERIFIER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=VERIFIER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSVerifier`](https://etherscan.io//address/0x0c345dfa318f9f4977cdd4f33d80f9d0ffa38e8b) |
+| [`REPORT_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REPORT_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSCommitteeMultisig`](https://etherscan.io/address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
+| [`SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SETTLE_EL_REWARDS_STEALING_PENALTY_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
+| [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`StakingRouter`](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999) |
+| [`VERIFIER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=VERIFIER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSVerifier`](https://etherscan.io/address/0x0c345dfa318f9f4977cdd4f33d80f9d0ffa38e8b) |
 
 ##### Transition Steps
 
@@ -349,17 +351,17 @@ How to read this document:
 40. Grant RESUME_ROLE to ResealManager on CSModule
 ```
 
-#### ⚠️ CSAccounting [0x4d72bff1beac69925f8bd12526a39baab069e5da](https://etherscan.io//address/0x4d72bff1beac69925f8bd12526a39baab069e5da)
+#### ⚠️ CSAccounting [0x4d72bff1beac69925f8bd12526a39baab069e5da](https://etherscan.io/address/0x4d72bff1beac69925f8bd12526a39baab069e5da)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io//address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
-| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io/address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`ACCOUNTING_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ACCOUNTING_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_BOND_CURVES_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_BOND_CURVES_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`RECOVERER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RECOVERER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`RESET_BOND_CURVE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESET_BOND_CURVE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSModule`](https://etherscan.io//address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f) [`CSCommitteeMultisig`](https://etherscan.io//address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
-| [`SET_BOND_CURVE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_BOND_CURVE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSModule`](https://etherscan.io//address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f) [`CSCommitteeMultisig`](https://etherscan.io//address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
+| [`RESET_BOND_CURVE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESET_BOND_CURVE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSModule`](https://etherscan.io/address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f) [`CSCommitteeMultisig`](https://etherscan.io/address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
+| [`SET_BOND_CURVE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_BOND_CURVE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`CSModule`](https://etherscan.io/address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f) [`CSCommitteeMultisig`](https://etherscan.io/address/0xc52fc3081123073078698f1eac2f1dc7bd71880f) |
 
 ##### Transition Steps
 
@@ -368,12 +370,12 @@ How to read this document:
 42. Grant RESUME_ROLE to ResealManager on CSAccounting
 ```
 
-#### ⚠️ CSFeeOracle [0x4d4074628678bd302921c20573eea1ed38ddf7fb](https://etherscan.io//address/0x4d4074628678bd302921c20573eea1ed38ddf7fb)
+#### ⚠️ CSFeeOracle [0x4d4074628678bd302921c20573eea1ed38ddf7fb](https://etherscan.io/address/0x4d4074628678bd302921c20573eea1ed38ddf7fb)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io//address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
-| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io//address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| ⚠️ [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) [`CSGateSeal`](https://etherscan.io/address/0x16dbd4b85a448be564f1742d5c8ccdd2bb3185d0) |
+| ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ⚠️ [`ResealManager`](https://etherscan.io/address/0x7914b5a1539b97bd0bbd155757f25fd79a522d24) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`CONTRACT_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CONTRACT_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_CONSENSUS_CONTRACT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_CONSENSUS_CONTRACT_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_CONSENSUS_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_CONSENSUS_VERSION_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
@@ -387,12 +389,12 @@ How to read this document:
 44. Grant RESUME_ROLE to ResealManager on CSFeeOracle
 ```
 
-#### ⚠️ AllowedTokensRegistry [0x4ac40c34f8992bb1e5e856a448792158022551ca](https://etherscan.io//address/0x4ac40c34f8992bb1e5e856a448792158022551ca)
+#### ⚠️ AllowedTokensRegistry [0x4ac40c34f8992bb1e5e856a448792158022551ca](https://etherscan.io/address/0x4ac40c34f8992bb1e5e856a448792158022551ca)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| ⚠️ `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| ⚠️ [`ADD_TOKEN_TO_ALLOWED_LIST_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ADD_TOKEN_TO_ALLOWED_LIST_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ |
-| ⚠️ [`REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ |
+| ⚠️ `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| ⚠️ [`ADD_TOKEN_TO_ALLOWED_LIST_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ADD_TOKEN_TO_ALLOWED_LIST_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ |
+| ⚠️ [`REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ⚠️ [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ |
 
 ##### Transition Steps
 
@@ -403,56 +405,56 @@ How to read this document:
 48. Revoke REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE from Agent on AllowedTokensRegistry
 ```
 
-#### StakingRouter [0xfddf38947afb03c621c71b06c9c70bce73f12999](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999)
+#### StakingRouter [0xfddf38947afb03c621c71b06c9c70bce73f12999](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`MANAGE_WITHDRAWAL_CREDENTIALS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_WITHDRAWAL_CREDENTIALS_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`REPORT_EXITED_VALIDATORS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REPORT_EXITED_VALIDATORS_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`AccountingOracle`](https://etherscan.io//address/0x852ded011285fe67063a08005c71a85690503cee) |
-| [`REPORT_REWARDS_MINTED_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REPORT_REWARDS_MINTED_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Lido`](https://etherscan.io//address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84) |
-| [`STAKING_MODULE_MANAGE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_MODULE_MANAGE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`STAKING_MODULE_UNVETTING_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_MODULE_UNVETTING_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`DepositSecurityModule`](https://etherscan.io//address/0xffa96d84def2ea035c7ab153d8b991128e3d72fd) |
+| [`REPORT_EXITED_VALIDATORS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REPORT_EXITED_VALIDATORS_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`AccountingOracle`](https://etherscan.io/address/0x852ded011285fe67063a08005c71a85690503cee) |
+| [`REPORT_REWARDS_MINTED_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REPORT_REWARDS_MINTED_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Lido`](https://etherscan.io/address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84) |
+| [`STAKING_MODULE_MANAGE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_MODULE_MANAGE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`STAKING_MODULE_UNVETTING_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_MODULE_UNVETTING_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`DepositSecurityModule`](https://etherscan.io/address/0xffa96d84def2ea035c7ab153d8b991128e3d72fd) |
 | [`UNSAFE_SET_EXITED_VALIDATORS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNSAFE_SET_EXITED_VALIDATORS_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### Burner [0xd15a672319cf0352560ee76d9e89eab0889046d3](https://etherscan.io//address/0xd15a672319cf0352560ee76d9e89eab0889046d3)
+#### Burner [0xd15a672319cf0352560ee76d9e89eab0889046d3](https://etherscan.io/address/0xd15a672319cf0352560ee76d9e89eab0889046d3)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`REQUEST_BURN_MY_STETH_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REQUEST_BURN_MY_STETH_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`REQUEST_BURN_SHARES_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REQUEST_BURN_SHARES_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Lido`](https://etherscan.io//address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84) [`CuratedModule`](https://etherscan.io//address/0x55032650b14df07b85bf18a3a3ec8e0af2e028d5) [`SimpleDVT`](https://etherscan.io//address/0xae7b191a31f627b4eb1d4dac64eab9976995b433) [`CSAccounting`](https://etherscan.io//address/0x4d72bff1beac69925f8bd12526a39baab069e5da) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`REQUEST_BURN_MY_STETH_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REQUEST_BURN_MY_STETH_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`REQUEST_BURN_SHARES_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REQUEST_BURN_SHARES_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Lido`](https://etherscan.io/address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84) [`CuratedModule`](https://etherscan.io/address/0x55032650b14df07b85bf18a3a3ec8e0af2e028d5) [`SimpleDVT`](https://etherscan.io/address/0xae7b191a31f627b4eb1d4dac64eab9976995b433) [`CSAccounting`](https://etherscan.io/address/0x4d72bff1beac69925f8bd12526a39baab069e5da) |
 
-#### AccountingOracle [0x852ded011285fe67063a08005c71a85690503cee](https://etherscan.io//address/0x852ded011285fe67063a08005c71a85690503cee)
+#### AccountingOracle [0x852ded011285fe67063a08005c71a85690503cee](https://etherscan.io/address/0x852ded011285fe67063a08005c71a85690503cee)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`MANAGE_CONSENSUS_CONTRACT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_CONSENSUS_CONTRACT_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_CONSENSUS_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_CONSENSUS_VERSION_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`SUBMIT_DATA_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SUBMIT_DATA_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### AccountingOracleHashConsensus [0xd624b08c83baecf0807dd2c6880c3154a5f0b288](https://etherscan.io//address/0xd624b08c83baecf0807dd2c6880c3154a5f0b288)
+#### AccountingOracleHashConsensus [0xd624b08c83baecf0807dd2c6880c3154a5f0b288](https://etherscan.io/address/0xd624b08c83baecf0807dd2c6880c3154a5f0b288)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`DISABLE_CONSENSUS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DISABLE_CONSENSUS_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_FAST_LANE_CONFIG_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_FAST_LANE_CONFIG_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_FRAME_CONFIG_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_FRAME_CONFIG_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`MANAGE_MEMBERS_AND_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_MEMBERS_AND_QUORUM_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`MANAGE_MEMBERS_AND_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_MEMBERS_AND_QUORUM_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`MANAGE_REPORT_PROCESSOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_REPORT_PROCESSOR_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### ValidatorsExitBusHashConsensus [0x7fadb6358950c5faa66cb5eb8ee5147de3df355a](https://etherscan.io//address/0x7fadb6358950c5faa66cb5eb8ee5147de3df355a)
+#### ValidatorsExitBusHashConsensus [0x7fadb6358950c5faa66cb5eb8ee5147de3df355a](https://etherscan.io/address/0x7fadb6358950c5faa66cb5eb8ee5147de3df355a)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`DISABLE_CONSENSUS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DISABLE_CONSENSUS_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_FAST_LANE_CONFIG_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_FAST_LANE_CONFIG_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_FRAME_CONFIG_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_FRAME_CONFIG_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`MANAGE_MEMBERS_AND_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_MEMBERS_AND_QUORUM_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`MANAGE_MEMBERS_AND_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_MEMBERS_AND_QUORUM_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`MANAGE_REPORT_PROCESSOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_REPORT_PROCESSOR_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### OracleReportSanityChecker [0x6232397ebac4f5772e53285b26c47914e9461e75](https://etherscan.io//address/0x6232397ebac4f5772e53285b26c47914e9461e75)
+#### OracleReportSanityChecker [0x6232397ebac4f5772e53285b26c47914e9461e75](https://etherscan.io/address/0x6232397ebac4f5772e53285b26c47914e9461e75)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`ALL_LIMITS_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ALL_LIMITS_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`ANNUAL_BALANCE_INCREASE_LIMIT_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=ANNUAL_BALANCE_INCREASE_LIMIT_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`APPEARED_VALIDATORS_PER_DAY_LIMIT_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=APPEARED_VALIDATORS_PER_DAY_LIMIT_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
@@ -466,127 +468,191 @@ How to read this document:
 | [`SECOND_OPINION_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SECOND_OPINION_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`SHARE_RATE_DEVIATION_LIMIT_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SHARE_RATE_DEVIATION_LIMIT_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### OracleDaemonConfig [0xbf05a929c3d7885a6aead833a992da6e5ac23b09](https://etherscan.io//address/0xbf05a929c3d7885a6aead833a992da6e5ac23b09)
+#### OracleDaemonConfig [0xbf05a929c3d7885a6aead833a992da6e5ac23b09](https://etherscan.io/address/0xbf05a929c3d7885a6aead833a992da6e5ac23b09)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`CONFIG_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CONFIG_MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### CSFeeDistributor [0xd99cc66fec647e68294c6477b40fc7e0f6f618d0](https://etherscan.io//address/0xd99cc66fec647e68294c6477b40fc7e0f6f618d0)
+#### CSFeeDistributor [0xd99cc66fec647e68294c6477b40fc7e0f6f618d0](https://etherscan.io/address/0xd99cc66fec647e68294c6477b40fc7e0f6f618d0)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`RECOVERER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RECOVERER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### CSHashConsensus [0x71093eff8d8599b5fa340d665ad60fa7c80688e4](https://etherscan.io//address/0x71093eff8d8599b5fa340d665ad60fa7c80688e4)
+#### CSHashConsensus [0x71093eff8d8599b5fa340d665ad60fa7c80688e4](https://etherscan.io/address/0x71093eff8d8599b5fa340d665ad60fa7c80688e4)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`DISABLE_CONSENSUS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DISABLE_CONSENSUS_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_FAST_LANE_CONFIG_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_FAST_LANE_CONFIG_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 | [`MANAGE_FRAME_CONFIG_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_FRAME_CONFIG_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`MANAGE_MEMBERS_AND_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_MEMBERS_AND_QUORUM_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`MANAGE_MEMBERS_AND_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_MEMBERS_AND_QUORUM_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 | [`MANAGE_REPORT_PROCESSOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_REPORT_PROCESSOR_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### EasyTrack [0xf0211b7660680b49de1a7e9f25c65660f0a13fea](https://etherscan.io//address/0xf0211b7660680b49de1a7e9f25c65660f0a13fea)
+#### EasyTrack [0xf0211b7660680b49de1a7e9f25c65660f0a13fea](https://etherscan.io/address/0xf0211b7660680b49de1a7e9f25c65660f0a13fea)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`CANCEL_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CANCEL_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`UNPAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNPAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`CANCEL_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CANCEL_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`PAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`UNPAUSE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNPAUSE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
 
-#### L1ERC20TokenGateway_Arbitrum [0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a](https://etherscan.io//address/0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a)
+#### L1ERC20TokenGateway_Arbitrum [0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a](https://etherscan.io/address/0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
-#### L1TokensBridge_Optimism [0x76943c0d61395d8f2edf9060e1533529cae05de6](https://etherscan.io//address/0x76943c0d61395d8f2edf9060e1533529cae05de6)
+#### L1LidoTokensBridge_Optimism [0x76943c0d61395d8f2edf9060e1533529cae05de6](https://etherscan.io/address/0x76943c0d61395d8f2edf9060e1533529cae05de6)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
-#### ERC20Predicate_Polygon [0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf](https://etherscan.io//address/0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf)
+#### ERC20Predicate_Polygon [0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf](https://etherscan.io/address/0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`ManagerMultisig_Polygon`](https://etherscan.io//address/0xfa7d2a996ac6350f4b56c043112da0366a59b74c) |
-| [`MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`RootChainManagerProxy_Polygon`](https://etherscan.io//address/0xa0c68c638235ee32657e8f720a23cec1bfc77c77) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`ManagerMultisig_Polygon`](https://etherscan.io/address/0xfa7d2a996ac6350f4b56c043112da0366a59b74c) |
+| [`MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`RootChainManagerProxy_Polygon`](https://etherscan.io/address/0xa0c68c638235ee32657e8f720a23cec1bfc77c77) |
 
-#### L1ERC20TokenBridge_Base [0x9de443adc5a411e83f1878ef24c3f52c61571e72](https://etherscan.io//address/0x9de443adc5a411e83f1878ef24c3f52c61571e72)
+#### L1ERC20TokenBridge_Base [0x9de443adc5a411e83f1878ef24c3f52c61571e72](https://etherscan.io/address/0x9de443adc5a411e83f1878ef24c3f52c61571e72)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
-#### L1ERC20Bridge_zkSync [0x41527b2d03844db6b0945f25702cb958b6d55989](https://etherscan.io//address/0x41527b2d03844db6b0945f25702cb958b6d55989)
+#### L1ERC20Bridge_zkSync [0x41527b2d03844db6b0945f25702cb958b6d55989](https://etherscan.io/address/0x41527b2d03844db6b0945f25702cb958b6d55989)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
-#### L1ERC20TokenBridge_Mantle [0x2d001d79e5af5f65a939781fe228b267a8ed468b](https://etherscan.io//address/0x2d001d79e5af5f65a939781fe228b267a8ed468b)
+#### L1ERC20TokenBridge_Mantle [0x2d001d79e5af5f65a939781fe228b267a8ed468b](https://etherscan.io/address/0x2d001d79e5af5f65a939781fe228b267a8ed468b)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
-#### L1LidoGateway_Scroll [0x6625c6332c9f91f2d27c304e729b86db87a3f504](https://etherscan.io//address/0x6625c6332c9f91f2d27c304e729b86db87a3f504)
+#### L1TokenBridge_Linea [0x051f1d88f0af5763fb888ec4378b4d8b29ea3319](https://etherscan.io/address/0x051f1d88f0af5763fb888ec4378b4d8b29ea3319)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
 
-#### L1ERC20TokenBridge_Mode [0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a](https://etherscan.io//address/0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a)
+#### L1LidoGateway_Scroll [0x6625c6332c9f91f2d27c304e729b86db87a3f504](https://etherscan.io/address/0x6625c6332c9f91f2d27c304e729b86db87a3f504)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
-#### L1ERC20TokenBridge_Zircuit [0x912c7271a6a3622dfb8b218eb46a6122ab046c79](https://etherscan.io//address/0x912c7271a6a3622dfb8b218eb46a6122ab046c79)
+#### L1ERC20TokenBridge_Mode [0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a](https://etherscan.io/address/0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io//address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1ERC20TokenBridge_Zircuit [0x912c7271a6a3622dfb8b218eb46a6122ab046c79](https://etherscan.io/address/0x912c7271a6a3622dfb8b218eb46a6122ab046c79)
+| Role | Role Admin | Revoked | Granted |
+| --- | --- | --- | --- |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Soneium [0x2f543a7c9cc80cc2427c892b96263098d23ee55a](https://etherscan.io/address/0x2f543a7c9cc80cc2427c892b96263098d23ee55a)
+| Role | Role Admin | Revoked | Granted |
+| --- | --- | --- | --- |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Unichain [0x755610f5be536ad7afbaa7c10f3e938ea3aa1877](https://etherscan.io/address/0x755610f5be536ad7afbaa7c10f3e938ea3aa1877)
+| Role | Role Admin | Revoked | Granted |
+| --- | --- | --- | --- |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Lisk [0x9348af23b01f2b517afe8f29b3183d2bb7d69fcf](https://etherscan.io/address/0x9348af23b01f2b517afe8f29b3183d2bb7d69fcf)
+| Role | Role Admin | Revoked | Granted |
+| --- | --- | --- | --- |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Swellchain [0xecf3376512edaca4fbb63d2c67d12a0397d24121](https://etherscan.io/address/0xecf3376512edaca4fbb63d2c67d12a0397d24121)
+| Role | Role Admin | Revoked | Granted |
+| --- | --- | --- | --- |
+| `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
 ### Contracts Ownership
 | Contract | Property | Old Owner | New Owner |
 | --- | --- | --- | --- |
-| ⚠️ [`WithdrawalVault`](https://etherscan.io//address/0xb9d7934878b5fb9610b3fe8a5e441e8fad7e293f) | `proxy_getAdmin` | [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| ⚠️ [`InsuranceFund`](https://etherscan.io//address/0x8b3f33234abd88493c0cd28de33d583b70bede35) | `owner` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io//address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`DepositSecurityModule`](https://etherscan.io//address/0xffa96d84def2ea035c7ab153d8b991128e3d72fd) | `getOwner` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`LidoLocator`](https://etherscan.io//address/0xc1d0b3de6792bf6b4b37eccdcc24e45978cfd2eb) | `proxy__getAdmin` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`StakingRouter`](https://etherscan.io//address/0xfddf38947afb03c621c71b06c9c70bce73f12999) | `proxy__getAdmin` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WithdrawalQueueERC721`](https://etherscan.io//address/0x889edc2edab5f40e902b864ad4d7ade8e412f9b1) | `proxy__getAdmin` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`AccountingOracle`](https://etherscan.io//address/0x852ded011285fe67063a08005c71a85690503cee) | `proxy__getAdmin` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`ValidatorsExitBusOracle`](https://etherscan.io//address/0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e) | `proxy__getAdmin` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1LidoGateway_Scroll`](https://etherscan.io//address/0x6625c6332c9f91f2d27c304e729b86db87a3f504) | `owner` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1ProxyAdmin_Scroll`](https://etherscan.io//address/0xcc2c53556bc75217cf698721b29071d6f12628a9) | `owner` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1Executor_zkSync`](https://etherscan.io//address/0xff7f4d05e3247374e86a3f7231a2ed1ca63647f2) | `owner` | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io//address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| ⚠️ [`WithdrawalVault`](https://etherscan.io/address/0xb9d7934878b5fb9610b3fe8a5e441e8fad7e293f) | `proxy_getAdmin` | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| ⚠️ [`InsuranceFund`](https://etherscan.io/address/0x8b3f33234abd88493c0cd28de33d583b70bede35) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+| [`DepositSecurityModule`](https://etherscan.io/address/0xffa96d84def2ea035c7ab153d8b991128e3d72fd) | `getOwner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`LidoLocator`](https://etherscan.io/address/0xc1d0b3de6792bf6b4b37eccdcc24e45978cfd2eb) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`StakingRouter`](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WithdrawalQueueERC721`](https://etherscan.io/address/0x889edc2edab5f40e902b864ad4d7ade8e412f9b1) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`AccountingOracle`](https://etherscan.io/address/0x852ded011285fe67063a08005c71a85690503cee) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`ValidatorsExitBusOracle`](https://etherscan.io/address/0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`MEVBoostRelayAllowedList`](https://etherscan.io/address/0xf95f069f9ad107938f6ba802a3da87892298610e) | `get_owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1ERC20TokenGateway_Arbitrum`](https://etherscan.io/address/0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1LidoTokensBridge_Optimism`](https://etherscan.io/address/0x76943c0d61395d8f2edf9060e1533529cae05de6) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`TokenRateNotifier_Optimism`](https://etherscan.io/address/0xe6793b9e4fba7de0ee833f9d02bba7db5eb27823) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`ERC20Predicate_Polygon`](https://etherscan.io/address/0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf) | `proxyOwner` | [`Timelock_Polygon`](https://etherscan.io/address/0xcaf0aa768a3ae1297df20072419db8bb8b5c8cef) | [`Timelock_Polygon`](https://etherscan.io/address/0xcaf0aa768a3ae1297df20072419db8bb8b5c8cef) |
+| [`L1ERC20TokenBridge_Base`](https://etherscan.io/address/0x9de443adc5a411e83f1878ef24c3f52c61571e72) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1Executor_zkSync`](https://etherscan.io/address/0xff7f4d05e3247374e86a3f7231a2ed1ca63647f2) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1ERC20TokenBridge_Mantle`](https://etherscan.io/address/0x2d001d79e5af5f65a939781fe228b267a8ed468b) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1TokenBridgeProxyAdmin_Linea`](https://etherscan.io/address/0xf5058616517c068c7b8c7ebc69ff636ade9066d6) | `owner` | [`ProxyAdminTimelock_Linea`](https://etherscan.io/address/0xd6b95c960779c72b8c6752119849318e5d550574) | [`ProxyAdminTimelock_Linea`](https://etherscan.io/address/0xd6b95c960779c72b8c6752119849318e5d550574) |
+| [`L1LidoGateway_Scroll`](https://etherscan.io/address/0x6625c6332c9f91f2d27c304e729b86db87a3f504) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1LidoGatewayProxyAdmin_Scroll`](https://etherscan.io/address/0xcc2c53556bc75217cf698721b29071d6f12628a9) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1ERC20TokenBridge_Mode`](https://etherscan.io/address/0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`CrossChainController_BSC`](https://etherscan.io/address/0x93559892d3c7f66de4570132d68b69bd3c369a7c) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`CrossChainControllerProxyAdmin_BSC`](https://etherscan.io/address/0xadd673dc6a655afd6f38fb88301028fa31a6fdee) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`AxelarTransceiver_BSC`](https://etherscan.io/address/0x723aead29acee7e9281c32d11ea4ed0070c41b13) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WormholeTransceiver_BSC`](https://etherscan.io/address/0xa1acc1e6edab281febd91e3515093f1de81f25c0) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`NTTManager_BSC`](https://etherscan.io/address/0xb948a93827d68a82f6513ad178964da487fe2bd9) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1ERC20TokenBridge_Zircuit`](https://etherscan.io/address/0x912c7271a6a3622dfb8b218eb46a6122ab046c79) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1LidoTokensBridge_Soneium`](https://etherscan.io/address/0x2f543a7c9cc80cc2427c892b96263098d23ee55a) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1LidoTokensBridge_Unichain`](https://etherscan.io/address/0x755610f5be536ad7afbaa7c10f3e938ea3aa1877) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1LidoTokensBridge_Lisk`](https://etherscan.io/address/0x9348af23b01f2b517afe8f29b3183d2bb7d69fcf) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`L1LidoTokensBridge_Swellchain`](https://etherscan.io/address/0xecf3376512edaca4fbb63d2c67d12a0397d24121) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
 ##### Transition Steps
 
