@@ -48,7 +48,7 @@ contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
 
         _step("3. Users accumulate some stETH in the Signalling Escrow");
         {
-            _lockStETH(_VETOER, _getSecondSealRageQuitSupport() - PercentsD16.from(1));
+            _lockStETHUpTo(_VETOER, _getSecondSealRageQuitSupport() - PercentsD16.from(10));
             _assertVetoSignalingState();
             _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
 

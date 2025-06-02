@@ -47,7 +47,7 @@ uint256 constant MAINNET_CHAIN_ID = 1;
 uint256 constant HOLESKY_CHAIN_ID = 17000;
 uint256 constant HOODI_CHAIN_ID = 560048;
 
-uint256 constant DEFAULT_MAINNET_FORK_BLOCK_NUMBER = 20218312;
+uint256 constant DEFAULT_MAINNET_FORK_BLOCK_NUMBER = 22574634;
 uint256 constant DEFAULT_HOLESKY_FORK_BLOCK_NUMBER = 3209735;
 uint256 constant DEFAULT_HOODI_FORK_BLOCK_NUMBER = 200000;
 
@@ -58,6 +58,10 @@ abstract contract ForkTestSetup is Test {
 
     TargetMock internal _targetMock;
     LidoUtils.Context internal _lido;
+
+    constructor() {
+        vm.setNonce(address(this), 1000);
+    }
 
     function _setupFork(uint256 chainId, uint256 blockNumber) internal {
         if (chainId == MAINNET_CHAIN_ID) {
@@ -741,6 +745,16 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     // ---
     // Escrow Manipulation
     // ---
+    function _lockStETHUpTo(address vetoer, PercentD16 tvlPercentage) internal {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+        PercentD16 currentRageQuitSupport = escrow.getRageQuitSupport();
+        assertTrue(currentRageQuitSupport < tvlPercentage, "Current rage quit support must be less than target");
+
+        uint256 amountToLock = _lido.calcAmountFromPercentageOfTVL(tvlPercentage - currentRageQuitSupport);
+
+        _lockStETH(vetoer, amountToLock);
+    }
+
     function _lockStETH(address vetoer, PercentD16 tvlPercentage) internal {
         _lockStETH(vetoer, _lido.calcAmountFromPercentageOfTVL(tvlPercentage));
     }
@@ -924,6 +938,29 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
         _dgDeployedContracts = deployArtifacts.deployedContracts;
 
         _setTimelock(_dgDeployedContracts.timelock);
+
+        console.log("Executing already submitted proposals...");
+        uint256 proposalsCount = _timelock.getProposalsCount();
+        _wait(_getAfterSubmitDelay());
+
+        for (uint256 i = 1; i <= proposalsCount; ++i) {
+            ITimelock.ProposalDetails memory proposalDetails = _timelock.getProposalDetails(i);
+            if (proposalDetails.status == ProposalStatus.Submitted) {
+                vm.prank(address(_timelock.getGovernance()));
+                _timelock.schedule(i);
+                _assertProposalScheduled(i);
+            }
+        }
+        _wait(_getAfterScheduleDelay());
+
+        for (uint256 i = 1; i <= proposalsCount; ++i) {
+            ITimelock.ProposalDetails memory proposalDetails = _timelock.getProposalDetails(i);
+            if (proposalDetails.status == ProposalStatus.Scheduled) {
+                console.log("Executing proposal %s", i);
+                _timelock.execute(i);
+                _assertProposalExecuted(i);
+            }
+        }
 
         _lido.stETH = IStETH(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.stETH)));
         _lido.wstETH = IWstETH(address(_dgDeployConfig.dualGovernance.signallingTokens.wstETH));
