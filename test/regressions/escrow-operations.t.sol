@@ -506,6 +506,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
 
     function testFork_RageQuit_HappyPath_OnlyUnstETH() public {
         _prepareEmptyEscrow();
+        escrow = Escrow(payable(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow()));
 
         uint256 requestAmount = 10 * 1e18;
         uint256 requestsCount = 10;
