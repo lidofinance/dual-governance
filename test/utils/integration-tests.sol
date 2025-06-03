@@ -29,6 +29,8 @@ import {LidoUtils, IStETH, IWstETH, IWithdrawalQueue} from "./lido-utils.sol";
 import {TargetMock} from "./target-mock.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 
+import {ISealable} from "test/utils/interfaces/ISealable.sol";
+
 import {
     ContractsDeployment,
     TGSetupDeployConfig,
@@ -941,12 +943,38 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
 
         _processProposals();
 
+        _grantResealingPermissions(deployArtifacts.deployConfig.dualGovernance.sealableWithdrawalBlockers);
+
         _lido.stETH = IStETH(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.stETH)));
         _lido.wstETH = IWstETH(address(_dgDeployConfig.dualGovernance.signallingTokens.wstETH));
         _lido.withdrawalQueue =
             IWithdrawalQueue(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.withdrawalQueue)));
 
         _lido.removeStakingLimit();
+    }
+
+    function _grantResealingPermissions(address[] memory sealables) internal {
+        bool grantPermissionsFlag = vm.envOr("GRANT_RESEALING_PERMISSIONS", false);
+        if (!grantPermissionsFlag) {
+            return;
+        }
+
+        for (uint256 i = 0; i < sealables.length; ++i) {
+            ISealable sealable = ISealable(sealables[i]);
+            address sealableAdmin = sealable.getRoleMember(sealable.DEFAULT_ADMIN_ROLE(), 0);
+            bytes32 pauseRole = sealable.PAUSE_ROLE();
+            bytes32 resumeRole = sealable.RESUME_ROLE();
+
+            if (!sealable.hasRole(pauseRole, address(_dgDeployedContracts.resealManager))) {
+                console.log("Sealable:", sealableAdmin);
+                vm.prank(sealableAdmin);
+                sealable.grantRole(pauseRole, address(_dgDeployedContracts.resealManager));
+            }
+            if (!sealable.hasRole(resumeRole, address(_dgDeployedContracts.resealManager))) {
+                vm.prank(sealableAdmin);
+                sealable.grantRole(resumeRole, address(_dgDeployedContracts.resealManager));
+            }
+        }
     }
 
     function _processProposals() internal {
