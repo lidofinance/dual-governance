@@ -745,12 +745,12 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     // ---
     // Escrow Manipulation
     // ---
-    function _lockStETHUpTo(address vetoer, PercentD16 tvlPercentage) internal {
+    function _lockStETHUpTo(address vetoer, PercentD16 targetPercentage) internal {
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
         PercentD16 currentRageQuitSupport = escrow.getRageQuitSupport();
-        assertTrue(currentRageQuitSupport < tvlPercentage, "Current rage quit support must be less than target");
+        assertTrue(currentRageQuitSupport < targetPercentage, "Current rage quit support must be less than target");
 
-        uint256 amountToLock = _lido.calcAmountFromPercentageOfTVL(tvlPercentage - currentRageQuitSupport);
+        uint256 amountToLock = _lido.calcAmountFromPercentageOfTVL(targetPercentage - currentRageQuitSupport);
 
         _lockStETH(vetoer, amountToLock);
     }
@@ -939,15 +939,39 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
 
         _setTimelock(_dgDeployedContracts.timelock);
 
-        console.log("Executing already submitted proposals...");
+        _processProposals();
+
+        _lido.stETH = IStETH(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.stETH)));
+        _lido.wstETH = IWstETH(address(_dgDeployConfig.dualGovernance.signallingTokens.wstETH));
+        _lido.withdrawalQueue =
+            IWithdrawalQueue(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.withdrawalQueue)));
+
+        _lido.removeStakingLimit();
+    }
+
+    function _processProposals() internal {
         uint256 proposalsCount = _timelock.getProposalsCount();
         _wait(_getAfterSubmitDelay());
 
         for (uint256 i = 1; i <= proposalsCount; ++i) {
             ITimelock.ProposalDetails memory proposalDetails = _timelock.getProposalDetails(i);
             if (proposalDetails.status == ProposalStatus.Submitted) {
-                vm.prank(address(_timelock.getGovernance()));
-                _timelock.schedule(i);
+                if (_dgDeployedContracts.dualGovernance.getPersistedState() == DGState.RageQuit) {
+                    revert("Cannot schedule proposals in RAGE_QUIT state");
+                }
+                if (_dgDeployedContracts.dualGovernance.getPersistedState() == DGState.VetoSignalling) {
+                    Duration vetoSignallingLastFor = _getVetoSignallingDuration()
+                        - Durations.from(block.timestamp - _getVetoSignallingActivatedAt().toSeconds());
+                    _wait(vetoSignallingLastFor.plusSeconds(1));
+                    _activateNextState();
+                }
+                if (_dgDeployedContracts.dualGovernance.getPersistedState() == DGState.VetoSignallingDeactivation) {
+                    _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
+                    _activateNextState();
+                }
+
+                _assertCanSchedule(i, true);
+                _scheduleProposal(i);
                 _assertProposalScheduled(i);
             }
         }
@@ -961,13 +985,6 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
                 _assertProposalExecuted(i);
             }
         }
-
-        _lido.stETH = IStETH(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.stETH)));
-        _lido.wstETH = IWstETH(address(_dgDeployConfig.dualGovernance.signallingTokens.wstETH));
-        _lido.withdrawalQueue =
-            IWithdrawalQueue(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.withdrawalQueue)));
-
-        _lido.removeStakingLimit();
     }
 }
 
