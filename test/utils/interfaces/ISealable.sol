@@ -13,4 +13,8 @@ interface ISealable is ISealableBase {
     function pauseFor(uint256 duration) external;
 
     function grantRole(bytes32 role, address account) external;
+    function hasRole(bytes32 role, address account) external view returns (bool);
+    function getRoleMember(bytes32 role, uint256 index) external view returns (address);
+
+    function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
 }
