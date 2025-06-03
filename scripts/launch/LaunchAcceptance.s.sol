@@ -121,8 +121,7 @@ contract LaunchAcceptance is DGDeployArtifactLoader {
                 console.log("Submit proposal to set DG state calldata");
                 console.logBytes(
                     abi.encodeCall(
-                        IGovernance.submitProposal,
-                        (builder.getResult(), "Reset emergency mode and set original DG as governance")
+                        IGovernance.submitProposal, (builder.getResult(), "Set up Dual Governance for activation")
                     )
                 );
             }

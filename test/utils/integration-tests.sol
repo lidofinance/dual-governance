@@ -29,6 +29,8 @@ import {LidoUtils, IStETH, IWstETH, IWithdrawalQueue} from "./lido-utils.sol";
 import {TargetMock} from "./target-mock.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 
+import {ISealable} from "test/utils/interfaces/ISealable.sol";
+
 import {
     ContractsDeployment,
     TGSetupDeployConfig,
@@ -47,7 +49,7 @@ uint256 constant MAINNET_CHAIN_ID = 1;
 uint256 constant HOLESKY_CHAIN_ID = 17000;
 uint256 constant HOODI_CHAIN_ID = 560048;
 
-uint256 constant DEFAULT_MAINNET_FORK_BLOCK_NUMBER = 20218312;
+uint256 constant DEFAULT_MAINNET_FORK_BLOCK_NUMBER = 22574634;
 uint256 constant DEFAULT_HOLESKY_FORK_BLOCK_NUMBER = 3209735;
 uint256 constant DEFAULT_HOODI_FORK_BLOCK_NUMBER = 200000;
 
@@ -58,6 +60,10 @@ abstract contract ForkTestSetup is Test {
 
     TargetMock internal _targetMock;
     LidoUtils.Context internal _lido;
+
+    constructor() {
+        vm.setNonce(address(this), 1000);
+    }
 
     function _setupFork(uint256 chainId, uint256 blockNumber) internal {
         if (chainId == MAINNET_CHAIN_ID) {
@@ -741,6 +747,16 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     // ---
     // Escrow Manipulation
     // ---
+    function _lockStETHUpTo(address vetoer, PercentD16 targetPercentage) internal {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+        PercentD16 currentRageQuitSupport = escrow.getRageQuitSupport();
+        assertTrue(currentRageQuitSupport < targetPercentage, "Current rage quit support must be less than target");
+
+        uint256 amountToLock = _lido.calcAmountFromPercentageOfTVL(targetPercentage - currentRageQuitSupport);
+
+        _lockStETH(vetoer, amountToLock);
+    }
+
     function _lockStETH(address vetoer, PercentD16 tvlPercentage) internal {
         _lockStETH(vetoer, _lido.calcAmountFromPercentageOfTVL(tvlPercentage));
     }
@@ -925,12 +941,78 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
 
         _setTimelock(_dgDeployedContracts.timelock);
 
+        _processProposals();
+
+        _grantResealingPermissions(deployArtifacts.deployConfig.dualGovernance.sealableWithdrawalBlockers);
+
         _lido.stETH = IStETH(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.stETH)));
         _lido.wstETH = IWstETH(address(_dgDeployConfig.dualGovernance.signallingTokens.wstETH));
         _lido.withdrawalQueue =
             IWithdrawalQueue(payable(address(_dgDeployConfig.dualGovernance.signallingTokens.withdrawalQueue)));
 
         _lido.removeStakingLimit();
+    }
+
+    function _grantResealingPermissions(address[] memory sealables) internal {
+        bool grantPermissionsFlag = vm.envOr("GRANT_RESEALING_PERMISSIONS", false);
+        if (!grantPermissionsFlag) {
+            return;
+        }
+
+        for (uint256 i = 0; i < sealables.length; ++i) {
+            ISealable sealable = ISealable(sealables[i]);
+            address sealableAdmin = sealable.getRoleMember(sealable.DEFAULT_ADMIN_ROLE(), 0);
+            bytes32 pauseRole = sealable.PAUSE_ROLE();
+            bytes32 resumeRole = sealable.RESUME_ROLE();
+
+            if (!sealable.hasRole(pauseRole, address(_dgDeployedContracts.resealManager))) {
+                console.log("Sealable:", sealableAdmin);
+                vm.prank(sealableAdmin);
+                sealable.grantRole(pauseRole, address(_dgDeployedContracts.resealManager));
+            }
+            if (!sealable.hasRole(resumeRole, address(_dgDeployedContracts.resealManager))) {
+                vm.prank(sealableAdmin);
+                sealable.grantRole(resumeRole, address(_dgDeployedContracts.resealManager));
+            }
+        }
+    }
+
+    function _processProposals() internal {
+        uint256 proposalsCount = _timelock.getProposalsCount();
+        _wait(_getAfterSubmitDelay());
+
+        for (uint256 i = 1; i <= proposalsCount; ++i) {
+            ITimelock.ProposalDetails memory proposalDetails = _timelock.getProposalDetails(i);
+            if (proposalDetails.status == ProposalStatus.Submitted) {
+                if (_dgDeployedContracts.dualGovernance.getPersistedState() == DGState.RageQuit) {
+                    revert("Cannot schedule proposals in RAGE_QUIT state");
+                }
+                if (_dgDeployedContracts.dualGovernance.getPersistedState() == DGState.VetoSignalling) {
+                    Duration vetoSignallingLastFor = _getVetoSignallingDuration()
+                        - Durations.from(block.timestamp - _getVetoSignallingActivatedAt().toSeconds());
+                    _wait(vetoSignallingLastFor.plusSeconds(1));
+                    _activateNextState();
+                }
+                if (_dgDeployedContracts.dualGovernance.getPersistedState() == DGState.VetoSignallingDeactivation) {
+                    _wait(_getVetoSignallingDeactivationMaxDuration().plusSeconds(1));
+                    _activateNextState();
+                }
+
+                _assertCanSchedule(i, true);
+                _scheduleProposal(i);
+                _assertProposalScheduled(i);
+            }
+        }
+        _wait(_getAfterScheduleDelay());
+
+        for (uint256 i = 1; i <= proposalsCount; ++i) {
+            ITimelock.ProposalDetails memory proposalDetails = _timelock.getProposalDetails(i);
+            if (proposalDetails.status == ProposalStatus.Scheduled) {
+                console.log("Executing proposal %s", i);
+                _timelock.execute(i);
+                _assertProposalExecuted(i);
+            }
+        }
     }
 }
 

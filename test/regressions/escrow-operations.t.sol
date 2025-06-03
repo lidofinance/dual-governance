@@ -8,6 +8,7 @@ import {SharesValue, SharesValues} from "contracts/types/SharesValue.sol";
 
 import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
 import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "contracts/interfaces/IRageQuitEscrow.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 
@@ -35,6 +36,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
 
     address internal immutable _VETOER_1 = makeAddr("VETOER_1");
     address internal immutable _VETOER_2 = makeAddr("VETOER_2");
+    address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
         _loadOrDeployDGSetup();
@@ -503,6 +505,9 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
     }
 
     function testFork_RageQuit_HappyPath_OnlyUnstETH() public {
+        _prepareEmptyEscrow();
+        escrow = Escrow(payable(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow()));
+
         uint256 requestAmount = 10 * 1e18;
         uint256 requestsCount = 10;
         uint256[] memory amounts = new uint256[](requestsCount);
@@ -558,6 +563,8 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         uint256 maxLockableEthers = 10;
         _random = Random.create(vm.unixTime());
 
+        uint256 initiallyLockedSteth = _lido.stETH.balanceOf(address(_getVetoSignallingEscrow()));
+
         address stranger = makeAddr("stranger");
 
         _setupStETHBalance(stranger, PercentsD16.fromBasisPoints(10_00));
@@ -581,7 +588,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = strangerLockUnstETHAmount;
 
-        _initialLockedStETH = strangerLockStETHAmount;
+        _initialLockedStETH = strangerLockStETHAmount + initiallyLockedSteth;
         _initialLockedWStETH = strangerLockWstETHAmount;
         _initialLockedUnStETHAmount = strangerLockUnstETHAmount;
         _initialLockedUnStETHCount = 1;
@@ -595,5 +602,37 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
     function _getInitialLockedStETHValue() internal returns (uint256) {
         return
             _initialLockedStETH + _lido.stETH.getPooledEthByShares(_initialLockedWStETH) + _initialLockedUnStETHAmount;
+    }
+
+    function _prepareEmptyEscrow() internal {
+        // Passing through the Rage Quit state to ensure that the Escrow is in the correct state
+
+        _setupStETHBalance(_VETOER, PercentsD16.fromBasisPoints(20_00));
+        vm.prank(_VETOER);
+        _lido.stETH.approve(address(_getVetoSignallingEscrow()), type(uint256).max);
+
+        _lockStETH(_VETOER, _getSecondSealRageQuitSupport());
+        _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
+        _activateNextState();
+        _assertRageQuitState();
+
+        IRageQuitEscrow rageQuitEscrow = _getRageQuitEscrow();
+
+        while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
+            rageQuitEscrow.requestNextWithdrawalsBatch(96);
+        }
+
+        _finalizeWithdrawalQueue();
+
+        while (rageQuitEscrow.getUnclaimedUnstETHIdsCount() > 0) {
+            rageQuitEscrow.claimNextWithdrawalsBatch(32);
+        }
+
+        rageQuitEscrow.startRageQuitExtensionPeriod();
+
+        _wait(_getRageQuitExtensionPeriodDuration().plusSeconds(1));
+        assertEq(rageQuitEscrow.isRageQuitFinalized(), true);
+
+        _activateNextState();
     }
 }
