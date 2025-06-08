@@ -5,7 +5,7 @@ import {Timestamps} from "contracts/types/Timestamp.sol";
 import {Durations} from "contracts/types/Duration.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 
-import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 
 import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 import {IRolesValidator} from "../interfaces/IRolesValidator.sol";
@@ -17,7 +17,7 @@ import {IACL} from "../interfaces/IACL.sol";
 import {LidoAddressesHoodi} from "./LidoAddressesHoodi.sol";
 import {OmnibusBase} from "../OmnibusBase.sol";
 
-/// @title DGLaunchOmnibusHoodi
+/// @title LaunchOmnibusHoodi
 /// @notice Script for migrating Lido to Dual Governance on Hoodi testnet
 ///
 /// @dev This contract prepares the complete transition of the Lido protocol
@@ -28,7 +28,7 @@ import {OmnibusBase} from "../OmnibusBase.sol";
 ///     4. Validating the roles transfer to ensure proper role configuration
 ///     5. Submitting the first proposal through the Dual Governance
 ///     6. Verifying the successful launch of Dual Governance
-contract DGLaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
+contract LaunchOmnibusHoodi is OmnibusBase, LidoAddressesHoodi {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     bytes32 private constant PAUSE_ROLE = keccak256("PAUSE_ROLE");

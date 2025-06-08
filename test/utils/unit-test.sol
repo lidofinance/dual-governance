@@ -5,7 +5,7 @@ import {Duration} from "contracts/types/Duration.sol";
 
 // solhint-disable-next-line
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
-import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 import {IPotentiallyDangerousContract} from "./interfaces/IPotentiallyDangerousContract.sol";
 import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 

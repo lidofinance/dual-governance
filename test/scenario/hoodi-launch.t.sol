@@ -10,20 +10,20 @@ import {
 } from "test/utils/integration-tests.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
-import {TimeConstraints} from "scripts/upgrade/TimeConstraints.sol";
-import {DGLaunchVerifier} from "scripts/upgrade/DGLaunchVerifier.sol";
-import {DGLaunchOmnibusHoodi} from "scripts/upgrade/hoodi/DGLaunchOmnibusHoodi.sol";
-import {LidoAddressesHoodi} from "scripts/upgrade/hoodi/LidoAddressesHoodi.sol";
-import {DGLaunchRolesValidatorHoodi} from "scripts/upgrade/hoodi/DGLaunchRolesValidatorHoodi.sol";
+import {TimeConstraints} from "scripts/launch/TimeConstraints.sol";
+import {DGLaunchStateVerifier} from "scripts/launch/DGLaunchStateVerifier.sol";
+import {LaunchOmnibusHoodi} from "scripts/launch/hoodi/LaunchOmnibusHoodi.sol";
+import {LidoAddressesHoodi} from "scripts/launch/hoodi/LidoAddressesHoodi.sol";
+import {RolesValidatorHoodi} from "scripts/launch/hoodi/RolesValidatorHoodi.sol";
 
-import {IWithdrawalVaultProxy} from "scripts/upgrade/interfaces/IWithdrawalVaultProxy.sol";
-import {IOZ} from "scripts/upgrade/interfaces/IOZ.sol";
-import {IACL} from "scripts/upgrade/interfaces/IACL.sol";
+import {IWithdrawalVaultProxy} from "scripts/launch/interfaces/IWithdrawalVaultProxy.sol";
+import {IOZ} from "scripts/launch/interfaces/IOZ.sol";
+import {IACL} from "scripts/launch/interfaces/IACL.sol";
 
 contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
     using LidoUtils for LidoUtils.Context;
 
-    DGLaunchOmnibusHoodi internal launchOmnibus;
+    LaunchOmnibusHoodi internal launchOmnibus;
 
     bytes32 internal STAKING_CONTROL_ROLE = keccak256("STAKING_CONTROL_ROLE");
     bytes32 internal RESUME_ROLE = keccak256("RESUME_ROLE");
@@ -51,17 +51,26 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
     bytes32 internal CHANGE_PERIOD_ROLE = keccak256("CHANGE_PERIOD_ROLE");
     bytes32 internal CHANGE_BUDGETS_ROLE = keccak256("CHANGE_BUDGETS_ROLE");
 
+    uint256 internal constant VOTE_EXECUTION_BLOCK = 350291;
+
     function setUp() external {
+        string memory hoodiRpcUrl = vm.envString("HOODI_RPC_URL");
+        if (bytes(hoodiRpcUrl).length == 0) {
+            vm.skip(true, "Skipping Hoodi launch test, no HOODI_RPC_URL provided");
+        }
+        if (block.number >= VOTE_EXECUTION_BLOCK) {
+            vm.skip(true, "Skipping launch test. Vote already executed.");
+        }
         _deployDGSetup({isEmergencyProtectionEnabled: true, chainId: HOODI_CHAIN_ID, grantRolesToResealManager: false});
     }
 
-    function testFork_HoodyLaunch_HappyPath() external {
+    function testFork_HoodiLaunch_HappyPath() external {
         {
             // Initialize all necessary contracts for the launch
 
             TimeConstraints timeConstraints = new TimeConstraints();
-            DGLaunchVerifier launchVerifier = new DGLaunchVerifier(
-                DGLaunchVerifier.ConstructorParams({
+            DGLaunchStateVerifier launchVerifier = new DGLaunchStateVerifier(
+                DGLaunchStateVerifier.ConstructorParams({
                     timelock: address(_dgDeployedContracts.timelock),
                     dualGovernance: address(_dgDeployedContracts.dualGovernance),
                     emergencyGovernance: address(_dgDeployedContracts.emergencyGovernance),
@@ -75,10 +84,10 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
                 })
             );
 
-            DGLaunchRolesValidatorHoodi rolesValidator = new DGLaunchRolesValidatorHoodi(
+            RolesValidatorHoodi rolesValidator = new RolesValidatorHoodi(
                 address(_dgDeployedContracts.adminExecutor), address(_dgDeployedContracts.resealManager)
             );
-            launchOmnibus = new DGLaunchOmnibusHoodi(
+            launchOmnibus = new LaunchOmnibusHoodi(
                 address(_dgDeployedContracts.dualGovernance),
                 address(_dgDeployedContracts.adminExecutor),
                 address(_dgDeployedContracts.resealManager),

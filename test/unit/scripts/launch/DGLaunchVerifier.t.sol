@@ -5,7 +5,7 @@ import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtec
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {Duration} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
-import {DGLaunchVerifier} from "scripts/upgrade/DGLaunchVerifier.sol";
+import {DGLaunchStateVerifier} from "scripts/launch/DGLaunchStateVerifier.sol";
 import {UnitTest} from "test/utils/unit-test.sol";
 
 contract DGLaunchVerifierUnitTests is UnitTest {
@@ -24,7 +24,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Duration emergencyModeDuration,
         uint256 proposalsCount
     ) external {
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -35,7 +35,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         assertEq(verifier.TIMELOCK(), _timelock);
         assertEq(verifier.DUAL_GOVERNANCE(), dualGovernance);
@@ -60,7 +60,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Duration emergencyModeDuration,
         uint256 proposalsCount
     ) external {
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -71,7 +71,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         _mockVerifierCalls({
             isEmergencyModeActive: false,
@@ -86,7 +86,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         });
 
         vm.expectEmit();
-        emit DGLaunchVerifier.DGLaunchConfigurationValidated();
+        emit DGLaunchStateVerifier.DGLaunchConfigurationValidated();
         verifier.verify();
     }
 
@@ -99,7 +99,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Duration emergencyModeDuration,
         uint256 proposalsCount
     ) external {
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -110,7 +110,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         _mockVerifierCalls({
             isEmergencyModeActive: true,
@@ -124,7 +124,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        vm.expectRevert(DGLaunchVerifier.EmergencyModeEnabledAfterLaunch.selector);
+        vm.expectRevert(DGLaunchStateVerifier.EmergencyModeEnabledAfterLaunch.selector);
         verifier.verify();
     }
 
@@ -137,7 +137,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Duration emergencyModeDuration,
         uint256 proposalsCount
     ) external {
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -148,7 +148,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         address notDG = makeAddr("not a DualGovernance");
         _mockVerifierCalls({
@@ -165,7 +165,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DGLaunchVerifier.InvalidDGLaunchConfigAddress.selector, "getGovernance()", dualGovernance, notDG
+                DGLaunchStateVerifier.InvalidDGLaunchConfigAddress.selector, "getGovernance()", dualGovernance, notDG
             )
         );
         verifier.verify();
@@ -180,7 +180,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Duration emergencyModeDuration,
         uint256 proposalsCount
     ) external {
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -191,7 +191,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         address notEmergencyGovernance = makeAddr("not an EmergencyGovernance");
         _mockVerifierCalls({
@@ -208,7 +208,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DGLaunchVerifier.InvalidDGLaunchConfigAddress.selector,
+                DGLaunchStateVerifier.InvalidDGLaunchConfigAddress.selector,
                 "getEmergencyGovernance()",
                 emergencyGovernance,
                 notEmergencyGovernance
@@ -226,7 +226,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Duration emergencyModeDuration,
         uint256 proposalsCount
     ) external {
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -237,7 +237,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         address notEmergencyActivationCommittee = makeAddr("not an EmergencyActivationCommittee");
         _mockVerifierCalls({
@@ -254,7 +254,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DGLaunchVerifier.InvalidDGLaunchConfigAddress.selector,
+                DGLaunchStateVerifier.InvalidDGLaunchConfigAddress.selector,
                 "getEmergencyActivationCommittee()",
                 emergencyActivationCommittee,
                 notEmergencyActivationCommittee
@@ -272,7 +272,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Duration emergencyModeDuration,
         uint256 proposalsCount
     ) external {
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -283,7 +283,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         address notEmergencyExecutionCommittee = makeAddr("not an EmergencyExecutionCommittee");
         _mockVerifierCalls({
@@ -300,7 +300,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DGLaunchVerifier.InvalidDGLaunchConfigAddress.selector,
+                DGLaunchStateVerifier.InvalidDGLaunchConfigAddress.selector,
                 "getEmergencyExecutionCommittee()",
                 emergencyExecutionCommittee,
                 notEmergencyExecutionCommittee
@@ -320,7 +320,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Timestamp invalidEmergencyProtectionEndDate
     ) external {
         vm.assume(invalidEmergencyProtectionEndDate != emergencyProtectionEndDate);
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -331,7 +331,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         _mockVerifierCalls({
             isEmergencyModeActive: false,
@@ -347,7 +347,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DGLaunchVerifier.InvalidDGLaunchConfigParameter.selector,
+                DGLaunchStateVerifier.InvalidDGLaunchConfigParameter.selector,
                 "getEmergencyProtectionDetails().emergencyProtectionEndsAfter",
                 emergencyProtectionEndDate,
                 invalidEmergencyProtectionEndDate
@@ -367,7 +367,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Duration invalidEmergencyModeDuration
     ) external {
         vm.assume(invalidEmergencyModeDuration != emergencyModeDuration);
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -378,7 +378,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         _mockVerifierCalls({
             isEmergencyModeActive: false,
@@ -394,7 +394,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DGLaunchVerifier.InvalidDGLaunchConfigParameter.selector,
+                DGLaunchStateVerifier.InvalidDGLaunchConfigParameter.selector,
                 "getEmergencyProtectionDetails().emergencyModeDuration",
                 emergencyModeDuration,
                 invalidEmergencyModeDuration
@@ -414,7 +414,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         Timestamp invalidEmergencyModeEndsAfter
     ) external {
         vm.assume(invalidEmergencyModeEndsAfter != Timestamps.ZERO);
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -425,7 +425,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         _mockVerifierCalls({
             isEmergencyModeActive: false,
@@ -441,7 +441,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DGLaunchVerifier.InvalidDGLaunchConfigParameter.selector,
+                DGLaunchStateVerifier.InvalidDGLaunchConfigParameter.selector,
                 "getEmergencyProtectionDetails().emergencyModeEndsAfter",
                 0,
                 invalidEmergencyModeEndsAfter
@@ -461,7 +461,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
         uint256 invalidProposalsCount
     ) external {
         vm.assume(invalidProposalsCount != proposalsCount);
-        DGLaunchVerifier.ConstructorParams memory params = DGLaunchVerifier.ConstructorParams({
+        DGLaunchStateVerifier.ConstructorParams memory params = DGLaunchStateVerifier.ConstructorParams({
             timelock: _timelock,
             dualGovernance: dualGovernance,
             emergencyGovernance: emergencyGovernance,
@@ -472,7 +472,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
             proposalsCount: proposalsCount
         });
 
-        DGLaunchVerifier verifier = new DGLaunchVerifier(params);
+        DGLaunchStateVerifier verifier = new DGLaunchStateVerifier(params);
 
         _mockVerifierCalls({
             isEmergencyModeActive: false,
@@ -488,7 +488,7 @@ contract DGLaunchVerifierUnitTests is UnitTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DGLaunchVerifier.InvalidDGLaunchConfigParameter.selector,
+                DGLaunchStateVerifier.InvalidDGLaunchConfigParameter.selector,
                 "getProposalsCount()",
                 proposalsCount,
                 invalidProposalsCount

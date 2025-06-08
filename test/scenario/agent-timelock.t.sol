@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ExternalCall, ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCall, ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 
 import {DGScenarioTestSetup, Proposers} from "../utils/integration-tests.sol";
 

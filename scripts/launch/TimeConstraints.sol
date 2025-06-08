@@ -5,7 +5,7 @@ pragma solidity 0.8.26;
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 
-import {ITimeConstraints} from "scripts/upgrade/interfaces/ITimeConstraints.sol";
+import {ITimeConstraints} from "scripts/launch/interfaces/ITimeConstraints.sol";
 
 /// @title Time Constraints Contract
 /// @notice Provides mechanisms to validate time-based constraints against the current

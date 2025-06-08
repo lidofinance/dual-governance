@@ -10,7 +10,7 @@ import {DualGovernance} from "contracts/DualGovernance.sol";
 
 import {IRageQuitEscrow, ContractsDeployment, DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
-import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBuilder.sol";
 
 contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
@@ -48,7 +48,7 @@ contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
 
         _step("3. Users accumulate some stETH in the Signalling Escrow");
         {
-            _lockStETH(_VETOER, _getSecondSealRageQuitSupport() - PercentsD16.from(1));
+            _lockStETHUpTo(_VETOER, _getSecondSealRageQuitSupport() - PercentsD16.from(10));
             _assertVetoSignalingState();
             _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
 

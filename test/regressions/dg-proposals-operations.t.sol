@@ -11,7 +11,7 @@ import {ExecutableProposals, ExternalCall, Status} from "contracts/libraries/Exe
 
 import {LidoUtils} from "../utils/lido-utils.sol";
 
-import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
+import {CallsScriptBuilder} from "scripts/utils/CallsScriptBuilder.sol";
 
 contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
     using LidoUtils for LidoUtils.Context;

@@ -19,7 +19,7 @@ sealable_withdrawal_blockers = [
 
 # Committee that can extend the pause of sealable withdrawal blockers 
 # to permanent pause if it were paused by the GateSeal committee before
-reseal_committee = "0x000000000000000000000000000000000000cafe"               # Gnosis Multisig TBD ***
+reseal_committee = "0xFFe21561251c49AdccFad065C94Fb4931dF49081"               # Gnosis Multisig TBD ***
 
 # Delay of tiebreaker activation after governance locking
 tiebreaker_activation_timeout = 31536000                                      # 1 year **
@@ -40,8 +40,6 @@ max_min_assets_lock_duration = 4147200                                        # 
 # registered in the Dual Governance. This parameter prevents filling the sealable withdrawal blockers
 # with so many items that tiebreaker calls would revert due to out-of-gas errors.
 max_sealable_withdrawal_blockers_count = 255                                  # ****
-
-
 
 # The lower and upper bound for the time the Dual Governance must spend in the "locked" state
 # before the tiebreaker committee is allowed to schedule proposals.
@@ -118,18 +116,19 @@ max_emergency_protection_duration = 94608000                                  # 
 [timelock.emergency_protection]
 
 # Committee that can activate the emergency protection mechanism
-emergency_activation_committee = "0x000000000000000000000000000000000000cafe" # Gnosis Multisig TBD ***
+emergency_activation_committee = "0x8B7854488Fde088d686Ea672B6ba1A5242515f45" # Gnosis Multisig 4 of 7 ***
 
 # Committee that can execute proposals during the emergency protection or reset governance to emergency governance
-emergency_execution_committee = "0x000000000000000000000000000000000000cafe"  # Gnosis Multisig TBD ***
+emergency_execution_committee = "0xC7792b3F2B399bB0EdF53fECDceCeB97FBEB18AF"  # Gnosis Multisig 5 of 7 ***
 
 # The address of the proposer that can make proposals during if emergency governance is activated
-emergency_governance_proposer = "0x000000000000000000000000000000000000cafe"  # Gnosis Multisig for Dry run TBD ***
+emergency_governance_proposer = "0xdd778153c3d0AE1B70fe81E0219b5D2C3e3951C2"  # Gnosis Multisig for Dry run 3 of 5 ***
 
 # Duration of the emergency mode in seconds
 emergency_mode_duration = 2592000                                             # 1 month
 
-# Duration of the emergency protection in seconds while emergency activation committee is active
+# This parameter defines the end timestamp (in seconds since the Unix epoch) for the emergency protection period,
+# during which the Emergency Activation Committee retains its powers.
 emergency_protection_end_date = 1781913600                                    # Sat Jun 20 2026 00:00:00 GMT+0000 ****
 
 # ======================
@@ -141,17 +140,37 @@ execution_delay = 2592000                                                     # 
 committees_count = 3                                                          # ***
 quorum = 2                                                                    # ***
 
-[[tiebreaker.committees]] # Influencers
-members = ["0x000000000000000000000000000000000000cafe"]                      # 9 members *** 
-quorum = 1                                                                    # 5 ***
+[[tiebreaker.committees]] # Builders
+members = [
+    "0x805fa0f79dc0ddcd73dcbc23487d2d5bd77de598",
+    "0x49769c3443c74f144991ca560ba5f635581b8176",
+    "0x9A921867EbB579D137184b397E7D087f1ae716fd",
+    "0x81000e270B4f66B8666544E8FEc073e0a23FFf00",
+    "0xD8a9072D82a28307279aC0aD3c97Cb61bEe67952"
+    ]
+quorum = 3
 
 [[tiebreaker.committees]] # Node Operators
-members = ["0x000000000000000000000000000000000000cafe"]                      # all NOs ***
-quorum = 1                                                                    # 50% + 1 ***
+members = [
+    "0x9837b0Db0b733DED04D96a0A25Ba1E414A6C4c08",
+    "0xDBD124e898839ec8C829d806C0328f069d1bB810",
+    "0xf8Bfa395744Cb25fa4368Ffe2344Dc35546092d9",
+    "0x8103E9eDC04d87F6DA24A3a0c7778daE689E9D63",
+    "0xfcd02c040cea45dc6cec3e24f1d3946fce7077b0",
+    "0xD7cABE01709c7E36e9D1fb3248A19b525578a1Fc",
+    "0x8ed4dfd3A610CCF1FB45e797bf5D8e0f93084F22"
+    ]
+quorum = 5
 
-[[tiebreaker.committees]] # Protocols
-members = ["0x000000000000000000000000000000000000cafe"]                      # 5 protocols ***
-quorum = 1                                                                    # ***
+[[tiebreaker.committees]] # Ethereum Ecosystem
+members = [
+    "0x80B2D9FA613c35Ec52B0dA5D84e6A819bcc5e369",
+    "0xEC7ABf73f339361ecCA951E1746C90a3e6205BFC",
+    "0xb04b6fb471e766d7f21a6aa0e4e25b2aea0a75ab",
+    "0x60BDa95a40d5536303BFcf84D679ca461A23398d",
+    "0x5d60F5d653Cc318d1f0ABacd83eD4feeAa6e5804"
+    ]
+quorum = 3
 
 # ======================
 # DAO TIMELOCKED GOVERNANCE
@@ -161,4 +180,4 @@ quorum = 1                                                                    # 
 
 # The address of the DAO Voting contract that will be use as proposer in case of emergency reset
 governance="0x2e59A20f205bB85a89C53f1936454680651E618e"                       # DAO Voting *
-timelock="<TIMELOCK>"                                                         # Fills after main deployment
+timelock="0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316"

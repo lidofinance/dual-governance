@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {CallsScriptBuilder} from "scripts/utils/calls-script-builder.sol";
+import {CallsScriptBuilder} from "scripts/utils/CallsScriptBuilder.sol";
 
 import {IVoting} from "./interfaces/IVoting.sol";
 import {IForwarder} from "./interfaces/IForwarder.sol";
@@ -52,7 +52,7 @@ abstract contract OmnibusBase {
         return scriptBuilder.getResult();
     }
 
-    /// @notice Validates the specific vote on Aragon Voting contract.
+    /// @notice Validates the specific vote on Aragon Voting contract against the vote items.
     /// @return A boolean value indicating whether the vote is valid.
     function isValidVoteScript(uint256 voteId) external view returns (bool) {
         ( /*open*/

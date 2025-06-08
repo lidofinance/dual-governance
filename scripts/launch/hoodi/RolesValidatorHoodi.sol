@@ -10,7 +10,7 @@ import {IWithdrawalVaultProxy} from "../interfaces/IWithdrawalVaultProxy.sol";
 import {AragonRoles} from "../libraries/AragonRoles.sol";
 import {OZRoles} from "../libraries/OZRoles.sol";
 
-contract DGLaunchRolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, IRolesValidator {
+contract RolesValidatorHoodi is RolesValidatorBase, LidoAddressesHoodi, IRolesValidator {
     using OZRoles for OZRoles.Context;
     using AragonRoles for AragonRoles.Context;
 

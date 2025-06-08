@@ -8,7 +8,7 @@ import {Proposers} from "contracts/libraries/Proposers.sol";
 
 import {DGRegressionTestSetup, DualGovernance} from "../utils/integration-tests.sol";
 
-import {ExternalCallsBuilder} from "scripts/utils/external-calls-builder.sol";
+import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 
 interface ISomeContract {
     function someMethod(uint256 someParameter) external;
