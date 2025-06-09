@@ -291,13 +291,13 @@ export const HOODI_PERMISSIONS_CONFIG: PermissionsConfigData = {
       REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE: [],
     },
   },
-  ownership: {
-    DepositSecurityModule: { owner: "Agent", getter: "getOwner", setter: "setOwner" },
-    LidoLocator: { owner: "Agent", getter: "proxy__getAdmin", setter: "proxy__getAdmin" },
-    StakingRouter: { owner: "Agent", getter: "proxy__getAdmin", setter: "proxy__changeAdmin" },
-    WithdrawalQueueERC721: { owner: "Agent", getter: "proxy__getAdmin", setter: "proxy__changeAdmin" },
-    WithdrawalVault: { owner: "Agent", getter: "proxy_getAdmin", setter: "proxy_changeAdmin" },
-    AccountingOracle: { owner: "Agent", getter: "proxy__getAdmin", setter: "proxy__changeAdmin" },
-    ValidatorsExitBusOracle: { owner: "Agent", getter: "proxy__getAdmin", setter: "proxy__changeAdmin" },
+  getters: {
+    DepositSecurityModule: { getOwner: "Agent" },
+    LidoLocator: { proxy__getAdmin: "Agent" },
+    StakingRouter: { proxy__getAdmin: "Agent" },
+    WithdrawalQueueERC721: { proxy__getAdmin: "Agent" },
+    WithdrawalVault: { proxy_getAdmin: "Agent" },
+    AccountingOracle: { proxy__getAdmin: "Agent" },
+    ValidatorsExitBusOracle: { proxy__getAdmin: "Agent" },
   },
 };

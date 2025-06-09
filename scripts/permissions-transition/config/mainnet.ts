@@ -11,7 +11,6 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
     Lido: "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
     StakingRouter: "0xFdDf38947aFB03C621C71b06C9C70bce73f12999",
     DepositSecurityModule: "0xffa96d84def2ea035c7ab153d8b991128e3d72fd",
-    ExecutionLayerRewardsVault: "0x388C818CA8B9251b393131C08a736A67ccB19297",
     WithdrawalQueueERC721: "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
     WithdrawalVault: "0xb9d7934878b5fb9610b3fe8a5e441e8fad7e293f",
     Burner: "0xD15a672319Cf0352560eE76d9e89eAB0889046D3",
@@ -24,7 +23,6 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
     ValidatorsExitBusHashConsensus: "0x7FaDB6358950c5fAA66Cb5EB8eE5147De3df355a",
     OracleReportSanityChecker: "0x6232397ebac4f5772e53285B26c47914E9461E75",
     OracleDaemonConfig: "0xbf05A929c3D7885a6aeAd833a992dA6E5ac23b09",
-    LegacyOracle: "0x442af784A788A5bd6F42A01Ebe9F287a871243fb",
 
     // DAO Contracts
     ACL: "0x9895f0f17cc1d1891b6f18ee0b483b6f221b37bb",
@@ -33,12 +31,6 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
     Agent: "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c",
     TokenManager: "0xf73a1260d222f447210581DDf212D915c09a3249",
     Finance: "0xB9E5CBB9CA5b0d659238807E84D0176930753d86",
-    AragonPM: "0x0cb113890b04b49455dfe06554e2d784598a29c9",
-    VotingRepo: "0x4ee3118e3858e8d7164a634825bfe0f73d99c792",
-    LidoRepo: "0xF5Dc67E54FC96F993CD06073f71ca732C1E654B1",
-    LegacyOracleRepo: "0xF9339DE629973c60c4d2b76749c81E6F40960E3A",
-    CuratedModuleRepo: "0x0D97E876ad14DB2b183CFeEB8aa1A5C788eB1831",
-    SimpleDVTRepo: "0x2325b0a607808dE42D918DB07F925FFcCfBb2968",
     OraclesGateSeal: "0xf9c9fdb4a5d2aa1d836d5370ab9b28bc1847e178",
     EVMScriptRegistry: "0x853cc0D5917f49B57B8e9F89e491F5E18919093A",
 
@@ -58,26 +50,12 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
     AnchorVault: "0xA2F987A546D4CD1c607Ee8141276876C26b72Bdf",
     bETH: "0x707f9118e33a9b8998bea41dd0d46f38bb963fc8",
 
+    // DAO Ops contracts & addresses
+    VestingEscrowFactory: "0xDA1DF6442aFD2EC36aBEa91029794B9b2156ADD0",
+
     // EasyTrack
     EasyTrack: "0xF0211b7660680B49De1A7E9f25C65660F0a13Fea",
     EvmScriptExecutor: "0xFE5986E06210aC1eCC1aDCafc0cc7f8D63B3F977",
-
-    // Easy Track Factories for token transfers
-    LOLStETH_AllowedRecipientsRegistry: "0x48c4929630099b217136b64089E8543dB0E5163a",
-    RewardsShareStETH_AllowedRecipientsRegistry: "0xdc7300622948a7AdaF339783F6991F9cdDD79776",
-    LegoLDO_AllowedRecipientsRegistry: "0x97615f72c3428A393d65A84A3ea6BBD9ad6C0D74",
-    LegoStablecoins_AllowedRecipientsRegistry: "0xb0FE4D300334461523D9d61AaD90D0494e1Abb43",
-    RCCStableCoins_AllowedRecipientsRegistry: "0xDc1A0C7849150f466F07d48b38eAA6cE99079f80",
-    RCCStETH_AllowedRecipientsRegistry: "0xAAC4FcE2c5d55D1152512fe5FAA94DB267EE4863",
-    PMLStablecoins_AllowedRecipientsRegistry: "0xDFfCD3BF14796a62a804c1B16F877Cf7120379dB",
-    PMLStETH_AllowedRecipientsRegistry: "0x7b9B8d00f807663d46Fb07F87d61B79884BC335B",
-    ATCStablecoins_AllowedRecipientsRegistry: "0xe07305F43B11F230EaA951002F6a55a16419B707",
-    ATCStETH_AllowedRecipientsRegistry: "0xd3950eB3d7A9B0aBf8515922c0d35D13e85a2c91",
-    TRPLDO_AllowedRecipientsRegistry: "0x231Ac69A1A37649C6B06a71Ab32DdD92158C80b8",
-    GasSupplyStETH_AllowedRecipientsRegistry: "0x49d1363016aA899bba09ae972a1BF200dDf8C55F",
-    AllianceOpsStablecoins_AllowedRecipientsRegistry: "0x3B525F4c059F246Ca4aa995D21087204F30c9E2F",
-    StonksStETH_AllowedRecipientsRegistry: "0x1a7cFA9EFB4D5BfFDE87B0FaEb1fC65d653868C0",
-    StonksStablecoins_AllowedRecipientsRegistry: "0x3f0534CCcFb952470775C516DC2eff8396B8A368",
     AllowedTokensRegistry: "0x4AC40c34f8992bb1e5E856A448792158022551ca",
 
     // Insurance
@@ -111,9 +89,9 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
     LineaSecurityCouncil_Linea: "0x892bb7EeD71efB060ab90140e7825d8127991DD3",
     L1TokenBridgeProxyAdmin_Linea: "0xF5058616517C068C7b8c7EbC69FF636Ade9066d6",
     ProxyAdminTimelock_Linea: "0xd6B95c960779c72B8C6752119849318E5d550574",
+    L1TokenBridgeManagerMultisig_Linea: "0xB8F5524D73f549Cf14A0587a3C7810723f9c0051",
 
     // Scroll
-    L1ProxyAdmin_Scroll: "0xCC2C53556Bc75217cf698721b29071d6f12628A9",
     L1LidoGateway_Scroll: "0x6625c6332c9f91f2d27c304e729b86db87a3f504",
     L1LidoGatewayProxyAdmin_Scroll: "0xCC2C53556Bc75217cf698721b29071d6f12628A9",
 
@@ -182,27 +160,9 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
       EXECUTE_PAYMENTS_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
       MANAGE_PAYMENTS_ROLE: { manager: "Voting", grantedTo: ["Voting"] },
     },
-    AragonPM: {
-      CREATE_REPO_ROLE: { manager: "None" },
-    },
     EVMScriptRegistry: {
       REGISTRY_ADD_EXECUTOR_ROLE: { manager: "Agent" },
       REGISTRY_MANAGER_ROLE: { manager: "Agent" },
-    },
-    VotingRepo: {
-      CREATE_VERSION_ROLE: { manager: "None" },
-    },
-    LidoRepo: {
-      CREATE_VERSION_ROLE: { manager: "None" },
-    },
-    LegacyOracleRepo: {
-      CREATE_VERSION_ROLE: { manager: "None" },
-    },
-    CuratedModuleRepo: {
-      CREATE_VERSION_ROLE: { manager: "None" },
-    },
-    SimpleDVTRepo: {
-      CREATE_VERSION_ROLE: { manager: "None" },
     },
 
     // Staking Modules
@@ -438,10 +398,17 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
     // Linea
     L1TokenBridge_Linea: {
       DEFAULT_ADMIN_ROLE: ["LineaSecurityCouncil_Linea"],
-      DEPOSITS_DISABLER_ROLE: [],
-      DEPOSITS_ENABLER_ROLE: [],
-      WITHDRAWALS_DISABLER_ROLE: [],
-      WITHDRAWALS_ENABLER_ROLE: [],
+      PAUSE_ALL_ROLE: ["LineaSecurityCouncil_Linea"],
+      PAUSE_COMPLETE_TOKEN_BRIDGING_ROLE: ["LineaSecurityCouncil_Linea"],
+      PAUSE_INITIATE_TOKEN_BRIDGING_ROLE: ["LineaSecurityCouncil_Linea"],
+      REMOVE_RESERVED_TOKEN_ROLE: ["LineaSecurityCouncil_Linea", "L1TokenBridgeManagerMultisig_Linea"],
+      SET_CUSTOM_CONTRACT_ROLE: ["LineaSecurityCouncil_Linea", "L1TokenBridgeManagerMultisig_Linea"],
+      SET_MESSAGE_SERVICE_ROLE: ["LineaSecurityCouncil_Linea"],
+      SET_REMOTE_TOKENBRIDGE_ROLE: ["LineaSecurityCouncil_Linea"],
+      SET_RESERVED_TOKEN_ROLE: ["LineaSecurityCouncil_Linea", "L1TokenBridgeManagerMultisig_Linea"],
+      UNPAUSE_ALL_ROLE: ["LineaSecurityCouncil_Linea"],
+      UNPAUSE_COMPLETE_TOKEN_BRIDGING_ROLE: ["LineaSecurityCouncil_Linea"],
+      UNPAUSE_INITIATE_TOKEN_BRIDGING_ROLE: ["LineaSecurityCouncil_Linea"],
     },
 
     // Scroll
@@ -506,52 +473,64 @@ export const MAINNET_PERMISSIONS_CONFIG: PermissionsConfigData = {
       WITHDRAWALS_ENABLER_ROLE: ["Agent"],
     },
   },
-  ownership: {
-    DepositSecurityModule: { getter: "getOwner", setter: "setOwner", owner: "Agent" },
-    LidoLocator: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
-    StakingRouter: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
-    WithdrawalQueueERC721: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
-    WithdrawalVault: { getter: "proxy_getAdmin", setter: "proxy_changeAdmin", owner: "Agent" },
-    AccountingOracle: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
-    ValidatorsExitBusOracle: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
-    InsuranceFund: { getter: "owner", setter: "proxy__changeAdmin", owner: "Voting" },
-    MEVBoostRelayAllowedList: { getter: "get_owner", setter: "change_owner", owner: "Agent" },
+  getters: {
+    DepositSecurityModule: { getOwner: "Agent" },
+    LidoLocator: { proxy__getAdmin: "Agent" },
+    StakingRouter: { proxy__getAdmin: "Agent" },
+    WithdrawalQueueERC721: { proxy__getAdmin: "Agent" },
+    WithdrawalVault: { proxy_getAdmin: "Agent" },
+    AccountingOracle: { proxy__getAdmin: "Agent" },
+    ValidatorsExitBusOracle: { proxy__getAdmin: "Agent" },
+    InsuranceFund: { owner: "Voting" },
+    MEVBoostRelayAllowedList: { get_owner: "Agent" },
+    CSModule: { proxy__getAdmin: "Agent" },
+    CSAccounting: { proxy__getAdmin: "Agent" },
+    CSFeeDistributor: { proxy__getAdmin: "Agent" },
+    CSFeeOracle: { proxy__getAdmin: "Agent" },
+    AnchorVault: { admin: "Agent", proxy_getAdmin: "Agent" },
+    bETH: { admin: "Agent" },
+    VestingEscrowFactory: { owner: "Agent" },
+    EvmScriptExecutor: { owner: "Voting" },
 
     // L2s
-    L1ERC20TokenGateway_Arbitrum: { getter: "proxy__getAdmin", setter: "proxy_changeAdmin", owner: "Agent" },
+    L1ERC20TokenGateway_Arbitrum: { proxy__getAdmin: "Agent" },
 
-    L1LidoTokensBridge_Optimism: { getter: "proxy__getAdmin", setter: "proxy_changeAdmin", owner: "Agent" },
-    TokenRateNotifier_Optimism: { getter: "owner", setter: "transferOwnership", owner: "Agent" },
+    L1LidoTokensBridge_Optimism: { proxy__getAdmin: "Agent" },
+    TokenRateNotifier_Optimism: { owner: "Agent" },
 
-    ERC20Predicate_Polygon: { getter: "proxyOwner", setter: "transferProxyOwnership", owner: "Timelock_Polygon" },
+    ERC20Predicate_Polygon: { proxyOwner: "Timelock_Polygon" },
+    RootChainManagerProxy_Polygon: {
+      proxyOwner: "Timelock_Polygon",
+    },
 
-    L1ERC20TokenBridge_Base: { getter: "proxy__getAdmin", setter: "proxy_changeAdmin", owner: "Agent" },
+    L1ERC20TokenBridge_Base: { proxy__getAdmin: "Agent" },
 
-    L1Executor_zkSync: { getter: "owner", setter: "proxy__changeAdmin", owner: "Agent" },
+    L1Executor_zkSync: { owner: "Agent", proxy__getAdmin: "Agent" },
+    L1ERC20Bridge_zkSync: { proxy__getAdmin: "Agent" },
 
-    L1ERC20TokenBridge_Mantle: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
+    L1ERC20TokenBridge_Mantle: { proxy__getAdmin: "Agent" },
 
-    L1TokenBridgeProxyAdmin_Linea: { getter: "owner", setter: "transferOwnership", owner: "ProxyAdminTimelock_Linea" },
+    L1TokenBridgeProxyAdmin_Linea: { owner: "ProxyAdminTimelock_Linea" },
 
-    L1LidoGateway_Scroll: { getter: "owner", setter: "proxy__changeAdmin", owner: "Agent" },
-    L1LidoGatewayProxyAdmin_Scroll: { getter: "owner", setter: "transferOwnership", owner: "Agent" },
+    L1LidoGateway_Scroll: { owner: "Agent" },
+    L1LidoGatewayProxyAdmin_Scroll: { owner: "Agent" },
 
-    L1ERC20TokenBridge_Mode: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
+    L1ERC20TokenBridge_Mode: { proxy__getAdmin: "Agent" },
 
-    CrossChainController_BSC: { getter: "owner", setter: "transferOwnership", owner: "Agent" },
-    CrossChainControllerProxyAdmin_BSC: { getter: "owner", setter: "transferOwnership", owner: "Agent" },
-    AxelarTransceiver_BSC: { getter: "owner", setter: "transferOwnership", owner: "Agent" },
-    WormholeTransceiver_BSC: { getter: "owner", setter: "transferOwnership", owner: "Agent" },
-    NTTManager_BSC: { getter: "owner", setter: "transferOwnership", owner: "Agent" },
+    CrossChainController_BSC: { owner: "Agent" },
+    CrossChainControllerProxyAdmin_BSC: { owner: "Agent" },
+    AxelarTransceiver_BSC: { owner: "Agent" },
+    WormholeTransceiver_BSC: { owner: "Agent" },
+    NTTManager_BSC: { owner: "Agent" },
 
-    L1ERC20TokenBridge_Zircuit: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
+    L1ERC20TokenBridge_Zircuit: { proxy__getAdmin: "Agent" },
 
-    L1LidoTokensBridge_Soneium: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
+    L1LidoTokensBridge_Soneium: { proxy__getAdmin: "Agent" },
 
-    L1LidoTokensBridge_Unichain: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
+    L1LidoTokensBridge_Unichain: { proxy__getAdmin: "Agent" },
 
-    L1LidoTokensBridge_Lisk: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
+    L1LidoTokensBridge_Lisk: { proxy__getAdmin: "Agent" },
 
-    L1LidoTokensBridge_Swellchain: { getter: "proxy__getAdmin", setter: "proxy__changeAdmin", owner: "Agent" },
+    L1LidoTokensBridge_Swellchain: { proxy__getAdmin: "Agent" },
   },
 };

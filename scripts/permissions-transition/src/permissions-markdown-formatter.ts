@@ -41,13 +41,18 @@ interface AragonPermissionTableData {
   holdersToRevokeRole: AccountInfo[];
 }
 
-interface OwnershipSectionData {
+interface GettersTableData {
   address: Address;
   isModified: boolean;
   contractLabel: string;
+  getters: GettersTableDataItem[];
+}
+
+interface GettersTableDataItem {
+  isModified: boolean;
   propertyGetter: string;
-  oldManagedBy: AccountInfo;
-  newManagedBy: AccountInfo;
+  actualValue: AccountInfo;
+  expectedValue: AccountInfo;
 }
 
 export class PermissionsMarkdownFormatter {
@@ -57,8 +62,8 @@ export class PermissionsMarkdownFormatter {
   #roleHashesMap: Record<string, HexStrPrefixed> = {};
 
   #ozContractTableColumns: string[] = ["Role", "Role Admin", "Revoked", "Granted"];
-  #aragonContractTableColumns: string[] = ["Role", "Role Manager", "Revoked", "Granted"];
-  #contractsOwnershipTableColumns: string[] = ["Contract", "Property", "Old Owner", "New Owner"];
+  #aragonContractTableColumns: string[] = ["Permission", "Permission Manager", "Revoked", "Granted"];
+  #contractsGettersTableColumns: string[] = ["Getter", "Actual Value", "Expected Value"];
 
   constructor(provider: JsonRpcProvider, config: PermissionsConfig, snapshot: PermissionsSnapshot) {
     this.#provider = provider;
@@ -74,13 +79,21 @@ export class PermissionsMarkdownFormatter {
     ];
     const contractTablesData = await this.#buildContractTablesData();
 
-    const [aragonContractTables, aragonPermissionTransitionSteps, ozRolesTransitionSteps, ozContractTables] =
-      await Promise.all([
-        this.#formatAragonContractTables(contractTablesData.aragon),
-        this.#formatAragonPermissionTransitionSteps(contractTablesData.aragon),
-        this.#formatOZRolesTransitionSteps(contractTablesData.oz),
-        this.#formatOZContractTables(contractTablesData.oz),
-      ]);
+    const [
+      aragonContractTables,
+      aragonPermissionTransitionSteps,
+      ozRolesTransitionSteps,
+      ozContractTables,
+      gettersTables,
+      gettersTransitionSteps,
+    ] = await Promise.all([
+      this.#formatAragonContractTables(contractTablesData.aragon),
+      this.#formatAragonPermissionTransitionSteps(contractTablesData.aragon),
+      this.#formatOZRolesTransitionSteps(contractTablesData.oz),
+      this.#formatOZContractTables(contractTablesData.oz),
+      this.#formatGettersTables(contractTablesData.getters),
+      this.#formatGettersTransitionSteps(contractTablesData.getters),
+    ]);
 
     let transitionStepNumber = 1;
     result.push("### Aragon Permissions");
@@ -116,16 +129,19 @@ export class PermissionsMarkdownFormatter {
     }
 
     result.push("### Contracts Ownership");
-    result.push(this.#formatContractsOwnershipTable(contractTablesData.ownership));
-    const transitionSteps = this.#formatContractsOwnershipTransitionSteps(contractTablesData.ownership).map(
-      (transitionStep) => `${transitionStepNumber++}. ${transitionStep}`
-    );
-
-    result.push("");
-
-    if (transitionSteps.length > 0) {
-      result.push("##### Transition Steps\n");
-      result.push("```", ...transitionSteps, "```");
+    for (let i = 0; i < contractTablesData.getters.length; ++i) {
+      const contractGetterData = contractTablesData.getters[i];
+      result.push(this.#formatContractHeader(contractGetterData.contractLabel, contractGetterData.isModified));
+      result.push(gettersTables[i]);
+      result.push("");
+      if (gettersTransitionSteps[i].length > 0) {
+        result.push("##### Transition Steps\n");
+        result.push("```");
+        for (let transitionStep of gettersTransitionSteps[i]) {
+          result.push(`${transitionStepNumber++}. ${transitionStep}`);
+        }
+        result.push("```\n");
+      }
     }
 
     result.push("");
@@ -137,11 +153,11 @@ export class PermissionsMarkdownFormatter {
     const result: {
       oz: OZContractsPermissions[];
       aragon: AragonContractsPermissions[];
-      ownership: OwnershipSectionData[];
+      getters: GettersTableData[];
     } = {
       oz: [],
       aragon: [],
-      ownership: [],
+      getters: [],
     };
 
     const ozContractLabels = Object.keys(this.#config.getOZConfig());
@@ -187,11 +203,11 @@ export class PermissionsMarkdownFormatter {
       return 0;
     });
 
-    for (const ownershipContractLabel of Object.keys(this.#config.getOwnershipConfig())) {
-      result.ownership.push(await this.#buildOwnershipSectionData(ownershipContractLabel));
+    for (const gettersContractLabel of Object.keys(this.#config.getGettersConfig())) {
+      result.getters.push(await this.#buildGettersSectionData(gettersContractLabel));
     }
 
-    result.ownership.sort((a, b) => {
+    result.getters.sort((a, b) => {
       if (a.isModified && !b.isModified) return -1;
       if (!a.isModified && b.isModified) return 1;
       return 0;
@@ -348,26 +364,32 @@ export class PermissionsMarkdownFormatter {
     return result;
   }
 
-  async #buildOwnershipSectionData(contractLabel: string): Promise<OwnershipSectionData> {
-    const config = this.#config.getOwnershipConfig(contractLabel);
+  async #buildGettersSectionData(contractLabel: string): Promise<GettersTableData> {
+    const gettersConfig = this.#config.getGettersConfig(contractLabel);
     const address = this.#config.getAddressByLabel(contractLabel);
 
-    const currentlyManagedByAddress = decodeAddress(
-      await makeContractCall(this.#provider, {
-        address,
-        methodName: config.getter,
-        blockTag: this.#snapshot.snapshotBlockNumber,
-      })
-    );
-    const currentlyManagedByLabel = this.#config.getLabelByAddress(currentlyManagedByAddress);
-
+    const gettersTableItems: GettersTableDataItem[] = [];
+    for (const [getterName, expectedGetterLabel] of Object.entries(gettersConfig)) {
+      const actualGetterValue = decodeAddress(
+        await makeContractCall(this.#provider, {
+          address,
+          methodName: getterName,
+          blockTag: this.#snapshot.snapshotBlockNumber,
+        })
+      );
+      const actualGetterLabel = this.#config.getLabelByAddress(actualGetterValue);
+      gettersTableItems.push({
+        isModified: expectedGetterLabel !== actualGetterLabel,
+        propertyGetter: getterName,
+        actualValue: { label: actualGetterLabel, address: actualGetterValue },
+        expectedValue: { label: expectedGetterLabel, address: this.#config.getAddressByLabel(expectedGetterLabel) },
+      });
+    }
     return {
       address,
-      isModified: config.owner !== currentlyManagedByLabel,
       contractLabel,
-      propertyGetter: config.getter,
-      newManagedBy: { label: config.owner, address: this.#config.getAddressByLabel(config.owner) },
-      oldManagedBy: { label: currentlyManagedByLabel, address: currentlyManagedByAddress },
+      isModified: gettersTableItems.some((item) => item.isModified),
+      getters: gettersTableItems,
     };
   }
 
@@ -407,22 +429,54 @@ export class PermissionsMarkdownFormatter {
     ].join("\n");
   }
 
-  async #formatOZRolesTransitionSteps(contractsData: OZContractsPermissions[]) {
-    const result: string[][] = [];
+  // ---
+  // Aragon Permissions Formatting
+  // ---
 
-    for (const { contractLabel, rolesData } of contractsData) {
-      const contractTransitionSteps: string[] = [];
-      for (const roleData of rolesData) {
-        for (const newGrantee of roleData.holdersToGrantRole) {
-          contractTransitionSteps.push(`Grant ${roleData.name} to ${newGrantee.label} on ${contractLabel}`);
-        }
-        for (const granteesToRevoke of roleData.holdersToRevokeRole) {
-          contractTransitionSteps.push(`Revoke ${roleData.name} from ${granteesToRevoke.label} on ${contractLabel}`);
-        }
+  async #formatAragonContractTables(contractsData: AragonContractsPermissions[]) {
+    const result: string[] = [];
+
+    for (const { permissionsData } of contractsData) {
+      const contractTransitionRows: string[] = [];
+      contractTransitionRows.push(this.#formatAragonPermissionsTableHeader());
+
+      const sortedContractTableData = Object.values(permissionsData).sort((a, b) => {
+        if (a.isModified && !b.isModified) return -1;
+        if (!a.isModified && b.isModified) return 1;
+        return 0;
+      });
+
+      for (const roleData of sortedContractTableData) {
+        contractTransitionRows.push(this.#formatAragonPermissionTableRow(roleData));
       }
-      result.push(contractTransitionSteps);
+
+      result.push(contractTransitionRows.join("\n"));
     }
     return result;
+  }
+
+  #formatAragonPermissionsTableHeader(): string {
+    return [
+      this.#formatMarkdownTableRow(this.#aragonContractTableColumns),
+      this.#formatMarkdownTableRow(Array(this.#aragonContractTableColumns.length).fill("---")),
+    ].join("\n");
+  }
+
+  #formatAragonPermissionTableRow(role: AragonPermissionTableData) {
+    const isModified =
+      role.currentManager.address !== role.newManager.address ||
+      role.holdersToGrantRole.length > 0 ||
+      role.holdersToRevokeRole.length > 0;
+
+    return this.#formatMarkdownTableRow([
+      this.#formatRoleName(role.name, isModified),
+      this.#formatPermissionManager(role.currentManager, role.newManager, isModified),
+      role.holdersToRevokeRole.map((acc) => this.#formatHolderToRevoke(acc)).join(" ") || "∅",
+      [
+        ...role.holdersToGrantRole.map((acc) => this.#formatHolderToGrantRole(acc)),
+        ...role.currentRoleHolders.map((acc) => this.#formatCurrentRoleHolder(acc)),
+      ].join(" ") || "∅",
+    ]);
   }
 
   async #formatAragonPermissionTransitionSteps(contractsData: AragonContractsPermissions[]) {
@@ -466,27 +520,9 @@ export class PermissionsMarkdownFormatter {
     return result;
   }
 
-  async #formatAragonContractTables(contractsData: AragonContractsPermissions[]) {
-    const result: string[] = [];
-
-    for (const { permissionsData } of contractsData) {
-      const contractTransitionRows: string[] = [];
-      contractTransitionRows.push(this.#formatAragonPermissionsTableHeader());
-
-      const sortedContractTableData = Object.values(permissionsData).sort((a, b) => {
-        if (a.isModified && !b.isModified) return -1;
-        if (!a.isModified && b.isModified) return 1;
-        return 0;
-      });
-
-      for (const roleData of sortedContractTableData) {
-        contractTransitionRows.push(this.#formatAragonPermissionTableRow(roleData));
-      }
-
-      result.push(contractTransitionRows.join("\n"));
-    }
-    return result;
-  }
+  // ---
+  // OZ Roles Formatting
+  // ---
 
   async #formatOZContractTables(contractsData: OZContractsPermissions[]) {
     const result: string[] = [];
@@ -506,29 +542,6 @@ export class PermissionsMarkdownFormatter {
       result.push(contractTransitionRows.join("\n"));
     }
     return result;
-  }
-
-  #formatContractsOwnershipTable(contractsData: OwnershipSectionData[]) {
-    const result: string[] = [this.#formatContractsOwnershipTableHeader()];
-    for (const ownershipData of contractsData) {
-      result.push(this.#formatContractsOwnershipTableRow(ownershipData));
-    }
-    return result.join("\n");
-  }
-
-  #formatContractsOwnershipTransitionSteps(contractsData: OwnershipSectionData[]) {
-    const result: string[] = [];
-    for (const roleData of contractsData) {
-      if (roleData.isModified) {
-        const ownershipType = roleData.propertyGetter.toLowerCase().includes("owner") ? "owner" : "admin";
-        result.push(`Set ${ownershipType} to ${roleData.newManagedBy.label} on ${roleData.contractLabel}`);
-      }
-    }
-    return result;
-  }
-
-  #formatMarkdownTableRow(items: string[]) {
-    return `| ${items.join(" | ")} |`;
   }
 
   #formatOZRoleTableHeader(): string {
@@ -554,45 +567,89 @@ export class PermissionsMarkdownFormatter {
     ]);
   }
 
-  #formatAragonPermissionsTableHeader(): string {
+  async #formatOZRolesTransitionSteps(contractsData: OZContractsPermissions[]) {
+    const result: string[][] = [];
+
+    for (const { contractLabel, rolesData } of contractsData) {
+      const contractTransitionSteps: string[] = [];
+      for (const roleData of rolesData) {
+        for (const newGrantee of roleData.holdersToGrantRole) {
+          contractTransitionSteps.push(`Grant ${roleData.name} to ${newGrantee.label} on ${contractLabel}`);
+        }
+        for (const granteesToRevoke of roleData.holdersToRevokeRole) {
+          contractTransitionSteps.push(`Revoke ${roleData.name} from ${granteesToRevoke.label} on ${contractLabel}`);
+        }
+      }
+      result.push(contractTransitionSteps);
+    }
+    return result;
+  }
+
+  // ---
+  // Contract Getters Formatting
+  // ---
+
+  #formatGettersTables(contractsData: GettersTableData[]): string[] {
+    const result: string[] = [];
+    for (const contractData of contractsData) {
+      const contractTransitionRows: string[] = [];
+      contractTransitionRows.push(this.#formatGettersTableHeader());
+
+      const sortedContractTableData = Object.values(contractData.getters).sort((a, b) => {
+        if (a.isModified && !b.isModified) return -1;
+        if (!a.isModified && b.isModified) return 1;
+        return 0;
+      });
+
+      for (const roleData of sortedContractTableData) {
+        contractTransitionRows.push(this.#formatGettersTableRow(roleData));
+      }
+      result.push(contractTransitionRows.join("\n"));
+    }
+    return result;
+  }
+
+  #formatGettersTransitionSteps(contractsData: GettersTableData[]) {
+    const result: string[][] = [];
+
+    for (const contractData of contractsData) {
+      const contractTransitionSteps: string[] = [];
+      for (const getter of contractData.getters) {
+        if (getter.isModified) {
+          const getterType = getter.propertyGetter.toLowerCase().includes("owner") ? "owner" : "admin";
+          contractTransitionSteps.push(
+            `Set ${getterType} to ${getter.expectedValue.label} on ${contractData.contractLabel}`
+          );
+        }
+      }
+      result.push(contractTransitionSteps);
+    }
+
+    return result;
+  }
+
+  #formatMarkdownTableRow(items: string[]) {
+    return `| ${items.join(" | ")} |`;
+  }
+
+  #formatGettersTableHeader(): string {
     return [
-      this.#formatMarkdownTableRow(this.#aragonContractTableColumns),
-      this.#formatMarkdownTableRow(Array(this.#aragonContractTableColumns.length).fill("---")),
+      this.#formatMarkdownTableRow(this.#contractsGettersTableColumns),
+      this.#formatMarkdownTableRow(Array(this.#contractsGettersTableColumns.length).fill("---")),
     ].join("\n");
   }
 
-  #formatAragonPermissionTableRow(role: AragonPermissionTableData) {
-    const isModified =
-      role.currentManager.address !== role.newManager.address ||
-      role.holdersToGrantRole.length > 0 ||
-      role.holdersToRevokeRole.length > 0;
-
+  #formatGettersTableRow(gettersDataItem: GettersTableDataItem): string {
     return this.#formatMarkdownTableRow([
-      this.#formatRoleName(role.name, isModified),
-      this.#formatPermissionManager(role.currentManager, role.newManager, isModified),
-      role.holdersToRevokeRole.map((acc) => this.#formatHolderToRevoke(acc)).join(" ") || "∅",
-      [
-        ...role.holdersToGrantRole.map((acc) => this.#formatHolderToGrantRole(acc)),
-        ...role.currentRoleHolders.map((acc) => this.#formatCurrentRoleHolder(acc)),
-      ].join(" ") || "∅",
+      gettersDataItem.isModified ? `⚠️ \`${gettersDataItem.propertyGetter}\`` : `\`${gettersDataItem.propertyGetter}\``,
+      this.#formatContractLabel(gettersDataItem.actualValue.label, false),
+      this.#formatContractLabel(gettersDataItem.expectedValue.label, gettersDataItem.isModified),
     ]);
   }
 
-  #formatContractsOwnershipTableHeader(): string {
-    return [
-      this.#formatMarkdownTableRow(this.#contractsOwnershipTableColumns),
-      this.#formatMarkdownTableRow(Array(this.#contractsOwnershipTableColumns.length).fill("---")),
-    ].join("\n");
-  }
-
-  #formatContractsOwnershipTableRow(ownershipData: OwnershipSectionData): string {
-    return this.#formatMarkdownTableRow([
-      this.#formatContractLabel(ownershipData.contractLabel, ownershipData.isModified),
-      `\`${ownershipData.propertyGetter}\``,
-      this.#formatContractLabel(ownershipData.oldManagedBy.label, false),
-      this.#formatContractLabel(ownershipData.newManagedBy.label, ownershipData.isModified),
-    ]);
-  }
+  // ---
+  // Common Formatters
+  // ---
 
   #formatRoleName(roleName: string, isModified: boolean) {
     if (roleName === "DEFAULT_ADMIN_ROLE") {
@@ -657,6 +714,10 @@ export class PermissionsMarkdownFormatter {
       ? currentManagerLabel
       : `⚠️ ${currentManagerLabel} → ${newManagerLabel}`;
   }
+
+  // ---
+  // Helper Permissions Methods
+  // ---
 
   async #getACLPermissionParamsLength(entity: Address, app: Address, role: HexStrPrefixed) {
     const paramsLengthAbiEncoded = await makeContractCall(this.#provider, {

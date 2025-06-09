@@ -13,20 +13,13 @@ interface AragonPermissionConfig {
 type AragonContractPermissionsConfig = Record<string, AragonPermissionConfig>;
 type AragonPermissionsConfig = Record<string, AragonContractPermissionsConfig>;
 
-interface OwnershipConfigItem {
-  owner: string;
-  getter: string;
-  setter: string;
-}
-type OwnershipConfig = Record<string, OwnershipConfigItem>;
-
 export interface PermissionsConfigData {
   genesisBlock: number;
   explorerURL: string;
   labels: Record<string, Address>;
   aragon: AragonPermissionsConfig;
   oz: OZRolesConfig;
-  ownership: OwnershipConfig;
+  getters: Record<string, Record<string, string>>;
 }
 
 export class PermissionsConfig {
@@ -76,16 +69,16 @@ export class PermissionsConfig {
     return this.#data.aragon[contractLabel];
   }
 
-  getOwnershipConfig(): OwnershipConfig;
-  getOwnershipConfig(contractLabel: string): OwnershipConfigItem;
-  getOwnershipConfig(contractLabel?: string) {
+  getGettersConfig(): Record<string, string>;
+  getGettersConfig(contractLabel: string): Record<string, string>;
+  getGettersConfig(contractLabel?: string) {
     if (!contractLabel) {
-      return this.#data.ownership;
+      return this.#data.getters;
     }
-    if (!this.#data.ownership[contractLabel]) {
+    if (!this.#data.getters[contractLabel]) {
       throw new Error(`Aragon config for contract "${contractLabel}" not found`);
     }
-    return this.#data.ownership[contractLabel];
+    return this.#data.getters[contractLabel];
   }
 
   getAragonACLAddress() {
