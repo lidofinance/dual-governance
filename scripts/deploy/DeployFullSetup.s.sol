@@ -6,7 +6,7 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {
-    DeployConfig,
+    DGSetupDeployConfig,
     DGSetupDeployArtifacts,
     ContractsDeployment,
     DGSetupDeployedContracts
@@ -15,8 +15,8 @@ import {DeployVerification} from "../utils/DeployVerification.sol";
 
 import {DeployFiles} from "../utils/DeployFiles.sol";
 
-contract DeployConfigurable is Script {
-    using DeployConfig for DeployConfig.Context;
+contract DeployFullSetup is Script {
+    using DGSetupDeployConfig for DGSetupDeployConfig.Context;
     using DGSetupDeployArtifacts for DGSetupDeployArtifacts.Context;
     using DGSetupDeployedContracts for DGSetupDeployedContracts.Context;
 
@@ -26,8 +26,8 @@ contract DeployConfigurable is Script {
         string memory configFileName = vm.envString("DEPLOY_CONFIG_FILE_NAME");
 
         console.log("Loading config file: %s", configFileName);
-        DeployConfig.Context memory deployConfig =
-            DeployConfig.load({configFilePath: DeployFiles.resolveDeployConfig(configFileName)});
+        DGSetupDeployConfig.Context memory deployConfig =
+            DGSetupDeployConfig.load({configFilePath: DeployFiles.resolveDeployConfig(configFileName)});
 
         if (deployConfig.chainId != block.chainid) {
             revert ChainIdMismatch({actual: block.chainid, expected: deployConfig.chainId});
@@ -47,7 +47,7 @@ contract DeployConfigurable is Script {
         vm.startBroadcast();
 
         DGSetupDeployedContracts.Context memory deployedContracts =
-            ContractsDeployment.deployConfigurableSetup(deployer, deployConfig);
+            ContractsDeployment.deployDGSetup(deployer, deployConfig);
 
         vm.stopBroadcast();
 
@@ -64,8 +64,8 @@ contract DeployConfigurable is Script {
         console.log(unicode"Verified ✅");
 
         string memory deployArtifactFileName =
-            string.concat("deploy-artifact-", vm.toString(block.chainid), "-", vm.toString(block.timestamp), ".toml");
+            string.concat("deploy-artifact-", vm.toString(block.chainid), "-", vm.toString(block.timestamp));
 
-        deployArtifact.save(deployArtifactFileName);
+        deployArtifact.save(string.concat(deployArtifactFileName, ".toml"));
     }
 }

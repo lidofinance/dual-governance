@@ -27,10 +27,12 @@ import {ImmutableDualGovernanceConfigProvider} from "contracts/ImmutableDualGove
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
-import {DeployFiles} from "./deploy-files.sol";
-import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "./config-files.sol";
+import {DeployFiles} from "./DeployFiles.sol";
+import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "./ConfigFiles.sol";
 
 import {IVotingProvider} from "./interfaces/IVotingProvider.sol";
+
+import {console} from "forge-std/console.sol";
 
 // solhint-disable-next-line const-name-snakecase
 Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -41,18 +43,169 @@ error InvalidChainId(uint256 actual, uint256 expected);
 using JsonKeys for string;
 using ConfigFileBuilder for ConfigFileBuilder.Context;
 
+library DeployConfig {
+    using ConfigFileReader for ConfigFileReader.Context;
+    using TimelockContractDeployConfig for TimelockContractDeployConfig.Context;
+    using EmergencyProtectionDeployConfig for EmergencyProtectionDeployConfig.Context;
+    using TiebreakerContractDeployConfig for TiebreakerContractDeployConfig.Context;
+    using DualGovernanceContractDeployConfig for DualGovernanceContractDeployConfig.Context;
+    using DualGovernanceConfigProviderContractDeployConfig for DualGovernanceConfig.Context;
+
+    enum GovernanceType {
+        TimelockedGovernance,
+        DualGovernance,
+        EOA
+    }
+
+    struct Context {
+        TimelockContractDeployConfig.Context timelock;
+        EmergencyProtectionDeployConfig.Context emergencyProtection;
+        TiebreakerContractDeployConfig.Context tiebreaker;
+        DualGovernanceContractDeployConfig.Context dualGovernance;
+        DualGovernanceConfig.Context dualGovernanceConfigProvider;
+        address timelockedGovernance;
+        address governanceEOA;
+        bool disableTiebreaker;
+        bool disableEmergencyProtection;
+        GovernanceType governanceType;
+        uint256 chainId;
+    }
+
+    function load(string memory configFilePath) internal view returns (Context memory ctx) {
+        return load(configFilePath, "");
+    }
+
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+        string memory $ = configRootKey.root();
+
+        ctx.chainId = file.readUint($.key("chain_id"));
+
+        string memory governanceType = $.key("governance_type");
+        if (
+            file.keyExists($.key("governance_type"))
+                && keccak256(bytes(file.readString(governanceType))) == keccak256("timelocked_governance")
+        ) {
+            ctx.governanceType = GovernanceType.TimelockedGovernance;
+        } else if (
+            file.keyExists($.key("governance_type"))
+                && keccak256(bytes(file.readString(governanceType))) == keccak256("dual_governance")
+        ) {
+            ctx.governanceType = GovernanceType.DualGovernance;
+        } else if (
+            file.keyExists($.key("governance_type"))
+                && keccak256(bytes(file.readString(governanceType))) == keccak256("eoa")
+        ) {
+            ctx.governanceType = GovernanceType.EOA;
+        } else if (!file.keyExists($.key("governance_type"))) {
+            ctx.governanceType = GovernanceType.DualGovernance;
+        } else {
+            revert InvalidParameter("governance_type");
+        }
+
+        ctx.disableTiebreaker =
+            file.keyExists($.key("disable_tiebreaker")) && file.readBool($.key("disable_tiebreaker"));
+        ctx.disableEmergencyProtection = file.keyExists($.key("disable_emergency_protection"))
+            && file.readBool($.key("disable_emergency_protection"));
+
+        ctx.timelock = TimelockContractDeployConfig.load(configFilePath, $.key("timelock"));
+
+        if (!ctx.disableEmergencyProtection) {
+            ctx.emergencyProtection =
+                EmergencyProtectionDeployConfig.load(configFilePath, $.key("timelock.emergency_protection"));
+        }
+
+        if (!ctx.disableTiebreaker) {
+            ctx.tiebreaker = TiebreakerContractDeployConfig.load(configFilePath, $.key("tiebreaker"));
+        }
+
+        if (ctx.governanceType == GovernanceType.DualGovernance) {
+            ctx.dualGovernance = DualGovernanceContractDeployConfig.load(configFilePath, $.key("dual_governance"));
+            ctx.dualGovernanceConfigProvider = DualGovernanceConfigProviderContractDeployConfig.load(
+                configFilePath, $.key("dual_governance_config_provider")
+            );
+        } else if (ctx.governanceType == GovernanceType.TimelockedGovernance) {
+            ctx.timelockedGovernance = file.readAddress($.key("timelocked_governance"));
+        } else if (ctx.governanceType == GovernanceType.EOA) {
+            ctx.governanceEOA = file.readAddress($.key("governance_eoa"));
+        } else {
+            revert InvalidParameter("governance_type");
+        }
+    }
+
+    function validate(Context memory ctx) internal view {
+        if (ctx.governanceType == GovernanceType.TimelockedGovernance) {
+            ctx.timelock.validate();
+        } else if (ctx.governanceType == GovernanceType.DualGovernance) {
+            ctx.dualGovernance.validate();
+        } else if (ctx.governanceType == GovernanceType.EOA) {
+            if (ctx.governanceEOA == address(0)) {
+                revert InvalidParameter("governance_eoa");
+            }
+        } else {
+            revert InvalidParameter("governance_type");
+        }
+
+        if (!ctx.disableTiebreaker) {
+            TiebreakerContractDeployConfig.validate(ctx.tiebreaker);
+        }
+
+        if (!ctx.disableEmergencyProtection) {
+            ctx.emergencyProtection.validate(ctx.timelock.sanityCheckParams.maxEmergencyModeDuration);
+        }
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("===== Deploy Config");
+        string memory governanceTypeStr;
+        if (ctx.governanceType == GovernanceType.TimelockedGovernance) {
+            governanceTypeStr = "TimelockedGovernance";
+        } else if (ctx.governanceType == GovernanceType.DualGovernance) {
+            governanceTypeStr = "DualGovernance";
+        } else if (ctx.governanceType == GovernanceType.EOA) {
+            governanceTypeStr = "EOA";
+        } else {
+            governanceTypeStr = "Unknown";
+        }
+        console.log("Governance type", governanceTypeStr);
+        console.log("Disable tiebreaker", ctx.disableTiebreaker);
+        console.log("Disable emergency protection", ctx.disableEmergencyProtection);
+        console.log("\n");
+
+        ctx.timelock.print();
+
+        if (!ctx.disableEmergencyProtection) {
+            ctx.emergencyProtection.print();
+        }
+
+        if (ctx.governanceType == GovernanceType.DualGovernance) {
+            ctx.dualGovernance.print();
+        } else if (ctx.governanceType == GovernanceType.TimelockedGovernance) {
+            console.log("===== Timelocked Governance");
+            console.log("Governance", ctx.timelockedGovernance);
+        } else if (ctx.governanceType == GovernanceType.EOA) {
+            console.log("===== EOA Governance");
+            console.log("Governance EOA", ctx.governanceEOA);
+        }
+        console.log("\n");
+
+        if (!ctx.disableTiebreaker) {
+            ctx.tiebreaker.print();
+        }
+    }
+}
+
 library TimelockContractDeployConfig {
     using ConfigFileReader for ConfigFileReader.Context;
+    using EmergencyProtectionDeployConfig for EmergencyProtectionDeployConfig.Context;
 
     struct Context {
         Duration afterSubmitDelay;
         Duration afterScheduleDelay;
         EmergencyProtectedTimelock.SanityCheckParams sanityCheckParams;
-        Duration emergencyModeDuration;
-        Timestamp emergencyProtectionEndDate;
-        address emergencyGovernanceProposer;
-        address emergencyActivationCommittee;
-        address emergencyExecutionCommittee;
     }
 
     function load(
@@ -63,7 +216,6 @@ library TimelockContractDeployConfig {
 
         string memory $ = configRootKey.root();
         string memory $sanityCheckParams = $.key("sanity_check_params");
-        string memory $emergencyProtection = $.key("emergency_protection");
 
         return Context({
             afterSubmitDelay: file.readDuration($.key("after_submit_delay")),
@@ -74,12 +226,7 @@ library TimelockContractDeployConfig {
                 maxAfterScheduleDelay: file.readDuration($sanityCheckParams.key("max_after_schedule_delay")),
                 maxEmergencyModeDuration: file.readDuration($sanityCheckParams.key("max_emergency_mode_duration")),
                 maxEmergencyProtectionDuration: file.readDuration($sanityCheckParams.key("max_emergency_protection_duration"))
-            }),
-            emergencyGovernanceProposer: file.readAddress($emergencyProtection.key("emergency_governance_proposer")),
-            emergencyActivationCommittee: file.readAddress($emergencyProtection.key("emergency_activation_committee")),
-            emergencyExecutionCommittee: file.readAddress($emergencyProtection.key("emergency_execution_committee")),
-            emergencyModeDuration: file.readDuration($emergencyProtection.key("emergency_mode_duration")),
-            emergencyProtectionEndDate: file.readTimestamp($emergencyProtection.key("emergency_protection_end_date"))
+            })
         });
     }
 
@@ -91,10 +238,6 @@ library TimelockContractDeployConfig {
         if (ctx.afterScheduleDelay > ctx.sanityCheckParams.maxAfterScheduleDelay) {
             revert InvalidParameter("timelock.after_schedule_delay");
         }
-
-        if (ctx.emergencyModeDuration > ctx.sanityCheckParams.maxEmergencyModeDuration) {
-            revert InvalidParameter("timelock.emergency_mode_duration");
-        }
     }
 
     function toJSON(Context memory ctx) internal returns (string memory) {
@@ -103,7 +246,6 @@ library TimelockContractDeployConfig {
         builder.set("after_schedule_delay", ctx.afterScheduleDelay);
         builder.set("after_submit_delay", ctx.afterSubmitDelay);
         builder.set("sanity_check_params", _sanityCheckParamsToJSON(ctx));
-        builder.set("emergency_protection", _emergencyProtectionToJSON(ctx));
 
         return builder.content;
     }
@@ -116,18 +258,6 @@ library TimelockContractDeployConfig {
         builder.set("max_after_schedule_delay", ctx.sanityCheckParams.maxAfterScheduleDelay);
         builder.set("max_emergency_mode_duration", ctx.sanityCheckParams.maxEmergencyModeDuration);
         builder.set("max_emergency_protection_duration", ctx.sanityCheckParams.maxEmergencyProtectionDuration);
-
-        return builder.content;
-    }
-
-    function _emergencyProtectionToJSON(Context memory ctx) internal returns (string memory) {
-        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
-
-        builder.set("emergency_mode_duration", ctx.emergencyModeDuration);
-        builder.set("emergency_protection_end_date", ctx.emergencyProtectionEndDate);
-        builder.set("emergency_governance_proposer", ctx.emergencyGovernanceProposer);
-        builder.set("emergency_activation_committee", ctx.emergencyActivationCommittee);
-        builder.set("emergency_execution_committee", ctx.emergencyExecutionCommittee);
 
         return builder.content;
     }
@@ -146,13 +276,64 @@ library TimelockContractDeployConfig {
             "Max emergency protection duration", ctx.sanityCheckParams.maxEmergencyProtectionDuration.toSeconds()
         );
         console.log("\n");
-        console.log("===== Timelock. Emergency protection");
+    }
+}
+
+library EmergencyProtectionDeployConfig {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        address emergencyActivationCommittee;
+        address emergencyExecutionCommittee;
+        address emergencyGovernanceProposer;
+        Duration emergencyModeDuration;
+        Timestamp emergencyProtectionEndDate;
+    }
+
+    function load(string memory configFilePath, string memory configRootKey) internal view returns (Context memory) {
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+
+        string memory $ = configRootKey.root();
+
+        return Context({
+            emergencyActivationCommittee: file.readAddress($.key("emergency_activation_committee")),
+            emergencyExecutionCommittee: file.readAddress($.key("emergency_execution_committee")),
+            emergencyGovernanceProposer: file.readAddress($.key("emergency_governance_proposer")),
+            emergencyModeDuration: file.readDuration($.key("emergency_mode_duration")),
+            emergencyProtectionEndDate: file.readTimestamp($.key("emergency_protection_end_date"))
+        });
+    }
+
+    function validate(Context memory ctx, Duration maxEmergencyModeDuration) internal view {
+        if (ctx.emergencyModeDuration > maxEmergencyModeDuration) {
+            revert InvalidParameter("emergency_protection.emergency_mode_duration");
+        }
+
+        if (ctx.emergencyProtectionEndDate < Timestamps.now()) {
+            revert InvalidParameter("emergency_protection.emergency_protection_end_date");
+        }
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("===== Emergency Protection");
         console.log("Emergency activation committee", ctx.emergencyActivationCommittee);
         console.log("Emergency execution committee", ctx.emergencyExecutionCommittee);
         console.log("Emergency governance proposer", ctx.emergencyGovernanceProposer);
         console.log("Emergency mode duration", ctx.emergencyModeDuration.toSeconds());
         console.log("Emergency protection end date", ctx.emergencyProtectionEndDate.toSeconds());
         console.log("\n");
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("emergency_activation_committee", ctx.emergencyActivationCommittee);
+        builder.set("emergency_execution_committee", ctx.emergencyExecutionCommittee);
+        builder.set("emergency_governance_proposer", ctx.emergencyGovernanceProposer);
+        builder.set("emergency_mode_duration", ctx.emergencyModeDuration);
+        builder.set("emergency_protection_end_date", ctx.emergencyProtectionEndDate);
+
+        return builder.content;
     }
 }
 
@@ -493,6 +674,7 @@ library DGSetupDeployConfig {
     using TiebreakerContractDeployConfig for TiebreakerContractDeployConfig.Context;
     using DualGovernanceContractDeployConfig for DualGovernanceContractDeployConfig.Context;
     using DualGovernanceConfigProviderContractDeployConfig for DualGovernanceConfig.Context;
+    using EmergencyProtectionDeployConfig for EmergencyProtectionDeployConfig.Context;
 
     struct Context {
         uint256 chainId;
@@ -500,6 +682,7 @@ library DGSetupDeployConfig {
         TiebreakerContractDeployConfig.Context tiebreaker;
         DualGovernanceContractDeployConfig.Context dualGovernance;
         DualGovernanceConfig.Context dualGovernanceConfigProvider;
+        EmergencyProtectionDeployConfig.Context emergencyProtection;
     }
 
     function load(string memory configFilePath) internal view returns (Context memory ctx) {
@@ -520,6 +703,8 @@ library DGSetupDeployConfig {
         ctx.dualGovernanceConfigProvider = DualGovernanceConfigProviderContractDeployConfig.load(
             configFilePath, $.key("dual_governance_config_provider")
         );
+        ctx.emergencyProtection =
+            EmergencyProtectionDeployConfig.load(configFilePath, $.key("timelock.emergency_protection"));
     }
 
     function validate(Context memory ctx) internal pure {
@@ -685,6 +870,7 @@ library TGSetupDeployConfig {
         uint256 chainId;
         address governance;
         TimelockContractDeployConfig.Context timelock;
+        EmergencyProtectionDeployConfig.Context emergencyProtection;
     }
 }
 
@@ -693,6 +879,37 @@ library TGSetupDeployedContracts {
         Executor adminExecutor;
         EmergencyProtectedTimelock timelock;
         TimelockedGovernance timelockedGovernance;
+    }
+}
+
+library TimelockedGovernanceDeployArtifacts {
+    using ConfigFileBuilder for ConfigFileBuilder.Context;
+    using TimelockedGovernanceDeployConfig for TimelockedGovernanceDeployConfig.Context;
+    using TimelockedGovernanceDeployedContracts for TimelockedGovernanceDeployedContracts.Context;
+
+    struct Context {
+        TimelockedGovernanceDeployConfig.Context deployConfig;
+        TimelockedGovernanceDeployedContracts.Context deployedContracts;
+    }
+
+    function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
+        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
+        ctx.deployConfig = TimelockedGovernanceDeployConfig.load(deployArtifactFilePath, "deploy_config");
+        ctx.deployedContracts = TimelockedGovernanceDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
+    }
+
+    function validate(Context memory ctx) internal view {
+        ctx.deployConfig.validate();
+    }
+
+    function save(Context memory ctx, string memory fileName) internal {
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+
+        // forgefmt: disable-next-item
+        configBuilder
+            .set("deploy_config", ctx.deployConfig.toJSON())
+            .set("deployed_contracts", ctx.deployedContracts.toJSON())
+            .write(DeployFiles.resolveDeployArtifact(fileName));
     }
 }
 
@@ -732,8 +949,13 @@ library TimelockedGovernanceDeployConfig {
     function toJSON(Context memory ctx) internal returns (string memory) {
         ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
 
-        builder.set("governance", ctx.governance);
-        builder.set("timelock", address(ctx.timelock));
+        builder.set("chain_id", ctx.chainId);
+
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+        configBuilder.set("governance", ctx.governance);
+        configBuilder.set("timelock", address(ctx.timelock));
+
+        builder.set("timelocked_governance", configBuilder.content);
 
         return builder.content;
     }
@@ -774,7 +996,428 @@ library TimelockedGovernanceDeployedContracts {
     }
 }
 
+library ExecutorDeployConfig {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        uint256 chainId;
+        address owner;
+    }
+
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
+        string memory $ = configRootKey.root();
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+
+        ctx.chainId = file.readUint($.key("chain_id"));
+        ctx.owner = file.readAddress($.key("executor.owner"));
+    }
+
+    function validate(Context memory ctx) internal pure {
+        if (ctx.owner == address(0)) {
+            revert InvalidParameter("owner");
+        }
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("chain_id", ctx.chainId);
+
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+        configBuilder.set("owner", ctx.owner);
+
+        builder.set("executor", configBuilder.content);
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("Executor owner", ctx.owner);
+    }
+}
+
+library ExecutorDeployedContracts {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        Executor executor;
+    }
+
+    function load(
+        string memory deployedContractsFilePath,
+        string memory prefix
+    ) internal view returns (Context memory ctx) {
+        string memory $ = prefix.root();
+        ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
+
+        ctx.executor = Executor(payable(deployedContract.readAddress($.key("executor"))));
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+        builder.set("executor", address(ctx.executor));
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("Executor address", address(ctx.executor));
+    }
+}
+
+library ExecutorDeployArtifacts {
+    using ConfigFileBuilder for ConfigFileBuilder.Context;
+    using ExecutorDeployConfig for ExecutorDeployConfig.Context;
+    using ExecutorDeployedContracts for ExecutorDeployedContracts.Context;
+
+    struct Context {
+        ExecutorDeployConfig.Context deployConfig;
+        ExecutorDeployedContracts.Context deployedContracts;
+    }
+
+    function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
+        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
+        ctx.deployConfig = ExecutorDeployConfig.load(deployArtifactFilePath, "deploy_config");
+        ctx.deployedContracts = ExecutorDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
+    }
+
+    function validate(Context memory ctx) internal pure {
+        ctx.deployConfig.validate();
+    }
+
+    function save(Context memory ctx, string memory fileName) internal {
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+
+        // forgefmt: disable-next-item
+        configBuilder
+            .set("deploy_config", ctx.deployConfig.toJSON())
+            .set("deployed_contracts", ctx.deployedContracts.toJSON())
+            .write(DeployFiles.resolveDeployArtifact(fileName));
+    }
+}
+
+library TiebreakerDeployConfig {
+    using ConfigFileReader for ConfigFileReader.Context;
+    using TiebreakerContractDeployConfig for TiebreakerContractDeployConfig.Context;
+
+    struct Context {
+        uint256 chainId;
+        address owner;
+        address dualGovernance;
+        TiebreakerContractDeployConfig.Context config;
+    }
+
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
+        string memory $ = configRootKey.root();
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+
+        ctx.chainId = file.readUint($.key("chain_id"));
+        ctx.owner = file.readAddress($.key("tiebreaker.owner"));
+        ctx.dualGovernance = file.readAddress($.key("tiebreaker.dual_governance"));
+        ctx.config = TiebreakerContractDeployConfig.load(configFilePath, $.key("tiebreaker"));
+    }
+
+    function validate(Context memory ctx) internal pure {
+        if (ctx.owner == address(0)) {
+            revert InvalidParameter("owner");
+        }
+        if (ctx.dualGovernance == address(0)) {
+            revert InvalidParameter("dualGovernance");
+        }
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("chain_id", ctx.chainId);
+
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+        configBuilder.set("owner", ctx.owner);
+        configBuilder.set("dual_governance", ctx.dualGovernance);
+
+        builder.set("tiebreaker", configBuilder.content);
+        builder.set("tiebreaker", ctx.config.toJSON());
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("Tiebreaker owner", ctx.owner);
+        console.log("Tiebreaker dual governance", ctx.dualGovernance);
+        ctx.config.print();
+    }
+}
+
+library TiebreakerDeployedContracts {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        TiebreakerCoreCommittee tiebreakerCoreCommittee;
+        TiebreakerSubCommittee[] tiebreakerSubCommittees;
+    }
+
+    function load(
+        string memory deployedContractsFilePath,
+        string memory prefix
+    ) internal view returns (Context memory ctx) {
+        string memory $ = prefix.root();
+        ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
+
+        ctx.tiebreakerCoreCommittee =
+            TiebreakerCoreCommittee(deployedContract.readAddress($.key("tiebreaker_core_committee")));
+
+        address[] memory subCommittees = deployedContract.readAddressArray($.key("tiebreaker_sub_committees"));
+        ctx.tiebreakerSubCommittees = new TiebreakerSubCommittee[](subCommittees.length);
+        for (uint256 i = 0; i < subCommittees.length; ++i) {
+            ctx.tiebreakerSubCommittees[i] = TiebreakerSubCommittee(subCommittees[i]);
+        }
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("tiebreaker_core_committee", address(ctx.tiebreakerCoreCommittee));
+
+        address[] memory subCommittees = new address[](ctx.tiebreakerSubCommittees.length);
+        for (uint256 i = 0; i < ctx.tiebreakerSubCommittees.length; ++i) {
+            subCommittees[i] = address(ctx.tiebreakerSubCommittees[i]);
+        }
+        builder.set("tiebreaker_sub_committees", subCommittees);
+
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("TiebreakerCoreCommittee address", address(ctx.tiebreakerCoreCommittee));
+
+        for (uint256 i = 0; i < ctx.tiebreakerSubCommittees.length; ++i) {
+            console.log("TiebreakerSubCommittee[%d] address %x", i, address(ctx.tiebreakerSubCommittees[i]));
+        }
+    }
+}
+
+library TiebreakerDeployArtifacts {
+    using ConfigFileBuilder for ConfigFileBuilder.Context;
+    using TiebreakerDeployConfig for TiebreakerDeployConfig.Context;
+    using TiebreakerDeployedContracts for TiebreakerDeployedContracts.Context;
+
+    struct Context {
+        TiebreakerDeployConfig.Context deployConfig;
+        TiebreakerDeployedContracts.Context deployedContracts;
+    }
+
+    function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
+        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
+        ctx.deployConfig = TiebreakerDeployConfig.load(deployArtifactFilePath, "deploy_config");
+        ctx.deployedContracts = TiebreakerDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
+    }
+
+    function validate(Context memory ctx) internal pure {
+        ctx.deployConfig.validate();
+    }
+
+    function save(Context memory ctx, string memory fileName) internal {
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+
+        // forgefmt: disable-next-item
+        configBuilder
+            .set("deploy_config", ctx.deployConfig.toJSON())
+            .set("deployed_contracts", ctx.deployedContracts.toJSON())
+            .write(DeployFiles.resolveDeployArtifact(fileName));
+    }
+}
+
+library ImmutableDualGovernanceConfigProviderDeployConfig {
+    using ConfigFileReader for ConfigFileReader.Context;
+    using DualGovernanceConfigProviderContractDeployConfig for DualGovernanceConfig.Context;
+
+    struct Context {
+        uint256 chainId;
+        DualGovernanceConfig.Context config;
+    }
+
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
+        string memory $ = configRootKey.root();
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+
+        ctx.chainId = file.readUint($.key("chain_id"));
+        ctx.config = DualGovernanceConfigProviderContractDeployConfig.load(
+            configFilePath, $.key("dual_governance_config_provider")
+        );
+    }
+
+    function validate(Context memory ctx) internal pure {
+        ctx.config.validate();
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("chain_id", ctx.chainId);
+
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+        configBuilder.set("config", ctx.config.toJSON());
+
+        builder.set("dual_governance_config_provider", configBuilder.content);
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        ctx.config.print();
+    }
+}
+
+library ImmutableDualGovernanceConfigProviderDeployedContracts {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider;
+    }
+
+    function load(
+        string memory deployedContractsFilePath,
+        string memory prefix
+    ) internal view returns (Context memory ctx) {
+        string memory $ = prefix.root();
+        ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
+
+        ctx.dualGovernanceConfigProvider = ImmutableDualGovernanceConfigProvider(
+            deployedContract.readAddress($.key("dual_governance_config_provider"))
+        );
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+        builder.set("dual_governance_config_provider", address(ctx.dualGovernanceConfigProvider));
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("ImmutableDualGovernanceConfigProvider address", address(ctx.dualGovernanceConfigProvider));
+    }
+}
+
+library ImmutableDualGovernanceConfigProviderDeployArtifacts {
+    using ConfigFileBuilder for ConfigFileBuilder.Context;
+    using
+    ImmutableDualGovernanceConfigProviderDeployConfig
+    for ImmutableDualGovernanceConfigProviderDeployConfig.Context;
+    using
+    ImmutableDualGovernanceConfigProviderDeployedContracts
+    for ImmutableDualGovernanceConfigProviderDeployedContracts.Context;
+
+    struct Context {
+        ImmutableDualGovernanceConfigProviderDeployConfig.Context deployConfig;
+        ImmutableDualGovernanceConfigProviderDeployedContracts.Context deployedContracts;
+    }
+
+    function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
+        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
+        ctx.deployConfig =
+            ImmutableDualGovernanceConfigProviderDeployConfig.load(deployArtifactFilePath, "deploy_config");
+        ctx.deployedContracts =
+            ImmutableDualGovernanceConfigProviderDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
+    }
+
+    function validate(Context memory ctx) internal pure {
+        ctx.deployConfig.validate();
+    }
+
+    function save(Context memory ctx, string memory fileName) internal {
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+
+        // forgefmt: disable-next-item
+        configBuilder
+            .set("deploy_config", ctx.deployConfig.toJSON())
+            .set("deployed_contracts", ctx.deployedContracts.toJSON())
+            .write(DeployFiles.resolveDeployArtifact(fileName));
+    }
+}
+
 library ContractsDeployment {
+    function deployConfigurableSetup(
+        address deployer,
+        DeployConfig.Context memory deployConfig
+    ) internal returns (DGSetupDeployedContracts.Context memory contracts) {
+        address governance;
+
+        contracts.adminExecutor = deployExecutor({owner: deployer});
+
+        contracts.timelock = deployEmergencyProtectedTimelock(
+            contracts.adminExecutor,
+            deployConfig.timelock.afterSubmitDelay,
+            deployConfig.timelock.afterScheduleDelay,
+            deployConfig.timelock.sanityCheckParams
+        );
+
+        contracts.resealManager = deployResealManager(contracts.timelock);
+
+        if (deployConfig.governanceType == DeployConfig.GovernanceType.DualGovernance) {
+            contracts.dualGovernanceConfigProvider =
+                deployDualGovernanceConfigProvider(deployConfig.dualGovernanceConfigProvider);
+
+            contracts.dualGovernance = deployDualGovernance(
+                DualGovernance.DualGovernanceComponents({
+                    timelock: contracts.timelock,
+                    resealManager: contracts.resealManager,
+                    configProvider: contracts.dualGovernanceConfigProvider
+                }),
+                deployConfig.dualGovernance.signallingTokens,
+                deployConfig.dualGovernance.sanityCheckParams
+            );
+
+            contracts.escrowMasterCopy = Escrow(
+                payable(
+                    address(ISignallingEscrow(contracts.dualGovernance.getVetoSignallingEscrow()).ESCROW_MASTER_COPY())
+                )
+            );
+
+            configureDualGovernance(contracts.adminExecutor, contracts.dualGovernance, deployConfig.dualGovernance);
+            governance = address(contracts.dualGovernance);
+        } else if (deployConfig.governanceType == DeployConfig.GovernanceType.TimelockedGovernance) {
+            governance = address(
+                deployTimelockedGovernance({governance: deployConfig.timelockedGovernance, timelock: contracts.timelock})
+            );
+        } else if (deployConfig.governanceType == DeployConfig.GovernanceType.EOA) {
+            governance = deployConfig.governanceEOA;
+        }
+
+        if (!deployConfig.disableTiebreaker) {
+            contracts.tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
+                owner: address(contracts.adminExecutor),
+                dualGovernance: address(contracts.dualGovernance),
+                executionDelay: deployConfig.tiebreaker.executionDelay
+            });
+
+            contracts.tiebreakerSubCommittees = deployTiebreakerSubCommittees(
+                address(contracts.adminExecutor), contracts.tiebreakerCoreCommittee, deployConfig.tiebreaker.committees
+            );
+
+            configureTiebreakerCommittee(
+                contracts.adminExecutor,
+                contracts.dualGovernance,
+                contracts.tiebreakerCoreCommittee,
+                contracts.tiebreakerSubCommittees,
+                deployConfig.tiebreaker,
+                deployConfig.dualGovernance
+            );
+        }
+
+        if (!deployConfig.disableEmergencyProtection) {
+            contracts.emergencyGovernance = configureEmergencyProtectionOnTimelock(
+                contracts.adminExecutor, contracts.timelock, deployConfig.emergencyProtection
+            );
+        }
+
+        finalizeEmergencyProtectedTimelockDeploy(contracts.adminExecutor, contracts.timelock, governance);
+    }
+
     function deployTGSetup(
         address deployer,
         TGSetupDeployConfig.Context memory config
@@ -791,7 +1434,7 @@ library ContractsDeployment {
         contracts.timelockedGovernance =
             deployTimelockedGovernance({governance: config.governance, timelock: contracts.timelock});
 
-        configureEmergencyProtectedTimelock(contracts.adminExecutor, contracts.timelock, config.timelock);
+        configureEmergencyProtectionOnTimelock(contracts.adminExecutor, contracts.timelock, config.emergencyProtection);
         finalizeEmergencyProtectedTimelockDeploy(
             contracts.adminExecutor, contracts.timelock, address(contracts.timelockedGovernance)
         );
@@ -854,8 +1497,9 @@ library ContractsDeployment {
 
         configureDualGovernance(contracts.adminExecutor, contracts.dualGovernance, deployConfig.dualGovernance);
 
-        contracts.emergencyGovernance =
-            configureEmergencyProtectedTimelock(contracts.adminExecutor, contracts.timelock, deployConfig.timelock);
+        contracts.emergencyGovernance = configureEmergencyProtectionOnTimelock(
+            contracts.adminExecutor, contracts.timelock, deployConfig.emergencyProtection
+        );
 
         finalizeEmergencyProtectedTimelockDeploy(
             contracts.adminExecutor, contracts.timelock, address(contracts.dualGovernance)
@@ -901,6 +1545,33 @@ library ContractsDeployment {
         DualGovernance.SanityCheckParams memory sanityCheckParams
     ) internal returns (DualGovernance) {
         return new DualGovernance(components, signallingTokens, sanityCheckParams);
+    }
+
+    function deployTiebreaker(
+        TiebreakerDeployConfig.Context memory tiebreakerConfig,
+        address deployer
+    ) internal returns (TiebreakerDeployedContracts.Context memory deployedContracts) {
+        deployedContracts.tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
+            owner: deployer,
+            dualGovernance: tiebreakerConfig.dualGovernance,
+            executionDelay: tiebreakerConfig.config.executionDelay
+        });
+
+        deployedContracts.tiebreakerSubCommittees = deployTiebreakerSubCommittees(
+            tiebreakerConfig.owner, deployedContracts.tiebreakerCoreCommittee, tiebreakerConfig.config.committees
+        );
+
+        address[] memory coreCommitteeMemberAddresses = new address[](deployedContracts.tiebreakerSubCommittees.length);
+
+        for (uint256 i = 0; i < coreCommitteeMemberAddresses.length; ++i) {
+            coreCommitteeMemberAddresses[i] = address(deployedContracts.tiebreakerSubCommittees[i]);
+        }
+
+        deployedContracts.tiebreakerCoreCommittee.addMembers(
+            coreCommitteeMemberAddresses, tiebreakerConfig.config.quorum
+        );
+
+        deployedContracts.tiebreakerCoreCommittee.transferOwnership(tiebreakerConfig.owner);
     }
 
     function deployEmptyTiebreakerCoreCommittee(
@@ -1006,60 +1677,68 @@ library ContractsDeployment {
         );
     }
 
-    function configureEmergencyProtectedTimelock(
+    function configureEmergencyProtectionOnTimelock(
         Executor adminExecutor,
         EmergencyProtectedTimelock timelock,
-        TimelockContractDeployConfig.Context memory timelockConfig
+        EmergencyProtectionDeployConfig.Context memory emergencyProtectionConfig
     ) internal returns (TimelockedGovernance emergencyGovernance) {
-        if (timelockConfig.emergencyGovernanceProposer != address(0)) {
-            emergencyGovernance =
-                deployTimelockedGovernance({governance: timelockConfig.emergencyGovernanceProposer, timelock: timelock});
+        if (emergencyProtectionConfig.emergencyGovernanceProposer != address(0)) {
+            emergencyGovernance = deployTimelockedGovernance({
+                governance: emergencyProtectionConfig.emergencyGovernanceProposer,
+                timelock: timelock
+            });
             adminExecutor.execute(
                 address(timelock), 0, abi.encodeCall(timelock.setEmergencyGovernance, (address(emergencyGovernance)))
             );
         }
 
-        if (timelockConfig.emergencyActivationCommittee != address(0)) {
+        if (emergencyProtectionConfig.emergencyActivationCommittee != address(0)) {
             console.log(
-                "Setting the emergency activation committee to %x...", timelockConfig.emergencyActivationCommittee
+                "Setting the emergency activation committee to %x...",
+                emergencyProtectionConfig.emergencyActivationCommittee
             );
             adminExecutor.execute(
                 address(timelock),
                 0,
                 abi.encodeCall(
-                    timelock.setEmergencyProtectionActivationCommittee, (timelockConfig.emergencyActivationCommittee)
+                    timelock.setEmergencyProtectionActivationCommittee,
+                    (emergencyProtectionConfig.emergencyActivationCommittee)
                 )
             );
             console.log("Emergency activation committee set successfully.");
         }
 
-        if (timelockConfig.emergencyExecutionCommittee != address(0)) {
+        if (emergencyProtectionConfig.emergencyExecutionCommittee != address(0)) {
             console.log(
-                "Setting the emergency execution committee to %x...", timelockConfig.emergencyExecutionCommittee
+                "Setting the emergency execution committee to %x...",
+                emergencyProtectionConfig.emergencyExecutionCommittee
             );
             adminExecutor.execute(
                 address(timelock),
                 0,
                 abi.encodeCall(
-                    timelock.setEmergencyProtectionExecutionCommittee, (timelockConfig.emergencyExecutionCommittee)
+                    timelock.setEmergencyProtectionExecutionCommittee,
+                    (emergencyProtectionConfig.emergencyExecutionCommittee)
                 )
             );
             console.log("Emergency execution committee set successfully.");
         }
 
-        if (timelockConfig.emergencyProtectionEndDate != Timestamps.ZERO) {
+        if (emergencyProtectionConfig.emergencyProtectionEndDate != Timestamps.ZERO) {
             adminExecutor.execute(
                 address(timelock),
                 0,
-                abi.encodeCall(timelock.setEmergencyProtectionEndDate, (timelockConfig.emergencyProtectionEndDate))
+                abi.encodeCall(
+                    timelock.setEmergencyProtectionEndDate, (emergencyProtectionConfig.emergencyProtectionEndDate)
+                )
             );
         }
 
-        if (timelockConfig.emergencyModeDuration != Durations.ZERO) {
+        if (emergencyProtectionConfig.emergencyModeDuration != Durations.ZERO) {
             adminExecutor.execute(
                 address(timelock),
                 0,
-                abi.encodeCall(timelock.setEmergencyModeDuration, (timelockConfig.emergencyModeDuration))
+                abi.encodeCall(timelock.setEmergencyModeDuration, (emergencyProtectionConfig.emergencyModeDuration))
             );
         }
     }
