@@ -89,8 +89,8 @@ Note: there's a full-blown ["role model research"](https://github.com/lidofinanc
 
 ## Permissions Transition Plan
 
-> - Data was collected at block [`22588287`](https://etherscan.io/block/22588287)
-> - The last permissions change occurred at block [`22368161`](https://etherscan.io/block/22368161), transaction [`0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598`](https://etherscan.io/tx/0x739b123af3fff812878c56b0fd939569cb16507bfc8678d5225ebd6939331598)
+> - Data was collected at block [`22669442`](https://etherscan.io/block/22669442)
+> - The last permissions change occurred at block [`22623238`](https://etherscan.io/block/22623238), transaction [`0x4e8b33eee6600b8cea3597a828c4462529d8ff7fe17c66be4cc986fc75d72aec`](https://etherscan.io/tx/0x4e8b33eee6600b8cea3597a828c4462529d8ff7fe17c66be4cc986fc75d72aec)
 
 How to read this document:
 - If an item is prepended with the "⚠️" icon, it indicates that the item will be changed. The required updates are described in the corresponding "Transition Steps" sections.
@@ -263,36 +263,6 @@ How to read this document:
 | [`MODIFY_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODIFY_QUORUM_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
 | [`MODIFY_SUPPORT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODIFY_SUPPORT_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
 | [`CREATE_VOTES_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VOTES_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`TokenManager`](https://etherscan.io/address/0xf73a1260d222f447210581ddf212d915c09a3249) |
-
-#### AragonPM [0x0cb113890b04b49455dfe06554e2d784598a29c9](https://etherscan.io/address/0x0cb113890b04b49455dfe06554e2d784598a29c9)
-| Role | Role Manager | Revoked | Granted |
-| --- | --- | --- | --- |
-| [`CREATE_REPO_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_REPO_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
-
-#### VotingRepo [0x4ee3118e3858e8d7164a634825bfe0f73d99c792](https://etherscan.io/address/0x4ee3118e3858e8d7164a634825bfe0f73d99c792)
-| Role | Role Manager | Revoked | Granted |
-| --- | --- | --- | --- |
-| [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
-
-#### LidoRepo [0xf5dc67e54fc96f993cd06073f71ca732c1e654b1](https://etherscan.io/address/0xf5dc67e54fc96f993cd06073f71ca732c1e654b1)
-| Role | Role Manager | Revoked | Granted |
-| --- | --- | --- | --- |
-| [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
-
-#### LegacyOracleRepo [0xf9339de629973c60c4d2b76749c81e6f40960e3a](https://etherscan.io/address/0xf9339de629973c60c4d2b76749c81e6f40960e3a)
-| Role | Role Manager | Revoked | Granted |
-| --- | --- | --- | --- |
-| [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
-
-#### CuratedModuleRepo [0x0d97e876ad14db2b183cfeeb8aa1a5c788eb1831](https://etherscan.io/address/0x0d97e876ad14db2b183cfeeb8aa1a5c788eb1831)
-| Role | Role Manager | Revoked | Granted |
-| --- | --- | --- | --- |
-| [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
-
-#### SimpleDVTRepo [0x2325b0a607808de42d918db07f925ffccfbb2968](https://etherscan.io/address/0x2325b0a607808de42d918db07f925ffccfbb2968)
-| Role | Role Manager | Revoked | Granted |
-| --- | --- | --- | --- |
-| [`CREATE_VERSION_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_VERSION_ROLE&input_type=utf-8&output_type=hex) | ∅ | ∅ | ∅ |
 
 ### OZ Roles
 #### ⚠️ WithdrawalQueueERC721 [0x889edc2edab5f40e902b864ad4d7ade8e412f9b1](https://etherscan.io/address/0x889edc2edab5f40e902b864ad4d7ade8e412f9b1)
@@ -551,10 +521,17 @@ How to read this document:
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
 | `DEFAULT_ADMIN_ROLE` | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | ∅ |
+| [`PAUSE_ALL_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_ALL_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
+| [`PAUSE_COMPLETE_TOKEN_BRIDGING_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_COMPLETE_TOKEN_BRIDGING_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
+| [`PAUSE_INITIATE_TOKEN_BRIDGING_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=PAUSE_INITIATE_TOKEN_BRIDGING_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
+| [`REMOVE_RESERVED_TOKEN_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REMOVE_RESERVED_TOKEN_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) [`L1TokenBridgeManagerMultisig_Linea`](https://etherscan.io/address/0xb8f5524d73f549cf14a0587a3c7810723f9c0051) |
+| [`SET_CUSTOM_CONTRACT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_CUSTOM_CONTRACT_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) [`L1TokenBridgeManagerMultisig_Linea`](https://etherscan.io/address/0xb8f5524d73f549cf14a0587a3c7810723f9c0051) |
+| [`SET_MESSAGE_SERVICE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_MESSAGE_SERVICE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
+| [`SET_REMOTE_TOKENBRIDGE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_REMOTE_TOKENBRIDGE_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
+| [`SET_RESERVED_TOKEN_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=SET_RESERVED_TOKEN_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) [`L1TokenBridgeManagerMultisig_Linea`](https://etherscan.io/address/0xb8f5524d73f549cf14a0587a3c7810723f9c0051) |
+| [`UNPAUSE_ALL_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNPAUSE_ALL_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
+| [`UNPAUSE_COMPLETE_TOKEN_BRIDGING_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNPAUSE_COMPLETE_TOKEN_BRIDGING_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
+| [`UNPAUSE_INITIATE_TOKEN_BRIDGING_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNPAUSE_INITIATE_TOKEN_BRIDGING_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`LineaSecurityCouncil_Linea`](https://etherscan.io/address/0x892bb7eed71efb060ab90140e7825d8127991dd3) |
 
 #### L1LidoGateway_Scroll [0x6625c6332c9f91f2d27c304e729b86db87a3f504](https://etherscan.io/address/0x6625c6332c9f91f2d27c304e729b86db87a3f504)
 | Role | Role Admin | Revoked | Granted |
@@ -618,43 +595,218 @@ How to read this document:
 | [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
 | [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
-### Contracts Ownership
-| Contract | Property | Old Owner | New Owner |
-| --- | --- | --- | --- |
-| ⚠️ [`WithdrawalVault`](https://etherscan.io/address/0xb9d7934878b5fb9610b3fe8a5e441e8fad7e293f) | `proxy_getAdmin` | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| ⚠️ [`InsuranceFund`](https://etherscan.io/address/0x8b3f33234abd88493c0cd28de33d583b70bede35) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
-| [`DepositSecurityModule`](https://etherscan.io/address/0xffa96d84def2ea035c7ab153d8b991128e3d72fd) | `getOwner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`LidoLocator`](https://etherscan.io/address/0xc1d0b3de6792bf6b4b37eccdcc24e45978cfd2eb) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`StakingRouter`](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WithdrawalQueueERC721`](https://etherscan.io/address/0x889edc2edab5f40e902b864ad4d7ade8e412f9b1) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`AccountingOracle`](https://etherscan.io/address/0x852ded011285fe67063a08005c71a85690503cee) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`ValidatorsExitBusOracle`](https://etherscan.io/address/0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`MEVBoostRelayAllowedList`](https://etherscan.io/address/0xf95f069f9ad107938f6ba802a3da87892298610e) | `get_owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1ERC20TokenGateway_Arbitrum`](https://etherscan.io/address/0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1LidoTokensBridge_Optimism`](https://etherscan.io/address/0x76943c0d61395d8f2edf9060e1533529cae05de6) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`TokenRateNotifier_Optimism`](https://etherscan.io/address/0xe6793b9e4fba7de0ee833f9d02bba7db5eb27823) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`ERC20Predicate_Polygon`](https://etherscan.io/address/0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf) | `proxyOwner` | [`Timelock_Polygon`](https://etherscan.io/address/0xcaf0aa768a3ae1297df20072419db8bb8b5c8cef) | [`Timelock_Polygon`](https://etherscan.io/address/0xcaf0aa768a3ae1297df20072419db8bb8b5c8cef) |
-| [`L1ERC20TokenBridge_Base`](https://etherscan.io/address/0x9de443adc5a411e83f1878ef24c3f52c61571e72) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1Executor_zkSync`](https://etherscan.io/address/0xff7f4d05e3247374e86a3f7231a2ed1ca63647f2) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1ERC20TokenBridge_Mantle`](https://etherscan.io/address/0x2d001d79e5af5f65a939781fe228b267a8ed468b) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1TokenBridgeProxyAdmin_Linea`](https://etherscan.io/address/0xf5058616517c068c7b8c7ebc69ff636ade9066d6) | `owner` | [`ProxyAdminTimelock_Linea`](https://etherscan.io/address/0xd6b95c960779c72b8c6752119849318e5d550574) | [`ProxyAdminTimelock_Linea`](https://etherscan.io/address/0xd6b95c960779c72b8c6752119849318e5d550574) |
-| [`L1LidoGateway_Scroll`](https://etherscan.io/address/0x6625c6332c9f91f2d27c304e729b86db87a3f504) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1LidoGatewayProxyAdmin_Scroll`](https://etherscan.io/address/0xcc2c53556bc75217cf698721b29071d6f12628a9) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1ERC20TokenBridge_Mode`](https://etherscan.io/address/0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`CrossChainController_BSC`](https://etherscan.io/address/0x93559892d3c7f66de4570132d68b69bd3c369a7c) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`CrossChainControllerProxyAdmin_BSC`](https://etherscan.io/address/0xadd673dc6a655afd6f38fb88301028fa31a6fdee) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`AxelarTransceiver_BSC`](https://etherscan.io/address/0x723aead29acee7e9281c32d11ea4ed0070c41b13) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WormholeTransceiver_BSC`](https://etherscan.io/address/0xa1acc1e6edab281febd91e3515093f1de81f25c0) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`NTTManager_BSC`](https://etherscan.io/address/0xb948a93827d68a82f6513ad178964da487fe2bd9) | `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1ERC20TokenBridge_Zircuit`](https://etherscan.io/address/0x912c7271a6a3622dfb8b218eb46a6122ab046c79) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1LidoTokensBridge_Soneium`](https://etherscan.io/address/0x2f543a7c9cc80cc2427c892b96263098d23ee55a) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1LidoTokensBridge_Unichain`](https://etherscan.io/address/0x755610f5be536ad7afbaa7c10f3e938ea3aa1877) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1LidoTokensBridge_Lisk`](https://etherscan.io/address/0x9348af23b01f2b517afe8f29b3183d2bb7d69fcf) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`L1LidoTokensBridge_Swellchain`](https://etherscan.io/address/0xecf3376512edaca4fbb63d2c67d12a0397d24121) | `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+### Contracts Getters
+#### ⚠️ WithdrawalVault [0xb9d7934878b5fb9610b3fe8a5e441e8fad7e293f](https://etherscan.io/address/0xb9d7934878b5fb9610b3fe8a5e441e8fad7e293f)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| ⚠️ `proxy_getAdmin` | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
 ##### Transition Steps
 
 ```
 49. Set admin to Agent on WithdrawalVault
+```
+
+#### ⚠️ InsuranceFund [0x8b3f33234abd88493c0cd28de33d583b70bede35](https://etherscan.io/address/0x8b3f33234abd88493c0cd28de33d583b70bede35)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| ⚠️ `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+
+##### Transition Steps
+
+```
 50. Set owner to Voting on InsuranceFund
 ```
+
+#### DepositSecurityModule [0xffa96d84def2ea035c7ab153d8b991128e3d72fd](https://etherscan.io/address/0xffa96d84def2ea035c7ab153d8b991128e3d72fd)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `getOwner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### LidoLocator [0xc1d0b3de6792bf6b4b37eccdcc24e45978cfd2eb](https://etherscan.io/address/0xc1d0b3de6792bf6b4b37eccdcc24e45978cfd2eb)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### StakingRouter [0xfddf38947afb03c621c71b06c9c70bce73f12999](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### WithdrawalQueueERC721 [0x889edc2edab5f40e902b864ad4d7ade8e412f9b1](https://etherscan.io/address/0x889edc2edab5f40e902b864ad4d7ade8e412f9b1)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### AccountingOracle [0x852ded011285fe67063a08005c71a85690503cee](https://etherscan.io/address/0x852ded011285fe67063a08005c71a85690503cee)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### ValidatorsExitBusOracle [0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e](https://etherscan.io/address/0x0de4ea0184c2ad0baca7183356aea5b8d5bf5c6e)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### MEVBoostRelayAllowedList [0xf95f069f9ad107938f6ba802a3da87892298610e](https://etherscan.io/address/0xf95f069f9ad107938f6ba802a3da87892298610e)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `get_owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### CSModule [0xda7de2ecddfccc6c3af10108db212acbbf9ea83f](https://etherscan.io/address/0xda7de2ecddfccc6c3af10108db212acbbf9ea83f)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### CSAccounting [0x4d72bff1beac69925f8bd12526a39baab069e5da](https://etherscan.io/address/0x4d72bff1beac69925f8bd12526a39baab069e5da)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### CSFeeDistributor [0xd99cc66fec647e68294c6477b40fc7e0f6f618d0](https://etherscan.io/address/0xd99cc66fec647e68294c6477b40fc7e0f6f618d0)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### CSFeeOracle [0x4d4074628678bd302921c20573eea1ed38ddf7fb](https://etherscan.io/address/0x4d4074628678bd302921c20573eea1ed38ddf7fb)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### AnchorVault [0xa2f987a546d4cd1c607ee8141276876c26b72bdf](https://etherscan.io/address/0xa2f987a546d4cd1c607ee8141276876c26b72bdf)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `admin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `proxy_getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### bETH [0x707f9118e33a9b8998bea41dd0d46f38bb963fc8](https://etherscan.io/address/0x707f9118e33a9b8998bea41dd0d46f38bb963fc8)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `admin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### VestingEscrowFactory [0xda1df6442afd2ec36abea91029794b9b2156add0](https://etherscan.io/address/0xda1df6442afd2ec36abea91029794b9b2156add0)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### EvmScriptExecutor [0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
+
+#### L1ERC20TokenGateway_Arbitrum [0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a](https://etherscan.io/address/0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Optimism [0x76943c0d61395d8f2edf9060e1533529cae05de6](https://etherscan.io/address/0x76943c0d61395d8f2edf9060e1533529cae05de6)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### TokenRateNotifier_Optimism [0xe6793b9e4fba7de0ee833f9d02bba7db5eb27823](https://etherscan.io/address/0xe6793b9e4fba7de0ee833f9d02bba7db5eb27823)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### ERC20Predicate_Polygon [0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf](https://etherscan.io/address/0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxyOwner` | [`Timelock_Polygon`](https://etherscan.io/address/0xcaf0aa768a3ae1297df20072419db8bb8b5c8cef) | [`Timelock_Polygon`](https://etherscan.io/address/0xcaf0aa768a3ae1297df20072419db8bb8b5c8cef) |
+
+#### RootChainManagerProxy_Polygon [0xa0c68c638235ee32657e8f720a23cec1bfc77c77](https://etherscan.io/address/0xa0c68c638235ee32657e8f720a23cec1bfc77c77)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxyOwner` | [`Timelock_Polygon`](https://etherscan.io/address/0xcaf0aa768a3ae1297df20072419db8bb8b5c8cef) | [`Timelock_Polygon`](https://etherscan.io/address/0xcaf0aa768a3ae1297df20072419db8bb8b5c8cef) |
+
+#### L1ERC20TokenBridge_Base [0x9de443adc5a411e83f1878ef24c3f52c61571e72](https://etherscan.io/address/0x9de443adc5a411e83f1878ef24c3f52c61571e72)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1Executor_zkSync [0xff7f4d05e3247374e86a3f7231a2ed1ca63647f2](https://etherscan.io/address/0xff7f4d05e3247374e86a3f7231a2ed1ca63647f2)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1ERC20Bridge_zkSync [0x41527b2d03844db6b0945f25702cb958b6d55989](https://etherscan.io/address/0x41527b2d03844db6b0945f25702cb958b6d55989)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1ERC20TokenBridge_Mantle [0x2d001d79e5af5f65a939781fe228b267a8ed468b](https://etherscan.io/address/0x2d001d79e5af5f65a939781fe228b267a8ed468b)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1TokenBridgeProxyAdmin_Linea [0xf5058616517c068c7b8c7ebc69ff636ade9066d6](https://etherscan.io/address/0xf5058616517c068c7b8c7ebc69ff636ade9066d6)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`ProxyAdminTimelock_Linea`](https://etherscan.io/address/0xd6b95c960779c72b8c6752119849318e5d550574) | [`ProxyAdminTimelock_Linea`](https://etherscan.io/address/0xd6b95c960779c72b8c6752119849318e5d550574) |
+
+#### L1LidoGateway_Scroll [0x6625c6332c9f91f2d27c304e729b86db87a3f504](https://etherscan.io/address/0x6625c6332c9f91f2d27c304e729b86db87a3f504)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoGatewayProxyAdmin_Scroll [0xcc2c53556bc75217cf698721b29071d6f12628a9](https://etherscan.io/address/0xcc2c53556bc75217cf698721b29071d6f12628a9)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1ERC20TokenBridge_Mode [0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a](https://etherscan.io/address/0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### CrossChainController_BSC [0x93559892d3c7f66de4570132d68b69bd3c369a7c](https://etherscan.io/address/0x93559892d3c7f66de4570132d68b69bd3c369a7c)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### CrossChainControllerProxyAdmin_BSC [0xadd673dc6a655afd6f38fb88301028fa31a6fdee](https://etherscan.io/address/0xadd673dc6a655afd6f38fb88301028fa31a6fdee)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### AxelarTransceiver_BSC [0x723aead29acee7e9281c32d11ea4ed0070c41b13](https://etherscan.io/address/0x723aead29acee7e9281c32d11ea4ed0070c41b13)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### WormholeTransceiver_BSC [0xa1acc1e6edab281febd91e3515093f1de81f25c0](https://etherscan.io/address/0xa1acc1e6edab281febd91e3515093f1de81f25c0)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### NTTManager_BSC [0xb948a93827d68a82f6513ad178964da487fe2bd9](https://etherscan.io/address/0xb948a93827d68a82f6513ad178964da487fe2bd9)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `owner` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1ERC20TokenBridge_Zircuit [0x912c7271a6a3622dfb8b218eb46a6122ab046c79](https://etherscan.io/address/0x912c7271a6a3622dfb8b218eb46a6122ab046c79)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Soneium [0x2f543a7c9cc80cc2427c892b96263098d23ee55a](https://etherscan.io/address/0x2f543a7c9cc80cc2427c892b96263098d23ee55a)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Unichain [0x755610f5be536ad7afbaa7c10f3e938ea3aa1877](https://etherscan.io/address/0x755610f5be536ad7afbaa7c10f3e938ea3aa1877)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Lisk [0x9348af23b01f2b517afe8f29b3183d2bb7d69fcf](https://etherscan.io/address/0x9348af23b01f2b517afe8f29b3183d2bb7d69fcf)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+#### L1LidoTokensBridge_Swellchain [0xecf3376512edaca4fbb63d2c67d12a0397d24121](https://etherscan.io/address/0xecf3376512edaca4fbb63d2c67d12a0397d24121)
+| Getter | Actual Value | Expected Value |
+| --- | --- | --- |
+| `proxy__getAdmin` | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
