@@ -31,6 +31,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
     uint256[] internal _initialLockedUnStETHIds;
     uint256 internal _initialLockedUnStETHCount;
     uint256 internal _initialLockShareRate;
+    uint256 internal _initialLockedShares;
 
     Random.Context internal _random;
 
@@ -326,6 +327,8 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
             _lido.withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()
         );
 
+        uint256 stETHShares = _lido.stETH.getSharesByPooledEth(stETHAmount);
+
         uint256[] memory unstETHIds;
         {
             uint256[] memory amounts = new uint256[](2);
@@ -359,7 +362,6 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         }
 
         {
-            uint256 stETHShares = _lido.stETH.getSharesByPooledEth(stETHAmount);
             uint256 unstETH2Shares = _lido.stETH.getSharesByPooledEth(unstETH2Amount);
             uint256 pooledEthRateBefore = _lido.stETH.getSharesByPooledEth(10 ** 27);
 
@@ -368,26 +370,33 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
             escrow.markUnstETHFinalized(unstETHIds, hints);
 
+            uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
+            uint256 unfinalizedShares = pooledEthRateBefore * (unstETH2Amount + _initialLockedUnStETHAmount) / 10 ** 27;
+            uint256 lockedShares = wstETHAmount + stETHShares + _initialLockedShares;
+            uint256 supportAmount =
+                _lido.stETH.getPooledEthByShares(lockedShares + unfinalizedShares) + ethAmountFinalized;
+
+            assertApproxEqAbs(
+                escrow.getSignallingEscrowDetails().totalStETHLockedShares.toUint256(), lockedShares, ACCURACY
+            );
+
             assertApproxEqAbs(
                 escrow.getSignallingEscrowDetails().totalUnstETHUnfinalizedShares.toUint256(),
-                pooledEthRateBefore * (unstETH2Amount + _initialLockedUnStETHAmount) / 10 ** 27,
+                unfinalizedShares,
                 ACCURACY
             );
 
-            uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
             assertApproxEqAbs(
                 escrow.getSignallingEscrowDetails().totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, ACCURACY
             );
 
-            // TODO: to perform below check, data collection should be done in shares not stETH value
-            // assertEq(
-            //     escrow.getRageQuitSupport(),
-            //     PercentsD16.fromFraction({
-            //         numerator: _lido.stETH.getPooledEthByShares(stETHShares + wstETHAmount + unstETH2Shares)
-            //              + _getInitialLockedStETHValue() + ethAmountFinalized,
-            //         denominator: _lido.stETH.totalSupply() + ethAmountFinalized
-            //     })
-            // );
+            assertEq(
+                escrow.getRageQuitSupport(),
+                PercentsD16.fromFraction({
+                    numerator: supportAmount,
+                    denominator: _lido.stETH.totalSupply() + ethAmountFinalized
+                })
+            );
         }
     }
 
@@ -610,6 +619,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         _initialLockedUnStETHAmount = strangerLockUnstETHAmount;
         _initialLockedUnStETHShares = _lido.stETH.getSharesByPooledEth(strangerLockUnstETHAmount);
         _initialLockedUnStETHCount = 1;
+        _initialLockedShares = _lido.stETH.getSharesByPooledEth(_initialLockedStETH) + _initialLockedWStETH;
 
         vm.prank(stranger);
         _initialLockedUnStETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, stranger);
