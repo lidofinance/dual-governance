@@ -37,14 +37,14 @@ enum SimulationActionType {
     //
     UnlockStETH,
     UnlockWstETH,
-    UnlockUnstETH
+    UnlockUnstETH,
+    //
+    AccidentalETHTransfer,
+    AccidentalStETHTransfer,
+    AccidentalWstETHTransfer,
+    AccidentalUnstETHTransfer
 }
-//
-// AccidentalETHTransfer,
-// AccidentalStETHTransfer,
-// AccidentalWtETHTransfer,
-// AccidentalUntETHTransfer
-//
+// //
 // WithdrawStETHRealHolder,
 // WithdrawWstETHRealHolder,
 // ClaimUnstETHRealHolder
@@ -130,10 +130,6 @@ library SimulationActionsSet {
     }
 }
 
-// Set value of the below variable to false if the simulation test should be run.
-// Note: simulation test may take significant time to pass
-bool constant SKIP_SIMULATION_TEST = true;
-
 uint256 constant MIN_ST_ETH_WITHDRAW_AMOUNT = 1000 wei;
 uint256 constant MAX_ST_ETH_WITHDRAW_AMOUNT = 1000 ether;
 
@@ -150,6 +146,12 @@ uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 750 ether;
 
 uint256 constant MIN_WST_ETH_SUBMIT_AMOUNT = 0.1 ether;
 uint256 constant MAX_WST_ETH_SUBMIT_AMOUNT = 500 ether;
+
+uint256 constant MIN_ACCIDENTAL_TRANSFER_AMOUNT = 0.1 ether;
+uint256 constant MAX_ACCIDENTAL_TRANSFER_AMOUNT = 10_000 ether;
+
+uint256 constant MIN_ACCIDENTAL_UNSTETH_TRANSFER_AMOUNT = 1;
+uint256 constant MAX_ACCIDENTAL_UNSTETH_TRANSFER_AMOUNT = 1000 ether;
 
 uint256 constant ORACLE_REPORT_FREQUENCY = 24 hours;
 
@@ -177,6 +179,15 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     PercentD16 immutable WITHDRAW_WSTETH_PROBABILITY = PercentsD16.fromBasisPoints(50);
     PercentD16 immutable CLAIM_UNSTETH_PROBABILITY = PercentsD16.fromBasisPoints(50);
 
+    PercentD16 immutable ACCIDENTAL_ETH_TRANSFER_PROBABILITY = PercentsD16.fromBasisPoints(10);
+    PercentD16 immutable ACCIDENTAL_STETH_TRANSFER_PROBABILITY = PercentsD16.fromBasisPoints(10);
+    PercentD16 immutable ACCIDENTAL_WSTETH_TRANSFER_PROBABILITY = PercentsD16.fromBasisPoints(10);
+    PercentD16 immutable ACCIDENTAL_UNSTETH_TRANSFER_PROBABILITY = PercentsD16.fromBasisPoints(10);
+
+    PercentD16 immutable WITHDRAW_STETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
+    PercentD16 immutable WITHDRAW_WSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
+    PercentD16 immutable CLAIM_UNSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
+
     uint256 internal _totalLockedStETH = 0;
     uint256 internal _totalLockedWstETH = 0;
     uint256 internal _totalLockedUnstETH = 0;
@@ -190,6 +201,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     uint256 internal _totalWithdrawnStETH = 0;
     uint256 internal _totalWithdrawnWstETH = 0;
+
+    uint256 internal _totalAccidentalETHTransferAmount = 0;
+    uint256 internal _totalAccidentalStETHTransferAmount = 0;
+    uint256 internal _totalAccidentalWstETHTransferAmount = 0;
+    uint256 internal _totalAccidentalUnstETHTransferAmount = 0;
 
     Escrow[] internal _rageQuitEscrows;
 
@@ -243,8 +259,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         uint256 minWithdrawalsBatchSize = Escrow(
             payable(address(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow()))
         ).MIN_WITHDRAWALS_BATCH_SIZE();
-        // TODO: Add env flag to run this test, by default should not be run
-        if (SKIP_SIMULATION_TEST) {
+
+        // Note: simulation test may take significant time to pass
+        bool runSolvencySimulationFlag = vm.envOr("RUN_SOLVENCY_SIMULATION_TEST", false);
+        if (!runSolvencySimulationFlag) {
             vm.skip(true);
             return;
         }
@@ -318,6 +336,26 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             if (actions.has(SimulationActionType.UnlockUnstETH)) {
                 _unlockUnstETHByRandomAccount();
+                _mineBlock();
+            }
+
+            if (actions.has(SimulationActionType.AccidentalETHTransfer)) {
+                _accidentalETHTransfer();
+                _mineBlock();
+            }
+
+            if (actions.has(SimulationActionType.AccidentalStETHTransfer)) {
+                _accidentalStETHTransfer();
+                _mineBlock();
+            }
+
+            if (actions.has(SimulationActionType.AccidentalWstETHTransfer)) {
+                _accidentalWstETHTransfer();
+                _mineBlock();
+            }
+
+            if (actions.has(SimulationActionType.AccidentalUnstETHTransfer)) {
+                _accidentalUnstETHTransfer();
                 _mineBlock();
             }
 
@@ -558,6 +596,26 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _actionsCounters[SimulationActionType.UnlockUnstETH],
             _totalUnlockedUnstETHCount
         );
+        console.log(
+            "  - Accidental ETH transfer actions count: %d, total transferred ETH count: %s",
+            _actionsCounters[SimulationActionType.AccidentalETHTransfer],
+            _totalAccidentalETHTransferAmount.formatEther()
+        );
+        console.log(
+            "  - Accidental stETH transfer actions count: %d, total transferred stETH amount: %s",
+            _actionsCounters[SimulationActionType.AccidentalStETHTransfer],
+            _totalAccidentalStETHTransferAmount.formatEther()
+        );
+        console.log(
+            "  - Accidental wstETH transfer actions count: %d, total transferred wstETH amount: %s",
+            _actionsCounters[SimulationActionType.AccidentalWstETHTransfer],
+            _totalAccidentalWstETHTransferAmount.formatEther()
+        );
+        console.log(
+            "  - Accidental unstETH transfer actions count: %d, total transferred unstETH count: %s",
+            _actionsCounters[SimulationActionType.AccidentalUnstETHTransfer],
+            _totalAccidentalUnstETHTransferAmount.formatEther()
+        );
 
         console.log("  - Mark unstETH finalized count: %d", _actionsCounters[SimulationActionType.MarkUnstETHFinalized]);
         console.log("  - Claim unstETH count: %d", _actionsCounters[SimulationActionType.ClaimUnstETH]);
@@ -576,6 +634,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             );
         }
         console.log("Signalling Escrow Stats:");
+        console.log("  - DG State: %s", _getDGStateName(_dgDeployedContracts.dualGovernance.getEffectiveState()));
         console.log("  - Rage Quit Support: %s", signallingEscrow.getRageQuitSupport().toUint256().format(16));
         console.log("  - stETH Balance: %s", _lido.stETH.balanceOf(address(signallingEscrow)).formatEther());
 
@@ -834,6 +893,70 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
     }
 
+    function _accidentalETHTransfer() internal {
+        address payable escrow = payable(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow());
+        address account = _getRandomSimulationAccount();
+
+        uint256 balanceBefore = escrow.balance;
+        uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+        vm.deal(account, transferAmount);
+        vm.prank(account);
+        new SelfDestructSender{value: transferAmount}(escrow);
+
+        assertEq(escrow.balance, balanceBefore + transferAmount, "Escrow balance mismatch after transfer");
+        _totalAccidentalETHTransferAmount += transferAmount;
+    }
+
+    function _accidentalStETHTransfer() internal {
+        address escrow = _dgDeployedContracts.dualGovernance.getVetoSignallingEscrow();
+        address account = _getRandomSimulationAccount();
+
+        uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+        vm.deal(account, transferAmount);
+        vm.startPrank(account);
+        _lido.stETH.submit{value: transferAmount}(address(0));
+        _lido.stETH.transfer(escrow, transferAmount);
+        vm.stopPrank();
+
+        _totalAccidentalStETHTransferAmount += transferAmount;
+    }
+
+    function _accidentalWstETHTransfer() internal {
+        address escrow = _dgDeployedContracts.dualGovernance.getVetoSignallingEscrow();
+        address account = _getRandomSimulationAccount();
+
+        uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+        vm.deal(account, transferAmount);
+
+        vm.startPrank(account);
+        _lido.stETH.submit{value: transferAmount}(address(0));
+        _lido.stETH.approve(address(_lido.wstETH), _lido.stETH.balanceOf(account));
+        _lido.wstETH.wrap(_lido.stETH.balanceOf(account));
+        uint256 wstETHBalance = _lido.wstETH.balanceOf(account);
+        _lido.wstETH.transfer(escrow, wstETHBalance);
+        vm.stopPrank();
+
+        _totalAccidentalWstETHTransferAmount += wstETHBalance;
+    }
+
+    function _accidentalUnstETHTransfer() internal {
+        address escrow = _dgDeployedContracts.dualGovernance.getVetoSignallingEscrow();
+        address account = _getRandomSimulationAccount();
+
+        uint256 transferAmount =
+            _random.nextUint256(MIN_ACCIDENTAL_UNSTETH_TRANSFER_AMOUNT, MAX_ACCIDENTAL_UNSTETH_TRANSFER_AMOUNT);
+        vm.deal(account, transferAmount);
+        vm.startPrank(account);
+        _lido.stETH.submit{value: transferAmount}(address(0));
+        uint256[] memory requestAmounts = new uint256[](1);
+        requestAmounts[0] = transferAmount;
+        _lido.stETH.approve(address(_lido.withdrawalQueue), requestAmounts[0]);
+        _lido.withdrawalQueue.requestWithdrawals(requestAmounts, escrow);
+        vm.stopPrank();
+
+        _totalAccidentalUnstETHTransferAmount += transferAmount;
+    }
+
     function _mineBlock() internal {
         vm.warp(block.timestamp + SLOT_DURATION);
         vm.roll(block.number + 1);
@@ -901,9 +1024,35 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             result.add(SimulationActionType.UnlockUnstETH);
             _actionsCounters[SimulationActionType.UnlockUnstETH] += 1;
         }
+
+        if (_getRandomProbability() <= ACCIDENTAL_ETH_TRANSFER_PROBABILITY) {
+            result.add(SimulationActionType.AccidentalETHTransfer);
+            _actionsCounters[SimulationActionType.AccidentalETHTransfer] += 1;
+        }
+
+        if (_getRandomProbability() <= ACCIDENTAL_STETH_TRANSFER_PROBABILITY) {
+            result.add(SimulationActionType.AccidentalStETHTransfer);
+            _actionsCounters[SimulationActionType.AccidentalStETHTransfer] += 1;
+        }
+
+        if (_getRandomProbability() <= ACCIDENTAL_WSTETH_TRANSFER_PROBABILITY) {
+            result.add(SimulationActionType.AccidentalWstETHTransfer);
+            _actionsCounters[SimulationActionType.AccidentalWstETHTransfer] += 1;
+        }
+
+        if (_getRandomProbability() <= ACCIDENTAL_UNSTETH_TRANSFER_PROBABILITY) {
+            result.add(SimulationActionType.AccidentalUnstETHTransfer);
+            _actionsCounters[SimulationActionType.AccidentalUnstETHTransfer] += 1;
+        }
     }
 
     function _getRandomProbability() internal returns (PercentD16) {
         return PercentsD16.from(_random.nextUint256(HUNDRED_PERCENT_D16));
+    }
+}
+
+contract SelfDestructSender {
+    constructor(address payable recipient) payable {
+        selfdestruct(recipient);
     }
 }
