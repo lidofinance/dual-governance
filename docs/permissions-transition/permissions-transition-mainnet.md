@@ -50,7 +50,7 @@ Thus, the plan goes like this:
 5. Immutable variables remain as-is until future updates.
 6. All EasyTrack factories remain as-is until future updates.
 
-The role-by-role list of actions to be taken is outlined [below](#permissions-transition-plan).
+The role-by-role list of actions to be taken is outlined [below](#transition-plan).
 
 ## Highlights and exceptions
 
@@ -88,7 +88,7 @@ Note: there's a full-blown ["role model research"](https://github.com/lidofinanc
 
 "Action items" for the "DG switching on" vote based on the outlined plan are listed below.
 
-## Permissions Transition Plan
+## Transition Plan
 
 > - Data was collected at block [`22669442`](https://etherscan.io/block/22669442)
 > - The last permissions change occurred at block [`22623238`](https://etherscan.io/block/22623238), transaction [`0x4e8b33eee6600b8cea3597a828c4462529d8ff7fe17c66be4cc986fc75d72aec`](https://etherscan.io/tx/0x4e8b33eee6600b8cea3597a828c4462529d8ff7fe17c66be4cc986fc75d72aec)
@@ -107,7 +107,7 @@ How to read this document:
 
 ### Aragon Permissions
 #### ⚠️ Lido [0xae7ab96520de3a18e5e111b5eaab095312d7fe84](https://etherscan.io/address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`STAKING_CONTROL_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_CONTROL_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
 | ⚠️ [`RESUME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RESUME_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
@@ -129,7 +129,7 @@ How to read this document:
 ```
 
 #### ⚠️ DAOKernel [0xb8ffc3cd6e7cf5a098a1c92f48009765b24088dc](https://etherscan.io/address/0xb8ffc3cd6e7cf5a098a1c92f48009765b24088dc)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`APP_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=APP_MANAGER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
 
@@ -141,7 +141,7 @@ How to read this document:
 ```
 
 #### ⚠️ TokenManager [0xf73a1260d222f447210581ddf212d915c09a3249](https://etherscan.io/address/0xf73a1260d222f447210581ddf212d915c09a3249)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`MINT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MINT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
 | ⚠️ [`REVOKE_VESTINGS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REVOKE_VESTINGS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
@@ -157,7 +157,7 @@ How to read this document:
 ```
 
 #### ⚠️ Finance [0xb9e5cbb9ca5b0d659238807e84d0176930753d86](https://etherscan.io/address/0xb9e5cbb9ca5b0d659238807e84d0176930753d86)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`CHANGE_PERIOD_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CHANGE_PERIOD_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
 | ⚠️ [`CHANGE_BUDGETS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CHANGE_BUDGETS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ ∅ → [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
@@ -173,7 +173,7 @@ How to read this document:
 ```
 
 #### ⚠️ EVMScriptRegistry [0x853cc0d5917f49b57b8e9f89e491f5e18919093a](https://etherscan.io/address/0x853cc0d5917f49b57b8e9f89e491f5e18919093a)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`REGISTRY_ADD_EXECUTOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REGISTRY_ADD_EXECUTOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
 | ⚠️ [`REGISTRY_MANAGER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=REGISTRY_MANAGER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ |
@@ -188,7 +188,7 @@ How to read this document:
 ```
 
 #### ⚠️ CuratedModule [0x55032650b14df07b85bf18a3a3ec8e0af2e028d5](https://etherscan.io/address/0x55032650b14df07b85bf18a3a3ec8e0af2e028d5)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`StakingRouter`](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999) |
 | ⚠️ [`MANAGE_NODE_OPERATOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_NODE_OPERATOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
@@ -207,7 +207,7 @@ How to read this document:
 ```
 
 #### ⚠️ SimpleDVT [0xae7b191a31f627b4eb1d4dac64eab9976995b433](https://etherscan.io/address/0xae7b191a31f627b4eb1d4dac64eab9976995b433)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`STAKING_ROUTER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=STAKING_ROUTER_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`StakingRouter`](https://etherscan.io/address/0xfddf38947afb03c621c71b06c9c70bce73f12999) [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
 | ⚠️ [`MANAGE_NODE_OPERATOR_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MANAGE_NODE_OPERATOR_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ∅ | [`EvmScriptExecutor`](https://etherscan.io/address/0xfe5986e06210ac1ecc1adcafc0cc7f8d63b3f977) |
@@ -223,7 +223,7 @@ How to read this document:
 ```
 
 #### ⚠️ ACL [0x9895f0f17cc1d1891b6f18ee0b483b6f221b37bb](https://etherscan.io/address/0x9895f0f17cc1d1891b6f18ee0b483b6f221b37bb)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`CREATE_PERMISSIONS_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=CREATE_PERMISSIONS_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
@@ -236,7 +236,7 @@ How to read this document:
 ```
 
 #### ⚠️ Agent [0x3e40d73eb977dc6a537af587d48316fee66e9c8c](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | ⚠️ [`RUN_SCRIPT_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=RUN_SCRIPT_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`DGAdminExecutor`](https://etherscan.io/address/0x23e0b465633ff5178808f4a75186e2f2f9537021) |
 | ⚠️ [`EXECUTE_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=EXECUTE_ROLE&input_type=utf-8&output_type=hex) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) → [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) | ⚠️ [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ⚠️ [`DGAdminExecutor`](https://etherscan.io/address/0x23e0b465633ff5178808f4a75186e2f2f9537021) |
@@ -261,7 +261,7 @@ How to read this document:
 ```
 
 #### Voting [0x2e59a20f205bb85a89c53f1936454680651e618e](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e)
-| Role | Role Manager | Revoked | Granted |
+| Permission | Permission Manager | Revoked | Granted |
 | --- | --- | --- | --- |
 | [`UNSAFELY_MODIFY_VOTE_TIME_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=UNSAFELY_MODIFY_VOTE_TIME_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | ∅ |
 | [`MODIFY_QUORUM_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=MODIFY_QUORUM_ROLE&input_type=utf-8&output_type=hex) | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) | ∅ | [`Voting`](https://etherscan.io/address/0x2e59a20f205bb85a89c53f1936454680651e618e) |
@@ -599,7 +599,7 @@ How to read this document:
 | [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
 | [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
 
-### Contracts Getters
+### Contracts Ownership
 #### ⚠️ WithdrawalVault [0xb9d7934878b5fb9610b3fe8a5e441e8fad7e293f](https://etherscan.io/address/0xb9d7934878b5fb9610b3fe8a5e441e8fad7e293f)
 | Getter | Actual Value | Expected Value |
 | --- | --- | --- |
