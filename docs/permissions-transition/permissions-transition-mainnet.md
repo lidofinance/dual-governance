@@ -4,30 +4,30 @@
 
 Dual Governance protects stETH holders from the Lido DAO abusing the smart contract roles and permissions across Lido on Ethereum protocol. In order to achieve that, some / most roles would need to get transitioned "under DG control". The document aims to:
 
-- provide the necessary context;
-- outline the transition plan;
-- highlight a couple specific details about the plan:
-  - edge-cases where the plan enacted would wreak existing operations;
-  - specific roles / permissions which need to stay on DAO.
+- Provide the necessary context.
+- Outline the transition plan.
+- Highlight a couple specific details about the plan:
+  - Edge-cases where the plan enacted would wreak existing operations.
+  - Specific roles / permissions which need to stay on DAO.
 
 ## Context to how the roles are structured now
 
 Most roles under Lido DAO management are granted to:
 
-1. Aragon **Voting** contract;
-2. Aragon **Agent** contract (actions on behalf of Aragon Agent require a role for `Agent.forward`, currently granted only to Aragon Voting contract, actions from that requires the LDO vote);
-3. **EVMScriptExecutor** — part of Easy Track mechanism, does payments from Aragon Agent (i.e. Treasury), has the role to "set limits for curated module", has the role management rights for SDVT and the role to settle penalties for CSM;
-4. committees: multisigs and GateSeals, having the roles and permissions necessary to perform day to day functions (directly or through Easy Track).
+1. Aragon **Voting** contract.
+2. Aragon **Agent** contract (actions on behalf of Aragon Agent require a role for `Agent.forward`, currently granted only to Aragon Voting contract, actions from that requires the LDO vote).
+3. **EVMScriptExecutor** — part of Easy Track mechanism, does payments from Aragon Agent (i.e. Treasury), has the role to "set limits for curated module", has the role management rights for SDVT and the role to settle penalties for CSM.
+4. Committees: multisigs and GateSeals, having the roles and permissions necessary to perform day to day functions (directly or through Easy Track).
 
 There are multiple "control mechanics" employed by Lido on Ethereum contracts:
 
-- **Aragon's permissions (ACL)**: Managed by the Aragon Access Control List (ACL) contract, this system provides a granular permission model within the Aragon app. The main role unlocking ACL management is `CREATE_PERMISSIONS_ROLE`, assigned to Voting contract. The entity holding this role has ultimate power over the all unassigned ACL roles in Lido Aragon Apps (i.e. Voting, Agent, Lido, Oracle and other "core" contracts based on Aragon framework). To assign any role one needs to first define role manager address; any actions with the role once the manager is defined can be done only by this manager address;
-- **OpenZeppelin's access control**: This is a role-based access control mechanism provided by the OpenZeppelin library. Roles are defined and granted individually on a per-contract basis. Contracts with OZ role model have "role admin" mechanics: the roles are managed by "role admin" ("default admin" if there's no admin address assigned as specific role admin). Role admin can be queried by calling `getRoleAdmin` method on the contract;
-- **Unassigned roles**: Some existing roles may intentionally not be assigned to any entity. This means that, by default, no one has the authority to perform actions associated with these roles unless the DAO explicitly grants the permission through a governance proposal;
-- **Aragon ownerships**: these ownerships are managed through the Kernel contract. The Kernel allows the DAO to setup/update applications (by calling `setApp`) and keeps them under its control, while access to these apps is managed through the ACL;
-- **Ownable contracts**: Some contracts within the Lido protocol use the Ownable pattern, where a single owner address has exclusive access to certain administrative functions;
-- **EthereumGovernanceExecutor** field on L2 parts employing "governance forwarding" — checked it's set to Aragon Agent everywhere;
-- **Immutable variables**: There are some contracts that contain immutable variables referring to the DAO contracts. Such as Stonks (contains immutable agent address) and Burner (contains immutable treasury address).
+- **Aragon's permissions (ACL)**: managed by the Aragon Access Control List (ACL) contract, this system provides a granular permission model within the Aragon app. The main role unlocking ACL management is `CREATE_PERMISSIONS_ROLE`, assigned to Voting contract. The entity holding this role has ultimate power over the all unassigned ACL roles in Lido Aragon Apps (i.e. Voting, Agent, Lido, Oracle and other "core" contracts based on Aragon framework). To assign any role one needs to first define role manager address; any actions with the role once the manager is defined can be done only by this manager address.
+- **OpenZeppelin's access control**: this is a role-based access control mechanism provided by the OpenZeppelin library. Roles are defined and granted individually on a per-contract basis. Contracts with OZ role model have "role admin" mechanics: the roles are managed by "role admin" ("default admin" if there's no admin address assigned as specific role admin). Role admin can be queried by calling `getRoleAdmin` method on the contract.
+- **Unassigned roles**: some existing roles may intentionally not be assigned to any entity. This means that, by default, no one has the authority to perform actions associated with these roles unless the DAO explicitly grants the permission through a governance proposal.
+- **Aragon ownerships**: these ownerships are managed through the Kernel contract. The Kernel allows the DAO to setup/update applications (by calling `setApp`) and keeps them under its control, while access to these apps is managed through the ACL.
+- **Ownable contracts**: some contracts within the Lido protocol use the Ownable pattern, where a single owner address has exclusive access to certain administrative functions.
+- **EthereumGovernanceExecutor** field on L2 parts employing "governance forwarding" — checked it's set to Aragon Agent everywhere.
+- **Immutable variables**: there are some contracts that contain immutable variables referring to the DAO contracts. Such as Stonks (contains immutable agent address) and Burner (contains immutable treasury address).
 
 ## The transition plan
 
@@ -35,43 +35,44 @@ Goal is to protect the "potentially dangerous for steth" roles and permissions b
 
 The requirements / constraints / "plan design goals" are:
 
-- do a transition in sane, graspable way;
-- maintain business continuity (don't break the flows necessary for day to day protocol and DAO operations);
-- have a way to check for completeness.
+- Do a transition in sane, graspable way.
+- Maintain business continuity (don't break the flows necessary for day to day protocol and DAO operations).
+- Have a way to check for completeness.
 
 Thus, the plan goes like this:
 
-1. Aragon Voting passes all the roles (except treasury management, insurance fund and all roles related to Voting and TokenManager contracts) and ownerships to Aragon Agent;
+1. Aragon Voting passes all the roles (except treasury management, insurance fund and all roles related to Voting and TokenManager contracts) and ownerships to Aragon Agent.
 2. Aragon Agent:
-   1. Grants a role for `Agent.forward` to Dual Governance Executor contract;
-   2. Revokes a role for `Agent.forward` from Voting;
-3. EVMScriptExecutor/EasyTrack remains as-is (Voting is owner of EVMScriptExecutor and holder of `DEFAULT_ADMIN_ROLE` for EasyTrack, but given Voting isn't role manager / admin on things which need to be under DG — Voting can't grant permissions necessary to breach "DG protection");
-4. Committees remain as-is to maintain business continuity;
-5. Immutable variables remain as-is until future updates;
+   1. Grants a role for `Agent.forward` to Dual Governance Executor contract.
+   2. Revokes a role for `Agent.forward` from Voting.
+3. EVMScriptExecutor/EasyTrack remains as-is (Voting is owner of EVMScriptExecutor and holder of `DEFAULT_ADMIN_ROLE` for EasyTrack, but given Voting isn't role manager / admin on things which need to be under DG — Voting can't grant permissions necessary to breach "DG protection").
+4. Committees remain as-is to maintain business continuity.
+5. Immutable variables remain as-is until future updates.
 6. All EasyTrack factories remain as-is until future updates.
 
-The role-by-role list of actions to be taken is outlined [below](#role-listing-script-output).
+The role-by-role list of actions to be taken is outlined [below](#permissions-transition-plan).
 
 ## Highlights and exceptions
 
-- ACL's `CREATE_PERMISSION_ROLE` goes to Agent, that means **creating new roles** should go through the Dual Governance what **will take longer to execute**;
-- roles necessary for **pausing** for critical contracts (particularly `PAUSE_ROLE` for Lido/stETH contract) are **considered to be moved to Agent** so it leads to slower decision making in critical situations. Sealable roles with no time limitation remain on the Agent and ResealManager;
-- EasyTrack "parts" (`AllowedRecipientsRegistry` ownership) are proposed to stay on Agent to not to overcomplicate the DG "switch on" vote (can be managed outside of DG deployment, if operationally possible; that's ~32-actions-worth vote);
-- roles necessary for EasyTrack motions for Curated NOs to add keys remain without changes;
-- roles necessary for EasyTrack motions for SDVT management remain without changes;
-- roles necessary for EasyTrack motions for CSM penalty management remains without changes;
-- all the roles across Lido on Ethereum contracts are managed by `DEFAULT_ADMIN` (Agent); only EasyTrack has `DEFAULT_ADMIN` set to Voting contract;
-- at the moment Aragon app does have additional ACL and Kernel contracts for repos (PM repo, Oracle repo, etc.) to support Aragon UI. It is [decided](https://research.lido.fi/t/discontinuation-of-aragon-ui-use/7992) to drop support of these contracts (leave them as is);
-- all L2 bridges refer to Agent contract as a manager/owner so it remains without changes.
+- ACL's `CREATE_PERMISSION_ROLE` goes to Agent, that means **creating new roles** should go through the Dual Governance what **will take longer to execute**.
+- Roles necessary for **pausing** for critical contracts (particularly `PAUSE_ROLE` for Lido/stETH contract) are **considered to be moved to Agent** so it leads to slower decision making in critical situations. Sealable roles with no time limitation remain on the Agent and ResealManager.
+- EasyTrack "parts" (`AllowedRecipientsRegistry` ownership) are proposed to stay on Agent to not to overcomplicate the DG "switch on" vote (can be managed outside of DG deployment, if operationally possible; that's ~32-actions-worth vote).
+- Roles necessary for EasyTrack motions for Curated NOs to add keys remain without changes.
+- Roles necessary for EasyTrack motions for SDVT management remain without changes.
+- Roles necessary for EasyTrack motions for CSM penalty management remains without changes.
+- All the roles across Lido on Ethereum contracts are managed by `DEFAULT_ADMIN` (Agent); only EasyTrack has `DEFAULT_ADMIN` set to Voting contract.
+- At the moment Aragon app does have additional ACL and Kernel contracts for repos (PM repo, Oracle repo, etc.) to support Aragon UI. It is [decided](https://research.lido.fi/t/discontinuation-of-aragon-ui-use/7992) to drop support of these contracts (leave them as is).
+- All L2 bridges (except for [Polygon](#erc20predicate_polygon0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf) and [Linea](#l1tokenbridge_linea0x051f1d88f0af5763fb888ec4378b4d8b29ea3319), which are not under the direct control of the DAO) refer to the Agent contract as a manager/owner and thus remain unchanged.
+- [AragonPM](https://etherscan.io/address/0x0cb113890b04b49455dfe06554e2d784598a29c9#code) and all Aragon Apps Repo contracts ([Voting Repo](https://etherscan.io/address/0x4ee3118e3858e8d7164a634825bfe0f73d99c792), [Lido App Repo](https://etherscan.io/address/0xF5Dc67E54FC96F993CD06073f71ca732C1E654B1), etc.) remain under the control of the Voting contract. These contracts were necessary for the proper functioning of the Aragon UI, [which is now deprecated](https://research.lido.fi/t/discontinuation-of-aragon-ui-use/7992).
 
 ### Impact of the rights getting transferred to DG
 
 Practical effect of moving the role under DG is
 
-1. in general, activating / performing any action requiring this role takes longer (LDO governance time + DG default timelock (about 3-4 days per the current proposed params));
-2. if DG veto escrow crosses the first threshold (veto signalling, 1% steth TVL opposes the motion), the timelock becomes dynamic (it's [limited](https://github.com/lidofinance/dual-governance/blob/831ad62bca6913dbfbb56bb341feb8588b349ebe/docs/mechanism.md#veto-signalling-state) during the VetoSignalling state, and [unpredictably long](https://github.com/lidofinance/dual-governance/blob/831ad62bca6913dbfbb56bb341feb8588b349ebe/docs/mechanism.md#rage-quit-state) during the RageQuit state).
+1. In general, activating / performing any action requiring this role takes longer (LDO governance time + DG default timelock (about 3-4 days per the current proposed params)).
+2. If DG veto escrow crosses the first threshold (veto signalling, 1% steth TVL opposes the motion), the timelock becomes dynamic (it's [limited](https://github.com/lidofinance/dual-governance/blob/831ad62bca6913dbfbb56bb341feb8588b349ebe/docs/mechanism.md#veto-signalling-state) during the VetoSignalling state, and [unpredictably long](https://github.com/lidofinance/dual-governance/blob/831ad62bca6913dbfbb56bb341feb8588b349ebe/docs/mechanism.md#rage-quit-state) during the RageQuit state).
 
-Another important thing to consider: some mechanics in the protocol rely upon "LDO governance reaction time"; the obvious examples are GateSeals (have specific treatment under DG), non-obvious is [`FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT`](https://docs.lido.fi/guides/oracle-spec/accounting-oracle/#negative-rebase-border) OracleReportSanityChecker param. To the best of value stream tech teams' knowledge, those are the only two examples with implicit dependancy on DAO's reaction time.
+Another important thing to consider: some mechanics in the protocol rely upon "LDO governance reaction time"; the obvious examples are GateSeals (have specific treatment under DG), non-obvious is [`FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT`](https://docs.lido.fi/guides/oracle-spec/accounting-oracle/#negative-rebase-border) [`OracleDaemonConfig`](https://etherscan.io/address/0xbf05A929c3D7885a6aeAd833a992dA6E5ac23b09) param. To the best of value stream tech teams' knowledge, those are the only two examples with implicit dependancy on DAO's reaction time.
 
 ## Context and full roles list / things to look up
 
@@ -100,6 +101,9 @@ How to read this document:
   - no manager is set for the permission
 - The notation "`Old Manager` → `New Manager`" means the current manager is being changed to a new one.
   - A special case is "`∅` → `New Manager`", which means the permission currently has no manager, and the permission should be created before use.
+
+> [!NOTE]
+> Due to the specifics of the [`Aragon ACL`](https://etherscan.io/address/0x9895f0f17cc1d1891b6f18ee0b483b6f221b37bb) implementation, when a permission is created for the first time, it must be granted to an address. To minimize the number of actions in the transition plan, these newly created permissions remain granted to the permission manager contract. For example, the `MINT_ROLE` of the [`TokenManager`](https://etherscan.io/address/0xf73a1260d222f447210581DDf212D915c09a3249) contract remains granted to the [`Voting`](https://etherscan.io/address/0x2e59A20f205bB85a89C53f1936454680651E618e) contract.
 
 ### Aragon Permissions
 #### ⚠️ Lido [0xae7ab96520de3a18e5e111b5eaab095312d7fe84](https://etherscan.io/address/0xae7ab96520de3a18e5e111b5eaab095312d7fe84)
