@@ -5,6 +5,7 @@ import {IWithdrawalQueue as IWithdrawalQueueBase} from "contracts/interfaces/IWi
 
 interface IWithdrawalQueue is IWithdrawalQueueBase {
     function getLastRequestId() external view returns (uint256);
+    function getWithdrawalRequests(address _owner) external view returns (uint256[] memory requestsIds);
     function setApprovalForAll(address _operator, bool _approved) external;
     function grantRole(bytes32 role, address account) external;
     function pauseFor(uint256 duration) external;

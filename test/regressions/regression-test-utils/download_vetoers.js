@@ -16,12 +16,16 @@ const WST_ETH_ADDRESS = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0";
 const WST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 6;
 const WST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}wsteth_vetoers.json`;
 
+const UNST_ETH_ADDRESS = "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1";
+const UNST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 6;
+const UNST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}unsteth_vetoers.json`;
+
 async function main() {
     console.log("---------------------------------------------------------------------------------------");
     console.log(`This script downloads the addresses of the first 4000 (approx) StEth holders and the first
-300 WStEth holders at the current block of network ${NETWORK_NAME} from Blockscout and saves it to the files 
-"${FILENAME_PREFIX}steth_vetoers.json" and "${FILENAME_PREFIX}wsteth_vetoers.json" appropriately that is 
-intended for use in 4-Rounds-RageQuit regression test. After updating the StEth/WStEth holders' data files 
+300 WStEth and UnStEth holders at the current block of network ${NETWORK_NAME} from Blockscout and saves it to the files 
+"${FILENAME_PREFIX}steth_vetoers.json", "${FILENAME_PREFIX}wsteth_vetoers.json" and "${FILENAME_PREFIX}unsteth_vetoers.json" 
+appropriately that is intended for use in 4-Rounds-RageQuit regression test. After updating the StEth/WStEth holders' data files 
 don't forget to update the env variable FORK_BLOCK_NUMBER with the actual block number before running the regression test.`);
     console.log("---------------------------------------------------------------------------------------");
     console.log("Downloading StETH holders");
@@ -43,6 +47,17 @@ don't forget to update the env variable FORK_BLOCK_NUMBER with the actual block 
         WST_ETH_ADDRESS,
         WST_ETH_HOLDERS_LOAD_CHUNKS_COUNT,
         WST_ETH_HOLDERS_FILE_NAME,
+        undefined
+    );
+
+    console.log("---------------------------------------------------------------------------------------");
+    console.log("Downloading UnStETH holders");
+
+    await blockscoutDownloadTokenHolders(
+        NETWORK_NAME,
+        UNST_ETH_ADDRESS,
+        UNST_ETH_HOLDERS_LOAD_CHUNKS_COUNT,
+        UNST_ETH_HOLDERS_FILE_NAME,
         undefined
     );
 }
