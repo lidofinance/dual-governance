@@ -26,7 +26,8 @@ import {
     DGSetupDeployedContracts,
     TimelockContractDeployConfig,
     TiebreakerContractDeployConfig,
-    TiebreakerCommitteeDeployConfig
+    TiebreakerCommitteeDeployConfig,
+    EmergencyProtectionDeployConfig
 } from "../utils/contracts-deployment.sol";
 
 library DeployVerification {
@@ -49,7 +50,9 @@ library DeployVerification {
     function checkContractsConfiguration(DGSetupDeployArtifacts.Context memory deployArtifact) internal view {
         checkAdminExecutor(deployArtifact.deployedContracts.adminExecutor, deployArtifact.deployedContracts.timelock);
         checkEmergencyProtectedTimelockConfiguration(
-            deployArtifact.deployedContracts, deployArtifact.deployConfig.timelock
+            deployArtifact.deployedContracts,
+            deployArtifact.deployConfig.timelock,
+            deployArtifact.deployConfig.emergencyProtection
         );
         checkDualGovernanceConfiguration(deployArtifact.deployedContracts, deployArtifact.deployConfig);
         checkTiebreakerCoreCommittee(deployArtifact.deployedContracts, deployArtifact.deployConfig.tiebreaker);
@@ -99,7 +102,8 @@ library DeployVerification {
 
     function checkEmergencyProtectedTimelockConfiguration(
         DGSetupDeployedContracts.Context memory contracts,
-        TimelockContractDeployConfig.Context memory timelockConfig
+        TimelockContractDeployConfig.Context memory timelockConfig,
+        EmergencyProtectionDeployConfig.Context memory emergencyProtectionConfig
     ) internal view {
         IEmergencyProtectedTimelock timelockInstance = contracts.timelock;
 
@@ -108,22 +112,22 @@ library DeployVerification {
             "Incorrect adminExecutor address in EmergencyProtectedTimelock"
         );
         require(
-            timelockInstance.getEmergencyActivationCommittee() == timelockConfig.emergencyActivationCommittee,
+            timelockInstance.getEmergencyActivationCommittee() == emergencyProtectionConfig.emergencyActivationCommittee,
             "Incorrect emergencyActivationCommittee address in EmergencyProtectedTimelock"
         );
         require(
-            timelockInstance.getEmergencyExecutionCommittee() == timelockConfig.emergencyExecutionCommittee,
+            timelockInstance.getEmergencyExecutionCommittee() == emergencyProtectionConfig.emergencyExecutionCommittee,
             "Incorrect emergencyExecutionCommittee address in EmergencyProtectedTimelock"
         );
 
         IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details =
             timelockInstance.getEmergencyProtectionDetails();
         require(
-            details.emergencyProtectionEndsAfter == timelockConfig.emergencyProtectionEndDate,
+            details.emergencyProtectionEndsAfter == emergencyProtectionConfig.emergencyProtectionEndDate,
             "Incorrect value for emergencyProtectionEndsAfter"
         );
         require(
-            details.emergencyModeDuration == timelockConfig.emergencyModeDuration,
+            details.emergencyModeDuration == emergencyProtectionConfig.emergencyModeDuration,
             "Incorrect value for emergencyModeDuration"
         );
 
@@ -163,13 +167,15 @@ library DeployVerification {
 
     function checkEmergencyActivationCommittee(DGSetupDeployConfig.Context memory dgDeployConfig) internal pure {
         require(
-            dgDeployConfig.timelock.emergencyActivationCommittee != address(0), "Incorrect emergencyActivationCommittee"
+            dgDeployConfig.emergencyProtection.emergencyActivationCommittee != address(0),
+            "Incorrect emergencyActivationCommittee"
         );
     }
 
     function checkEmergencyExecutionCommittee(DGSetupDeployConfig.Context memory dgDeployConfig) internal pure {
         require(
-            dgDeployConfig.timelock.emergencyExecutionCommittee != address(0), "Incorrect emergencyExecutionCommittee"
+            dgDeployConfig.emergencyProtection.emergencyExecutionCommittee != address(0),
+            "Incorrect emergencyExecutionCommittee"
         );
     }
 
@@ -179,7 +185,7 @@ library DeployVerification {
     ) internal view {
         TimelockedGovernance emergencyTimelockedGovernance = contracts.emergencyGovernance;
         require(
-            emergencyTimelockedGovernance.GOVERNANCE() == dgDeployConfig.timelock.emergencyGovernanceProposer,
+            emergencyTimelockedGovernance.GOVERNANCE() == dgDeployConfig.emergencyProtection.emergencyGovernanceProposer,
             "TimelockedGovernance governance != Lido voting"
         );
         require(

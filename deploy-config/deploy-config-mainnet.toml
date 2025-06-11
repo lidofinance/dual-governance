@@ -4,6 +4,11 @@ chain_id = 1
 # DUAL GOVERNANCE CONFIG
 # ======================
 
+governance_type = "timelocked_governance"
+disable_tiebreaker = true
+disable_emergency_protection = true
+
+
 [dual_governance]
 
 # Admin proposer and proposals canceller is DAO voting contract
@@ -95,23 +100,23 @@ veto_signalling_max_duration = 3888000                                        # 
 
 [timelock]
 # Delays required for proposal scheduling and execution
-after_submit_delay = 259200                                                   # 3 days ****
-after_schedule_delay = 86400                                                  # 1 days ****
+after_submit_delay = 259200  # 3 days ****
+after_schedule_delay = 86400 # 1 days ****
 
 [timelock.sanity_check_params]
 
 # Represents the minimum allowed time that must pass between the submission of a proposal and its execution.
-min_execution_delay = 259200                                                  # 3 days **
+min_execution_delay = 259200 # 3 days **
 
 # The upper bound for the delays required for proposal scheduling and execution.
-max_after_submit_delay = 2592000                                              # 30 days ****
-max_after_schedule_delay = 864000                                             # 10 days ****
+max_after_submit_delay = 2592000  # 30 days ****
+max_after_schedule_delay = 864000 # 10 days ****
 
 # The upper bound for the time the timelock can remain in emergency mode.
-max_emergency_mode_duration = 31536000                                        # 1 year ****
+max_emergency_mode_duration = 31536000 # 1 year ****
 
 # The upper bound for the time the emergency protection mechanism can be activated.
-max_emergency_protection_duration = 94608000                                  # 3 years ****
+max_emergency_protection_duration = 94608000 # 3 years ****
 
 [timelock.emergency_protection]
 
@@ -136,6 +141,8 @@ emergency_protection_end_date = 1781913600                                    # 
 # ======================
 
 [tiebreaker]
+owner = "0x2e59A20f205bB85a89C53f1936454680651E618e"                            # DAO Voting *
+dual_governance = "0x2e59A20f205bB85a89C53f1936454680651E618e"                     # DAO Voting *
 execution_delay = 2592000                                                     # 1 month **
 committees_count = 3                                                          # ***
 quorum = 2                                                                    # ***
@@ -172,12 +179,10 @@ members = [
     ]
 quorum = 3
 
-# ======================
-# DAO TIMELOCKED GOVERNANCE
-# ======================
 
 [timelocked_governance]
+governance = "0x2e59A20f205bB85a89C53f1936454680651E618e" # DAO Voting *
+timelock = "0x2e59A20f205bB85a89C53f1936454680651E618e" # DAO Voting *
 
-# The address of the DAO Voting contract that will be use as proposer in case of emergency reset
-governance="0x2e59A20f205bB85a89C53f1936454680651E618e"                       # DAO Voting *
-timelock="0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316"
+[executor]
+owner = "0x2e59A20f205bB85a89C53f1936454680651E618e" # DAO Voting *

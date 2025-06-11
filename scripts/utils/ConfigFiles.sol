@@ -86,6 +86,24 @@ library ConfigFileReader {
         if (ctx.format == ConfigFormat.TOML) return stdToml.readBytes(ctx.content, key);
         revert InvalidConfigFormat(uint256(ctx.format));
     }
+
+    function readBool(Context memory ctx, string memory key) internal pure returns (bool) {
+        if (ctx.format == ConfigFormat.JSON) return stdJson.readBool(ctx.content, key);
+        if (ctx.format == ConfigFormat.TOML) return stdToml.readBool(ctx.content, key);
+        revert InvalidConfigFormat(uint256(ctx.format));
+    }
+
+    function readString(Context memory ctx, string memory key) internal pure returns (string memory) {
+        if (ctx.format == ConfigFormat.JSON) return stdJson.readString(ctx.content, key);
+        if (ctx.format == ConfigFormat.TOML) return stdToml.readString(ctx.content, key);
+        revert InvalidConfigFormat(uint256(ctx.format));
+    }
+
+    function keyExists(Context memory ctx, string memory key) internal view returns (bool) {
+        if (ctx.format == ConfigFormat.JSON) return stdJson.keyExists(ctx.content, key);
+        if (ctx.format == ConfigFormat.TOML) return stdToml.keyExists(ctx.content, key);
+        revert InvalidConfigFormat(uint256(ctx.format));
+    }
 }
 
 library ConfigFileBuilder {
