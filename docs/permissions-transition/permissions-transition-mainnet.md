@@ -540,10 +540,13 @@ How to read this document:
 #### L1LidoGateway_Scroll [0x6625c6332c9f91f2d27c304e729b86db87a3f504](https://etherscan.io/address/0x6625c6332c9f91f2d27c304e729b86db87a3f504)
 | Role | Role Admin | Revoked | Granted |
 | --- | --- | --- | --- |
-| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
-| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
-| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `DEFAULT_ADMIN_ROLE` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`DEPOSITS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `owner` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`DEPOSITS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=DEPOSITS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `owner` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+| [`WITHDRAWALS_DISABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_DISABLER_ROLE&input_type=utf-8&output_type=hex) | `owner` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) [`EmergencyBrakesMultisig`](https://etherscan.io/address/0x73b047fe6337183a454c5217241d780a932777bd) |
+| [`WITHDRAWALS_ENABLER_ROLE`](https://emn178.github.io/online-tools/keccak_256.html?input=WITHDRAWALS_ENABLER_ROLE&input_type=utf-8&output_type=hex) | `owner` | ∅ | [`Agent`](https://etherscan.io/address/0x3e40d73eb977dc6a537af587d48316fee66e9c8c) |
+
+> [!NOTE]
+> The Scroll implementation of `L1LidoGateway` uses a custom Access Control mechanism in which the granting of all roles is managed by a dedicated `owner` address.
 
 #### L1ERC20TokenBridge_Mode [0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a](https://etherscan.io/address/0xd0dea0a3bd8e4d55170943129c025d3fe0493f2a)
 | Role | Role Admin | Revoked | Granted |
