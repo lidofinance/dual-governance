@@ -346,7 +346,8 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                     assertApproxEqAbs(_lido.stETH.balanceOf(vetoers[i]), 0, MIN_LOCKABLE_AMOUNT + ACCURACY);
                     assertLe(_lido.wstETH.getStETHByWstETH(_lido.wstETH.balanceOf(vetoers[i])), MIN_LOCKABLE_AMOUNT);
 
-                    // This check fails sometimes on Hoodi, the reason is unknown. Replaced it with the less strict check and added a log message.
+                    // This check fails sometimes on Hoodi/Holesky, the reason is unknown. Replaced it temporarily with the less strict check and added a log message.
+                    // TODO: restore the check when the proper stEth burning procedure from the dg-solvency-simulation branch is merged
                     /* assertApproxEqAbs(
                         vetoers[i].balance,
                         vetoersBalancesBefore[i] + _lido.stETH.getPooledEthByShares(vetoersStEthSharesBefore[i]),
