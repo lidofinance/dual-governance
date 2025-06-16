@@ -168,12 +168,12 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
             // WithdrawalQueue and VEBO permissions checks
             vm.assertFalse(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
-            vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, ORACLES_GATE_SEAL));
+            vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, GATE_SEAL));
 
             vm.assertFalse(IOZ(WITHDRAWAL_QUEUE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
 
             vm.assertFalse(IOZ(VEBO).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
-            vm.assertTrue(IOZ(VEBO).hasRole(PAUSE_ROLE, ORACLES_GATE_SEAL));
+            vm.assertTrue(IOZ(VEBO).hasRole(PAUSE_ROLE, GATE_SEAL));
 
             vm.assertFalse(IOZ(VEBO).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
 
@@ -306,12 +306,12 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
 
             // WithdrawalQueue and VEBO permissions checks
             vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
-            vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, ORACLES_GATE_SEAL));
+            vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(PAUSE_ROLE, GATE_SEAL));
 
             vm.assertTrue(IOZ(WITHDRAWAL_QUEUE).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
 
             vm.assertTrue(IOZ(VEBO).hasRole(PAUSE_ROLE, address(_dgDeployedContracts.resealManager)));
-            vm.assertTrue(IOZ(VEBO).hasRole(PAUSE_ROLE, ORACLES_GATE_SEAL));
+            vm.assertTrue(IOZ(VEBO).hasRole(PAUSE_ROLE, GATE_SEAL));
 
             vm.assertTrue(IOZ(VEBO).hasRole(RESUME_ROLE, address(_dgDeployedContracts.resealManager)));
 

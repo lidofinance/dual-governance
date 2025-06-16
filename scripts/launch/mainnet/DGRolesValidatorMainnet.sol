@@ -79,11 +79,11 @@ contract DGRolesValidatorMainnet is RolesValidatorBase, LidoAddressesMainnet, IR
         _validate(AGENT, "EXECUTE_ROLE", AragonRoles.manager(AGENT).granted(VOTING).granted(ADMIN_EXECUTOR));
 
         // WithdrawalQueue
-        _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
+        _validate(WITHDRAWAL_QUEUE, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(GATE_SEAL));
         _validate(WITHDRAWAL_QUEUE, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
         // VEBO
-        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(ORACLES_GATE_SEAL));
+        _validate(VEBO, "PAUSE_ROLE", OZRoles.granted(RESEAL_MANAGER).granted(GATE_SEAL));
         _validate(VEBO, "RESUME_ROLE", OZRoles.granted(RESEAL_MANAGER));
 
         // CS Module
