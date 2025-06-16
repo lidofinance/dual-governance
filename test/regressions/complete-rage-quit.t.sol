@@ -16,6 +16,7 @@ import {
     HOODI_CHAIN_ID
 } from "../utils/integration-tests.sol";
 import {LidoUtils, MAINNET_ST_ETH, HOLESKY_ST_ETH, HOODI_ST_ETH} from "../utils/lido-utils.sol";
+import {Random} from "../utils/random.sol";
 
 uint256 constant ACCURACY = 2 wei;
 uint256 constant POOL_ACCUMULATED_ERROR = 150 wei;
@@ -42,14 +43,27 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     uint256 private _lockedStEthSharesForCurrentRound;
     address[] private _allVetoers;
     mapping(address vetoer => uint256[] unStEthIds) private _lockedUnStEthIds;
+    Random.Context internal _random;
+    uint256[] private _rebaseDeltaPercents;
 
     function setUp() external {
         _loadOrDeployDGSetup();
+        uint256 randomSeed = vm.unixTime();
+        _random = Random.create(randomSeed);
+
+        console.log("Using random seed:", randomSeed);
     }
 
     function testFork_RageQuitExodus_HappyPath_MultipleRounds() external {
+        uint256[] memory rebaseDeltaPercents = new uint256[](4);
+        rebaseDeltaPercents[0] = Random.nextUint256(_random, 0, 200);
+        rebaseDeltaPercents[1] = Random.nextUint256(_random, 0, 200);
+        rebaseDeltaPercents[2] = Random.nextUint256(_random, 0, 200);
+        rebaseDeltaPercents[3] = Random.nextUint256(_random, 0, 200);
+
         vm.pauseGasMetering();
         console.log("-------------------------");
+        _rebaseDeltaPercents = rebaseDeltaPercents;
 
         if (
             (block.chainid == MAINNET_CHAIN_ID && address(_lido.stETH) != MAINNET_ST_ETH)
@@ -268,6 +282,11 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             _activateNextState();
 
             _assertRageQuitState();
+
+            uint256 rebaseDeltaPercent = _rebaseDeltaPercents[_round - 1] % 200; // -1% ... +1%
+            PercentD16 rebasePercent = PercentsD16.fromBasisPoints(99_50 + rebaseDeltaPercent);
+            _simulateRebase(rebasePercent);
+            _assertRageQuitState();
         }
 
         _stepMsg("5. Claiming withdrawals.");
@@ -376,6 +395,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     }
 
     function _prepareVetoer(address vetoerCandidate, uint256 index) internal returns (address[] memory vetoers) {
+        // solhint-disable-next-line var-name-mixedcase
         uint256 VETOER_MAX_BALANCE_THRESHOLD = (_lido.stETH.totalSupply() * 5) / 100;
 
         if (vetoerCandidate.code.length == 0) {
@@ -580,7 +600,6 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     }
 
     function _getAllVetoerUnStEthIds(address vetoer) internal view returns (uint256[] memory) {
-        return new uint256[](0);
         uint256[] memory requestIds = _lido.withdrawalQueue.getWithdrawalRequests(vetoer);
 
         if (requestIds.length < 2) {
