@@ -1,13 +1,7 @@
 const { writeFile } = require('node:fs/promises');
 
-const MAX_ITERATIONS = 2000;
-const DELAY_BETWEEN_QUERIES = 500;
-const NEXT_CHUNK_REQUEST_DEFAULT_DATA = {
-    address_hash: "",
-    items_count: 0,
-    value: "",
-    hasMoreData: true
-};
+const MAX_ITERATIONS = 200;
+const DELAY_BETWEEN_QUERIES = 2000;
 
 const supportedNetworkPrefixes = {
     MAINNET: "eth",
@@ -17,30 +11,31 @@ const supportedNetworkPrefixes = {
 
 const networkUrlPrefix = (networkName) => supportedNetworkPrefixes[`${networkName}`.toUpperCase()] || "";
 const getTokenInfoBaseUrl = (networkName, tokenAddress) => `https://${networkUrlPrefix(networkName)}.blockscout.com/api/v2/tokens/${tokenAddress}`;
-const getHoldersBaseUrl = (networkName, tokenAddress) => `https://${networkUrlPrefix(networkName)}.blockscout.com/api/v2/tokens/${tokenAddress}/holders`;
+const getHoldersBaseUrl = (networkName, tokenAddress) => `https://${networkUrlPrefix(networkName)}.blockscout.com/api?module=token&action=getTokenHolders&contractaddress=${tokenAddress}`;
 const getBlocksBaseUrl = (networkName) => `https://${networkUrlPrefix(networkName)}.blockscout.com/api/v2/blocks`;
 
 /**
  * 
  * @param {string} networkName 
  * @param {string} tokenAddress 
- * @param {number} chunksCount - each chunk contains 50 addresses
+ * @param {number} chunksCount - each chunk contains approximately 300 addresses by default
  * @param {string} holdersFileName - file name where to save downloaded holders' addresses
  * @param {Set<string>} [excludeAddresses]
  * @param {number} [totalSupplyPercentage]
+ * @param {number} [chunkAddressesAmount]
  */
-async function blockscoutDownloadTokenHolders(networkName, tokenAddress, chunksCount, holdersFileName, excludeAddresses, totalSupplyPercentage) {
+async function blockscoutDownloadTokenHolders(networkName, tokenAddress, chunksCount, holdersFileName, excludeAddresses, totalSupplyPercentage, chunkAddressesAmount = 300) {
     checkNetworkName(networkName);
 
     const holders = {
         addresses: []
     };
 
-    let nextChunkParams = { ...NEXT_CHUNK_REQUEST_DEFAULT_DATA };
-
     let desiredHoldersValue;
 
     const startBlockNumber = await getLatestBlockNumber(getBlocksBaseUrl(networkName));
+
+    await delay(DELAY_BETWEEN_QUERIES);
 
     if (totalSupplyPercentage !== undefined) {
         if (totalSupplyPercentage > 100) {
@@ -58,10 +53,9 @@ async function blockscoutDownloadTokenHolders(networkName, tokenAddress, chunksC
     if (desiredHoldersValue !== undefined) {
         let holdersValueAcc = BigInt(0);
         let iter = 0;
-        while (holdersValueAcc < desiredHoldersValue && iter < MAX_ITERATIONS && nextChunkParams.hasMoreData) {
-            const chunk = await loadHoldersChunk(getHoldersBaseUrl(networkName, tokenAddress), nextChunkParams.address_hash, nextChunkParams.items_count, nextChunkParams.value);
+        while (holdersValueAcc < desiredHoldersValue && iter < MAX_ITERATIONS) {
+            const chunk = await loadHoldersChunk(getHoldersBaseUrl(networkName, tokenAddress), iter + 1, chunkAddressesAmount);
 
-            nextChunkParams = getNextChunkData(chunk);
             holdersValueAcc += processHoldersChunk(holders, chunk, excludeAddresses);
             iter++;
             await delay(DELAY_BETWEEN_QUERIES);
@@ -70,63 +64,50 @@ async function blockscoutDownloadTokenHolders(networkName, tokenAddress, chunksC
         if (iter >= MAX_ITERATIONS) {
             console.log("Iterations limit reached, consider increasing MAX_ITERATIONS or decreasing totalSupplyPercentage");
         }
-
-        if (!nextChunkParams.hasMoreData) {
-            console.log("Data provider has no more holders data for the requested token");
-        }
     } else {
-        for (let i = 0; i < chunksCount && nextChunkParams.hasMoreData; ++i) {
-            const chunk = await loadHoldersChunk(getHoldersBaseUrl(networkName, tokenAddress), nextChunkParams.address_hash, nextChunkParams.items_count, nextChunkParams.value);
+        for (let i = 0; i < chunksCount; ++i) {
+            const chunk = await loadHoldersChunk(getHoldersBaseUrl(networkName, tokenAddress), i + 1, chunkAddressesAmount);
 
-            nextChunkParams = getNextChunkData(chunk);
             processHoldersChunk(holders, chunk, excludeAddresses);
             await delay(DELAY_BETWEEN_QUERIES);
-        }
-
-        if (!nextChunkParams.hasMoreData) {
-            console.log("Data provider has no more holders data for the requested token");
         }
     }
 
     console.log("Total addresses", holders.addresses.length);
-    const endBlockNumber = await getLatestBlockNumber(getBlocksBaseUrl(networkName));
 
-    const blocksRangeMsg =
-        endBlockNumber != startBlockNumber
-            ? `blocks between ${startBlockNumber} and ${endBlockNumber}`
-            : `block ${startBlockNumber}`;
-    console.log(`Holders data is actual for the ${blocksRangeMsg}`);
+    await delay(DELAY_BETWEEN_QUERIES);
+
+    try {
+        const endBlockNumber = await getLatestBlockNumber(getBlocksBaseUrl(networkName));
+
+        const blocksRangeMsg =
+            endBlockNumber != startBlockNumber
+                ? `blocks between ${startBlockNumber} and ${endBlockNumber}`
+                : `block ${startBlockNumber}`;
+        console.log(`Holders data is actual for the ${blocksRangeMsg}`);
+    } catch (e) {
+        console.error("Error loading blocks data", e);
+    }
 
     try {
         await writeFile(holdersFileName, JSON.stringify(holders, null, 2), 'utf8');
         console.log(`Data successfully saved to ${holdersFileName}`);
     } catch (error) {
-        console.log('An error has occurred', error);
+        console.log("An error has occurred", error);
     }
-}
-
-function getNextChunkData(chunk) {
-    if (!chunk.next_page_params) {
-        return {
-            ...NEXT_CHUNK_REQUEST_DEFAULT_DATA,
-            hasMoreData: false
-        };
-    }
-
-    return {
-        ...NEXT_CHUNK_REQUEST_DEFAULT_DATA,
-        address_hash: chunk.next_page_params.address_hash,
-        items_count: chunk.next_page_params.items_count,
-        value: chunk.items[chunk.items.length - 1].value // value is stored here as a string, which is required for query param
-    };
 }
 
 function processHoldersChunk(acc, chunk, excludeAddresses) {
+    if (chunk.message != "OK") {
+        console.log(chunk);
+        throw new Error("Invalid data format", chunk);
+    }
+
     let chunkValue = BigInt(0);
-    const items = chunk.items;
+    const items = chunk.result;
     for (let i = 0; i < items.length; i++) {
-        if (!excludeAddresses || !excludeAddresses.has(items[i].address.hash)) {
-            acc.addresses.push(items[i].address.hash);
+        if (!excludeAddresses || !excludeAddresses.has(items[i].address.toLowerCase())) {
+            acc.addresses.push(items[i].address);
             chunkValue += BigInt(items[i].value);
         }
     }
@@ -141,7 +122,14 @@ async function getLatestBlockNumber(url) {
 async function loadData(url) {
     const dataRaw = await fetch(url);
     const text = await dataRaw.text();
-    return JSON.parse(text);
+    let jsonData;
+    try {
+        jsonData = JSON.parse(text);
+    } catch(e) {
+        console.log("Error parsing JSON", e);
+        return {};
+    }
+    return jsonData;
 }
 
 async function loadTokenInfo(url) {
@@ -149,8 +137,8 @@ async function loadTokenInfo(url) {
     return loadData(url);
 }
 
-async function loadHoldersChunk(baseUrl, address_hash = "", items_count = 0, value = "") {
-    const url = makeUrl(baseUrl, address_hash, items_count, value);
+async function loadHoldersChunk(baseUrl, page, chunkAddressesAmount) {
+    const url = makeUrl(baseUrl, page, chunkAddressesAmount);
     console.log("Loading", url);
     return loadData(url);
 }
@@ -160,13 +148,9 @@ async function loadBlocksData(url) {
     return loadData(url);
 }
 
-function makeUrl(baseUrl, address_hash = "", items_count = 0, value = "") {
-    if (address_hash.length == 0) {
-        return baseUrl;
-    }
-    return `${baseUrl}?address_hash=${address_hash}&items_count=${items_count}&value=${value}`;
+function makeUrl(baseUrl, page, chunkAddressesAmount) {
+    return `${baseUrl}&page=${page}&offset=${chunkAddressesAmount}`;
 }
-
 
 async function delay(duration) {
     return new Promise((resolve) => {

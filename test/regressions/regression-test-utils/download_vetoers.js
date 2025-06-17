@@ -4,21 +4,22 @@ const NETWORK_NAME = "mainnet";
 const FILENAME_PREFIX = "";
 
 const ST_ETH_ADDRESS = "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84";
-const ST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 80;
+const ST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 3;
+const ST_ETH_HOLDERS_CHUNK_ADDRESSES_AMOUNT = 10000;
 const ST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}steth_vetoers.json`;
 const ST_ETH_HOLDERS_EXCLUDE_ADDRESSES = new Set([
-    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0", // WstETH
-    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1", // WithdrawalQueue
-    "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c", // Aragon Agent
+    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0".toLowerCase(), // WstETH
+    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1".toLowerCase(), // WithdrawalQueue
+    "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c".toLowerCase(), // Aragon Agent
 ]);
 const ST_ETH_TOTAL_SUPPLY_PERCENTAGE = 50;
 
 const WST_ETH_ADDRESS = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0";
-const WST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 6;
+const WST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 1;
 const WST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}wsteth_vetoers.json`;
 
 const UNST_ETH_ADDRESS = "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1";
-const UNST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 6;
+const UNST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 1;
 const UNST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}unsteth_vetoers.json`;
 
 async function main() {
@@ -37,7 +38,8 @@ don't forget to update the env variable FORK_BLOCK_NUMBER with the actual block 
         ST_ETH_HOLDERS_LOAD_CHUNKS_COUNT,
         ST_ETH_HOLDERS_FILE_NAME,
         ST_ETH_HOLDERS_EXCLUDE_ADDRESSES,
-        ST_ETH_TOTAL_SUPPLY_PERCENTAGE
+        ST_ETH_TOTAL_SUPPLY_PERCENTAGE,
+        ST_ETH_HOLDERS_CHUNK_ADDRESSES_AMOUNT
     );
 
     console.log("---------------------------------------------------------------------------------------");

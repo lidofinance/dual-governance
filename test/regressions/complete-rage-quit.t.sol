@@ -20,9 +20,10 @@ import {Random} from "../utils/random.sol";
 
 uint256 constant ACCURACY = 2 wei;
 uint256 constant POOL_ACCUMULATED_ERROR = 150 wei;
-uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 1000;
+uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 2000;
 uint256 constant WITHDRAWALS_BATCH_SIZE = 128;
 uint256 constant MIN_LOCKABLE_AMOUNT = 1000 wei;
+uint256 constant MAX_RAGE_QUIT_ROUNDS = 6;
 
 struct VetoersFile {
     address[] addresses;
@@ -55,11 +56,10 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     }
 
     function testFork_RageQuitExodus_HappyPath_MultipleRounds() external {
-        uint256[] memory rebaseDeltaPercents = new uint256[](4);
-        rebaseDeltaPercents[0] = Random.nextUint256(_random, 0, 200);
-        rebaseDeltaPercents[1] = Random.nextUint256(_random, 0, 200);
-        rebaseDeltaPercents[2] = Random.nextUint256(_random, 0, 200);
-        rebaseDeltaPercents[3] = Random.nextUint256(_random, 0, 200);
+        uint256[] memory rebaseDeltaPercents = new uint256[](MAX_RAGE_QUIT_ROUNDS);
+        for (uint256 i = 0; i < MAX_RAGE_QUIT_ROUNDS; ++i) {
+            rebaseDeltaPercents[i] = Random.nextUint256(_random, 0, 200);
+        }
 
         vm.pauseGasMetering();
         console.log("-------------------------");
@@ -77,7 +77,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         if (!vm.envOr("ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT", false)) {
             vm.skip(
                 true,
-                "To enable this test set the env variable ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true and FORK_BLOCK_NUMBER=22725445"
+                "To enable this test set the env variable ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true and FORK_BLOCK_NUMBER=22732744"
             );
             return;
         }
@@ -95,55 +95,29 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         );
 
         console.log("Vetoers total amount:", _allVetoers.length);
+        uint256 vetoersExited = 0;
         uint256 initialStEthTotalSupply = _lido.stETH.totalSupply();
         uint256 initialWStEthTotalSupply = _lido.wstETH.totalSupply();
         console.log("stETH.totalSupply:", initialStEthTotalSupply);
         console.log("wstETH.totalSupply:", initialWStEthTotalSupply);
 
-        uint256 stEthRQAmount = _getStEthAmountForRageQuit(_round);
+        uint256 stEthRQAmount = 0;
+        address[] memory vetoers;
 
-        console.log("stEth will be locked for RQ:", stEthRQAmount);
+        for (; _round <= MAX_RAGE_QUIT_ROUNDS; ++_round) {
+            stEthRQAmount = _getStEthAmountForRageQuit(_round);
 
-        _newRageQuitRound(1);
-        address[] memory vetoers = _selectVetoers();
-        _executeRQ(vetoers);
+            console.log("stEth will be locked for RQ:", stEthRQAmount);
+            console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
 
-        console.log("-------------------------");
+            _newRageQuitRound();
+            vetoers = _selectVetoers();
+            _executeRQ(vetoers);
+            vetoersExited += vetoers.length;
 
-        stEthRQAmount = _getStEthAmountForRageQuit(_round);
+            console.log("-------------------------");
+        }
 
-        console.log("stEth will be locked for RQ:", stEthRQAmount);
-        console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
-
-        _newRageQuitRound(2);
-        vetoers = _selectVetoers();
-        _executeRQ(vetoers);
-
-        console.log("-------------------------");
-
-        stEthRQAmount = _getStEthAmountForRageQuit(_round);
-
-        console.log("stEth will be locked for RQ:", stEthRQAmount);
-        console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
-
-        _newRageQuitRound(3);
-        vetoers = _selectVetoers();
-        _executeRQ(vetoers);
-
-        console.log("-------------------------");
-
-        stEthRQAmount = _getStEthAmountForRageQuit(_round);
-
-        console.log("stEth will be locked for RQ:", stEthRQAmount);
-        console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
-
-        _newRageQuitRound(4);
-        vetoers = _selectVetoers();
-        _executeRQ(vetoers);
-
-        console.log("-------------------------");
-
-        console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
         console.log(
             "stETH total supply decreased for %s%", 100 - _lido.stETH.totalSupply() * 100 / initialStEthTotalSupply
         );
@@ -151,13 +125,14 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         console.log(
             "wstETH total supply decreased for %s%", 100 - _lido.wstETH.totalSupply() * 100 / initialWStEthTotalSupply
         );
+        console.log("Vetoers exited:", vetoersExited);
         vm.resumeGasMetering();
     }
 
     function _selectVetoers() internal returns (address[] memory vetoers) {
         _stepMsg("0. Balances preparation.");
         uint256 lastVetoerIndexForCurrentRound = _findLastVetoerIndexForRQ(_allVetoers, _lastVetoerIndex, _round);
-        uint256 originalVetoersCount = _lastVetoerIndex >= lastVetoerIndexForCurrentRound
+        uint256 originalVetoersCount = _lastVetoerIndex > lastVetoerIndexForCurrentRound
             ? 0
             : lastVetoerIndexForCurrentRound - _lastVetoerIndex + 1;
         console.log("Vetoers for round %s: %s", _round, originalVetoersCount);
@@ -226,6 +201,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         {
             _assertNormalState();
             ISignallingEscrow vsEscrow = _getVetoSignallingEscrow();
+            vm.label(address(vsEscrow), "VetoSignallingEscrow");
             uint256 escrowInitialSharesBalance = _lido.stETH.sharesOf(address(vsEscrow));
 
             for (uint256 i = 0; i < vetoers.length; ++i) {
@@ -490,8 +466,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         vm.stopPrank();
     }
 
-    function _newRageQuitRound(uint8 round) internal {
-        _round = round;
+    function _newRageQuitRound() internal view {
         console.log("-------------------------");
         console.log("Rage Quit round", _round);
         console.log("-------------------------");
@@ -587,12 +562,12 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     }
 
     function _getStEthAmountForRageQuit(uint256 round) internal view returns (uint256) {
-        PercentD16 rageQuitSecondBoundary = _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(3_00 * round);
+        PercentD16 rageQuitSecondBoundary = _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(2_50 * round);
         return _lido.calcAmountToDepositFromPercentageOfTVL(rageQuitSecondBoundary);
     }
 
     function _getStEthSharesForRageQuit(uint256 round) internal view returns (uint256) {
-        PercentD16 rageQuitSecondBoundary = _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(3_00 * round);
+        PercentD16 rageQuitSecondBoundary = _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(2_50 * round);
         return _lido.calcSharesToDepositFromPercentageOfTVL(rageQuitSecondBoundary);
     }
 
