@@ -77,7 +77,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         if (!vm.envOr("ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT", false)) {
             vm.skip(
                 true,
-                "To enable this test set the env variable ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true and FORK_BLOCK_NUMBER=21888569"
+                "To enable this test set the env variable ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true and FORK_BLOCK_NUMBER=22725445"
             );
             return;
         }

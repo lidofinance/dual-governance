@@ -8,7 +8,8 @@ const ST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 80;
 const ST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}steth_vetoers.json`;
 const ST_ETH_HOLDERS_EXCLUDE_ADDRESSES = new Set([
     "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0", // WstETH
-    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1" // WithdrawalQueue
+    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1", // WithdrawalQueue
+    "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c", // Aragon Agent
 ]);
 const ST_ETH_TOTAL_SUPPLY_PERCENTAGE = 50;
 
@@ -22,7 +23,7 @@ const UNST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFI
 
 async function main() {
     console.log("---------------------------------------------------------------------------------------");
-    console.log(`This script downloads the addresses of the first 4000 (approx) StEth holders and the first
+    console.log(`This script downloads the addresses of StEth holders having approximately 50% of StEth and the first
 300 WStEth and UnStEth holders at the current block of network ${NETWORK_NAME} from Blockscout and saves it to the files 
 "${FILENAME_PREFIX}steth_vetoers.json", "${FILENAME_PREFIX}wsteth_vetoers.json" and "${FILENAME_PREFIX}unsteth_vetoers.json" 
 appropriately that is intended for use in 4-Rounds-RageQuit regression test. After updating the StEth/WStEth holders' data files 
