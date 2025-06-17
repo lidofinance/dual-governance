@@ -12,6 +12,7 @@ import {IDGLaunchVerifier} from "../interfaces/IDGLaunchVerifier.sol";
 import {IInsuranceFund} from "../interfaces/IInsuranceFund.sol";
 import {IOZ} from "../interfaces/IOZ.sol";
 import {IACL} from "../interfaces/IACL.sol";
+import {IKernel} from "../interfaces/IKernel.sol";
 
 import {LidoAddressesMainnet} from "./LidoAddressesMainnet.sol";
 import {OmnibusBase} from "../OmnibusBase.sol";
@@ -27,15 +28,16 @@ import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 /// from Aragon Voting to the Dual Governance on Ethereum Mainnet.
 ///
 /// It provides:
-/// - A list of 54 vote items that must be submitted and executed through an Aragon vote to perform the migration.
+/// - A list of 57 vote items that must be submitted and executed through an Aragon vote to perform the migration.
 /// - Includes:
 ///     1. Reassigning critical permissions and permission managers from the Aragon Voting to the Aragon Agent
 ///     2. Creating permissions needed for Aragon Voting to operate under Dual Governance
 ///     3. Transferring ownership of WithdrawalVault contract to Aragon Agent
 ///     4. Transferring ownership of InsuranceFund contract to Aragon Voting
-///     5. Validating that all role, ownership and permission migrations were completed correctly
-///     6. Submitting the first proposal to Dual Governance to finalize migration
-///     7. Enforcing time constraints on enactment and execution
+///     5. Resetting RecoveryVaultAppId on DAOKernel
+///     6. Validating that all role, ownership and permission migrations were completed correctly
+///     7. Submitting the first proposal to Dual Governance to finalize migration
+///     8. Enforcing time constraints on enactment and execution
 ///
 /// Additionally, the contract provides a mechanism to validate whether an existing Aragon vote corresponds
 /// exactly to the migration actions defined here. This ensures consistency and guards against
@@ -47,7 +49,7 @@ import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
-    uint256 public constant VOTE_ITEMS_COUNT = 54;
+    uint256 public constant VOTE_ITEMS_COUNT = 57;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 5;
 
     Timestamp public constant OMNIBUS_EXPIRATION_TIMESTAMP = Timestamp.wrap(1753466400); // Friday, 25 July 2025 18:00:00 UTC
@@ -89,6 +91,7 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
         bytes32 STAKING_ROUTER_ROLE = keccak256("STAKING_ROUTER_ROLE");
         bytes32 SET_NODE_OPERATOR_LIMIT_ROLE = keccak256("SET_NODE_OPERATOR_LIMIT_ROLE");
         bytes32 MANAGE_NODE_OPERATOR_ROLE = keccak256("MANAGE_NODE_OPERATOR_ROLE");
+        bytes32 APP_MANAGER_ROLE = keccak256("APP_MANAGER_ROLE");
 
         // Lido Permissions Transition
         {
@@ -138,8 +141,6 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
 
         // DAOKernel Permissions Transition
         {
-            bytes32 APP_MANAGER_ROLE = keccak256("APP_MANAGER_ROLE");
-
             voteItems[index++] = VoteItem({
                 description: "9. Revoke APP_MANAGER_ROLE permission from Voting on DAOKernel",
                 call: _votingCall(ACL, abi.encodeCall(IACL.revokePermission, (VOTING, KERNEL, APP_MANAGER_ROLE)))
@@ -445,10 +446,28 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             });
         }
 
+        // RecoveryVaultAppId reset on DAOKernel
+        {
+            voteItems[index++] = VoteItem({
+                description: "51. Grant APP_MANAGER_ROLE permission to Agent on DAOKernel",
+                call: _forwardCall(AGENT, ACL, abi.encodeCall(IACL.grantPermission, (AGENT, KERNEL, APP_MANAGER_ROLE)))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "52. Reset RecoveryVaultAppId on DAOKernel",
+                call: _forwardCall(AGENT, KERNEL, abi.encodeCall(IKernel.setRecoveryVaultAppId, (bytes32(0))))
+            });
+
+            voteItems[index++] = VoteItem({
+                description: "53. Revoke APP_MANAGER_ROLE permission from Agent on DAOKernel",
+                call: _forwardCall(AGENT, ACL, abi.encodeCall(IACL.revokePermission, (AGENT, KERNEL, APP_MANAGER_ROLE)))
+            });
+        }
+
         // Validate transferred roles
         {
             voteItems[index++] = VoteItem({
-                description: "51. Validate transferred roles",
+                description: "54. Validate transferred roles",
                 call: _votingCall(ROLES_VALIDATOR, abi.encodeCall(IRolesValidator.validateVotingLaunchPhase, ()))
             });
         }
@@ -489,7 +508,7 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
             );
 
             voteItems[index++] = VoteItem({
-                description: "52. Submit a proposal to the Dual Governance to revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting",
+                description: "55. Submit a proposal to the Dual Governance to revoke RUN_SCRIPT_ROLE and EXECUTE_ROLE from Aragon Voting",
                 call: _votingCall(
                     DUAL_GOVERNANCE,
                     abi.encodeCall(
@@ -506,7 +525,7 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
         // Verify state of the DG after launch
         {
             voteItems[index++] = VoteItem({
-                description: "53. Verify Dual Governance launch state",
+                description: "56. Verify Dual Governance launch state",
                 call: _votingCall(LAUNCH_VERIFIER, abi.encodeCall(IDGLaunchVerifier.verify, ()))
             });
         }
@@ -514,7 +533,7 @@ contract DGLaunchOmnibusMainnet is OmnibusBase, LidoAddressesMainnet {
         // Add the "expiration date" to the omnibus
         {
             voteItems[index++] = VoteItem({
-                description: "54. Introduce an expiration deadline after which the omnibus can no longer be enacted",
+                description: "57. Introduce an expiration deadline after which the omnibus can no longer be enacted",
                 call: _votingCall(
                     TIME_CONSTRAINTS,
                     abi.encodeCall(ITimeConstraints.checkTimeBeforeTimestampAndEmit, OMNIBUS_EXPIRATION_TIMESTAMP)
