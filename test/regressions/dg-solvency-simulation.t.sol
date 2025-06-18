@@ -19,6 +19,7 @@ import {IRageQuitEscrow} from "contracts/interfaces/IRageQuitEscrow.sol";
 import {Escrow} from "contracts/Escrow.sol";
 
 import {DecimalsFormatting} from "test/utils/formatting.sol";
+import {UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
 enum SimulationActionType {
     SubmitStETH,
@@ -53,7 +54,6 @@ enum SimulationActionType {
 }
 
 struct AccountDetails {
-    address account;
     mapping(address escrow => uint256 balance) stETHSharesBalanceLockedInEscrow;
     mapping(address escrow => uint256 balance) wstETHBalanceLockedInEscrow;
     mapping(address escrow => uint256[] ids) unstETHIdsLockedInEscrow;
@@ -230,7 +230,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     Escrow[] internal _rageQuitEscrows;
     mapping(Escrow escrow => Escrow.SignallingEscrowDetails details) internal _escrowDetails;
-    mapping(Escrow escrow => address[] vetoers) internal _vetoersByEscrow;
 
     mapping(address account => AccountDetails details) internal _accountsDetails;
     address[] internal _wstETHRealHolders;
@@ -238,6 +237,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     address[] internal _allRealHolders;
 
     address[] internal _simulationAccounts;
+
+    address[] internal _allAccounts;
 
     Random.Context internal _random;
     mapping(SimulationActionType actionType => uint256 emittedCount) internal _actionsCounters;
@@ -253,8 +254,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         _random = Random.create(block.timestamp);
         _nextFrameStart = _lido.getReportTimeElapsed().nextFrameStart;
 
-        _loadHolders();
-        _setupSimulationAccounts();
+        _setupAccounts();
 
         // TODO: remove when test is finished. Currently preserved for debug purposes
 
@@ -384,22 +384,22 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
 
                 if (actions.has(SimulationActionType.AccidentalETHTransfer)) {
-                    _accidentalETHTransfer();
+                    _accidentalETHTransfer(_allAccounts);
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.AccidentalStETHTransfer)) {
-                    _accidentalStETHTransfer();
+                    _accidentalStETHTransfer(_allAccounts);
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.AccidentalWstETHTransfer)) {
-                    _accidentalWstETHTransfer();
+                    _accidentalWstETHTransfer(_allAccounts);
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.AccidentalUnstETHTransfer)) {
-                    _accidentalUnstETHTransfer();
+                    _accidentalUnstETHTransfer(_allAccounts);
                     _mineBlock();
                 }
 
@@ -490,8 +490,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                     }
                     uint256 unclaimedUnstETHIds = rageQuitEscrow.getUnclaimedUnstETHIdsCount();
 
-                    for (uint256 i = 0; i < SIMULATION_ACCOUNTS; ++i) {
-                        address account = _getSimulationAccount(i);
+                    for (uint256 i = 0; i < _allAccounts.length; ++i) {
+                        address account = _allAccounts[i];
                         uint256[] memory lockedUnstETHIds = rageQuitEscrow.getVetoerUnstETHIds(account);
 
                         Uint256ArrayBuilder.Context memory unstETHIdsToClaimBuilder =
@@ -601,44 +601,50 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                                     + escrowDetails.rageQuitExtensionPeriodDuration.toSeconds()
                                     + escrowDetails.rageQuitEthWithdrawalsDelay.toSeconds()
                     ) {
-                        address[] memory allAccounts = new address[](SIMULATION_ACCOUNTS + _allRealHolders.length);
-                        for (uint256 j = 0; j < SIMULATION_ACCOUNTS; ++j) {
-                            allAccounts[j] = _simulationAccounts[j];
-                        }
-                        for (uint256 j = 0; j < _allRealHolders.length; ++j) {
-                            allAccounts[SIMULATION_ACCOUNTS + j] = _allRealHolders[j];
-                        }
+                        for (uint256 j = 0; j < _allAccounts.length; ++j) {
+                            address account = _allAccounts[j];
+                            vm.startPrank(account);
+                            if (escrow.getVetoerDetails(account).unstETHIdsCount > 0) {
+                                uint256[] memory unstETHIds = escrow.getVetoerUnstETHIds(account);
 
-                        for (uint256 j = 0; j < allAccounts.length; ++j) {
-                            if (escrow.getVetoerDetails(allAccounts[j]).unstETHIdsCount > 0) {
-                                uint256[] memory unstETHIds = escrow.getVetoerUnstETHIds(allAccounts[j]);
-                                IWithdrawalQueue.WithdrawalRequestStatus[] memory status =
-                                    _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+                                Escrow.LockedUnstETHDetails[] memory unstETHDetails =
+                                    escrow.getLockedUnstETHDetails(unstETHIds);
+
+                                Uint256ArrayBuilder.Context memory unclaimedUnstETHIdsBuilder =
+                                    Uint256ArrayBuilder.create(unstETHIds.length);
+
+                                uint256 unfinalizedUnstETHCount = 0;
                                 for (uint256 k = 0; k < unstETHIds.length; ++k) {
-                                    if (status[k].isFinalized && !status[k].isClaimed) {
-                                        uint256[] memory unstETHIdsToClaim = new uint256[](1);
-                                        unstETHIdsToClaim[0] = unstETHIds[k];
-                                        uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
-                                            unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
-                                        );
-                                        vm.prank(allAccounts[j]);
-                                        escrow.claimUnstETH(unstETHIds, hints);
+                                    console.log(
+                                        "UnstETH with id %d has status %d",
+                                        unstETHIds[k],
+                                        uint8(unstETHDetails[k].status)
+                                    );
+                                    if (
+                                        unstETHDetails[k].status == UnstETHRecordStatus.Locked
+                                            || unstETHDetails[k].status == UnstETHRecordStatus.Finalized
+                                    ) {
+                                        unclaimedUnstETHIdsBuilder.addItem(unstETHIds[k]);
+                                    }
+                                    if (unstETHDetails[k].status != UnstETHRecordStatus.Withdrawn) {
+                                        unfinalizedUnstETHCount += 1;
                                     }
                                 }
-                            }
-                        }
 
-                        for (uint256 j = 0; j < allAccounts.length; ++j) {
-                            address accountToWithdraw = allAccounts[j];
-                            uint256 ethBalanceBefore = accountToWithdraw.balance;
-                            vm.prank(accountToWithdraw);
+                                uint256[] memory unclaimedUnstETHIds = unclaimedUnstETHIdsBuilder.getSorted();
+
+                                if (unclaimedUnstETHIds.length > 0) {
+                                    uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
+                                        unclaimedUnstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
+                                    );
+                                    escrow.claimUnstETH(unstETHIds, hints);
+                                }
+                                if (unfinalizedUnstETHCount > 0) {
+                                    escrow.withdrawETH(unstETHIds);
+                                }
+                            }
                             escrow.withdrawETH();
-                            uint256 ethBalanceAfter = accountToWithdraw.balance;
-                            console.log(
-                                "Account %s withdrawn %s ETH",
-                                accountToWithdraw,
-                                (ethBalanceAfter - ethBalanceBefore).formatEther()
-                            );
+                            vm.stopPrank();
                         }
                     }
                 }
@@ -774,47 +780,46 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         // Check that accounts balances changed as expected
         uint256 shareRateAfter = _lido.stETH.getPooledEthByShares(10 ** 18);
 
-        for (uint256 i = 0; i < _allRealHolders.length; ++i) {
-            address realHolder = _allRealHolders[i];
+        for (uint256 i = 0; i < _allAccounts.length; ++i) {
+            address account = _allAccounts[i];
 
             uint256 sharesLocked;
             for (uint256 j = 0; j < _rageQuitEscrows.length; ++j) {
                 Escrow escrow = _rageQuitEscrows[j];
-                Escrow.VetoerDetails memory vetoerDetails = escrow.getVetoerDetails(realHolder);
+                Escrow.VetoerDetails memory vetoerDetails = escrow.getVetoerDetails(account);
                 sharesLocked += vetoerDetails.stETHLockedShares.toUint256();
             }
-            sharesLocked += _getVetoSignallingEscrow().getVetoerDetails(realHolder).stETHLockedShares.toUint256();
+
+            sharesLocked += _getVetoSignallingEscrow().getVetoerDetails(account).stETHLockedShares.toUint256();
 
             IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalStatuses =
-                _lido.withdrawalQueue.getWithdrawalStatus(_accountsDetails[realHolder].unstETHIdsRequested);
+                _lido.withdrawalQueue.getWithdrawalStatus(_accountsDetails[account].unstETHIdsRequested);
 
             for (uint256 j = 0; j < withdrawalStatuses.length; ++j) {
-                if (withdrawalStatuses[j].isFinalized && !withdrawalStatuses[j].isClaimed) {
+                if (!withdrawalStatuses[j].isClaimed) {
                     sharesLocked += withdrawalStatuses[j].amountOfShares;
                 }
             }
-            uint256 ethBalanceAfter = realHolder.balance;
-            uint256 stETHBalanceAfter = _lido.stETH.balanceOf(realHolder);
-            uint256 wstETHBalanceAfter = _lido.wstETH.balanceOf(realHolder);
+
+            uint256 ethBalanceAfter = account.balance;
+            uint256 stETHBalanceAfter = _lido.stETH.balanceOf(account);
+            uint256 wstETHBalanceAfter = _lido.wstETH.balanceOf(account);
 
             uint256 holderBalanceBefore =
-                _accountsDetails[realHolder].ethBalanceBefore + _accountsDetails[realHolder].stETHBalanceBefore;
+                _accountsDetails[account].ethBalanceBefore + _accountsDetails[account].stETHBalanceBefore;
             uint256 holderBalanceAfter = ethBalanceAfter + stETHBalanceAfter
                 + _lido.stETH.getPooledEthByShares(wstETHBalanceAfter + sharesLocked);
             uint256 balanceEstimated = (holderBalanceBefore) * shareRateAfter / shareRateBefore;
 
-            // Check that the holder's balance in range of estimated balance
             assert(holderBalanceAfter >= holderBalanceBefore);
             assert(holderBalanceAfter <= balanceEstimated);
         }
+
+        // check accidental transfers
     }
 
     function _getRandomSimulationAccount() internal returns (address) {
         return _simulationAccounts[_random.nextUint256(SIMULATION_ACCOUNTS)];
-    }
-
-    function _getRandomRealAccount() internal returns (address) {
-        return _allRealHolders[_random.nextUint256(_allRealHolders.length)];
     }
 
     function _getSimulationAccount(uint256 index) internal returns (address) {
@@ -823,9 +828,21 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _submitStETHByRandomAccount() internal {
+        console.log(">>> Submitting stETH by random account");
         address account = _getRandomSimulationAccount();
-        uint256 submitAmount = _random.nextUint256(MIN_ST_ETH_SUBMIT_AMOUNT, MAX_ST_ETH_SUBMIT_AMOUNT);
-        _lido.submitStETH(account, submitAmount);
+
+        uint256 balance = account.balance;
+
+        if (balance < MIN_ST_ETH_SUBMIT_AMOUNT) {
+            return;
+        }
+
+        uint256 submitAmount =
+            _random.nextUint256(MIN_ST_ETH_SUBMIT_AMOUNT, Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT));
+
+        vm.prank(account);
+        _lido.stETH.submit{value: submitAmount}(address(0));
+
         _totalSubmittedStETH += submitAmount;
 
         _accountsDetails[account].stETHSubmitted += submitAmount;
@@ -834,108 +851,128 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     function _submitWstETHByRandomAccount() internal {
         console.log(">>> Submitting wstETH by random account");
         address account = _getRandomSimulationAccount();
-        uint256 submitAmount = _random.nextUint256(MIN_WST_ETH_SUBMIT_AMOUNT, MAX_WST_ETH_SUBMIT_AMOUNT);
-        _lido.submitWstETH(account, submitAmount);
-        _totalSubmittedWstETH += submitAmount;
+        uint256 balance = account.balance;
 
-        _accountsDetails[account].wstETHSubmitted += submitAmount;
+        if (balance < MIN_WST_ETH_SUBMIT_AMOUNT) {
+            return;
+        }
+
+        uint256 submitAmount =
+            _random.nextUint256(MIN_WST_ETH_SUBMIT_AMOUNT, Math.min(balance, MAX_WST_ETH_SUBMIT_AMOUNT));
+
+        vm.startPrank(account);
+        _lido.stETH.submit{value: submitAmount}(address(0));
+        _lido.stETH.approve(address(_lido.wstETH), submitAmount);
+        uint256 wstEthMinted = _lido.wstETH.wrap(submitAmount);
+        vm.stopPrank();
+        _totalSubmittedWstETH += wstEthMinted;
+
+        _accountsDetails[account].wstETHSubmitted += wstEthMinted;
     }
 
     function _withdrawStETHByRandomAccount(address[] storage accounts) internal {
         console.log(">>> Withdrawing stETH by random account");
-        uint256 MAX_RANDOM_RETRIES = 10;
-        for (uint256 i = 0; i < MAX_RANDOM_RETRIES; ++i) {
-            uint256 randomIndex = _random.nextUint256(accounts.length);
-            address account = accounts[randomIndex];
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
 
             uint256 balance = _lido.stETH.balanceOf(account);
-
-            if (balance > MIN_ST_ETH_WITHDRAW_AMOUNT) {
-                uint256 batchSize = Math.min(balance, MAX_ST_ETH_WITHDRAW_AMOUNT) / WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT;
-                uint256 lastRequestAmount =
-                    Math.min(balance, MAX_ST_ETH_WITHDRAW_AMOUNT) % WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT;
-                if (lastRequestAmount > MIN_ST_ETH_WITHDRAW_AMOUNT) {
-                    batchSize += 1;
-                }
-
-                uint256 requestedAmount = 0;
-
-                uint256[] memory withdrawalAmounts = new uint256[](batchSize);
-
-                for (uint256 j = 0; j < batchSize; ++j) {
-                    if (j == batchSize - 1 && lastRequestAmount > MIN_ST_ETH_WITHDRAW_AMOUNT) {
-                        withdrawalAmounts[j] = lastRequestAmount;
-                    } else {
-                        withdrawalAmounts[j] = WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT;
-                    }
-                    requestedAmount += withdrawalAmounts[j];
-                }
-                vm.startPrank(account);
-                _lido.stETH.approve(address(_lido.withdrawalQueue), requestedAmount);
-                uint256[] memory requestIds = _lido.withdrawalQueue.requestWithdrawals(withdrawalAmounts, account);
-                vm.stopPrank();
-
-                for (uint256 j = 0; j < requestIds.length; ++j) {
-                    _accountsDetails[account].unstETHIdsRequested.push(requestIds[j]);
-                }
-                _totalWithdrawnStETH += requestedAmount;
-                console.log("Account %s withdrawn %s stETH.", account, requestedAmount.formatEther());
-                console.log("Request ids: %s-%s", requestIds[0], requestIds[requestIds.length - 1]);
-                break;
+            if (balance < MIN_ST_ETH_WITHDRAW_AMOUNT) {
+                continue;
             }
+
+            //TODO: check
+            uint256 batchSize = Math.min(balance, MAX_ST_ETH_WITHDRAW_AMOUNT) / WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT;
+            uint256 lastRequestAmount =
+                Math.min(balance, MAX_ST_ETH_WITHDRAW_AMOUNT) % WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT;
+            if (lastRequestAmount > MIN_ST_ETH_WITHDRAW_AMOUNT) {
+                batchSize += 1;
+            }
+
+            uint256 requestedAmount = 0;
+
+            uint256[] memory withdrawalAmounts = new uint256[](batchSize);
+
+            for (uint256 j = 0; j < batchSize; ++j) {
+                if (j == batchSize - 1 && lastRequestAmount > MIN_ST_ETH_WITHDRAW_AMOUNT) {
+                    withdrawalAmounts[j] = lastRequestAmount;
+                } else {
+                    withdrawalAmounts[j] = WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT;
+                }
+                requestedAmount += withdrawalAmounts[j];
+            }
+            vm.startPrank(account);
+            _lido.stETH.approve(address(_lido.withdrawalQueue), requestedAmount);
+            uint256[] memory requestIds = _lido.withdrawalQueue.requestWithdrawals(withdrawalAmounts, account);
+            vm.stopPrank();
+
+            for (uint256 j = 0; j < requestIds.length; ++j) {
+                _accountsDetails[account].unstETHIdsRequested.push(requestIds[j]);
+            }
+            _totalWithdrawnStETH += requestedAmount;
+            console.log("Account %s withdrawn %s stETH.", account, requestedAmount.formatEther());
+            console.log("Request ids: %s-%s", requestIds[0], requestIds[requestIds.length - 1]);
+
+            return;
         }
     }
 
     function _withdrawWstETHByRandomAccount(address[] storage accounts) internal {
         console.log(">>> Withdrawing wstETH by random account");
-        uint256 MAX_RANDOM_RETRIES = 10;
-        for (uint256 i = 0; i < MAX_RANDOM_RETRIES; ++i) {
-            uint256 randomIndex = _random.nextUint256(accounts.length);
-            address account = accounts[randomIndex];
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
 
             uint256 balance = _lido.wstETH.balanceOf(account);
-
-            if (balance > MIN_WST_ETH_WITHDRAW_AMOUNT) {
-                uint256 wstETHRequestMaxAmount = _lido.stETH.getSharesByPooledEth(WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT);
-                uint256 batchSize = Math.min(balance, MAX_WST_ETH_WITHDRAW_AMOUNT) / wstETHRequestMaxAmount;
-                uint256 lastRequestAmount = Math.min(balance, MAX_WST_ETH_WITHDRAW_AMOUNT) % wstETHRequestMaxAmount;
-                if (lastRequestAmount > MIN_WST_ETH_WITHDRAW_AMOUNT) {
-                    batchSize += 1;
-                }
-
-                uint256 requestedAmount = 0;
-
-                uint256[] memory withdrawalAmounts = new uint256[](batchSize);
-
-                for (uint256 j = 0; j < batchSize; ++j) {
-                    if (j == batchSize - 1 && lastRequestAmount > MIN_WST_ETH_WITHDRAW_AMOUNT) {
-                        withdrawalAmounts[j] = lastRequestAmount;
-                    } else {
-                        withdrawalAmounts[j] = wstETHRequestMaxAmount;
-                    }
-                    requestedAmount += withdrawalAmounts[j];
-                }
-                vm.startPrank(account);
-                _lido.wstETH.approve(address(_lido.withdrawalQueue), requestedAmount);
-                uint256[] memory requestIds = _lido.withdrawalQueue.requestWithdrawalsWstETH(withdrawalAmounts, account);
-                vm.stopPrank();
-
-                for (uint256 j = 0; j < requestIds.length; ++j) {
-                    _accountsDetails[account].unstETHIdsRequested.push(requestIds[j]);
-                }
-
-                _totalWithdrawnWstETH += requestedAmount;
-                console.log("Account %s withdrawn %s wstETH.", account, requestedAmount.formatEther());
-                console.log("Request ids: %s-%s", requestIds[0], requestIds[requestIds.length - 1]);
-                break;
+            if (balance < MIN_WST_ETH_WITHDRAW_AMOUNT) {
+                continue;
             }
+
+            uint256 wstETHRequestMaxAmount = _lido.stETH.getSharesByPooledEth(WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT);
+            uint256 batchSize = Math.min(balance, MAX_WST_ETH_WITHDRAW_AMOUNT) / wstETHRequestMaxAmount;
+            uint256 lastRequestAmount = Math.min(balance, MAX_WST_ETH_WITHDRAW_AMOUNT) % wstETHRequestMaxAmount;
+            if (lastRequestAmount > MIN_WST_ETH_WITHDRAW_AMOUNT) {
+                batchSize += 1;
+            }
+
+            uint256 requestedAmount = 0;
+
+            uint256[] memory withdrawalAmounts = new uint256[](batchSize);
+
+            for (uint256 j = 0; j < batchSize; ++j) {
+                if (j == batchSize - 1 && lastRequestAmount > MIN_WST_ETH_WITHDRAW_AMOUNT) {
+                    withdrawalAmounts[j] = lastRequestAmount;
+                } else {
+                    withdrawalAmounts[j] = wstETHRequestMaxAmount;
+                }
+                requestedAmount += withdrawalAmounts[j];
+            }
+            vm.startPrank(account);
+            _lido.wstETH.approve(address(_lido.withdrawalQueue), requestedAmount);
+            uint256[] memory requestIds = _lido.withdrawalQueue.requestWithdrawalsWstETH(withdrawalAmounts, account);
+            vm.stopPrank();
+
+            for (uint256 j = 0; j < requestIds.length; ++j) {
+                _accountsDetails[account].unstETHIdsRequested.push(requestIds[j]);
+            }
+
+            _totalWithdrawnWstETH += requestedAmount;
+            console.log("Account %s withdrawn %s wstETH.", account, requestedAmount.formatEther());
+            console.log("Request ids: %s-%s", requestIds[0], requestIds[requestIds.length - 1]);
+
+            return;
         }
     }
 
     function _lockStETHInSignallingEscrowByRandomAccount(address[] storage accounts) internal {
         console.log(">>> Locking stETH in signalling escrow by random account");
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
         for (uint256 i = 0; i < accounts.length; ++i) {
-            address account = accounts[i];
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
+
             uint256 balance = _lido.stETH.balanceOf(account);
 
             if (balance < MIN_ST_ETH_SUBMIT_AMOUNT) {
@@ -943,6 +980,13 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             }
 
             uint256 lockAmount = Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT);
+
+            console.log(
+                "Account %s locking %s stETH in signalling escrow",
+                account,
+                lockAmount.formatEther(),
+                balance.formatEther()
+            );
 
             _lockStETH(account, lockAmount);
             _totalLockedStETH += lockAmount;
@@ -956,8 +1000,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     function _lockWstETHInSignallingEscrowByRandomAccount(address[] storage accounts) internal {
         console.log(">>> Locking wstETH in signalling escrow by random account");
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
         for (uint256 i = 0; i < accounts.length; ++i) {
-            address account = accounts[i];
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
+
             uint256 balance = _lido.wstETH.balanceOf(account);
 
             if (balance < MIN_ST_ETH_SUBMIT_AMOUNT) {
@@ -1036,10 +1083,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         uint256 maxRequestsToClaim = _random.nextUint256(1, 64);
         Uint256ArrayBuilder.Context memory requestsArrayBuilder = Uint256ArrayBuilder.create(maxRequestsToClaim);
 
-        uint256 MAX_RANDOM_RETRIES = 10;
-        for (uint256 i = 0; i < MAX_RANDOM_RETRIES; ++i) {
-            uint256 randomIndex = _random.nextUint256(accounts.length);
-            address account = accounts[randomIndex];
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
+
             uint256 unstETHIdsCount = _lido.withdrawalQueue.balanceOf(account);
 
             if (unstETHIdsCount == 0) {
@@ -1078,6 +1126,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 );
                 vm.prank(account);
                 _lido.withdrawalQueue.claimWithdrawals(requestIdsToClaim, hints);
+
                 return;
             }
         }
@@ -1176,72 +1225,102 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
     }
 
-    function _accidentalETHTransfer() internal {
+    function _accidentalETHTransfer(address[] memory accounts) internal {
         console.log(">>> Accidental ETH transfer");
-        address payable escrow = payable(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow());
-        address account = _getRandomSimulationAccount();
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+        address payable escrow = _getCurrentEscrowAddress();
 
-        uint256 balanceBefore = escrow.balance;
-        uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
-        vm.deal(account, transferAmount);
-        vm.prank(account);
-        new SelfDestructSender{value: transferAmount}(escrow);
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
 
-        assertEq(escrow.balance, balanceBefore + transferAmount, "Escrow balance mismatch after transfer");
-        _totalAccidentalETHTransferAmount += transferAmount;
+            uint256 balance = account.balance;
+            if (balance < MIN_ACCIDENTAL_TRANSFER_AMOUNT) {
+                continue;
+            }
+
+            uint256 balanceBefore = escrow.balance;
+            uint256 transferAmount =
+                _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, Math.min(MAX_ACCIDENTAL_TRANSFER_AMOUNT, balance));
+            vm.prank(account);
+            new SelfDestructSender{value: transferAmount}(escrow);
+
+            assertEq(escrow.balance, balanceBefore + transferAmount, "Escrow balance mismatch after transfer");
+            _totalAccidentalETHTransferAmount += transferAmount;
+
+            return;
+        }
     }
 
-    function _accidentalStETHTransfer() internal {
+    function _accidentalStETHTransfer(address[] memory accounts) internal {
         console.log(">>> Accidental stETH transfer");
-        address escrow = _dgDeployedContracts.dualGovernance.getVetoSignallingEscrow();
-        address account = _getRandomSimulationAccount();
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+        address payable escrow = _getCurrentEscrowAddress();
 
-        uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
-        vm.deal(account, transferAmount);
-        vm.startPrank(account);
-        _lido.stETH.submit{value: transferAmount}(address(0));
-        _lido.stETH.transfer(escrow, transferAmount);
-        vm.stopPrank();
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
 
-        _totalAccidentalStETHTransferAmount += transferAmount;
+            uint256 balance = _lido.stETH.balanceOf(account);
+            if (balance < MIN_ACCIDENTAL_TRANSFER_AMOUNT) {
+                continue;
+            }
+
+            uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+            vm.prank(account);
+            _lido.stETH.transfer(escrow, transferAmount);
+
+            _totalAccidentalStETHTransferAmount += transferAmount;
+
+            return;
+        }
     }
 
-    function _accidentalWstETHTransfer() internal {
+    function _accidentalWstETHTransfer(address[] memory accounts) internal {
         console.log(">>> Accidental wstETH transfer");
-        address escrow = _dgDeployedContracts.dualGovernance.getVetoSignallingEscrow();
-        address account = _getRandomSimulationAccount();
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+        address payable escrow = _getCurrentEscrowAddress();
 
-        uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
-        vm.deal(account, transferAmount);
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
 
-        vm.startPrank(account);
-        _lido.stETH.submit{value: transferAmount}(address(0));
-        _lido.stETH.approve(address(_lido.wstETH), _lido.stETH.balanceOf(account));
-        _lido.wstETH.wrap(_lido.stETH.balanceOf(account));
-        uint256 wstETHBalance = _lido.wstETH.balanceOf(account);
-        _lido.wstETH.transfer(escrow, wstETHBalance);
-        vm.stopPrank();
+            uint256 balance = _lido.wstETH.balanceOf(account);
+            if (balance < MIN_ACCIDENTAL_TRANSFER_AMOUNT) {
+                continue;
+            }
 
-        _totalAccidentalWstETHTransferAmount += wstETHBalance;
+            uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+            vm.prank(account);
+            _lido.wstETH.transfer(escrow, transferAmount);
+
+            _totalAccidentalStETHTransferAmount += transferAmount;
+
+            return;
+        }
     }
 
-    function _accidentalUnstETHTransfer() internal {
+    function _accidentalUnstETHTransfer(address[] memory accounts) internal {
         console.log(">>> Accidental unstETH transfer");
-        address escrow = _dgDeployedContracts.dualGovernance.getVetoSignallingEscrow();
-        address account = _getRandomSimulationAccount();
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+        address payable escrow = _getCurrentEscrowAddress();
 
-        uint256 transferAmount =
-            _random.nextUint256(MIN_ACCIDENTAL_UNSTETH_TRANSFER_AMOUNT, MAX_ACCIDENTAL_UNSTETH_TRANSFER_AMOUNT);
-        vm.deal(account, transferAmount);
-        vm.startPrank(account);
-        _lido.stETH.submit{value: transferAmount}(address(0));
-        uint256[] memory requestAmounts = new uint256[](1);
-        requestAmounts[0] = transferAmount;
-        _lido.stETH.approve(address(_lido.withdrawalQueue), requestAmounts[0]);
-        _lido.withdrawalQueue.requestWithdrawals(requestAmounts, escrow);
-        vm.stopPrank();
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
 
-        _totalAccidentalUnstETHTransferAmount += transferAmount;
+            uint256 balance = _lido.stETH.balanceOf(account);
+            if (balance < MIN_ACCIDENTAL_TRANSFER_AMOUNT) {
+                continue;
+            }
+
+            vm.startPrank(account);
+            uint256[] memory requestAmounts = new uint256[](1);
+            requestAmounts[0] = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+            _lido.stETH.approve(address(_lido.withdrawalQueue), requestAmounts[0]);
+            _lido.withdrawalQueue.requestWithdrawals(requestAmounts, escrow);
+            vm.stopPrank();
+
+            _totalAccidentalUnstETHTransferAmount += requestAmounts[0];
+
+            return;
+        }
     }
 
     function _mineBlock() internal {
@@ -1373,17 +1452,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         _wstETHRealHolders = _loadHoldersFromFile("./test/regressions/complete-rage-quit-files/wsteth_vetoers.json");
         for (uint256 i = 0; i < _stETHRealHolders.length; ++i) {
             _allRealHolders.push(_stETHRealHolders[i]);
+            _allAccounts.push(_stETHRealHolders[i]);
         }
         for (uint256 i = 0; i < _wstETHRealHolders.length; ++i) {
             _allRealHolders.push(_wstETHRealHolders[i]);
-        }
-
-        for (uint256 i = 0; i < _allRealHolders.length; ++i) {
-            _accountsDetails[_allRealHolders[i]].ethBalanceBefore = _allRealHolders[i].balance;
-            _accountsDetails[_allRealHolders[i]].stETHBalanceBefore = _lido.stETH.balanceOf(_allRealHolders[i])
-                + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(_allRealHolders[i]));
-            _accountsDetails[_allRealHolders[i]].sharesBalanceBefore = _lido.wstETH.balanceOf(_allRealHolders[i])
-                + _lido.stETH.getSharesByPooledEth(_lido.stETH.balanceOf(_allRealHolders[i]));
+            _allAccounts.push(_wstETHRealHolders[i]);
         }
 
         console.log(
@@ -1394,6 +1467,21 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     function _setupSimulationAccounts() internal {
         for (uint256 i = 0; i < SIMULATION_ACCOUNTS; ++i) {
             _simulationAccounts.push(_getSimulationAccount(i));
+            _allAccounts.push(_simulationAccounts[i]);
+            vm.deal(_simulationAccounts[i], _random.nextUint256(10_000 ether));
+        }
+    }
+
+    function _setupAccounts() internal {
+        _loadHolders();
+        _setupSimulationAccounts();
+
+        for (uint256 i = 0; i < _allAccounts.length; ++i) {
+            _accountsDetails[_allAccounts[i]].ethBalanceBefore = _allAccounts[i].balance;
+            _accountsDetails[_allAccounts[i]].stETHBalanceBefore = _lido.stETH.balanceOf(_allAccounts[i])
+                + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(_allAccounts[i]));
+            _accountsDetails[_allAccounts[i]].sharesBalanceBefore = _lido.wstETH.balanceOf(_allAccounts[i])
+                + _lido.stETH.getSharesByPooledEth(_lido.stETH.balanceOf(_allAccounts[i]));
         }
     }
 
