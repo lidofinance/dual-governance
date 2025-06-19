@@ -9,7 +9,7 @@ import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
-import {Escrow} from "contracts/Escrow.sol";
+import {Escrow, IRageQuitEscrow} from "contracts/Escrow.sol";
 
 import {LidoUtils, DGScenarioTestSetup} from "../utils/integration-tests.sol";
 
@@ -300,6 +300,103 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         vm.stopPrank();
     }
 
+    function testFork_markUnstETHFinalized_RevertOn_HugeRebaseAtTheEndOfVetoSignalling() external {
+        uint256[] memory unstETHIds;
+        uint256 totalLockedUnstETHAmount;
+        _step("1. Lock ~10% of TVL in unstETH token in the Signalling Escrow");
+        {
+            _setupStETHBalance(_VETOER_1, PercentsD16.fromBasisPoints(1_50));
+
+            uint256 requestAmount = _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT();
+            uint256 requestsCount = _lido.stETH.balanceOf(_VETOER_1) / requestAmount;
+            totalLockedUnstETHAmount = requestAmount * requestsCount;
+
+            uint256[] memory amounts = new uint256[](requestsCount);
+
+            for (uint256 i = 0; i < requestsCount; ++i) {
+                amounts[i] = requestAmount;
+            }
+
+            vm.prank(_VETOER_1);
+            unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
+
+            _lockUnstETH(_VETOER_1, unstETHIds);
+            _assertVetoSignalingState();
+
+            assertTrue(_getVetoSignallingEscrow().getRageQuitSupport() >= PercentsD16.fromBasisPoints(9_00));
+        }
+
+        _step("2. VetoSignallingDeactivation state is entered");
+        {
+            _wait(_getVetoSignallingMaxDuration());
+
+            _activateNextState();
+            _assertVetoSignallingDeactivationState();
+
+            _wait(_getVetoSignallingDeactivationMaxDuration().minusSeconds(12 seconds));
+            _finalizeWithdrawalQueue();
+            _simulateRebase(PercentsD16.fromBasisPoints(101_00));
+            // TODO: Remove this step when the new simulation rebase logic will be merged
+            _burnStEth(totalLockedUnstETHAmount);
+
+            assertTrue(_getVetoSignallingEscrow().getRageQuitSupport() >= _getSecondSealRageQuitSupport());
+        }
+
+        _step("3. markUnstETHFinalize() reverts as system entered RageQuit state");
+        {
+            uint256[] memory hints =
+                _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
+
+            vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
+            this.externalMarkUnstETHFinalized(unstETHIds, hints);
+        }
+    }
+
+    function testFork_CreationAndClaimingBatchesInParallel_HappyPath() external {
+        _step("1. Lock enough funds to enter RageQuit");
+        {
+            _lockStETH(_VETOER_1, _lido.stETH.balanceOf(_VETOER_1));
+            _lockStETH(_VETOER_2, _lido.stETH.balanceOf(_VETOER_2));
+            _lockWstETH(_VETOER_2, _lido.wstETH.balanceOf(_VETOER_2));
+
+            _assertVetoSignalingState();
+            assertTrue(_getCurrentRageQuitSupport() >= _getSecondSealRageQuitSupport());
+        }
+
+        _step("2. Wait full VetoSignallingDuration and enter RageQuit state");
+        {
+            _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
+
+            _activateNextState();
+            _assertRageQuitState();
+        }
+
+        uint256 batchSizeLimit = 16;
+        IRageQuitEscrow rqEscrow = _getRageQuitEscrow();
+        _step("3. Parallel creation and claiming of the withdrawal batches works correctly");
+        {
+            uint256 iteration;
+            while (true) {
+                if (!rqEscrow.isWithdrawalsBatchesClosed()) {
+                    rqEscrow.requestNextWithdrawalsBatch(batchSizeLimit);
+                }
+                if (self.withdrawalQueue.getLastRequestId() > self.withdrawalQueue.getLastFinalizedRequestId()) {
+                    _finalizeWithdrawalQueue();
+                }
+                if (rqEscrow.getUnclaimedUnstETHIdsCount() == 0) {
+                    break;
+                }
+                rqEscrow.claimNextWithdrawalsBatch(batchSizeLimit);
+            }
+
+            escrow.startRageQuitExtensionPeriod();
+            assertEq(escrow.isRageQuitFinalized(), false);
+
+            _wait(_RAGE_QUIT_EXTRA_TIMELOCK.plusSeconds(1));
+            assertEq(escrow.isRageQuitFinalized(), true);
+        }
+    }
+
     // TODO: implement!
     // function testFork_VetoSignallingFlashLoan_RevertOn_SameAddress() external {}
 
@@ -332,5 +429,28 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
 
     function externalUnlockUnstETH(address vetoer, uint256[] memory nftIds) external {
         _unlockUnstETH(vetoer, nftIds);
+    }
+
+    function externalMarkUnstETHFinalized(uint256[] memory unstETHIds, uint256[] memory hints) external {
+        _getVetoSignallingEscrow().markUnstETHFinalized(unstETHIds, hints);
+    }
+
+    function _burnStEth(uint256 stEthToBurn) internal {
+        uint256 sharesToBurn = _lido.stETH.getSharesByPooledEth(stEthToBurn);
+
+        vm.prank(address(_lido.withdrawalQueue));
+        _lido.stETH.transfer(address(0xdead), stEthToBurn);
+
+        bytes32 clBeaconBalanceSlot = keccak256("lido.Lido.beaconBalance");
+        bytes32 totalSharesSlot = keccak256("lido.StETH.totalShares");
+
+        uint256 oldClBalance = uint256(vm.load(address(_lido.stETH), clBeaconBalanceSlot));
+        uint256 newClBalance = oldClBalance - stEthToBurn;
+
+        vm.store(address(_lido.stETH), clBeaconBalanceSlot, bytes32(newClBalance));
+
+        uint256 oldSharesBalance = uint256(vm.load(address(_lido.stETH), totalSharesSlot));
+        uint256 newSharesBalance = oldSharesBalance - sharesToBurn;
+        vm.store(address(_lido.stETH), totalSharesSlot, bytes32(newSharesBalance));
     }
 }
