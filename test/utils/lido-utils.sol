@@ -56,6 +56,12 @@ address constant MAINNET_DAO_TOKEN_MANAGER = 0xf73a1260d222f447210581DDf212D915c
 address constant HOLESKY_ST_ETH = 0x3F1c547b21f65e10480dE3ad8E19fAAC46C95034;
 address constant HOLESKY_WST_ETH = 0x8d09a4502Cc8Cf1547aD300E066060D043f6982D;
 address constant HOLESKY_WITHDRAWAL_QUEUE = 0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50;
+address constant HOLESKY_HASH_CONSENSUS = 0xa067FC95c22D51c3bC35fd4BE37414Ee8cc890d2;
+address constant HOLESKY_BURNER = 0x4E46BD7147ccf666E1d73A3A456fC7a68de82eCA;
+address constant HOLESKY_ACCOUNTING_ORACLE = 0x4E97A3972ce8511D87F334dA17a2C332542a5246;
+address constant HOLESKY_EL_REWARDS_VAULT = 0xE73a3602b99f1f913e72F8bdcBC235e206794Ac8;
+address constant HOLESKY_WITHDRAWAL_VAULT = 0xF0179dEC45a37423EAD4FaD5fCb136197872EAd9;
+address constant HOLESKY_ORACLE_REPORT_SANITY_CHECKER = 0x80D1B1fF6E84134404abA18A628347960c38ccA7;
 
 address constant HOLESKY_DAO_ACL = 0xfd1E42595CeC3E83239bf8dFc535250e7F48E0bC;
 address constant HOLESKY_LDO_TOKEN = 0x14ae7daeecdf57034f3E9db8564e46Dba8D97344;
@@ -70,6 +76,12 @@ address constant HOLESKY_DAO_TOKEN_MANAGER = 0xFaa1692c6eea8eeF534e7819749aD93a1
 address constant HOODI_ST_ETH = 0x3508A952176b3c15387C97BE809eaffB1982176a;
 address constant HOODI_WST_ETH = 0x7E99eE3C66636DE415D2d7C880938F2f40f94De4;
 address constant HOODI_WITHDRAWAL_QUEUE = 0xfe56573178f1bcdf53F01A6E9977670dcBBD9186;
+address constant HOODI_HASH_CONSENSUS = 0x32EC59a78abaca3f91527aeB2008925D5AaC1eFC;
+address constant HOODI_BURNER = 0x4e9A9ea2F154bA34BE919CD16a4A953DCd888165;
+address constant HOODI_ACCOUNTING_ORACLE = 0xcb883B1bD0a41512b42D2dB267F2A2cd919FB216;
+address constant HOODI_EL_REWARDS_VAULT = 0x9b108015fe433F173696Af3Aa0CF7CDb3E104258;
+address constant HOODI_WITHDRAWAL_VAULT = 0x4473dCDDbf77679A643BdB654dbd86D67F8d32f2;
+address constant HOODI_ORACLE_REPORT_SANITY_CHECKER = 0x26AED10459e1096d242ABf251Ff55f8DEaf52348;
 
 address constant HOODI_DAO_ACL = 0x78780e70Eae33e2935814a327f7dB6c01136cc62;
 address constant HOODI_LDO_TOKEN = 0xEf2573966D009CcEA0Fc74451dee2193564198dc;
@@ -125,11 +137,17 @@ library LidoUtils {
         ctx.tokenManager = IAragonForwarder(MAINNET_DAO_TOKEN_MANAGER);
     }
 
-    // TODO: Add addresses for missing contracts
     function holesky() internal pure returns (Context memory ctx) {
         ctx.stETH = IStETH(HOLESKY_ST_ETH);
         ctx.wstETH = IWstETH(HOLESKY_WST_ETH);
+        ctx.burner = IBurner(HOLESKY_BURNER);
+        ctx.hashConsensus = IHashConsensus(HOLESKY_HASH_CONSENSUS);
         ctx.withdrawalQueue = IWithdrawalQueue(HOLESKY_WITHDRAWAL_QUEUE);
+        ctx.accountingOracle = IAccountingOracle(HOLESKY_ACCOUNTING_ORACLE);
+        ctx.oracleReportSanityChecker = IOracleReportSanityChecker(HOLESKY_ORACLE_REPORT_SANITY_CHECKER);
+
+        ctx.elRewardsVault = HOLESKY_EL_REWARDS_VAULT;
+        ctx.withdrawalVault = HOLESKY_WITHDRAWAL_VAULT;
 
         ctx.acl = IAragonACL(HOLESKY_DAO_ACL);
         ctx.agent = IAragonAgent(HOLESKY_DAO_AGENT);
@@ -138,11 +156,17 @@ library LidoUtils {
         ctx.tokenManager = IAragonForwarder(HOLESKY_DAO_TOKEN_MANAGER);
     }
 
-    // TODO: Add addresses for missing contracts
     function hoodi() internal pure returns (Context memory ctx) {
         ctx.stETH = IStETH(HOODI_ST_ETH);
         ctx.wstETH = IWstETH(HOODI_WST_ETH);
+        ctx.burner = IBurner(HOODI_BURNER);
+        ctx.hashConsensus = IHashConsensus(HOODI_HASH_CONSENSUS);
         ctx.withdrawalQueue = IWithdrawalQueue(HOODI_WITHDRAWAL_QUEUE);
+        ctx.accountingOracle = IAccountingOracle(HOODI_ACCOUNTING_ORACLE);
+        ctx.oracleReportSanityChecker = IOracleReportSanityChecker(HOODI_ORACLE_REPORT_SANITY_CHECKER);
+
+        ctx.elRewardsVault = HOODI_EL_REWARDS_VAULT;
+        ctx.withdrawalVault = HOODI_WITHDRAWAL_VAULT;
 
         ctx.acl = IAragonACL(HOODI_DAO_ACL);
         ctx.agent = IAragonAgent(HOODI_DAO_AGENT);

@@ -155,15 +155,15 @@ uint256 constant MIN_WST_ETH_WITHDRAW_AMOUNT = 1000 wei;
 uint256 constant MAX_WST_ETH_WITHDRAW_AMOUNT = 30_000 ether;
 
 // TODO: 3 times more than real slot duration to speed up test. Must not affect correctness of the test
-uint256 constant SLOT_DURATION = 3 * 1 hours;
+uint256 constant SLOT_DURATION = 3 * 12 seconds;
 uint256 constant SIMULATION_ACCOUNTS = 512;
 uint256 constant SIMULATION_DURATION = 365 days;
 
 uint256 constant MIN_ST_ETH_SUBMIT_AMOUNT = 0.1 ether;
-uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 750 ether;
+uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 20_000 ether;
 
 uint256 constant MIN_WST_ETH_SUBMIT_AMOUNT = 0.1 ether;
-uint256 constant MAX_WST_ETH_SUBMIT_AMOUNT = 500 ether;
+uint256 constant MAX_WST_ETH_SUBMIT_AMOUNT = 5_000 ether;
 
 uint256 constant MIN_ACCIDENTAL_TRANSFER_AMOUNT = 0.1 ether;
 uint256 constant MAX_ACCIDENTAL_TRANSFER_AMOUNT = 1_000 ether;
@@ -589,8 +589,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                                 uint256 escrowEthBalance = address(rageQuitEscrow).balance;
                                 rageQuitEscrow.claimNextWithdrawalsBatch(unstETHIds[0], hints);
 
+                                uint256 totalClaimableEth = 0;
+                                for (uint256 j = 0; j < wrClaimableEth.length; ++j) {
+                                    totalClaimableEth += wrClaimableEth[j];
+                                }
                                 assertApproxEqAbs(
-                                    address(rageQuitEscrow).balance, escrowEthBalance + wrClaimableEth[0], 2
+                                    address(rageQuitEscrow).balance, escrowEthBalance + totalClaimableEth, 2
                                 );
                             }
                         }
@@ -811,9 +815,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalStatuses =
                 _lido.withdrawalQueue.getWithdrawalStatus(_accountsDetails[account].unstETHIdsRequested);
 
+            uint256 ethLockedUnclaimed = 0;
             for (uint256 j = 0; j < withdrawalStatuses.length; ++j) {
                 if (!withdrawalStatuses[j].isClaimed) {
-                    sharesLocked += withdrawalStatuses[j].amountOfShares;
+                    ethLockedUnclaimed += withdrawalStatuses[j].amountOfStETH;
                 }
             }
 
@@ -824,8 +829,19 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             uint256 holderBalanceBefore =
                 _accountsDetails[account].ethBalanceBefore + _accountsDetails[account].stETHBalanceBefore;
             uint256 holderBalanceAfter = ethBalanceAfter + stETHBalanceAfter
-                + _lido.stETH.getPooledEthByShares(wstETHBalanceAfter + sharesLocked);
+                + _lido.stETH.getPooledEthByShares(wstETHBalanceAfter) + ethLockedUnclaimed;
             uint256 balanceEstimated = (holderBalanceBefore) * shareRateAfter / shareRateBefore;
+
+            // console.log(account);
+            // console.log(
+            //     holderBalanceBefore.formatEther(), holderBalanceAfter.formatEther(), balanceEstimated.formatEther()
+            // );
+            // console.log(
+            //     stETHBalanceAfter.formatEther(),
+            //     wstETHBalanceAfter.formatEther(),
+            //     sharesLocked.formatEther(),
+            //     ethLockedUnclaimed.formatEther()
+            // );
 
             assert(holderBalanceAfter >= holderBalanceBefore);
             assert(holderBalanceAfter <= balanceEstimated);
@@ -1158,9 +1174,18 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         uint256 requestsCountToFinalize = Math.min(requestIds.length, _random.nextUint256(1, 128));
         Uint256ArrayBuilder.Context memory requestsArrayBuilder = Uint256ArrayBuilder.create(requestsCountToFinalize);
 
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(requestIds);
+
         for (uint256 i = 0; i < requestsCountToFinalize; ++i) {
             uint256 index = (randomRequestIdIndex + i) % requestIds.length;
-            requestsArrayBuilder.addItem(requestIds[index]);
+            if (statuses[index].isFinalized) {
+                requestsArrayBuilder.addItem(requestIds[index]);
+            }
+        }
+
+        if (requestsArrayBuilder.size == 0) {
+            return;
         }
 
         uint256[] memory requestIdsToFinalize = requestsArrayBuilder.getSorted();
@@ -1486,7 +1511,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         for (uint256 i = 0; i < SIMULATION_ACCOUNTS; ++i) {
             _simulationAccounts.push(_getSimulationAccount(i));
             _allAccounts.push(_simulationAccounts[i]);
-            vm.deal(_simulationAccounts[i], _random.nextUint256(10_000 ether));
+            vm.deal(_simulationAccounts[i], _random.nextUint256(50_000 ether));
         }
     }
 
