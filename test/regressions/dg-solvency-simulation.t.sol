@@ -329,12 +329,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 SimulationActionsSet.Context memory actions = _getRandomUniqueActionsSet();
 
                 if (actions.has(SimulationActionType.SubmitStETH)) {
-                    _submitStETHByRandomAccount();
+                    _submitStETHByRandomAccount(_simulationAccounts);
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.SubmitWstETH)) {
-                    _submitWstETHByRandomAccount();
+                    _submitWstETHByRandomAccount(_simulationAccounts);
                     _mineBlock();
                 }
 
@@ -865,47 +865,60 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         return makeAddr(accountName);
     }
 
-    function _submitStETHByRandomAccount() internal {
+    function _submitStETHByRandomAccount(address[] storage accounts) internal {
         console.log(">>> Submitting stETH by random account");
-        address account = _getRandomSimulationAccount();
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
-        uint256 balance = account.balance;
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
 
-        if (balance < MIN_ST_ETH_SUBMIT_AMOUNT) {
-            return;
+            uint256 balance = account.balance;
+
+            if (balance < MIN_ST_ETH_SUBMIT_AMOUNT) {
+                return;
+            }
+
+            uint256 submitAmount =
+                _random.nextUint256(MIN_ST_ETH_SUBMIT_AMOUNT, Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT));
+
+            vm.prank(account);
+            _lido.stETH.submit{value: submitAmount}(address(0));
+
+            _totalSubmittedStETH += submitAmount;
+
+            _accountsDetails[account].stETHSubmitted += submitAmount;
+
+            console.log("Account %s submitted %s stETH.", account, submitAmount.formatEther(), balance.formatEther());
         }
-
-        uint256 submitAmount =
-            _random.nextUint256(MIN_ST_ETH_SUBMIT_AMOUNT, Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT));
-
-        vm.prank(account);
-        _lido.stETH.submit{value: submitAmount}(address(0));
-
-        _totalSubmittedStETH += submitAmount;
-
-        _accountsDetails[account].stETHSubmitted += submitAmount;
     }
 
-    function _submitWstETHByRandomAccount() internal {
+    function _submitWstETHByRandomAccount(address[] storage accounts) internal {
         console.log(">>> Submitting wstETH by random account");
-        address account = _getRandomSimulationAccount();
-        uint256 balance = account.balance;
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
-        if (balance < MIN_WST_ETH_SUBMIT_AMOUNT) {
-            return;
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
+
+            uint256 balance = account.balance;
+
+            if (balance < MIN_WST_ETH_SUBMIT_AMOUNT) {
+                return;
+            }
+
+            uint256 submitAmount =
+                _random.nextUint256(MIN_WST_ETH_SUBMIT_AMOUNT, Math.min(balance, MAX_WST_ETH_SUBMIT_AMOUNT));
+
+            vm.startPrank(account);
+            _lido.stETH.submit{value: submitAmount}(address(0));
+            _lido.stETH.approve(address(_lido.wstETH), submitAmount);
+            uint256 wstEthMinted = _lido.wstETH.wrap(submitAmount);
+            vm.stopPrank();
+            _totalSubmittedWstETH += wstEthMinted;
+
+            _accountsDetails[account].wstETHSubmitted += wstEthMinted;
+
+            console.log("Account %s submitted %s wstETH.", account, wstEthMinted.formatEther(), balance.formatEther());
         }
-
-        uint256 submitAmount =
-            _random.nextUint256(MIN_WST_ETH_SUBMIT_AMOUNT, Math.min(balance, MAX_WST_ETH_SUBMIT_AMOUNT));
-
-        vm.startPrank(account);
-        _lido.stETH.submit{value: submitAmount}(address(0));
-        _lido.stETH.approve(address(_lido.wstETH), submitAmount);
-        uint256 wstEthMinted = _lido.wstETH.wrap(submitAmount);
-        vm.stopPrank();
-        _totalSubmittedWstETH += wstEthMinted;
-
-        _accountsDetails[account].wstETHSubmitted += wstEthMinted;
     }
 
     function _withdrawStETHByRandomAccount(address[] storage accounts) internal {
@@ -1005,6 +1018,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     function _lockStETHInSignallingEscrowByRandomAccount(address[] storage accounts) internal {
         console.log(">>> Locking stETH in signalling escrow by random account");
+        _activateNextState();
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
         for (uint256 i = 0; i < accounts.length; ++i) {
@@ -1031,12 +1045,14 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()] +=
                 _lido.stETH.getSharesByPooledEth(lockAmount);
 
+            console.log("Account %s locked %s stETH in signalling escrow", account, lockAmount.formatEther());
             return;
         }
     }
 
     function _lockWstETHInSignallingEscrowByRandomAccount(address[] storage accounts) internal {
         console.log(">>> Locking wstETH in signalling escrow by random account");
+        _activateNextState();
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
         for (uint256 i = 0; i < accounts.length; ++i) {
@@ -1055,12 +1071,19 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()] += lockAmount;
 
+            console.log(
+                "Account %s locked %s wstETH in signalling escrow",
+                account,
+                lockAmount.formatEther(),
+                balance.formatEther()
+            );
             return;
         }
     }
 
     function _lockUnstETHByRandomAccount() internal {
         console.log(">>> Locking unstETH by random account");
+        _activateNextState();
         uint256 lastFinalizedRequestId = _lido.withdrawalQueue.getLastFinalizedRequestId();
         uint256 maxRequestsToLock = _random.nextUint256(1, 64);
         Uint256ArrayBuilder.Context memory requestsArrayBuilder = Uint256ArrayBuilder.create(maxRequestsToLock);
@@ -1101,7 +1124,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                         requestsArrayBuilder.getResult()[j]
                     );
                 }
-
+                console.log("Account %s locked %d unstETH in signalling escrow", account, requestsArrayBuilder.size);
                 return;
             }
         }
@@ -1164,6 +1187,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 vm.prank(account);
                 _lido.withdrawalQueue.claimWithdrawals(requestIdsToClaim, hints);
 
+                console.log("Account %s claimed %d unstETH NFTs", account, requestIdsToClaim.length);
                 return;
             }
         }
@@ -1204,6 +1228,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     function _unlockStETHByRandomAccount() internal {
         console.log(">>> Unlocking stETH by random account");
+        _activateNextState();
         address account = _getRandomSimulationAccount();
         ISignallingEscrow escrow = ISignallingEscrow(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow());
         Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
@@ -1227,6 +1252,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     function _unlockWstETHByRandomAccount() internal {
         console.log(">>> Unlocking wstETH by random account");
+        _activateNextState();
         address account = _getRandomSimulationAccount();
         ISignallingEscrow escrow = ISignallingEscrow(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow());
         Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
@@ -1251,6 +1277,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     function _unlockUnstETHByRandomAccount() internal {
         console.log(">>> Unlocking unstETH by random account");
+        _activateNextState();
         address account = _getRandomSimulationAccount();
         ISignallingEscrow escrow = ISignallingEscrow(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow());
         Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
@@ -1306,6 +1333,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _totalAccidentalETHTransferAmount += transferAmount;
             _accountsDetails[account].accidentalTransferETHAmount += transferAmount;
 
+            console.log(
+                "Account %s transferred %s ETH to escrow %s", account, transferAmount.formatEther(), address(escrow)
+            );
+
             return;
         }
     }
@@ -1331,6 +1362,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _totalAccidentalStETHTransferAmount += transferAmount;
             _accountsDetails[account].accidentalTransferETHAmount += transferAmount;
 
+            console.log(
+                "Account %s transferred %s stETH to escrow %s", account, transferAmount.formatEther(), address(escrow)
+            );
+
             return;
         }
     }
@@ -1355,6 +1390,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             _totalAccidentalWstETHTransferAmount += transferAmount;
             _accountsDetails[account].accidentalTransferETHAmount += _lido.stETH.getPooledEthByShares(transferAmount);
+
+            console.log(
+                "Account %s transferred %s wstETH to escrow %s", account, transferAmount.formatEther(), address(escrow)
+            );
 
             return;
         }
