@@ -63,6 +63,7 @@ struct AccountDetails {
     uint256 sharesBalanceBefore;
     uint256 stETHBalanceBefore;
     uint256 ethBalanceBefore;
+    uint256 accidentalTransferETHAmount;
 }
 
 library Uint256ArrayBuilder {
@@ -823,25 +824,35 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             uint256 holderBalanceBefore =
                 _accountsDetails[account].ethBalanceBefore + _accountsDetails[account].stETHBalanceBefore;
             uint256 holderBalanceAfter = account.balance + _lido.stETH.balanceOf(account)
-                + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(account) + sharesLocked) + ethLockedUnclaimed;
+                + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(account) + sharesLocked) + ethLockedUnclaimed
+                + _accountsDetails[account].accidentalTransferETHAmount;
 
             uint256 accidentalLockedErr = (_totalAccidentalStETHTransferAmount + _totalAccidentalWstETHTransferAmount)
-                * 10 ** 27 / (_totalLockedStETH + _totalLockedWstETH);
+                * 10 ** 18 / (_totalLockedStETH + _totalLockedWstETH);
 
             uint256 shareRateAfter = _lido.stETH.getPooledEthByShares(10 ** 18);
             uint256 balanceEstimated = holderBalanceBefore * (shareRateAfter + accidentalLockedErr) / shareRateBefore;
 
-            console.log(account);
-            console.log(
-                holderBalanceBefore.formatEther(), holderBalanceAfter.formatEther(), balanceEstimated.formatEther()
-            );
-            console.log(sharesLocked.formatEther(), ethLockedUnclaimed.formatEther());
+            // console.log(account);
+            // console.log(account.balance, _lido.stETH.balanceOf(account), _lido.wstETH.balanceOf(account));
+            // for (uint256 j = 0; j < _rageQuitEscrows.length; ++j) {
+            //     Escrow escrow = _rageQuitEscrows[j];
+            //     Escrow.VetoerDetails memory vetoerDetails = escrow.getVetoerDetails(account);
+            //     console.log(
+            //         "RageQuit escrow %s. stETH locked shares: %s, unstETH locked count: %d",
+            //         address(escrow),
+            //         vetoerDetails.stETHLockedShares.toUint256().formatEther(),
+            //         vetoerDetails.unstETHIdsCount
+            //     );
+            // }
+            // console.log(
+            //     holderBalanceBefore.formatEther(), holderBalanceAfter.formatEther(), balanceEstimated.formatEther()
+            // );
+            // console.log(sharesLocked.formatEther(), ethLockedUnclaimed.formatEther());
 
             assert(holderBalanceAfter >= holderBalanceBefore);
             assert(holderBalanceAfter <= balanceEstimated);
         }
-
-        // check accidental transfers
     }
 
     function _getRandomSimulationAccount() internal returns (address) {
@@ -1292,6 +1303,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             assertEq(escrow.balance, balanceBefore + transferAmount, "Escrow balance mismatch after transfer");
             _totalAccidentalETHTransferAmount += transferAmount;
+            _accountsDetails[account].accidentalTransferETHAmount += transferAmount;
 
             return;
         }
@@ -1316,6 +1328,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _lido.stETH.transfer(escrow, transferAmount);
 
             _totalAccidentalStETHTransferAmount += transferAmount;
+            _accountsDetails[account].accidentalTransferETHAmount += transferAmount;
 
             return;
         }
@@ -1339,7 +1352,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             vm.prank(account);
             _lido.wstETH.transfer(escrow, transferAmount);
 
-            _totalAccidentalStETHTransferAmount += transferAmount;
+            _totalAccidentalWstETHTransferAmount += transferAmount;
+            _accountsDetails[account].accidentalTransferETHAmount += _lido.stETH.getPooledEthByShares(transferAmount);
 
             return;
         }
