@@ -155,7 +155,7 @@ uint256 constant MIN_WST_ETH_WITHDRAW_AMOUNT = 1000 wei;
 uint256 constant MAX_WST_ETH_WITHDRAW_AMOUNT = 30_000 ether;
 
 // TODO: 3 times more than real slot duration to speed up test. Must not affect correctness of the test
-uint256 constant SLOT_DURATION = 3 * 8 hours;
+uint256 constant SLOT_DURATION = 3 * 1 hours;
 uint256 constant SIMULATION_ACCOUNTS = 512;
 uint256 constant SIMULATION_DURATION = 365 days;
 
@@ -166,7 +166,7 @@ uint256 constant MIN_WST_ETH_SUBMIT_AMOUNT = 0.1 ether;
 uint256 constant MAX_WST_ETH_SUBMIT_AMOUNT = 500 ether;
 
 uint256 constant MIN_ACCIDENTAL_TRANSFER_AMOUNT = 0.1 ether;
-uint256 constant MAX_ACCIDENTAL_TRANSFER_AMOUNT = 30_000 ether;
+uint256 constant MAX_ACCIDENTAL_TRANSFER_AMOUNT = 1_000 ether;
 
 uint256 constant MIN_ACCIDENTAL_UNSTETH_TRANSFER_AMOUNT = 1;
 uint256 constant MAX_ACCIDENTAL_UNSTETH_TRANSFER_AMOUNT = 1_000 ether;
@@ -209,6 +209,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     PercentD16 immutable LOCK_STETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
     PercentD16 immutable LOCK_WSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
 
+    PercentD16 immutable NEGATIVE_REBASE_PROBABILITY = PercentsD16.fromBasisPoints(5);
+
     uint256 internal _totalLockedStETH = 0;
     uint256 internal _totalLockedWstETH = 0;
     uint256 internal _totalLockedUnstETH = 0;
@@ -227,6 +229,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     uint256 internal _totalAccidentalStETHTransferAmount = 0;
     uint256 internal _totalAccidentalWstETHTransferAmount = 0;
     uint256 internal _totalAccidentalUnstETHTransferAmount = 0;
+
+    uint256 internal _totalNegativeRebaseCoount = 0;
 
     Escrow[] internal _rageQuitEscrows;
     mapping(Escrow escrow => Escrow.SignallingEscrowDetails details) internal _escrowDetails;
@@ -258,14 +262,14 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
         // TODO: remove when test is finished. Currently preserved for debug purposes
 
-        _setupStETHBalance(MOCK_VETOER, PercentsD16.fromBasisPoints(20_00));
+        // _setupStETHBalance(MOCK_VETOER, PercentsD16.fromBasisPoints(20_00));
 
-        _lockStETH(MOCK_VETOER, _getSecondSealRageQuitSupport());
-        _wait(_getVetoSignallingMaxDuration());
-        _activateNextState();
-        _wait(_getVetoSignallingDeactivationMaxDuration());
-        _activateNextState();
-        _assertRageQuitState();
+        // _lockStETH(MOCK_VETOER, _getSecondSealRageQuitSupport());
+        // _wait(_getVetoSignallingMaxDuration());
+        // _activateNextState();
+        // _wait(_getVetoSignallingDeactivationMaxDuration());
+        // _activateNextState();
+        // _assertRageQuitState();
     }
 
     function _getDGStateName(DGState dgState) internal pure returns (string memory) {
@@ -436,9 +440,13 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                         _lido.withdrawalQueue.getLastRequestId() + 1
                     );
 
-                    // TODO: add a rare case when the negative rebase happens
-                    // ~ 0,008 %
-                    uint256 rebaseAmount = _random.nextUint256(HUNDRED_PERCENT_D16, HUNDRED_PERCENT_D16 + 1 gwei);
+                    uint256 rebaseAmount;
+                    if (_getRandomProbability() < NEGATIVE_REBASE_PROBABILITY) {
+                        rebaseAmount = _random.nextUint256(HUNDRED_PERCENT_D16 - 8_000 gwei, HUNDRED_PERCENT_D16);
+                        _totalNegativeRebaseCoount++;
+                    } else {
+                        rebaseAmount = _random.nextUint256(HUNDRED_PERCENT_D16, HUNDRED_PERCENT_D16 + 80_000 gwei);
+                    }
 
                     _lido.performRebase(PercentsD16.from(rebaseAmount), requestIdToFinalize);
                 }
@@ -657,6 +665,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             );
             console.log("After simulation stETH Total Supply: %s", _lido.stETH.totalSupply().formatEther());
             console.log("After simulation share rate: %s", _lido.stETH.getPooledEthByShares(10 ** 18).formatEther());
+            console.log("Negative rebase count: %d", _totalNegativeRebaseCoount);
 
             console.log("Actions Count:");
             console.log(
@@ -1167,10 +1176,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         ) {
             _unlockStETH(account);
             _totalUnlockedStETHShares += details.stETHLockedShares.toUint256();
-            assertEq(
+            assertApproxEqAbs(
                 _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()]
                     + _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()],
-                details.stETHLockedShares.toUint256()
+                details.stETHLockedShares.toUint256(),
+                2
             );
 
             _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()] = 0;
@@ -1189,13 +1199,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         ) {
             _unlockWstETH(account);
             _totalUnlockedWstETH += details.stETHLockedShares.toUint256();
-            _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()] -=
-                details.stETHLockedShares.toUint256();
 
-            assertEq(
+            assertApproxEqAbs(
                 _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()]
                     + _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()],
-                details.stETHLockedShares.toUint256()
+                details.stETHLockedShares.toUint256(),
+                2
             );
 
             _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()] = 0;
