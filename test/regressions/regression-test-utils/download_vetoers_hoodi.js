@@ -18,10 +18,6 @@ const WST_ETH_ADDRESS = "0x7E99eE3C66636DE415D2d7C880938F2f40f94De4";
 const WST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 1;
 const WST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}wsteth_vetoers.json`;
 
-const UNST_ETH_ADDRESS = "0xfe56573178f1bcdf53F01A6E9977670dcBBD9186";
-const UNST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 1;
-const UNST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}unsteth_vetoers.json`;
-
 async function main() {
     console.log("---------------------------------------------------------------------------------------");
     console.log(`This script downloads the addresses of StEth holders having approximately 50% of StEth and the first
@@ -54,15 +50,6 @@ don't forget to update the env variable FORK_BLOCK_NUMBER with the actual block 
     );
 
     console.log("---------------------------------------------------------------------------------------");
-    console.log("Downloading UnStETH holders");
-
-    await blockscoutDownloadTokenHolders(
-        NETWORK_NAME,
-        UNST_ETH_ADDRESS,
-        UNST_ETH_HOLDERS_LOAD_CHUNKS_COUNT,
-        UNST_ETH_HOLDERS_FILE_NAME,
-        undefined
-    );
 }
 
 main();
