@@ -583,8 +583,15 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                                 uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
                                     unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
                                 );
+
+                                uint256[] memory wrClaimableEth =
+                                    _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints);
+                                uint256 escrowEthBalance = address(rageQuitEscrow).balance;
                                 rageQuitEscrow.claimNextWithdrawalsBatch(unstETHIds[0], hints);
-                                // TODO: add checks that was withdrawn "correct" amount of ETH
+
+                                assertApproxEqAbs(
+                                    address(rageQuitEscrow).balance, escrowEthBalance + wrClaimableEth[0], 2
+                                );
                             }
                         }
                     }
@@ -891,7 +898,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 continue;
             }
 
-            //TODO: check
             uint256 batchSize = Math.min(balance, MAX_ST_ETH_WITHDRAW_AMOUNT) / WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT;
             uint256 lastRequestAmount =
                 Math.min(balance, MAX_ST_ETH_WITHDRAW_AMOUNT) % WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT;
@@ -1273,7 +1279,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 continue;
             }
 
-            uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+            uint256 transferAmount =
+                _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, Math.min(balance, MAX_ACCIDENTAL_TRANSFER_AMOUNT));
             vm.prank(account);
             _lido.stETH.transfer(escrow, transferAmount);
 
@@ -1296,7 +1303,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 continue;
             }
 
-            uint256 transferAmount = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+            uint256 transferAmount =
+                _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, Math.min(balance, MAX_ACCIDENTAL_TRANSFER_AMOUNT));
             vm.prank(account);
             _lido.wstETH.transfer(escrow, transferAmount);
 
@@ -1321,7 +1329,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             vm.startPrank(account);
             uint256[] memory requestAmounts = new uint256[](1);
-            requestAmounts[0] = _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, MAX_ACCIDENTAL_TRANSFER_AMOUNT);
+            requestAmounts[0] =
+                _random.nextUint256(MIN_ACCIDENTAL_TRANSFER_AMOUNT, Math.min(balance, MAX_ACCIDENTAL_TRANSFER_AMOUNT));
             _lido.stETH.approve(address(_lido.withdrawalQueue), requestAmounts[0]);
             _lido.withdrawalQueue.requestWithdrawals(requestAmounts, escrow);
             vm.stopPrank();
