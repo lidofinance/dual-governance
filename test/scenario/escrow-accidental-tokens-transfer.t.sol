@@ -35,7 +35,7 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
         escrow = Escrow(payable(address(_getVetoSignallingEscrow())));
 
         _setupStETHBalance(_VETOER_1, _getSecondSealRageQuitSupport() + PercentsD16.fromBasisPoints(20_00));
-        _setupWstETHBalance(_VETOER_1, _getFirstSealRageQuitSupport());
+        _setupWstETHBalance(_VETOER_1, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
 
         vm.startPrank(_VETOER_1);
         _lido.stETH.approve(address(_lido.wstETH), type(uint256).max);
@@ -252,10 +252,10 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
     }
 
     function testFork_AccidentallyTransferredTokens_MayNotBeUnlocked_From_RageQuitEscrow() external {
-        PercentD16 vetoer1StEthPercent = _getSecondSealRageQuitSupport() - PercentsD16.fromBasisPoints(1_00);
+        PercentD16 vetoer1StEthPercent = _getSecondSealRageQuitSupport() - PercentsD16.fromBasisPoints(50);
         uint256 lockedStEthShares = _lido.calcSharesFromPercentageOfTVL(vetoer1StEthPercent);
         uint256 lockedStEth = _lido.stETH.getPooledEthByShares(lockedStEthShares);
-        uint256 lockedWStEth = _lido.calcSharesFromPercentageOfTVL(PercentsD16.fromBasisPoints(1_01));
+        uint256 lockedWStEth = _lido.calcSharesFromPercentageOfTVL(PercentsD16.fromBasisPoints(51));
         uint256 lockedUnStEthShares = 1 ether;
         uint256[] memory vetoer1UnstETHIds;
 
@@ -420,12 +420,13 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             uint256 vetoer1BalanceBefore = _VETOER_1.balance;
 
             // Vetoer1's stETH + Vetoer1's wstETH + Vetoer2's stETH (transferred) + Vetoer3's stETH (transferred)
-            uint256 expectedBalance =
-                _lido.stETH.getPooledEthByShares(lockedStEthShares + lockedWStEth + 2 * transferredStEthShares);
             vm.startPrank(_VETOER_1);
             escrow.withdrawETH();
             vm.stopPrank();
 
+            // TODO: fix falling assertion
+            uint256 expectedBalance =
+                _lido.stETH.getPooledEthByShares(lockedStEthShares + lockedWStEth + 2 * transferredStEthShares);
             assertApproxEqAbs(_VETOER_1.balance - vetoer1BalanceBefore, expectedBalance, POOL_ACCUMULATED_ERROR);
 
             _assertVetoCooldownState();
@@ -444,6 +445,7 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             _assertNormalState();
 
             assertEq(escrow.getRageQuitSupport(), expectedRageQuitSupport);
+            // TODO: fix falling assertion
             assertApproxEqAbs(_lido.stETH.balanceOf(address(escrow)), 0, ACCURACY);
             assertEq(_lido.wstETH.balanceOf(address(escrow)), 2 * transferredWStEthAmount); // Vetoer2's + Vetoer3's wStETH
             assertEq(_lido.withdrawalQueue.ownerOf(vetoer2UnstETHIds[0]), address(escrow));

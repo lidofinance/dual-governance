@@ -315,9 +315,9 @@ contract DGProposalOperationsPeculiaritiesTest is DGScenarioTestSetup {
         _step("2. Some stETH holders accumulate stETH in the Escrow passing first seal RageQuit threshold");
         {
             _wait(_timelock.getAfterSubmitDelay().dividedBy(2));
-            _setupStETHBalance(vetoers, PercentsD16.fromBasisPoints(6_00));
+            _setupStETHBalance(vetoers, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_01));
 
-            _lockStETH(vetoers, PercentsD16.fromBasisPoints(5_00));
+            _lockStETH(vetoers, _getFirstSealRageQuitSupport() + PercentsD16.fromBasisPoints(1_00));
 
             _assertVetoSignalingState();
 

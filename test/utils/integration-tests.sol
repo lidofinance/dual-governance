@@ -134,8 +134,8 @@ abstract contract ForkTestSetup is Test {
 }
 
 contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
-    Duration internal immutable _DEFAULT_EMERGENCY_MODE_DURATION = Durations.from(180 days);
-    Duration internal immutable _DEFAULT_EMERGENCY_PROTECTION_DURATION = Durations.from(90 days);
+    Duration internal immutable _DEFAULT_EMERGENCY_MODE_DURATION = Durations.from(30 days);
+    Duration internal immutable _DEFAULT_EMERGENCY_PROTECTION_DURATION = Durations.from(365 days);
     address internal immutable _DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE =
         makeAddr("DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE");
     address internal immutable _DEFAULT_EMERGENCY_EXECUTION_COMMITTEE =
@@ -163,13 +163,13 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
 
         return TimelockContractDeployConfig.Context({
             afterSubmitDelay: Durations.from(3 days),
-            afterScheduleDelay: Durations.from(3 days),
+            afterScheduleDelay: Durations.from(1 days),
             sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
                 minExecutionDelay: Durations.from(3 days),
-                maxAfterSubmitDelay: Durations.from(45 days),
-                maxAfterScheduleDelay: Durations.from(45 days),
+                maxAfterSubmitDelay: Durations.from(30 days),
+                maxAfterScheduleDelay: Durations.from(10 days),
                 maxEmergencyModeDuration: Durations.from(365 days),
-                maxEmergencyProtectionDuration: Durations.from(365 days)
+                maxEmergencyProtectionDuration: Durations.from(3 * 365 days)
             }),
             emergencyGovernanceProposer: emergencyGovernanceProposer,
             emergencyActivationCommittee: emergencyActivationCommittee,
@@ -315,7 +315,6 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         vm.prank(_timelock.getEmergencyExecutionCommittee());
         _timelock.emergencyReset();
 
-        // TODO: assert all emergency protection properties were reset
         IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details =
             _timelock.getEmergencyProtectionDetails();
 
@@ -435,14 +434,15 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         internal
         returns (DGSetupDeployConfig.Context memory config)
     {
-        uint256 tiebreakerCommitteesCount = 2;
+        uint256 tiebreakerCommitteesCount = 3;
         uint256 tiebreakerCommitteeMembersCount = 5;
+        uint256 tiebreakerCommitteeMembersQuorum = 3;
 
         TiebreakerCommitteeDeployConfig[] memory tiebreakerCommitteeConfigs =
             new TiebreakerCommitteeDeployConfig[](tiebreakerCommitteesCount);
 
         for (uint256 i = 0; i < tiebreakerCommitteesCount; ++i) {
-            tiebreakerCommitteeConfigs[i].quorum = tiebreakerCommitteeMembersCount;
+            tiebreakerCommitteeConfigs[i].quorum = tiebreakerCommitteeMembersQuorum;
             tiebreakerCommitteeConfigs[i].members = new address[](tiebreakerCommitteeMembersCount);
             for (uint256 j = 0; j < tiebreakerCommitteeMembersCount; ++j) {
                 tiebreakerCommitteeConfigs[i].members[j] = vm.randomAddress();
@@ -461,19 +461,19 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
                 committees: tiebreakerCommitteeConfigs
             }),
             dualGovernanceConfigProvider: DualGovernanceConfig.Context({
-                firstSealRageQuitSupport: PercentsD16.fromBasisPoints(3_00),
-                secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00),
+                firstSealRageQuitSupport: PercentsD16.fromBasisPoints(1_00),
+                secondSealRageQuitSupport: PercentsD16.fromBasisPoints(10_00),
                 //
                 minAssetsLockDuration: Durations.from(5 hours),
                 //
-                vetoSignallingMinDuration: Durations.from(3 days),
-                vetoSignallingMaxDuration: Durations.from(30 days),
+                vetoSignallingMinDuration: Durations.from(5 days),
+                vetoSignallingMaxDuration: Durations.from(45 days),
                 vetoSignallingMinActiveDuration: Durations.from(5 hours),
-                vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
-                vetoCooldownDuration: Durations.from(4 days),
+                vetoSignallingDeactivationMaxDuration: Durations.from(3 days),
+                vetoCooldownDuration: Durations.from(5 hours),
                 //
                 rageQuitExtensionPeriodDuration: Durations.from(7 days),
-                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(60 days),
                 rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
                 rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             }),
@@ -485,10 +485,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
                 }),
                 sanityCheckParams: DualGovernance.SanityCheckParams({
                     minWithdrawalsBatchSize: 4,
-                    minTiebreakerActivationTimeout: Durations.from(90 days),
+                    minTiebreakerActivationTimeout: Durations.from(6 * 30 days),
                     maxTiebreakerActivationTimeout: Durations.from(730 days),
                     maxSealableWithdrawalBlockersCount: 255,
-                    maxMinAssetsLockDuration: Durations.from(7 days)
+                    maxMinAssetsLockDuration: Durations.from(48 days)
                 }),
                 adminProposer: address(_lido.voting),
                 resealCommittee: _DEFAULT_RESEAL_COMMITTEE,
@@ -747,6 +747,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     // ---
     // Escrow Manipulation
     // ---
+    function _getCurrentRageQuitSupport() internal returns (PercentD16) {
+        return _getVetoSignallingEscrow().getRageQuitSupport();
+    }
+
     function _lockStETHUpTo(address vetoer, PercentD16 targetPercentage) internal {
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
         PercentD16 currentRageQuitSupport = escrow.getRageQuitSupport();

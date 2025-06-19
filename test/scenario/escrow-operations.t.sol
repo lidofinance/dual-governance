@@ -147,71 +147,83 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
 
         vm.prank(_VETOER_1);
         uint256[] memory unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
-        // lock enough funds to initiate RageQuit
-        _lockStETH(_VETOER_1, PercentsD16.fromBasisPoints(7_50));
-        _lockWstETH(_VETOER_2, PercentsD16.fromBasisPoints(7_49));
-        _lockUnstETH(_VETOER_1, unstETHIds);
-        _assertVetoSignalingState();
 
-        // wait till the last second of the dynamic timelock duration
-        _wait(_getVetoSignallingMaxDuration());
-        _activateNextState();
-        _assertVetoSignalingState();
+        _step("1. Lock enough funds to enter RageQUit");
+        {
+            _lockStETH(_VETOER_1, PercentsD16.fromBasisPoints(5_00));
+            _lockWstETH(_VETOER_2, PercentsD16.fromBasisPoints(4_99));
+            _lockUnstETH(_VETOER_1, unstETHIds);
 
-        assertEq(_getVetoSignallingDuration().addTo(_getVetoSignallingActivatedAt()), Timestamps.now());
+            assertTrue(_getCurrentRageQuitSupport() >= _getSecondSealRageQuitSupport());
+            _assertVetoSignalingState();
+        }
 
-        // validate that while the VetoSignalling has not passed, vetoer can unlock funds from Escrow
+        _step("2. Wait till the last second of the VetoSignalling duration");
+        {
+            _wait(_getVetoSignallingMaxDuration());
+
+            _activateNextState();
+            _assertVetoSignalingState();
+
+            assertEq(_getVetoSignallingDuration().addTo(_getVetoSignallingActivatedAt()), Timestamps.now());
+        }
+
         uint256 snapshotId = vm.snapshot();
-        _unlockStETH(_VETOER_1);
-        _assertVetoSignallingDeactivationState();
+        _step("3.1 While the VetoSignalling has not passed, vetoer can unlock funds from Escrow");
+        {
+            _unlockStETH(_VETOER_1);
+            _assertVetoSignallingDeactivationState();
 
-        // Rollback the state of the node before vetoer unlocked his funds
-        vm.revertTo(snapshotId);
+            // Rollback the state of the node before vetoer unlocked his funds
+            vm.revertTo(snapshotId);
+            _unlockWstETH(_VETOER_2);
+            _assertVetoSignallingDeactivationState();
 
-        _unlockWstETH(_VETOER_2);
-        _assertVetoSignallingDeactivationState();
+            // Rollback the state of the node before vetoer unlocked his funds
+            vm.revertTo(snapshotId);
 
-        // Rollback the state of the node before vetoer unlocked his funds
-        vm.revertTo(snapshotId);
+            _unlockUnstETH(_VETOER_1, unstETHIds);
+            _assertVetoSignallingDeactivationState();
 
-        _unlockUnstETH(_VETOER_1, unstETHIds);
-        _assertVetoSignallingDeactivationState();
+            // Rollback the state of the node before vetoer unlocked his funds
+            vm.revertTo(snapshotId);
+        }
 
-        // Rollback the state of the node before vetoer unlocked his funds
-        vm.revertTo(snapshotId);
+        _step("3.2 When the RageQuit has entered vetoer can't unlock his funds");
+        {
+            // validate that the DualGovernance still in the VetoSignalling state
+            _activateNextState();
+            _assertVetoSignalingState();
 
-        // validate that the DualGovernance still in the VetoSignalling state
-        _activateNextState();
-        _assertVetoSignalingState();
+            // wait 1 block duration. Full VetoSignalling duration has passed and RageQuit may be started now
+            _wait(Durations.from(12 seconds));
 
-        // wait 1 block duration. Full VetoSignalling duration has passed and RageQuit may be started now
-        _wait(Durations.from(12 seconds));
+            // validate that RageQuit will start when the activateNextState() is called
+            snapshotId = vm.snapshot();
+            _activateNextState();
+            _assertRageQuitState();
 
-        // validate that RageQuit will start when the activateNextState() is called
-        snapshotId = vm.snapshot();
-        _activateNextState();
-        _assertRageQuitState();
+            // Rollback the state of the node as it was before RageQuit activation
+            vm.revertTo(snapshotId);
 
-        // Rollback the state of the node as it was before RageQuit activation
-        vm.revertTo(snapshotId);
+            // The attempt to unlock funds from Escrow will fail
+            vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
+            this.externalUnlockStETH(_VETOER_1);
 
-        // The attempt to unlock funds from Escrow will fail
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
-        this.externalUnlockStETH(_VETOER_1);
+            // Rollback the state of the node as it was before RageQuit activation
+            vm.revertTo(snapshotId);
 
-        // Rollback the state of the node as it was before RageQuit activation
-        vm.revertTo(snapshotId);
+            // The attempt to unlock funds from Escrow will fail
+            vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
+            this.externalUnlockWstETH(_VETOER_2);
 
-        // The attempt to unlock funds from Escrow will fail
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
-        this.externalUnlockWstETH(_VETOER_2);
+            // Rollback the state of the node as it was before RageQuit activation
+            vm.revertTo(snapshotId);
 
-        // Rollback the state of the node as it was before RageQuit activation
-        vm.revertTo(snapshotId);
-
-        // The attempt to unlock funds from Escrow will fail
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
-        this.externalUnlockUnstETH(_VETOER_1, unstETHIds);
+            // The attempt to unlock funds from Escrow will fail
+            vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
+            this.externalUnlockUnstETH(_VETOER_1, unstETHIds);
+        }
     }
 
     function testFork_ClaimingUnstETH_RevertOn_UnstETHFromWithdrawalBatch() external {

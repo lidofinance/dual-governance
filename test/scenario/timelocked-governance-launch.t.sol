@@ -6,6 +6,7 @@ import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries
 import {DualGovernance} from "contracts/DualGovernance.sol";
 
 import {
+    Duration,
     Durations,
     Timestamps,
     ContractsDeployment,
@@ -25,9 +26,7 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
     function testFork_TimelockedGovernanceLaunch_MigrationToDualGovernance() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
-        // ---
-        // ACT 1. 📈 DAO OPERATES AS USUALLY
-        // ---
+        _step(unicode"1. 📈 DAO operates as usually");
         {
             uint256 proposalId =
                 _submitProposal(regularStaffCalls, "DAO does regular staff on potentially dangerous contract");
@@ -50,9 +49,7 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
             _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
         }
 
-        // ---
-        // ACT 2. 😱 DAO IS UNDER ATTACK
-        // ---
+        _step(unicode"2. 😱 DAO is under attack");
         uint256 maliciousProposalId;
         {
             // Malicious vote was proposed by the attacker with huge LDO wad (but still not the majority)
@@ -87,9 +84,7 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
             _executeProposal(maliciousProposalId);
         }
 
-        // ---
-        // ACT 3. 🔫 DAO STRIKES BACK (WITH DUAL GOVERNANCE SHIPMENT)
-        // ---
+        _step(unicode"3. 🔫 DAO strikes back (with a DG shipment)");
         {
             // Lido contributors work hard to implement and ship the Dual Governance mechanism
             // before the emergency mode is over
@@ -187,9 +182,7 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
             _assertProposalCancelled(maliciousProposalId);
         }
 
-        // ---
-        // ACT 4. 🫡 EMERGENCY COMMITTEE LIFETIME IS ENDED
-        // ---
+        _step(unicode"4. 🫡 Emergency committee lifetime is ended");
         {
             _wait(_getEmergencyProtectionDuration().plusSeconds(1));
             assertFalse(_timelock.isEmergencyProtectionEnabled());
@@ -214,9 +207,7 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
             _assertTargetMockCalls(_timelock.getAdminExecutor(), regularStaffCalls);
         }
 
-        // ---
-        // ACT 5. 🔜 NEW DUAL GOVERNANCE VERSION IS COMING
-        // ---
+        _step(unicode"5. 🔜 New Dual Governance version is coming");
         {
             // some time later, the major Dual Governance update release is ready to be launched
             _wait(Durations.from(365 days));
@@ -253,8 +244,10 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
                     (_DEFAULT_EMERGENCY_PROTECTION_DURATION.addTo(Timestamps.now()))
                 )
             );
+
+            Duration newEmergencyModeDuration = _DEFAULT_EMERGENCY_MODE_DURATION.plusSeconds(15 days);
             dualGovernanceUpdateCallsBuilder.addCall(
-                address(_timelock), abi.encodeCall(_timelock.setEmergencyModeDuration, (Durations.from(30 days)))
+                address(_timelock), abi.encodeCall(_timelock.setEmergencyModeDuration, newEmergencyModeDuration)
             );
 
             uint256 updateDualGovernanceProposalId = _submitProposalByAdminProposer(
@@ -288,16 +281,14 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
                 _timelock.getEmergencyExecutionCommittee(),
                 address(_dgDeployConfig.timelock.emergencyExecutionCommittee)
             );
-            assertEq(_getEmergencyModeDuration(), Durations.from(30 days));
+            assertEq(_getEmergencyModeDuration(), newEmergencyModeDuration);
             assertEq(_getEmergencyModeEndsAfter(), Timestamps.ZERO);
 
             // use the new version of the dual governance in the future calls
             _dgDeployedContracts.dualGovernance = dualGovernanceV2;
         }
 
-        // ---
-        // ACT 7. 📆 DAO CONTINUES THEIR REGULAR DUTIES (PROTECTED BY DUAL GOVERNANCE V2)
-        // ---
+        _step(unicode"6. 📆 DAO continues their regular duties (protected by Dual Governance V2)");
         {
             uint256 proposalId = _submitProposalByAdminProposer(
                 regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
@@ -447,16 +438,17 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
     }
 
     function testFork_ExpiredEmergencyCommitteeHasNoPower() external {
+        _step("1. Validate that emergency governance not equal to current governance");
         {
             assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
         }
 
-        // wait till the protection duration passes
+        _step("1. Wait till the protection duration passes");
         {
-            _wait(_getEmergencyModeDuration().plusSeconds(1));
+            _wait(_getEmergencyProtectionDuration().plusSeconds(1));
         }
 
-        // attempt to activate emergency protection fails
+        _step("1. An attempt to activate emergency mode fails");
         {
             vm.expectRevert(
                 abi.encodeWithSelector(
