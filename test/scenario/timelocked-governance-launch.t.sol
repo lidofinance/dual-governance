@@ -426,9 +426,7 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
     }
 
     function testFork_EmergencyResetGovernance() external {
-        // deploy dual governance full setup
         {
-            _deployDGSetup({isEmergencyProtectionEnabled: true});
             assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
         }
 
@@ -449,9 +447,7 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
     }
 
     function testFork_ExpiredEmergencyCommitteeHasNoPower() external {
-        // deploy dual governance full setup
         {
-            _deployDGSetup({isEmergencyProtectionEnabled: true});
             assertNotEq(_timelock.getGovernance(), _timelock.getEmergencyGovernance());
         }
 
