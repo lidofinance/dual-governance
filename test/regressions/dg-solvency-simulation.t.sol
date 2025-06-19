@@ -216,6 +216,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     uint256 internal _totalLockedWstETH = 0;
     uint256 internal _totalLockedUnstETH = 0;
 
+    uint256 internal _totalLockedStETHByRealAccounts = 0;
+    uint256 internal _totalLockedStETHBySimulationAccounts = 0;
+
+    uint256 internal _totalLockedWstETHByRealAccounts = 0;
+    uint256 internal _totalLockedWstETHBySimulationAccounts = 0;
+
     uint256 internal _totalUnlockedStETHShares = 0;
     uint256 internal _totalUnlockedWstETH = 0;
     uint256 internal _totalUnlockedUnstETHCount = 0;
@@ -225,6 +231,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     uint256 internal _totalWithdrawnStETH = 0;
     uint256 internal _totalWithdrawnWstETH = 0;
+
+    uint256 internal _totalWithdrawnStETHByRealAccounts = 0;
+    uint256 internal _totalWithdrawnStETHBySimulationAccounts = 0;
+
+    uint256 internal _totalWithdrawnWstETHByRealAccounts = 0;
+    uint256 internal _totalWithdrawnWstETHBySimulationAccounts = 0;
 
     uint256 internal _totalAccidentalETHTransferAmount = 0;
     uint256 internal _totalAccidentalStETHTransferAmount = 0;
@@ -339,22 +351,22 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
 
                 if (actions.has(SimulationActionType.WithdrawStETH)) {
-                    _withdrawStETHByRandomAccount(_simulationAccounts);
+                    _withdrawStETHByRandomSimulationAccount();
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.WithdrawWstETH)) {
-                    _withdrawWstETHByRandomAccount(_simulationAccounts);
+                    _withdrawWstETHByRandomSimulationAccount();
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.LockStETH)) {
-                    _lockStETHInSignallingEscrowByRandomAccount(_simulationAccounts);
+                    _lockStETHByRandomSimulationAccount();
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.LockWstETH)) {
-                    _lockWstETHInSignallingEscrowByRandomAccount(_simulationAccounts);
+                    _lockWstETHByRandomSimulationAccount();
                     _mineBlock();
                 }
 
@@ -409,22 +421,22 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
 
                 if (actions.has(SimulationActionType.WithdrawStETHRealHolder)) {
-                    _withdrawStETHByRandomAccount(_stETHRealHolders);
+                    _withdrawStETHByRandomRealAccount();
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.WithdrawWstETHRealHolder)) {
-                    _withdrawWstETHByRandomAccount(_wstETHRealHolders);
+                    _withdrawWstETHByRandomRealAccount();
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.LockStETHRealHolder)) {
-                    _lockStETHInSignallingEscrowByRandomAccount(_stETHRealHolders);
+                    _lockStETHByRandomRealAccount();
                     _mineBlock();
                 }
 
                 if (actions.has(SimulationActionType.LockWstETHRealHolder)) {
-                    _lockWstETHInSignallingEscrowByRandomAccount(_wstETHRealHolders);
+                    _lockWstETHByRandomRealAccount();
                     _mineBlock();
                 }
 
@@ -691,24 +703,24 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 _totalSubmittedWstETH.formatEther()
             );
             console.log(
-                "  - Withdraw stETH count: %s, total withdrawn amount: %s",
+                "  - Withdraw stETH by simulation accounts count: %s, total withdrawn amount: %s",
                 _actionsCounters[SimulationActionType.WithdrawStETH],
-                _totalWithdrawnStETH.formatEther()
+                _totalWithdrawnStETHBySimulationAccounts.formatEther()
             );
             console.log(
-                "  - Withdraw wstETH count: %s, total withdrawn amount: %s",
+                "  - Withdraw wstETH simulation accounts count: %s, total withdrawn amount: %s",
                 _actionsCounters[SimulationActionType.WithdrawWstETH],
-                _totalWithdrawnWstETH.formatEther()
+                _totalWithdrawnWstETHBySimulationAccounts.formatEther()
             );
             console.log(
                 "  - Lock stETH count: %s, total locked stETH: %s",
                 _actionsCounters[SimulationActionType.LockStETH],
-                _totalLockedStETH.formatEther()
+                _totalLockedStETHBySimulationAccounts.formatEther()
             );
             console.log(
                 "  - Lock wstETH count: %s, total locked wstETH: %s",
                 _actionsCounters[SimulationActionType.LockWstETH],
-                _totalLockedWstETH.formatEther()
+                _totalLockedWstETHBySimulationAccounts.formatEther()
             );
             console.log(
                 "  - Lock unstETH actions count: %d, total locked unstETH: %d",
@@ -751,24 +763,28 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 _totalAccidentalUnstETHTransferAmount.formatEther()
             );
             console.log(
-                "  - Withdraw stETH real holder actions count: %d",
-                _actionsCounters[SimulationActionType.WithdrawStETHRealHolder]
+                "  - Withdraw stETH real holder actions count: %d, total withdrawn amount: %s",
+                _actionsCounters[SimulationActionType.WithdrawStETHRealHolder],
+                _totalWithdrawnStETHByRealAccounts.formatEther()
             );
             console.log(
-                "  - Withdraw wstETH real holder actions count: %d",
-                _actionsCounters[SimulationActionType.WithdrawWstETHRealHolder]
+                "  - Withdraw wstETH real holder actions count: %d, total withdrawn amount: %s",
+                _actionsCounters[SimulationActionType.WithdrawWstETHRealHolder],
+                _totalWithdrawnWstETHByRealAccounts.formatEther()
             );
             console.log(
                 "  - Claim unstETH real holder actions count: %d",
                 _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder]
             );
             console.log(
-                "  - Lock stETH real holder actions count: %d",
-                _actionsCounters[SimulationActionType.LockStETHRealHolder]
+                "  - Lock stETH real holder actions count: %d, total locked amount: %s",
+                _actionsCounters[SimulationActionType.LockStETHRealHolder],
+                _totalLockedStETHByRealAccounts.formatEther()
             );
             console.log(
-                "  - Lock wstETH real holder actions count: %d",
-                _actionsCounters[SimulationActionType.LockWstETHRealHolder]
+                "  - Lock wstETH real holder actions count: %d, total locked amount: %s",
+                _actionsCounters[SimulationActionType.LockWstETHRealHolder],
+                _totalLockedWstETHByRealAccounts.formatEther()
             );
 
             console.log(
@@ -921,7 +937,15 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
     }
 
-    function _withdrawStETHByRandomAccount(address[] storage accounts) internal {
+    function _withdrawStETHByRandomSimulationAccount() internal {
+        _totalWithdrawnStETHBySimulationAccounts += _withdrawStETHByRandomAccount(_simulationAccounts);
+    }
+
+    function _withdrawStETHByRandomRealAccount() internal {
+        _totalWithdrawnStETHByRealAccounts += _withdrawStETHByRandomAccount(_stETHRealHolders);
+    }
+
+    function _withdrawStETHByRandomAccount(address[] storage accounts) internal returns (uint256 requestedAmount) {
         console.log(">>> Withdrawing stETH by random account");
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
@@ -939,8 +963,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             if (lastRequestAmount > MIN_ST_ETH_WITHDRAW_AMOUNT) {
                 batchSize += 1;
             }
-
-            uint256 requestedAmount = 0;
 
             uint256[] memory withdrawalAmounts = new uint256[](batchSize);
 
@@ -964,11 +986,19 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             console.log("Account %s withdrawn %s stETH.", account, requestedAmount.formatEther());
             console.log("Request ids: %s-%s", requestIds[0], requestIds[requestIds.length - 1]);
 
-            return;
+            return requestedAmount;
         }
     }
 
-    function _withdrawWstETHByRandomAccount(address[] storage accounts) internal {
+    function _withdrawWstETHByRandomSimulationAccount() internal {
+        _totalWithdrawnWstETHBySimulationAccounts += _withdrawWstETHByRandomAccount(_simulationAccounts);
+    }
+
+    function _withdrawWstETHByRandomRealAccount() internal {
+        _totalWithdrawnWstETHByRealAccounts += _withdrawWstETHByRandomAccount(_stETHRealHolders);
+    }
+
+    function _withdrawWstETHByRandomAccount(address[] storage accounts) internal returns (uint256 requestedAmount) {
         console.log(">>> Withdrawing wstETH by random account");
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
@@ -986,8 +1016,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             if (lastRequestAmount > MIN_WST_ETH_WITHDRAW_AMOUNT) {
                 batchSize += 1;
             }
-
-            uint256 requestedAmount = 0;
 
             uint256[] memory withdrawalAmounts = new uint256[](batchSize);
 
@@ -1012,11 +1040,22 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             console.log("Account %s withdrawn %s wstETH.", account, requestedAmount.formatEther());
             console.log("Request ids: %s-%s", requestIds[0], requestIds[requestIds.length - 1]);
 
-            return;
+            return requestedAmount;
         }
     }
 
-    function _lockStETHInSignallingEscrowByRandomAccount(address[] storage accounts) internal {
+    function _lockStETHByRandomSimulationAccount() internal {
+        _totalLockedStETHBySimulationAccounts += _lockStETHInSignallingEscrowByRandomAccount(_simulationAccounts);
+    }
+
+    function _lockStETHByRandomRealAccount() internal {
+        _totalLockedStETHByRealAccounts += _lockStETHInSignallingEscrowByRandomAccount(_stETHRealHolders);
+    }
+
+    function _lockStETHInSignallingEscrowByRandomAccount(address[] storage accounts)
+        internal
+        returns (uint256 lockAmount)
+    {
         console.log(">>> Locking stETH in signalling escrow by random account");
         _activateNextState();
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
@@ -1030,7 +1069,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 continue;
             }
 
-            uint256 lockAmount = Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT);
+            lockAmount = Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT);
 
             console.log(
                 "Account %s locking %s stETH in signalling escrow",
@@ -1046,11 +1085,22 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 _lido.stETH.getSharesByPooledEth(lockAmount);
 
             console.log("Account %s locked %s stETH in signalling escrow", account, lockAmount.formatEther());
-            return;
+            return lockAmount;
         }
     }
 
-    function _lockWstETHInSignallingEscrowByRandomAccount(address[] storage accounts) internal {
+    function _lockWstETHByRandomSimulationAccount() internal {
+        _totalLockedWstETHBySimulationAccounts += _lockWstETHInSignallingEscrowByRandomAccount(_simulationAccounts);
+    }
+
+    function _lockWstETHByRandomRealAccount() internal {
+        _totalLockedWstETHByRealAccounts += _lockWstETHInSignallingEscrowByRandomAccount(_stETHRealHolders);
+    }
+
+    function _lockWstETHInSignallingEscrowByRandomAccount(address[] storage accounts)
+        internal
+        returns (uint256 lockAmount)
+    {
         console.log(">>> Locking wstETH in signalling escrow by random account");
         _activateNextState();
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
@@ -1064,7 +1114,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 continue;
             }
 
-            uint256 lockAmount = Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT);
+            lockAmount = Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT);
 
             _lockWstETH(account, lockAmount);
             _totalLockedWstETH += lockAmount;
@@ -1077,7 +1127,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 lockAmount.formatEther(),
                 balance.formatEther()
             );
-            return;
+            return lockAmount;
         }
     }
 
