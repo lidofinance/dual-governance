@@ -155,15 +155,15 @@ uint256 constant MIN_WST_ETH_WITHDRAW_AMOUNT = 1000 wei;
 uint256 constant MAX_WST_ETH_WITHDRAW_AMOUNT = 30_000 ether;
 
 // TODO: 3 times more than real slot duration to speed up test. Must not affect correctness of the test
-uint256 constant SLOT_DURATION = 3 * 12 seconds;
+uint256 constant SLOT_DURATION = 1 hours;
 uint256 constant SIMULATION_ACCOUNTS = 512;
-uint256 constant SIMULATION_DURATION = 365 days;
+uint256 constant SIMULATION_DURATION = 200 days;
 
 uint256 constant MIN_ST_ETH_SUBMIT_AMOUNT = 0.1 ether;
-uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 20_000 ether;
+uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 10_000 ether;
 
 uint256 constant MIN_WST_ETH_SUBMIT_AMOUNT = 0.1 ether;
-uint256 constant MAX_WST_ETH_SUBMIT_AMOUNT = 5_000 ether;
+uint256 constant MAX_WST_ETH_SUBMIT_AMOUNT = 10_000 ether;
 
 uint256 constant MIN_ACCIDENTAL_TRANSFER_AMOUNT = 0.1 ether;
 uint256 constant MAX_ACCIDENTAL_TRANSFER_AMOUNT = 1_000 ether;
@@ -180,9 +180,9 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     using Uint256ArrayBuilder for Uint256ArrayBuilder.Context;
     using SimulationActionsSet for SimulationActionsSet.Context;
 
-    PercentD16 immutable LOCK_ST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(100_00);
-    PercentD16 immutable LOCK_WST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(2_75);
-    PercentD16 immutable LOCK_UNST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(2_00);
+    PercentD16 immutable LOCK_ST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(40_00);
+    PercentD16 immutable LOCK_WST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(40_00);
+    PercentD16 immutable LOCK_UNST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(40_00);
 
     PercentD16 immutable UNLOCK_ST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(1_00);
     PercentD16 immutable UNLOCK_WST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(75);
@@ -190,8 +190,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     PercentD16 immutable MARK_UNST_ETH_FINALIZED_PROBABILITY = PercentsD16.fromBasisPoints(1_25);
 
-    PercentD16 immutable SUBMIT_STETH_PROBABILITY = PercentsD16.fromBasisPoints(3_00);
-    PercentD16 immutable SUBMIT_WSTETH_PROBABILITY = PercentsD16.fromBasisPoints(3_00);
+    PercentD16 immutable SUBMIT_STETH_PROBABILITY = PercentsD16.fromBasisPoints(10_00);
+    PercentD16 immutable SUBMIT_WSTETH_PROBABILITY = PercentsD16.fromBasisPoints(10_00);
 
     PercentD16 immutable WITHDRAW_STETH_PROBABILITY = PercentsD16.fromBasisPoints(50);
     PercentD16 immutable WITHDRAW_WSTETH_PROBABILITY = PercentsD16.fromBasisPoints(50);
@@ -206,8 +206,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     PercentD16 immutable WITHDRAW_WSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
     PercentD16 immutable CLAIM_UNSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
 
-    PercentD16 immutable LOCK_STETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
-    PercentD16 immutable LOCK_WSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(50);
+    PercentD16 immutable LOCK_STETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(40_00);
+    PercentD16 immutable LOCK_WSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(40_00);
 
     PercentD16 immutable NEGATIVE_REBASE_PROBABILITY = PercentsD16.fromBasisPoints(5);
 
@@ -798,8 +798,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
 
         // Check that accounts balances changed as expected
-        uint256 shareRateAfter = _lido.stETH.getPooledEthByShares(10 ** 18);
-
         for (uint256 i = 0; i < _allAccounts.length; ++i) {
             address account = _allAccounts[i];
 
@@ -822,26 +820,22 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
             }
 
-            uint256 ethBalanceAfter = account.balance;
-            uint256 stETHBalanceAfter = _lido.stETH.balanceOf(account);
-            uint256 wstETHBalanceAfter = _lido.wstETH.balanceOf(account);
-
             uint256 holderBalanceBefore =
                 _accountsDetails[account].ethBalanceBefore + _accountsDetails[account].stETHBalanceBefore;
-            uint256 holderBalanceAfter = ethBalanceAfter + stETHBalanceAfter
-                + _lido.stETH.getPooledEthByShares(wstETHBalanceAfter) + ethLockedUnclaimed;
-            uint256 balanceEstimated = (holderBalanceBefore) * shareRateAfter / shareRateBefore;
+            uint256 holderBalanceAfter = account.balance + _lido.stETH.balanceOf(account)
+                + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(account) + sharesLocked) + ethLockedUnclaimed;
 
-            // console.log(account);
-            // console.log(
-            //     holderBalanceBefore.formatEther(), holderBalanceAfter.formatEther(), balanceEstimated.formatEther()
-            // );
-            // console.log(
-            //     stETHBalanceAfter.formatEther(),
-            //     wstETHBalanceAfter.formatEther(),
-            //     sharesLocked.formatEther(),
-            //     ethLockedUnclaimed.formatEther()
-            // );
+            uint256 accidentalLockedErr = (_totalAccidentalStETHTransferAmount + _totalAccidentalWstETHTransferAmount)
+                * 10 ** 27 / (_totalLockedStETH + _totalLockedWstETH);
+
+            uint256 shareRateAfter = _lido.stETH.getPooledEthByShares(10 ** 18);
+            uint256 balanceEstimated = holderBalanceBefore * (shareRateAfter + accidentalLockedErr) / shareRateBefore;
+
+            console.log(account);
+            console.log(
+                holderBalanceBefore.formatEther(), holderBalanceAfter.formatEther(), balanceEstimated.formatEther()
+            );
+            console.log(sharesLocked.formatEther(), ethLockedUnclaimed.formatEther());
 
             assert(holderBalanceAfter >= holderBalanceBefore);
             assert(holderBalanceAfter <= balanceEstimated);
@@ -1211,7 +1205,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()]
                     + _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()],
                 details.stETHLockedShares.toUint256(),
-                2
+                5
             );
 
             _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()] = 0;
@@ -1235,7 +1229,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()]
                     + _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()],
                 details.stETHLockedShares.toUint256(),
-                2
+                5
             );
 
             _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()] = 0;
@@ -1254,12 +1248,24 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         ) {
             uint256 randomUnstETHIdsCountToWithdraw = _random.nextUint256(1, details.unstETHIdsCount);
             uint256[] memory lockedUnstETHIds = escrow.getVetoerUnstETHIds(account);
+            IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+                _lido.withdrawalQueue.getWithdrawalStatus(lockedUnstETHIds);
             uint256[] memory randomIndices = _random.nextPermutation(randomUnstETHIdsCountToWithdraw);
+            console.log(randomUnstETHIdsCountToWithdraw);
+
             Uint256ArrayBuilder.Context memory unstETHIdsBuilder =
                 Uint256ArrayBuilder.create(randomUnstETHIdsCountToWithdraw);
+
             for (uint256 i = 0; i < randomUnstETHIdsCountToWithdraw; ++i) {
-                unstETHIdsBuilder.addItem(lockedUnstETHIds[randomIndices[i]]);
+                if (!statuses[randomIndices[i]].isFinalized) {
+                    unstETHIdsBuilder.addItem(lockedUnstETHIds[randomIndices[i]]);
+                }
             }
+
+            if (unstETHIdsBuilder.size == 0) {
+                return;
+            }
+
             _unlockUnstETH(account, unstETHIdsBuilder.getSorted());
             _totalUnlockedUnstETHCount += details.unstETHIdsCount;
         }

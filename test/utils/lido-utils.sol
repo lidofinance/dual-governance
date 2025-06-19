@@ -27,8 +27,6 @@ import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
 import {CallsScriptBuilder} from "scripts/utils/CallsScriptBuilder.sol";
 import {DecimalsFormatting} from "test/utils/formatting.sol";
 
-uint256 constant ST_ETH_TRANSFERS_SHARE_LOSS_COMPENSATION = 8; // TODO: evaluate min enough value
-
 // ---
 // Mainnet Addresses
 // ---
@@ -347,9 +345,13 @@ library LidoUtils {
 
         console.log("Share Rate Before: %s", shareRateBefore.formatRay());
         console.log("Share Rate After: %s", shareRateAfter.formatRay());
+
+        uint256 rebaseRate = shareRateAfter * 10 ** 27 / shareRateBefore;
+        uint256 rebaseExpected = PercentD16.unwrap(rebaseFactor) * 1 gwei;
         console.log("--------");
 
-        // TODO: implement sanity checks based on resulting share rate
+        // Difference between rebaseExpected and rebaseRate should be less than +/- 0.002%
+        assert(10_000 ether + rebaseExpected - rebaseRate < 2 * 10_000 ether);
     }
 
     function _sweepBufferedEther(Context memory self) internal returns (uint256 clBalance) {
