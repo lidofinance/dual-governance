@@ -31,6 +31,8 @@ import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 
 import {ISealable} from "test/utils/interfaces/ISealable.sol";
 
+import {UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
+
 import {
     ContractsDeployment,
     TGSetupDeployConfig,
@@ -572,7 +574,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         return _dgDeployedContracts.dualGovernance.cancelAllPendingProposals();
     }
 
-    function _getProposalsCanceller() internal returns (address) {
+    function _getProposalsCanceller() internal view returns (address) {
         return _dgDeployedContracts.dualGovernance.getProposalsCanceller();
     }
 
@@ -852,11 +854,20 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsBefore =
             escrow.getSignallingEscrowDetails();
 
-        uint256 unstETHTotalSharesUnlocked = 0;
+        uint256 unstETHTotalUnfinalizedSharesUnlocked = 0;
+        uint256 unstETHTotalFinalizedSharesUnlocked = 0;
+
         IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
             _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+
+        ISignallingEscrow.LockedUnstETHDetails[] memory lockedUnstETHDetails =
+            escrow.getLockedUnstETHDetails(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            unstETHTotalSharesUnlocked += statuses[i].amountOfShares;
+            if (lockedUnstETHDetails[i].status == UnstETHRecordStatus.Locked) {
+                unstETHTotalUnfinalizedSharesUnlocked += statuses[i].amountOfShares;
+            } else if (lockedUnstETHDetails[i].status == UnstETHRecordStatus.Finalized) {
+                unstETHTotalFinalizedSharesUnlocked += statuses[i].amountOfShares;
+            }
         }
 
         vm.startPrank(vetoer);
@@ -870,12 +881,16 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
         assertEq(vetoerDetailsAfter.unstETHIdsCount, vetoerDetailsBefore.unstETHIdsCount - unstETHIds.length);
 
-        // TODO: implement correct assert. It must consider was unstETH finalized or not
         ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsAfter =
             escrow.getSignallingEscrowDetails();
         assertEq(
             signallingEscrowDetailsAfter.totalUnstETHUnfinalizedShares.toUint256(),
-            signallingEscrowDetailsBefore.totalUnstETHUnfinalizedShares.toUint256() - unstETHTotalSharesUnlocked
+            signallingEscrowDetailsBefore.totalUnstETHUnfinalizedShares.toUint256()
+                - unstETHTotalUnfinalizedSharesUnlocked
+        );
+        assertEq(
+            signallingEscrowDetailsAfter.totalUnstETHFinalizedETH.toUint256(),
+            signallingEscrowDetailsBefore.totalUnstETHFinalizedETH.toUint256() - unstETHTotalFinalizedSharesUnlocked
         );
     }
 

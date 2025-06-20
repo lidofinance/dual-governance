@@ -380,7 +380,7 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
                 if (!rqEscrow.isWithdrawalsBatchesClosed()) {
                     rqEscrow.requestNextWithdrawalsBatch(batchSizeLimit);
                 }
-                if (self.withdrawalQueue.getLastRequestId() > self.withdrawalQueue.getLastFinalizedRequestId()) {
+                if (_lido.withdrawalQueue.getLastRequestId() > _lido.withdrawalQueue.getLastFinalizedRequestId()) {
                     _finalizeWithdrawalQueue();
                 }
                 if (rqEscrow.getUnclaimedUnstETHIdsCount() == 0) {

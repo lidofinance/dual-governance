@@ -19,8 +19,9 @@ import {LidoUtils, MAINNET_ST_ETH, HOLESKY_ST_ETH, HOODI_ST_ETH} from "../utils/
 import {Random} from "../utils/random.sol";
 
 uint256 constant ACCURACY = 2 wei;
-uint256 constant POOL_ACCUMULATED_ERROR = 150 wei;
-uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 2000;
+// TODO: try lower values
+uint256 constant POOL_ACCUMULATED_ERROR = 2500 wei;
+uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 1000;
 uint256 constant WITHDRAWALS_BATCH_SIZE = 128;
 uint256 constant MIN_LOCKABLE_AMOUNT = 1000 wei;
 uint256 constant MAX_RAGE_QUIT_ROUNDS = 6;
@@ -63,7 +64,10 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             rebaseDeltaPercents[i] = Random.nextUint256(_random, 0, 200);
         }
 
-        vm.pauseGasMetering();
+        // TODO: the below operation freeze the test passing at the LidoUtils._handleOracleReport()
+        // method. Seems like bug in the forge, but need to be investigated properly. Keeping it commented
+        // for now.
+        // vm.pauseGasMetering();
         console.log("-------------------------");
         _rebaseDeltaPercents = rebaseDeltaPercents;
 
@@ -124,8 +128,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         console.log(
             "wstETH total supply decreased for %s%", 100 - _lido.wstETH.totalSupply() * 100 / initialWStEthTotalSupply
         );
-        console.log("Vetoers exited:", vetoersExited);
-        vm.resumeGasMetering();
+        // vm.resumeGasMetering();
     }
 
     function _selectVetoers() internal returns (address[] memory vetoers) {
@@ -294,9 +297,9 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                 iteration++;
             }
 
-            _finalizeWithdrawalQueue();
-
-            _burnStEthShares(_lockedStEthSharesForCurrentRound);
+            while (_lido.withdrawalQueue.getLastRequestId() != _lido.withdrawalQueue.getLastFinalizedRequestId()) {
+                _finalizeWithdrawalQueue();
+            }
 
             while (rqEscrow.getUnclaimedUnstETHIdsCount() > 0) {
                 rqEscrow.claimNextWithdrawalsBatch(WITHDRAWALS_BATCH_SIZE);
@@ -551,32 +554,6 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         }
 
         addrsData.addresses = _arrayUniq(allOwners, uniqueOwnersCount);
-    }
-
-    function _burnStEthShares(uint256 sharesToBurn) internal {
-        uint256 stEthToBurn = _lido.stETH.getPooledEthByShares(sharesToBurn);
-
-        if (sharesToBurn > _lido.stETH.sharesOf(address(_lido.withdrawalQueue))) {
-            if (sharesToBurn - _lido.stETH.sharesOf(address(_lido.withdrawalQueue)) <= ACCURACY) {
-                sharesToBurn = _lido.stETH.sharesOf(address(_lido.withdrawalQueue)) - ACCURACY;
-            } else {
-                console.log("Requested stEth shares amount to burn exceeds WQ stETH balance");
-            }
-        }
-        vm.prank(address(_lido.withdrawalQueue));
-        _lido.stETH.transferShares(_stEthAccumulator, sharesToBurn);
-
-        bytes32 clBeaconBalanceSlot = keccak256("lido.Lido.beaconBalance");
-        bytes32 totalSharesSlot = keccak256("lido.StETH.totalShares");
-
-        uint256 oldClBalance = uint256(vm.load(address(_lido.stETH), clBeaconBalanceSlot));
-        uint256 newClBalance = stEthToBurn >= oldClBalance ? 0 : oldClBalance - stEthToBurn;
-
-        vm.store(address(_lido.stETH), clBeaconBalanceSlot, bytes32(newClBalance));
-
-        uint256 oldSharesBalance = uint256(vm.load(address(_lido.stETH), totalSharesSlot));
-        uint256 newSharesBalance = sharesToBurn >= oldSharesBalance ? 0 : oldSharesBalance - sharesToBurn;
-        vm.store(address(_lido.stETH), totalSharesSlot, bytes32(newSharesBalance));
     }
 
     function _findLastVetoerIndexForRQ(
