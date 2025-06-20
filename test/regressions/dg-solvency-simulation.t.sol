@@ -481,9 +481,9 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                             Escrow(payable(address(_dgDeployedContracts.dualGovernance.getRageQuitEscrow())))
                         );
 
-                        Escrow newSignallingEscrow =
+                        vetoSignallingEscrow =
                             Escrow(payable(address(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow())));
-                        _escrowDetails[newSignallingEscrow] = newSignallingEscrow.getSignallingEscrowDetails();
+                        _escrowDetails[vetoSignallingEscrow] = vetoSignallingEscrow.getSignallingEscrowDetails();
                     }
                     currentDGState = effectiveDGState;
                 }
@@ -818,30 +818,42 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         for (uint256 i = 0; i < _allAccounts.length; ++i) {
             address account = _allAccounts[i];
 
-            uint256 sharesLocked;
-            for (uint256 j = 0; j < _rageQuitEscrows.length; ++j) {
-                Escrow escrow = _rageQuitEscrows[j];
-                Escrow.VetoerDetails memory vetoerDetails = escrow.getVetoerDetails(account);
-                sharesLocked += vetoerDetails.stETHLockedShares.toUint256();
-            }
-
-            sharesLocked += _getVetoSignallingEscrow().getVetoerDetails(account).stETHLockedShares.toUint256();
+            uint256 ethLockedUnclaimed = 0;
+            uint256 sharesLockedInEscrows = 0;
 
             IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalStatuses =
                 _lido.withdrawalQueue.getWithdrawalStatus(_accountsDetails[account].unstETHIdsRequested);
 
-            uint256 ethLockedUnclaimed = 0;
+            // Check unclaimed withdrawal requests
             for (uint256 j = 0; j < withdrawalStatuses.length; ++j) {
-                if (!withdrawalStatuses[j].isClaimed) {
+                if (!withdrawalStatuses[j].isClaimed && withdrawalStatuses[j].owner == account) {
                     ethLockedUnclaimed += withdrawalStatuses[j].amountOfStETH;
                 }
+            }
+
+            // Check locked shares in all rage quit escrows
+            for (uint256 j = 0; j < _rageQuitEscrows.length; ++j) {
+                (uint256 sharesLocked, uint256 unstETHUnclaimed) =
+                    _calculateLockedSharesAndUnstETHInEscrow(_rageQuitEscrows[j], account);
+
+                ethLockedUnclaimed += unstETHUnclaimed;
+                sharesLockedInEscrows += sharesLocked;
+            }
+
+            // Check locked shares in veto signalling escrow
+            {
+                (uint256 sharesLocked, uint256 unstETHUnclaimed) =
+                    _calculateLockedSharesAndUnstETHInEscrow(vetoSignallingEscrow, account);
+
+                ethLockedUnclaimed += unstETHUnclaimed;
+                sharesLockedInEscrows += sharesLocked;
             }
 
             uint256 holderBalanceBefore =
                 _accountsDetails[account].ethBalanceBefore + _accountsDetails[account].stETHBalanceBefore;
             uint256 holderBalanceAfter = account.balance + _lido.stETH.balanceOf(account)
-                + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(account) + sharesLocked) + ethLockedUnclaimed
-                + _accountsDetails[account].accidentalTransferETHAmount;
+                + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(account) + sharesLockedInEscrows)
+                + ethLockedUnclaimed + _accountsDetails[account].accidentalTransferETHAmount;
 
             uint256 accidentalLockedErr = (_totalAccidentalStETHTransferAmount + _totalAccidentalWstETHTransferAmount)
                 * 10 ** 18 / (_totalLockedStETH + _totalLockedWstETH);
@@ -849,26 +861,28 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             uint256 shareRateAfter = _lido.stETH.getPooledEthByShares(10 ** 18);
             uint256 balanceEstimated = holderBalanceBefore * (shareRateAfter + accidentalLockedErr) / shareRateBefore;
 
-            // console.log(account);
-            // console.log(account.balance, _lido.stETH.balanceOf(account), _lido.wstETH.balanceOf(account));
-            // for (uint256 j = 0; j < _rageQuitEscrows.length; ++j) {
-            //     Escrow escrow = _rageQuitEscrows[j];
-            //     Escrow.VetoerDetails memory vetoerDetails = escrow.getVetoerDetails(account);
-            //     console.log(
-            //         "RageQuit escrow %s. stETH locked shares: %s, unstETH locked count: %d",
-            //         address(escrow),
-            //         vetoerDetails.stETHLockedShares.toUint256().formatEther(),
-            //         vetoerDetails.unstETHIdsCount
-            //     );
-            // }
-            // console.log(
-            //     holderBalanceBefore.formatEther(), holderBalanceAfter.formatEther(), balanceEstimated.formatEther()
-            // );
-            // console.log(sharesLocked.formatEther(), ethLockedUnclaimed.formatEther());
-
-            // TODO: Fix underestimation of holder balance after simulation
-            // assert(holderBalanceAfter >= holderBalanceBefore);
+            assert(holderBalanceAfter >= holderBalanceBefore);
             assert(holderBalanceAfter <= balanceEstimated);
+        }
+    }
+
+    function _calculateLockedSharesAndUnstETHInEscrow(
+        Escrow escrow,
+        address account
+    ) internal view returns (uint256 sharesLocked, uint256 unstETHUnclaimed) {
+        Escrow.VetoerDetails memory vetoerDetails = escrow.getVetoerDetails(account);
+        sharesLocked = vetoerDetails.stETHLockedShares.toUint256();
+
+        uint256[] memory unstETHIds = escrow.getVetoerUnstETHIds(account);
+
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalStatuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+        Escrow.LockedUnstETHDetails[] memory unstETHDetails = escrow.getLockedUnstETHDetails(unstETHIds);
+
+        for (uint256 i = 0; i < unstETHDetails.length; ++i) {
+            if (unstETHDetails[i].status != UnstETHRecordStatus.Withdrawn) {
+                unstETHUnclaimed += withdrawalStatuses[i].amountOfStETH;
+            }
         }
     }
 
@@ -1070,13 +1084,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             }
 
             lockAmount = Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT);
-
-            console.log(
-                "Account %s locking %s stETH in signalling escrow",
-                account,
-                lockAmount.formatEther(),
-                balance.formatEther()
-            );
 
             _lockStETH(account, lockAmount);
             _totalLockedStETH += lockAmount;
