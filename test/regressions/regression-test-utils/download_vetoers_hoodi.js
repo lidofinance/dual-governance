@@ -1,20 +1,20 @@
 const { blockscoutDownloadTokenHolders } = require('./blockscout_download_token_holders');
 
-const NETWORK_NAME = "mainnet";
-const FILENAME_PREFIX = "";
+const NETWORK_NAME = "hoodi";
+const FILENAME_PREFIX = "hoodi_";
 
-const ST_ETH_ADDRESS = "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84";
+const ST_ETH_ADDRESS = "0x3508A952176b3c15387C97BE809eaffB1982176a";
 const ST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 3;
-const ST_ETH_HOLDERS_CHUNK_ADDRESSES_AMOUNT = 1000;
+const ST_ETH_HOLDERS_CHUNK_ADDRESSES_AMOUNT = 10000;
 const ST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}steth_vetoers.json`;
 const ST_ETH_HOLDERS_EXCLUDE_ADDRESSES = new Set([
-    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0".toLowerCase(), // WstETH
-    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1".toLowerCase(), // WithdrawalQueue
-    "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c".toLowerCase(), // Aragon Agent
+    "0x7E99eE3C66636DE415D2d7C880938F2f40f94De4".toLowerCase(), // WstETH
+    "0xfe56573178f1bcdf53F01A6E9977670dcBBD9186".toLowerCase(), // WithdrawalQueue
+    "0x0534aA41907c9631fae990960bCC72d75fA7cfeD".toLowerCase(), // Aragon Agent
 ]);
-const ST_ETH_TOTAL_SUPPLY_PERCENTAGE = 35; // Currently WstETH contract holds approximately 47% of StEth, so no need to collect this 47% of WstEth (StEth) holders.
+const ST_ETH_TOTAL_SUPPLY_PERCENTAGE = 50;
 
-const WST_ETH_ADDRESS = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0";
+const WST_ETH_ADDRESS = "0x7E99eE3C66636DE415D2d7C880938F2f40f94De4";
 const WST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 1;
 const WST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}wsteth_vetoers.json`;
 

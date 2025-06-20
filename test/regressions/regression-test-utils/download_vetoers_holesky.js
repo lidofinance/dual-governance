@@ -1,20 +1,20 @@
 const { blockscoutDownloadTokenHolders } = require('./blockscout_download_token_holders');
 
-const NETWORK_NAME = "mainnet";
-const FILENAME_PREFIX = "";
+const NETWORK_NAME = "holesky";
+const FILENAME_PREFIX = "holesky_";
 
-const ST_ETH_ADDRESS = "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84";
+const ST_ETH_ADDRESS = "0x3F1c547b21f65e10480dE3ad8E19fAAC46C95034";
 const ST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 3;
-const ST_ETH_HOLDERS_CHUNK_ADDRESSES_AMOUNT = 1000;
+const ST_ETH_HOLDERS_CHUNK_ADDRESSES_AMOUNT = 10000;
 const ST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}steth_vetoers.json`;
 const ST_ETH_HOLDERS_EXCLUDE_ADDRESSES = new Set([
-    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0".toLowerCase(), // WstETH
-    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1".toLowerCase(), // WithdrawalQueue
-    "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c".toLowerCase(), // Aragon Agent
+    "0x8d09a4502Cc8Cf1547aD300E066060D043f6982D".toLowerCase(), // WstETH
+    "0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50".toLowerCase(), // WithdrawalQueue
+    "0xE92329EC7ddB11D25e25b3c21eeBf11f15eB325d".toLowerCase(), // Aragon Agent
 ]);
-const ST_ETH_TOTAL_SUPPLY_PERCENTAGE = 35; // Currently WstETH contract holds approximately 47% of StEth, so no need to collect this 47% of WstEth (StEth) holders.
+const ST_ETH_TOTAL_SUPPLY_PERCENTAGE = 50;
 
-const WST_ETH_ADDRESS = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0";
+const WST_ETH_ADDRESS = "0x8d09a4502Cc8Cf1547aD300E066060D043f6982D";
 const WST_ETH_HOLDERS_LOAD_CHUNKS_COUNT = 1;
 const WST_ETH_HOLDERS_FILE_NAME = `../complete-rage-quit-files/${FILENAME_PREFIX}wsteth_vetoers.json`;
 
@@ -23,7 +23,7 @@ async function main() {
     console.log(`This script downloads the addresses of StEth holders having approximately 50% of StEth and the first
 300 WStEth and UnStEth holders at the current block of network ${NETWORK_NAME} from Blockscout and saves it to the files 
 "${FILENAME_PREFIX}steth_vetoers.json", "${FILENAME_PREFIX}wsteth_vetoers.json" and "${FILENAME_PREFIX}unsteth_vetoers.json" 
-appropriately that is intended for use in 4-Rounds-RageQuit regression test. After updating the StEth/WStEth holders' data files 
+appropriately that is intended for use in 4-Rounds-RageQuit regression test. After updating the StEth/WStEth holders' data files
 don't forget to update the env variable FORK_BLOCK_NUMBER with the actual block number before running the regression test.`);
     console.log("---------------------------------------------------------------------------------------");
     console.log("Downloading StETH holders");
@@ -48,6 +48,7 @@ don't forget to update the env variable FORK_BLOCK_NUMBER with the actual block 
         WST_ETH_HOLDERS_FILE_NAME,
         undefined
     );
+
 
     console.log("---------------------------------------------------------------------------------------");
 }
