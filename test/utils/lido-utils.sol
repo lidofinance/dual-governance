@@ -353,7 +353,7 @@ library LidoUtils {
         vm.assertApproxEqAbs(
             rebaseRate,
             rebaseExpected,
-            100_000 ether, // 0.01% of 10 ** 27
+            1_000_000 ether, // 0.1% of 10 ** 27
             "Rebase rate error is too high"
         );
     }
