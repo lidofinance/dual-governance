@@ -346,14 +346,13 @@ library LidoUtils {
         console.log("Share Rate Before: %s", shareRateBefore.formatRay());
         console.log("Share Rate After: %s", shareRateAfter.formatRay());
 
-        uint256 rebaseRate = shareRateAfter * 10 ** 27 / shareRateBefore;
-        uint256 rebaseExpected = PercentD16.unwrap(rebaseFactor) * 10 ** 9;
-        console.log("--------");
+        PercentD16 rebaseRate = PercentsD16.fromFraction(shareRateAfter, shareRateBefore);
 
+        // TODO: try to decrease the error margin
         vm.assertApproxEqAbs(
-            rebaseRate,
-            rebaseExpected,
-            1_000_000 ether, // 0.1% of 10 ** 27
+            rebaseRate.toUint256(),
+            rebaseFactor.toUint256(),
+            PercentsD16.fromFraction(1, 10000).toUint256(), // 0.01% error margin
             "Rebase rate error is too high"
         );
     }
