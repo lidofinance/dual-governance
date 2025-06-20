@@ -3,6 +3,8 @@ pragma solidity 0.8.26;
 
 import {Vm} from "forge-std/Test.sol";
 
+import {PercentD16} from "contracts/types/PercentD16.sol";
+
 Vm constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
 library DecimalsFormatting {
@@ -12,6 +14,10 @@ library DecimalsFormatting {
 
     function formatRay(uint256 decimal) internal pure returns (string memory res) {
         return format(decimal, 27);
+    }
+
+    function format(PercentD16 percents) internal pure returns (string memory res) {
+        return string.concat(format(percents.toUint256(), 16), "%");
     }
 
     function format(uint256 decimal, uint256 precision) internal pure returns (string memory res) {

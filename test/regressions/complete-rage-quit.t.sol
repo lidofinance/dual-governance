@@ -17,6 +17,7 @@ import {
 } from "../utils/integration-tests.sol";
 import {LidoUtils, MAINNET_ST_ETH, HOLESKY_ST_ETH, HOODI_ST_ETH} from "../utils/lido-utils.sol";
 import {Random} from "../utils/random.sol";
+import {DecimalsFormatting} from "test/utils/formatting.sol";
 
 uint256 constant ACCURACY = 2 wei;
 // TODO: try lower values
@@ -25,6 +26,9 @@ uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 1000;
 uint256 constant WITHDRAWALS_BATCH_SIZE = 128;
 uint256 constant MIN_LOCKABLE_AMOUNT = 1000 wei;
 uint256 constant MAX_RAGE_QUIT_ROUNDS = 6;
+
+uint256 constant MIN_REBASE_BP = 99_90;
+uint256 constant MAX_REBASE_BP = 100_25;
 
 struct VetoersFile {
     address[] addresses;
@@ -38,6 +42,7 @@ enum VetoerTokenType {
 
 contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     using LidoUtils for LidoUtils.Context;
+    using DecimalsFormatting for PercentD16;
 
     address private _stEthAccumulator = makeAddr("stEthAccumulator");
     uint8 private _round = 1;
@@ -61,7 +66,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     function testFork_RageQuitExodus_HappyPath_MultipleRounds() external {
         uint256[] memory rebaseDeltaPercents = new uint256[](MAX_RAGE_QUIT_ROUNDS);
         for (uint256 i = 0; i < MAX_RAGE_QUIT_ROUNDS; ++i) {
-            rebaseDeltaPercents[i] = Random.nextUint256(_random, 0, 200);
+            rebaseDeltaPercents[i] = Random.nextUint256(_random, MIN_REBASE_BP, MAX_REBASE_BP);
         }
 
         // TODO: the below operation freeze the test passing at the LidoUtils._handleOracleReport()
@@ -122,11 +127,22 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         }
 
         console.log(
-            "stETH total supply decreased for %s%", 100 - _lido.stETH.totalSupply() * 100 / initialStEthTotalSupply
+            "stETH total supply decreased for %s",
+            (
+                PercentsD16.fromBasisPoints(100_00)
+                    - PercentsD16.fromFraction({numerator: _lido.stETH.totalSupply(), denominator: initialStEthTotalSupply})
+            ).format()
         );
         console.log("wstETH.totalSupply:", _lido.wstETH.totalSupply());
         console.log(
-            "wstETH total supply decreased for %s%", 100 - _lido.wstETH.totalSupply() * 100 / initialWStEthTotalSupply
+            "wstETH total supply decreased for %s",
+            (
+                PercentsD16.fromBasisPoints(100_00)
+                    - PercentsD16.fromFraction({
+                        numerator: _lido.wstETH.totalSupply(),
+                        denominator: initialWStEthTotalSupply
+                    })
+            ).format()
         );
         // vm.resumeGasMetering();
     }
@@ -265,19 +281,14 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
 
             _assertRageQuitState();
 
-            uint256 rebaseDeltaPercent = _rebaseDeltaPercents[_round - 1] % 200; // -1% ... +1%
-            uint256 relativePercentDelta = rebaseDeltaPercent > 50 ? rebaseDeltaPercent - 50 : 50 - rebaseDeltaPercent;
-            console.log(
-                "Rebase happened %s%s.%s%%",
-                rebaseDeltaPercent > 50 ? "+" : "-",
-                relativePercentDelta / 100,
-                relativePercentDelta % 100
-            );
-            PercentD16 rebasePercent = PercentsD16.fromBasisPoints(99_50 + rebaseDeltaPercent);
+            PercentD16 rebasePercent = PercentsD16.fromBasisPoints(_rebaseDeltaPercents[_round - 1]);
+            console.log("Rebase happened: %s", rebasePercent.format());
+
             _simulateRebase(rebasePercent);
             _assertRageQuitState();
         }
 
+        uint256 beforeFinalizationShareRate = _lido.stETH.getPooledEthByShares(10 ** 27);
         _stepMsg("5. Claiming withdrawals.");
         {
             IRageQuitEscrow rqEscrow = _getRageQuitEscrow();
@@ -335,39 +346,40 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                     assertApproxEqAbs(_lido.stETH.balanceOf(vetoers[i]), 0, MIN_LOCKABLE_AMOUNT + ACCURACY);
                     assertLe(_lido.wstETH.getStETHByWstETH(_lido.wstETH.balanceOf(vetoers[i])), MIN_LOCKABLE_AMOUNT);
 
-                    // This check fails sometimes on Hoodi/Holesky, the reason is unknown. Replaced it temporarily with the less strict check and added a log message.
-                    // TODO: restore the check when the proper stEth burning procedure from the dg-solvency-simulation branch is merged
-                    /* assertApproxEqAbs(
-                        vetoers[i].balance,
-                        vetoersBalancesBefore[i] + _lido.stETH.getPooledEthByShares(vetoersStEthSharesBefore[i]),
-                        ACCURACY + POOL_ACCUMULATED_ERROR,
-                        "Check for ETH amount returned to vetoer failed. Try to increase delta(POOL_ACCUMULATED_ERROR) value"
-                    ); */
+                    // Calculating balance using share rate before the finalization of the requests. During request finalization
+                    // share rate may change a bit, what will lead to diff in balance if StETH.getPooledEthByShares() will be used
+                    uint256 expectedVetoerBalance =
+                        vetoersBalancesBefore[i] + beforeFinalizationShareRate * vetoersStEthSharesBefore[i] / 10 ** 27;
+
+                    // This check will fail for unstETH holders, because once they deposit their stETH into the WithdrawalQueue,
+                    // it stops receiving rewards. Therefore, balance checks for such users should be handled
+                    // separately (using WithdrawalRequestStatus.amountOfStETH).
+                    //
+                    // TODO: Implement a standalone balance check for unstETH holders.
+                    // assertApproxEqAbs(
+                    //     vetoers[i].balance,
+                    //     expectedVetoerBalance,
+                    //     ACCURACY + POOL_ACCUMULATED_ERROR,
+                    //     "Check for ETH amount returned to vetoer failed. Try to increase delta(POOL_ACCUMULATED_ERROR) value"
+                    // );
 
                     assertGe(vetoers[i].balance, vetoersBalancesBefore[i]);
 
-                    if (
-                        vetoers[i].balance
-                            > vetoersBalancesBefore[i] + _lido.stETH.getPooledEthByShares(vetoersStEthSharesBefore[i])
-                                + ACCURACY + POOL_ACCUMULATED_ERROR
-                    ) {
+                    if (vetoers[i].balance > expectedVetoerBalance + ACCURACY + POOL_ACCUMULATED_ERROR) {
                         console.log(
                             "ETH amount (%s) returned to vetoer %s is greater than expected (%s). Consider increasing delta(POOL_ACCUMULATED_ERROR) value",
                             vetoers[i].balance - vetoersBalancesBefore[i],
                             vetoers[i],
-                            _lido.stETH.getPooledEthByShares(vetoersStEthSharesBefore[i])
+                            expectedVetoerBalance
                         );
                     }
 
-                    if (
-                        vetoers[i].balance + ACCURACY + POOL_ACCUMULATED_ERROR
-                            < vetoersBalancesBefore[i] + _lido.stETH.getPooledEthByShares(vetoersStEthSharesBefore[i])
-                    ) {
+                    if (vetoers[i].balance + ACCURACY + POOL_ACCUMULATED_ERROR < expectedVetoerBalance) {
                         console.log(
                             "ETH amount (%s) returned to vetoer %s is lower than expected (%s).",
                             vetoers[i].balance - vetoersBalancesBefore[i],
                             vetoers[i],
-                            _lido.stETH.getPooledEthByShares(vetoersStEthSharesBefore[i])
+                            expectedVetoerBalance
                         );
                     }
                 }
