@@ -6,7 +6,17 @@ import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
 import {DGRegressionTestSetup} from "../utils/integration-tests.sol";
 
+import {CallsScriptBuilder} from "scripts/utils/CallsScriptBuilder.sol";
+import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
+import {LidoUtils} from "test/utils/lido-utils.sol";
+
+import {IACL} from "scripts/launch/interfaces/IACL.sol";
+
 contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+    using CallsScriptBuilder for CallsScriptBuilder.Context;
+    using LidoUtils for LidoUtils.Context;
+
     function setUp() external {
         _loadOrDeployDGSetup();
     }
@@ -14,8 +24,40 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
     function testFork_EmergencyReset_HappyPath() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
+        _step("1. Check and setup permissions");
+        {
+            if (
+                !_lido.acl.hasPermission(
+                    address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                )
+            ) {
+                vm.startPrank(address(_lido.voting));
+                _lido.acl.grantPermission(
+                    address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                );
+                _lido.acl.revokePermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE());
+                _lido.acl.setPermissionManager(
+                    address(_lido.agent), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                );
+                vm.stopPrank();
+            }
+
+            assertTrue(
+                _lido.acl.hasPermission(
+                    address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                )
+            );
+            assertFalse(
+                _lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+            );
+            assertEq(
+                _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()),
+                address(_lido.agent)
+            );
+        }
+
         uint256 proposalId;
-        _step("1. The proposal is submitted");
+        _step("2. The proposal is submitted");
         {
             proposalId =
                 _submitProposalByAdminProposer(regularStaffCalls, "Propose to doSmth on target passing dual governance");
@@ -25,7 +67,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             _assertCanSchedule(proposalId, false);
         }
 
-        _step("2. The proposal is scheduled");
+        _step("3. The proposal is scheduled");
         {
             // wait until the delay has passed
             _wait(_getAfterSubmitDelay().plusSeconds(1));
@@ -41,7 +83,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             _assertCanExecute(proposalId, false);
         }
 
-        _step("3. Emergency mode activated & governance reset");
+        _step("4. Emergency mode activated & governance reset");
         {
             // some time passes and emergency committee activates emergency mode
             // and resets the controller
@@ -57,6 +99,75 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             // remove cancelled call from the timelock
             _assertCanExecute(proposalId, false);
             _assertProposalCancelled(proposalId);
+        }
+        _step("5. DAO transfers RUN_SCRIPT_ROLE on Aragon Agent to DAO Voting");
+        {
+            ExternalCallsBuilder.Context memory dgProposalCallsBuilder = ExternalCallsBuilder.create(2);
+            dgProposalCallsBuilder.addForwardCall(
+                address(_lido.agent),
+                address(_lido.acl),
+                abi.encodeCall(
+                    IACL.grantPermission, (address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+                )
+            );
+
+            dgProposalCallsBuilder.addForwardCall(
+                address(_lido.agent),
+                address(_lido.acl),
+                abi.encodeCall(
+                    IACL.revokePermission,
+                    (address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+                )
+            );
+
+            CallsScriptBuilder.Context memory voteWithProposal = CallsScriptBuilder.create(
+                address(_timelock.getGovernance()),
+                abi.encodeCall(
+                    _dgDeployedContracts.dualGovernance.submitProposal,
+                    (dgProposalCallsBuilder.getResult(), "Proposal to grant RUN_SCRIPT_ROLE to DAO Voting")
+                )
+            );
+
+            uint256 voteId =
+                _lido.adoptVote("Proposal to grant RUN_SCRIPT_ROLE to DAO Voting", voteWithProposal.getResult());
+
+            _lido.executeVote(voteId);
+
+            proposalId = _dgDeployedContracts.timelock.getProposalsCount();
+
+            _wait(_getAfterSubmitDelay());
+
+            _scheduleProposal(proposalId);
+
+            _assertProposalScheduled(proposalId);
+
+            _wait(_getAfterScheduleDelay());
+
+            _assertCanExecute(proposalId, true);
+
+            _executeProposal(proposalId);
+
+            _assertProposalExecuted(proposalId);
+
+            assertTrue(
+                _lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+            );
+        }
+
+        _step("6. Check RUN_SCRIPT_ROLE has been transferred to DAO Voting");
+        {
+            assertTrue(
+                _lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
+            );
+            assertFalse(
+                _lido.acl.hasPermission(
+                    address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                )
+            );
+            assertEq(
+                _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()),
+                address(_lido.agent)
+            );
         }
     }
 
