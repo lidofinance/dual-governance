@@ -335,9 +335,7 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
 
             _wait(_getVetoSignallingDeactivationMaxDuration().minusSeconds(12 seconds));
             _finalizeWithdrawalQueue();
-            _simulateRebase(PercentsD16.fromBasisPoints(101_00));
-            // TODO: Remove this step when the new simulation rebase logic will be merged
-            _burnStEth(totalLockedUnstETHAmount);
+            _simulateRebase(PercentsD16.fromBasisPoints(100_25));
 
             assertTrue(_getVetoSignallingEscrow().getRageQuitSupport() >= _getSecondSealRageQuitSupport());
         }
@@ -433,24 +431,5 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
 
     function externalMarkUnstETHFinalized(uint256[] memory unstETHIds, uint256[] memory hints) external {
         _getVetoSignallingEscrow().markUnstETHFinalized(unstETHIds, hints);
-    }
-
-    function _burnStEth(uint256 stEthToBurn) internal {
-        uint256 sharesToBurn = _lido.stETH.getSharesByPooledEth(stEthToBurn);
-
-        vm.prank(address(_lido.withdrawalQueue));
-        _lido.stETH.transfer(address(0xdead), stEthToBurn);
-
-        bytes32 clBeaconBalanceSlot = keccak256("lido.Lido.beaconBalance");
-        bytes32 totalSharesSlot = keccak256("lido.StETH.totalShares");
-
-        uint256 oldClBalance = uint256(vm.load(address(_lido.stETH), clBeaconBalanceSlot));
-        uint256 newClBalance = oldClBalance - stEthToBurn;
-
-        vm.store(address(_lido.stETH), clBeaconBalanceSlot, bytes32(newClBalance));
-
-        uint256 oldSharesBalance = uint256(vm.load(address(_lido.stETH), totalSharesSlot));
-        uint256 newSharesBalance = oldSharesBalance - sharesToBurn;
-        vm.store(address(_lido.stETH), totalSharesSlot, bytes32(newSharesBalance));
     }
 }
