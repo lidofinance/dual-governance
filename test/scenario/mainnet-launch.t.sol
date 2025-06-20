@@ -56,7 +56,7 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
     bytes32 internal CHANGE_BUDGETS_ROLE = keccak256("CHANGE_BUDGETS_ROLE");
 
     function setUp() external {
-        _deployDGSetup({isEmergencyProtectionEnabled: true, chainId: MAINNET_CHAIN_ID, grantRolesToResealManager: false});
+        _deployDGSetup({isEmergencyProtectionEnabled: true, chainId: MAINNET_CHAIN_ID});
 
         TimeConstraints timeConstraints = new TimeConstraints();
         DGLaunchStateVerifier launchVerifier = new DGLaunchStateVerifier(
