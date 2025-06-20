@@ -40,18 +40,18 @@ library Random {
     }
 
     function nextPermutation(Context storage self, uint256 size) internal returns (uint256[] memory res) {
-        return nextPermutation(self, 0, size);
+        return nextPermutation(self, size, 0);
     }
 
     function nextPermutation(
         Context storage self,
-        uint256 fromIndex,
-        uint256 size
+        uint256 size,
+        uint256 startItem
     ) internal returns (uint256[] memory res) {
         res = new uint256[](size);
 
-        for (uint256 i = fromIndex; i < fromIndex + size; ++i) {
-            res[i] = i;
+        for (uint256 i = 0; i < size; ++i) {
+            res[i] = startItem + i;
         }
 
         if (size == 1) {

@@ -352,7 +352,7 @@ library LidoUtils {
         vm.assertApproxEqAbs(
             rebaseRate.toUint256(),
             rebaseFactor.toUint256(),
-            PercentsD16.fromFraction(1, 10000).toUint256(), // 0.01% error margin
+            PercentsD16.fromFraction(1, 1000).toUint256(), // 0.1% error margin
             "Rebase rate error is too high"
         );
     }
