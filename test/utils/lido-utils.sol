@@ -347,11 +347,15 @@ library LidoUtils {
         console.log("Share Rate After: %s", shareRateAfter.formatRay());
 
         uint256 rebaseRate = shareRateAfter * 10 ** 27 / shareRateBefore;
-        uint256 rebaseExpected = PercentD16.unwrap(rebaseFactor) * 1 gwei;
+        uint256 rebaseExpected = PercentD16.unwrap(rebaseFactor) * 10 ** 9;
         console.log("--------");
 
-        // Difference between rebaseExpected and rebaseRate should be less than +/- 0.002%
-        assert(10_000 ether + rebaseExpected - rebaseRate < 2 * 10_000 ether);
+        vm.assertApproxEqAbs(
+            rebaseRate,
+            rebaseExpected,
+            100_000 ether, // 0.01% of 10 ** 27
+            "Rebase rate error is too high"
+        );
     }
 
     function _sweepBufferedEther(Context memory self) internal returns (uint256 clBalance) {

@@ -7,7 +7,7 @@ import {console} from "forge-std/console.sol";
 
 import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 import {State} from "contracts/libraries/EscrowState.sol";
-import {AssetsAccounting} from "contracts/libraries/AssetsAccounting.sol";
+import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 import {ExternalCall} from "contracts/libraries/ExecutableProposals.sol";
 import {Escrow} from "contracts/Escrow.sol";
 
@@ -249,7 +249,9 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
             this.external__unlockWstETH(_VETOER_2);
 
             vm.expectRevert(
-                abi.encodeWithSelector(AssetsAccounting.InvalidUnstETHHolder.selector, vetoer2UnstETHIds[0], _VETOER_2)
+                abi.encodeWithSelector(
+                    AssetsAccounting.InvalidUnstETHStatus.selector, vetoer2UnstETHIds[0], UnstETHRecordStatus.NotLocked
+                )
             );
             this.external__unlockUnstETH(_VETOER_2, vetoer2UnstETHIds);
 
