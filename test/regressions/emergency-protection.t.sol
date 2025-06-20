@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+/* solhint-disable no-console */
+
+import {console} from "forge-std/console.sol";
+
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
@@ -19,45 +23,38 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
 
     function setUp() external {
         _loadOrDeployDGSetup();
+
+        if (vm.envOr(string("GRANT_REQUIRED_PERMISSIONS"), false)) {
+            address agent = address(_lido.agent);
+            address voting = address(_lido.voting);
+            address adminExecutor = address(_dgDeployedContracts.adminExecutor);
+            bytes32 runScriptRole = _lido.agent.RUN_SCRIPT_ROLE();
+
+            if (!_lido.acl.hasPermission(adminExecutor, agent, runScriptRole)) {
+                vm.startPrank(voting);
+                {
+                    _lido.acl.grantPermission(adminExecutor, agent, runScriptRole);
+                    _lido.acl.revokePermission(voting, agent, runScriptRole);
+                    _lido.acl.setPermissionManager(agent, agent, runScriptRole);
+                }
+                vm.stopPrank();
+
+                assertEq(_lido.acl.getPermissionManager(agent, runScriptRole), agent);
+                assertTrue(_lido.acl.hasPermission(adminExecutor, agent, runScriptRole));
+                assertFalse(_lido.acl.hasPermission(voting, agent, runScriptRole));
+
+                console.log(unicode"⚠️ Permission 'Agent.RUN_SCRIPT_ROLE' was granted to the AdminExecutor");
+                console.log(unicode"⚠️ Permission 'Agent.RUN_SCRIPT_ROLE' was revoked from the Voting");
+                console.log(unicode"⚠️ Permission manager on 'Agent.RUN_SCRIPT_ROLE' was set to the Agent");
+            }
+        }
     }
 
     function testFork_EmergencyReset_HappyPath() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
 
-        _step("1. Check and setup permissions");
-        {
-            if (
-                !_lido.acl.hasPermission(
-                    address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
-                )
-            ) {
-                vm.startPrank(address(_lido.voting));
-                _lido.acl.grantPermission(
-                    address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
-                );
-                _lido.acl.revokePermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE());
-                _lido.acl.setPermissionManager(
-                    address(_lido.agent), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
-                );
-                vm.stopPrank();
-            }
-
-            assertTrue(
-                _lido.acl.hasPermission(
-                    address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
-                )
-            );
-            assertFalse(
-                _lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
-            );
-            assertEq(
-                _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()),
-                address(_lido.agent)
-            );
-        }
-
         uint256 proposalId;
-        _step("2. The proposal is submitted");
+        _step("1. The proposal is submitted");
         {
             proposalId =
                 _submitProposalByAdminProposer(regularStaffCalls, "Propose to doSmth on target passing dual governance");
@@ -67,7 +64,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             _assertCanSchedule(proposalId, false);
         }
 
-        _step("3. The proposal is scheduled");
+        _step("2. The proposal is scheduled");
         {
             // wait until the delay has passed
             _wait(_getAfterSubmitDelay().plusSeconds(1));
@@ -83,7 +80,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             _assertCanExecute(proposalId, false);
         }
 
-        _step("4. Emergency mode activated & governance reset");
+        _step("3. Emergency mode activated & governance reset");
         {
             // some time passes and emergency committee activates emergency mode
             // and resets the controller
@@ -100,7 +97,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             _assertCanExecute(proposalId, false);
             _assertProposalCancelled(proposalId);
         }
-        _step("5. DAO transfers RUN_SCRIPT_ROLE on Aragon Agent to DAO Voting");
+        _step("4. DAO transfers RUN_SCRIPT_ROLE on Aragon Agent to DAO Voting");
         {
             ExternalCallsBuilder.Context memory dgProposalCallsBuilder = ExternalCallsBuilder.create(2);
             dgProposalCallsBuilder.addForwardCall(
@@ -154,7 +151,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             );
         }
 
-        _step("6. Check RUN_SCRIPT_ROLE has been transferred to DAO Voting");
+        _step("5. Check RUN_SCRIPT_ROLE has been transferred to DAO Voting");
         {
             assertTrue(
                 _lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
