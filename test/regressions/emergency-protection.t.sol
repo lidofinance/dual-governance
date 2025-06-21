@@ -5,6 +5,7 @@ pragma solidity 0.8.26;
 
 import {console} from "forge-std/console.sol";
 
+import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 
@@ -97,31 +98,33 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             _assertCanExecute(proposalId, false);
             _assertProposalCancelled(proposalId);
         }
-        _step("4. DAO transfers RUN_SCRIPT_ROLE on Aragon Agent to DAO Voting");
+
+        address acl = address(_lido.acl);
+        address agent = address(_lido.agent);
+        address voting = address(_lido.voting);
+        address adminExecutor = address(_dgDeployedContracts.adminExecutor);
+
+        uint256 disconnectTimelockProposalId;
+        _step(
+            "4. DAO submits a proposal using Voting contract through TimelockedGovernance to the transfer Agent.RUN_SCRIPT_ROLE"
+        );
         {
-            ExternalCallsBuilder.Context memory dgProposalCallsBuilder = ExternalCallsBuilder.create(2);
-            dgProposalCallsBuilder.addForwardCall(
-                address(_lido.agent),
-                address(_lido.acl),
-                abi.encodeCall(
-                    IACL.grantPermission, (address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
-                )
+            IGovernance governance = IGovernance(_timelock.getGovernance());
+
+            ExternalCallsBuilder.Context memory proposalCallsBuilder = ExternalCallsBuilder.create(2);
+            proposalCallsBuilder.addForwardCall(
+                agent, acl, abi.encodeCall(IACL.grantPermission, (voting, agent, _lido.agent.RUN_SCRIPT_ROLE()))
             );
 
-            dgProposalCallsBuilder.addForwardCall(
-                address(_lido.agent),
-                address(_lido.acl),
-                abi.encodeCall(
-                    IACL.revokePermission,
-                    (address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
-                )
+            proposalCallsBuilder.addForwardCall(
+                agent, acl, abi.encodeCall(IACL.revokePermission, (adminExecutor, agent, _lido.agent.RUN_SCRIPT_ROLE()))
             );
 
             CallsScriptBuilder.Context memory voteWithProposal = CallsScriptBuilder.create(
-                address(_timelock.getGovernance()),
+                address(governance),
                 abi.encodeCall(
-                    _dgDeployedContracts.dualGovernance.submitProposal,
-                    (dgProposalCallsBuilder.getResult(), "Proposal to grant RUN_SCRIPT_ROLE to DAO Voting")
+                    governance.submitProposal,
+                    (proposalCallsBuilder.getResult(), "Proposal to grant RUN_SCRIPT_ROLE to DAO Voting")
                 )
             );
 
@@ -130,41 +133,29 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
 
             _lido.executeVote(voteId);
 
-            proposalId = _dgDeployedContracts.timelock.getProposalsCount();
+            disconnectTimelockProposalId = _dgDeployedContracts.timelock.getProposalsCount();
 
-            _wait(_getAfterSubmitDelay());
-
-            _scheduleProposal(proposalId);
-
-            _assertProposalScheduled(proposalId);
-
-            _wait(_getAfterScheduleDelay());
-
-            _assertCanExecute(proposalId, true);
-
-            _executeProposal(proposalId);
-
-            _assertProposalExecuted(proposalId);
-
-            assertTrue(
-                _lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
-            );
+            _assertProposalSubmitted(disconnectTimelockProposalId);
         }
 
-        _step("5. Check RUN_SCRIPT_ROLE has been transferred to DAO Voting");
+        _step("5. Schedule and execute proposal");
         {
-            assertTrue(
-                _lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())
-            );
-            assertFalse(
-                _lido.acl.hasPermission(
-                    address(_dgDeployedContracts.adminExecutor), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
-                )
-            );
-            assertEq(
-                _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()),
-                address(_lido.agent)
-            );
+            _wait(_getAfterSubmitDelay());
+            _scheduleProposal(disconnectTimelockProposalId);
+
+            _assertProposalScheduled(disconnectTimelockProposalId);
+            _wait(_getAfterScheduleDelay());
+            _assertCanExecute(disconnectTimelockProposalId, true);
+
+            _executeProposal(disconnectTimelockProposalId);
+            _assertProposalExecuted(disconnectTimelockProposalId);
+        }
+
+        _step("6. Check RUN_SCRIPT_ROLE has been transferred to Voting contract");
+        {
+            assertTrue(_lido.acl.hasPermission(voting, agent, _lido.agent.RUN_SCRIPT_ROLE()));
+            assertFalse(_lido.acl.hasPermission(adminExecutor, agent, _lido.agent.RUN_SCRIPT_ROLE()));
+            assertEq(_lido.acl.getPermissionManager(agent, _lido.agent.RUN_SCRIPT_ROLE()), agent);
         }
     }
 
