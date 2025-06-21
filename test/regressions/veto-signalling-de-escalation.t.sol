@@ -5,10 +5,13 @@ pragma solidity 0.8.26;
 
 import {console} from "forge-std/console.sol";
 
+import {PercentD16} from "contracts/types/PercentD16.sol";
+
 import {Random} from "../utils/random.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ISignallingEscrow, UnstETHRecordStatus} from "contracts/interfaces/ISignallingEscrow.sol";
 import {DGRegressionTestSetup, ExternalCall, MAINNET_CHAIN_ID, HOLESKY_CHAIN_ID} from "../utils/integration-tests.sol";
+import {DecimalsFormatting} from "../utils/formatting.sol";
 
 struct VetoersFile {
     address[] addresses;
@@ -26,6 +29,8 @@ uint256 constant MAX_LOCKABLE_WSTETH_AMOUNT = 100_000 ether;
 
 contract VetoSignallingDeEscalation is DGRegressionTestSetup {
     using Random for Random.Context;
+    using DecimalsFormatting for uint256;
+    using DecimalsFormatting for PercentD16;
 
     Random.Context internal _random;
     address[] internal _stETHVetoers;
@@ -39,14 +44,12 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
     function setUp() external {
         _loadOrDeployDGSetup();
         _random = Random.create(vm.unixTime());
+        if (block.chainid != MAINNET_CHAIN_ID) {
+            vm.skip(true, "Test supports can be run only on mainnet network");
+        }
     }
 
     function testFork_VetoSignallingDeEscalation_HappyPath() external {
-        if (block.chainid != MAINNET_CHAIN_ID) {
-            vm.skip(true, "Test supports can be run only on mainnet network");
-            return;
-        }
-
         _step("1. Loading stETH & wstETH holders");
         {
             _stETHVetoers =
@@ -90,6 +93,9 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
                 block.timestamp + _getVetoSignallingMaxDuration().dividedBy(2).toSeconds();
 
             while (block.timestamp < vetoSignallingAccumulationEndTime) {
+                // 0 - lock stETH
+                // 1 - lock wstETH
+                // 2 - lock unstETH
                 uint256 randomOperation = _random.nextUint256(3);
 
                 if (randomOperation == 0) {
@@ -97,23 +103,8 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
                     if (randomStETHVetoer != address(0) && balance >= MIN_LOCKABLE_STETH_AMOUNT) {
                         uint256 lockAmount = Math.min(balance, _random.nextUint256(MAX_LOCKABLE_STETH_AMOUNT));
 
-                        uint256 lockedSharesBefore =
-                            _getVetoSignallingEscrow().getVetoerDetails(randomStETHVetoer).stETHLockedShares.toUint256();
-                        uint256 escrowBalanceBefore = _lido.stETH.balanceOf(address(_getVetoSignallingEscrow()));
-
                         _lockStETH(randomStETHVetoer, lockAmount);
 
-                        uint256 lockedSharesAfter =
-                            _getVetoSignallingEscrow().getVetoerDetails(randomStETHVetoer).stETHLockedShares.toUint256();
-                        uint256 escrowBalanceAfter = _lido.stETH.balanceOf(address(_getVetoSignallingEscrow()));
-
-                        // 1 share may be lost on transfer to Escrow
-                        assertApproxEqAbs(
-                            lockedSharesAfter,
-                            lockedSharesBefore + _lido.stETH.getSharesByPooledEth(lockAmount),
-                            EPSILON
-                        );
-                        assertApproxEqAbs(escrowBalanceAfter, escrowBalanceBefore + lockAmount, EPSILON);
                         _vetoersLockedStETH[randomStETHVetoer] = true;
                     }
                 } else if (randomOperation == 1) {
@@ -121,25 +112,7 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
                     if (randomWstETHVetoer != address(0) && balance >= MIN_LOCKABLE_WSTETH_AMOUNT) {
                         uint256 lockAmount = Math.min(balance, _random.nextUint256(MAX_LOCKABLE_WSTETH_AMOUNT));
 
-                        uint256 lockedSharesBefore = _getVetoSignallingEscrow().getVetoerDetails(randomWstETHVetoer)
-                            .stETHLockedShares
-                            .toUint256();
-                        uint256 escrowBalanceBefore = _lido.stETH.balanceOf(address(_getVetoSignallingEscrow()));
-
                         _lockWstETH(randomWstETHVetoer, lockAmount);
-
-                        uint256 lockedSharesAfter = _getVetoSignallingEscrow().getVetoerDetails(randomWstETHVetoer)
-                            .stETHLockedShares
-                            .toUint256();
-                        uint256 escrowBalanceAfter = _lido.stETH.balanceOf(address(_getVetoSignallingEscrow()));
-
-                        // 1 share may be lost on wstETH unwrap
-                        assertApproxEqAbs(lockedSharesAfter, lockedSharesBefore + lockAmount, EPSILON);
-                        assertApproxEqAbs(
-                            escrowBalanceAfter,
-                            escrowBalanceBefore + _lido.stETH.getPooledEthByShares(lockAmount),
-                            EPSILON
-                        );
 
                         _vetoersLockedWstETH[randomWstETHVetoer] = true;
                     }
@@ -159,16 +132,16 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
                 lockOperationsCount += 1;
             }
 
-            console.log("Total lock operations :%d", lockOperationsCount);
+            console.log("Total lock operations :%s", lockOperationsCount);
             console.log(
-                "Locked stETH amount :%d",
-                _lido.stETH.balanceOf(address(_getVetoSignallingEscrow())) - escrowStETHBalanceBefore
+                "Locked stETH amount :%s",
+                (_lido.stETH.balanceOf(address(_getVetoSignallingEscrow())) - escrowStETHBalanceBefore).formatEther()
             );
             console.log(
-                "Locked unstETH NFTs count :%d",
+                "Locked unstETH NFTs count :%s",
                 _lido.withdrawalQueue.balanceOf(address(_getVetoSignallingEscrow())) - escrowUnstETHBalanceBefore
             );
-            console.log("RageQuit support :%d", _getVetoSignallingEscrow().getRageQuitSupport().toUint256());
+            console.log("RageQuit support :%s", _getVetoSignallingEscrow().getRageQuitSupport().format());
         }
 
         _step("5. DAO decides cancel controversial proposal");
@@ -225,7 +198,9 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
             );
             assertEq(_lido.withdrawalQueue.balanceOf(address(_getVetoSignallingEscrow())), escrowUnstETHBalanceBefore);
 
-            console.log("Escrow stETH balance: %d", _lido.stETH.balanceOf(address(_getVetoSignallingEscrow())));
+            console.log(
+                "Escrow stETH balance: %s", _lido.stETH.balanceOf(address(_getVetoSignallingEscrow())).formatEther()
+            );
         }
 
         _step(

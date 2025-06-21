@@ -13,6 +13,8 @@ import {Escrow, IRageQuitEscrow} from "contracts/Escrow.sol";
 
 import {LidoUtils, DGScenarioTestSetup} from "../utils/integration-tests.sol";
 
+uint256 constant ST_ETH_TRANSFER_EPSILON = 2 wei;
+
 contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
     using LidoUtils for LidoUtils.Context;
 
@@ -300,9 +302,10 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         vm.stopPrank();
     }
 
-    function testFork_markUnstETHFinalized_RevertOn_HugeRebaseAtTheEndOfVetoSignalling() external {
+    function testFork_markUnstETHFinalized_RevertOn_HugeRebaseAtTheEndOfVetoSignallingDeactivation() external {
         uint256[] memory unstETHIds;
         uint256 totalLockedUnstETHAmount;
+
         _step("1. Lock ~10% of TVL in unstETH token in the Signalling Escrow");
         {
             _setupStETHBalance(_VETOER_1, PercentsD16.fromBasisPoints(1_50));
@@ -351,11 +354,13 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
     }
 
     function testFork_CreationAndClaimingBatchesInParallel_HappyPath() external {
+        uint256 vetoer1LockedShares;
+        uint256 vetoer2LockedShares;
         _step("1. Lock enough funds to enter RageQuit");
         {
-            _lockStETH(_VETOER_1, _lido.stETH.balanceOf(_VETOER_1));
-            _lockStETH(_VETOER_2, _lido.stETH.balanceOf(_VETOER_2));
-            _lockWstETH(_VETOER_2, _lido.wstETH.balanceOf(_VETOER_2));
+            vetoer1LockedShares = _lockStETH(_VETOER_1, _lido.stETH.balanceOf(_VETOER_1));
+            vetoer2LockedShares += _lockStETH(_VETOER_2, _lido.stETH.balanceOf(_VETOER_2));
+            vetoer2LockedShares += _lockWstETH(_VETOER_2, _lido.wstETH.balanceOf(_VETOER_2));
 
             _assertVetoSignalingState();
             assertTrue(_getCurrentRageQuitSupport() >= _getSecondSealRageQuitSupport());
@@ -370,10 +375,9 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         }
 
         uint256 batchSizeLimit = 16;
-        IRageQuitEscrow rqEscrow = _getRageQuitEscrow();
+        Escrow rqEscrow = Escrow(payable(address(_getRageQuitEscrow())));
         _step("3. Parallel creation and claiming of the withdrawal batches works correctly");
         {
-            uint256 iteration;
             while (true) {
                 if (!rqEscrow.isWithdrawalsBatchesClosed()) {
                     rqEscrow.requestNextWithdrawalsBatch(batchSizeLimit);
@@ -392,6 +396,49 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
 
             _wait(_RAGE_QUIT_EXTRA_TIMELOCK.plusSeconds(1));
             assertEq(escrow.isRageQuitFinalized(), true);
+        }
+
+        _step("4. Vetoers withdraw locked stETH and wstETH as ETH after withdraw timelock");
+        {
+            Escrow.SignallingEscrowDetails memory escrowDetails = rqEscrow.getSignallingEscrowDetails();
+            Escrow.VetoerDetails memory vetoer1Details = rqEscrow.getVetoerDetails(_VETOER_1);
+            Escrow.VetoerDetails memory vetoer2Details = rqEscrow.getVetoerDetails(_VETOER_2);
+
+            assertEq(
+                vetoer1Details.stETHLockedShares + vetoer2Details.stETHLockedShares,
+                escrowDetails.totalStETHLockedShares
+            );
+
+            assertEq(vetoer1LockedShares, vetoer1Details.stETHLockedShares.toUint256());
+            assertEq(vetoer2LockedShares, vetoer2Details.stETHLockedShares.toUint256());
+
+            _wait(rqEscrow.getRageQuitEscrowDetails().rageQuitEthWithdrawalsDelay.plusSeconds(1));
+
+            vm.startPrank(_VETOER_1);
+            {
+                uint256 vetoer1ETHBalanceBefore = _VETOER_1.balance;
+                escrow.withdrawETH();
+                uint256 vetoer1ETHBalanceAfter = _VETOER_1.balance;
+                uint256 expectedWithdraw = escrowDetails.totalStETHClaimedETH.toUint256()
+                    * vetoer1Details.stETHLockedShares.toUint256() / escrowDetails.totalStETHLockedShares.toUint256();
+                assertApproxEqAbs(
+                    vetoer1ETHBalanceAfter - vetoer1ETHBalanceBefore, expectedWithdraw, ST_ETH_TRANSFER_EPSILON
+                );
+            }
+            vm.stopPrank();
+
+            vm.startPrank(_VETOER_2);
+            {
+                uint256 vetoer2ETHBalanceBefore = _VETOER_2.balance;
+                escrow.withdrawETH();
+                uint256 vetoer2ETHBalanceAfter = _VETOER_2.balance;
+                uint256 expectedWithdraw = escrowDetails.totalStETHClaimedETH.toUint256()
+                    * vetoer2Details.stETHLockedShares.toUint256() / escrowDetails.totalStETHLockedShares.toUint256();
+                assertApproxEqAbs(
+                    vetoer2ETHBalanceAfter - vetoer2ETHBalanceBefore, expectedWithdraw, ST_ETH_TRANSFER_EPSILON
+                );
+            }
+            vm.stopPrank();
         }
     }
 
