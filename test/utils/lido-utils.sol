@@ -319,7 +319,7 @@ library LidoUtils {
     }
 
     function performRebase(Context memory self, PercentD16 rebaseFactor, uint256 lastUnstETHIdToFinalize) internal {
-        console.log("----- Perform Oracle rebase ----");
+        // console.log("----- Perform Oracle rebase ----");
 
         vm.startPrank(address(self.agent));
         self.oracleReportSanityChecker.grantRole(
@@ -343,8 +343,8 @@ library LidoUtils {
 
         uint256 shareRateAfter = self.stETH.getPooledEthByShares(10 ** 27);
 
-        console.log("Share Rate Before: %s", shareRateBefore.formatRay());
-        console.log("Share Rate After: %s", shareRateAfter.formatRay());
+        // console.log("Share Rate Before: %s", shareRateBefore.formatRay());
+        // console.log("Share Rate After: %s", shareRateAfter.formatRay());
 
         PercentD16 rebaseRate = PercentsD16.fromFraction(shareRateAfter, shareRateBefore);
 
