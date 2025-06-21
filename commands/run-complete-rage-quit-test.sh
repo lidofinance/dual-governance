@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -e
+
+COMMANDS_DIR="$(dirname "$(realpath "$0")")"
+source "$COMMANDS_DIR/lib/env-utils.sh"
+
+validate_env "DEPLOY_ARTIFACT_FILE_NAME" "MAINNET_RPC_URL"
+
+export GRANT_REQUIRED_PERMISSIONS=false
+export RUN_SOLVENCY_SIMULATION_TEST=false
+export ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true
+
+forge test -vv --match-path "test/regressions/complete-rage-quit.t.sol"
