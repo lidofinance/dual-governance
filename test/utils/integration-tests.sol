@@ -6,6 +6,7 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 
+import {SharesValues} from "contracts/types/SharesValue.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamps, Timestamp} from "contracts/types/Duration.sol";
 import {PercentsD16, PercentD16} from "contracts/types/PercentD16.sol";
@@ -47,6 +48,7 @@ import {
     TimelockContractDeployConfig
 } from "scripts/utils/contracts-deployment.sol";
 
+uint256 constant ACCURACY = 2 wei;
 uint256 constant MAINNET_CHAIN_ID = 1;
 uint256 constant HOLESKY_CHAIN_ID = 17000;
 uint256 constant HOODI_CHAIN_ID = 560048;
@@ -745,7 +747,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     // ---
     // Escrow Manipulation
     // ---
-    function _getCurrentRageQuitSupport() internal returns (PercentD16) {
+    function _getCurrentRageQuitSupport() internal view returns (PercentD16) {
         return _getVetoSignallingEscrow().getRageQuitSupport();
     }
 
@@ -765,18 +767,74 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
     function _lockStETH(address vetoer, uint256 amount) internal {
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
+
+        uint256 vetoerStETHBalanceBefore = _lido.stETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceBefore = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsBefore = escrow.getSignallingEscrowDetails();
+
+        uint256 lockedStETHShares;
         vm.startPrank(vetoer);
-        if (_lido.stETH.allowance(vetoer, address(escrow)) < amount) {
-            _lido.stETH.approve(address(escrow), amount);
+        {
+            if (_lido.stETH.allowance(vetoer, address(escrow)) < amount) {
+                _lido.stETH.approve(address(escrow), amount);
+            }
+            lockedStETHShares = escrow.lockStETH(amount);
         }
-        escrow.lockStETH(amount);
         vm.stopPrank();
+
+        uint256 vetoerStETHBalanceAfter = _lido.stETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceAfter = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsAfter = escrow.getSignallingEscrowDetails();
+
+        // validate lock operation was done correctly
+        assertApproxEqAbs(lockedStETHShares, _lido.stETH.getSharesByPooledEth(amount), ACCURACY);
+        assertApproxEqAbs(vetoerStETHBalanceAfter, vetoerStETHBalanceBefore - amount, ACCURACY);
+        assertApproxEqAbs(escrowStETHBalanceAfter, escrowStETHBalanceBefore + amount, ACCURACY);
+        assertEq(
+            vetoerDetailsAfter.stETHLockedShares,
+            vetoerDetailsBefore.stETHLockedShares + SharesValues.from(lockedStETHShares)
+        );
+        assertEq(
+            escrowDetailsAfter.totalStETHLockedShares,
+            escrowDetailsBefore.totalStETHLockedShares + SharesValues.from(lockedStETHShares)
+        );
     }
 
     function _unlockStETH(address vetoer) internal {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+
+        uint256 vetoerStETHBalanceBefore = _lido.stETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceBefore = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsBefore = escrow.getSignallingEscrowDetails();
+
+        uint256 unlockedStETHShares;
         vm.startPrank(vetoer);
-        _getVetoSignallingEscrow().unlockStETH();
+        {
+            unlockedStETHShares = escrow.unlockStETH();
+        }
         vm.stopPrank();
+
+        uint256 vetoerStETHBalanceAfter = _lido.stETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceAfter = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsAfter = escrow.getSignallingEscrowDetails();
+
+        // validate unlock operation was done correctly
+        uint256 vetoerSharesLockedBefore = vetoerDetailsBefore.stETHLockedShares.toUint256();
+        uint256 expectedStETHAmountUnlocked = _lido.stETH.getPooledEthByShares(vetoerSharesLockedBefore);
+
+        assertEq(unlockedStETHShares, vetoerSharesLockedBefore);
+        assertApproxEqAbs(vetoerStETHBalanceAfter, vetoerStETHBalanceBefore + expectedStETHAmountUnlocked, ACCURACY);
+        assertApproxEqAbs(escrowStETHBalanceAfter, escrowStETHBalanceBefore - expectedStETHAmountUnlocked, ACCURACY);
+
+        assertEq(vetoerDetailsAfter.stETHLockedShares, SharesValues.ZERO);
+        assertEq(
+            escrowDetailsAfter.totalStETHLockedShares,
+            escrowDetailsBefore.totalStETHLockedShares - SharesValues.from(unlockedStETHShares)
+        );
     }
 
     function _lockWstETH(address vetoer, PercentD16 tvlPercentage) internal {
@@ -785,28 +843,76 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
     function _lockWstETH(address vetoer, uint256 amount) internal {
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
+
+        uint256 vetoerWstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceBefore = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsBefore = escrow.getSignallingEscrowDetails();
+
+        uint256 lockedStETHShares;
         vm.startPrank(vetoer);
-        if (_lido.wstETH.allowance(vetoer, address(escrow)) < amount) {
-            _lido.wstETH.approve(address(escrow), amount);
+        {
+            if (_lido.wstETH.allowance(vetoer, address(escrow)) < amount) {
+                _lido.wstETH.approve(address(escrow), amount);
+            }
+            lockedStETHShares = escrow.lockWstETH(amount);
         }
-        escrow.lockWstETH(amount);
         vm.stopPrank();
+
+        uint256 vetoerWstETHBalanceAfter = _lido.wstETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceAfter = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsAfter = escrow.getSignallingEscrowDetails();
+
+        // validate lock operation was done correctly
+        uint256 expectedStETHAmountLocked = _lido.stETH.getPooledEthByShares(amount);
+
+        assertApproxEqAbs(lockedStETHShares, amount, ACCURACY);
+        assertEq(vetoerWstETHBalanceAfter, vetoerWstETHBalanceBefore - amount);
+        assertApproxEqAbs(escrowStETHBalanceAfter, escrowStETHBalanceBefore + expectedStETHAmountLocked, ACCURACY);
+        assertEq(
+            vetoerDetailsAfter.stETHLockedShares,
+            vetoerDetailsBefore.stETHLockedShares + SharesValues.from(lockedStETHShares)
+        );
+        assertEq(
+            escrowDetailsAfter.totalStETHLockedShares,
+            escrowDetailsBefore.totalStETHLockedShares + SharesValues.from(lockedStETHShares)
+        );
     }
 
     function _unlockWstETH(address vetoer) internal {
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
-        uint256 wstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
-        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
 
+        uint256 vetoerWstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceBefore = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsBefore = escrow.getSignallingEscrowDetails();
+
+        uint256 wstETHUnlocked;
         vm.startPrank(vetoer);
-        uint256 wstETHUnlocked = escrow.unlockWstETH();
+        {
+            wstETHUnlocked = escrow.unlockWstETH();
+        }
         vm.stopPrank();
+
+        uint256 vetoerWstETHBalanceAfter = _lido.wstETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceAfter = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsAfter = escrow.getSignallingEscrowDetails();
+
+        // validate lock operation was done correctly
+        uint256 expectedStETHAmountUnlocked = _lido.stETH.getPooledEthByShares(wstETHUnlocked);
 
         // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
         // sending funds to the user
         assertApproxEqAbs(wstETHUnlocked, vetoerDetailsBefore.stETHLockedShares.toUint256(), 1);
-        assertApproxEqAbs(
-            _lido.wstETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerDetailsBefore.stETHLockedShares.toUint256(), 1
+
+        assertEq(vetoerWstETHBalanceAfter, vetoerWstETHBalanceBefore + wstETHUnlocked);
+        assertApproxEqAbs(escrowStETHBalanceAfter, escrowStETHBalanceBefore - expectedStETHAmountUnlocked, ACCURACY);
+        assertEq(vetoerDetailsAfter.stETHLockedShares, SharesValues.ZERO);
+        assertEq(
+            escrowDetailsAfter.totalStETHLockedShares,
+            escrowDetailsBefore.totalStETHLockedShares - vetoerDetailsBefore.stETHLockedShares
         );
     }
 
@@ -824,9 +930,11 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         }
 
         vm.startPrank(vetoer);
-        _lido.withdrawalQueue.setApprovalForAll(address(escrow), true);
-        escrow.lockUnstETH(unstETHIds);
-        _lido.withdrawalQueue.setApprovalForAll(address(escrow), false);
+        {
+            _lido.withdrawalQueue.setApprovalForAll(address(escrow), true);
+            escrow.lockUnstETH(unstETHIds);
+            _lido.withdrawalQueue.setApprovalForAll(address(escrow), false);
+        }
         vm.stopPrank();
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
@@ -867,7 +975,9 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         }
 
         vm.startPrank(vetoer);
-        escrow.unlockUnstETH(unstETHIds);
+        {
+            escrow.unlockUnstETH(unstETHIds);
+        }
         vm.stopPrank();
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
