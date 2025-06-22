@@ -8,12 +8,18 @@
     "pnpm": ">=8"
   },
   "scripts": {
-    "test": "forge test",
     "prepare": "husky",
     "lint": "solhint \"addresses/**/*.sol\" \"contracts/**/*.sol\" \"scripts/**/*.sol\" \"test/**/*.sol\" --ignore-path .solhintignore",
     "coverage": "forge coverage",
     "precov-report": "mkdir -p ./coverage-report && forge coverage --report lcov --report-file ./coverage-report/lcov.info",
-    "cov-report": "genhtml ./coverage-report/lcov.info --rc derive_function_end_line=0 --rc branch_coverage=1 -o coverage-report --include contracts --include scripts/upgrade/DGLaunchVerifier.sol --include scripts/upgrade/OmnibusBase.sol --include scripts/upgrade/RolesValidatorBase.sol --include scripts/upgrade/TimeConstraints.sol --exclude scripts/utils --ignore-errors inconsistent --ignore-errors category"
+    "cov-report": "genhtml ./coverage-report/lcov.info --rc derive_function_end_line=0 --rc branch_coverage=1 -o coverage-report --include contracts --include scripts/upgrade/DGLaunchVerifier.sol --include scripts/upgrade/OmnibusBase.sol --include scripts/upgrade/RolesValidatorBase.sol --include scripts/upgrade/TimeConstraints.sol --exclude scripts/utils --ignore-errors inconsistent --ignore-errors category",
+    "test": "forge test",
+    "test:unit": "./commands/run-unit-tests.sh",
+    "test:scenario": "./commands/run-scenario-tests.sh",
+    "test:regressions": "./commands/run-regressions-tests.sh",
+    "test:integration": "./commands/run-integration-tests.sh",
+    "test:solvency-simulation": "./commands/run-solvency-simulation-test.sh",
+    "test:complete-rage-quit": "./commands/run-complete-rage-quit-test.sh"
   },
   "lint-staged": {
     "*.sol": [
@@ -26,5 +32,6 @@
     "lint-staged": "^15.2.2",
     "solhint": "^4.1.1",
     "solhint-plugin-lido": "^0.0.4"
-  }
+  },
+  "packageManager": "npm@11.0.0+sha512.11dff29565d2297c74e7c594a9762581bde969f0aa5cbe6f5b3644bf008a16c065ece61094d9ffbb81125be38df8e1ba43eb8244b3d30c61eb797e9a2440e3ec"
 }
