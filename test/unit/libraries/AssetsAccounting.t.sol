@@ -331,7 +331,6 @@ contract AssetsAccountingUnitTests is UnitTest {
     // accountUnstETHLock
     // ---
 
-    // TODO: make a research on gas consumption when a lot of unstNFTs provided.
     function testFuzz_accountUnstETHLock_happyPath(
         address holder,
         uint96[] memory amountsOfShares,
@@ -550,7 +549,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         this.external__accountUnstETHLock(holder, unstETHIds, withdrawalRequestStatuses);
     }
 
-    // TODO: is it expected behavior?
+    // Note: method will not revert when called with an empty unstETH ids array
     function testFuzz_accountUnstETHLock_WhenNoUnstETHIdsProvided(
         address holder,
         SharesValue holderUnstETHLockedShares,
@@ -660,7 +659,6 @@ contract AssetsAccountingUnitTests is UnitTest {
     // accountUnstETHUnlock
     // ---
 
-    // TODO: make a research on gas consumption when a lot of unstNFTs provided.
     function testFuzz_accountUnstETHUnlock_happyPath(
         address holder,
         uint64[] memory amountsOfShares,
@@ -837,7 +835,7 @@ contract AssetsAccountingUnitTests is UnitTest {
         this.external__accountUnstETHUnlock(holder, unstETHIds);
     }
 
-    // TODO: is it expected behavior?
+    // Note: method will not revert when called with an empty unstETH ids array
     function testFuzz_accountUnstETHUnlock_WhenNoUnstETHIdsProvided(
         address holder,
         SharesValue holderUnstETHLockedShares,
@@ -931,7 +929,6 @@ contract AssetsAccountingUnitTests is UnitTest {
     // accountUnstETHFinalized
     // ---
 
-    // TODO: make a research on gas consumption when a lot of unstNFTs provided.
     function testFuzz_accountUnstETHFinalized_happyPath(
         uint64[] memory claimableAmounts,
         ETHValue initialTotalFinalizedETH,
@@ -1158,7 +1155,6 @@ contract AssetsAccountingUnitTests is UnitTest {
     // accountUnstETHClaimed
     // ---
 
-    // TODO: make a research on gas consumption when a lot of unstNFTs provided.
     function testFuzz_accountUnstETHClaimed_happyPath(uint64[] memory claimableAmounts) external {
         vm.assume(claimableAmounts.length > 0);
         vm.assume(claimableAmounts.length <= 500);
@@ -1189,7 +1185,6 @@ contract AssetsAccountingUnitTests is UnitTest {
         }
     }
 
-    // TODO: Maybe need to add check for `assert(claimableAmounts.length == unstETHIds.length)` to the code
     function testFuzz_accountUnstETHClaimed_RevertWhen_ClaimableAmountsLengthNotEqUnstETHIdsLength(
         uint64[] memory claimableAmounts
     ) external {
@@ -1321,7 +1316,6 @@ contract AssetsAccountingUnitTests is UnitTest {
     // accountUnstETHWithdraw
     // ---
 
-    // TODO: make a research on gas consumption when a lot of unstNFTs provided.
     function testFuzz_accountUnstETHWithdraw_happyPath(address holder, uint64[] memory claimableAmounts) external {
         vm.assume(claimableAmounts.length > 0);
         vm.assume(claimableAmounts.length <= 500);

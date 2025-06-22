@@ -61,8 +61,6 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
         );
         ExternalCall[] memory finalizeDGSetupCalls;
         {
-            Timestamp emergencyProtectionEndDate = Durations.from(90 days).addTo(Timestamps.now());
-
             ExternalCallsBuilder.Context memory finalizeDGSetupCallsBuilder =
                 ExternalCallsBuilder.create({callsCount: 6});
 
@@ -87,16 +85,19 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
             );
             finalizeDGSetupCallsBuilder.addCall(
                 address(_timelock),
-                abi.encodeCall(_timelock.setEmergencyProtectionEndDate, (emergencyProtectionEndDate))
+                abi.encodeCall(
+                    _timelock.setEmergencyProtectionEndDate,
+                    (_deployArtifact.deployConfig.timelock.emergencyProtectionEndDate)
+                )
             );
             finalizeDGSetupCallsBuilder.addCall(
-                address(_timelock), abi.encodeCall(_timelock.setEmergencyModeDuration, (Durations.from(180 days)))
+                address(_timelock),
+                abi.encodeCall(
+                    _timelock.setEmergencyModeDuration, (_deployArtifact.deployConfig.timelock.emergencyModeDuration)
+                )
             );
 
             finalizeDGSetupCalls = finalizeDGSetupCallsBuilder.getResult();
-
-            console.log("Calls to set DG state:");
-            console.logBytes(abi.encode(finalizeDGSetupCalls));
         }
 
         _step("5. Submit proposal from the temporary governance to configure timelock for the launch");
@@ -107,15 +108,14 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
             console.log("Last Proposal Id: %d", _getLastProposalId());
         }
 
-        _step("[SKIPPED] 6. Verify the state of the DG setup after update and before voting start");
+        _step("6. Verify the state of the DG setup after update and before voting start");
         {
             _dgDeployedContracts.emergencyGovernance = _emergencyGovernance;
             _dgDeployConfig.timelock.emergencyGovernanceProposer = address(_lido.voting);
             _deployArtifact.deployConfig = _dgDeployConfig;
             _deployArtifact.deployedContracts = _dgDeployedContracts;
 
-            // TODO: This check was commented due to failing check "ProposalsCount > 1 in EmergencyProtectedTimelock". Need to modify DeployVerification lib to make it pass.
-            // DeployVerification.verify(_deployArtifact);
+            DeployVerification.verify({deployArtifact: _deployArtifact, expectedProposalsCount: 1});
         }
 
         _step("7. Prepare Roles Verifier");
