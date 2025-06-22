@@ -20,8 +20,7 @@ import {Random} from "../utils/random.sol";
 import {DecimalsFormatting} from "test/utils/formatting.sol";
 
 uint256 constant ACCURACY = 2 wei;
-// TODO: try lower values
-uint256 constant POOL_ACCUMULATED_ERROR = 2500 wei;
+uint256 constant POOL_ACCUMULATED_ERROR = 1000 wei;
 uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 1000;
 uint256 constant WITHDRAWALS_BATCH_SIZE = 128;
 uint256 constant MIN_LOCKABLE_AMOUNT = 1000 wei;
@@ -42,6 +41,7 @@ enum VetoerTokenType {
 
 contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     using LidoUtils for LidoUtils.Context;
+    using DecimalsFormatting for uint256;
     using DecimalsFormatting for PercentD16;
 
     address private _stEthAccumulator = makeAddr("stEthAccumulator");
@@ -51,6 +51,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     address[] private _allVetoers;
     mapping(address vetoer => uint256[] unStEthIds) private _lockedUnStEthIds;
     uint256[] private _allVetoersUnstEthIds;
+    mapping(address vetoer => uint256 totalClaimedETH) private _vetoersClaimedETH;
     mapping(address vetoer => uint256 shares) private _vetoersUnStEthShares;
     Random.Context internal _random;
     uint256[] private _rebaseDeltaPercents;
@@ -106,8 +107,8 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         uint256 vetoersExited = 0;
         uint256 initialStEthTotalSupply = _lido.stETH.totalSupply();
         uint256 initialWStEthTotalSupply = _lido.wstETH.totalSupply();
-        console.log("stETH.totalSupply:", initialStEthTotalSupply);
-        console.log("wstETH.totalSupply:", initialWStEthTotalSupply);
+        console.log("stETH.totalSupply:", initialStEthTotalSupply.formatEther());
+        console.log("wstETH.totalSupply:", initialWStEthTotalSupply.formatEther());
 
         uint256 stEthRQAmount = 0;
         address[] memory vetoers;
@@ -115,8 +116,8 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         for (; _round <= MAX_RAGE_QUIT_ROUNDS; ++_round) {
             stEthRQAmount = _getStEthAmountForRageQuit(_round);
 
-            console.log("stEth will be locked for RQ:", stEthRQAmount);
-            console.log("stETH.totalSupply:", _lido.stETH.totalSupply());
+            console.log("stEth will be locked for RQ:", stEthRQAmount.formatEther());
+            console.log("stETH.totalSupply:", _lido.stETH.totalSupply().formatEther());
 
             _newRageQuitRound();
             vetoers = _selectVetoers();
@@ -126,6 +127,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             console.log("-------------------------");
         }
 
+        console.log("stETH.totalSupply:", _lido.stETH.totalSupply().formatEther());
         console.log(
             "stETH total supply decreased for %s",
             (
@@ -133,7 +135,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                     - PercentsD16.fromFraction({numerator: _lido.stETH.totalSupply(), denominator: initialStEthTotalSupply})
             ).format()
         );
-        console.log("wstETH.totalSupply:", _lido.wstETH.totalSupply());
+        console.log("wstETH.totalSupply:", _lido.wstETH.totalSupply().formatEther());
         console.log(
             "wstETH total supply decreased for %s",
             (
@@ -240,8 +242,9 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                 }
 
                 vetoersBalancesBefore[i] = vetoers[i].balance;
-                vetoersStEthSharesBefore[i] =
-                    _lido.stETH.getSharesByPooledEth(vetoerStEthBalance) + vetoerWStEthBalance + vetoerUnStEthShares;
+
+                // Do not account for unstETH shares here as they will be count separately
+                vetoersStEthSharesBefore[i] = _lido.stETH.getSharesByPooledEth(vetoerStEthBalance) + vetoerWStEthBalance;
 
                 if (vetoerStEthBalance > 0) {
                     _lockStETH(vetoers[i], vetoerStEthBalance);
@@ -339,8 +342,13 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             IRageQuitEscrow rqEscrow = _getRageQuitEscrow();
 
             for (uint256 i = 0; i < vetoers.length; ++i) {
-                if (vetoersStEthSharesBefore[i] > 0) {
+                if (_lockedUnStEthIds[vetoers[i]].length > 0) {
+                    // correctness of the withdrawn unstETH is calculated inside the _withdrawEthByVetoerUnStEths
                     _withdrawEthByVetoerUnStEths(vetoers[i], rqEscrow);
+                }
+
+                if (vetoersStEthSharesBefore[i] > 0) {
+                    uint256 vetoerETHBalanceBefore = vetoers[i].balance;
                     _withdrawEthByVetoerStEth(vetoers[i], rqEscrow);
 
                     assertApproxEqAbs(_lido.stETH.balanceOf(vetoers[i]), 0, MIN_LOCKABLE_AMOUNT + ACCURACY);
@@ -349,41 +357,18 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                     // Calculating balance using share rate before the finalization of the requests. During request finalization
                     // share rate may change a bit, what will lead to diff in balance if StETH.getPooledEthByShares() will be used
                     uint256 expectedVetoerBalance =
-                        vetoersBalancesBefore[i] + beforeFinalizationShareRate * vetoersStEthSharesBefore[i] / 10 ** 27;
+                        vetoerETHBalanceBefore + beforeFinalizationShareRate * vetoersStEthSharesBefore[i] / 10 ** 27;
 
-                    // This check will fail for unstETH holders, because once they deposit their stETH into the WithdrawalQueue,
-                    // it stops receiving rewards. Therefore, balance checks for such users should be handled
-                    // separately (using WithdrawalRequestStatus.amountOfStETH).
-                    //
-                    // TODO: Implement a standalone balance check for unstETH holders.
-                    // assertApproxEqAbs(
-                    //     vetoers[i].balance,
-                    //     expectedVetoerBalance,
-                    //     ACCURACY + POOL_ACCUMULATED_ERROR,
-                    //     "Check for ETH amount returned to vetoer failed. Try to increase delta(POOL_ACCUMULATED_ERROR) value"
-                    // );
-
-                    assertGe(vetoers[i].balance, vetoersBalancesBefore[i]);
-
-                    if (vetoers[i].balance > expectedVetoerBalance + ACCURACY + POOL_ACCUMULATED_ERROR) {
-                        console.log(
-                            "ETH amount (%s) returned to vetoer %s is greater than expected (%s). Consider increasing delta(POOL_ACCUMULATED_ERROR) value",
-                            vetoers[i].balance - vetoersBalancesBefore[i],
-                            vetoers[i],
-                            expectedVetoerBalance
-                        );
-                    }
-
-                    if (vetoers[i].balance + ACCURACY + POOL_ACCUMULATED_ERROR < expectedVetoerBalance) {
-                        console.log(
-                            "ETH amount (%s) returned to vetoer %s is lower than expected (%s).",
-                            vetoers[i].balance - vetoersBalancesBefore[i],
-                            vetoers[i],
-                            expectedVetoerBalance
-                        );
-                    }
+                    assertApproxEqAbs(
+                        vetoers[i].balance,
+                        expectedVetoerBalance,
+                        ACCURACY + POOL_ACCUMULATED_ERROR,
+                        "Check for ETH amount returned to vetoer failed. Try to increase delta(POOL_ACCUMULATED_ERROR) value"
+                    );
                 }
             }
+
+            console.log(">>> RageQuit Escrow ETH balance after withdraw:", address(rqEscrow).balance.formatEther());
 
             _assertVetoCooldownState();
         }
@@ -707,14 +692,32 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
             unclaimedUnStEthIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
         );
+
+        uint256[] memory claimableETH = _lido.withdrawalQueue.getClaimableEther(unclaimedUnStEthIds, hints);
+        uint256 expectedTotalClaimableETH;
+        for (uint256 i = 0; i < claimableETH.length; ++i) {
+            expectedTotalClaimableETH += claimableETH[i];
+        }
+
+        uint256 escrowBalanceBefore = address(rqEscrow).balance;
         rqEscrow.claimUnstETH(unclaimedUnStEthIds, hints);
+        uint256 escrowBalanceAfter = address(rqEscrow).balance;
+
+        assertEq(escrowBalanceAfter - escrowBalanceBefore, expectedTotalClaimableETH);
+
+        _vetoersClaimedETH[vetoer] = expectedTotalClaimableETH;
     }
 
     function _withdrawEthByVetoerUnStEths(address vetoer, IRageQuitEscrow rqEscrow) internal {
         if (_lockedUnStEthIds[vetoer].length > 0) {
+            uint256 vetoerETHBefore = vetoer.balance;
+
             vm.startPrank(vetoer);
             rqEscrow.withdrawETH(_lockedUnStEthIds[vetoer]);
             vm.stopPrank();
+
+            uint256 vetoerETHAfter = vetoer.balance;
+            assertEq(vetoerETHAfter - vetoerETHBefore, _vetoersClaimedETH[vetoer]);
         }
     }
 
