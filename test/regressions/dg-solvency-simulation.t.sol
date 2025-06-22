@@ -183,6 +183,7 @@ uint256 constant ORACLE_REPORT_FREQUENCY = 24 hours;
 contract EscrowSolvencyTest is DGRegressionTestSetup {
     using Random for Random.Context;
     using DecimalsFormatting for uint256;
+    using DecimalsFormatting for PercentD16;
     using LidoUtils for LidoUtils.Context;
     using Uint256ArrayBuilder for Uint256ArrayBuilder.Context;
     using SimulationActionsSet for SimulationActionsSet.Context;
@@ -220,7 +221,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     uint256 internal _totalLockedStETH = 0;
     uint256 internal _totalLockedWstETH = 0;
-    uint256 internal _totalLockedUnstETH = 0;
+    uint256 internal _totalLockedUnstETHCount = 0;
+    uint256 internal _totalLockedUnstETHAmount = 0;
 
     uint256 internal _totalLockedStETHByRealAccounts = 0;
     uint256 internal _totalLockedStETHBySimulationAccounts = 0;
@@ -228,7 +230,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     uint256 internal _totalLockedWstETHByRealAccounts = 0;
     uint256 internal _totalLockedWstETHBySimulationAccounts = 0;
 
-    uint256 internal _totalUnlockedStETHShares = 0;
+    uint256 internal _totalUnlockedStETH = 0;
     uint256 internal _totalUnlockedWstETH = 0;
     uint256 internal _totalUnlockedUnstETHCount = 0;
 
@@ -443,6 +445,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
                 if (actions.has(SimulationActionType.LockWstETHRealHolder)) {
                     _lockWstETHByRandomRealAccount();
+                    _mineBlock();
+                }
+
+                if (actions.has(SimulationActionType.ClaimUnstETHRealHolder)) {
+                    _claimUnstETHByAnyOfRealHolder();
                     _mineBlock();
                 }
 
@@ -697,136 +704,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
                 iterations++;
             }
-            console.log("Simulation finished after %d iterations", iterations);
 
-            console.log(
-                "After simulation block number: %d, after simulation timestamp: %d", block.number, block.timestamp
-            );
-            console.log("After simulation stETH Total Supply: %s", _lido.stETH.totalSupply().formatEther());
-            console.log("After simulation share rate: %s", _lido.stETH.getPooledEthByShares(10 ** 18).formatEther());
-            console.log("Negative rebase count: %d", _totalNegativeRebaseCoount);
-
-            console.log("Actions Count:");
-            console.log(
-                "  - Submit stETH count: %s, total submitted amount: %s",
-                _actionsCounters[SimulationActionType.SubmitStETH],
-                _totalSubmittedStETH.formatEther()
-            );
-            console.log(
-                "  - Submit wstETH count: %s, total submitted amount: %s",
-                _actionsCounters[SimulationActionType.SubmitWstETH],
-                _totalSubmittedWstETH.formatEther()
-            );
-            console.log(
-                "  - Withdraw stETH by simulation accounts count: %s, total withdrawn amount: %s",
-                _actionsCounters[SimulationActionType.WithdrawStETH],
-                _totalWithdrawnStETHBySimulationAccounts.formatEther()
-            );
-            console.log(
-                "  - Withdraw wstETH simulation accounts count: %s, total withdrawn amount: %s",
-                _actionsCounters[SimulationActionType.WithdrawWstETH],
-                _totalWithdrawnWstETHBySimulationAccounts.formatEther()
-            );
-            console.log(
-                "  - Lock stETH count: %s, total locked stETH: %s",
-                _actionsCounters[SimulationActionType.LockStETH],
-                _totalLockedStETHBySimulationAccounts.formatEther()
-            );
-            console.log(
-                "  - Lock wstETH count: %s, total locked wstETH: %s",
-                _actionsCounters[SimulationActionType.LockWstETH],
-                _totalLockedWstETHBySimulationAccounts.formatEther()
-            );
-            console.log(
-                "  - Lock unstETH actions count: %d, total locked unstETH: %d",
-                _actionsCounters[SimulationActionType.LockUnstETH],
-                _totalLockedUnstETH
-            );
-            console.log(
-                "  - Unlock stETH count: %s, total unlocked stETH: %s",
-                _actionsCounters[SimulationActionType.UnlockStETH],
-                _totalUnlockedStETHShares.formatEther()
-            );
-            console.log(
-                "  - Unlock wstETH count: %s, total unlocked wstETH: %s",
-                _actionsCounters[SimulationActionType.UnlockWstETH],
-                _totalUnlockedWstETH.formatEther()
-            );
-            console.log(
-                "  - Unlock unstETH actions count: %d, total unlocked unstETH count: %d",
-                _actionsCounters[SimulationActionType.UnlockUnstETH],
-                _totalUnlockedUnstETHCount
-            );
-            console.log(
-                "  - Accidental ETH transfer actions count: %d, total transferred ETH count: %s",
-                _actionsCounters[SimulationActionType.AccidentalETHTransfer],
-                _totalAccidentalETHTransferAmount.formatEther()
-            );
-            console.log(
-                "  - Accidental stETH transfer actions count: %d, total transferred stETH amount: %s",
-                _actionsCounters[SimulationActionType.AccidentalStETHTransfer],
-                _totalAccidentalStETHTransferAmount.formatEther()
-            );
-            console.log(
-                "  - Accidental wstETH transfer actions count: %d, total transferred wstETH amount: %s",
-                _actionsCounters[SimulationActionType.AccidentalWstETHTransfer],
-                _totalAccidentalWstETHTransferAmount.formatEther()
-            );
-            console.log(
-                "  - Accidental unstETH transfer actions count: %d, total transferred unstETH count: %s",
-                _actionsCounters[SimulationActionType.AccidentalUnstETHTransfer],
-                _totalAccidentalUnstETHTransferAmount.formatEther()
-            );
-            console.log(
-                "  - Withdraw stETH real holder actions count: %d, total withdrawn amount: %s",
-                _actionsCounters[SimulationActionType.WithdrawStETHRealHolder],
-                _totalWithdrawnStETHByRealAccounts.formatEther()
-            );
-            console.log(
-                "  - Withdraw wstETH real holder actions count: %d, total withdrawn amount: %s",
-                _actionsCounters[SimulationActionType.WithdrawWstETHRealHolder],
-                _totalWithdrawnWstETHByRealAccounts.formatEther()
-            );
-            console.log(
-                "  - Claim unstETH real holder actions count: %d",
-                _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder]
-            );
-            console.log(
-                "  - Lock stETH real holder actions count: %d, total locked amount: %s",
-                _actionsCounters[SimulationActionType.LockStETHRealHolder],
-                _totalLockedStETHByRealAccounts.formatEther()
-            );
-            console.log(
-                "  - Lock wstETH real holder actions count: %d, total locked amount: %s",
-                _actionsCounters[SimulationActionType.LockWstETHRealHolder],
-                _totalLockedWstETHByRealAccounts.formatEther()
-            );
-
-            console.log(
-                "  - Mark unstETH finalized count: %d", _actionsCounters[SimulationActionType.MarkUnstETHFinalized]
-            );
-            console.log("  - Claim unstETH count: %d", _actionsCounters[SimulationActionType.ClaimUnstETH]);
-
-            ISignallingEscrow signallingEscrow =
-                ISignallingEscrow(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow());
-            console.log("RageQuits count: %d", _rageQuitEscrows.length);
-            for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
-                console.log(
-                    "RageQuit escrow %s. isRageQuit finalized: %s",
-                    address(_rageQuitEscrows[i]),
-                    _rageQuitEscrows[i].isRageQuitFinalized()
-                );
-                console.log(
-                    "  - ETH balance: %s",
-                    address(_rageQuitEscrows[i]),
-                    address(_rageQuitEscrows[i]).balance.formatEther()
-                );
-            }
-
-            console.log("Signalling Escrow Stats:");
-            console.log("  - DG State: %s", _getDGStateName(_dgDeployedContracts.dualGovernance.getEffectiveState()));
-            console.log("  - Rage Quit Support: %s", signallingEscrow.getRageQuitSupport().toUint256().format(16));
-            console.log("  - stETH Balance: %s", _lido.stETH.balanceOf(address(signallingEscrow)).formatEther());
+            _printSimulationStats(iterations);
         }
 
         // Check that accounts balances changed as expected
@@ -1166,6 +1045,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
     }
 
+    // TODO: Consider adding similar action for real accounts
     function _lockUnstETHByRandomAccount() internal {
         // console.log(">>> Locking unstETH by random account");
         _activateNextState();
@@ -1201,8 +1081,18 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             }
 
             if (requestsArrayBuilder.size > 0) {
+                Escrow.SignallingEscrowDetails memory escrowDetailsBefore =
+                    _getVetoSignallingEscrow().getSignallingEscrowDetails();
+
                 _lockUnstETH(account, requestsArrayBuilder.getResult());
-                _totalLockedUnstETH += requestsArrayBuilder.size;
+
+                Escrow.SignallingEscrowDetails memory escrowDetailsAfter =
+                    _getVetoSignallingEscrow().getSignallingEscrowDetails();
+
+                _totalLockedUnstETHCount += requestsArrayBuilder.size;
+                _totalLockedUnstETHAmount += (
+                    escrowDetailsAfter.totalUnstETHUnfinalizedShares - escrowDetailsBefore.totalUnstETHUnfinalizedShares
+                ).toUint256();
 
                 for (uint256 j = 0; j < requestsArrayBuilder.size; ++j) {
                     _accountsDetails[account].unstETHIdsLockedInEscrow[_getCurrentEscrowAddress()].push(
@@ -1269,8 +1159,18 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
                     requestIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
                 );
+
+                bytes memory accountCode = account.code;
+                if (accountCode.length > 0) {
+                    vm.etch(account, bytes(""));
+                }
+
                 vm.prank(account);
                 _lido.withdrawalQueue.claimWithdrawals(requestIdsToClaim, hints);
+
+                if (accountCode.length > 0) {
+                    vm.etch(account, accountCode);
+                }
 
                 // console.log("Account %s claimed %d unstETH NFTs", account, requestIdsToClaim.length);
                 return;
@@ -1322,7 +1222,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 && Timestamps.now() > escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
         ) {
             _unlockStETH(account);
-            _totalUnlockedStETHShares += details.stETHLockedShares.toUint256();
+            _totalUnlockedStETH += _lido.stETH.getPooledEthByShares(details.stETHLockedShares.toUint256());
 
             // TODO: fix assertion. The delta depends on the number of lock operations
             //  as each lock operation may introduce 1-2 wei loss
@@ -1679,6 +1579,133 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     function _getCurrentEscrowAddress() internal view returns (address payable) {
         return payable(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow());
+    }
+
+    function _printSimulationStats(uint256 iterationsCount) internal view {
+        console.log("---------------");
+        console.log("Actions Stats");
+        console.log("---------------");
+
+        console.log("Submit StETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.SubmitStETH]);
+        console.log("  - total submitted stETH:", _totalSubmittedStETH.formatEther());
+
+        console.log("Submit WtETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.SubmitWstETH]);
+        console.log("  - total submitted wstETH:", _totalSubmittedWstETH.formatEther());
+
+        console.log("Withdraw stETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawStETH]);
+        console.log("  - total withdrawn stETH:", _totalWithdrawnStETHBySimulationAccounts.formatEther());
+
+        console.log("Withdraw wstETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawWstETH]);
+        console.log("  - total withdrawn wstETH:", _totalWithdrawnWstETHBySimulationAccounts.formatEther());
+
+        console.log("Lock stETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.LockStETH]);
+        console.log("  - total locked stETH:", _totalLockedStETHBySimulationAccounts.formatEther());
+
+        console.log("Lock wstETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.LockWstETH]);
+        console.log("  - total locked wstETH:", _totalLockedWstETHBySimulationAccounts.formatEther());
+
+        console.log("Lock unsETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.LockUnstETH]);
+        console.log("  - total locked ustETH NFTs:", _totalLockedUnstETHCount);
+        console.log("  - total locked ustETH amount:", _totalLockedUnstETHAmount);
+
+        console.log("Unlock stETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.UnlockStETH]);
+        console.log("  - total unlocked stETH:", _totalUnlockedStETH.formatEther());
+
+        console.log("Unlock wstETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.UnlockWstETH]);
+        console.log("  - total unlocked wstETH:", _totalUnlockedWstETH.formatEther());
+
+        console.log("Unlock unstETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.UnlockUnstETH]);
+        console.log("  - total unlocked ustETH NFTs:", _totalUnlockedUnstETHCount);
+        console.log("  - total unlocked ustETH amount: <TODO>");
+
+        console.log("Claim unstETH (simulation account)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.ClaimUnstETH]);
+        console.log("  - total ustETH NFTs claimed: <TODO>");
+        console.log("  - total ustETH amount claimed: <TODO>");
+
+        console.log("Withdraw stETH (real account)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawStETHRealHolder]);
+        console.log("  - total withdrawn stETH:", _totalWithdrawnStETHByRealAccounts.formatEther());
+
+        console.log("Withdraw wstETH (real account)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawWstETHRealHolder]);
+        console.log("  - total withdrawn stETH:", _totalWithdrawnWstETHByRealAccounts.formatEther());
+
+        console.log("Claim unstETH (real account)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder]);
+        console.log("  - total claimed ustETH NFTs: <TODO>");
+        console.log("  - total claimed ustETH amount: <TODO>");
+
+        console.log("Lock stETH (real account)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.LockStETHRealHolder]);
+        console.log("  - total locked stETH:", _totalLockedStETHByRealAccounts.formatEther());
+
+        console.log("Lock wstETH (real account)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.LockWstETHRealHolder]);
+        console.log("  - total locked stETH:", _totalLockedWstETHByRealAccounts.formatEther());
+
+        console.log("Mark unstETH finalized");
+        console.log("  - count:", _actionsCounters[SimulationActionType.MarkUnstETHFinalized]);
+        console.log("  - total ustETH NFTs marked finalized: <TODO>");
+        console.log("  - total ustETH amount marked finalized: <TODO>");
+
+        console.log("Accidental ETH transfers");
+        console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalETHTransfer]);
+        console.log("  - total ETH transferred:", _totalAccidentalETHTransferAmount.formatEther());
+
+        console.log("Accidental stETH transfers");
+        console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalStETHTransfer]);
+        console.log("  - total stETH transferred:", _totalAccidentalStETHTransferAmount.formatEther());
+
+        console.log("Accidental wstETH transfers");
+        console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalWstETHTransfer]);
+        console.log("  - total wstETH transferred:", _totalAccidentalWstETHTransferAmount.formatEther());
+
+        console.log("Accidental unstETH transfers");
+        console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalUnstETHTransfer]);
+        console.log("  - total wstETH transferred:", _totalAccidentalUnstETHTransferAmount.formatEther());
+
+        console.log("-----------------------");
+        console.log("Rage Quit Escrows Stats");
+        console.log("-----------------------");
+
+        ISignallingEscrow signallingEscrow =
+            ISignallingEscrow(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow());
+        console.log("  - Rage Quits count:", _rageQuitEscrows.length);
+        for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
+            console.log("    - RageQuit escrow:", address(_rageQuitEscrows[i]));
+            console.log("      - Is Rage Quit Finalized:", _rageQuitEscrows[i].isRageQuitFinalized());
+            console.log("      - ETH balance:", address(_rageQuitEscrows[i]).balance.formatEther());
+        }
+
+        console.log("-----------------------");
+        console.log("Signalling Escrow Stats");
+        console.log("-----------------------");
+
+        console.log("  - DG State:", _getDGStateName(_dgDeployedContracts.dualGovernance.getEffectiveState()));
+        console.log("  - Rage Quit Support:", signallingEscrow.getRageQuitSupport().format());
+        console.log("  - stETH Balance:", _lido.stETH.balanceOf(address(signallingEscrow)).formatEther());
+
+        console.log("----------------");
+        console.log("Simulation Stats");
+        console.log("----------------");
+
+        console.log("  - Iteration Count:", iterationsCount);
+        console.log("  - block.number:", block.number);
+        console.log("  - block.timestamp:", block.timestamp);
+        console.log("  - stETH Total Supply:", _lido.stETH.totalSupply().formatEther());
+        console.log("  - stETH Share Rate:", _lido.stETH.getPooledEthByShares(10 ** 18).formatEther());
+        console.log("  - Negative rebases:", _totalNegativeRebaseCoount);
     }
 }
 
