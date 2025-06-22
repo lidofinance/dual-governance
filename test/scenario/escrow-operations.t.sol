@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Timestamps} from "contracts/types/Timestamp.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
+import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 import {Duration, Durations} from "contracts/types/Duration.sol";
-import {PercentsD16} from "contracts/types/PercentD16.sol";
+import {PercentsD16, PercentD16, HUNDRED_PERCENT_D16} from "contracts/types/PercentD16.sol";
 
 import {EscrowState, State} from "contracts/libraries/EscrowState.sol";
 import {WithdrawalsBatchesQueue} from "contracts/libraries/WithdrawalsBatchesQueue.sol";
 import {AssetsAccounting, UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
 
-import {Escrow, IRageQuitEscrow} from "contracts/Escrow.sol";
+import {Escrow, IRageQuitEscrow, ISignallingEscrow} from "contracts/Escrow.sol";
 
 import {LidoUtils, DGScenarioTestSetup} from "../utils/integration-tests.sol";
 
@@ -442,11 +445,113 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         }
     }
 
-    // TODO: implement!
-    // function testFork_VetoSignallingFlashLoan_RevertOn_SameAddress() external {}
+    function testFork_VetoSignallingFlashLoan_RevertOn_SameAddress() external {
+        FlashLoanStub flashLoanStub;
+        FlashLoanReceiver flashLoanReceiver;
 
-    // TODO: implement!
-    // function testFork_VetoSignallingFlashLoan_HappyPath_MultipleAddresses() external {}
+        _step("0. Deploy and set up FlashLoanStub contract");
+        {
+            flashLoanStub = new FlashLoanStub();
+            flashLoanReceiver = new FlashLoanReceiver(address(_lido.stETH));
+
+            _setupStETHBalance(address(flashLoanStub), _getSecondSealRageQuitSupport());
+
+            // Receiver should have some stETH to pay fee for FlashLoan
+            _setupStETHBalance(address(flashLoanReceiver), 100 ether);
+        }
+
+        _step(
+            "1. An attempt to lock and unlock stETH in the Escrow during the FlashLoan reverts with MinAssetsLockDurationNotPassed error"
+        );
+        {
+            _assertNormalState();
+
+            // amount of stETH required to trigger VetoSignalling state change
+            uint256 flashLoanAmount =
+                _lido.calcAmountToDepositFromPercentageOfTVL(_getFirstSealRageQuitSupport()) + 1 gwei;
+            uint256 flashLoanFeeAmount = flashLoanStub.calcFlashLoanFee(flashLoanAmount);
+
+            ISignallingEscrow signallingEscrow = _getVetoSignallingEscrow();
+            Timestamp assetsLockDurationExpiresAt = _getMinAssetsLockDuration().addTo(Timestamps.now());
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AssetsAccounting.MinAssetsLockDurationNotPassed.selector, (assetsLockDurationExpiresAt)
+                )
+            );
+            flashLoanStub.flashLoanSimple({
+                receiverAddress: address(flashLoanReceiver),
+                asset: address(_lido.stETH),
+                amount: flashLoanAmount + flashLoanFeeAmount,
+                params: abi.encodeCall(flashLoanReceiver.lockUnlockInTheEscrowByOneActor, (signallingEscrow))
+            });
+
+            _assertNormalState();
+        }
+    }
+
+    function testFork_VetoSignallingFlashLoan_HappyPath_MultipleAddresses() external {
+        FlashLoanStub flashLoanStub;
+        FlashLoanReceiver flashLoanReceiver;
+        ISignallingEscrow signallingEscrow = _getVetoSignallingEscrow();
+
+        _step("0. Deploy and set up FlashLoanStub contract");
+        {
+            flashLoanStub = new FlashLoanStub();
+            flashLoanReceiver = new FlashLoanReceiver(address(_lido.stETH));
+
+            _setupStETHBalance(address(flashLoanStub), _getSecondSealRageQuitSupport());
+        }
+
+        PercentD16 halfOfFirstSealRageQuitSupport = PercentsD16.from(_getFirstSealRageQuitSupport().toUint256() / 2);
+        _step("1. Lock half of the first seal threshold in the Signalling Escrow by escrowActor1");
+        {
+            // add some extra stETH to the actor1 to pay flash loan fee later
+            _setupStETHBalance(
+                address(flashLoanReceiver.actor1()), halfOfFirstSealRageQuitSupport + PercentsD16.fromBasisPoints(10)
+            );
+
+            flashLoanReceiver.actor1().lockStETH(signallingEscrow);
+        }
+
+        _step("2. Wait minAssetsLockDuration before unlock funds during FlashLoan");
+        {
+            _wait(_getMinAssetsLockDuration().plusSeconds(1));
+        }
+
+        _step(
+            "3. Use FlashLoan to lock half of the VetoSignalling threshold by escrowActor2 and unlock by escrowActor1"
+        );
+        {
+            _assertNormalState();
+
+            // amount of stETH required to trigger VetoSignalling state change
+            uint256 flashLoanAmount = _lido.calcAmountToDepositFromPercentageOfTVL(halfOfFirstSealRageQuitSupport);
+            uint256 flashLoanFeeAmount = flashLoanStub.calcFlashLoanFee(flashLoanAmount);
+
+            flashLoanStub.flashLoanSimple({
+                receiverAddress: address(flashLoanReceiver),
+                asset: address(_lido.stETH),
+                amount: flashLoanAmount + flashLoanFeeAmount,
+                params: abi.encodeCall(flashLoanReceiver.lockUnlockInTheEscrowByTwoActors, (signallingEscrow))
+            });
+        }
+
+        _step("3. After FlashLoan rageQuitSupport < firstSealRageQuitSupport");
+        {
+            assertTrue(_getCurrentRageQuitSupport() < _getFirstSealRageQuitSupport());
+        }
+
+        _step(
+            "4. But system entered VetoSignalling state for minVetoSignallingDuration and then VetoSignallingDeactivation"
+        );
+        {
+            _assertVetoSignalingState();
+            _wait(_getVetoSignallingMinActiveDuration().plusSeconds(1));
+
+            _activateNextState();
+            _assertVetoSignallingDeactivationState();
+        }
+    }
 
     // ---
     // Helper external methods to test reverts
@@ -478,5 +583,66 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
 
     function externalMarkUnstETHFinalized(uint256[] memory unstETHIds, uint256[] memory hints) external {
         _getVetoSignallingEscrow().markUnstETHFinalized(unstETHIds, hints);
+    }
+}
+
+contract FlashLoanStub {
+    PercentD16 public immutable FLASH_LOAN_FEE = PercentsD16.fromBasisPoints(5); // 0.05%
+
+    function flashLoanSimple(address receiverAddress, address asset, uint256 amount, bytes calldata params) external {
+        IERC20(asset).transfer(receiverAddress, amount);
+        Address.functionCall(receiverAddress, params);
+        IERC20(asset).transferFrom(receiverAddress, address(this), amount + calcFlashLoanFee(amount));
+    }
+
+    function calcFlashLoanFee(uint256 flashLoanAmount) public view returns (uint256) {
+        return FLASH_LOAN_FEE.toUint256() * flashLoanAmount / HUNDRED_PERCENT_D16;
+    }
+}
+
+contract FlashLoanReceiver {
+    IERC20 public immutable ST_ETH;
+
+    EscrowActor public actor1;
+    EscrowActor public actor2;
+
+    constructor(address stETH) {
+        ST_ETH = IERC20(stETH);
+        actor1 = new EscrowActor(stETH);
+        actor2 = new EscrowActor(stETH);
+    }
+
+    function lockUnlockInTheEscrowByOneActor(ISignallingEscrow escrow) external {
+        ST_ETH.approve(msg.sender, type(uint256).max);
+        ST_ETH.transfer(address(actor1), ST_ETH.balanceOf(address(this)));
+
+        actor1.lockStETH(escrow);
+        actor1.unlockStETH(escrow);
+    }
+
+    function lockUnlockInTheEscrowByTwoActors(ISignallingEscrow escrow) external {
+        ST_ETH.approve(msg.sender, type(uint256).max);
+        ST_ETH.transfer(address(actor2), ST_ETH.balanceOf(address(this)));
+
+        actor2.lockStETH(escrow);
+        actor1.unlockStETH(escrow);
+    }
+}
+
+contract EscrowActor {
+    IERC20 public immutable ST_ETH;
+
+    constructor(address stETH) {
+        ST_ETH = IERC20(stETH);
+    }
+
+    function lockStETH(ISignallingEscrow escrow) external {
+        ST_ETH.approve(address(escrow), type(uint256).max);
+        escrow.lockStETH(ST_ETH.balanceOf(address(this)));
+    }
+
+    function unlockStETH(ISignallingEscrow escrow) external {
+        escrow.unlockStETH();
+        ST_ETH.transfer(msg.sender, ST_ETH.balanceOf(address(this)));
     }
 }

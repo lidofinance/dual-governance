@@ -636,6 +636,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION();
     }
 
+    function _getVetoSignallingMinActiveDuration() internal view returns (Duration) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_ACTIVE_DURATION();
+    }
+
     function _getVetoSignallingDeactivationMaxDuration() internal view returns (Duration) {
         return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_SIGNALLING_DEACTIVATION_MAX_DURATION();
     }
