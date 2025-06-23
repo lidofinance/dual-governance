@@ -233,6 +233,15 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     uint256 internal _totalUnlockedStETH = 0;
     uint256 internal _totalUnlockedWstETH = 0;
     uint256 internal _totalUnlockedUnstETHCount = 0;
+    uint256 internal _totalUnlockedUnstETHAmount = 0;
+
+    uint256 internal _totalClaimedUnstETHByRealAccountsCount = 0;
+    uint256 internal _totalClaimedUnstETHBySimulationAccountsCount = 0;
+    uint256 internal _totalClaimedUnstETHByRealAccountsAmount = 0;
+    uint256 internal _totalClaimedUnstETHBySimulationAccountsAmount = 0;
+
+    uint256 internal _totalMarkedUnstETHFinalizedCount = 0;
+    uint256 internal _totalMarkedUnstETHFinalizedAmount = 0;
 
     uint256 internal _totalSubmittedStETH = 0;
     uint256 internal _totalSubmittedWstETH = 0;
@@ -251,7 +260,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     uint256 internal _totalAccidentalWstETHTransferAmount = 0;
     uint256 internal _totalAccidentalUnstETHTransferAmount = 0;
 
-    uint256 internal _totalNegativeRebaseCoount = 0;
+    uint256 internal _totalNegativeRebaseCount = 0;
 
     Escrow[] internal _rageQuitEscrows;
     mapping(Escrow escrow => Escrow.SignallingEscrowDetails details) internal _escrowDetails;
@@ -469,7 +478,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                     uint256 rebaseAmount;
                     if (_getRandomProbability() < NEGATIVE_REBASE_PROBABILITY) {
                         rebaseAmount = _random.nextUint256(HUNDRED_PERCENT_D16 - 8_000 gwei, HUNDRED_PERCENT_D16);
-                        _totalNegativeRebaseCoount++;
+                        _totalNegativeRebaseCount++;
                     } else {
                         rebaseAmount = _random.nextUint256(HUNDRED_PERCENT_D16, HUNDRED_PERCENT_D16 + 80_000 gwei);
                     }
@@ -1107,14 +1116,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _claimUnstETHByRandomAccount() internal {
-        _claimUnstETHByAnyOfAccounts(_simulationAccounts);
+        _totalClaimedUnstETHBySimulationAccountsAmount += _claimUnstETHByAnyOfAccounts(_simulationAccounts);
+        _totalClaimedUnstETHBySimulationAccountsCount++;
     }
 
     function _claimUnstETHByAnyOfRealHolder() internal {
-        _claimUnstETHByAnyOfAccounts(_allRealHolders);
+        _totalClaimedUnstETHByRealAccountsAmount += _claimUnstETHByAnyOfAccounts(_allRealHolders);
+        _totalClaimedUnstETHByRealAccountsCount++;
     }
 
-    function _claimUnstETHByAnyOfAccounts(address[] memory accounts) internal {
+    function _claimUnstETHByAnyOfAccounts(address[] memory accounts) internal returns (uint256 totalClaimedAmount) {
         // console.log(">>> Claiming unstETH by random account");
         uint256 maxRequestsToClaim = _random.nextUint256(1, 64);
         Uint256ArrayBuilder.Context memory requestsArrayBuilder = Uint256ArrayBuilder.create(maxRequestsToClaim);
@@ -1166,6 +1177,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                     vm.etch(account, bytes(""));
                 }
 
+                uint256 balanceBefore = account.balance;
+
                 vm.prank(account);
                 _lido.withdrawalQueue.claimWithdrawals(requestIdsToClaim, hints);
 
@@ -1174,7 +1187,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
 
                 // console.log("Account %s claimed %d unstETH NFTs", account, requestIdsToClaim.length);
-                return;
+                totalClaimedAmount = account.balance - balanceBefore;
+                return totalClaimedAmount;
             }
         }
     }
@@ -1197,6 +1211,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             uint256 index = (randomRequestIdIndex + i) % requestIds.length;
             if (statuses[index].isFinalized) {
                 requestsArrayBuilder.addItem(requestIds[index]);
+                _totalMarkedUnstETHFinalizedAmount += statuses[index].amountOfStETH;
             }
         }
 
@@ -1208,6 +1223,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
             requestIdsToFinalize, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
         );
+
+        _totalMarkedUnstETHFinalizedCount += requestIdsToFinalize.length;
 
         _getVetoSignallingEscrow().markUnstETHFinalized(requestIdsToFinalize, hints);
     }
@@ -1278,10 +1295,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             Uint256ArrayBuilder.Context memory unstETHIdsBuilder =
                 Uint256ArrayBuilder.create(randomUnstETHIdsCountToWithdraw);
+            uint256 unstETHAmount = 0;
 
             for (uint256 i = 0; i < randomUnstETHIdsCountToWithdraw; ++i) {
                 if (!statuses[randomIndices[i]].isFinalized) {
                     unstETHIdsBuilder.addItem(lockedUnstETHIds[randomIndices[i]]);
+                    unstETHAmount += statuses[randomIndices[i]].amountOfStETH;
                 }
             }
 
@@ -1291,6 +1310,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             _unlockUnstETH(account, unstETHIdsBuilder.getSorted());
             _totalUnlockedUnstETHCount += details.unstETHIdsCount;
+            _totalUnlockedUnstETHAmount += unstETHAmount;
         }
     }
 
@@ -1621,12 +1641,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         console.log("Unlock unstETH (simulation accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.UnlockUnstETH]);
         console.log("  - total unlocked ustETH NFTs:", _totalUnlockedUnstETHCount);
-        console.log("  - total unlocked ustETH amount: <TODO>");
+        console.log("  - total unlocked ustETH amount: ", _totalUnlockedUnstETHAmount.formatEther());
 
         console.log("Claim unstETH (simulation account)");
         console.log("  - count:", _actionsCounters[SimulationActionType.ClaimUnstETH]);
-        console.log("  - total ustETH NFTs claimed: <TODO>");
-        console.log("  - total ustETH amount claimed: <TODO>");
+        console.log("  - total ustETH NFTs claimed: ", _totalClaimedUnstETHBySimulationAccountsCount);
+        console.log("  - total ustETH amount claimed: ", _totalClaimedUnstETHBySimulationAccountsAmount.formatEther());
 
         console.log("Withdraw stETH (real account)");
         console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawStETHRealHolder]);
@@ -1638,8 +1658,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
         console.log("Claim unstETH (real account)");
         console.log("  - count:", _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder]);
-        console.log("  - total claimed ustETH NFTs: <TODO>");
-        console.log("  - total claimed ustETH amount: <TODO>");
+        console.log("  - total claimed ustETH NFTs: ", _totalClaimedUnstETHByRealAccountsCount);
+        console.log("  - total claimed ustETH amount: ", _totalClaimedUnstETHByRealAccountsAmount.formatEther());
 
         console.log("Lock stETH (real account)");
         console.log("  - count:", _actionsCounters[SimulationActionType.LockStETHRealHolder]);
@@ -1651,8 +1671,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
         console.log("Mark unstETH finalized");
         console.log("  - count:", _actionsCounters[SimulationActionType.MarkUnstETHFinalized]);
-        console.log("  - total ustETH NFTs marked finalized: <TODO>");
-        console.log("  - total ustETH amount marked finalized: <TODO>");
+        console.log("  - total ustETH NFTs marked finalized: ", _totalMarkedUnstETHFinalizedCount);
+        console.log("  - total ustETH amount marked finalized: ", _totalMarkedUnstETHFinalizedAmount.formatEther());
 
         console.log("Accidental ETH transfers");
         console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalETHTransfer]);
@@ -1700,7 +1720,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         console.log("  - block.timestamp:", block.timestamp);
         console.log("  - stETH Total Supply:", _lido.stETH.totalSupply().formatEther());
         console.log("  - stETH Share Rate:", _lido.stETH.getPooledEthByShares(10 ** 18).formatEther());
-        console.log("  - Negative rebases:", _totalNegativeRebaseCoount);
+        console.log("  - Negative rebases:", _totalNegativeRebaseCount);
     }
 }
 
