@@ -315,9 +315,6 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
     ) public {
         _initialLockRandomAmountOfTokensInEscrow();
 
-        stETHAmount = Math.max(stETHAmount % _lido.stETH.balanceOf(_VETOER_1), 2);
-        wstETHAmount = Math.max(wstETHAmount % _lido.wstETH.balanceOf(_VETOER_1), 2);
-
         unstETH1Amount = Math.max(
             unstETH1Amount % _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT(),
             _lido.withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()
@@ -326,6 +323,13 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
             unstETH2Amount % _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT(),
             _lido.withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()
         );
+
+        uint256 vetoer1StETHBalanceBefore = _lido.stETH.balanceOf(_VETOER_1);
+        stETHAmount = Math.max(stETHAmount % vetoer1StETHBalanceBefore, 2);
+        wstETHAmount = Math.max(wstETHAmount % _lido.wstETH.balanceOf(_VETOER_1), 2);
+
+        unstETH1Amount = Math.min(unstETH1Amount, (vetoer1StETHBalanceBefore - stETHAmount) / 2);
+        unstETH2Amount = Math.min(unstETH2Amount, (vetoer1StETHBalanceBefore - stETHAmount) / 2);
 
         uint256 stETHShares = _lido.stETH.getSharesByPooledEth(stETHAmount);
 
