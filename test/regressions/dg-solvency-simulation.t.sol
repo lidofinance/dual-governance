@@ -54,8 +54,8 @@ enum SimulationActionType {
 }
 
 struct AccountDetails {
-    mapping(address escrow => uint256 balance) stETHSharesBalanceLockedInEscrow;
-    mapping(address escrow => uint256 balance) wstETHBalanceLockedInEscrow;
+    mapping(address escrow => uint256 balance) sharesLockedInEscrow;
+    mapping(address escrow => uint256 accumulatedEscrowSharesError) accumulatedEscrowSharesErrors;
     mapping(address escrow => uint256[] ids) unstETHIdsLockedInEscrow;
     uint256[] unstETHIdsRequested;
     uint256 stETHSubmitted;
@@ -995,7 +995,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _lockStETH(account, lockAmount);
             _totalLockedStETH += lockAmount;
 
-            _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()] +=
+            _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()] +=
                 _lido.stETH.getSharesByPooledEth(lockAmount);
 
             // console.log("Account %s locked %s stETH in signalling escrow", account, lockAmount.formatEther());
@@ -1033,7 +1033,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _lockWstETH(account, lockAmount);
             _totalLockedWstETH += lockAmount;
 
-            _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()] += lockAmount;
+            _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()] += lockAmount;
+            _accountsDetails[account].accumulatedEscrowSharesErrors[_getCurrentEscrowAddress()]++;
 
             // console.log(
             //     "Account %s locked %s wstETH in signalling escrow",
@@ -1221,20 +1222,17 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             details.stETHLockedShares.toUint256() > 0
                 && Timestamps.now() > escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
         ) {
+            assertApproxEqAbs(
+                _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()],
+                details.stETHLockedShares.toUint256(),
+                _accountsDetails[account].accumulatedEscrowSharesErrors[_getCurrentEscrowAddress()]
+            );
+
             _unlockStETH(account);
             _totalUnlockedStETH += _lido.stETH.getPooledEthByShares(details.stETHLockedShares.toUint256());
 
-            // TODO: fix assertion. The delta depends on the number of lock operations
-            //  as each lock operation may introduce 1-2 wei loss
-            assertApproxEqAbs(
-                _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()]
-                    + _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()],
-                details.stETHLockedShares.toUint256(),
-                5
-            );
-
-            _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()] = 0;
-            _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()] = 0;
+            _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()] = 0;
+            _accountsDetails[account].accumulatedEscrowSharesErrors[_getCurrentEscrowAddress()] = 0;
         }
     }
 
@@ -1248,20 +1246,17 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             details.stETHLockedShares.toUint256() > 0
                 && Timestamps.now() > escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
         ) {
+            assertApproxEqAbs(
+                _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()],
+                details.stETHLockedShares.toUint256(),
+                _accountsDetails[account].accumulatedEscrowSharesErrors[_getCurrentEscrowAddress()]
+            );
+
             _unlockWstETH(account);
             _totalUnlockedWstETH += details.stETHLockedShares.toUint256();
 
-            // TODO: fix assertion. The delta depends on the number of lock operations
-            //  as each lock operation may introduce 1-2 wei loss
-            assertApproxEqAbs(
-                _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()]
-                    + _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()],
-                details.stETHLockedShares.toUint256(),
-                5
-            );
-
-            _accountsDetails[account].stETHSharesBalanceLockedInEscrow[_getCurrentEscrowAddress()] = 0;
-            _accountsDetails[account].wstETHBalanceLockedInEscrow[_getCurrentEscrowAddress()] = 0;
+            _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()] = 0;
+            _accountsDetails[account].accumulatedEscrowSharesErrors[_getCurrentEscrowAddress()] = 0;
         }
     }
 
