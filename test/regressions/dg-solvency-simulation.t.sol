@@ -50,7 +50,8 @@ enum SimulationActionType {
     ClaimUnstETHRealHolder,
     //
     LockStETHRealHolder,
-    LockWstETHRealHolder
+    LockWstETHRealHolder,
+    LockUnstETHRealHolder
 }
 
 struct AccountDetails {
@@ -221,8 +222,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     uint256 internal _totalLockedStETH = 0;
     uint256 internal _totalLockedWstETH = 0;
-    uint256 internal _totalLockedUnstETHCount = 0;
-    uint256 internal _totalLockedUnstETHAmount = 0;
 
     uint256 internal _totalLockedStETHByRealAccounts = 0;
     uint256 internal _totalLockedStETHBySimulationAccounts = 0;
@@ -242,6 +241,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     uint256 internal _totalMarkedUnstETHFinalizedCount = 0;
     uint256 internal _totalMarkedUnstETHFinalizedAmount = 0;
+
+    uint256 internal _totalLockedUnstETHByRealAccountsCount = 0;
+    uint256 internal _totalLockedUnstETHBySimulationAccountsCount = 0;
+    uint256 internal _totalLockedUnstETHByRealAccountsAmount = 0;
+    uint256 internal _totalLockedUnstETHBySimulationAccountsAmount = 0;
 
     uint256 internal _totalSubmittedStETH = 0;
     uint256 internal _totalSubmittedWstETH = 0;
@@ -388,7 +392,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
 
                 if (actions.has(SimulationActionType.LockUnstETH)) {
-                    _lockUnstETHByRandomAccount();
+                    _lockUnstETHByRandomSimulationAccount();
                     _mineBlock();
                 }
 
@@ -454,6 +458,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
                 if (actions.has(SimulationActionType.LockWstETHRealHolder)) {
                     _lockWstETHByRandomRealAccount();
+                    _mineBlock();
+                }
+
+                if (actions.has(SimulationActionType.LockUnstETHRealHolder)) {
+                    _lockUnstETHByRandomRealAccount();
                     _mineBlock();
                 }
 
@@ -1055,16 +1064,33 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
     }
 
-    // TODO: Consider adding similar action for real accounts
-    function _lockUnstETHByRandomAccount() internal {
+    function _lockUnstETHByRandomSimulationAccount() internal {
+        (uint256 unstETHAmount, uint256 unstETHCount) = _lockUnstETHByRandomAccount(_simulationAccounts);
+        _totalLockedUnstETHBySimulationAccountsAmount += unstETHAmount;
+        _totalLockedUnstETHBySimulationAccountsCount += unstETHCount;
+    }
+
+    function _lockUnstETHByRandomRealAccount() internal {
+        (uint256 unstETHAmount, uint256 unstETHCount) = _lockUnstETHByRandomAccount(_allRealHolders);
+        _totalLockedUnstETHByRealAccountsAmount += unstETHAmount;
+        _totalLockedUnstETHByRealAccountsCount += unstETHCount;
+    }
+
+    function _lockUnstETHByRandomAccount(address[] memory accounts)
+        internal
+        returns (uint256 totalLockedAmount, uint256 totalLockedCount)
+    {
         // console.log(">>> Locking unstETH by random account");
         _activateNextState();
         uint256 lastFinalizedRequestId = _lido.withdrawalQueue.getLastFinalizedRequestId();
         uint256 maxRequestsToLock = _random.nextUint256(1, 64);
         Uint256ArrayBuilder.Context memory requestsArrayBuilder = Uint256ArrayBuilder.create(maxRequestsToLock);
 
-        for (uint256 i = 0; i < SIMULATION_ACCOUNTS; ++i) {
-            address account = _getSimulationAccount(i);
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
+
             uint256 unstETHIdsCount = _lido.withdrawalQueue.balanceOf(account);
 
             if (unstETHIdsCount == 0) {
@@ -1099,8 +1125,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 Escrow.SignallingEscrowDetails memory escrowDetailsAfter =
                     _getVetoSignallingEscrow().getSignallingEscrowDetails();
 
-                _totalLockedUnstETHCount += requestsArrayBuilder.size;
-                _totalLockedUnstETHAmount += (
+                totalLockedCount += requestsArrayBuilder.size;
+                totalLockedAmount += (
                     escrowDetailsAfter.totalUnstETHUnfinalizedShares - escrowDetailsBefore.totalUnstETHUnfinalizedShares
                 ).toUint256();
 
@@ -1110,7 +1136,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                     );
                 }
                 // console.log("Account %s locked %d unstETH in signalling escrow", account, requestsArrayBuilder.size);
-                return;
+                return (totalLockedCount, totalLockedAmount);
             }
         }
     }
@@ -1627,8 +1653,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
         console.log("Lock unsETH (simulation accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.LockUnstETH]);
-        console.log("  - total locked ustETH NFTs:", _totalLockedUnstETHCount);
-        console.log("  - total locked ustETH amount:", _totalLockedUnstETHAmount);
+        console.log("  - total locked ustETH NFTs:", _totalLockedUnstETHBySimulationAccountsCount);
+        console.log("  - total locked ustETH amount:", _totalLockedUnstETHBySimulationAccountsAmount.formatEther());
 
         console.log("Unlock stETH (simulation accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.UnlockStETH]);
@@ -1668,6 +1694,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         console.log("Lock wstETH (real account)");
         console.log("  - count:", _actionsCounters[SimulationActionType.LockWstETHRealHolder]);
         console.log("  - total locked stETH:", _totalLockedWstETHByRealAccounts.formatEther());
+
+        console.log("Lock unsETH (simulation accounts)");
+        console.log("  - count:", _actionsCounters[SimulationActionType.LockUnstETH]);
+        console.log("  - total locked ustETH NFTs:", _totalLockedUnstETHByRealAccountsCount);
+        console.log("  - total locked ustETH amount:", _totalLockedUnstETHByRealAccountsAmount.formatEther());
 
         console.log("Mark unstETH finalized");
         console.log("  - count:", _actionsCounters[SimulationActionType.MarkUnstETHFinalized]);
