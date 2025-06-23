@@ -64,17 +64,51 @@ This repository contains different sets of tests written using the Foundry frame
 
 The following commands can be used to run different types of tests:
 
-```sh
-npm run test:unit         # runs unit tests exclusively
-npm run test:integration  # runs integration and regression tests on a newly deployed setup of the Dual Governance
-npm run test:scenario     # runs only scenario tests on a newly deployed setup of the Dual Governance
-npm run test:regressions  # runs regression tests on a forked setup of the Dual Governance
-npm run test:solvency-simulation # runs solvency test exclusively on a forked setup of Dual Governance (Note: test is very time consuming)
-npm run test:complete-rage-quit # runs complete rage quit test exclusively on a forked setup of Dual Governance (Note: test is very time consuming)
-npm run test              # runs all types of tests
-```
+- **Run unit tests exclusively**
+    ```sh
+    npm run test:unit
+    ```
 
-> [!NOTE] Make sure that the required environment variables are set before running tests.
+- **Run integration and regression tests on a newly deployed setup of the Dual Governance**
+    ```sh
+    npm run test:integration
+    ```
+
+- **Run only scenario tests on a newly deployed setup of the Dual Governance**
+    ```sh
+    npm run test:scenario
+    ```
+
+- **Run regression tests on a forked setup of the Dual Governance**
+    ```sh
+    npm run test:regressions
+    ```
+
+- **Run solvency test exclusively on a forked setup of Dual Governance** _(Note: test is very time consuming)_
+    ```sh
+    npm run test:solvency-simulation
+    ```
+    > **_NOTE:_** Use flag `--load-accounts` to update list of stETH and wstETH holders before the test:
+    >```sh
+    >npm run test:solvency-simulation -- --load-accounts
+    >```
+
+- **Run complete rage quit test exclusively on a forked setup of Dual Governance** _(Note: test is very time consuming)_
+    ```sh
+    npm run test:complete-rage-quit
+    ```
+    >**_NOTE:_** Use flag `--load-accounts` to update list of stETH and wstETH holders before the test:
+    >```sh
+    >npm run test:complete-rage-quit -- --load-accounts
+    >```
+
+- **Run all types of tests**
+    ```sh
+    npm run test
+    ```
+
+>[!NOTE]
+>Make sure that the required environment variables are set before running tests.
 
 ## Test coverage HTML report generation
 
