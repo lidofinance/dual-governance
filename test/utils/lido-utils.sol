@@ -178,12 +178,17 @@ library LidoUtils {
         PercentD16 percentage
     ) internal view returns (uint256) {
         uint256 totalSupply = self.stETH.totalSupply();
-        uint256 amount =
+        uint256 approximatedAmount =
             totalSupply * PercentD16.unwrap(percentage) / PercentD16.unwrap(PercentsD16.fromBasisPoints(100_00));
 
         /// @dev Below transformation helps to fix the rounding issue
-        PercentD16 resulting = PercentsD16.fromFraction({numerator: amount, denominator: totalSupply});
-        return amount * PercentD16.unwrap(percentage) / PercentD16.unwrap(resulting);
+        while (
+            self.stETH.getPooledEthByShares(self.stETH.getSharesByPooledEth(approximatedAmount))
+                * PercentD16.unwrap(PercentsD16.fromBasisPoints(100_00)) / totalSupply < PercentD16.unwrap(percentage)
+        ) {
+            approximatedAmount++;
+        }
+        return approximatedAmount;
     }
 
     function calcSharesFromPercentageOfTVL(
