@@ -1,4 +1,5 @@
 [profile.default]
+evm_version = 'cancun'
 src = 'contracts'
 out = 'out'
 script = 'scripts'
@@ -8,11 +9,15 @@ cache_path = 'cache_forge'
 # solc-version = "0.8.26"
 optimizer=true
 no-match-path = 'test/kontrol/*'
-fs_permissions = [{ access = "read", path = "./"}]
-ignored_warnings_from = ["test/kontrol"]
+fs_permissions = [
+    { access = "read", path = "./test/regressions"},
+    { access = "read-write", path = "./deploy-config"},
+    { access = "read-write", path = "./deploy-artifacts"}
+]
+gas_limit = "18446744073709551615"
+memory_limit = 17179869184 # 16gb
 
-# TODO: remove the next line. This is a quick fix for the existing tests that is required for tests to pass after upgrade of Foundry to v1.0.0.
-allow_internal_expect_revert = true
+ignored_warnings_from = ["test/kontrol"]
 
 [profile.kprove]
 src = 'test/kontrol'
@@ -24,5 +29,6 @@ line_length = 120
 multiline_func_header = 'params_first_multi'
 
 [etherscan]
-mainnet = { key = "${ETHERSCAN_MAINNET_KEY}" }
-holesky = { key = "${ETHERSCAN_MAINNET_KEY}", chain = "17000" }
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
+holesky = { key = "${ETHERSCAN_API_KEY}", chain = "17000" }
+hoodi = { key = "${ETHERSCAN_API_KEY}", chain = "560048", url = "https://api-hoodi.etherscan.io/api" }

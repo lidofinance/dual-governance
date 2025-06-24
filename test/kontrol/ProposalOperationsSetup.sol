@@ -121,7 +121,6 @@ contract ProposalOperationsSetup is KontrolTest {
     //
     //  GETTERS
     //
-
     function _getAfterSubmitDelay(address _timelock) internal returns (Duration) {
         return Duration.wrap(
             uint32(_loadData(_timelock, AFTERSUBMITDELAY_SLOT, AFTERSUBMITDELAY_OFFSET, AFTERSUBMITDELAY_SIZE))

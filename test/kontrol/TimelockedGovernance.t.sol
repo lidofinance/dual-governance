@@ -6,21 +6,16 @@ import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {DualGovernanceSetUp} from "test/kontrol/DualGovernanceSetUp.sol";
 
 contract TimelockedGovernanceTest is DualGovernanceSetUp {
-
     TimelockedGovernance private _timelockedGovernance;
 
     function setUp() public override {
         super.setUp();
-        
+
         address governance = address(uint160(uint256(keccak256("governance"))));
         _timelockedGovernance = new TimelockedGovernance(governance, timelock);
     }
 
-    function testSubmitProposalRevert(
-        address caller,
-        ExternalCall[] calldata calls,
-        string calldata metadata
-    ) public {
+    function testSubmitProposalRevert(address caller, ExternalCall[] calldata calls, string calldata metadata) public {
         vm.assume(caller != _timelockedGovernance.GOVERNANCE());
 
         vm.startPrank(caller);
@@ -37,5 +32,4 @@ contract TimelockedGovernanceTest is DualGovernanceSetUp {
         _timelockedGovernance.cancelAllPendingProposals();
         vm.stopPrank();
     }
-
 }

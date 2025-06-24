@@ -39,6 +39,33 @@ library Random {
         return address(uint160(nextUint256(self)));
     }
 
+    function nextPermutation(Context storage self, uint256 size) internal returns (uint256[] memory res) {
+        return nextPermutation(self, size, 0);
+    }
+
+    function nextPermutation(
+        Context storage self,
+        uint256 size,
+        uint256 startItem
+    ) internal returns (uint256[] memory res) {
+        res = new uint256[](size);
+
+        for (uint256 i = 0; i < size; ++i) {
+            res[i] = startItem + i;
+        }
+
+        if (size == 1) {
+            return res;
+        }
+
+        for (uint256 i = 0; i < size / 2 + 1; ++i) {
+            uint256 randIndex = nextUint256(self, size);
+            uint256 tmp = res[i];
+            res[i] = res[randIndex];
+            res[randIndex] = tmp;
+        }
+    }
+
     function _nextValue(Context storage self) private returns (bytes32) {
         self.value = keccak256(abi.encode(self.value));
         return self.value;

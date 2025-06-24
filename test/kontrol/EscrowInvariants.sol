@@ -49,8 +49,7 @@ contract EscrowInvariants is StorageSetup {
     }
 
     function escrowUserInvariants(Mode mode, Escrow escrow, address user) external view {
-        SharesValue userLockedSharesWrapped =
-            escrow.getVetoerDetails(user).stETHLockedShares;
+        SharesValue userLockedSharesWrapped = escrow.getVetoerDetails(user).stETHLockedShares;
         // Unwrapping because <= is not implemented for SharesValue type
         uint128 userLockedShares = SharesValue.unwrap(userLockedSharesWrapped);
         uint128 totalLockedShares = _getTotalStEthLockedShares(escrow);

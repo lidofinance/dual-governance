@@ -66,7 +66,6 @@ contract DualGovernanceStorageSetup is KontrolTest {
     //
     //  GETTERS
     //
-
     function _getCurrentState(DualGovernance _dualGovernance) internal view returns (uint8) {
         return uint8(_loadData(address(_dualGovernance), STATE_SLOT, STATE_OFFSET, STATE_SIZE));
     }
@@ -96,7 +95,6 @@ contract DualGovernanceStorageSetup is KontrolTest {
     //
     //  STORAGE SETUP
     //
-
     function dualGovernanceStorageSetup(
         DualGovernance _dualGovernance,
         IEscrowBase _signallingEscrow,

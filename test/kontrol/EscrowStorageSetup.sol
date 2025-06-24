@@ -102,8 +102,7 @@ contract EscrowStorageSetup is KontrolTest {
         EscrowStorageConstants.STORAGE_BATCHESQUEUE_INFO_LASTCLAIMEDUNSTETHIDINDEX_OFFSET;
     uint256 constant LASTCLAIMEDUNSTETHIDINDEX_SIZE =
         EscrowStorageConstants.STORAGE_BATCHESQUEUE_INFO_LASTCLAIMEDUNSTETHIDINDEX_SIZE;
-    uint256 constant SEQUENTIALBATCH_SIZE =
-        EscrowStorageConstants.STRUCT_WITHDRAWALSBATCHESQUEUE_SEQUENTIALBATCH_SIZE;
+    uint256 constant SEQUENTIALBATCH_SIZE = EscrowStorageConstants.STRUCT_WITHDRAWALSBATCHESQUEUE_SEQUENTIALBATCH_SIZE;
     uint256 constant FIRSTUNSTETHID_SLOT =
         EscrowStorageConstants.STRUCT_WITHDRAWALSBATCHESQUEUE_SEQUENTIALBATCH_FIRSTUNSTETHID_SLOT;
     uint256 constant FIRSTUNSTETHID_OFFSET =
@@ -124,7 +123,6 @@ contract EscrowStorageSetup is KontrolTest {
     //
     //  GETTERS
     //
-
     function _getCurrentState(IEscrowBase _escrow) internal view returns (uint8) {
         return uint8(_loadData(address(_escrow), ESCROWSTATE_SLOT, ESCROWSTATE_OFFSET, ESCROWSTATE_SIZE));
     }
@@ -272,7 +270,6 @@ contract EscrowStorageSetup is KontrolTest {
     //
     //  ACCOUNTING RECORDS
     //
-
     struct AccountingRecord {
         uint256 allowance;
         uint256 userBalance;
@@ -326,7 +323,6 @@ contract EscrowStorageSetup is KontrolTest {
     //
     //  STORAGE SETUP
     //
-
     function escrowStorageSetup(IEscrowBase _escrow, EscrowSt _currentState) external {
         kevm.symbolicStorage(address(_escrow));
 
@@ -489,11 +485,7 @@ contract EscrowStorageSetup is KontrolTest {
         );
         uint256 lastUnstEthId = freshUInt256("Escrow_lastUnstEthId");
         _storeData(
-            address(_escrow),
-            batchSlot + LASTUNSTETHID_SLOT,
-            LASTUNSTETHID_OFFSET,
-            LASTUNSTETHID_SIZE,
-            lastUnstEthId
+            address(_escrow), batchSlot + LASTUNSTETHID_SLOT, LASTUNSTETHID_OFFSET, LASTUNSTETHID_SIZE, lastUnstEthId
         );
     }
 

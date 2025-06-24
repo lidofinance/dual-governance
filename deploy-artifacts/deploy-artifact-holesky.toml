@@ -1,0 +1,115 @@
+[deploy_config]
+chain_id = 17000
+
+[deploy_config.dual_governance]
+admin_proposer = "0xdA7d2573Df555002503F29aA4003e398d28cc00f"
+proposals_canceller = "0xdA7d2573Df555002503F29aA4003e398d28cc00f"
+reseal_committee = "0x17A283c01dCc0F1d3D67b24E341e142DF78807D4"
+sealable_withdrawal_blockers = [
+    "0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50",
+    "0xffDDF7025410412deaa05E3E1cE68FE53208afcb",
+]
+tiebreaker_activation_timeout = 900
+
+[deploy_config.dual_governance.sanity_check_params]
+max_min_assets_lock_duration = 3600
+max_sealable_withdrawal_blockers_count = 255
+max_tiebreaker_activation_timeout = 1800
+min_tiebreaker_activation_timeout = 300
+min_withdrawals_batch_size = 1
+
+[deploy_config.dual_governance.signalling_tokens]
+st_eth = "0x3F1c547b21f65e10480dE3ad8E19fAAC46C95034"
+withdrawal_queue = "0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50"
+wst_eth = "0x8d09a4502Cc8Cf1547aD300E066060D043f6982D"
+
+[deploy_config.dual_governance_config_provider]
+first_seal_rage_quit_support = 300
+min_assets_lock_duration = 300
+rage_quit_eth_withdrawals_delay_growth = 1200
+rage_quit_eth_withdrawals_max_delay = 3600
+rage_quit_eth_withdrawals_min_delay = 600
+rage_quit_extension_period_duration = 180
+second_seal_rage_quit_support = 1500
+veto_cooldown_duration = 180
+veto_signalling_deactivation_max_duration = 300
+veto_signalling_max_duration = 1800
+veto_signalling_min_active_duration = 180
+veto_signalling_min_duration = 300
+
+[deploy_config.tiebreaker]
+committees_count = 3
+execution_delay = 900
+quorum = 2
+
+[[deploy_config.tiebreaker.committees]]
+members = [
+    "0x14df797E7910D320931016E87133D0977eCa3c54",
+    "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
+    "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
+    "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
+    "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566",
+    "0x6389CBcF38172a1e8eCF1C34c00cd7f603AfB80C",
+]
+quorum = 2
+
+[[deploy_config.tiebreaker.committees]]
+members = [
+    "0x14df797E7910D320931016E87133D0977eCa3c54",
+    "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
+    "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
+    "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
+    "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566",
+    "0x6389CBcF38172a1e8eCF1C34c00cd7f603AfB80C",
+]
+quorum = 2
+
+[[deploy_config.tiebreaker.committees]]
+members = [
+    "0x14df797E7910D320931016E87133D0977eCa3c54",
+    "0x6FD09F5b4341C79CBDf679bccC2394C6FD7D0016",
+    "0xe8B2097674daF8fC3DcCDDf05a2cBeF8253A4bAB",
+    "0x7Cd64b87251f793027590c34b206145c3aa362Ae",
+    "0x526d46eCa1d7969924e981ecDbcAa74e9f0EE566",
+    "0x6389CBcF38172a1e8eCF1C34c00cd7f603AfB80C",
+]
+quorum = 2
+
+[deploy_config.timelock]
+after_schedule_delay = 120
+after_submit_delay = 120
+
+[deploy_config.timelock.emergency_protection]
+emergency_activation_committee = "0x49e088BafA69a17fC42C9cc12c66EEcF3076981d"
+emergency_execution_committee = "0x417dEcac0c732D31143F6Ee931fd34f661Dc2AF7"
+emergency_governance_proposer = "0xdA7d2573Df555002503F29aA4003e398d28cc00f" # DAO Voting
+emergency_mode_duration = 86400
+emergency_protection_end_date = 1777975200
+
+[deploy_config.timelock.sanity_check_params]
+max_after_schedule_delay = 1800
+max_after_submit_delay = 1800
+max_emergency_mode_duration = 2592000
+max_emergency_protection_duration = 63072000
+min_execution_delay = 120
+
+[deployed_contracts]
+admin_executor = "0x8BD0a916faDa88Ba3accb595a3Acd28F467130e8"
+dual_governance = "0x490bf377734CA134A8E207525E8576745652212e"
+dual_governance_config_provider = "0xF3257b7E333Cdd15df92CBc3BAF645D83D22B97B"
+emergency_governance = "0x46c6C7E1Cc438456d658Eed61A764a475abDa0C1"
+escrow_master_copy = "0x901bd16E9B8c317891E3b7D3D57f98Da50De5a36"
+reseal_manager = "0x9dE2273f9f1e81145171CcA927EFeE7aCC64c9fb"
+tiebreaker_core_committee = "0xE449EEd4C99EcC0157690f84cE64A6d66a83af55"
+tiebreaker_sub_committees = [
+    "0xa0E6A8810E49b8A509dd01659d4A6D1EC0bBbA27",
+    "0xbfD6b8f44fcf65B5809d6B71FDc52c21Bcb4D13F",
+    "0xf822A746aA1ACC0b68649Ac83A9A93651B98B1b0",
+]
+timelock = "0xe9c5FfEAd0668AFdBB9aac16163840d649DB76DD"
+
+[dao_voting]
+dg_launch_verifier = "0x5dDD4E52C85313B80809dEd9E909DC391dfcF719"
+roles_validator = "0xf532fC0a18D3339A52b3f1152FcA9925De5855AA"
+time_constraints = "0x4D36598EA14bd70a1040CF59ABF6f9439afBf5d9"
+omnibus_calldata_builder = "0xc76b2c80dc713e99fC616b651F3509238DcD2285"

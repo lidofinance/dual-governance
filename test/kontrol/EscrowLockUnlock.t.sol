@@ -27,9 +27,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
         uint256 unfinalizedShares = _getUnfinalizedShares(escrow);
         uint256 totalPooledEther = stEth.getTotalPooledEther();
         uint256 amountInShares = stEth.getSharesByPooledEth(amount);
-        uint256 numerator =
-            stEth.getPooledEthByShares(lockedShares + amountInShares + unfinalizedShares) +
-            finalizedEth;
+        uint256 numerator = stEth.getPooledEthByShares(lockedShares + amountInShares + unfinalizedShares) + finalizedEth;
         uint256 denominator = totalPooledEther + finalizedEth;
 
         return 100 * 10 ** 16 * numerator / denominator;
@@ -101,8 +99,7 @@ contract EscrowLockUnlockTest is EscrowInvariants, DualGovernanceSetUp {
 
         {
             // Assume rage quit support won't overflow after amount is locked
-            uint256 rageQuitSupportAfterLock =
-                _calculateRageQuitSupportAfterLock(signallingEscrow, amount);
+            uint256 rageQuitSupportAfterLock = _calculateRageQuitSupportAfterLock(signallingEscrow, amount);
             vm.assume(rageQuitSupportAfterLock <= type(uint128).max);
 
             State initialState = dualGovernance.getPersistedState();

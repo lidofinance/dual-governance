@@ -49,7 +49,6 @@ contract WithdrawalQueueStorageSetup is KontrolTest {
     //
     //  GETTERS
     //
-
     function _getLastRequestId(WithdrawalQueueModel _withdrawalQueue) internal view returns (uint256) {
         return _loadData(address(_withdrawalQueue), LASTREQUESTID_SLOT, LASTREQUESTID_OFFSET, LASTREQUESTID_SIZE);
     }
@@ -74,12 +73,7 @@ contract WithdrawalQueueStorageSetup is KontrolTest {
         return address(
             uint160(
                 _loadMappingData(
-                    address(_withdrawalQueue),
-                    REQUESTS_SLOT,
-                    _requestId,
-                    OWNER_SLOT,
-                    OWNER_OFFSET,
-                    OWNER_SIZE
+                    address(_withdrawalQueue), REQUESTS_SLOT, _requestId, OWNER_SLOT, OWNER_OFFSET, OWNER_SIZE
                 )
             )
         );
@@ -88,7 +82,6 @@ contract WithdrawalQueueStorageSetup is KontrolTest {
     //
     //  STORAGE SETUP
     //
-
     function withdrawalQueueStorageSetup(
         WithdrawalQueueModel _withdrawalQueue,
         IStETH _stEth,

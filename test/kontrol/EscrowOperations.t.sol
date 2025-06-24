@@ -40,8 +40,7 @@ contract EscrowOperationsTest is EscrowAccountingTest {
         // Assume that the state doesn't transition to rage quit, which would
         // turn this into the rage quit escrow
         vm.assume(
-            dualGovernance.getPersistedState() == State.RageQuit ||
-            dualGovernance.getEffectiveState() != State.RageQuit
+            dualGovernance.getPersistedState() == State.RageQuit || dualGovernance.getEffectiveState() != State.RageQuit
         );
 
         // Assume that the minimal lock duration has not passed

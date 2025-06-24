@@ -11,10 +11,10 @@ contract EnumerableProposalsTest is UnitTest {
 
     EnumerableProposals.Bytes32ToProposalMap private proposalsMap;
 
-    bytes32 constant TEST_KEY_1 = keccak256("TEST_KEY_1");
-    bytes32 constant TEST_KEY_2 = keccak256("TEST_KEY_2");
-    uint256 constant TEST_PROPOSAL_TYPE = 1;
-    bytes constant TEST_DATA = "test data";
+    bytes32 private constant TEST_KEY_1 = keccak256("TEST_KEY_1");
+    bytes32 private constant TEST_KEY_2 = keccak256("TEST_KEY_2");
+    uint256 private constant TEST_PROPOSAL_TYPE = 1;
+    bytes private constant TEST_DATA = "test data";
 
     function test_pushAddsProposal() public {
         bool success = proposalsMap.push(TEST_KEY_1, TEST_PROPOSAL_TYPE, TEST_DATA);
@@ -35,7 +35,7 @@ contract EnumerableProposalsTest is UnitTest {
         assertTrue(exists);
     }
 
-    function test_containsReturnsFalseForNonExistingProposal() public {
+    function test_containsReturnsFalseForNonExistingProposal() public view {
         bool exists = proposalsMap.contains(TEST_KEY_1);
         assertFalse(exists);
     }
@@ -49,7 +49,7 @@ contract EnumerableProposalsTest is UnitTest {
 
     function test_getRevertsForNonExistingProposal() public {
         vm.expectRevert(abi.encodeWithSelector(EnumerableProposals.ProposalDoesNotExist.selector, TEST_KEY_1));
-        proposalsMap.get(TEST_KEY_1);
+        this.external__get(TEST_KEY_1);
     }
 
     function test_atReturnsCorrectProposal() public {
@@ -61,7 +61,7 @@ contract EnumerableProposalsTest is UnitTest {
 
     function test_atRevertsForOutOfBoundsIndex() public {
         vm.expectRevert();
-        proposalsMap.at(0);
+        this.external__at(0);
     }
 
     function test_getOrderedKeysReturnsAllKeys() public {
@@ -83,7 +83,7 @@ contract EnumerableProposalsTest is UnitTest {
 
     function test_getOrderedKeysWithPaginationRevertsForInvalidOffset() public {
         vm.expectRevert(EnumerableProposals.OffsetOutOfBounds.selector);
-        proposalsMap.getOrderedKeys(2, 1);
+        this.external__getOrderedKeys(2, 1);
     }
 
     function test_getOrderedKeysWithLimitExceedingRemainingKeys() public {
@@ -94,5 +94,17 @@ contract EnumerableProposalsTest is UnitTest {
 
         assertEq(keys.length, 1);
         assertEq(keys[0], TEST_KEY_2);
+    }
+
+    function external__get(bytes32 key) external view {
+        proposalsMap.get(key);
+    }
+
+    function external__at(uint256 index) external view {
+        proposalsMap.at(index);
+    }
+
+    function external__getOrderedKeys(uint256 offset, uint256 limit) external view {
+        proposalsMap.getOrderedKeys(offset, limit);
     }
 }

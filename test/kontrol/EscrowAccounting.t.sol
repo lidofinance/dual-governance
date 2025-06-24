@@ -72,8 +72,7 @@ contract EscrowAccountingTest is EscrowInvariants, DualGovernanceSetUp {
         _withdrawalsBatchSetup(escrow, batchesLength - 1);
 
         uint256 lastBatchIndex = batchesLength - 1;
-        vm.assume(_getLastUnstEthId(escrow, lastBatchIndex) ==
-                  _getLastRequestId(withdrawalQueue));
+        vm.assume(_getLastUnstEthId(escrow, lastBatchIndex) == _getLastRequestId(withdrawalQueue));
 
         // Avoid overflow
         uint64 totalUnstEthIdsCount = _getTotalUnstEthIdsCount(escrow);
@@ -91,31 +90,25 @@ contract EscrowAccountingTest is EscrowInvariants, DualGovernanceSetUp {
         uint256 sharesRemainingPost = stEth.sharesOf(address(escrow));
         uint256 stEthRemainingPost = stEth.balanceOf(address(escrow));
 
-        uint256 minWithdrawableStEthAmount = Math.max(
-            escrow.MIN_TRANSFERRABLE_ST_ETH_AMOUNT(),
-            withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()
-        );
+        uint256 minWithdrawableStEthAmount =
+            Math.max(escrow.MIN_TRANSFERRABLE_ST_ETH_AMOUNT(), withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT());
 
-        if (stEthRemainingPre < minWithdrawableStEthAmount)
+        if (stEthRemainingPre < minWithdrawableStEthAmount) {
             assert(sharesRemainingPost == sharesRemainingPre);
-        else {
+        } else {
             // Since batchesSize = 1, there is only a single withdrawal request
-            uint256 requestAmount = Math.min(
-                stEthRemainingPre,
-                withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT()
-            );
+            uint256 requestAmount = Math.min(stEthRemainingPre, withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT());
 
-            uint256 requestAmountInShares =
-                stEth.getSharesByPooledEth(requestAmount);
+            uint256 requestAmountInShares = stEth.getSharesByPooledEth(requestAmount);
 
-            assert(sharesRemainingPost ==
-                   sharesRemainingPre - requestAmountInShares);
+            assert(sharesRemainingPost == sharesRemainingPre - requestAmountInShares);
         }
 
-        if (stEthRemainingPost < minWithdrawableStEthAmount)
+        if (stEthRemainingPost < minWithdrawableStEthAmount) {
             assert(escrow.isWithdrawalsBatchesClosed());
-        else
+        } else {
             assert(!escrow.isWithdrawalsBatchesClosed());
+        }
     }
 
     function testClaimNextWithdrawalsBatch() public {
@@ -206,16 +199,14 @@ contract EscrowAccountingTest is EscrowInvariants, DualGovernanceSetUp {
         }
 
         uint256 balancePre = address(escrow).balance;
-        uint256 claimedPre =
-            ETHValue.unwrap(escrow.getSignallingEscrowDetails().totalStETHClaimedETH);
+        uint256 claimedPre = ETHValue.unwrap(escrow.getSignallingEscrowDetails().totalStETHClaimedETH);
 
         vm.startPrank(sender);
         escrow.claimNextWithdrawalsBatch(maxUnstETHIdsCount);
         vm.stopPrank();
 
         uint256 balancePost = address(escrow).balance;
-        uint256 claimedPost =
-            ETHValue.unwrap(escrow.getSignallingEscrowDetails().totalStETHClaimedETH);
+        uint256 claimedPost = ETHValue.unwrap(escrow.getSignallingEscrowDetails().totalStETHClaimedETH);
 
         uint256 amountClaimed = balancePost - balancePre;
 
