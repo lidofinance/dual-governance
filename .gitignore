@@ -14,6 +14,12 @@ out/
 # Foundry: development broadcast logs
 /broadcast
 .vscode/
+
+# Kontrol files
+/kout
+
+# Deploy configs
+
 deploy-config/*
 !deploy-config/deploy-config-holesky.toml
 !deploy-config/deploy-config-mainnet.toml
