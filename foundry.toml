@@ -14,6 +14,8 @@ fs_permissions = [
     { access = "read-write", path = "./deploy-config"},
     { access = "read-write", path = "./deploy-artifacts"}
 ]
+gas_limit = "18446744073709551615"
+memory_limit = 17179869184 # 16gb
 
 [profile.kprove]
 src = 'test/kontrol'

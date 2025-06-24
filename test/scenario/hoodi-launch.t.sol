@@ -54,14 +54,14 @@ contract HoodiLaunch is DGScenarioTestSetup, LidoAddressesHoodi {
     uint256 internal constant VOTE_EXECUTION_BLOCK = 350291;
 
     function setUp() external {
-        string memory hoodiRpcUrl = vm.envString("HOODI_RPC_URL");
+        string memory hoodiRpcUrl = vm.envOr("HOODI_RPC_URL", string(""));
         if (bytes(hoodiRpcUrl).length == 0) {
             vm.skip(true, "Skipping Hoodi launch test, no HOODI_RPC_URL provided");
         }
+        _deployDGSetup({isEmergencyProtectionEnabled: true, chainId: HOODI_CHAIN_ID});
         if (block.number >= VOTE_EXECUTION_BLOCK) {
             vm.skip(true, "Skipping launch test. Vote already executed.");
         }
-        _deployDGSetup({isEmergencyProtectionEnabled: true, chainId: HOODI_CHAIN_ID, grantRolesToResealManager: false});
     }
 
     function testFork_HoodiLaunch_HappyPath() external {

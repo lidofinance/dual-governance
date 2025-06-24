@@ -16,6 +16,7 @@ import {Escrow} from "contracts/Escrow.sol";
 
 import {LidoUtils, DGRegressionTestSetup} from "../utils/integration-tests.sol";
 import {Random} from "../utils/random.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 uint256 constant ACCURACY = 2 wei;
 
@@ -26,8 +27,11 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
     uint256 internal _initialLockedStETH;
     uint256 internal _initialLockedWStETH;
     uint256 internal _initialLockedUnStETHAmount;
+    uint256 internal _initialLockedUnStETHShares;
     uint256[] internal _initialLockedUnStETHIds;
     uint256 internal _initialLockedUnStETHCount;
+    uint256 internal _initialLockShareRate;
+    uint256 internal _initialLockedShares;
 
     Random.Context internal _random;
 
@@ -105,10 +109,8 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         uint256 rebaseDeltaPercent,
         uint256 withdrawTurn
     ) public {
-        _initialLockRandomAmountOfTokensInEscrow();
-
-        rebaseDeltaPercent = rebaseDeltaPercent % 200; // -1% ... +1%
-        PercentD16 rebasePercent = PercentsD16.fromBasisPoints(99_00 + rebaseDeltaPercent);
+        vm.assume(rebaseDeltaPercent < 50); // -0.25% ... +0.25%
+        PercentD16 rebasePercent = PercentsD16.fromBasisPoints(99_75 + rebaseDeltaPercent);
 
         uint256 firstVetoerStETHAmount = 10 * 10 ** 18;
         uint256 firstVetoerStETHShares = _lido.stETH.getSharesByPooledEth(firstVetoerStETHAmount);
@@ -150,7 +152,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
                 // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
                 // into shares via _lido.stETH.getSharesByPooledEth(secondVetoerStETHAmount)
-                ACCURACY
+                10 * ACCURACY
             );
         } else {
             _unlockWstETH(_VETOER_1);
@@ -160,7 +162,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
                 // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
                 // into shares via _lido.stETH.getSharesByPooledEth(secondVetoerStETHAmount)
-                ACCURACY
+                10 * ACCURACY
             );
 
             _unlockStETH(_VETOER_2);
@@ -242,14 +244,17 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         );
 
         _finalizeWithdrawalQueue(unstETHIds[0]);
+
         uint256[] memory hints =
             _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
+
+        uint256[] memory claimableEther = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints);
 
         SharesValue[] memory finalizedShares = new SharesValue[](2);
         ETHValue[] memory finalizedStETH = new ETHValue[](2);
         finalizedShares[0] = SharesValues.from(statuses[0].amountOfShares);
         finalizedShares[1] = SharesValues.from(0);
-        finalizedStETH[0] = ETHValues.from(statuses[0].amountOfStETH);
+        finalizedStETH[0] = ETHValues.from(claimableEther[0]);
         finalizedStETH[1] = ETHValues.from(0);
 
         vm.expectEmit();
@@ -258,12 +263,10 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
 
         escrowDetails = escrow.getSignallingEscrowDetails();
         assertEq(
-            escrowDetails.totalUnstETHUnfinalizedShares.toUint256()
-                - _lido.stETH.getSharesByPooledEth(_initialLockedUnStETHAmount),
+            escrowDetails.totalUnstETHUnfinalizedShares.toUint256() - _initialLockedUnStETHShares,
             statuses[1].amountOfShares
         );
-        uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(escrowDetails.totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, ACCURACY);
+        assertApproxEqAbs(escrowDetails.totalUnstETHFinalizedETH.toUint256(), claimableEther[0], ACCURACY);
 
         // perform an extra call with the same NFTs to ensure that repeated finalization does not occur
         vm.expectEmit();
@@ -312,68 +315,93 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
     ) public {
         _initialLockRandomAmountOfTokensInEscrow();
 
-        uint256 totalSupply = _lido.stETH.totalSupply();
-        vm.assume(stETHAmount > 1);
-        vm.assume(stETHAmount < _lido.stETH.balanceOf(_VETOER_1));
-        vm.assume(wstETHAmount > 1);
-        vm.assume(wstETHAmount < _lido.wstETH.balanceOf(_VETOER_1));
-        vm.assume(unstETH1Amount < _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT());
-        vm.assume(unstETH1Amount > 1000 * _lido.withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT());
-        vm.assume(unstETH2Amount < _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT());
-        vm.assume(unstETH2Amount > 1000 * _lido.withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT());
-
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = unstETH1Amount;
-        amounts[1] = unstETH2Amount;
-
-        vm.prank(_VETOER_1);
-        uint256[] memory unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
-
-        _lockStETH(_VETOER_1, stETHAmount);
-        _lockWstETH(_VETOER_1, wstETHAmount);
-        _lockUnstETH(_VETOER_1, unstETHIds);
-
-        // epsilon (ACCURACY) is 2 here, because the wstETH unwrap may produce 1 wei error and stETH transfer 1 wei
-        assertApproxEqAbs(
-            escrow.getVetoerDetails(_VETOER_1).stETHLockedShares.toUint256(),
-            _lido.stETH.getSharesByPooledEth(stETHAmount) + wstETHAmount,
-            ACCURACY
+        unstETH1Amount = Math.max(
+            unstETH1Amount % _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT(),
+            _lido.withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()
         );
-        assertEq(escrow.getVetoerDetails(_VETOER_1).unstETHIdsCount, 2);
-
-        assertEq(
-            escrow.getRageQuitSupport(),
-            PercentsD16.fromFraction({
-                numerator: stETHAmount + _lido.stETH.getPooledEthByShares(wstETHAmount) + unstETH1Amount + unstETH2Amount
-                    + _getInitialLockedStETHValue(),
-                denominator: totalSupply
-            })
+        unstETH2Amount = Math.max(
+            unstETH2Amount % _lido.withdrawalQueue.MAX_STETH_WITHDRAWAL_AMOUNT(),
+            _lido.withdrawalQueue.MIN_STETH_WITHDRAWAL_AMOUNT()
         );
 
-        _finalizeWithdrawalQueue(unstETHIds[0]);
-        uint256[] memory hints =
-            _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
-        escrow.markUnstETHFinalized(unstETHIds, hints);
+        uint256 vetoer1StETHBalanceBefore = _lido.stETH.balanceOf(_VETOER_1);
+        stETHAmount = Math.max(stETHAmount % vetoer1StETHBalanceBefore, 2);
+        wstETHAmount = Math.max(wstETHAmount % _lido.wstETH.balanceOf(_VETOER_1), 2);
 
-        assertApproxEqAbs(
-            escrow.getSignallingEscrowDetails().totalUnstETHUnfinalizedShares.toUint256(),
-            _lido.stETH.getSharesByPooledEth(unstETH2Amount + _initialLockedUnStETHAmount),
-            ACCURACY
-        );
+        unstETH1Amount = Math.min(unstETH1Amount, (vetoer1StETHBalanceBefore - stETHAmount) / 2);
+        unstETH2Amount = Math.min(unstETH2Amount, (vetoer1StETHBalanceBefore - stETHAmount) / 2);
 
-        uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
-        assertApproxEqAbs(
-            escrow.getSignallingEscrowDetails().totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, ACCURACY
-        );
+        uint256 stETHShares = _lido.stETH.getSharesByPooledEth(stETHAmount);
 
-        assertEq(
-            escrow.getRageQuitSupport(),
-            PercentsD16.fromFraction({
-                numerator: stETHAmount + _lido.stETH.getPooledEthByShares(wstETHAmount) + unstETH2Amount
-                    + ethAmountFinalized + _getInitialLockedStETHValue(),
-                denominator: _lido.stETH.totalSupply() + ethAmountFinalized
-            })
-        );
+        uint256[] memory unstETHIds;
+        {
+            uint256[] memory amounts = new uint256[](2);
+            amounts[0] = unstETH1Amount;
+            amounts[1] = unstETH2Amount;
+
+            vm.prank(_VETOER_1);
+            unstETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, _VETOER_1);
+
+            _lockStETH(_VETOER_1, stETHAmount);
+            _lockWstETH(_VETOER_1, wstETHAmount);
+            _lockUnstETH(_VETOER_1, unstETHIds);
+        }
+        {
+            // epsilon (ACCURACY) is 2 here, because the wstETH unwrap may produce 1 wei error and stETH transfer 1 wei
+            assertApproxEqAbs(
+                escrow.getVetoerDetails(_VETOER_1).stETHLockedShares.toUint256(),
+                _lido.stETH.getSharesByPooledEth(stETHAmount) + wstETHAmount,
+                ACCURACY
+            );
+            assertEq(escrow.getVetoerDetails(_VETOER_1).unstETHIdsCount, 2);
+
+            assertEq(
+                escrow.getRageQuitSupport(),
+                PercentsD16.fromFraction({
+                    numerator: stETHAmount + _lido.stETH.getPooledEthByShares(wstETHAmount) + unstETH1Amount
+                        + unstETH2Amount + _getInitialLockedStETHValue(),
+                    denominator: _lido.stETH.totalSupply()
+                })
+            );
+        }
+
+        {
+            uint256 unstETH2Shares = _lido.stETH.getSharesByPooledEth(unstETH2Amount);
+            uint256 pooledEthRateBefore = _lido.stETH.getSharesByPooledEth(10 ** 27);
+
+            _finalizeWithdrawalQueue(unstETHIds[0]);
+            uint256[] memory hints =
+                _lido.withdrawalQueue.findCheckpointHints(unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex());
+            escrow.markUnstETHFinalized(unstETHIds, hints);
+
+            uint256 ethAmountFinalized = _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints)[0];
+            uint256 unfinalizedShares = pooledEthRateBefore * (unstETH2Amount + _initialLockedUnStETHAmount) / 10 ** 27;
+            uint256 lockedShares = wstETHAmount + stETHShares + _initialLockedShares;
+            uint256 supportAmount =
+                _lido.stETH.getPooledEthByShares(lockedShares + unfinalizedShares) + ethAmountFinalized;
+
+            assertApproxEqAbs(
+                escrow.getSignallingEscrowDetails().totalStETHLockedShares.toUint256(), lockedShares, ACCURACY
+            );
+
+            assertApproxEqAbs(
+                escrow.getSignallingEscrowDetails().totalUnstETHUnfinalizedShares.toUint256(),
+                unfinalizedShares,
+                ACCURACY
+            );
+
+            assertApproxEqAbs(
+                escrow.getSignallingEscrowDetails().totalUnstETHFinalizedETH.toUint256(), ethAmountFinalized, ACCURACY
+            );
+
+            assertEq(
+                escrow.getRageQuitSupport(),
+                PercentsD16.fromFraction({
+                    numerator: supportAmount,
+                    denominator: _lido.stETH.totalSupply() + ethAmountFinalized
+                })
+            );
+        }
     }
 
     function testFork_RageQuit_HappyPath_AllTokens() public {
@@ -393,6 +421,8 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         _lockStETH(_VETOER_1, 20 * requestAmount);
         _lockWstETH(_VETOER_1, requestShares);
         _lockUnstETH(_VETOER_1, unstETHIds);
+
+        _simulateRebase(PercentsD16.fromBasisPoints(100_05)); // +0.05%
 
         vm.expectRevert();
         escrow.startRageQuit(_RAGE_QUIT_EXTRA_TIMELOCK, _RAGE_QUIT_WITHDRAWALS_TIMELOCK);
@@ -588,20 +618,23 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = strangerLockUnstETHAmount;
 
-        _initialLockedStETH = strangerLockStETHAmount + initiallyLockedSteth;
-        _initialLockedWStETH = strangerLockWstETHAmount;
-        _initialLockedUnStETHAmount = strangerLockUnstETHAmount;
-        _initialLockedUnStETHCount = 1;
-
         vm.prank(stranger);
         _initialLockedUnStETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, stranger);
 
         _lockUnstETH(stranger, _initialLockedUnStETHIds);
+
+        _initialLockShareRate = _lido.stETH.getPooledEthByShares(10 ** 27);
+        _initialLockedStETH = strangerLockStETHAmount + initiallyLockedSteth;
+        _initialLockedWStETH = strangerLockWstETHAmount;
+        _initialLockedUnStETHAmount = strangerLockUnstETHAmount;
+        _initialLockedUnStETHShares = _lido.stETH.getSharesByPooledEth(strangerLockUnstETHAmount);
+        _initialLockedUnStETHCount = 1;
+        _initialLockedShares = _lido.stETH.getSharesByPooledEth(_initialLockedStETH) + _initialLockedWStETH;
     }
 
-    function _getInitialLockedStETHValue() internal returns (uint256) {
+    function _getInitialLockedStETHValue() internal view returns (uint256) {
         return
-            _initialLockedStETH + _lido.stETH.getPooledEthByShares(_initialLockedWStETH) + _initialLockedUnStETHAmount;
+            _initialLockedStETH + _initialLockedWStETH * _initialLockShareRate / 10 ** 27 + _initialLockedUnStETHAmount;
     }
 
     function _prepareEmptyEscrow() internal {

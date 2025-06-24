@@ -6,6 +6,7 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 
+import {SharesValues} from "contracts/types/SharesValue.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
 import {Timestamps, Timestamp} from "contracts/types/Duration.sol";
 import {PercentsD16, PercentD16} from "contracts/types/PercentD16.sol";
@@ -31,6 +32,8 @@ import {TestingAssertEqExtender} from "./testing-assert-eq-extender.sol";
 
 import {ISealable} from "test/utils/interfaces/ISealable.sol";
 
+import {UnstETHRecordStatus} from "contracts/libraries/AssetsAccounting.sol";
+
 import {
     ContractsDeployment,
     TGSetupDeployConfig,
@@ -45,15 +48,18 @@ import {
     TimelockContractDeployConfig
 } from "scripts/utils/contracts-deployment.sol";
 
+uint256 constant ACCURACY = 2 wei;
 uint256 constant MAINNET_CHAIN_ID = 1;
 uint256 constant HOLESKY_CHAIN_ID = 17000;
 uint256 constant HOODI_CHAIN_ID = 560048;
 
-uint256 constant DEFAULT_MAINNET_FORK_BLOCK_NUMBER = 22574634;
-uint256 constant DEFAULT_HOLESKY_FORK_BLOCK_NUMBER = 3209735;
-uint256 constant DEFAULT_HOODI_FORK_BLOCK_NUMBER = 200000;
-
 uint256 constant LATEST_FORK_BLOCK_NUMBER = type(uint256).max;
+
+// By default tests will be launched on the latest block for each network.
+// To streamline developing experience may be helpful pin block number in the .env file.
+uint256 constant DEFAULT_MAINNET_FORK_BLOCK_NUMBER = LATEST_FORK_BLOCK_NUMBER;
+uint256 constant DEFAULT_HOLESKY_FORK_BLOCK_NUMBER = LATEST_FORK_BLOCK_NUMBER;
+uint256 constant DEFAULT_HOODI_FORK_BLOCK_NUMBER = LATEST_FORK_BLOCK_NUMBER;
 
 abstract contract ForkTestSetup is Test {
     error UnsupportedChainId(uint256 chainId);
@@ -84,8 +90,26 @@ abstract contract ForkTestSetup is Test {
         _targetMock = new TargetMock();
     }
 
-    function _getEnvForkBlockNumberOrDefault(uint256 defaultBlockNumber) internal view returns (uint256) {
-        return vm.envOr("FORK_BLOCK_NUMBER", defaultBlockNumber);
+    function _getEnvForkBlockNumberOrDefault(uint256 chainId) internal view returns (uint256) {
+        if (chainId == MAINNET_CHAIN_ID) {
+            return _readBlockNumberFromEnvOrDefault("MAINNET_FORK_BLOCK_NUMBER", DEFAULT_MAINNET_FORK_BLOCK_NUMBER);
+        } else if (chainId == HOLESKY_CHAIN_ID) {
+            return _readBlockNumberFromEnvOrDefault("HOLESKY_FORK_BLOCK_NUMBER", DEFAULT_HOLESKY_FORK_BLOCK_NUMBER);
+        } else if (chainId == HOODI_CHAIN_ID) {
+            return _readBlockNumberFromEnvOrDefault("HOODI_FORK_BLOCK_NUMBER", DEFAULT_HOODI_FORK_BLOCK_NUMBER);
+        }
+        revert UnsupportedChainId(chainId);
+    }
+
+    function _readBlockNumberFromEnvOrDefault(
+        string memory envVariable,
+        uint256 defaultBlockNumber
+    ) private view returns (uint256 blockNumber) {
+        string memory blockNumberAsString = vm.envOr(envVariable, string(""));
+        if (keccak256(bytes(blockNumberAsString)) == keccak256("latest")) {
+            return LATEST_FORK_BLOCK_NUMBER;
+        }
+        return vm.envOr(envVariable, defaultBlockNumber);
     }
 
     // ---
@@ -134,8 +158,8 @@ abstract contract ForkTestSetup is Test {
 }
 
 contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
-    Duration internal immutable _DEFAULT_EMERGENCY_MODE_DURATION = Durations.from(180 days);
-    Duration internal immutable _DEFAULT_EMERGENCY_PROTECTION_DURATION = Durations.from(90 days);
+    Duration internal immutable _DEFAULT_EMERGENCY_MODE_DURATION = Durations.from(30 days);
+    Duration internal immutable _DEFAULT_EMERGENCY_PROTECTION_DURATION = Durations.from(365 days);
     address internal immutable _DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE =
         makeAddr("DEFAULT_EMERGENCY_ACTIVATION_COMMITTEE");
     address internal immutable _DEFAULT_EMERGENCY_EXECUTION_COMMITTEE =
@@ -163,13 +187,13 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
 
         return TimelockContractDeployConfig.Context({
             afterSubmitDelay: Durations.from(3 days),
-            afterScheduleDelay: Durations.from(3 days),
+            afterScheduleDelay: Durations.from(1 days),
             sanityCheckParams: EmergencyProtectedTimelock.SanityCheckParams({
                 minExecutionDelay: Durations.from(3 days),
-                maxAfterSubmitDelay: Durations.from(45 days),
-                maxAfterScheduleDelay: Durations.from(45 days),
+                maxAfterSubmitDelay: Durations.from(30 days),
+                maxAfterScheduleDelay: Durations.from(10 days),
                 maxEmergencyModeDuration: Durations.from(365 days),
-                maxEmergencyProtectionDuration: Durations.from(365 days)
+                maxEmergencyProtectionDuration: Durations.from(3 * 365 days)
             }),
             emergencyGovernanceProposer: emergencyGovernanceProposer,
             emergencyActivationCommittee: emergencyActivationCommittee,
@@ -315,7 +339,6 @@ contract GovernedTimelockSetup is ForkTestSetup, TestingAssertEqExtender {
         vm.prank(_timelock.getEmergencyExecutionCommittee());
         _timelock.emergencyReset();
 
-        // TODO: assert all emergency protection properties were reset
         IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details =
             _timelock.getEmergencyProtectionDetails();
 
@@ -435,14 +458,15 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         internal
         returns (DGSetupDeployConfig.Context memory config)
     {
-        uint256 tiebreakerCommitteesCount = 2;
+        uint256 tiebreakerCommitteesCount = 3;
         uint256 tiebreakerCommitteeMembersCount = 5;
+        uint256 tiebreakerCommitteeMembersQuorum = 3;
 
         TiebreakerCommitteeDeployConfig[] memory tiebreakerCommitteeConfigs =
             new TiebreakerCommitteeDeployConfig[](tiebreakerCommitteesCount);
 
         for (uint256 i = 0; i < tiebreakerCommitteesCount; ++i) {
-            tiebreakerCommitteeConfigs[i].quorum = tiebreakerCommitteeMembersCount;
+            tiebreakerCommitteeConfigs[i].quorum = tiebreakerCommitteeMembersQuorum;
             tiebreakerCommitteeConfigs[i].members = new address[](tiebreakerCommitteeMembersCount);
             for (uint256 j = 0; j < tiebreakerCommitteeMembersCount; ++j) {
                 tiebreakerCommitteeConfigs[i].members[j] = vm.randomAddress();
@@ -461,19 +485,19 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
                 committees: tiebreakerCommitteeConfigs
             }),
             dualGovernanceConfigProvider: DualGovernanceConfig.Context({
-                firstSealRageQuitSupport: PercentsD16.fromBasisPoints(3_00),
-                secondSealRageQuitSupport: PercentsD16.fromBasisPoints(15_00),
+                firstSealRageQuitSupport: PercentsD16.fromBasisPoints(1_00),
+                secondSealRageQuitSupport: PercentsD16.fromBasisPoints(10_00),
                 //
                 minAssetsLockDuration: Durations.from(5 hours),
                 //
-                vetoSignallingMinDuration: Durations.from(3 days),
-                vetoSignallingMaxDuration: Durations.from(30 days),
+                vetoSignallingMinDuration: Durations.from(5 days),
+                vetoSignallingMaxDuration: Durations.from(45 days),
                 vetoSignallingMinActiveDuration: Durations.from(5 hours),
-                vetoSignallingDeactivationMaxDuration: Durations.from(5 days),
-                vetoCooldownDuration: Durations.from(4 days),
+                vetoSignallingDeactivationMaxDuration: Durations.from(3 days),
+                vetoCooldownDuration: Durations.from(5 hours),
                 //
                 rageQuitExtensionPeriodDuration: Durations.from(7 days),
-                rageQuitEthWithdrawalsMinDelay: Durations.from(30 days),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(60 days),
                 rageQuitEthWithdrawalsMaxDelay: Durations.from(180 days),
                 rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             }),
@@ -485,10 +509,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
                 }),
                 sanityCheckParams: DualGovernance.SanityCheckParams({
                     minWithdrawalsBatchSize: 4,
-                    minTiebreakerActivationTimeout: Durations.from(90 days),
+                    minTiebreakerActivationTimeout: Durations.from(6 * 30 days),
                     maxTiebreakerActivationTimeout: Durations.from(730 days),
                     maxSealableWithdrawalBlockersCount: 255,
-                    maxMinAssetsLockDuration: Durations.from(7 days)
+                    maxMinAssetsLockDuration: Durations.from(48 days)
                 }),
                 adminProposer: address(_lido.voting),
                 resealCommittee: _DEFAULT_RESEAL_COMMITTEE,
@@ -501,52 +525,28 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     }
 
     function _deployDGSetup(bool isEmergencyProtectionEnabled) internal {
-        _deployDGSetup(isEmergencyProtectionEnabled, MAINNET_CHAIN_ID, true);
+        _setupFork(MAINNET_CHAIN_ID, _getEnvForkBlockNumberOrDefault(MAINNET_CHAIN_ID));
+        _deployDGSetup(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0), MAINNET_CHAIN_ID);
     }
 
-    function _deployDGSetup(
-        bool isEmergencyProtectionEnabled,
-        uint256 chainId,
-        bool grantRolesToResealManager
-    ) internal {
-        _setupForkForDGDeploySetup(chainId);
-        _setDGDeployConfig(_getDefaultDGDeployConfig(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0)));
-        _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
-
-        if (grantRolesToResealManager) {
-            vm.startPrank(address(_lido.agent));
-            _lido.withdrawalQueue.grantRole(
-                _lido.withdrawalQueue.PAUSE_ROLE(), address(_dgDeployedContracts.resealManager)
-            );
-            _lido.withdrawalQueue.grantRole(
-                _lido.withdrawalQueue.RESUME_ROLE(), address(_dgDeployedContracts.resealManager)
-            );
-            vm.stopPrank();
-        }
-
-        _setTimelock(_dgDeployedContracts.timelock);
-        _lido.removeStakingLimit();
+    function _deployDGSetup(bool isEmergencyProtectionEnabled, uint256 chainId) internal {
+        _setupFork(chainId, _getEnvForkBlockNumberOrDefault(chainId));
+        _deployDGSetup(isEmergencyProtectionEnabled ? address(_lido.voting) : address(0), chainId);
     }
 
     function _deployDGSetup(address emergencyGovernanceProposer) internal {
-        _setupForkForDGDeploySetup(MAINNET_CHAIN_ID);
+        _deployDGSetup(emergencyGovernanceProposer, MAINNET_CHAIN_ID);
+    }
+
+    function _deployDGSetup(address emergencyGovernanceProposer, uint256 chainId) internal {
+        if (address(_lido.voting) == address(0)) {
+            _setupFork(chainId, _getEnvForkBlockNumberOrDefault(chainId));
+        }
         _setDGDeployConfig(_getDefaultDGDeployConfig(emergencyGovernanceProposer));
         _dgDeployedContracts = ContractsDeployment.deployDGSetup(address(this), _dgDeployConfig);
 
         _setTimelock(_dgDeployedContracts.timelock);
         _lido.removeStakingLimit();
-    }
-
-    function _setupForkForDGDeploySetup(uint256 chainId) internal {
-        if (chainId == MAINNET_CHAIN_ID) {
-            _setupFork(MAINNET_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_MAINNET_FORK_BLOCK_NUMBER));
-        } else if (chainId == HOLESKY_CHAIN_ID) {
-            _setupFork(HOLESKY_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_HOLESKY_FORK_BLOCK_NUMBER));
-        } else if (chainId == HOODI_CHAIN_ID) {
-            _setupFork(HOODI_CHAIN_ID, _getEnvForkBlockNumberOrDefault(DEFAULT_HOODI_FORK_BLOCK_NUMBER));
-        } else {
-            revert UnsupportedChainId(chainId);
-        }
     }
 
     function _adoptProposalByAdminProposer(
@@ -572,7 +572,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         return _dgDeployedContracts.dualGovernance.cancelAllPendingProposals();
     }
 
-    function _getProposalsCanceller() internal returns (address) {
+    function _getProposalsCanceller() internal view returns (address) {
         return _dgDeployedContracts.dualGovernance.getProposalsCanceller();
     }
 
@@ -634,6 +634,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
     function _getVetoSignallingMinDuration() internal view returns (Duration) {
         return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_DURATION();
+    }
+
+    function _getVetoSignallingMinActiveDuration() internal view returns (Duration) {
+        return _dgDeployedContracts.dualGovernanceConfigProvider.VETO_SIGNALLING_MIN_ACTIVE_DURATION();
     }
 
     function _getVetoSignallingDeactivationMaxDuration() internal view returns (Duration) {
@@ -747,6 +751,10 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
     // ---
     // Escrow Manipulation
     // ---
+    function _getCurrentRageQuitSupport() internal view returns (PercentD16) {
+        return _getVetoSignallingEscrow().getRageQuitSupport();
+    }
+
     function _lockStETHUpTo(address vetoer, PercentD16 targetPercentage) internal {
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
         PercentD16 currentRageQuitSupport = escrow.getRageQuitSupport();
@@ -757,54 +765,156 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         _lockStETH(vetoer, amountToLock);
     }
 
-    function _lockStETH(address vetoer, PercentD16 tvlPercentage) internal {
-        _lockStETH(vetoer, _lido.calcAmountFromPercentageOfTVL(tvlPercentage));
+    function _lockStETH(address vetoer, PercentD16 tvlPercentage) internal returns (uint256) {
+        return _lockStETH(vetoer, _lido.calcAmountFromPercentageOfTVL(tvlPercentage));
     }
 
-    function _lockStETH(address vetoer, uint256 amount) internal {
+    function _lockStETH(address vetoer, uint256 amount) internal returns (uint256 lockedStETHShares) {
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
-        vm.startPrank(vetoer);
-        if (_lido.stETH.allowance(vetoer, address(escrow)) < amount) {
-            _lido.stETH.approve(address(escrow), amount);
-        }
-        escrow.lockStETH(amount);
-        vm.stopPrank();
-    }
 
-    function _unlockStETH(address vetoer) internal {
-        vm.startPrank(vetoer);
-        _getVetoSignallingEscrow().unlockStETH();
-        vm.stopPrank();
-    }
-
-    function _lockWstETH(address vetoer, PercentD16 tvlPercentage) internal {
-        _lockWstETH(vetoer, _lido.calcSharesFromPercentageOfTVL(tvlPercentage));
-    }
-
-    function _lockWstETH(address vetoer, uint256 amount) internal {
-        ISignallingEscrow escrow = _getVetoSignallingEscrow();
-        vm.startPrank(vetoer);
-        if (_lido.wstETH.allowance(vetoer, address(escrow)) < amount) {
-            _lido.wstETH.approve(address(escrow), amount);
-        }
-        escrow.lockWstETH(amount);
-        vm.stopPrank();
-    }
-
-    function _unlockWstETH(address vetoer) internal {
-        ISignallingEscrow escrow = _getVetoSignallingEscrow();
-        uint256 wstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
+        uint256 vetoerStETHBalanceBefore = _lido.stETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceBefore = _lido.stETH.balanceOf(address(escrow));
         ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsBefore = escrow.getSignallingEscrowDetails();
 
         vm.startPrank(vetoer);
-        uint256 wstETHUnlocked = escrow.unlockWstETH();
+        {
+            if (_lido.stETH.allowance(vetoer, address(escrow)) < amount) {
+                _lido.stETH.approve(address(escrow), amount);
+            }
+            lockedStETHShares = escrow.lockStETH(amount);
+        }
         vm.stopPrank();
 
-        // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
-        // sending funds to the user
-        assertApproxEqAbs(wstETHUnlocked, vetoerDetailsBefore.stETHLockedShares.toUint256(), 1);
+        uint256 vetoerStETHBalanceAfter = _lido.stETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceAfter = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsAfter = escrow.getSignallingEscrowDetails();
+
+        // validate lock operation was done correctly
+        assertApproxEqAbs(lockedStETHShares, _lido.stETH.getSharesByPooledEth(amount), ACCURACY);
+        assertApproxEqAbs(vetoerStETHBalanceAfter, vetoerStETHBalanceBefore - amount, ACCURACY);
+        assertApproxEqAbs(escrowStETHBalanceAfter, escrowStETHBalanceBefore + amount, ACCURACY);
+        assertEq(
+            vetoerDetailsAfter.stETHLockedShares,
+            vetoerDetailsBefore.stETHLockedShares + SharesValues.from(lockedStETHShares)
+        );
+        assertEq(
+            escrowDetailsAfter.totalStETHLockedShares,
+            escrowDetailsBefore.totalStETHLockedShares + SharesValues.from(lockedStETHShares)
+        );
+    }
+
+    function _unlockStETH(address vetoer) internal returns (uint256 unlockedStETHShares) {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+
+        uint256 vetoerStETHBalanceBefore = _lido.stETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceBefore = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsBefore = escrow.getSignallingEscrowDetails();
+
+        vm.startPrank(vetoer);
+        {
+            unlockedStETHShares = escrow.unlockStETH();
+        }
+        vm.stopPrank();
+
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsAfter = escrow.getSignallingEscrowDetails();
+
+        // validate unlock operation was done correctly
+        uint256 vetoerSharesLockedBefore = vetoerDetailsBefore.stETHLockedShares.toUint256();
+        uint256 expectedStETHAmountUnlocked = _lido.stETH.getPooledEthByShares(vetoerSharesLockedBefore);
+
+        assertEq(unlockedStETHShares, vetoerSharesLockedBefore);
         assertApproxEqAbs(
-            _lido.wstETH.balanceOf(vetoer), wstETHBalanceBefore + vetoerDetailsBefore.stETHLockedShares.toUint256(), 1
+            _lido.stETH.balanceOf(vetoer), vetoerStETHBalanceBefore + expectedStETHAmountUnlocked, ACCURACY
+        );
+        assertApproxEqAbs(
+            _lido.stETH.balanceOf(address(escrow)), escrowStETHBalanceBefore - expectedStETHAmountUnlocked, ACCURACY
+        );
+
+        assertEq(vetoerDetailsAfter.stETHLockedShares, SharesValues.ZERO);
+        assertEq(
+            escrowDetailsAfter.totalStETHLockedShares,
+            escrowDetailsBefore.totalStETHLockedShares - SharesValues.from(unlockedStETHShares)
+        );
+    }
+
+    function _lockWstETH(address vetoer, PercentD16 tvlPercentage) internal returns (uint256) {
+        return _lockWstETH(vetoer, _lido.calcSharesFromPercentageOfTVL(tvlPercentage));
+    }
+
+    function _lockWstETH(address vetoer, uint256 amount) internal returns (uint256 lockedStETHShares) {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+
+        uint256 vetoerWstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceBefore = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsBefore = escrow.getSignallingEscrowDetails();
+
+        vm.startPrank(vetoer);
+        {
+            if (_lido.wstETH.allowance(vetoer, address(escrow)) < amount) {
+                _lido.wstETH.approve(address(escrow), amount);
+            }
+            lockedStETHShares = escrow.lockWstETH(amount);
+        }
+        vm.stopPrank();
+
+        uint256 vetoerWstETHBalanceAfter = _lido.wstETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceAfter = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsAfter = escrow.getSignallingEscrowDetails();
+
+        // validate lock operation was done correctly
+        uint256 expectedStETHAmountLocked = _lido.stETH.getPooledEthByShares(amount);
+
+        assertApproxEqAbs(lockedStETHShares, amount, ACCURACY);
+        assertEq(vetoerWstETHBalanceAfter, vetoerWstETHBalanceBefore - amount);
+        assertApproxEqAbs(escrowStETHBalanceAfter, escrowStETHBalanceBefore + expectedStETHAmountLocked, ACCURACY);
+        assertEq(
+            vetoerDetailsAfter.stETHLockedShares,
+            vetoerDetailsBefore.stETHLockedShares + SharesValues.from(lockedStETHShares)
+        );
+        assertEq(
+            escrowDetailsAfter.totalStETHLockedShares,
+            escrowDetailsBefore.totalStETHLockedShares + SharesValues.from(lockedStETHShares)
+        );
+    }
+
+    function _unlockWstETH(address vetoer) internal returns (uint256 wstETHUnlocked) {
+        ISignallingEscrow escrow = _getVetoSignallingEscrow();
+
+        uint256 vetoerWstETHBalanceBefore = _lido.wstETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceBefore = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsBefore = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsBefore = escrow.getSignallingEscrowDetails();
+
+        vm.startPrank(vetoer);
+        {
+            wstETHUnlocked = escrow.unlockWstETH();
+        }
+        vm.stopPrank();
+
+        uint256 vetoerWstETHBalanceAfter = _lido.wstETH.balanceOf(vetoer);
+        uint256 escrowStETHBalanceAfter = _lido.stETH.balanceOf(address(escrow));
+        ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
+        ISignallingEscrow.SignallingEscrowDetails memory escrowDetailsAfter = escrow.getSignallingEscrowDetails();
+
+        // validate lock operation was done correctly
+        uint256 expectedStETHAmountUnlocked = _lido.stETH.getPooledEthByShares(wstETHUnlocked);
+
+        // 2 wei rounding issue may arise because of the wrapping stETH into wstETH before
+        // sending funds to the user
+        assertApproxEqAbs(wstETHUnlocked, vetoerDetailsBefore.stETHLockedShares.toUint256(), ACCURACY);
+
+        assertEq(vetoerWstETHBalanceAfter, vetoerWstETHBalanceBefore + wstETHUnlocked);
+        assertApproxEqAbs(escrowStETHBalanceAfter, escrowStETHBalanceBefore - expectedStETHAmountUnlocked, ACCURACY);
+        assertEq(vetoerDetailsAfter.stETHLockedShares, SharesValues.ZERO);
+        assertEq(
+            escrowDetailsAfter.totalStETHLockedShares,
+            escrowDetailsBefore.totalStETHLockedShares - vetoerDetailsBefore.stETHLockedShares
         );
     }
 
@@ -822,9 +932,11 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         }
 
         vm.startPrank(vetoer);
-        _lido.withdrawalQueue.setApprovalForAll(address(escrow), true);
-        escrow.lockUnstETH(unstETHIds);
-        _lido.withdrawalQueue.setApprovalForAll(address(escrow), false);
+        {
+            _lido.withdrawalQueue.setApprovalForAll(address(escrow), true);
+            escrow.lockUnstETH(unstETHIds);
+            _lido.withdrawalQueue.setApprovalForAll(address(escrow), false);
+        }
         vm.stopPrank();
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
@@ -848,15 +960,26 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsBefore =
             escrow.getSignallingEscrowDetails();
 
-        uint256 unstETHTotalSharesUnlocked = 0;
+        uint256 unstETHTotalUnfinalizedSharesUnlocked = 0;
+        uint256 unstETHTotalFinalizedSharesUnlocked = 0;
+
         IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
             _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+
+        ISignallingEscrow.LockedUnstETHDetails[] memory lockedUnstETHDetails =
+            escrow.getLockedUnstETHDetails(unstETHIds);
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
-            unstETHTotalSharesUnlocked += statuses[i].amountOfShares;
+            if (lockedUnstETHDetails[i].status == UnstETHRecordStatus.Locked) {
+                unstETHTotalUnfinalizedSharesUnlocked += statuses[i].amountOfShares;
+            } else if (lockedUnstETHDetails[i].status == UnstETHRecordStatus.Finalized) {
+                unstETHTotalFinalizedSharesUnlocked += statuses[i].amountOfShares;
+            }
         }
 
         vm.startPrank(vetoer);
-        escrow.unlockUnstETH(unstETHIds);
+        {
+            escrow.unlockUnstETH(unstETHIds);
+        }
         vm.stopPrank();
 
         for (uint256 i = 0; i < unstETHIds.length; ++i) {
@@ -866,12 +989,16 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         ISignallingEscrow.VetoerDetails memory vetoerDetailsAfter = escrow.getVetoerDetails(vetoer);
         assertEq(vetoerDetailsAfter.unstETHIdsCount, vetoerDetailsBefore.unstETHIdsCount - unstETHIds.length);
 
-        // TODO: implement correct assert. It must consider was unstETH finalized or not
         ISignallingEscrow.SignallingEscrowDetails memory signallingEscrowDetailsAfter =
             escrow.getSignallingEscrowDetails();
         assertEq(
             signallingEscrowDetailsAfter.totalUnstETHUnfinalizedShares.toUint256(),
-            signallingEscrowDetailsBefore.totalUnstETHUnfinalizedShares.toUint256() - unstETHTotalSharesUnlocked
+            signallingEscrowDetailsBefore.totalUnstETHUnfinalizedShares.toUint256()
+                - unstETHTotalUnfinalizedSharesUnlocked
+        );
+        assertEq(
+            signallingEscrowDetailsAfter.totalUnstETHFinalizedETH.toUint256(),
+            signallingEscrowDetailsBefore.totalUnstETHFinalizedETH.toUint256() - unstETHTotalFinalizedSharesUnlocked
         );
     }
 
@@ -933,8 +1060,9 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
     function _loadDGSetup(string memory deployArtifactFileName) internal {
         DGSetupDeployArtifacts.Context memory deployArtifacts = DGSetupDeployArtifacts.load(deployArtifactFileName);
 
-        console.log("CHAIN ID:", deployArtifacts.deployConfig.chainId);
-        _setupFork(deployArtifacts.deployConfig.chainId, _getEnvForkBlockNumberOrDefault(LATEST_FORK_BLOCK_NUMBER));
+        uint256 chainId = deployArtifacts.deployConfig.chainId;
+        console.log("CHAIN ID:", chainId);
+        _setupFork(chainId, _getEnvForkBlockNumberOrDefault(chainId));
 
         _setDGDeployConfig(deployArtifacts.deployConfig);
         _dgDeployedContracts = deployArtifacts.deployedContracts;

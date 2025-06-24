@@ -32,7 +32,15 @@ import {
 library DeployVerification {
     function verify(DGSetupDeployArtifacts.Context memory deployArtifact) internal view {
         checkImmutables(deployArtifact);
-        checkContractsConfiguration(deployArtifact);
+        checkContractsConfiguration({deployArtifact: deployArtifact, expectedProposalsCount: 0});
+    }
+
+    function verify(
+        DGSetupDeployArtifacts.Context memory deployArtifact,
+        uint256 expectedProposalsCount
+    ) internal view {
+        checkImmutables(deployArtifact);
+        checkContractsConfiguration(deployArtifact, expectedProposalsCount);
     }
 
     function checkImmutables(DGSetupDeployArtifacts.Context memory deployArtifact) internal view {
@@ -46,10 +54,13 @@ library DeployVerification {
         checkDualGovernanceAndEscrowImmutables(deployArtifact.deployedContracts, deployArtifact.deployConfig);
     }
 
-    function checkContractsConfiguration(DGSetupDeployArtifacts.Context memory deployArtifact) internal view {
+    function checkContractsConfiguration(
+        DGSetupDeployArtifacts.Context memory deployArtifact,
+        uint256 expectedProposalsCount
+    ) internal view {
         checkAdminExecutor(deployArtifact.deployedContracts.adminExecutor, deployArtifact.deployedContracts.timelock);
         checkEmergencyProtectedTimelockConfiguration(
-            deployArtifact.deployedContracts, deployArtifact.deployConfig.timelock
+            deployArtifact.deployedContracts, deployArtifact.deployConfig.timelock, expectedProposalsCount
         );
         checkDualGovernanceConfiguration(deployArtifact.deployedContracts, deployArtifact.deployConfig);
         checkTiebreakerCoreCommittee(deployArtifact.deployedContracts, deployArtifact.deployConfig.tiebreaker);
@@ -99,7 +110,8 @@ library DeployVerification {
 
     function checkEmergencyProtectedTimelockConfiguration(
         DGSetupDeployedContracts.Context memory contracts,
-        TimelockContractDeployConfig.Context memory timelockConfig
+        TimelockContractDeployConfig.Context memory timelockConfig,
+        uint256 expectedProposalsCount
     ) internal view {
         IEmergencyProtectedTimelock timelockInstance = contracts.timelock;
 
@@ -118,6 +130,7 @@ library DeployVerification {
 
         IEmergencyProtectedTimelock.EmergencyProtectionDetails memory details =
             timelockInstance.getEmergencyProtectionDetails();
+
         require(
             details.emergencyProtectionEndsAfter == timelockConfig.emergencyProtectionEndDate,
             "Incorrect value for emergencyProtectionEndsAfter"
@@ -158,7 +171,10 @@ library DeployVerification {
             timelockInstance.isEmergencyModeActive() == false, "EmergencyMode is Active in EmergencyProtectedTimelock"
         );
 
-        require(timelockInstance.getProposalsCount() == 0, "ProposalsCount > 1 in EmergencyProtectedTimelock");
+        require(
+            timelockInstance.getProposalsCount() == expectedProposalsCount,
+            "Unexpected ProposalsCount in EmergencyProtectedTimelock"
+        );
     }
 
     function checkEmergencyActivationCommittee(DGSetupDeployConfig.Context memory dgDeployConfig) internal pure {

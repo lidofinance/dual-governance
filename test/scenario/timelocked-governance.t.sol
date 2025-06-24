@@ -186,12 +186,7 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
             _adoptProposal(_getMockTargetRegularStaffCalls({callsCount: 5}), "Regular staff calls");
         }
 
-        _step(
-            string.concat(
-                "4. Someone finds a bug in dual governance. Emergency committee decides to activate",
-                "emergency mode and DAO decides to downgrade system to single governance"
-            )
-        );
+        _step("4. Bug in DG detected. Emergency mode activated. DAO downgrade system to single governance");
         {
             _activateEmergencyMode();
 

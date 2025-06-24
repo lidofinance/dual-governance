@@ -119,7 +119,6 @@ contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
             _wait(_getRageQuitExtensionPeriodDuration().plusSeconds(1));
             assertEq(rageQuitEscrow.isRageQuitFinalized(), true);
 
-            // TODO: Add method Escrow.getRageQuitExtensionPeriodDuration()
             _wait(_getRageQuitEthWithdrawalsDelay());
 
             uint256 vetoerETHBalanceBefore = _VETOER.balance;
