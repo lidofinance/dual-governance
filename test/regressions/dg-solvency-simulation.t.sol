@@ -152,9 +152,9 @@ library SimulationActionsSet {
 uint256 constant WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT = 1000 ether;
 
 // 75 times more than real slot duration to speed up test. Must not affect correctness of the test
-uint256 constant SLOT_DURATION = 15 minutes;
+uint256 constant SLOT_DURATION = 1 hours;
 uint256 constant SIMULATION_ACCOUNTS = 512;
-uint256 constant SIMULATION_DURATION = 365 days;
+uint256 constant SIMULATION_DURATION = 100 days;
 
 uint256 constant MIN_ST_ETH_SUBMIT_AMOUNT = 0.1 ether;
 uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 10_000 ether;
@@ -528,136 +528,128 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                     currentDGState = effectiveDGState;
                 }
 
-                if (
-                    currentDGState == DGState.RageQuit
-                        && block.timestamp >= lastRageQuitOperationTimestamp + nextRageQuitOperationDelay
-                ) {
+                if (block.timestamp >= lastRageQuitOperationTimestamp + nextRageQuitOperationDelay) {
                     nextRageQuitOperationDelay = _random.nextUint256(12 hours, 36 hours);
                     lastRageQuitOperationTimestamp = block.timestamp;
-                    Escrow rageQuitEscrow =
-                        Escrow(payable(address(_dgDeployedContracts.dualGovernance.getRageQuitEscrow())));
-                    bool isWithdrawalsBatchesClosed = rageQuitEscrow.isWithdrawalsBatchesClosed();
-                    if (!isWithdrawalsBatchesClosed) {
-                        uint256 requestBatchSize = _random.nextUint256(minWithdrawalsBatchSize, 128);
-                        uint256 lastUnstETHIdBefore = _lido.withdrawalQueue.getLastRequestId();
-                        rageQuitEscrow.requestNextWithdrawalsBatch(requestBatchSize);
-                        uint256 lastUnstETHIdAfter = _lido.withdrawalQueue.getLastRequestId();
-                        console.log(
-                            ">>> Requesting %s next withdrawals batch: [%d, %d]",
-                            lastUnstETHIdAfter - lastUnstETHIdBefore,
-                            lastUnstETHIdBefore + 1,
-                            lastUnstETHIdAfter
-                        );
-                    }
-                    uint256 unclaimedUnstETHIds = rageQuitEscrow.getUnclaimedUnstETHIdsCount();
 
-                    for (uint256 i = 0; i < _allAccounts.length; ++i) {
-                        address account = _allAccounts[i];
-                        uint256[] memory lockedUnstETHIds = rageQuitEscrow.getVetoerUnstETHIds(account);
+                    uint256 randomRageQuitEscrowIndex = _random.nextUint256(_rageQuitEscrows.length);
 
-                        Uint256ArrayBuilder.Context memory unstETHIdsToClaimBuilder =
-                            Uint256ArrayBuilder.create(lockedUnstETHIds.length);
-                        if (lockedUnstETHIds.length > 0) {
+                    for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
+                        Escrow rageQuitEscrow =
+                            _rageQuitEscrows[(randomRageQuitEscrowIndex + i) % _rageQuitEscrows.length];
+                        Escrow.RageQuitEscrowDetails memory details = rageQuitEscrow.getRageQuitEscrowDetails();
+
+                        if (details.isRageQuitExtensionPeriodStarted) {
+                            continue;
+                        }
+
+                        bool isWithdrawalsBatchesClosed = rageQuitEscrow.isWithdrawalsBatchesClosed();
+                        if (!isWithdrawalsBatchesClosed) {
+                            uint256 requestBatchSize = _random.nextUint256(minWithdrawalsBatchSize, 128);
+                            uint256 lastUnstETHIdBefore = _lido.withdrawalQueue.getLastRequestId();
+                            rageQuitEscrow.requestNextWithdrawalsBatch(requestBatchSize);
+                            uint256 lastUnstETHIdAfter = _lido.withdrawalQueue.getLastRequestId();
+                            console.log(
+                                ">>> Requesting %s next withdrawals batch: [%d, %d]",
+                                lastUnstETHIdAfter - lastUnstETHIdBefore,
+                                lastUnstETHIdBefore + 1,
+                                lastUnstETHIdAfter
+                            );
+                        }
+
+                        uint256 unclaimedUnstETHIds = rageQuitEscrow.getUnclaimedUnstETHIdsCount();
+
+                        if (unclaimedUnstETHIds > 0) {
+                            uint256 claimType = _random.nextUint256();
+                            uint256 unstETHIdsCount = _random.nextUint256(1, 128);
+                            uint256[] memory unstETHIds = rageQuitEscrow.getNextWithdrawalBatch(unstETHIdsCount);
                             IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
-                                _lido.withdrawalQueue.getWithdrawalStatus(lockedUnstETHIds);
+                                _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+
+                            bool isAllBatchRequestsFinalized = true;
                             for (uint256 j = 0; j < statuses.length; ++j) {
-                                if (statuses[j].isFinalized && !statuses[j].isClaimed) {
-                                    unstETHIdsToClaimBuilder.addItem(lockedUnstETHIds[j]);
+                                if (!statuses[j].isFinalized) {
+                                    isAllBatchRequestsFinalized = false;
+                                    // console.log("Not all requests for batch request is finalized yet. Waiting...");
+                                    break;
+                                }
+                            }
+
+                            if (isAllBatchRequestsFinalized) {
+                                if (claimType % 2 == 0) {
+                                    rageQuitEscrow.claimNextWithdrawalsBatch(unstETHIdsCount);
+                                } else {
+                                    uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
+                                        unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
+                                    );
+
+                                    uint256[] memory wrClaimableEth =
+                                        _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints);
+                                    uint256 escrowEthBalance = address(rageQuitEscrow).balance;
+
+                                    rageQuitEscrow.claimNextWithdrawalsBatch(unstETHIds[0], hints);
+
+                                    uint256 totalClaimableEth = 0;
+                                    for (uint256 j = 0; j < wrClaimableEth.length; ++j) {
+                                        totalClaimableEth += wrClaimableEth[j];
+                                    }
+                                    assertApproxEqAbs(
+                                        address(rageQuitEscrow).balance, escrowEthBalance + totalClaimableEth, 2
+                                    );
                                 }
                             }
                         }
-                        if (unstETHIdsToClaimBuilder.size > 0) {
-                            uint256[] memory unstETHIdsToClaim = unstETHIdsToClaimBuilder.getSorted();
-                            uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
-                                unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
-                            );
-                            address claimer = _getRandomSimulationAccount();
-                            vm.prank(claimer);
-                            rageQuitEscrow.claimUnstETH(unstETHIdsToClaim, hints);
-                            console.log(
-                                ">>> Account's %s claimed %s unstETH NFTs by account %s",
-                                account,
-                                unstETHIdsToClaim.length,
-                                claimer
-                            );
+
+                        if (isWithdrawalsBatchesClosed && unclaimedUnstETHIds == 0) {
+                            details = rageQuitEscrow.getRageQuitEscrowDetails();
+                            if (!details.isRageQuitExtensionPeriodStarted) {
+                                console.log(">>> Start rage quit extension period");
+                                rageQuitEscrow.startRageQuitExtensionPeriod();
+                            }
                         }
-                    }
 
-                    if (unclaimedUnstETHIds > 0) {
-                        uint256 claimType = _random.nextUint256();
-                        uint256 unstETHIdsCount = _random.nextUint256(1, 128);
-                        uint256[] memory unstETHIds = rageQuitEscrow.getNextWithdrawalBatch(unstETHIdsCount);
-                        IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
-                            _lido.withdrawalQueue.getWithdrawalStatus(unstETHIds);
+                        uint256 claimerCount = _random.nextUint256(1, 10);
+                        uint256 accountIndexOffset = _random.nextUint256(_allAccounts.length);
+                        for (uint256 j = 0; j < _allAccounts.length; ++j) {
+                            address account = _allAccounts[(accountIndexOffset + j) % _allAccounts.length];
 
-                        bool isAllBatchRequestsFinalized = true;
-                        for (uint256 i = 0; i < statuses.length; ++i) {
-                            if (!statuses[i].isFinalized) {
-                                isAllBatchRequestsFinalized = false;
-                                // console.log("Not all requests for batch request is finalized yet. Waiting...");
+                            uint256[] memory lockedUnstETHIds = rageQuitEscrow.getVetoerUnstETHIds(account);
+
+                            if (lockedUnstETHIds.length == 0) {
+                                continue;
+                            }
+
+                            if (claimerCount > 0) {
+                                claimerCount--;
+                            } else {
                                 break;
                             }
-                        }
 
-                        if (isAllBatchRequestsFinalized) {
-                            console.log(
-                                ">>> Claiming next withdrawals batch [%d, %d]",
-                                unstETHIds[0],
-                                unstETHIds[unstETHIds.length - 1]
-                            );
-
-                            string memory claimedRanges = "";
-                            uint256 startUnstETHId = unstETHIds[0];
-                            for (uint256 i = 1; i < unstETHIds.length; ++i) {
-                                uint256 prevUnstETHId = unstETHIds[i - 1];
-                                uint256 currentUnstETHId = unstETHIds[i];
-                                if (currentUnstETHId != prevUnstETHId + 1) {
-                                    claimedRanges = string.concat(
-                                        claimedRanges, vm.toString(startUnstETHId), "-", vm.toString(prevUnstETHId), ","
-                                    );
-                                    startUnstETHId = currentUnstETHId;
-                                }
-                                if (i == unstETHIds.length - 1) {
-                                    claimedRanges = string.concat(
-                                        claimedRanges,
-                                        vm.toString(startUnstETHId),
-                                        "-",
-                                        vm.toString(currentUnstETHId),
-                                        ","
-                                    );
+                            Uint256ArrayBuilder.Context memory unstETHIdsToClaimBuilder =
+                                Uint256ArrayBuilder.create(lockedUnstETHIds.length);
+                            IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
+                                _lido.withdrawalQueue.getWithdrawalStatus(lockedUnstETHIds);
+                            for (uint256 k = 0; k < statuses.length; ++k) {
+                                if (statuses[k].isFinalized && !statuses[k].isClaimed) {
+                                    unstETHIdsToClaimBuilder.addItem(lockedUnstETHIds[k]);
                                 }
                             }
 
-                            console.log(">>> Claiming batch ranges ids: [%s]", claimedRanges);
-
-                            if (claimType % 2 == 0) {
-                                rageQuitEscrow.claimNextWithdrawalsBatch(unstETHIdsCount);
-                            } else {
+                            if (unstETHIdsToClaimBuilder.size > 0) {
+                                uint256[] memory unstETHIdsToClaim = unstETHIdsToClaimBuilder.getSorted();
                                 uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
-                                    unstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
+                                    unstETHIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
                                 );
-
-                                uint256[] memory wrClaimableEth =
-                                    _lido.withdrawalQueue.getClaimableEther(unstETHIds, hints);
-                                uint256 escrowEthBalance = address(rageQuitEscrow).balance;
-                                rageQuitEscrow.claimNextWithdrawalsBatch(unstETHIds[0], hints);
-
-                                uint256 totalClaimableEth = 0;
-                                for (uint256 j = 0; j < wrClaimableEth.length; ++j) {
-                                    totalClaimableEth += wrClaimableEth[j];
-                                }
-                                assertApproxEqAbs(
-                                    address(rageQuitEscrow).balance, escrowEthBalance + totalClaimableEth, 2
+                                address claimer = _getRandomSimulationAccount();
+                                vm.prank(claimer);
+                                rageQuitEscrow.claimUnstETH(unstETHIdsToClaim, hints);
+                                console.log(
+                                    ">>> Account's %s claimed %s unstETH NFTs by account %s",
+                                    account,
+                                    unstETHIdsToClaim.length,
+                                    claimer
                                 );
                             }
-                        }
-                    }
-
-                    if (isWithdrawalsBatchesClosed && unclaimedUnstETHIds == 0) {
-                        Escrow.RageQuitEscrowDetails memory details = rageQuitEscrow.getRageQuitEscrowDetails();
-                        if (!details.isRageQuitExtensionPeriodStarted) {
-                            console.log(">>> Start rage quit extension period");
-                            rageQuitEscrow.startRageQuitExtensionPeriod();
                         }
                     }
                 }
@@ -673,48 +665,35 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                                     + escrowDetails.rageQuitExtensionPeriodDuration.toSeconds()
                                     + escrowDetails.rageQuitEthWithdrawalsDelay.toSeconds()
                     ) {
+                        uint256 accountIndexOffset = _random.nextUint256(_allAccounts.length);
+                        uint256 accountsCount = _random.nextUint256(1, 10);
                         for (uint256 j = 0; j < _allAccounts.length; ++j) {
-                            address account = _allAccounts[j];
+                            address account = _allAccounts[(accountIndexOffset + j) % _allAccounts.length];
+
+                            if (escrow.getVetoerDetails(account).unstETHIdsCount == 0) {
+                                continue;
+                            }
+
+                            if (accountsCount > 0) {
+                                accountsCount--;
+                            } else {
+                                break;
+                            }
+
+                            uint256[] memory unstETHIds = escrow.getVetoerUnstETHIds(account);
+
+                            Escrow.LockedUnstETHDetails[] memory unstETHDetails =
+                                escrow.getLockedUnstETHDetails(unstETHIds);
+
                             vm.startPrank(account);
-                            if (escrow.getVetoerDetails(account).unstETHIdsCount > 0) {
-                                uint256[] memory unstETHIds = escrow.getVetoerUnstETHIds(account);
 
-                                Escrow.LockedUnstETHDetails[] memory unstETHDetails =
-                                    escrow.getLockedUnstETHDetails(unstETHIds);
-
-                                Uint256ArrayBuilder.Context memory unclaimedUnstETHIdsBuilder =
-                                    Uint256ArrayBuilder.create(unstETHIds.length);
-
-                                uint256 unfinalizedUnstETHCount = 0;
-                                for (uint256 k = 0; k < unstETHIds.length; ++k) {
-                                    console.log(
-                                        "UnstETH with id %d has status %d",
-                                        unstETHIds[k],
-                                        uint8(unstETHDetails[k].status)
-                                    );
-                                    if (
-                                        unstETHDetails[k].status == UnstETHRecordStatus.Locked
-                                            || unstETHDetails[k].status == UnstETHRecordStatus.Finalized
-                                    ) {
-                                        unclaimedUnstETHIdsBuilder.addItem(unstETHIds[k]);
-                                    }
-                                    if (unstETHDetails[k].status != UnstETHRecordStatus.Withdrawn) {
-                                        unfinalizedUnstETHCount += 1;
-                                    }
-                                }
-
-                                uint256[] memory unclaimedUnstETHIds = unclaimedUnstETHIdsBuilder.getSorted();
-
-                                if (unclaimedUnstETHIds.length > 0) {
-                                    uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
-                                        unclaimedUnstETHIds, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
-                                    );
-                                    escrow.claimUnstETH(unstETHIds, hints);
-                                }
-                                if (unfinalizedUnstETHCount > 0) {
+                            for (uint256 k = 0; k < unstETHIds.length; ++k) {
+                                if (unstETHDetails[k].status != UnstETHRecordStatus.Withdrawn) {
                                     escrow.withdrawETH(unstETHIds);
+                                    break;
                                 }
                             }
+
                             if (escrow.getVetoerDetails(account).stETHLockedShares.toUint256() > 0) {
                                 bytes memory accountCode = account.code;
                                 if (accountCode.length > 0) {
