@@ -345,6 +345,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                 if (_lockedUnStEthIds[vetoers[i]].length > 0) {
                     // correctness of the withdrawn unstETH is calculated inside the _withdrawEthByVetoerUnStEths
                     _withdrawEthByVetoerUnStEths(vetoers[i], rqEscrow);
+                    delete _lockedUnStEthIds[vetoers[i]];
                 }
 
                 if (vetoersStEthSharesBefore[i] > 0) {
