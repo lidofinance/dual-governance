@@ -643,12 +643,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                                 address claimer = _getRandomSimulationAccount();
                                 vm.prank(claimer);
                                 rageQuitEscrow.claimUnstETH(unstETHIdsToClaim, hints);
-                                console.log(
-                                    ">>> Account's %s claimed %s unstETH NFTs by account %s",
-                                    account,
-                                    unstETHIdsToClaim.length,
-                                    claimer
-                                );
+                                // console.log(
+                                //     ">>> Account's %s claimed %s unstETH NFTs by account %s",
+                                //     account,
+                                //     unstETHIdsToClaim.length,
+                                //     claimer
+                                // );
                             }
                         }
                     }
