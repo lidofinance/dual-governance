@@ -205,7 +205,7 @@ contract EscrowAccidentalTokensTransferScenarioTest is DGScenarioTestSetup {
                 vetoer1BalanceBeforeUnlock
                     + _lido.stETH.getPooledEthByShares(vetoer1LockedStEthShares + vetoer1LockedWStEthAmount),
                 _lido.stETH.balanceOf(_VETOER_1),
-                ACCURACY
+                ACCURACY * 2 // wstETH lock adds rounding error
             );
 
             assertApproxEqAbs(_lido.stETH.sharesOf(address(escrow)), vetoer2TransferredStEthShares, ACCURACY);
