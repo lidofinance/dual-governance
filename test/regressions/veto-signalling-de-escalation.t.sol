@@ -179,16 +179,24 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
                 _unlockStETH(_wstETHVetoers[i]);
             }
 
-            ISignallingEscrow.LockedUnstETHDetails[] memory unstETHDetails =
-                _getVetoSignallingEscrow().getLockedUnstETHDetails(_unfinalizedUnstETHIds);
+            if (_nextUnstETHIdIndex > 0) {
+                uint256[] memory lockedUnstETHIds = new uint256[](_nextUnstETHIdIndex);
 
-            for (uint256 i = 0; i < unstETHDetails.length; ++i) {
-                if (unstETHDetails[i].status == UnstETHRecordStatus.NotLocked) {
-                    continue;
+                for (uint256 i = 0; i < lockedUnstETHIds.length; ++i) {
+                    lockedUnstETHIds[i] = _unfinalizedUnstETHIds[i];
                 }
-                uint256[] memory unstETHIds = new uint256[](1);
-                unstETHIds[0] = unstETHDetails[i].id;
-                _unlockUnstETH(unstETHDetails[i].lockedBy, unstETHIds);
+
+                ISignallingEscrow.LockedUnstETHDetails[] memory unstETHDetails =
+                    _getVetoSignallingEscrow().getLockedUnstETHDetails(lockedUnstETHIds);
+
+                for (uint256 i = 0; i < unstETHDetails.length; ++i) {
+                    if (unstETHDetails[i].status == UnstETHRecordStatus.NotLocked) {
+                        continue;
+                    }
+                    uint256[] memory unstETHIds = new uint256[](1);
+                    unstETHIds[0] = unstETHDetails[i].id;
+                    _unlockUnstETH(unstETHDetails[i].lockedBy, unstETHIds);
+                }
             }
 
             assertApproxEqAbs(
