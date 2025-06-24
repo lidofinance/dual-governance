@@ -298,17 +298,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         _nextFrameStart = _lido.getReportTimeElapsed().nextFrameStart;
 
         _setupAccounts();
-
-        // TODO: remove when test is finished. Currently preserved for debug purposes
-
-        // _setupStETHBalance(MOCK_VETOER, PercentsD16.fromBasisPoints(20_00));
-
-        // _lockStETH(MOCK_VETOER, _getSecondSealRageQuitSupport());
-        // _wait(_getVetoSignallingMaxDuration());
-        // _activateNextState();
-        // _wait(_getVetoSignallingDeactivationMaxDuration());
-        // _activateNextState();
-        // _assertRageQuitState();
     }
 
     function _getDGStateName(DGState dgState) internal pure returns (string memory) {
@@ -332,13 +321,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     function testFork_SolvencySimulation() external {
         {
             // Note: simulation test may take significant time to pass
-            // TODO: add this check after list of real holders will be updated to block after DG deployment
-            // || vm.envOr("FORK_BLOCK_NUMBER", uint256(0)) != 21888569
             if (!vm.envOr("RUN_SOLVENCY_SIMULATION_TEST", false)) {
-                vm.skip(
-                    true,
-                    "To enable this test set the env variable RUN_SOLVENCY_SIMULATION_TEST=true and FORK_BLOCK_NUMBER=21888569"
-                );
+                vm.skip(true, "To enable this test set the env variable RUN_SOLVENCY_SIMULATION_TEST=true");
                 return;
             }
         }

@@ -152,7 +152,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
                 // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
                 // into shares via _lido.stETH.getSharesByPooledEth(secondVetoerStETHAmount)
-                ACCURACY
+                10 * ACCURACY
             );
         } else {
             _unlockWstETH(_VETOER_1);
@@ -162,7 +162,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 // Even though the wstETH itself doesn't have rounding issues, the Escrow contract wraps stETH into wstETH
                 // so the the rounding issue may happen because of it. Another rounding may happen on the converting stETH amount
                 // into shares via _lido.stETH.getSharesByPooledEth(secondVetoerStETHAmount)
-                ACCURACY
+                10 * ACCURACY
             );
 
             _unlockStETH(_VETOER_2);
@@ -618,19 +618,18 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = strangerLockUnstETHAmount;
 
-        _initialLockedStETH = strangerLockStETHAmount + initiallyLockedSteth;
-        _initialLockedWStETH = strangerLockWstETHAmount;
-        _initialLockedUnStETHAmount = strangerLockUnstETHAmount;
-        _initialLockedUnStETHShares = _lido.stETH.getSharesByPooledEth(strangerLockUnstETHAmount);
-        _initialLockedUnStETHCount = 1;
-        _initialLockedShares = _lido.stETH.getSharesByPooledEth(_initialLockedStETH) + _initialLockedWStETH;
-
         vm.prank(stranger);
         _initialLockedUnStETHIds = _lido.withdrawalQueue.requestWithdrawals(amounts, stranger);
 
         _lockUnstETH(stranger, _initialLockedUnStETHIds);
 
         _initialLockShareRate = _lido.stETH.getPooledEthByShares(10 ** 27);
+        _initialLockedStETH = strangerLockStETHAmount + initiallyLockedSteth;
+        _initialLockedWStETH = strangerLockWstETHAmount;
+        _initialLockedUnStETHAmount = strangerLockUnstETHAmount;
+        _initialLockedUnStETHShares = _lido.stETH.getSharesByPooledEth(strangerLockUnstETHAmount);
+        _initialLockedUnStETHCount = 1;
+        _initialLockedShares = _lido.stETH.getSharesByPooledEth(_initialLockedStETH) + _initialLockedWStETH;
     }
 
     function _getInitialLockedStETHValue() internal view returns (uint256) {

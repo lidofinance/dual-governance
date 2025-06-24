@@ -341,7 +341,7 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
 
             _wait(_getVetoSignallingDeactivationMaxDuration().minusSeconds(12 seconds));
             _finalizeWithdrawalQueue();
-            _simulateRebase(PercentsD16.fromBasisPoints(100_25));
+            _simulateRebase(PercentsD16.fromBasisPoints(100_22));
 
             assertTrue(_getVetoSignallingEscrow().getRageQuitSupport() >= _getSecondSealRageQuitSupport());
         }

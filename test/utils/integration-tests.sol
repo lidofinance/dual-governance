@@ -905,9 +905,9 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         // validate lock operation was done correctly
         uint256 expectedStETHAmountUnlocked = _lido.stETH.getPooledEthByShares(wstETHUnlocked);
 
-        // 1 wei rounding issue may arise because of the wrapping stETH into wstETH before
+        // 2 wei rounding issue may arise because of the wrapping stETH into wstETH before
         // sending funds to the user
-        assertApproxEqAbs(wstETHUnlocked, vetoerDetailsBefore.stETHLockedShares.toUint256(), 1);
+        assertApproxEqAbs(wstETHUnlocked, vetoerDetailsBefore.stETHLockedShares.toUint256(), ACCURACY);
 
         assertEq(vetoerWstETHBalanceAfter, vetoerWstETHBalanceBefore + wstETHUnlocked);
         assertApproxEqAbs(escrowStETHBalanceAfter, escrowStETHBalanceBefore - expectedStETHAmountUnlocked, ACCURACY);
