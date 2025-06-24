@@ -152,15 +152,15 @@ library SimulationActionsSet {
 uint256 constant WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT = 1000 ether;
 
 // 75 times more than real slot duration to speed up test. Must not affect correctness of the test
-uint256 constant SLOT_DURATION = 1 hours;
+uint256 constant SLOT_DURATION = 15 minutes;
 uint256 constant SIMULATION_ACCOUNTS = 512;
-uint256 constant SIMULATION_DURATION = 100 days;
+uint256 constant SIMULATION_DURATION = 180 days;
 
 uint256 constant MIN_ST_ETH_SUBMIT_AMOUNT = 0.1 ether;
 uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 10_000 ether;
 
 uint256 constant MIN_ST_ETH_LOCK_AMOUNT = 1000 wei;
-uint256 constant MAX_ST_ETH_LOCK_AMOUNT = 100_000 ether;
+uint256 constant MAX_ST_ETH_LOCK_AMOUNT = 20_000 ether;
 
 uint256 constant MIN_ST_ETH_WITHDRAW_AMOUNT = 0.1 ether;
 uint256 constant MAX_ST_ETH_WITHDRAW_AMOUNT = 50_000 ether;
@@ -169,7 +169,7 @@ uint256 constant MIN_WST_ETH_SUBMIT_AMOUNT = 0.1 ether;
 uint256 constant MAX_WST_ETH_SUBMIT_AMOUNT = 10_000 ether;
 
 uint256 constant MIN_WST_ETH_LOCK_AMOUNT = 1000 wei;
-uint256 constant MAX_WST_ETH_LOCK_AMOUNT = 100_000 ether;
+uint256 constant MAX_WST_ETH_LOCK_AMOUNT = 20_000 ether;
 
 uint256 constant MIN_WST_ETH_WITHDRAW_AMOUNT = 0.1 ether;
 uint256 constant MAX_WST_ETH_WITHDRAW_AMOUNT = 50_000 ether;
