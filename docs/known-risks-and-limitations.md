@@ -2,7 +2,6 @@
 
 While the [Dual Governance (DG) system](specification.md) is designed to protect stETH holders from malicious DAO actions, certain protocol specifics and implementation details can reduce its effectiveness in certain situations. This document outlines key risks, limitations, and potential mitigation strategies.
 
-
 ## 1. Malicious Oracle Sets
 
 DG relies heavily on the Lido protocol’s [withdrawals mechanics](https://docs.lido.fi/guides/lido-tokens-integration-guide#withdrawals-unsteth), which in turn depend on the performance of the [accounting](https://docs.lido.fi/guides/oracle-spec/accounting-oracle) and [validators exit bus](https://docs.lido.fi/guides/oracle-spec/validator-exit-bus) oracles.
@@ -89,6 +88,7 @@ For deliberate misuse, no absolute protection exists. However, even in such case
 The Signalling Escrow enables stETH holders to lock funds in opposition to the DAO. While locking and unlocking funds require adhering to the `minAssetsLockDuration` delay, preventing direct flash loan-based unlocking within the same transaction, flash loans can still be used to temporarily amplify veto power.
 
 The overall strategy involves:
+
 1. Locking X tokens from address A.
 2. Waiting until the `minAssetsLockDuration` has passed.
 3. Taking a flash loan of X tokens from address B.
@@ -122,3 +122,16 @@ Due to variable Veto Signalling durations, DAO proposal execution times may vary
 ### Possible Mitigation:
 
 Proposals can include time-validation check calls. See the [example `TimeConstraints` contract](https://github.com/lidofinance/dual-governance/blob/main/test/utils/time-constraints.sol) and its [usage example](https://github.com/lidofinance/dual-governance/blob/main/test/scenario/time-sensitive-proposal-execution.t.sol).
+
+---
+
+## 9. The EasyTrack Permissions Risks
+According to the [permissions transition plan](./permissions-transition/permissions-transition-mainnet.md) for the DG launch, EasyTrack’s ownership remains with the `Voting` contract. As the vehicle for “optimistic” decision-making widely used in DAO operations, this choice seems logical. However, it introduces a potential risk that a malicious DAO could abuse the permissions granted to EasyTrack’s `EVMScriptExecutor`.
+
+In the current setup, the `EVMScriptExecutor` is set as the manager for the `SimpleDVT.MANAGE_SIGNING_KEYS` permission and has been granted the following staking modules roles: `SimpleDVT.STAKING_ROUTER_ROLE`, `SimpleDVT.MANAGE_NODE_OPERATOR_ROLE`, `SimpleDVT.SET_NODE_OPERATOR_LIMIT_ROLE` and, `CuratedModule.SET_NODE_OPERATOR_LIMIT_ROLE`.
+
+While these permissions do not pose direct risks to the DG mechanics, they could potentially be abused by a malicious DAO to slow down regular validator exit operations within the SimpleDVT staking module. Additionally, future enhancements of EasyTrack within DAO operations could require granting the `EVMScriptExecutor` even more sensitive permissions.
+
+### Possible Mitigation:
+
+This risk can be mitigated by registering the `EVMScriptExecutor` as a proposer in the DualGovernance system. In this setup, any actions affecting the protocol would need to be submitted as a Dual Governance proposal, giving stETH holders the opportunity to react to potential malicious actions by the DAO.
