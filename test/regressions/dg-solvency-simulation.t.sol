@@ -65,7 +65,9 @@ struct AccountDetails {
     mapping(address escrow => uint256 balance) sharesLockedInEscrow;
     mapping(address escrow => uint256 accumulatedEscrowSharesError) accumulatedEscrowSharesErrors;
     mapping(address escrow => uint256[] ids) unstETHIdsLockedInEscrow;
-    uint256 accidentalTransferETHAmount;
+    uint256 accidentalETHTransferAmount;
+    uint256 accidentalStETHTransferAmount;
+    uint256 accidentalWstETHTransferAmount;
 }
 
 library Uint256ArrayBuilder {
@@ -685,7 +687,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
                             uint256[] memory unstETHIds = escrow.getVetoerUnstETHIds(account);
                             if (unstETHIds.length > 0) {
-                                _claimEscrowUnstETH(escrow, account, account, unstETHIds);
+                                _claimEscrowUnstETH(escrow, account, unstETHIds);
                                 _withdrawEscrowUnsETH(escrow, account, unstETHIds);
                             }
                         }
@@ -738,7 +740,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             uint256 holderBalanceAfter = account.balance + _lido.stETH.balanceOf(account)
                 + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(account) + sharesLockedInEscrows)
-                + ethLockedUnclaimed + _accountsDetails[account].accidentalTransferETHAmount;
+                + ethLockedUnclaimed + _accountsDetails[account].accidentalETHTransferAmount;
 
             uint256 maxBalanceEstimation = holderBalanceBefore * _positiveRebaseAccumulated / HUNDRED_PERCENT_D16;
 
@@ -750,12 +752,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
     }
 
-    function _claimEscrowUnstETH(
-        Escrow escrow,
-        address account,
-        address claimer,
-        uint256[] memory unstETHIds
-    ) internal {
+    function _claimEscrowUnstETH(Escrow escrow, address claimer, uint256[] memory unstETHIds) internal {
         uint256 totalUnstETHAmount = 0;
         uint256 withdrawalQueueBalanceBefore = address(_lido.withdrawalQueue).balance;
         uint256 escrowBalanceBefore = address(escrow).balance;
@@ -765,14 +762,14 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
         Uint256ArrayBuilder.Context memory requestsToClaimArrayBuilder = Uint256ArrayBuilder.create(unstETHIds.length);
         for (uint256 k = 0; k < unstETHIds.length; ++k) {
-            assertEq(withdrawalStatuses[k].owner, account);
-            if (withdrawalStatuses[k].isFinalized) {
+            assertEq(withdrawalStatuses[k].owner, address(escrow));
+            if (withdrawalStatuses[k].isFinalized && !withdrawalStatuses[k].isClaimed) {
                 totalUnstETHAmount += withdrawalStatuses[k].amountOfStETH;
                 requestsToClaimArrayBuilder.addItem(unstETHIds[k]);
             }
         }
-
         uint256[] memory requestIdsToClaim = requestsToClaimArrayBuilder.getSorted();
+
         if (requestIdsToClaim.length > 0) {
             uint256[] memory hints = _lido.withdrawalQueue.findCheckpointHints(
                 requestIdsToClaim, 1, _lido.withdrawalQueue.getLastCheckpointIndex()
@@ -1453,7 +1450,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             assertEq(escrow.balance, balanceBefore + transferAmount, "Escrow balance mismatch after transfer");
             _totalAccidentalETHTransferAmount += transferAmount;
-            _accountsDetails[account].accidentalTransferETHAmount += transferAmount;
+            _accountsDetails[account].accidentalETHTransferAmount += transferAmount;
 
             // console.log(
             //     "Account %s transferred %s ETH to escrow %s", account, transferAmount.formatEther(), address(escrow)
@@ -1482,7 +1479,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _lido.stETH.transfer(escrow, transferAmount);
 
             _totalAccidentalStETHTransferAmount += transferAmount;
-            _accountsDetails[account].accidentalTransferETHAmount += transferAmount;
+            _accountsDetails[account].accidentalStETHTransferAmount += transferAmount;
 
             // console.log(
             //     "Account %s transferred %s stETH to escrow %s", account, transferAmount.formatEther(), address(escrow)
@@ -1511,7 +1508,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _lido.wstETH.transfer(escrow, transferAmount);
 
             _totalAccidentalWstETHTransferAmount += transferAmount;
-            _accountsDetails[account].accidentalTransferETHAmount += _lido.stETH.getPooledEthByShares(transferAmount);
+            _accountsDetails[account].accidentalWstETHTransferAmount += transferAmount;
 
             // console.log(
             //     "Account %s transferred %s wstETH to escrow %s", account, transferAmount.formatEther(), address(escrow)
@@ -1783,33 +1780,33 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         console.log("  - total unlocked ustETH NFTs:", _totalUnlockedUnstETHCount);
         console.log("  - total unlocked ustETH amount: ", _totalUnlockedUnstETHAmount.formatEther());
 
-        console.log("Claim unstETH (simulation account)");
+        console.log("Claim unstETH (simulation accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.ClaimUnstETH]);
         console.log("  - total ustETH NFTs claimed: ", _totalClaimedUnstETHBySimulationAccountsCount);
         console.log("  - total ustETH amount claimed: ", _totalClaimedUnstETHBySimulationAccountsAmount.formatEther());
 
-        console.log("Withdraw stETH (real account)");
+        console.log("Withdraw stETH (real accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawStETHRealHolder]);
         console.log("  - total withdrawn stETH:", _totalWithdrawnStETHByRealAccounts.formatEther());
 
-        console.log("Withdraw wstETH (real account)");
+        console.log("Withdraw wstETH (real accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawWstETHRealHolder]);
         console.log("  - total withdrawn stETH:", _totalWithdrawnWstETHByRealAccounts.formatEther());
 
-        console.log("Claim unstETH (real account)");
+        console.log("Claim unstETH (real accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder]);
         console.log("  - total claimed ustETH NFTs: ", _totalClaimedUnstETHByRealAccountsCount);
         console.log("  - total claimed ustETH amount: ", _totalClaimedUnstETHByRealAccountsAmount.formatEther());
 
-        console.log("Lock stETH (real account)");
+        console.log("Lock stETH (real accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.LockStETHRealHolder]);
         console.log("  - total locked stETH:", _totalLockedStETHByRealAccounts.formatEther());
 
-        console.log("Lock wstETH (real account)");
+        console.log("Lock wstETH (real accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.LockWstETHRealHolder]);
         console.log("  - total locked stETH:", _totalLockedWstETHByRealAccounts.formatEther());
 
-        console.log("Lock unsETH (simulation accounts)");
+        console.log("Lock unsETH (real accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.LockUnstETH]);
         console.log("  - total locked ustETH NFTs:", _totalLockedUnstETHByRealAccountsCount);
         console.log("  - total locked ustETH amount:", _totalLockedUnstETHByRealAccountsAmount.formatEther());
