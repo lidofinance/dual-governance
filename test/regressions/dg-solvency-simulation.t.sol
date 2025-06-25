@@ -883,12 +883,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             uint256 submitAmount =
                 _random.nextUint256(MIN_ST_ETH_SUBMIT_AMOUNT, Math.min(balance, MAX_ST_ETH_SUBMIT_AMOUNT));
 
+            uint256 stEthBalanceBefore = _lido.stETH.balanceOf(account);
+
             vm.prank(account);
             _lido.stETH.submit{value: submitAmount}(address(0));
 
             _totalSubmittedStETH += submitAmount;
-
             _accountsDetails[account].stETHSubmitted += submitAmount;
+
+            assertApproxEqAbs(_lido.stETH.balanceOf(account), stEthBalanceBefore + submitAmount, 2 gwei);
+            assertEq(account.balance, balance - submitAmount);
 
             // console.log("Account %s submitted %s stETH.", account, submitAmount.formatEther(), balance.formatEther());
             return;
@@ -903,6 +907,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             address account = accounts[(randomIndexOffset + i) % accounts.length];
 
             uint256 balance = account.balance;
+            uint256 stEthBalance = _lido.stETH.balanceOf(account);
+            uint256 wstEthBalance = _lido.wstETH.balanceOf(account);
 
             if (balance < MIN_WST_ETH_SUBMIT_AMOUNT) {
                 continue;
@@ -916,9 +922,15 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _lido.stETH.approve(address(_lido.wstETH), submitAmount);
             uint256 wstEthMinted = _lido.wstETH.wrap(submitAmount);
             vm.stopPrank();
-            _totalSubmittedWstETH += wstEthMinted;
 
+            assertEq(wstEthMinted, _lido.stETH.getSharesByPooledEth(submitAmount));
+
+            _totalSubmittedWstETH += wstEthMinted;
             _accountsDetails[account].wstETHSubmitted += wstEthMinted;
+
+            assertApproxEqAbs(_lido.stETH.balanceOf(account), stEthBalance, 2 gwei);
+            assertApproxEqAbs(_lido.wstETH.balanceOf(account), wstEthBalance + wstEthMinted, 2 gwei);
+            assertEq(account.balance, balance - submitAmount);
 
             // console.log("Account %s submitted %s wstETH.", account, wstEthMinted.formatEther(), balance.formatEther());
             return;
@@ -941,6 +953,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             address account = accounts[(randomIndexOffset + i) % accounts.length];
 
             uint256 balance = _lido.stETH.balanceOf(account);
+
             if (balance < MIN_ST_ETH_WITHDRAW_AMOUNT) {
                 continue;
             }
@@ -972,6 +985,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 _accountsDetails[account].unstETHIdsRequested.push(requestIds[j]);
             }
             _totalWithdrawnStETH += requestedAmount;
+
             // console.log("Account %s withdrawn %s stETH.", account, requestedAmount.formatEther());
             // console.log("Request ids: %s-%s", requestIds[0], requestIds[requestIds.length - 1]);
 
