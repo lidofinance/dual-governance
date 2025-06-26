@@ -1043,6 +1043,8 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
     using LidoUtils for LidoUtils.Context;
 
     function _loadOrDeployDGSetup() internal returns (bool isSetupLoaded) {
+        console.log("Block Number:", block.number);
+
         string memory deployArtifactFileName = vm.envOr("DEPLOY_ARTIFACT_FILE_NAME", string(""));
 
         console.log("File Name:", deployArtifactFileName);
