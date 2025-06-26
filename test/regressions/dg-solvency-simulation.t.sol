@@ -277,6 +277,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     Escrow internal _vetoSignallingEscrow;
     Escrow[] internal _rageQuitEscrows;
     mapping(address escrow => uint256 accidentalETHTransferAmount) internal _accidentalETHTransfersByEscrow;
+    mapping(address escrow => uint256 _accidentalWstETHTransferAmount) internal _accidentalWstETHTransfersByEscrow;
 
     uint256 internal _initialVetoSignallingEscrowLockedShares;
     uint256 internal _initialVetoSignallingEscrowLockedUnstETHCount;
@@ -405,6 +406,25 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 _checkIfRageQuitEscrowWithdrawalsProcessed(rageQuitEscrow),
                 "Rage quit escrow withdrawals were not processed"
             );
+
+            if (i == 0) {
+                assertApproxEqAbs(
+                    address(rageQuitEscrow).balance,
+                    _accidentalETHTransfersByEscrow[address(rageQuitEscrow)] + _initialVetoSignallingEscrowLockedShares,
+                    0.001 ether
+                );
+            } else {
+                assertApproxEqAbs(
+                    address(rageQuitEscrow).balance,
+                    _accidentalETHTransfersByEscrow[address(rageQuitEscrow)],
+                    0.001 ether
+                );
+            }
+
+            assertEq(
+                _lido.wstETH.balanceOf(address(rageQuitEscrow)),
+                _accidentalWstETHTransfersByEscrow[address(rageQuitEscrow)]
+            );
         }
 
         _checkAccountsRageQuitEscrowBalancesEmpty();
@@ -459,10 +479,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         uint256 sharesLockedInEscrows
     ) internal view returns (uint256 balanceInETH) {
         balanceInETH = account.balance + _lido.stETH.balanceOf(account)
-            + _lido.stETH.getPooledEthByShares(_lido.wstETH.balanceOf(account) + sharesLockedInEscrows) + ethLockedUnclaimed
-            + _accountsDetails[account].accidentalETHTransferAmount
+            + _lido.stETH.getPooledEthByShares(
+                _lido.wstETH.balanceOf(account) + sharesLockedInEscrows
+                    + _accountsDetails[account].accidentalWstETHTransferAmount
+            ) + ethLockedUnclaimed + _accountsDetails[account].accidentalETHTransferAmount
             + _accountsDetails[account].accidentalStETHTransferAmount
-            + _accountsDetails[account].accidentalWstETHTransferAmount
             + _accountsDetails[account].accidentalUnstETHTransferAmount;
     }
 
@@ -1518,6 +1539,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             _totalAccidentalWstETHTransferAmount += transferAmount;
             _accountsDetails[account].accidentalWstETHTransferAmount += transferAmount;
+            _accidentalWstETHTransfersByEscrow[escrow] += transferAmount;
 
             // console.log(
             //     "Account %s transferred %s wstETH to escrow %s", account, transferAmount.formatEther(), address(escrow)
@@ -1932,6 +1954,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         console.log("  - count:", _actionsCounters[SimulationActionType.LockWstETHRealHolder]);
         console.log("  - total locked stETH:", _totalLockedWstETHByRealAccounts.formatEther());
 
+        // TODO: add real accounts unstETH locking
         console.log("Lock unsETH (real accounts)");
         console.log("  - count:", _actionsCounters[SimulationActionType.LockUnstETH]);
         console.log("  - total locked ustETH NFTs:", _totalLockedUnstETHByRealAccountsCount);
@@ -1962,7 +1985,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         console.log("Rage Quit Escrows Stats");
         console.log("-----------------------");
 
-        ISignallingEscrow signallingEscrow = _getVetoSignallingEscrow();
+        uint256 initialVetoSignallingEscrowLockedStETH =
+            _lido.stETH.getPooledEthByShares(_initialVetoSignallingEscrowLockedShares);
         console.log("  - Rage Quits count:", _rageQuitEscrows.length);
         for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
             console.log("    - RageQuit escrow:", address(_rageQuitEscrows[i]));
@@ -1970,17 +1994,30 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             console.log("      - stETH balance:", _lido.stETH.balanceOf(address(_rageQuitEscrows[i])).formatEther());
             console.log("      - wstETH balance:", _lido.wstETH.balanceOf(address(_rageQuitEscrows[i])).formatEther());
             console.log("      - unstETH balance:", _lido.withdrawalQueue.balanceOf(address(_rageQuitEscrows[i])));
-            console.log("      - ETH balance:", address(_rageQuitEscrows[i]).balance.formatEther());
+
             console.log(
                 "      - accidental transferred ETH:",
                 _accidentalETHTransfersByEscrow[address(_rageQuitEscrows[i])].formatEther()
             );
+            console.log(
+                "      - accidental transferred stETH:",
+                _accountsDetails[address(_rageQuitEscrows[i])].accidentalStETHTransferAmount.formatEther()
+            );
+            console.log(
+                "      - accidental transferred wstETH:",
+                _accountsDetails[address(_rageQuitEscrows[i])].accidentalWstETHTransferAmount.formatEther()
+            );
+            console.log("      - ETH balance:", address(_rageQuitEscrows[i]).balance.formatEther());
+            if (i == 0) {
+                console.log("      - Initially locked stETH:", initialVetoSignallingEscrowLockedStETH.formatEther());
+            }
         }
 
         console.log("-----------------------");
         console.log("Signalling Escrow Stats");
         console.log("-----------------------");
 
+        ISignallingEscrow signallingEscrow = _getVetoSignallingEscrow();
         console.log("  - DG State:", _getDGStateName(_dgDeployedContracts.dualGovernance.getEffectiveState()));
         console.log("  - Rage Quit Support:", signallingEscrow.getRageQuitSupport().format());
         console.log("  - stETH Balance:", _lido.stETH.balanceOf(address(signallingEscrow)).formatEther());

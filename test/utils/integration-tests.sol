@@ -1043,8 +1043,6 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
     using LidoUtils for LidoUtils.Context;
 
     function _loadOrDeployDGSetup() internal returns (bool isSetupLoaded) {
-        console.log("Block Number:", block.number);
-
         string memory deployArtifactFileName = vm.envOr("DEPLOY_ARTIFACT_FILE_NAME", string(""));
 
         console.log("File Name:", deployArtifactFileName);
@@ -1065,6 +1063,7 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
         uint256 chainId = deployArtifacts.deployConfig.chainId;
         console.log("CHAIN ID:", chainId);
         _setupFork(chainId, _getEnvForkBlockNumberOrDefault(chainId));
+        console.log("Block Number:", block.number);
 
         _setDGDeployConfig(deployArtifacts.deployConfig);
         _dgDeployedContracts = deployArtifacts.deployedContracts;
