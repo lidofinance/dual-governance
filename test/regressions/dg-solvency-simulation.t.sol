@@ -274,6 +274,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     uint256 internal _totalAccidentalUnstETHTransferAmount = 0;
 
     uint256 internal _totalNegativeRebaseCount = 0;
+    uint256 internal _initialShareRate = 0;
 
     Escrow internal _vetoSignallingEscrow;
     Escrow[] internal _rageQuitEscrows;
@@ -289,9 +290,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     address[] internal _wstETHRealHolders;
     address[] internal _stETHRealHolders;
     address[] internal _allRealHolders;
-
     address[] internal _simulationAccounts;
-
     address[] internal _allAccounts;
 
     Random.Context internal _random;
@@ -349,8 +348,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             // TODO: check locked unstETH shares in the escrow
             // _initialVetoSignallingEscrowLockedUnstETHCount =
             //     _vetoSignallingEscrow.getSignallingEscrowDetails().totalUnstETHLockedShares.toUint256();
-
-            console.log("Initial share rate: %s", _lido.stETH.getPooledEthByShares(10 ** 18).formatEther());
+            _initialShareRate = _lido.stETH.getPooledEthByShares(10 ** 18);
+            console.log("Initial share rate: %s", _initialShareRate.formatEther());
             console.log("Initial stETH Total Supply: %s", _lido.stETH.totalSupply().formatEther());
             console.log(
                 "before simulation block number: %d, before simulation timestamp: %d", block.number, block.timestamp
@@ -579,15 +578,15 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         bool isWithdrawalsBatchesClosed = rageQuitEscrow.isWithdrawalsBatchesClosed();
         if (!isWithdrawalsBatchesClosed) {
             uint256 requestBatchSize = _random.nextUint256(_vetoSignallingEscrow.MIN_WITHDRAWALS_BATCH_SIZE(), 128);
-            uint256 lastUnstETHIdBefore = _lido.withdrawalQueue.getLastRequestId();
+            // uint256 lastUnstETHIdBefore = _lido.withdrawalQueue.getLastRequestId();
             rageQuitEscrow.requestNextWithdrawalsBatch(requestBatchSize);
-            uint256 lastUnstETHIdAfter = _lido.withdrawalQueue.getLastRequestId();
-            console.log(
-                ">>> Requesting %s next withdrawals batch: [%d, %d]",
-                lastUnstETHIdAfter - lastUnstETHIdBefore,
-                lastUnstETHIdBefore + 1,
-                lastUnstETHIdAfter
-            );
+            // uint256 lastUnstETHIdAfter = _lido.withdrawalQueue.getLastRequestId();
+            // console.log(
+            //     ">>> Requesting %s next withdrawals batch: [%d, %d]",
+            //     lastUnstETHIdAfter - lastUnstETHIdBefore,
+            //     lastUnstETHIdBefore + 1,
+            //     lastUnstETHIdAfter
+            // );
         }
 
         uint256 unclaimedUnstETHIds = rageQuitEscrow.getUnclaimedUnstETHIdsCount();
@@ -1891,161 +1890,293 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _printSimulationStats(uint256 iterationsCount) internal view {
-        console.log("---------------");
-        console.log("Actions Stats");
-        console.log("---------------");
+        LogTable.logActionsHeader();
 
-        console.log("Submit StETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.SubmitStETH]);
-        console.log("  - total submitted stETH:", _totalSubmittedStETH.formatEther());
+        LogTable.logRow("Submit StETH");
+        LogTable.logRow(
+            "Sim Accounts", _actionsCounters[SimulationActionType.SubmitStETH], _totalSubmittedStETH.formatEther()
+        );
+        LogTable.logRow("Submit StETH");
+        LogTable.logRow(
+            "Sim Accounts", _actionsCounters[SimulationActionType.SubmitWstETH], _totalSubmittedWstETH.formatEther()
+        );
+        LogTable.logRow("Withdraw StETH");
+        LogTable.logRow(
+            "Sim Accounts",
+            _actionsCounters[SimulationActionType.WithdrawStETH],
+            _totalWithdrawnStETHBySimulationAccounts.formatEther()
+        );
+        LogTable.logRow(
+            "Real Accounts",
+            _actionsCounters[SimulationActionType.WithdrawStETHRealHolder],
+            _totalWithdrawnStETHByRealAccounts.formatEther()
+        );
+        LogTable.logRow("Withdraw wstETH");
+        LogTable.logRow(
+            "Sim Accounts",
+            _actionsCounters[SimulationActionType.WithdrawWstETH],
+            _totalWithdrawnWstETHBySimulationAccounts.formatEther()
+        );
+        LogTable.logRow(
+            "Real Accounts",
+            _actionsCounters[SimulationActionType.WithdrawWstETHRealHolder],
+            _totalWithdrawnWstETHByRealAccounts.formatEther()
+        );
 
-        console.log("Submit WtETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.SubmitWstETH]);
-        console.log("  - total submitted wstETH:", _totalSubmittedWstETH.formatEther());
+        LogTable.logRow("Claim unstETH");
+        LogTable.logRow(
+            "Sim Accounts",
+            _actionsCounters[SimulationActionType.ClaimUnstETH],
+            _totalClaimedUnstETHBySimulationAccountsAmount.formatEther()
+        );
 
-        console.log("Withdraw stETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawStETH]);
-        console.log("  - total withdrawn stETH:", _totalWithdrawnStETHBySimulationAccounts.formatEther());
+        LogTable.logRow(
+            "Real Accounts",
+            _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder],
+            _totalClaimedUnstETHByRealAccountsAmount.formatEther()
+        );
 
-        console.log("Withdraw wstETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawWstETH]);
-        console.log("  - total withdrawn wstETH:", _totalWithdrawnWstETHBySimulationAccounts.formatEther());
+        LogTable.logRow("Escrow Lock StETH");
+        LogTable.logRow(
+            "Sim Accounts",
+            _actionsCounters[SimulationActionType.LockStETH],
+            _totalLockedStETHBySimulationAccounts.formatEther()
+        );
+        LogTable.logRow(
+            "Real Accounts",
+            _actionsCounters[SimulationActionType.LockStETHRealHolder],
+            _totalLockedStETHByRealAccounts.formatEther()
+        );
 
-        console.log("Lock stETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.LockStETH]);
-        console.log("  - total locked stETH:", _totalLockedStETHBySimulationAccounts.formatEther());
+        LogTable.logRow("Escrow Lock wstETH");
+        LogTable.logRow(
+            "Sim Accounts",
+            _actionsCounters[SimulationActionType.LockWstETH],
+            _totalLockedWstETHBySimulationAccounts.formatEther()
+        );
+        LogTable.logRow(
+            "Real Accounts",
+            _actionsCounters[SimulationActionType.LockWstETHRealHolder],
+            _totalLockedWstETHByRealAccounts.formatEther()
+        );
 
-        console.log("Lock wstETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.LockWstETH]);
-        console.log("  - total locked wstETH:", _totalLockedWstETHBySimulationAccounts.formatEther());
+        //  TODO: Add counters for unstETH
+        LogTable.logRow("Escrow Lock unstETH");
+        LogTable.logRow(
+            "Sim Accounts",
+            _actionsCounters[SimulationActionType.LockUnstETH],
+            _totalLockedUnstETHBySimulationAccountsAmount.formatEther()
+        );
+        LogTable.logRow(
+            "Real Accounts",
+            _actionsCounters[SimulationActionType.LockUnstETHRealHolder],
+            _totalLockedUnstETHByRealAccountsAmount.formatEther()
+        );
+        // TODO: add real holders unlock
+        LogTable.logRow("Escrow Unlock Sim Accounts");
+        LogTable.logRow("stETH", _actionsCounters[SimulationActionType.UnlockStETH], _totalUnlockedStETH.formatEther());
+        LogTable.logRow(
+            "wstETH", _actionsCounters[SimulationActionType.UnlockWstETH], _totalUnlockedWstETH.formatEther()
+        );
 
-        console.log("Lock unsETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.LockUnstETH]);
-        console.log("  - total locked ustETH NFTs:", _totalLockedUnstETHBySimulationAccountsCount);
-        console.log("  - total locked ustETH amount:", _totalLockedUnstETHBySimulationAccountsAmount.formatEther());
+        LogTable.logRow(
+            "unstETH", _actionsCounters[SimulationActionType.UnlockUnstETH], _totalUnlockedUnstETHAmount.formatEther()
+        );
 
-        console.log("Unlock stETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.UnlockStETH]);
-        console.log("  - total unlocked stETH:", _totalUnlockedStETH.formatEther());
-
-        console.log("Unlock wstETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.UnlockWstETH]);
-        console.log("  - total unlocked wstETH:", _totalUnlockedWstETH.formatEther());
-
-        console.log("Unlock unstETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.UnlockUnstETH]);
-        console.log("  - total unlocked ustETH NFTs:", _totalUnlockedUnstETHCount);
-        console.log("  - total unlocked ustETH amount: ", _totalUnlockedUnstETHAmount.formatEther());
-
-        console.log("Claim unstETH (simulation accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.ClaimUnstETH]);
-        console.log("  - total ustETH NFTs claimed: ", _totalClaimedUnstETHBySimulationAccountsCount);
-        console.log("  - total ustETH amount claimed: ", _totalClaimedUnstETHBySimulationAccountsAmount.formatEther());
-
-        console.log("Withdraw stETH (real accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawStETHRealHolder]);
-        console.log("  - total withdrawn stETH:", _totalWithdrawnStETHByRealAccounts.formatEther());
-
-        console.log("Withdraw wstETH (real accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.WithdrawWstETHRealHolder]);
-        console.log("  - total withdrawn stETH:", _totalWithdrawnWstETHByRealAccounts.formatEther());
-
-        console.log("Claim unstETH (real accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder]);
-        console.log("  - total claimed ustETH NFTs: ", _totalClaimedUnstETHByRealAccountsCount);
-        console.log("  - total claimed ustETH amount: ", _totalClaimedUnstETHByRealAccountsAmount.formatEther());
-
-        console.log("Lock stETH (real accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.LockStETHRealHolder]);
-        console.log("  - total locked stETH:", _totalLockedStETHByRealAccounts.formatEther());
-
-        console.log("Lock wstETH (real accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.LockWstETHRealHolder]);
-        console.log("  - total locked stETH:", _totalLockedWstETHByRealAccounts.formatEther());
-
-        // TODO: add real accounts unstETH locking
-        console.log("Lock unsETH (real accounts)");
-        console.log("  - count:", _actionsCounters[SimulationActionType.LockUnstETH]);
-        console.log("  - total locked ustETH NFTs:", _totalLockedUnstETHByRealAccountsCount);
-        console.log("  - total locked ustETH amount:", _totalLockedUnstETHByRealAccountsAmount.formatEther());
-
-        console.log("Mark unstETH finalized");
-        console.log("  - count:", _actionsCounters[SimulationActionType.MarkUnstETHFinalized]);
-        console.log("  - total ustETH NFTs marked finalized: ", _totalMarkedUnstETHFinalizedCount);
-        console.log("  - total ustETH amount marked finalized: ", _totalMarkedUnstETHFinalizedAmount.formatEther());
-
-        console.log("Accidental ETH transfers");
-        console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalETHTransfer]);
-        console.log("  - total ETH transferred:", _totalAccidentalETHTransferAmount.formatEther());
-
-        console.log("Accidental stETH transfers");
-        console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalStETHTransfer]);
-        console.log("  - total stETH transferred:", _totalAccidentalStETHTransferAmount.formatEther());
-
-        console.log("Accidental wstETH transfers");
-        console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalWstETHTransfer]);
-        console.log("  - total wstETH transferred:", _totalAccidentalWstETHTransferAmount.formatEther());
-
-        console.log("Accidental unstETH transfers");
-        console.log("  - count:", _actionsCounters[SimulationActionType.AccidentalUnstETHTransfer]);
-        console.log("  - total wstETH transferred:", _totalAccidentalUnstETHTransferAmount.formatEther());
-
-        console.log("-----------------------");
-        console.log("Rage Quit Escrows Stats");
-        console.log("-----------------------");
+        LogTable.logRow("Mark unstETH finalized");
+        LogTable.logRow(
+            "All Accounts",
+            _actionsCounters[SimulationActionType.MarkUnstETHFinalized],
+            _totalMarkedUnstETHFinalizedAmount.formatEther()
+        );
+        LogTable.logRow("Accidental transfers");
+        LogTable.logRow(
+            "ETH",
+            _actionsCounters[SimulationActionType.AccidentalETHTransfer],
+            _totalAccidentalETHTransferAmount.formatEther()
+        );
+        LogTable.logRow(
+            "stETH",
+            _actionsCounters[SimulationActionType.AccidentalStETHTransfer],
+            _totalAccidentalStETHTransferAmount.formatEther()
+        );
+        LogTable.logRow(
+            "wstETH",
+            _actionsCounters[SimulationActionType.AccidentalWstETHTransfer],
+            _totalAccidentalWstETHTransferAmount.formatEther()
+        );
+        LogTable.logRow(
+            "unstETH",
+            _actionsCounters[SimulationActionType.AccidentalUnstETHTransfer],
+            _totalAccidentalUnstETHTransferAmount.formatEther()
+        );
+        LogTable.logSeparator();
 
         uint256 initialVetoSignallingEscrowLockedStETH =
             _lido.stETH.getPooledEthByShares(_initialVetoSignallingEscrowLockedShares);
-        console.log("  - Rage Quits count:", _rageQuitEscrows.length);
-        for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
-            console.log("    - RageQuit escrow:", address(_rageQuitEscrows[i]));
-            console.log("      - Is Rage Quit Finalized:", _rageQuitEscrows[i].isRageQuitFinalized());
-            console.log("      - stETH balance:", _lido.stETH.balanceOf(address(_rageQuitEscrows[i])).formatEther());
-            console.log("      - wstETH balance:", _lido.wstETH.balanceOf(address(_rageQuitEscrows[i])).formatEther());
-            console.log("      - unstETH balance:", _lido.withdrawalQueue.balanceOf(address(_rageQuitEscrows[i])));
 
-            console.log(
-                "      - accidental transferred ETH:",
-                _accidentalETHTransfersByEscrow[address(_rageQuitEscrows[i])].formatEther()
-            );
-            console.log(
-                "      - accidental transferred stETH:",
-                _accountsDetails[address(_rageQuitEscrows[i])].accidentalStETHTransferAmount.formatEther()
-            );
-            console.log(
-                "      - accidental transferred wstETH:",
-                _accountsDetails[address(_rageQuitEscrows[i])].accidentalWstETHTransferAmount.formatEther()
-            );
-            console.log("      - ETH balance:", address(_rageQuitEscrows[i]).balance.formatEther());
+        LogTable.logHeader("  Rage Quit Escrow Stats");
+        LogTable.logRow("Rage Quits count:", _rageQuitEscrows.length);
+        LogTable.logSeparator();
+
+        for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
+            LogTable.logRow("RageQuit escrow", address(_rageQuitEscrows[i]));
+            LogTable.logRow("Is Rage Quit Finalized", _rageQuitEscrows[i].isRageQuitFinalized());
             if (i == 0) {
-                console.log("      - Initially locked stETH:", initialVetoSignallingEscrowLockedStETH.formatEther());
+                LogTable.logRow("Initially locked stETH", initialVetoSignallingEscrowLockedStETH.formatEther());
             }
+            console.log(" - Balances");
+            LogTable.logRow("ETH", address(_rageQuitEscrows[i]).balance.formatEther());
+            LogTable.logRow("stETH", _lido.stETH.balanceOf(address(_rageQuitEscrows[i])).formatEther());
+            LogTable.logRow("wstETH", _lido.wstETH.balanceOf(address(_rageQuitEscrows[i])).formatEther());
+            LogTable.logRow("unstETH", _lido.withdrawalQueue.balanceOf(address(_rageQuitEscrows[i])));
+
+            console.log(" - Accidental Transfers");
+            LogTable.logRow("ETH", _accidentalETHTransfersByEscrow[address(_rageQuitEscrows[i])].formatEther());
+            LogTable.logRow("stETH", _accidentalStETHTransfersByEscrow[address(_rageQuitEscrows[i])].formatEther());
+            LogTable.logRow("wstETH", _accidentalWstETHTransfersByEscrow[address(_rageQuitEscrows[i])].formatEther());
+            LogTable.logRow("unstETH", _accidentalUnstETHTransfersByEscrow[address(_rageQuitEscrows[i])].formatEther());
+            LogTable.logSeparator();
         }
 
-        console.log("-----------------------");
-        console.log("Signalling Escrow Stats");
-        console.log("-----------------------");
-
         ISignallingEscrow signallingEscrow = _getVetoSignallingEscrow();
-        console.log("  - DG State:", _getDGStateName(_dgDeployedContracts.dualGovernance.getEffectiveState()));
-        console.log("  - Rage Quit Support:", signallingEscrow.getRageQuitSupport().format());
-        console.log("  - stETH Balance:", _lido.stETH.balanceOf(address(signallingEscrow)).formatEther());
+        LogTable.logHeader("  Veto Signalling Escrow Stats");
+        LogTable.logRow("Veto Signalling Escrow", address(signallingEscrow));
+        LogTable.logRow("DG State", _getDGStateName(_dgDeployedContracts.dualGovernance.getEffectiveState()));
+        LogTable.logRow("Rage Quit Support:", signallingEscrow.getRageQuitSupport().format());
+        LogTable.logRow("stETH Balance:", _lido.stETH.balanceOf(address(signallingEscrow)).formatEther());
 
-        console.log("----------------");
-        console.log("Simulation Stats");
-        console.log("----------------");
+        LogTable.logHeader("  Simulation Stats");
 
-        console.log("  - Iteration Count:", iterationsCount);
-        console.log("  - block.number:", block.number);
-        console.log("  - block.timestamp:", block.timestamp);
-        console.log("  - stETH Total Supply:", _lido.stETH.totalSupply().formatEther());
-        console.log("  - stETH Share Rate:", _lido.stETH.getPooledEthByShares(10 ** 18).formatEther());
-        console.log("  - Negative rebases:", _totalNegativeRebaseCount);
+        PercentD16 rebasePercent =
+            PercentsD16.fromFraction(_lido.stETH.getPooledEthByShares(10 ** 18), _initialShareRate);
+
+        console.log("  - Iteration Count:      ", iterationsCount);
+        console.log("  - Block Number:         ", block.number);
+        console.log("  - Block Timestamp:      ", block.timestamp);
+        console.log("  - stETH Total Supply:   ", _lido.stETH.totalSupply().formatEther());
+        console.log("  - stETH Share Rate:     ", _lido.stETH.getPooledEthByShares(10 ** 18).formatEther());
+        console.log("  - Rebase during test:   ", rebasePercent.format());
+        console.log("  - Negative rebases:     ", _totalNegativeRebaseCount);
     }
 }
 
 contract SelfDestructSender {
     constructor(address payable recipient) payable {
         selfdestruct(recipient);
+    }
+}
+
+library LogTable {
+    function logRow(string memory col1, string memory col2, string memory col3) internal pure {
+        string memory line = string.concat(_padLeft(col1, 28), " | ", _padLeft(col2, 7), " | ", _padLeft(col3, 20));
+        console.log(line);
+    }
+
+    function logRow(string memory col1, string memory col2) internal pure {
+        string memory line = string.concat(_padLeft(col1, 28), " | ", _padLeft(col2, 7));
+        console.log(line);
+    }
+
+    function logRow(string memory col1, uint256 col2, string memory col3) internal pure {
+        logRow(col1, uintToString(col2), col3);
+    }
+
+    function logRow(string memory col1, uint256 col2) internal pure {
+        logRow(col1, uintToString(col2));
+    }
+
+    function logRow(string memory col1, address addr) internal pure {
+        string memory line = string.concat(_padRight(col1, 28), " | ", _toHexString(addr));
+        console.log(line);
+    }
+
+    function logRow(string memory label, bool value) internal pure {
+        string memory boolStr = value ? "true" : "false";
+        string memory line = string.concat(_padLeft(label, 28), " | ", boolStr);
+        console.log(line);
+    }
+
+    function logActionsHeader() internal pure {
+        console.log("\n");
+        console.log("======================================================================");
+        console.log("  Actions Stats");
+        console.log("======================================================================");
+        console.log("Action                       |  Count  |              Amount");
+    }
+
+    function logHeader(string memory header) internal pure {
+        console.log("\n");
+        console.log("======================================================================");
+        console.log(header);
+        console.log("======================================================================");
+    }
+
+    function logRow(string memory col1) internal pure {
+        console.log("---------------------------------------------------------------------");
+        console.log(_padRight(col1, 28));
+    }
+
+    function logSeparator() internal pure {
+        console.log("---------------------------------------------------------------------");
+    }
+
+    function _padRight(string memory str, uint256 len) private pure returns (string memory) {
+        bytes memory bStr = bytes(str);
+        if (bStr.length >= len) return str;
+
+        bytes memory result = new bytes(len);
+        for (uint256 i = 0; i < bStr.length; i++) {
+            result[i] = bStr[i];
+        }
+        for (uint256 i = bStr.length; i < len; i++) {
+            result[i] = " ";
+        }
+        return string(result);
+    }
+
+    function _padLeft(string memory str, uint256 len) private pure returns (string memory) {
+        bytes memory bStr = bytes(str);
+        if (bStr.length >= len) return str;
+
+        bytes memory result = new bytes(len);
+        uint256 pad = len - bStr.length;
+        for (uint256 i = 0; i < pad; i++) {
+            result[i] = " ";
+        }
+        for (uint256 i = 0; i < bStr.length; i++) {
+            result[pad + i] = bStr[i];
+        }
+        return string(result);
+    }
+
+    function uintToString(uint256 val) internal pure returns (string memory) {
+        if (val == 0) return "0";
+        uint256 temp = val;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (val != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(val % 10)));
+            val /= 10;
+        }
+        return string(buffer);
+    }
+
+    function _toHexString(address addr) private pure returns (string memory) {
+        bytes20 value = bytes20(addr);
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory str = new bytes(42);
+        str[0] = "0";
+        str[1] = "x";
+        for (uint256 i = 0; i < 20; i++) {
+            str[2 + i * 2] = hexChars[uint8(value[i] >> 4)];
+            str[3 + i * 2] = hexChars[uint8(value[i] & 0x0f)];
+        }
+        return string(str);
     }
 }
