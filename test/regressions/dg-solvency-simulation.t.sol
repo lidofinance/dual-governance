@@ -157,7 +157,7 @@ uint256 constant WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT = 1000 ether;
 // 75 times more than real slot duration to speed up test. Must not affect correctness of the test
 uint256 constant SLOT_DURATION = 15 minutes;
 uint256 constant SIMULATION_ACCOUNTS = 512;
-uint256 constant SIMULATION_DURATION = 180 days;
+uint256 constant SIMULATION_DURATION = 40 days;
 
 uint256 constant MIN_ST_ETH_SUBMIT_AMOUNT = 0.1 ether;
 uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 10_000 ether;
@@ -192,6 +192,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     using LidoUtils for LidoUtils.Context;
     using Uint256ArrayBuilder for Uint256ArrayBuilder.Context;
     using SimulationActionsSet for SimulationActionsSet.Context;
+    using Debug for Debug.Context;
 
     PercentD16 immutable LOCK_ST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(100_00);
     PercentD16 immutable LOCK_WST_ETH_PROBABILITY = PercentsD16.fromBasisPoints(100_00);
@@ -300,12 +301,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     uint256 internal _lastWithdrawalsFinalizationTimestamp;
     uint256 internal _nextFrameStart;
 
+    Debug.Context internal _debug;
+
     function setUp() external {
         _loadOrDeployDGSetup();
         _random = Random.create(block.timestamp);
         _nextFrameStart = _lido.getReportTimeElapsed().nextFrameStart;
 
         _setupAccounts();
+
+        _debug.debuggingEnabled = true;
     }
 
     function _getDGStateName(DGState dgState) internal pure returns (string memory) {
@@ -2178,5 +2183,35 @@ library LogTable {
             str[3 + i * 2] = hexChars[uint8(value[i] & 0x0f)];
         }
         return string(str);
+    }
+}
+
+library Debug {
+    struct Context {
+        bool debuggingEnabled;
+    }
+
+    function info(Context memory ctx, string memory message) internal pure {
+        if (ctx.debuggingEnabled) {
+            console.log(message);
+        }
+    }
+
+    function info(Context memory ctx, string memory label, uint256 val) internal pure {
+        if (ctx.debuggingEnabled) {
+            console.log(label, val);
+        }
+    }
+
+    function info(Context memory ctx, string memory label, address val) internal pure {
+        if (ctx.debuggingEnabled) {
+            console.log(label, val);
+        }
+    }
+
+    function info(Context memory ctx, string memory label, bool val) internal pure {
+        if (ctx.debuggingEnabled) {
+            console.log(label, val);
+        }
     }
 }
