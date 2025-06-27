@@ -1353,6 +1353,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _markRandomUnstETHFinalized() internal {
+        _activateNextStateIfNeeded();
         _debug.debug(">>> Marking random unstETH finalized");
         uint256[] memory requestIds = _lido.withdrawalQueue.getWithdrawalRequests(address(_getVetoSignallingEscrow()));
         if (requestIds.length == 0) {
@@ -1935,7 +1936,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         LogTable.logRow(
             "Sim Accounts", _actionsCounters[SimulationActionType.SubmitStETH], _totalSubmittedStETH.formatEther()
         );
-        LogTable.logRow("Submit StETH");
+        LogTable.logRow("Submit WstETH");
         LogTable.logRow(
             "Sim Accounts", _actionsCounters[SimulationActionType.SubmitWstETH], _totalSubmittedWstETH.formatEther()
         );
