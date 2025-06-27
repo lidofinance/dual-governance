@@ -221,6 +221,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     PercentD16 immutable LOCK_STETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(75_00);
     PercentD16 immutable LOCK_WSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(75_00);
+    PercentD16 immutable LOCK_UNSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(75_00);
 
     PercentD16 immutable NEGATIVE_REBASE_PROBABILITY = PercentsD16.fromBasisPoints(3_00);
     uint256 constant MAX_NEGATIVE_REBASES_COUNT = 1;
@@ -278,6 +279,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     Escrow[] internal _rageQuitEscrows;
     mapping(address escrow => uint256 accidentalETHTransferAmount) internal _accidentalETHTransfersByEscrow;
     mapping(address escrow => uint256 _accidentalWstETHTransferAmount) internal _accidentalWstETHTransfersByEscrow;
+    mapping(address escrow => uint256 _accidentalStETHTransferAmount) internal _accidentalStETHTransfersByEscrow;
+    mapping(address escrow => uint256 _accidentalUnstETHTransferCount) internal _accidentalUnstETHTransfersByEscrow;
 
     uint256 internal _initialVetoSignallingEscrowLockedShares;
     uint256 internal _initialVetoSignallingEscrowLockedUnstETHCount;
@@ -1510,6 +1513,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             _totalAccidentalStETHTransferAmount += transferAmount;
             _accountsDetails[account].accidentalStETHTransferAmount += transferAmount;
+            _accidentalStETHTransfersByEscrow[escrow] += transferAmount;
 
             // console.log(
             //     "Account %s transferred %s stETH to escrow %s", account, transferAmount.formatEther(), address(escrow)
@@ -1695,6 +1699,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         if (_getRandomProbability() <= LOCK_WSTETH_REAL_HOLDER_PROBABILITY) {
             result.add(SimulationActionType.LockWstETHRealHolder);
             _actionsCounters[SimulationActionType.LockWstETHRealHolder] += 1;
+        }
+
+        if (_getRandomProbability() <= LOCK_UNSTETH_REAL_HOLDER_PROBABILITY) {
+            result.add(SimulationActionType.LockUnstETHRealHolder);
+            _actionsCounters[SimulationActionType.LockUnstETHRealHolder] += 1;
         }
     }
 
