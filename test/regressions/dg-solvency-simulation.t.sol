@@ -54,6 +54,10 @@ enum SimulationActionType {
     LockUnstETHRealHolder
 }
 
+struct VetoersFile {
+    address[] addresses;
+}
+
 struct AccountDetails {
     uint256 ethBalanceBefore;
     uint256 sharesBalanceBefore;
@@ -842,8 +846,17 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
         uint256[] memory requestIdsToWithdraw = requestsArrayBuilder.getResult();
         if (requestIdsToWithdraw.length > 0) {
+            bytes memory accountCode = account.code;
+            if (accountCode.length > 0) {
+                vm.etch(account, bytes(""));
+            }
+
             vm.prank(account);
             escrow.withdrawETH(requestIdsToWithdraw);
+
+            if (accountCode.length > 0) {
+                vm.etch(account, accountCode);
+            }
         }
 
         assertEq(address(escrow).balance, escrowBalanceBefore - totalUnstETHAmount);
@@ -1849,7 +1862,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     function _loadHoldersFromFile(string memory path) internal view returns (address[] memory) {
         string memory vetoersFileRaw = vm.readFile(path);
         bytes memory data = vm.parseJson(vetoersFileRaw);
-        return abi.decode(data, (address[]));
+        VetoersFile memory vetoersFile = abi.decode(data, (VetoersFile));
+        return vetoersFile.addresses;
     }
 
     function _loadHolders() internal {
@@ -1891,6 +1905,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 _lido.wstETH.balanceOf(account) + _lido.stETH.getSharesByPooledEth(_lido.stETH.balanceOf(account));
 
             uint256[] memory requestIds = _lido.withdrawalQueue.getWithdrawalRequests(account);
+
+            if (requestIds.length == 0) {
+                continue;
+            }
+
             IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
                 _lido.withdrawalQueue.getWithdrawalStatus(requestIds);
 
