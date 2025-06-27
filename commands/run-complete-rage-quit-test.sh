@@ -17,4 +17,4 @@ export GRANT_REQUIRED_PERMISSIONS=false
 export RUN_SOLVENCY_SIMULATION_TEST=false
 export ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true
 
-forge test -vv --match-path "test/regressions/complete-rage-quit.t.sol"
+forge test -vv --match-path "test/regressions/complete-rage-quit.t.sol" --match-test "testFork_RageQuitExodus_HappyPath_MultipleRounds"

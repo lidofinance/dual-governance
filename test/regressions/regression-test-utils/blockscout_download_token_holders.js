@@ -146,7 +146,7 @@ async function loadData(url, responseProcessor = getCorrectJsonResponse) {
  */
 async function getCorrectJsonResponse(response) {
     if (!response.ok) {
-        console.log("HTTP Error", response.status);
+        console.error("HTTP Error", response.status);
         return undefined;
     }
     // Response status ~=200
@@ -155,7 +155,7 @@ async function getCorrectJsonResponse(response) {
     try {
         responseText = await response.text();
     } catch (e) {
-        console.log("Error getting response", e);
+        console.error("Error getting response", e);
         return undefined;
     }
     // Response body received as text
@@ -164,7 +164,7 @@ async function getCorrectJsonResponse(response) {
     try {
         jsonData = JSON.parse(responseText);
     } catch (e) {
-        console.log("Error parsing JSON", e);
+        console.error("Error parsing JSON", e);
         return undefined;
     }
     // Response body is correct JSON
@@ -185,7 +185,7 @@ async function getCorrectHoldersDataResponse(response) {
     }
 
     if (jsonData.message != "OK") {
-        console.log("Invalid data format", jsonData);
+        console.error("Invalid data format", jsonData);
         return undefined;
     }
 
@@ -240,11 +240,11 @@ async function loadDataWithRetries(dataLoader, responseProcessor) {
             }
             console.log("Incorrect response returned on retry #", tryIdx + 1);
         } catch (error) {
-            console.log("Error on retry #", tryIdx + 1, error);
+            console.error("Error on retry #", tryIdx + 1, error);
         }
 
         const actualPauseMs = Math.pow(DELAY_MULTIPLIER_BASE, tryIdx) * DELAY_BETWEEN_RETRIES_INITIAL;
-        console.log("Wait", actualPauseMs);
+        console.log("Wait", actualPauseMs, "ms");
         await delay(actualPauseMs);
     }
 

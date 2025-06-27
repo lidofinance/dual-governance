@@ -149,6 +149,77 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         // vm.resumeGasMetering();
     }
 
+    function testFork_RageQuit_HappyPath_SingleRound() external {
+        // TODO: the below operation freeze the test passing at the LidoUtils._handleOracleReport()
+        // method. Seems like bug in the forge, but need to be investigated properly. Keeping it commented
+        // for now.
+        // vm.pauseGasMetering();
+        console.log("-------------------------");
+        _rebaseDeltaPercents = new uint256[](1);
+        _rebaseDeltaPercents[0] = Random.nextUint256(_random, MIN_REBASE_BP, MAX_REBASE_BP);
+
+        if (
+            (block.chainid == MAINNET_CHAIN_ID && address(_lido.stETH) != MAINNET_ST_ETH)
+                || (block.chainid == HOLESKY_CHAIN_ID && address(_lido.stETH) != HOLESKY_ST_ETH)
+                || (block.chainid == HOODI_CHAIN_ID && address(_lido.stETH) != HOODI_ST_ETH)
+        ) {
+            vm.skip(true, "This test is not intended to be run with the custom StETH token implementation");
+            return;
+        }
+
+        _allVetoers = _loadAllVetoers(
+            _vetoersFilePath(
+                vm.envOr("REGRESSION_TEST_COMPLETE_RAGE_QUIT_STETH_VETOERS_FILENAME", string("steth_vetoers.json"))
+            ),
+            _vetoersFilePath(
+                vm.envOr("REGRESSION_TEST_COMPLETE_RAGE_QUIT_WSTETH_VETOERS_FILENAME", string("wsteth_vetoers.json"))
+            )
+        );
+
+        console.log("Vetoers total amount:", _allVetoers.length);
+        uint256 vetoersExited = 0;
+        uint256 initialStEthTotalSupply = _lido.stETH.totalSupply();
+        uint256 initialWStEthTotalSupply = _lido.wstETH.totalSupply();
+        console.log("stETH.totalSupply:", initialStEthTotalSupply.formatEther());
+        console.log("wstETH.totalSupply:", initialWStEthTotalSupply.formatEther());
+
+        uint256 stEthRQAmount = 0;
+        address[] memory vetoers;
+
+        stEthRQAmount = _getStEthAmountForRageQuit(_round);
+
+        console.log("stEth will be locked for RQ:", stEthRQAmount.formatEther());
+        console.log("stETH.totalSupply:", _lido.stETH.totalSupply().formatEther());
+
+        _newRageQuitRound();
+        vetoers = _selectVetoers();
+        _executeRQ(vetoers);
+        vetoersExited += vetoers.length;
+
+        console.log("-------------------------");
+
+        console.log("stETH.totalSupply:", _lido.stETH.totalSupply().formatEther());
+        console.log(
+            "stETH total supply decreased for %s",
+            (
+                PercentsD16.fromBasisPoints(100_00)
+                    - PercentsD16.fromFraction({numerator: _lido.stETH.totalSupply(), denominator: initialStEthTotalSupply})
+            ).format()
+        );
+        console.log("wstETH.totalSupply:", _lido.wstETH.totalSupply().formatEther());
+        console.log(
+            "wstETH total supply decreased for %s",
+            (
+                PercentsD16.fromBasisPoints(100_00)
+                    - PercentsD16.fromFraction({
+                        numerator: _lido.wstETH.totalSupply(),
+                        denominator: initialWStEthTotalSupply
+                    })
+            ).format()
+        );
+        // vm.resumeGasMetering();
+    }
+
     function _selectVetoers() internal returns (address[] memory vetoers) {
         _stepMsg("0. Balances preparation.");
         uint256 lastVetoerIndexForCurrentRound = _findLastVetoerIndexForRQ(_allVetoers, _lastVetoerIndex, _round);
