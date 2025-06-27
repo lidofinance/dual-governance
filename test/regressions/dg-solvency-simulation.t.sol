@@ -693,6 +693,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
 
                 //Randomly select accounts to withdraw unstETH NFTs from the escrow
+                accountsCount = _random.nextUint256(10, 50);
                 accountIndexOffset = _random.nextUint256(_allAccounts.length);
                 for (uint256 j = 0; j < _allAccounts.length; ++j) {
                     address account = _allAccounts[(accountIndexOffset + j) % _allAccounts.length];
@@ -756,6 +757,20 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 )
         ) {
             return false;
+        }
+
+        for (uint256 i = 0; i < _allAccounts.length; ++i) {
+            address account = _allAccounts[i];
+
+            uint256[] memory unstETHIds = rageQuitEscrow.getVetoerUnstETHIds(account);
+            if (unstETHIds.length > 0) {
+                Escrow.LockedUnstETHDetails[] memory unstETHDetails = rageQuitEscrow.getLockedUnstETHDetails(unstETHIds);
+                for (uint256 j = 0; j < unstETHDetails.length; ++j) {
+                    if (unstETHDetails[j].status != UnstETHRecordStatus.Withdrawn) {
+                        return false;
+                    }
+                }
+            }
         }
 
         return true;
