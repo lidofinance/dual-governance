@@ -161,7 +161,7 @@ uint256 constant WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT = 1000 ether;
 // 75 times more than real slot duration to speed up test. Must not affect correctness of the test
 uint256 constant SLOT_DURATION = 15 minutes;
 uint256 constant SIMULATION_ACCOUNTS = 512;
-uint256 constant SIMULATION_DURATION = 180 days;
+uint256 constant SIMULATION_DURATION = 365 days;
 
 uint256 constant MIN_ST_ETH_SUBMIT_AMOUNT = 0.1 ether;
 uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 10_000 ether;
@@ -388,6 +388,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _checkAccountsBalances();
 
             bool isAllRageQuitEscrowsWithdrawalsProcessed = false;
+            uint256 totalIterations = 0;
+            uint256 optimizedIterations = 0;
             while (!isAllRageQuitEscrowsWithdrawalsProcessed) {
                 _mineBlock();
 
@@ -400,12 +402,14 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                     nextRageQuitOperationDelay = _random.nextUint256(15 minutes, 36 hours);
                     lastRageQuitOperationTimestamp = block.timestamp;
 
-                    _processRageQuitEscrowsWithdrawals();
                     isAllRageQuitEscrowsWithdrawalsProcessed = true;
                     for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
+                        totalIterations++;
                         if (_isRageQuitFullyWithdrawn[address(_rageQuitEscrows[i])]) {
                             continue;
                         }
+                        _processRageQuitEscrowsWithdrawals(_rageQuitEscrows[i]);
+                        optimizedIterations++;
                         if (!_checkIfRageQuitEscrowWithdrawalsProcessed(_rageQuitEscrows[i])) {
                             isAllRageQuitEscrowsWithdrawalsProcessed = false;
                             continue;
@@ -415,6 +419,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
                 _finalizationPhaseIterations++;
             }
+            console.log(totalIterations, "total iterations in finalization phase");
+            console.log(optimizedIterations, "optimized iterations in finalization phase");
 
             _printSimulationStats(iterations);
             _checkAccountsBalances();
@@ -2101,6 +2107,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             PercentsD16.fromFraction(_lido.stETH.getPooledEthByShares(10 ** 18), _initialShareRate);
 
         console.log("  - Iteration Count:      ", iterationsCount);
+        console.log("  - Finalization Iters:   ", _finalizationPhaseIterations);
         console.log("  - Block Number:         ", block.number);
         console.log("  - Block Timestamp:      ", block.timestamp);
         console.log("  - stETH Total Supply:   ", _lido.stETH.totalSupply().formatEther());
