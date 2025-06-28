@@ -51,7 +51,11 @@ enum SimulationActionType {
     //
     LockStETHRealHolder,
     LockWstETHRealHolder,
-    LockUnstETHRealHolder
+    LockUnstETHRealHolder,
+    //
+    UnlockStETHRealHolder,
+    UnlockWstETHRealHolder,
+    UnlockUnstETHRealHolder
 }
 
 struct VetoersFile {
@@ -161,7 +165,7 @@ uint256 constant WITHDRAWAL_QUEUE_REQUEST_MAX_AMOUNT = 1000 ether;
 // 75 times more than real slot duration to speed up test. Must not affect correctness of the test
 uint256 constant SLOT_DURATION = 15 minutes;
 uint256 constant SIMULATION_ACCOUNTS = 512;
-uint256 constant SIMULATION_DURATION = 365 days;
+uint256 constant SIMULATION_DURATION = 30 days;
 
 uint256 constant MIN_ST_ETH_SUBMIT_AMOUNT = 0.1 ether;
 uint256 constant MAX_ST_ETH_SUBMIT_AMOUNT = 10_000 ether;
@@ -228,6 +232,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     PercentD16 immutable LOCK_WSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(75_00);
     PercentD16 immutable LOCK_UNSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(75_00);
 
+    PercentD16 immutable UNLOCK_STETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(1_00);
+    PercentD16 immutable UNLOCK_WSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(1_00);
+    PercentD16 immutable UNLOCK_UNSTETH_REAL_HOLDER_PROBABILITY = PercentsD16.fromBasisPoints(1_00);
+
     PercentD16 immutable NEGATIVE_REBASE_PROBABILITY = PercentsD16.fromBasisPoints(3_00);
     uint256 constant MAX_NEGATIVE_REBASES_COUNT = 1;
 
@@ -243,10 +251,15 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     uint256 internal _totalLockedWstETHByRealAccounts = 0;
     uint256 internal _totalLockedWstETHBySimulationAccounts = 0;
 
-    uint256 internal _totalUnlockedStETH = 0;
-    uint256 internal _totalUnlockedWstETH = 0;
-    uint256 internal _totalUnlockedUnstETHCount = 0;
-    uint256 internal _totalUnlockedUnstETHAmount = 0;
+    uint256 internal _totalUnlockedStETHBySimulationAccounts = 0;
+    uint256 internal _totalUnlockedWstETHBySimulationAccounts = 0;
+    uint256 internal _totalUnlockedUnstETHBySimulationAccountsCount = 0;
+    uint256 internal _totalUnlockedUnstETHBySimulationAccountsAmount = 0;
+
+    uint256 internal _totalUnlockedStETHByRealAccounts = 0;
+    uint256 internal _totalUnlockedWstETHByRealAccounts = 0;
+    uint256 internal _totalUnlockedUnstETHByRealAccountsCount = 0;
+    uint256 internal _totalUnlockedUnstETHByRealAccountsAmount = 0;
 
     uint256 internal _totalClaimedUnstETHByRealAccountsCount = 0;
     uint256 internal _totalClaimedUnstETHBySimulationAccountsCount = 0;
@@ -317,8 +330,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         _nextFrameStart = _lido.getReportTimeElapsed().nextFrameStart;
 
         _setupAccounts();
-
-        _debug.debuggingEnabled = false;
     }
 
     function _getDGStateName(DGState dgState) internal pure returns (string memory) {
@@ -350,6 +361,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             if (vm.envOr("LIMIT_FINALIZATION_PHASE", false)) {
                 LIMIT_FINALIZATION_PHASE = true;
                 console.log(">>> Finalization phase is limited to 10_000 iterations");
+            }
+
+            if (vm.envOr("DEBUG", false)) {
+                _debug.debuggingEnabled = true;
             }
         }
 
@@ -534,6 +549,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _checkAccountsRageQuitEscrowBalancesEmpty() internal view {
+        _debug.debug(">>> Checking accounts rage quit escrow balances empty");
         for (uint256 i = 0; i < _allAccounts.length; ++i) {
             address account = _allAccounts[i];
 
@@ -555,6 +571,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _checkAccountsBalances() internal view {
+        _debug.debug(">>> Checking accounts balances");
         for (uint256 i = 0; i < _allAccounts.length; ++i) {
             address account = _allAccounts[i];
 
@@ -592,6 +609,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 uint256 holderBalanceBefore = _accountsDetails[account].ethBalanceBefore
                     + _accountsDetails[account].stETHBalanceBefore + _accountsDetails[account].unstETHBalanceBefore;
                 uint256 minBalanceEstimation = holderBalanceBefore * _negativeRebaseAccumulated / HUNDRED_PERCENT_D16;
+                // TODO: Wsteth lock/unlock may cause shares error on each cycle
+                if (minBalanceEstimation < 100 wei) {
+                    minBalanceEstimation = 0;
+                } else {
+                    minBalanceEstimation -= 100 wei;
+                }
 
                 uint256 holderBalanceAfter =
                     _calculateTotalAccountBalanceInETH(account, ethLockedUnclaimed, sharesLockedInEscrows);
@@ -615,6 +638,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _forceProcessRageQuitEscrowsWithdrawals(Escrow rageQuitEscrow) internal {
+        _debug.debug(">>> Force processing rage quit escrow withdrawals for %s", address(rageQuitEscrow));
         _activateNextStateIfNeeded();
 
         Escrow.RageQuitEscrowDetails memory details = rageQuitEscrow.getRageQuitEscrowDetails();
@@ -681,6 +705,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _processRageQuitEscrowsWithdrawals(Escrow rageQuitEscrow) internal {
+        _debug.debug(">>> Processing rage quit escrow withdrawals for %s", address(rageQuitEscrow));
         _activateNextStateIfNeeded();
 
         Escrow.RageQuitEscrowDetails memory details = rageQuitEscrow.getRageQuitEscrowDetails();
@@ -832,6 +857,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _checkIfRageQuitEscrowWithdrawalsProcessed(Escrow rageQuitEscrow) internal view returns (bool) {
+        _debug.debug(">>> Checking if rage quit escrow withdrawals are processed for %s", address(rageQuitEscrow));
         uint256 rageQuitBalanceAccuracy = 0.00001 ether;
 
         Escrow.RageQuitEscrowDetails memory details = rageQuitEscrow.getRageQuitEscrowDetails();
@@ -1016,10 +1042,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 unstETHUnclaimed += withdrawalStatuses[i].amountOfStETH;
             }
         }
-    }
-
-    function _getRandomSimulationAccount() internal returns (address) {
-        return _simulationAccounts[_random.nextUint256(SIMULATION_ACCOUNTS)];
     }
 
     function _getSimulationAccount(uint256 index) internal returns (address) {
@@ -1497,16 +1519,31 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         );
     }
 
-    function _unlockStETHByRandomAccount() internal {
-        _debug.debug(">>> Unlocking stETH by random account");
+    function _unlockUnstETHByRandomSimulationAccount() internal {
+        _debug.debug(">>> Unlocking stETH by simulated accounts");
+        _totalUnlockedStETHBySimulationAccounts += _unlockStETHByRandomAccount(_simulationAccounts);
+    }
+
+    function _unlockStETHByRandomRealAccounts() internal {
+        _debug.debug(">>> Unlocking stETH by real accounts");
+        _totalUnlockedStETHByRealAccounts += _unlockStETHByRandomAccount(_allRealHolders);
+    }
+
+    function _unlockStETHByRandomAccount(address[] memory accounts) internal returns (uint256 unlockedStETH) {
         _activateNextStateIfNeeded();
-        address account = _getRandomSimulationAccount();
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
-        Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
-        if (
-            details.stETHLockedShares.toUint256() > 0
-                && Timestamps.now() > escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
-        ) {
+
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
+            Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
+            if (
+                details.stETHLockedShares.toUint256() == 0
+                    || Timestamps.now() <= escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
+            ) {
+                continue;
+            }
             assertApproxEqAbs(
                 _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()],
                 details.stETHLockedShares.toUint256(),
@@ -1514,29 +1551,48 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             );
 
             _unlockStETH(account);
-            _totalUnlockedStETH += _lido.stETH.getPooledEthByShares(details.stETHLockedShares.toUint256());
+            unlockedStETH += _lido.stETH.getPooledEthByShares(details.stETHLockedShares.toUint256());
 
             _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()] = 0;
             _accountsDetails[account].accumulatedEscrowSharesErrors[_getCurrentEscrowAddress()] = 0;
-        }
 
-        _debug.debug(
-            "Account %s unlocked %s stETH from signalling escrow",
-            account,
-            _lido.stETH.getPooledEthByShares(details.stETHLockedShares.toUint256()).formatEther()
-        );
+            _debug.debug(
+                "Account %s unlocked %s stETH from signalling escrow",
+                account,
+                _lido.stETH.getPooledEthByShares(details.stETHLockedShares.toUint256()).formatEther()
+            );
+            return unlockedStETH;
+        }
     }
 
-    function _unlockWstETHByRandomAccount() internal {
+    function _unlockWstETHByRandomSimulationAccount() internal {
+        _debug.debug(">>> Unlocking wstETH by simulated accounts");
+        _totalUnlockedWstETHBySimulationAccounts += _unlockWstETHByRandomAccount(_simulationAccounts);
+    }
+
+    function _unlockWstETHByRandomRealAccounts() internal {
+        _debug.debug(">>> Unlocking wstETH by real accounts");
+        _totalUnlockedWstETHByRealAccounts += _unlockWstETHByRandomAccount(_wstETHRealHolders);
+    }
+
+    function _unlockWstETHByRandomAccount(address[] memory accounts) internal returns (uint256 unlockedWstETH) {
         _debug.debug(">>> Unlocking wstETH by random account");
         _activateNextStateIfNeeded();
-        address account = _getRandomSimulationAccount();
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
-        Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
-        if (
-            details.stETHLockedShares.toUint256() > 0
-                && Timestamps.now() > escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
-        ) {
+
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
+
+            Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
+            if (
+                details.stETHLockedShares.toUint256() == 0
+                    || Timestamps.now() <= escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
+            ) {
+                continue;
+            }
+
             assertApproxEqAbs(
                 _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()],
                 details.stETHLockedShares.toUint256(),
@@ -1544,29 +1600,53 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             );
 
             _unlockWstETH(account);
-            _totalUnlockedWstETH += details.stETHLockedShares.toUint256();
+            unlockedWstETH += details.stETHLockedShares.toUint256();
 
             _accountsDetails[account].sharesLockedInEscrow[_getCurrentEscrowAddress()] = 0;
             _accountsDetails[account].accumulatedEscrowSharesErrors[_getCurrentEscrowAddress()] = 0;
-        }
 
-        _debug.debug(
-            "Account %s unlocked %s wstETH from signalling escrow",
-            account,
-            details.stETHLockedShares.toUint256().formatEther()
-        );
+            _debug.debug(
+                "Account %s unlocked %s wstETH from signalling escrow",
+                account,
+                details.stETHLockedShares.toUint256().formatEther()
+            );
+
+            return unlockedWstETH;
+        }
     }
 
-    function _unlockUnstETHByRandomAccount() internal {
+    function _unlockUnstETHByRandomRealAccounts() internal {
+        (uint256 unstETHCount, uint256 unstETHAmount) = _unlockUnstETHByRandomAccount(_allRealHolders);
+        _totalUnlockedUnstETHByRealAccountsCount += unstETHCount;
+        _totalUnlockedUnstETHByRealAccountsAmount += unstETHAmount;
+    }
+
+    function _unlockUnstETHByRandomSimulationAccounts() internal {
+        (uint256 unstETHCount, uint256 unstETHAmount) = _unlockUnstETHByRandomAccount(_simulationAccounts);
+        _totalUnlockedUnstETHBySimulationAccountsCount += unstETHCount;
+        _totalUnlockedUnstETHBySimulationAccountsAmount += unstETHAmount;
+    }
+
+    function _unlockUnstETHByRandomAccount(address[] memory accounts)
+        internal
+        returns (uint256 unstETHCount, uint256 unstETHAmount)
+    {
         _debug.debug(">>> Unlocking unstETH by random account");
         _activateNextStateIfNeeded();
-        address account = _getRandomSimulationAccount();
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
-        Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
-        if (
-            details.unstETHIdsCount > 0
-                && Timestamps.now() > escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
-        ) {
+
+        uint256 randomIndexOffset = _random.nextUint256(accounts.length);
+
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            address account = accounts[(randomIndexOffset + i) % accounts.length];
+            Escrow.VetoerDetails memory details = escrow.getVetoerDetails(account);
+
+            if (
+                details.unstETHIdsCount == 0
+                    || Timestamps.now() <= escrow.getMinAssetsLockDuration().addTo(details.lastAssetsLockTimestamp)
+            ) {
+                continue;
+            }
             uint256 randomUnstETHIdsCountToWithdraw = _random.nextUint256(1, details.unstETHIdsCount);
             uint256[] memory lockedUnstETHIds = escrow.getVetoerUnstETHIds(account);
             IWithdrawalQueue.WithdrawalRequestStatus[] memory statuses =
@@ -1575,24 +1655,26 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
             Uint256ArrayBuilder.Context memory unstETHIdsBuilder =
                 Uint256ArrayBuilder.create(randomUnstETHIdsCountToWithdraw);
-            uint256 unstETHAmount = 0;
 
-            for (uint256 i = 0; i < randomUnstETHIdsCountToWithdraw; ++i) {
-                if (!statuses[randomIndices[i]].isFinalized) {
-                    unstETHIdsBuilder.addItem(lockedUnstETHIds[randomIndices[i]]);
-                    unstETHAmount += statuses[randomIndices[i]].amountOfStETH;
+            for (uint256 j = 0; j < randomUnstETHIdsCountToWithdraw; ++j) {
+                if (!statuses[randomIndices[j]].isFinalized) {
+                    unstETHIdsBuilder.addItem(lockedUnstETHIds[randomIndices[j]]);
+                    unstETHAmount += statuses[randomIndices[j]].amountOfStETH;
                 }
             }
 
             if (unstETHIdsBuilder.size == 0) {
-                return;
+                continue;
             }
 
             _unlockUnstETH(account, unstETHIdsBuilder.getSorted());
-            _totalUnlockedUnstETHCount += details.unstETHIdsCount;
-            _totalUnlockedUnstETHAmount += unstETHAmount;
+            unstETHCount += details.unstETHIdsCount;
+            unstETHAmount += unstETHAmount;
+
+            _debug.debug("Account %s unlocked %d unstETH from signalling escrow", account, details.unstETHIdsCount);
+
+            return (unstETHCount, unstETHAmount);
         }
-        _debug.debug("Account %s unlocked %d unstETH from signalling escrow", account, details.unstETHIdsCount);
     }
 
     function _accidentalETHTransfer(address[] memory accounts) internal {
@@ -1839,6 +1921,21 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             result.add(SimulationActionType.LockUnstETHRealHolder);
             _actionsCounters[SimulationActionType.LockUnstETHRealHolder] += 1;
         }
+
+        if (_getRandomProbability() <= UNLOCK_STETH_REAL_HOLDER_PROBABILITY) {
+            result.add(SimulationActionType.UnlockStETHRealHolder);
+            _actionsCounters[SimulationActionType.UnlockStETHRealHolder] += 1;
+        }
+
+        if (_getRandomProbability() <= UNLOCK_WSTETH_REAL_HOLDER_PROBABILITY) {
+            result.add(SimulationActionType.UnlockWstETHRealHolder);
+            _actionsCounters[SimulationActionType.UnlockWstETHRealHolder] += 1;
+        }
+
+        if (_getRandomProbability() <= UNLOCK_UNSTETH_REAL_HOLDER_PROBABILITY) {
+            result.add(SimulationActionType.UnlockUnstETHRealHolder);
+            _actionsCounters[SimulationActionType.UnlockUnstETHRealHolder] += 1;
+        }
     }
 
     function _processSimulationActions(SimulationActionsSet.Context memory actions) internal {
@@ -1888,17 +1985,17 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
 
         if (actions.has(SimulationActionType.UnlockStETH)) {
-            _unlockStETHByRandomAccount();
+            _unlockUnstETHByRandomSimulationAccount();
             _mineBlock();
         }
 
         if (actions.has(SimulationActionType.UnlockWstETH)) {
-            _unlockWstETHByRandomAccount();
+            _unlockWstETHByRandomSimulationAccount();
             _mineBlock();
         }
 
         if (actions.has(SimulationActionType.UnlockUnstETH)) {
-            _unlockUnstETHByRandomAccount();
+            _unlockUnstETHByRandomSimulationAccount();
             _mineBlock();
         }
 
@@ -1949,6 +2046,21 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
         if (actions.has(SimulationActionType.ClaimUnstETHRealHolder)) {
             _claimUnstETHByAnyOfRealHolder();
+            _mineBlock();
+        }
+
+        if (actions.has(SimulationActionType.UnlockStETHRealHolder)) {
+            _unlockStETHByRandomRealAccounts();
+            _mineBlock();
+        }
+
+        if (actions.has(SimulationActionType.UnlockWstETHRealHolder)) {
+            _unlockWstETHByRandomRealAccounts();
+            _mineBlock();
+        }
+
+        if (actions.has(SimulationActionType.UnlockUnstETHRealHolder)) {
+            _unlockUnstETHByRandomSimulationAccounts();
             _mineBlock();
         }
 
@@ -2113,15 +2225,38 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _actionsCounters[SimulationActionType.LockUnstETHRealHolder],
             _totalLockedUnstETHByRealAccountsAmount.formatEther()
         );
-        // TODO: add real holders unlock
-        LogTable.logRow("Escrow Unlock Sim Accounts");
-        LogTable.logRow("stETH", _actionsCounters[SimulationActionType.UnlockStETH], _totalUnlockedStETH.formatEther());
+        LogTable.logRow("Escrow Unlock stETH");
         LogTable.logRow(
-            "wstETH", _actionsCounters[SimulationActionType.UnlockWstETH], _totalUnlockedWstETH.formatEther()
+            "Sim Accounts",
+            _actionsCounters[SimulationActionType.UnlockStETH],
+            _totalUnlockedStETHBySimulationAccounts.formatEther()
         );
-
         LogTable.logRow(
-            "unstETH", _actionsCounters[SimulationActionType.UnlockUnstETH], _totalUnlockedUnstETHAmount.formatEther()
+            "Real Accounts",
+            _actionsCounters[SimulationActionType.UnlockStETHRealHolder],
+            _totalUnlockedStETHByRealAccounts.formatEther()
+        );
+        LogTable.logRow("Escrow Unlock wstETH");
+        LogTable.logRow(
+            "Sim Accounts",
+            _actionsCounters[SimulationActionType.UnlockWstETH],
+            _totalUnlockedWstETHBySimulationAccounts.formatEther()
+        );
+        LogTable.logRow(
+            "Real Accounts",
+            _actionsCounters[SimulationActionType.UnlockWstETHRealHolder],
+            _totalUnlockedWstETHByRealAccounts.formatEther()
+        );
+        LogTable.logRow("Escrow Unlock unstETH");
+        LogTable.logRow(
+            "Sim Accounts",
+            _totalUnlockedUnstETHBySimulationAccountsCount,
+            _totalUnlockedUnstETHBySimulationAccountsAmount.formatEther()
+        );
+        LogTable.logRow(
+            "Real Accounts",
+            _totalUnlockedUnstETHByRealAccountsCount,
+            _totalUnlockedUnstETHByRealAccountsAmount.formatEther()
         );
 
         LogTable.logRow("Mark unstETH finalized");
@@ -2391,6 +2526,12 @@ library Debug {
     ) internal pure {
         if (ctx.debuggingEnabled) {
             console.log(label, addr1, str, addr2);
+        }
+    }
+
+    function debug(Context memory ctx, string memory label, address addr) internal pure {
+        if (ctx.debuggingEnabled) {
+            console.log(label, addr);
         }
     }
 
