@@ -309,6 +309,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     uint256 internal _finalizationPhaseIterations = 0;
     mapping(address escrow => bool isFullyFinalized) internal _isRageQuitFullyWithdrawn;
+    bool internal LIMIT_FINALIZATION_PHASE;
 
     function setUp() external {
         _loadOrDeployDGSetup();
@@ -344,6 +345,11 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             if (!vm.envOr("RUN_SOLVENCY_SIMULATION_TEST", false)) {
                 vm.skip(true, "To enable this test set the env variable RUN_SOLVENCY_SIMULATION_TEST=true");
                 return;
+            }
+
+            if (vm.envOr("LIMIT_FINALIZATION_PHASE", false)) {
+                LIMIT_FINALIZATION_PHASE = true;
+                console.log(">>> Finalization phase is limited to 10_000 iterations");
             }
         }
 
@@ -388,9 +394,15 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _checkAccountsBalances();
 
             bool isAllRageQuitEscrowsWithdrawalsProcessed = false;
-            uint256 totalIterations = 0;
-            uint256 optimizedIterations = 0;
-            while (!isAllRageQuitEscrowsWithdrawalsProcessed) {
+            uint256 maxFinalizationIterations = type(uint256).max;
+
+            if (LIMIT_FINALIZATION_PHASE) {
+                maxFinalizationIterations = 10_000; // 15 minutes * 10_000 iterations = 150_000 minutes = 104 days
+            }
+
+            while (
+                !isAllRageQuitEscrowsWithdrawalsProcessed && _finalizationPhaseIterations < maxFinalizationIterations
+            ) {
                 _mineBlock();
 
                 if (_lastOracleReportTimestamp + ORACLE_REPORT_FREQUENCY < block.timestamp) {
@@ -404,12 +416,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
                     isAllRageQuitEscrowsWithdrawalsProcessed = true;
                     for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
-                        totalIterations++;
                         if (_isRageQuitFullyWithdrawn[address(_rageQuitEscrows[i])]) {
                             continue;
                         }
                         _processRageQuitEscrowsWithdrawals(_rageQuitEscrows[i]);
-                        optimizedIterations++;
                         if (!_checkIfRageQuitEscrowWithdrawalsProcessed(_rageQuitEscrows[i])) {
                             isAllRageQuitEscrowsWithdrawalsProcessed = false;
                             continue;
@@ -419,8 +429,14 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                 }
                 _finalizationPhaseIterations++;
             }
-            console.log(totalIterations, "total iterations in finalization phase");
-            console.log(optimizedIterations, "optimized iterations in finalization phase");
+
+            // Check if all rage quit escrows are fully withdrawn and force process them if not
+            for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
+                Escrow rageQuitEscrow = _rageQuitEscrows[i];
+                if (!_isRageQuitFullyWithdrawn[address(rageQuitEscrow)]) {
+                    _forceProcessRageQuitEscrowsWithdrawals(_rageQuitEscrows[i]);
+                }
+            }
 
             _printSimulationStats(iterations);
             _checkAccountsBalances();
@@ -483,6 +499,10 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _lido.withdrawalQueue.getLastFinalizedRequestId() + 1, _lido.withdrawalQueue.getLastRequestId() + 1
         );
 
+        _reportAndRebase(requestIdToFinalize);
+    }
+
+    function _reportAndRebase(uint256 requestIdToFinalize) internal {
         uint256 rebaseAmount;
         if (
             _getRandomProbability() < NEGATIVE_REBASE_PROBABILITY
@@ -591,6 +611,72 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             Escrow rageQuitEscrow = _rageQuitEscrows[(randomRageQuitEscrowIndex + i) % _rageQuitEscrows.length];
 
             _processRageQuitEscrowsWithdrawals(rageQuitEscrow);
+        }
+    }
+
+    function _forceProcessRageQuitEscrowsWithdrawals(Escrow rageQuitEscrow) internal {
+        _activateNextStateIfNeeded();
+
+        Escrow.RageQuitEscrowDetails memory details = rageQuitEscrow.getRageQuitEscrowDetails();
+
+        while (!rageQuitEscrow.isWithdrawalsBatchesClosed()) {
+            uint256 lastUnstETHIdBefore = _lido.withdrawalQueue.getLastRequestId();
+            rageQuitEscrow.requestNextWithdrawalsBatch(128);
+            uint256 lastUnstETHIdAfter = _lido.withdrawalQueue.getLastRequestId();
+            _debug.debug(
+                ">>> Requesting %s next withdrawals batch: [%d, %d]",
+                lastUnstETHIdAfter - lastUnstETHIdBefore,
+                lastUnstETHIdBefore + 1,
+                lastUnstETHIdAfter
+            );
+        }
+
+        while (rageQuitEscrow.getUnclaimedUnstETHIdsCount() > 0) {
+            uint256[] memory unstETHIds = rageQuitEscrow.getNextWithdrawalBatch(128);
+            uint256 lastUnstETHId = unstETHIds[unstETHIds.length - 1];
+
+            _reportAndRebase(lastUnstETHId);
+
+            rageQuitEscrow.claimNextWithdrawalsBatch(128);
+        }
+
+        rageQuitEscrow.startRageQuitExtensionPeriod();
+
+        vm.warp(
+            block.timestamp + details.rageQuitExtensionPeriodStartedAt.toSeconds()
+                + details.rageQuitExtensionPeriodDuration.toSeconds() + details.rageQuitEthWithdrawalsDelay.toSeconds() + 1
+        );
+
+        for (uint256 j = 0; j < _allAccounts.length; ++j) {
+            address account = _allAccounts[j];
+
+            if (rageQuitEscrow.getVetoerDetails(account).stETHLockedShares.toUint256() == 0) {
+                continue;
+            }
+
+            _withdrawEscrowETH(rageQuitEscrow, account);
+        }
+
+        for (uint256 j = 0; j < _allAccounts.length; ++j) {
+            address account = _allAccounts[j];
+
+            if (rageQuitEscrow.getVetoerDetails(account).unstETHIdsCount == 0) {
+                continue;
+            }
+
+            uint256[] memory unstETHIds = rageQuitEscrow.getVetoerUnstETHIds(account);
+
+            Uint256ArrayBuilder.Context memory requestsToClaimArrayBuilder =
+                Uint256ArrayBuilder.create(unstETHIds.length);
+            for (uint256 k = 0; k < unstETHIds.length; ++k) {
+                requestsToClaimArrayBuilder.addItem(unstETHIds[k]);
+            }
+
+            unstETHIds = requestsToClaimArrayBuilder.getSorted();
+            if (unstETHIds.length > 0) {
+                _claimEscrowUnstETH(rageQuitEscrow, account, unstETHIds);
+                _withdrawEscrowUnsETH(rageQuitEscrow, account, unstETHIds);
+            }
         }
     }
 
