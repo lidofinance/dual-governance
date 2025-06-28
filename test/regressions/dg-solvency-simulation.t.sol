@@ -307,6 +307,9 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     Debug.Context internal _debug;
 
+    uint256 internal _finalizationPhaseIterations = 0;
+    mapping(address escrow => bool isFullyFinalized) internal _isRageQuitFullyWithdrawn;
+
     function setUp() external {
         _loadOrDeployDGSetup();
         _random = Random.create(block.timestamp);
@@ -400,11 +403,17 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
                     _processRageQuitEscrowsWithdrawals();
                     isAllRageQuitEscrowsWithdrawalsProcessed = true;
                     for (uint256 i = 0; i < _rageQuitEscrows.length; ++i) {
+                        if (_isRageQuitFullyWithdrawn[address(_rageQuitEscrows[i])]) {
+                            continue;
+                        }
                         if (!_checkIfRageQuitEscrowWithdrawalsProcessed(_rageQuitEscrows[i])) {
                             isAllRageQuitEscrowsWithdrawalsProcessed = false;
+                            continue;
                         }
+                        _isRageQuitFullyWithdrawn[address(_rageQuitEscrows[i])] = true;
                     }
                 }
+                _finalizationPhaseIterations++;
             }
 
             _printSimulationStats(iterations);
