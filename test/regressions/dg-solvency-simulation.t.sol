@@ -1120,15 +1120,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _withdrawStETHByRandomSimulationAccount() internal {
+        _debug.debug(">>> Withdrawing stETH by simulation account");
         _totalWithdrawnStETHBySimulationAccounts += _withdrawStETHByRandomAccount(_simulationAccounts);
     }
 
     function _withdrawStETHByRandomRealAccount() internal {
+        _debug.debug(">>> Withdrawing stETH by real account");
         _totalWithdrawnStETHByRealAccounts += _withdrawStETHByRandomAccount(_stETHRealHolders);
     }
 
     function _withdrawStETHByRandomAccount(address[] storage accounts) internal returns (uint256 requestedAmount) {
-        _debug.debug(">>> Withdrawing stETH by random account");
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
         for (uint256 i = 0; i < accounts.length; ++i) {
@@ -1176,15 +1177,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _withdrawWstETHByRandomSimulationAccount() internal {
+        _debug.debug(">>> Withdrawing wstETH by simulation account");
         _totalWithdrawnWstETHBySimulationAccounts += _withdrawWstETHByRandomAccount(_simulationAccounts);
     }
 
     function _withdrawWstETHByRandomRealAccount() internal {
+        _debug.debug(">>> Withdrawing wstETH by real account");
         _totalWithdrawnWstETHByRealAccounts += _withdrawWstETHByRandomAccount(_wstETHRealHolders);
     }
 
     function _withdrawWstETHByRandomAccount(address[] storage accounts) internal returns (uint256 requestedAmount) {
-        _debug.debug(">>> Withdrawing wstETH by random account");
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
         for (uint256 i = 0; i < accounts.length; ++i) {
@@ -1236,18 +1238,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _lockStETHByRandomSimulationAccount() internal {
-        _totalLockedStETHBySimulationAccounts += _lockStETHInSignallingEscrowByRandomAccount(_simulationAccounts);
+        _debug.debug(">>> Locking stETH in signalling escrow by simulation account");
+        _totalLockedStETHBySimulationAccounts += _lockStETHByRandomAccount(_simulationAccounts);
     }
 
     function _lockStETHByRandomRealAccount() internal {
-        _totalLockedStETHByRealAccounts += _lockStETHInSignallingEscrowByRandomAccount(_stETHRealHolders);
+        _debug.debug(">>> Locking stETH in signalling escrow by real account");
+        _totalLockedStETHByRealAccounts += _lockStETHByRandomAccount(_stETHRealHolders);
     }
 
-    function _lockStETHInSignallingEscrowByRandomAccount(address[] storage accounts)
-        internal
-        returns (uint256 lockAmount)
-    {
-        _debug.debug(">>> Locking stETH in signalling escrow by random account");
+    function _lockStETHByRandomAccount(address[] storage accounts) internal returns (uint256 lockAmount) {
         _activateNextStateIfNeeded();
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
@@ -1274,18 +1274,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _lockWstETHByRandomSimulationAccount() internal {
-        _totalLockedWstETHBySimulationAccounts += _lockWstETHInSignallingEscrowByRandomAccount(_simulationAccounts);
+        _debug.debug(">>> Locking wstETH in signalling escrow by simulation account");
+        _totalLockedWstETHBySimulationAccounts += _lockWstETHByRandomAccount(_simulationAccounts);
     }
 
     function _lockWstETHByRandomRealAccount() internal {
-        _totalLockedWstETHByRealAccounts += _lockWstETHInSignallingEscrowByRandomAccount(_wstETHRealHolders);
+        _debug.debug(">>> Locking wstETH in signalling escrow by real account");
+        _totalLockedWstETHByRealAccounts += _lockWstETHByRandomAccount(_wstETHRealHolders);
     }
 
-    function _lockWstETHInSignallingEscrowByRandomAccount(address[] storage accounts)
-        internal
-        returns (uint256 lockAmount)
-    {
-        _debug.debug(">>> Locking wstETH in signalling escrow by random account");
+    function _lockWstETHByRandomAccount(address[] storage accounts) internal returns (uint256 lockAmount) {
         _activateNextStateIfNeeded();
         uint256 randomIndexOffset = _random.nextUint256(accounts.length);
 
@@ -1317,12 +1315,14 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _lockUnstETHByRandomSimulationAccount() internal {
+        _debug.debug(">>> Locking unstETH by simulation account");
         (uint256 unstETHAmount, uint256 unstETHCount) = _lockUnstETHByRandomAccount(_simulationAccounts);
         _totalLockedUnstETHBySimulationAccountsAmount += unstETHAmount;
         _totalLockedUnstETHBySimulationAccountsCount += unstETHCount;
     }
 
     function _lockUnstETHByRandomRealAccount() internal {
+        _debug.debug(">>> Locking unstETH by real account");
         (uint256 unstETHAmount, uint256 unstETHCount) = _lockUnstETHByRandomAccount(_allRealHolders);
         _totalLockedUnstETHByRealAccountsAmount += unstETHAmount;
         _totalLockedUnstETHByRealAccountsCount += unstETHCount;
@@ -1332,7 +1332,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         internal
         returns (uint256 totalLockedAmount, uint256 totalLockedCount)
     {
-        _debug.debug(">>> Locking unstETH by random account");
         _activateNextStateIfNeeded();
         uint256 lastFinalizedRequestId = _lido.withdrawalQueue.getLastFinalizedRequestId();
         uint256 maxRequestsToLock = _random.nextUint256(1, 64);
@@ -1397,18 +1396,19 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
     }
 
-    function _claimUnstETHByRandomAccount() internal {
-        _totalClaimedUnstETHBySimulationAccountsAmount += _claimUnstETHByAnyOfAccounts(_simulationAccounts);
+    function _claimUnstETHByRandomSimulationAccount() internal {
+        _debug.debug(">>> Claiming unstETH by simulation account");
+        _totalClaimedUnstETHBySimulationAccountsAmount += _claimUnstETHByRandomAccount(_simulationAccounts);
         _totalClaimedUnstETHBySimulationAccountsCount++;
     }
 
-    function _claimUnstETHByAnyOfRealHolder() internal {
-        _totalClaimedUnstETHByRealAccountsAmount += _claimUnstETHByAnyOfAccounts(_allRealHolders);
+    function _claimUnstETHByRandomRealAccount() internal {
+        _debug.debug(">>> Claiming unstETH by real account");
+        _totalClaimedUnstETHByRealAccountsAmount += _claimUnstETHByRandomAccount(_allRealHolders);
         _totalClaimedUnstETHByRealAccountsCount++;
     }
 
-    function _claimUnstETHByAnyOfAccounts(address[] memory accounts) internal returns (uint256 totalClaimedAmount) {
-        _debug.debug(">>> Claiming unstETH by random account");
+    function _claimUnstETHByRandomAccount(address[] memory accounts) internal returns (uint256 totalClaimedAmount) {
         uint256 maxRequestsToClaim = _random.nextUint256(1, 64);
         Uint256ArrayBuilder.Context memory requestsArrayBuilder = Uint256ArrayBuilder.create(maxRequestsToClaim);
 
@@ -1476,8 +1476,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _markRandomUnstETHFinalized() internal {
-        _activateNextStateIfNeeded();
         _debug.debug(">>> Marking random unstETH finalized");
+        _activateNextStateIfNeeded();
         uint256[] memory requestIds = _lido.withdrawalQueue.getWithdrawalRequests(address(_getVetoSignallingEscrow()));
         if (requestIds.length == 0) {
             return;
@@ -1519,12 +1519,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         );
     }
 
-    function _unlockUnstETHByRandomSimulationAccount() internal {
-        _debug.debug(">>> Unlocking stETH by simulated accounts");
+    function _unlockStETHByRandomSimulationAccount() internal {
+        _debug.debug(">>> Unlocking stETH by simulation accounts");
         _totalUnlockedStETHBySimulationAccounts += _unlockStETHByRandomAccount(_simulationAccounts);
     }
 
-    function _unlockStETHByRandomRealAccounts() internal {
+    function _unlockStETHByRandomRealAccount() internal {
         _debug.debug(">>> Unlocking stETH by real accounts");
         _totalUnlockedStETHByRealAccounts += _unlockStETHByRandomAccount(_allRealHolders);
     }
@@ -1566,17 +1566,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     }
 
     function _unlockWstETHByRandomSimulationAccount() internal {
-        _debug.debug(">>> Unlocking wstETH by simulated accounts");
+        _debug.debug(">>> Unlocking wstETH by simulation accounts");
         _totalUnlockedWstETHBySimulationAccounts += _unlockWstETHByRandomAccount(_simulationAccounts);
     }
 
-    function _unlockWstETHByRandomRealAccounts() internal {
+    function _unlockWstETHByRandomRealAccount() internal {
         _debug.debug(">>> Unlocking wstETH by real accounts");
         _totalUnlockedWstETHByRealAccounts += _unlockWstETHByRandomAccount(_wstETHRealHolders);
     }
 
     function _unlockWstETHByRandomAccount(address[] memory accounts) internal returns (uint256 unlockedWstETH) {
-        _debug.debug(">>> Unlocking wstETH by random account");
         _activateNextStateIfNeeded();
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
 
@@ -1615,23 +1614,24 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         }
     }
 
-    function _unlockUnstETHByRandomRealAccounts() internal {
-        (uint256 unstETHCount, uint256 unstETHAmount) = _unlockUnstETHByRandomAccount(_allRealHolders);
-        _totalUnlockedUnstETHByRealAccountsCount += unstETHCount;
-        _totalUnlockedUnstETHByRealAccountsAmount += unstETHAmount;
-    }
-
-    function _unlockUnstETHByRandomSimulationAccounts() internal {
+    function _unlockUnstETHByRandomSimulationAccount() internal {
+        _debug.debug(">>> Unlocking unstETH by simulation account");
         (uint256 unstETHCount, uint256 unstETHAmount) = _unlockUnstETHByRandomAccount(_simulationAccounts);
         _totalUnlockedUnstETHBySimulationAccountsCount += unstETHCount;
         _totalUnlockedUnstETHBySimulationAccountsAmount += unstETHAmount;
+    }
+
+    function _unlockUnstETHByRandomRealAccount() internal {
+        _debug.debug(">>> Unlocking unstETH by real account");
+        (uint256 unstETHCount, uint256 unstETHAmount) = _unlockUnstETHByRandomAccount(_allRealHolders);
+        _totalUnlockedUnstETHByRealAccountsCount += unstETHCount;
+        _totalUnlockedUnstETHByRealAccountsAmount += unstETHAmount;
     }
 
     function _unlockUnstETHByRandomAccount(address[] memory accounts)
         internal
         returns (uint256 unstETHCount, uint256 unstETHAmount)
     {
-        _debug.debug(">>> Unlocking unstETH by random account");
         _activateNextStateIfNeeded();
         ISignallingEscrow escrow = _getVetoSignallingEscrow();
 
@@ -1812,15 +1812,7 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     function _getRandomUniqueActionsSet() internal returns (SimulationActionsSet.Context memory result) {
         result = SimulationActionsSet.create();
 
-        if (_getRandomProbability() <= WITHDRAW_STETH_PROBABILITY) {
-            result.add(SimulationActionType.WithdrawStETH);
-            _actionsCounters[SimulationActionType.WithdrawStETH] += 1;
-        }
-
-        if (_getRandomProbability() <= WITHDRAW_WSTETH_PROBABILITY) {
-            result.add(SimulationActionType.WithdrawWstETH);
-            _actionsCounters[SimulationActionType.WithdrawWstETH] += 1;
-        }
+        // Simulation accounts actions
 
         if (_getRandomProbability() <= SUBMIT_STETH_PROBABILITY) {
             result.add(SimulationActionType.SubmitStETH);
@@ -1830,6 +1822,16 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         if (_getRandomProbability() <= SUBMIT_WSTETH_PROBABILITY) {
             result.add(SimulationActionType.SubmitWstETH);
             _actionsCounters[SimulationActionType.SubmitWstETH] += 1;
+        }
+
+        if (_getRandomProbability() <= WITHDRAW_STETH_PROBABILITY) {
+            result.add(SimulationActionType.WithdrawStETH);
+            _actionsCounters[SimulationActionType.WithdrawStETH] += 1;
+        }
+
+        if (_getRandomProbability() <= WITHDRAW_WSTETH_PROBABILITY) {
+            result.add(SimulationActionType.WithdrawWstETH);
+            _actionsCounters[SimulationActionType.WithdrawWstETH] += 1;
         }
 
         if (_getRandomProbability() <= LOCK_ST_ETH_PROBABILITY) {
@@ -1847,16 +1849,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _actionsCounters[SimulationActionType.LockUnstETH] += 1;
         }
 
-        if (_getRandomProbability() <= MARK_UNST_ETH_FINALIZED_PROBABILITY) {
-            result.add(SimulationActionType.MarkUnstETHFinalized);
-            _actionsCounters[SimulationActionType.MarkUnstETHFinalized] += 1;
-        }
-
-        if (_getRandomProbability() <= CLAIM_UNSTETH_PROBABILITY) {
-            result.add(SimulationActionType.ClaimUnstETH);
-            _actionsCounters[SimulationActionType.ClaimUnstETH] += 1;
-        }
-
         if (_getRandomProbability() <= UNLOCK_ST_ETH_PROBABILITY) {
             result.add(SimulationActionType.UnlockStETH);
             _actionsCounters[SimulationActionType.UnlockStETH] += 1;
@@ -1872,25 +1864,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _actionsCounters[SimulationActionType.UnlockUnstETH] += 1;
         }
 
-        if (_getRandomProbability() <= ACCIDENTAL_ETH_TRANSFER_PROBABILITY) {
-            result.add(SimulationActionType.AccidentalETHTransfer);
-            _actionsCounters[SimulationActionType.AccidentalETHTransfer] += 1;
+        if (_getRandomProbability() <= CLAIM_UNSTETH_PROBABILITY) {
+            result.add(SimulationActionType.ClaimUnstETH);
+            _actionsCounters[SimulationActionType.ClaimUnstETH] += 1;
         }
 
-        if (_getRandomProbability() <= ACCIDENTAL_STETH_TRANSFER_PROBABILITY) {
-            result.add(SimulationActionType.AccidentalStETHTransfer);
-            _actionsCounters[SimulationActionType.AccidentalStETHTransfer] += 1;
-        }
-
-        if (_getRandomProbability() <= ACCIDENTAL_WSTETH_TRANSFER_PROBABILITY) {
-            result.add(SimulationActionType.AccidentalWstETHTransfer);
-            _actionsCounters[SimulationActionType.AccidentalWstETHTransfer] += 1;
-        }
-
-        if (_getRandomProbability() <= ACCIDENTAL_UNSTETH_TRANSFER_PROBABILITY) {
-            result.add(SimulationActionType.AccidentalUnstETHTransfer);
-            _actionsCounters[SimulationActionType.AccidentalUnstETHTransfer] += 1;
-        }
+        // Real accounts actions
 
         if (_getRandomProbability() <= WITHDRAW_STETH_REAL_HOLDER_PROBABILITY) {
             result.add(SimulationActionType.WithdrawStETHRealHolder);
@@ -1900,11 +1879,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
         if (_getRandomProbability() <= WITHDRAW_WSTETH_REAL_HOLDER_PROBABILITY) {
             result.add(SimulationActionType.WithdrawWstETHRealHolder);
             _actionsCounters[SimulationActionType.WithdrawWstETHRealHolder] += 1;
-        }
-
-        if (_getRandomProbability() <= CLAIM_UNSTETH_REAL_HOLDER_PROBABILITY) {
-            result.add(SimulationActionType.ClaimUnstETHRealHolder);
-            _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder] += 1;
         }
 
         if (_getRandomProbability() <= LOCK_STETH_REAL_HOLDER_PROBABILITY) {
@@ -1936,9 +1910,43 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             result.add(SimulationActionType.UnlockUnstETHRealHolder);
             _actionsCounters[SimulationActionType.UnlockUnstETHRealHolder] += 1;
         }
+
+        if (_getRandomProbability() <= CLAIM_UNSTETH_REAL_HOLDER_PROBABILITY) {
+            result.add(SimulationActionType.ClaimUnstETHRealHolder);
+            _actionsCounters[SimulationActionType.ClaimUnstETHRealHolder] += 1;
+        }
+
+        // General actions
+
+        if (_getRandomProbability() <= MARK_UNST_ETH_FINALIZED_PROBABILITY) {
+            result.add(SimulationActionType.MarkUnstETHFinalized);
+            _actionsCounters[SimulationActionType.MarkUnstETHFinalized] += 1;
+        }
+
+        if (_getRandomProbability() <= ACCIDENTAL_ETH_TRANSFER_PROBABILITY) {
+            result.add(SimulationActionType.AccidentalETHTransfer);
+            _actionsCounters[SimulationActionType.AccidentalETHTransfer] += 1;
+        }
+
+        if (_getRandomProbability() <= ACCIDENTAL_STETH_TRANSFER_PROBABILITY) {
+            result.add(SimulationActionType.AccidentalStETHTransfer);
+            _actionsCounters[SimulationActionType.AccidentalStETHTransfer] += 1;
+        }
+
+        if (_getRandomProbability() <= ACCIDENTAL_WSTETH_TRANSFER_PROBABILITY) {
+            result.add(SimulationActionType.AccidentalWstETHTransfer);
+            _actionsCounters[SimulationActionType.AccidentalWstETHTransfer] += 1;
+        }
+
+        if (_getRandomProbability() <= ACCIDENTAL_UNSTETH_TRANSFER_PROBABILITY) {
+            result.add(SimulationActionType.AccidentalUnstETHTransfer);
+            _actionsCounters[SimulationActionType.AccidentalUnstETHTransfer] += 1;
+        }
     }
 
     function _processSimulationActions(SimulationActionsSet.Context memory actions) internal {
+        // Simulation accounts actions
+
         if (actions.has(SimulationActionType.SubmitStETH)) {
             _submitStETHByRandomAccount(_simulationAccounts);
             _mineBlock();
@@ -1974,18 +1982,8 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _mineBlock();
         }
 
-        if (actions.has(SimulationActionType.MarkUnstETHFinalized)) {
-            _markRandomUnstETHFinalized();
-            _mineBlock();
-        }
-
-        if (actions.has(SimulationActionType.ClaimUnstETH)) {
-            _claimUnstETHByRandomAccount();
-            _mineBlock();
-        }
-
         if (actions.has(SimulationActionType.UnlockStETH)) {
-            _unlockUnstETHByRandomSimulationAccount();
+            _unlockStETHByRandomSimulationAccount();
             _mineBlock();
         }
 
@@ -1999,25 +1997,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _mineBlock();
         }
 
-        if (actions.has(SimulationActionType.AccidentalETHTransfer)) {
-            _accidentalETHTransfer(_allAccounts);
+        if (actions.has(SimulationActionType.ClaimUnstETH)) {
+            _claimUnstETHByRandomSimulationAccount();
             _mineBlock();
         }
 
-        if (actions.has(SimulationActionType.AccidentalStETHTransfer)) {
-            _accidentalStETHTransfer(_allAccounts);
-            _mineBlock();
-        }
-
-        if (actions.has(SimulationActionType.AccidentalWstETHTransfer)) {
-            _accidentalWstETHTransfer(_allAccounts);
-            _mineBlock();
-        }
-
-        if (actions.has(SimulationActionType.AccidentalUnstETHTransfer)) {
-            _accidentalUnstETHTransfer(_allAccounts);
-            _mineBlock();
-        }
+        // Real accounts actions
 
         if (actions.has(SimulationActionType.WithdrawStETHRealHolder)) {
             _withdrawStETHByRandomRealAccount();
@@ -2039,28 +2024,55 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
             _mineBlock();
         }
 
+        if (actions.has(SimulationActionType.UnlockStETHRealHolder)) {
+            _unlockStETHByRandomRealAccount();
+            _mineBlock();
+        }
+
+        if (actions.has(SimulationActionType.UnlockWstETHRealHolder)) {
+            _unlockWstETHByRandomRealAccount();
+            _mineBlock();
+        }
+
+        if (actions.has(SimulationActionType.UnlockUnstETHRealHolder)) {
+            _unlockUnstETHByRandomRealAccount();
+            _mineBlock();
+        }
+
         if (actions.has(SimulationActionType.LockUnstETHRealHolder)) {
             _lockUnstETHByRandomRealAccount();
             _mineBlock();
         }
 
         if (actions.has(SimulationActionType.ClaimUnstETHRealHolder)) {
-            _claimUnstETHByAnyOfRealHolder();
+            _claimUnstETHByRandomRealAccount();
             _mineBlock();
         }
 
-        if (actions.has(SimulationActionType.UnlockStETHRealHolder)) {
-            _unlockStETHByRandomRealAccounts();
+        // General actions
+
+        if (actions.has(SimulationActionType.MarkUnstETHFinalized)) {
+            _markRandomUnstETHFinalized();
             _mineBlock();
         }
 
-        if (actions.has(SimulationActionType.UnlockWstETHRealHolder)) {
-            _unlockWstETHByRandomRealAccounts();
+        if (actions.has(SimulationActionType.AccidentalETHTransfer)) {
+            _accidentalETHTransfer(_allAccounts);
             _mineBlock();
         }
 
-        if (actions.has(SimulationActionType.UnlockUnstETHRealHolder)) {
-            _unlockUnstETHByRandomSimulationAccounts();
+        if (actions.has(SimulationActionType.AccidentalStETHTransfer)) {
+            _accidentalStETHTransfer(_allAccounts);
+            _mineBlock();
+        }
+
+        if (actions.has(SimulationActionType.AccidentalWstETHTransfer)) {
+            _accidentalWstETHTransfer(_allAccounts);
+            _mineBlock();
+        }
+
+        if (actions.has(SimulationActionType.AccidentalUnstETHTransfer)) {
+            _accidentalUnstETHTransfer(_allAccounts);
             _mineBlock();
         }
 
