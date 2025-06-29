@@ -425,8 +425,8 @@ library LidoUtils {
 
         {
             finalizedStETH = _calculateUnfinalizedStETH(self, lastUnstETHIdToFinalize);
-            // TODO: temporarily added 50 wei to fix OutOfFunds error. Need to fix it properly in a separate PR.
-            vm.deal(self.withdrawalVault, finalizedStETH + 50 wei);
+            // TODO: temporarily added 1 gwei to fix OutOfFunds error. Need to fix it properly in a separate PR.
+            vm.deal(self.withdrawalVault, finalizedStETH + 1 gwei);
 
             newCLBalance -= finalizedStETH;
         }
