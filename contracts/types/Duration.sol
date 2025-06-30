@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -151,9 +152,5 @@ library Durations {
         /// @dev Casting `durationInSeconds` to `uint32` is safe as the check ensures it is less than or equal
         ///     to `MAX_DURATION_VALUE`, which fits within the `uint32`.
         res = Duration.wrap(uint32(durationInSeconds));
-    }
-
-    function min(Duration d1, Duration d2) internal pure returns (Duration res) {
-        res = d1 < d2 ? d1 : d2;
     }
 }

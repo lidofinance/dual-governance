@@ -11,20 +11,28 @@ Duration constant D0 = Durations.ZERO;
 Timestamp constant T0 = Timestamps.ZERO;
 
 contract EscrowStateUnitTests is UnitTest {
+    using EscrowState for EscrowState.Context;
+
     EscrowState.Context private _context;
 
     // ---
     // initialize()
     // ---
 
-    function testFuzz_initialize_happyPath(Duration minAssetsLockDuration) external {
+    function testFuzz_initialize_happyPath(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(minAssetsLockDuration > Durations.ZERO);
+        vm.assume(minAssetsLockDuration <= maxMinAssetsLockDuration);
+
         _context.state = State.NotInitialized;
 
         vm.expectEmit();
         emit EscrowState.EscrowStateChanged(State.NotInitialized, State.SignallingEscrow);
         emit EscrowState.MinAssetsLockDurationSet(minAssetsLockDuration);
 
-        EscrowState.initialize(_context, minAssetsLockDuration);
+        EscrowState.initialize(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
 
         checkContext({
             state: State.SignallingEscrow,
@@ -35,13 +43,34 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function testFuzz_initialize_RevertOn_InvalidState(Duration minAssetsLockDuration) external {
+    function testFuzz_initialize_RevertOn_InvalidState(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(minAssetsLockDuration <= maxMinAssetsLockDuration);
         _context.state = State.SignallingEscrow;
 
-        // TODO: not very informative, maybe need to change to `revert UnexpectedState(self.state);`: UnexpectedState(NotInitialized)[current implementation] => UnexpectedState(SignallingEscrow)[proposed]
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.NotInitialized));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.SignallingEscrow));
 
-        EscrowState.initialize(_context, minAssetsLockDuration);
+        this.external__initialize(minAssetsLockDuration, maxMinAssetsLockDuration);
+    }
+
+    function testFuzz_initalize_RevertOn_InvalidMinAssetLockDuration_ZeroDuration(Duration maxMinAssetsLockDuration)
+        external
+    {
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, 0));
+        this.external__initialize(Durations.ZERO, maxMinAssetsLockDuration);
+    }
+
+    function testFuzz_initalize_RevertOn_InvalidMinAssetLockDuration_ExceedMaxDuration(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(maxMinAssetsLockDuration < minAssetsLockDuration);
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
+        );
+        this.external__initialize(minAssetsLockDuration, maxMinAssetsLockDuration);
     }
 
     // ---
@@ -75,9 +104,9 @@ contract EscrowStateUnitTests is UnitTest {
     ) external {
         _context.state = State.NotInitialized;
 
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
 
-        EscrowState.startRageQuit(_context, rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
+        this.external__startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
     }
 
     // ---
@@ -103,13 +132,17 @@ contract EscrowStateUnitTests is UnitTest {
     // setMinAssetsLockDuration()
     // ---
 
-    function test_setMinAssetsLockDuration_happyPath(Duration minAssetsLockDuration) external {
+    function testFuzz_setMinAssetsLockDuration_happyPath(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
         vm.assume(minAssetsLockDuration != Durations.ZERO);
+        vm.assume(minAssetsLockDuration <= maxMinAssetsLockDuration);
 
         vm.expectEmit();
         emit EscrowState.MinAssetsLockDurationSet(minAssetsLockDuration);
 
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
+        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration, maxMinAssetsLockDuration);
 
         checkContext({
             state: State.NotInitialized,
@@ -120,13 +153,25 @@ contract EscrowStateUnitTests is UnitTest {
         });
     }
 
-    function test_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationNotChanged(Duration minAssetsLockDuration) external {
         _context.minAssetsLockDuration = minAssetsLockDuration;
 
         vm.expectRevert(
             abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
         );
-        EscrowState.setMinAssetsLockDuration(_context, minAssetsLockDuration);
+        this.external__setMinAssetsLockDuration(minAssetsLockDuration, Durations.from(MAX_DURATION_VALUE));
+    }
+
+    function testFuzz_setMinAssetsLockDuration_RevertWhen_DurationGreaterThenMaxMinAssetsLockDuration(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        vm.assume(minAssetsLockDuration > maxMinAssetsLockDuration);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(EscrowState.InvalidMinAssetsLockDuration.selector, minAssetsLockDuration)
+        );
+        this.external__setMinAssetsLockDuration(minAssetsLockDuration, maxMinAssetsLockDuration);
     }
 
     // ---
@@ -139,9 +184,12 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkSignallingEscrow_RevertOn_InvalidState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.SignallingEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
+        this.external__checkSignallingEscrow();
 
-        EscrowState.checkSignallingEscrow(_context);
+        _context.state = State.RageQuitEscrow;
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.RageQuitEscrow));
+        this.external__checkSignallingEscrow();
     }
 
     // ---
@@ -154,9 +202,12 @@ contract EscrowStateUnitTests is UnitTest {
     }
 
     function test_checkRageQuitEscrow_RevertOn_InvalidState() external {
-        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedState.selector, State.RageQuitEscrow));
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.NotInitialized));
+        this.external__checkRageQuitEscrow();
 
-        EscrowState.checkRageQuitEscrow(_context);
+        _context.state = State.SignallingEscrow;
+        vm.expectRevert(abi.encodeWithSelector(EscrowState.UnexpectedEscrowState.selector, State.SignallingEscrow));
+        this.external__checkRageQuitEscrow();
     }
 
     // ---
@@ -174,7 +225,7 @@ contract EscrowStateUnitTests is UnitTest {
         _context.rageQuitExtensionPeriodStartedAt = rageQuitExtensionPeriodStartedAt;
         vm.expectRevert(EscrowState.ClaimingIsFinished.selector);
 
-        EscrowState.checkBatchesClaimingInProgress(_context);
+        this.external__checkBatchesClaimingInProgress();
     }
 
     // ---
@@ -205,7 +256,7 @@ contract EscrowStateUnitTests is UnitTest {
     function test_checkEthWithdrawalsDelayPassed_RevertWhen_RageQuitExtensionPeriodNotStarted() external {
         vm.expectRevert(EscrowState.RageQuitExtensionPeriodNotStarted.selector);
 
-        EscrowState.checkEthWithdrawalsDelayPassed(_context);
+        this.external__checkEthWithdrawalsDelayPassed();
     }
 
     function testFuzz_checkWithdrawalsDelayPassed_RevertWhen_EthWithdrawalsDelayNotPassed(
@@ -229,7 +280,7 @@ contract EscrowStateUnitTests is UnitTest {
 
         vm.expectRevert(EscrowState.EthWithdrawalsDelayNotPassed.selector);
 
-        EscrowState.checkEthWithdrawalsDelayPassed(_context);
+        this.external__checkEthWithdrawalsDelayPassed();
     }
 
     function test_checkWithdrawalsDelayPassed_RevertWhen_EthWithdrawalsDelayOverflow() external {
@@ -242,7 +293,7 @@ contract EscrowStateUnitTests is UnitTest {
 
         vm.expectRevert(TimestampOverflow.selector);
 
-        EscrowState.checkEthWithdrawalsDelayPassed(_context);
+        this.external__checkEthWithdrawalsDelayPassed();
     }
 
     // ---
@@ -325,7 +376,7 @@ contract EscrowStateUnitTests is UnitTest {
         Duration rageQuitExtensionPeriodDuration,
         Duration rageQuitEthWithdrawalsDelay,
         Timestamp rageQuitExtensionPeriodStartedAt
-    ) internal {
+    ) internal view {
         assertEq(_context.state, state);
         assertEq(_context.minAssetsLockDuration, minAssetsLockDuration);
         assertEq(_context.rageQuitExtensionPeriodDuration, rageQuitExtensionPeriodDuration);
@@ -333,7 +384,41 @@ contract EscrowStateUnitTests is UnitTest {
         assertEq(_context.rageQuitExtensionPeriodStartedAt, rageQuitExtensionPeriodStartedAt);
     }
 
-    function assertEq(State a, State b) internal {
+    function assertEq(State a, State b) internal pure {
         assertEq(uint256(a), uint256(b));
+    }
+
+    function external__initialize(Duration minAssetsLockDuration, Duration maxMinAssetsLockDuration) external {
+        _context.initialize(minAssetsLockDuration, maxMinAssetsLockDuration);
+    }
+
+    function external__startRageQuit(
+        Duration rageQuitExtensionPeriodDuration,
+        Duration rageQuitEthWithdrawalsDelay
+    ) external {
+        _context.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
+    }
+
+    function external__setMinAssetsLockDuration(
+        Duration newMinAssetsLockDuration,
+        Duration maxMinAssetsLockDuration
+    ) external {
+        _context.setMinAssetsLockDuration(newMinAssetsLockDuration, maxMinAssetsLockDuration);
+    }
+
+    function external__checkSignallingEscrow() external view {
+        _context.checkSignallingEscrow();
+    }
+
+    function external__checkRageQuitEscrow() external view {
+        _context.checkRageQuitEscrow();
+    }
+
+    function external__checkBatchesClaimingInProgress() external view {
+        _context.checkBatchesClaimingInProgress();
+    }
+
+    function external__checkEthWithdrawalsDelayPassed() external view {
+        _context.checkEthWithdrawalsDelayPassed();
     }
 }

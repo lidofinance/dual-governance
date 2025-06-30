@@ -5,7 +5,9 @@ import {Duration, Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
 import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 
-import {IEscrow} from "contracts/interfaces/IEscrow.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "contracts/interfaces/IRageQuitEscrow.sol";
 
 import {
     State,
@@ -50,7 +52,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
                 rageQuitEthWithdrawalsDelayGrowth: Durations.from(15 days)
             })
         );
-        DualGovernanceStateMachine.initialize(_stateMachine, _configProvider, IEscrow(_escrowMasterCopyMock));
+        DualGovernanceStateMachine.initialize(_stateMachine, _configProvider, IEscrowBase(_escrowMasterCopyMock));
         _setMockRageQuitSupportInBP(0);
     }
 
@@ -65,7 +67,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function test_getStateTransition_FromNormalToNormal() external {
         assertEq(_stateMachine.state, State.Normal);
 
-        _setMockRageQuitSupportInBP(3_00);
+        _setMockRageQuitSupportInBP(2_99);
 
         (State current, State next) = _stateMachine.getStateTransition(_configProvider.getDualGovernanceConfig());
 
@@ -80,7 +82,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function test_getStateTransition_FromNormalToVetoSignalling() external {
         assertEq(_stateMachine.state, State.Normal);
 
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         (State current, State next) = _stateMachine.getStateTransition(_configProvider.getDualGovernanceConfig());
 
@@ -94,7 +96,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
 
     function test_getStateTransition_FromVetoSignallingToVetoSignalling_VetoSignallingDurationNotPassed() external {
         _setupVetoSignallingState();
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         (State current, State next) = _stateMachine.getStateTransition(_configProvider.getDualGovernanceConfig());
 
@@ -109,7 +111,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function test_getStateTransition_FromVetoSignallingToVetoSignalling_VetoSignallingReactivationNotPassed()
         external
     {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         // the veto signalling state was entered
         _setupVetoSignallingState();
@@ -139,7 +141,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingToRageQuit() external {
-        _setMockRageQuitSupportInBP(15_01);
+        _setMockRageQuitSupportInBP(15_00);
 
         // the veto signalling state was entered
         _setupVetoSignallingState();
@@ -160,12 +162,12 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingDeactivationToVetoSignalling() external {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
         _setupVetoSignallingDeactivationState();
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignallingDeactivation});
 
-        _setMockRageQuitSupportInBP(15_01);
+        _setMockRageQuitSupportInBP(15_00);
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignalling});
     }
@@ -175,12 +177,12 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingDeactivationToRageQuit() external {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
         _setupVetoSignallingDeactivationState();
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignallingDeactivation});
 
-        _setMockRageQuitSupportInBP(15_01);
+        _setMockRageQuitSupportInBP(15_00);
 
         _wait(_calcVetoSignallingDuration().plusSeconds(1 seconds));
 
@@ -192,7 +194,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingDeactivationToVetoCooldown() external {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
         _setupVetoSignallingDeactivationState();
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignallingDeactivation});
@@ -207,7 +209,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     // ---
 
     function test_getStateTransition_FromVetoSignallingDeactivationToVetoSignallingDeactivation() external {
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
         _setupVetoSignallingDeactivationState();
 
         _assertStateMachineTransition({from: State.VetoSignallingDeactivation, to: State.VetoSignallingDeactivation});
@@ -248,7 +250,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
 
         _assertStateMachineTransition({from: State.VetoCooldown, to: State.VetoCooldown});
 
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         _wait(_configProvider.VETO_COOLDOWN_DURATION().plusSeconds(1));
 
@@ -291,7 +293,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
         _assertStateMachineTransition({from: State.RageQuit, to: State.RageQuit});
 
         _setMockIsRageQuitFinalized(true);
-        _setMockRageQuitSupportInBP(3_01);
+        _setMockRageQuitSupportInBP(3_00);
 
         _assertStateMachineTransition({from: State.RageQuit, to: State.VetoSignalling});
     }
@@ -313,11 +315,11 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     }
 
     // ---
-    // Unset -> assert(false)
+    // NotInitialized -> assert(false)
     // ---
 
-    function test_getStateTransition_RevertOn_UnsetState() external {
-        _stateMachine.state = State.Unset;
+    function test_getStateTransition_RevertOn_NotInitializedState() external {
+        _stateMachine.state = State.NotInitialized;
 
         vm.expectRevert(stdError.assertionError);
         this.external__getStateTransition();
@@ -353,13 +355,13 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function _setupRageQuitState() internal {
         _stateMachine.state = State.RageQuit;
         _stateMachine.enteredAt = Timestamps.now();
-        _stateMachine.rageQuitEscrow = IEscrow(_escrowMasterCopyMock);
+        _stateMachine.rageQuitEscrow = IRageQuitEscrow(_escrowMasterCopyMock);
     }
 
     function _setMockRageQuitSupportInBP(uint256 bpValue) internal {
         vm.mockCall(
             address(_stateMachine.signallingEscrow),
-            abi.encodeWithSelector(IEscrow.getRageQuitSupport.selector),
+            abi.encodeWithSelector(ISignallingEscrow.getRageQuitSupport.selector),
             abi.encode(PercentsD16.fromBasisPoints(bpValue))
         );
     }
@@ -367,7 +369,7 @@ contract DualGovernanceStateTransitionsUnitTestSuite is UnitTest {
     function _setMockIsRageQuitFinalized(bool isRageQuitFinalized) internal {
         vm.mockCall(
             address(_stateMachine.rageQuitEscrow),
-            abi.encodeWithSelector(IEscrow.isRageQuitFinalized.selector),
+            abi.encodeWithSelector(IRageQuitEscrow.isRageQuitFinalized.selector),
             abi.encode(isRageQuitFinalized)
         );
     }

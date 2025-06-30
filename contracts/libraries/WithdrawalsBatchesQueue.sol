@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -5,11 +6,11 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @notice The state of the WithdrawalBatchesQueue.
-/// @param Absent The initial (uninitialized) state of the WithdrawalBatchesQueue.
+/// @param NotInitialized The initial (uninitialized) state of the WithdrawalBatchesQueue.
 /// @param Opened In this state, the WithdrawalBatchesQueue allows the addition of new batches of unstETH ids.
 /// @param Closed The terminal state of the queue where adding new batches is no longer permitted.
 enum State {
-    Absent,
+    NotInitialized,
     Opened,
     Closed
 }
@@ -23,9 +24,7 @@ library WithdrawalsBatchesQueue {
 
     error EmptyBatch();
     error InvalidUnstETHIdsSequence();
-    error WithdrawalsBatchesQueueIsInAbsentState();
-    error WithdrawalsBatchesQueueIsNotInOpenedState();
-    error WithdrawalsBatchesQueueIsNotInAbsentState();
+    error UnexpectedWithdrawalsBatchesQueueState(State state);
 
     // ---
     // Events
@@ -52,12 +51,12 @@ library WithdrawalsBatchesQueue {
     }
 
     /// @notice Holds the meta-information about the queue and the claiming process.
-    /// @param state The current state of the WithdrawalQueue library.
+    /// @param state The current state of the WithdrawalsBatchesQueue library.
     /// @param lastClaimedBatchIndex The index of the batch containing the id of the last claimed unstETH NFT.
     /// @param lastClaimedUnstETHIdIndex The index of the last claimed unstETH id in the batch with
     ///     index `lastClaimedBatchIndex`.
-    /// @param totalUnstETHCount The total number of unstETH ids in all batches.
-    /// @param totalUnstETHClaimed The total number of unstETH ids that have been marked as claimed.
+    /// @param totalUnstETHIdsCount The total number of unstETH ids in all batches.
+    /// @param totalUnstETHIdsClaimed The total number of unstETH ids that have been marked as claimed.
     struct QueueInfo {
         /// @dev slot0: [0..7]
         State state;
@@ -91,9 +90,7 @@ library WithdrawalsBatchesQueue {
     /// @param boundaryUnstETHId The id of the unstETH NFT which is used as the boundary value for the withdrawal queue.
     ///     `boundaryUnstETHId` value is used as a lower bound for the adding unstETH ids.
     function open(Context storage self, uint256 boundaryUnstETHId) internal {
-        if (self.info.state != State.Absent) {
-            revert WithdrawalsBatchesQueueIsNotInAbsentState();
-        }
+        _checkState(self, State.NotInitialized);
 
         self.info.state = State.Opened;
 
@@ -108,7 +105,7 @@ library WithdrawalsBatchesQueue {
     /// @param self The context of the Withdrawals Batches Queue library.
     /// @param unstETHIds An array of sequential unstETH ids to be added to the queue.
     function addUnstETHIds(Context storage self, uint256[] memory unstETHIds) internal {
-        _checkInOpenedState(self);
+        _checkState(self, State.Opened);
 
         uint256 unstETHIdsCount = unstETHIds.length;
 
@@ -163,7 +160,7 @@ library WithdrawalsBatchesQueue {
     /// @notice Closes the WithdrawalsBatchesQueue, preventing further batch additions.
     /// @param self The context of the Withdrawals Batches Queue library.
     function close(Context storage self) internal {
-        _checkInOpenedState(self);
+        _checkState(self, State.Opened);
         self.info.state = State.Closed;
         emit WithdrawalsBatchesQueueClosed();
     }
@@ -220,13 +217,13 @@ library WithdrawalsBatchesQueue {
         return self.info.totalUnstETHIdsCount - self.info.totalUnstETHIdsClaimed;
     }
 
-    /// @notice Returns the id of the last claimed unstETH. When the queue is empty, returns 0.
+    /// @notice Returns the id of the boundary unstETH.
+    /// @dev Reverts with an index OOB error if called when the `WithdrawalsBatchesQueue` is in the
+    ///     `NotInitialized` state.
     /// @param self The context of the Withdrawals Batches Queue library.
-    /// @return lastClaimedUnstETHId The id of the lastClaimedUnstETHId or 0 when the queue is empty
-    function getLastClaimedOrBoundaryUnstETHId(Context storage self) internal view returns (uint256) {
-        _checkNotInAbsentState(self);
-        QueueInfo memory info = self.info;
-        return self.batches[info.lastClaimedBatchIndex].firstUnstETHId + info.lastClaimedUnstETHIdIndex;
+    /// @return boundaryUnstETHId The id of the boundary unstETH.
+    function getBoundaryUnstETHId(Context storage self) internal view returns (uint256) {
+        return self.batches[0].firstUnstETHId;
     }
 
     /// @notice Returns if all unstETH ids in the queue have been claimed.
@@ -277,15 +274,9 @@ library WithdrawalsBatchesQueue {
         info.totalUnstETHIdsClaimed += SafeCast.toUint64(unstETHIdsCount);
     }
 
-    function _checkNotInAbsentState(Context storage self) private view {
-        if (self.info.state == State.Absent) {
-            revert WithdrawalsBatchesQueueIsInAbsentState();
-        }
-    }
-
-    function _checkInOpenedState(Context storage self) private view {
-        if (self.info.state != State.Opened) {
-            revert WithdrawalsBatchesQueueIsNotInOpenedState();
+    function _checkState(Context storage self, State expectedState) private view {
+        if (self.info.state != expectedState) {
+            revert UnexpectedWithdrawalsBatchesQueueState(self.info.state);
         }
     }
 }

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -7,7 +8,9 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Duration} from "../types/Duration.sol";
 import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 
-import {IEscrow} from "../interfaces/IEscrow.sol";
+import {IEscrowBase} from "../interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "../interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "../interfaces/IRageQuitEscrow.sol";
 import {IDualGovernance} from "../interfaces/IDualGovernance.sol";
 import {IDualGovernanceConfigProvider} from "../interfaces/IDualGovernanceConfigProvider.sol";
 
@@ -15,7 +18,7 @@ import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
 import {DualGovernanceStateTransitions} from "./DualGovernanceStateTransitions.sol";
 
 /// @notice Enum describing the state of the Dual Governance State Machine
-/// @param Unset The initial (uninitialized) state of the Dual Governance State Machine. The state machine cannot
+/// @param NotInitialized The initial (uninitialized) state of the Dual Governance State Machine. The state machine cannot
 ///     operate in this state and must be initialized before use.
 /// @param Normal The default state where the system is expected to remain most of the time. In this state, proposals
 ///     can be both submitted and scheduled for execution.
@@ -27,10 +30,10 @@ import {DualGovernanceStateTransitions} from "./DualGovernanceStateTransitions.s
 /// @param VetoCooldown A state where the DAO can execute non-cancelled proposals but is prohibited from submitting
 ///     new proposals.
 /// @param RageQuit Represents the process where users opting to leave the protocol can withdraw their funds. This state
-///     is triggered when the Second Seal Threshold is crossed. During this state, the scheduling of proposals for
+///     is triggered when the Second Seal Threshold is reached. During this state, the scheduling of proposals for
 ///     execution is forbidden, but new proposals can still be submitted.
 enum State {
-    Unset,
+    NotInitialized,
     Normal,
     VetoSignalling,
     VetoSignallingDeactivation,
@@ -66,7 +69,7 @@ library DualGovernanceStateMachine {
         /// @dev slot 0: [48..87]
         Timestamp vetoSignallingActivatedAt;
         /// @dev slot 0: [88..247]
-        IEscrow signallingEscrow;
+        ISignallingEscrow signallingEscrow;
         /// @dev slot 0: [248..255]
         uint8 rageQuitRound;
         /// @dev slot 1: [0..39]
@@ -74,7 +77,7 @@ library DualGovernanceStateMachine {
         /// @dev slot 1: [40..79]
         Timestamp normalOrVetoCooldownExitedAt;
         /// @dev slot 1: [80..239]
-        IEscrow rageQuitEscrow;
+        IRageQuitEscrow rageQuitEscrow;
         /// @dev slot 2: [0..159]
         IDualGovernanceConfigProvider configProvider;
     }
@@ -90,7 +93,7 @@ library DualGovernanceStateMachine {
     // Events
     // ---
 
-    event NewSignallingEscrowDeployed(IEscrow indexed escrow);
+    event NewSignallingEscrowDeployed(ISignallingEscrow indexed escrow);
     event DualGovernanceStateChanged(State indexed from, State indexed to, Context state);
     event ConfigProviderSet(IDualGovernanceConfigProvider newConfigProvider);
 
@@ -114,9 +117,9 @@ library DualGovernanceStateMachine {
     function initialize(
         Context storage self,
         IDualGovernanceConfigProvider configProvider,
-        IEscrow escrowMasterCopy
+        IEscrowBase escrowMasterCopy
     ) internal {
-        if (self.state != State.Unset) {
+        if (self.state != State.NotInitialized) {
             revert AlreadyInitialized();
         }
 
@@ -128,18 +131,16 @@ library DualGovernanceStateMachine {
         DualGovernanceConfig.Context memory config = configProvider.getDualGovernanceConfig();
         _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
 
-        emit DualGovernanceStateChanged(State.Unset, State.Normal, self);
+        emit DualGovernanceStateChanged(State.NotInitialized, State.Normal, self);
     }
 
     /// @notice Executes a state transition for the Dual Governance State Machine, if applicable.
     ///     If no transition is possible from the current `persisted` state, no changes are applied to the context.
     /// @dev If the state transitions to RageQuit, a new instance of the Signalling Escrow is deployed using
-    ///     `escrowMasterCopy` as the implementation for the minimal proxy, while the previous Signalling Escrow
-    ///     instance is converted into the RageQuit escrow.
+    ///     `signallingEscrow.ESCROW_MASTER_COPY()` as the implementation for the minimal proxy,
+    ///     while the previous Signalling Escrow instance is converted into the RageQuit escrow.
     /// @param self The context of the Dual Governance State Machine.
-    /// @param escrowMasterCopy The address of the master copy used as the implementation for the minimal proxy
-    ///     to deploy a new instance of the Signalling Escrow.
-    function activateNextState(Context storage self, IEscrow escrowMasterCopy) internal {
+    function activateNextState(Context storage self) internal {
         DualGovernanceConfig.Context memory config = getDualGovernanceConfig(self);
         (State currentState, State newState) = self.getStateTransition(config);
 
@@ -165,7 +166,7 @@ library DualGovernanceStateMachine {
                 self.vetoSignallingActivatedAt = newStateEnteredAt;
             }
         } else if (newState == State.RageQuit) {
-            IEscrow signallingEscrow = self.signallingEscrow;
+            ISignallingEscrow signallingEscrow = self.signallingEscrow;
 
             uint256 currentRageQuitRound = self.rageQuitRound;
 
@@ -177,8 +178,8 @@ library DualGovernanceStateMachine {
             signallingEscrow.startRageQuit(
                 config.rageQuitExtensionPeriodDuration, config.calcRageQuitWithdrawalsDelay(newRageQuitRound)
             );
-            self.rageQuitEscrow = signallingEscrow;
-            _deployNewSignallingEscrow(self, escrowMasterCopy, config.minAssetsLockDuration);
+            self.rageQuitEscrow = IRageQuitEscrow(address(signallingEscrow));
+            _deployNewSignallingEscrow(self, signallingEscrow.ESCROW_MASTER_COPY(), config.minAssetsLockDuration);
         }
 
         emit DualGovernanceStateChanged(currentState, newState, self);
@@ -190,7 +191,7 @@ library DualGovernanceStateMachine {
     function setConfigProvider(Context storage self, IDualGovernanceConfigProvider newConfigProvider) internal {
         _setConfigProvider(self, newConfigProvider);
 
-        IEscrow signallingEscrow = self.signallingEscrow;
+        ISignallingEscrow signallingEscrow = self.signallingEscrow;
         Duration newMinAssetsLockDuration = newConfigProvider.getDualGovernanceConfig().minAssetsLockDuration;
 
         /// @dev minAssetsLockDuration is stored as a storage variable in the Signalling Escrow instance.
@@ -320,10 +321,10 @@ library DualGovernanceStateMachine {
 
     function _deployNewSignallingEscrow(
         Context storage self,
-        IEscrow escrowMasterCopy,
+        IEscrowBase escrowMasterCopy,
         Duration minAssetsLockDuration
     ) private {
-        IEscrow newSignallingEscrow = IEscrow(Clones.clone(address(escrowMasterCopy)));
+        ISignallingEscrow newSignallingEscrow = ISignallingEscrow(Clones.clone(address(escrowMasterCopy)));
         newSignallingEscrow.initialize(minAssetsLockDuration);
         self.signallingEscrow = newSignallingEscrow;
         emit NewSignallingEscrowDeployed(newSignallingEscrow);

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -20,8 +21,6 @@ enum ProposalType {
 /// @notice This contract allows a subcommittee to vote on and execute proposals for scheduling and resuming sealable addresses
 /// @dev Inherits from HashConsensus for voting mechanisms and ProposalsList for proposal management
 contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
-    error InvalidSealable(address sealable);
-
     address public immutable TIEBREAKER_CORE_COMMITTEE;
 
     constructor(
@@ -94,14 +93,12 @@ contract TiebreakerSubCommittee is HashConsensus, ProposalsList {
 
     /// @notice Votes on a proposal to resume a sealable address
     /// @dev Allows committee members to vote on resuming a sealable address
-    ///      reverts if the sealable address is the zero address
+    ///      reverts if the sealable address is the zero address or if the sealable address is not paused
     /// @param sealable The address to resume
     function sealableResume(address sealable) external {
         _checkCallerIsMember();
+        ITiebreakerCoreCommittee(TIEBREAKER_CORE_COMMITTEE).checkSealableIsPaused(sealable);
 
-        if (sealable == address(0)) {
-            revert InvalidSealable(sealable);
-        }
         (bytes memory proposalData, bytes32 key,) = _encodeSealableResume(sealable);
         _vote(key, true);
         _pushProposal(key, uint256(ProposalType.ResumeSealable), proposalData);

@@ -3,7 +3,9 @@ pragma solidity 0.8.26;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import {IEscrow} from "contracts/interfaces/IEscrow.sol";
+import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
+import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
+import {IRageQuitEscrow} from "contracts/interfaces/IRageQuitEscrow.sol";
 
 import {Durations} from "contracts/types/Duration.sol";
 import {Timestamp, Timestamps} from "contracts/types/Timestamp.sol";
@@ -46,9 +48,10 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
     DualGovernanceStateMachine.Context private _stateMachine;
 
     function setUp() external {
-        _stateMachine.initialize(_CONFIG_PROVIDER, IEscrow(_ESCROW_MASTER_COPY_MOCK));
+        _stateMachine.initialize(_CONFIG_PROVIDER, IEscrowBase(_ESCROW_MASTER_COPY_MOCK));
         _mockRageQuitFinalized(false);
         _mockRageQuitSupport(PercentsD16.from(0));
+        _mockEscrowMasterCopy();
     }
 
     function test_initialize_RevertOn_ReInitialization() external {
@@ -66,7 +69,7 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
         _activateNextState();
         _wait(_CONFIG_PROVIDER.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
-        // Simulate the Rage Quit process has completed and in the SignallingEscrow the first seal is not crossed
+        // Simulate the Rage Quit process has completed and in the SignallingEscrow the first seal is not reached
         _mockRageQuitFinalized(true);
         _activateNextState();
         _mockRageQuitSupport(PercentsD16.fromBasisPoints(0));
@@ -90,7 +93,7 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
         _activateNextState();
         _wait(_CONFIG_PROVIDER.VETO_SIGNALLING_MAX_DURATION().plusSeconds(1));
 
-        // Simulate the Rage Quit process has completed and in the SignallingEscrow the first seal is crossed
+        // Simulate the Rage Quit process has completed and in the SignallingEscrow the first seal is reached
         _mockRageQuitFinalized(true);
         _activateNextState();
 
@@ -448,20 +451,32 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
     // Test helper methods
     // ---
 
+    function _mockEscrowMasterCopy() internal {
+        vm.mockCall(
+            _ESCROW_MASTER_COPY_MOCK,
+            abi.encodeWithSelector(IEscrowBase.ESCROW_MASTER_COPY.selector),
+            abi.encode(_ESCROW_MASTER_COPY_MOCK)
+        );
+    }
+
     function _mockRageQuitSupport(PercentD16 rageQuitSupport) internal {
         vm.mockCall(
-            _ESCROW_MASTER_COPY_MOCK, abi.encodeCall(IEscrow.getRageQuitSupport, ()), abi.encode(rageQuitSupport)
+            _ESCROW_MASTER_COPY_MOCK,
+            abi.encodeCall(ISignallingEscrow.getRageQuitSupport, ()),
+            abi.encode(rageQuitSupport)
         );
     }
 
     function _mockRageQuitFinalized(bool isRageQuitFinalized) internal {
         vm.mockCall(
-            _ESCROW_MASTER_COPY_MOCK, abi.encodeCall(IEscrow.isRageQuitFinalized, ()), abi.encode(isRageQuitFinalized)
+            _ESCROW_MASTER_COPY_MOCK,
+            abi.encodeCall(IRageQuitEscrow.isRageQuitFinalized, ()),
+            abi.encode(isRageQuitFinalized)
         );
     }
 
     function _activateNextState() internal {
-        _stateMachine.activateNextState(IEscrow(_ESCROW_MASTER_COPY_MOCK));
+        _stateMachine.activateNextState();
     }
 
     function _assertState(State persisted, State effective) internal {
@@ -509,6 +524,6 @@ contract DualGovernanceStateMachineUnitTests is UnitTest {
     }
 
     function external__initialize() external {
-        _stateMachine.initialize(_CONFIG_PROVIDER, IEscrow(_ESCROW_MASTER_COPY_MOCK));
+        _stateMachine.initialize(_CONFIG_PROVIDER, IEscrowBase(_ESCROW_MASTER_COPY_MOCK));
     }
 }

@@ -19,9 +19,11 @@ import {ExecutableProposals} from "contracts/libraries/ExecutableProposals.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {TargetMock} from "test/utils/target-mock.sol";
-import {ExternalCall} from "test/utils/executor-calls.sol";
+import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBuilder.sol";
 
 contract EmergencyProtectedTimelockUnitTests is UnitTest {
+    using ExternalCallsBuilder for ExternalCallsBuilder.Context;
+
     EmergencyProtectedTimelock private _timelock;
     TargetMock private _targetMock;
     TargetMock private _anotherTargetMock;
@@ -186,21 +188,19 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(TimelockState.CallerIsNotGovernance.selector, [stranger]));
-        _timelock.submit(stranger, _adminExecutor, new ExternalCall[](0), "");
+        _timelock.submit(_adminExecutor, new ExternalCall[](0));
         assertEq(_timelock.getProposalsCount(), 0);
     }
 
     function test_submit_HappyPath() external {
         string memory testMetadata = "testMetadata";
 
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit();
         emit ExecutableProposals.ProposalSubmitted(
-            1, _dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), testMetadata
+            1, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock))
         );
         vm.prank(_dualGovernance);
-        _timelock.submit(
-            _dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), testMetadata
-        );
+        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)));
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -272,11 +272,83 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
         _activateEmergencyMode();
 
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [false]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
         _timelock.execute(1);
 
         ITimelock.ProposalDetails memory proposal = _timelock.getProposalDetails(1);
         assertEq(proposal.status, ProposalStatus.Scheduled);
+    }
+
+    function test_execute_ProposalExecutionBeforeMinExecutionDelayPassedForbidden() external {
+        Duration initialAfterSubmitDelay = Durations.ZERO;
+        Duration initialAfterScheduleDelay = _defaultSanityCheckParams.minExecutionDelay;
+
+        Duration newAfterSubmitDelay = _defaultSanityCheckParams.minExecutionDelay;
+        Duration newAfterScheduleDelay = Durations.ZERO;
+
+        // prepare timelock instance timings
+        vm.startPrank(_adminExecutor);
+        _timelock.setAfterScheduleDelay(initialAfterScheduleDelay);
+        _timelock.setAfterSubmitDelay(initialAfterSubmitDelay);
+        vm.stopPrank();
+
+        assertEq(_timelock.getAfterSubmitDelay(), initialAfterSubmitDelay);
+        assertEq(_timelock.getAfterScheduleDelay(), initialAfterScheduleDelay);
+
+        ExternalCallsBuilder.Context memory callsBuilder = ExternalCallsBuilder.create(2);
+        callsBuilder.addCall(address(_timelock), abi.encodeCall(_timelock.setAfterSubmitDelay, newAfterSubmitDelay));
+        callsBuilder.addCall(address(_timelock), abi.encodeCall(_timelock.setAfterScheduleDelay, newAfterScheduleDelay));
+
+        // submit proposal to update delay durations
+        vm.startPrank(_dualGovernance);
+        uint256 updateDelaysProposalId = _timelock.submit(_adminExecutor, callsBuilder.getResult());
+        vm.stopPrank();
+
+        // as the current after submit delay is 0, proposal may be instantly scheduled
+        assertTrue(_timelock.canSchedule(updateDelaysProposalId));
+
+        vm.prank(_dualGovernance);
+        _timelock.schedule(updateDelaysProposalId);
+
+        assertFalse(_timelock.canExecute(updateDelaysProposalId));
+
+        _wait(_timelock.getAfterScheduleDelay());
+
+        assertTrue(_timelock.canExecute(updateDelaysProposalId));
+
+        // at the end of the after schedule delay submit another proposal
+        vm.startPrank(_dualGovernance);
+        uint256 otherProposalId =
+            _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)));
+        vm.stopPrank();
+
+        // as the proposal to update delays hasn't executed yet and after submit delay is 0
+        // new proposal may be scheduled just after submit
+        assertTrue(_timelock.canSchedule(otherProposalId));
+
+        vm.prank(_dualGovernance);
+        _timelock.schedule(otherProposalId);
+
+        assertFalse(_timelock.canExecute(otherProposalId));
+
+        _timelock.execute(updateDelaysProposalId);
+        assertEq(_timelock.getAfterSubmitDelay(), newAfterSubmitDelay);
+        assertEq(_timelock.getAfterScheduleDelay(), newAfterScheduleDelay);
+
+        // after the execution of the proposal with the delays update, proposal submitted
+        // just before execution can't be executed, due to min execution delay constraint
+        assertFalse(_timelock.canExecute(otherProposalId));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ExecutableProposals.MinExecutionDelayNotPassed.selector, otherProposalId)
+        );
+        _timelock.execute(otherProposalId);
+
+        _wait(_timelock.MIN_EXECUTION_DELAY());
+        _timelock.execute(otherProposalId);
+
+        // after min execution delay has passed, proposal may be executed
+        assertEq(_targetMock.getCallsLength(), 1);
     }
 
     // EmergencyProtectedTimelock.cancelAllNonExecutedProposals()
@@ -561,7 +633,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_isEmergencyStateActivated(), true);
 
         vm.prank(_emergencyActivator);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [false]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, true));
         _timelock.activateEmergencyMode();
 
         assertEq(_isEmergencyStateActivated(), true);
@@ -593,7 +665,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function test_emergencyExecute_RevertOn_ModeNotActive() external {
         vm.startPrank(_dualGovernance);
-        _timelock.submit(_dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)));
 
         assertEq(_timelock.getProposalsCount(), 1);
 
@@ -606,7 +678,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         assertEq(_timelock.isEmergencyModeActive(), false);
 
         vm.prank(_emergencyActivator);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
         _timelock.emergencyExecute(1);
     }
 
@@ -683,11 +755,11 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.assume(stranger != _adminExecutor);
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
         _timelock.deactivateEmergencyMode();
 
         vm.prank(_adminExecutor);
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
         _timelock.deactivateEmergencyMode();
     }
 
@@ -764,7 +836,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         address emergencyActivationCommitteeBefore = _timelock.getEmergencyActivationCommittee();
         address emergencyExecutionCommitteeBefore = _timelock.getEmergencyExecutionCommittee();
 
-        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, [true]));
+        vm.expectRevert(abi.encodeWithSelector(EmergencyProtection.UnexpectedEmergencyModeState.selector, false));
         vm.prank(_emergencyEnactor);
         _timelock.emergencyReset();
 
@@ -1045,8 +1117,8 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
         vm.startPrank(_dualGovernance);
         ExternalCall[] memory executorCalls = _getMockTargetRegularStaffCalls(address(_targetMock));
         ExternalCall[] memory anotherExecutorCalls = _getMockTargetRegularStaffCalls(address(_anotherTargetMock));
-        _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
-        _timelock.submit(_dualGovernance, _adminExecutor, anotherExecutorCalls, "");
+        _timelock.submit(_adminExecutor, executorCalls);
+        _timelock.submit(_adminExecutor, anotherExecutorCalls);
 
         (ITimelock.ProposalDetails memory submittedProposal, ExternalCall[] memory calls) = _timelock.getProposal(1);
 
@@ -1203,7 +1275,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
     function test_getProposalCalls() external {
         ExternalCall[] memory executorCalls = _getMockTargetRegularStaffCalls(address(_targetMock));
         vm.prank(_dualGovernance);
-        _timelock.submit(_dualGovernance, _adminExecutor, executorCalls, "");
+        _timelock.submit(_adminExecutor, executorCalls);
 
         ExternalCall[] memory calls = _timelock.getProposalCalls(1);
 
@@ -1254,7 +1326,7 @@ contract EmergencyProtectedTimelockUnitTests is UnitTest {
 
     function _submitProposal() internal {
         vm.prank(_dualGovernance);
-        _timelock.submit(_dualGovernance, _adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)), "");
+        _timelock.submit(_adminExecutor, _getMockTargetRegularStaffCalls(address(_targetMock)));
     }
 
     function _scheduleProposal(uint256 proposalId) internal {

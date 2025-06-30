@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -8,6 +9,7 @@ import {SharesValue, SharesValues} from "../types/SharesValue.sol";
 import {IndexOneBased, IndicesOneBased} from "../types/IndexOneBased.sol";
 
 import {IWithdrawalQueue} from "../interfaces/IWithdrawalQueue.sol";
+import {ISignallingEscrow} from "../interfaces/ISignallingEscrow.sol";
 
 /// @notice Tracks the stETH and unstETH tokens associated with users.
 /// @param stETHLockedShares Total number of stETH shares held by the user.
@@ -31,7 +33,7 @@ struct HolderAssets {
 struct UnstETHAccounting {
     /// @dev slot0: [0..127]
     SharesValue unfinalizedShares;
-    /// @dev slot1: [128..255]
+    /// @dev slot0: [128..255]
     ETHValue finalizedETH;
 }
 
@@ -62,7 +64,7 @@ enum UnstETHRecordStatus {
 
 /// @notice Stores information about an accounted unstETH NFT.
 /// @param status The current status of the unstETH NFT. Refer to `UnstETHRecordStatus` for details.
-/// @param index The one-based index of the unstETH NFT in the `UnstETHAccounting.unstETHIds` array.
+/// @param index The one-based index of the unstETH NFT in the `HolderAssets.unstETHIds` array.
 /// @param lockedBy The address of the account that locked the unstETH.
 /// @param shares The number of shares contained in the unstETH.
 /// @param claimableAmount The amount of claimable ETH contained in the unstETH. This value is 0
@@ -339,6 +341,30 @@ library AssetsAccounting {
             amountWithdrawn = amountWithdrawn + _withdrawUnstETHRecord(self, holder, unstETHIds[i]);
         }
         emit UnstETHWithdrawn(unstETHIds, amountWithdrawn);
+    }
+
+    // ---
+    // Getters
+    // ---
+
+    /// @notice Retrieves details of locked unstETH record for the given id.
+    /// @param unstETHId The id for the locked unstETH record to retrieve.
+    /// @return unstETHDetails A `LockedUnstETHDetails` struct containing the details for provided unstETH id.
+    function getLockedUnstETHDetails(
+        Context storage self,
+        uint256 unstETHId
+    ) internal view returns (ISignallingEscrow.LockedUnstETHDetails memory unstETHDetails) {
+        UnstETHRecord memory unstETHRecord = self.unstETHRecords[unstETHId];
+
+        if (unstETHRecord.status == UnstETHRecordStatus.NotLocked) {
+            revert InvalidUnstETHStatus(unstETHId, UnstETHRecordStatus.NotLocked);
+        }
+
+        unstETHDetails.id = unstETHId;
+        unstETHDetails.status = unstETHRecord.status;
+        unstETHDetails.lockedBy = unstETHRecord.lockedBy;
+        unstETHDetails.shares = unstETHRecord.shares;
+        unstETHDetails.claimableAmount = unstETHRecord.claimableAmount;
     }
 
     // ---

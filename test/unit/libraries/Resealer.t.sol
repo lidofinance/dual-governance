@@ -18,22 +18,22 @@ contract ResealerTest is UnitTest {
         ctx.resealCommittee = resealCommittee;
     }
 
-    function test_setResealManager_HappyPath(address newResealManager) external {
-        vm.assume(newResealManager != address(ctx.resealManager) && newResealManager != address(0));
+    function testFuzz_setResealManager_HappyPath(IResealManager newResealManager) external {
+        vm.assume(newResealManager != ctx.resealManager && address(newResealManager) != address(0));
 
         vm.expectEmit();
         emit Resealer.ResealManagerSet(newResealManager);
         this.external__setResealManager(newResealManager);
 
-        assertEq(address(ctx.resealManager), newResealManager);
+        assertEq(address(ctx.resealManager), address(newResealManager));
     }
 
     function test_setResealManager_RevertOn_InvalidResealManager() external {
         vm.expectRevert(abi.encodeWithSelector(Resealer.InvalidResealManager.selector, address(ctx.resealManager)));
-        this.external__setResealManager(address(ctx.resealManager));
+        this.external__setResealManager(ctx.resealManager);
 
         vm.expectRevert(abi.encodeWithSelector(Resealer.InvalidResealManager.selector, address(0)));
-        this.external__setResealManager(address(0));
+        this.external__setResealManager(IResealManager(address(0)));
     }
 
     function testFuzz_setResealCommittee_HappyPath(address newResealCommittee) external {
@@ -72,7 +72,7 @@ contract ResealerTest is UnitTest {
         ctx.setResealCommittee(newResealCommittee);
     }
 
-    function external__setResealManager(address newResealManager) external {
+    function external__setResealManager(IResealManager newResealManager) external {
         ctx.setResealManager(newResealManager);
     }
 }

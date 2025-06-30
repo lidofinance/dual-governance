@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -7,7 +8,7 @@ import {Timestamp} from "./types/Timestamp.sol";
 import {IStETH} from "./interfaces/IStETH.sol";
 import {IWstETH} from "./interfaces/IWstETH.sol";
 import {IWithdrawalQueue} from "./interfaces/IWithdrawalQueue.sol";
-import {IEscrow} from "./interfaces/IEscrow.sol";
+import {IEscrowBase} from "./interfaces/IEscrowBase.sol";
 import {ITimelock} from "./interfaces/ITimelock.sol";
 import {ITiebreaker} from "./interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "./interfaces/IDualGovernance.sol";
@@ -44,7 +45,9 @@ contract DualGovernance is IDualGovernance {
     error ProposalSubmissionBlocked();
     error ProposalSchedulingBlocked(uint256 proposalId);
     error ResealIsNotAllowedInNormalState();
-    error InvalidTiebreakerActivationTimeoutBounds();
+    error InvalidTiebreakerActivationTimeoutBounds(
+        Duration minTiebreakerActivationTimeout, Duration maxTiebreakerActivationTimeout
+    );
 
     // ---
     // Events
@@ -52,8 +55,8 @@ contract DualGovernance is IDualGovernance {
 
     event CancelAllPendingProposalsSkipped();
     event CancelAllPendingProposalsExecuted();
-    event EscrowMasterCopyDeployed(IEscrow escrowMasterCopy);
     event ProposalsCancellerSet(address proposalsCanceller);
+    event EscrowMasterCopyDeployed(IEscrowBase escrowMasterCopy);
 
     // ---
     // Sanity Check Parameters & Immutables
@@ -69,11 +72,13 @@ contract DualGovernance is IDualGovernance {
     /// @param maxSealableWithdrawalBlockersCount The upper bound for the number of sealable withdrawal blockers allowed to be
     ///     registered in the Dual Governance. This parameter prevents filling the sealable withdrawal blockers
     ///     with so many items that tiebreaker calls would revert due to out-of-gas errors.
+    /// @param maxMinAssetsLockDuration The upper bound for the minimum duration of assets lock in the Escrow.
     struct SanityCheckParams {
         uint256 minWithdrawalsBatchSize;
         Duration minTiebreakerActivationTimeout;
         Duration maxTiebreakerActivationTimeout;
         uint256 maxSealableWithdrawalBlockersCount;
+        Duration maxMinAssetsLockDuration;
     }
 
     /// @notice The lower bound for the time the Dual Governance must spend in the "locked" state
@@ -93,17 +98,21 @@ contract DualGovernance is IDualGovernance {
     // External Dependencies
     // ---
 
-    /// @notice The external dependencies of the Dual Governance system.
+    /// @notice Token addresses that used in the Dual Governance as signalling tokens.
     /// @param stETH The address of the stETH token.
     /// @param wstETH The address of the wstETH token.
     /// @param withdrawalQueue The address of Lido's Withdrawal Queue and the unstETH token.
-    /// @param timelock The address of the Timelock contract.
-    /// @param resealManager The address of the Reseal Manager.
-    /// @param configProvider The address of the Dual Governance Config Provider.
-    struct ExternalDependencies {
+    struct SignallingTokens {
         IStETH stETH;
         IWstETH wstETH;
         IWithdrawalQueue withdrawalQueue;
+    }
+
+    /// @notice Dependencies required by the Dual Governance contract.
+    /// @param timelock The address of the Timelock contract.
+    /// @param resealManager The address of the Reseal Manager.
+    /// @param configProvider The address of the Dual Governance Config Provider.
+    struct DualGovernanceComponents {
         ITimelock timelock;
         IResealManager resealManager;
         IDualGovernanceConfigProvider configProvider;
@@ -111,10 +120,6 @@ contract DualGovernance is IDualGovernance {
 
     /// @notice The address of the Timelock contract.
     ITimelock public immutable TIMELOCK;
-
-    /// @notice The address of the Escrow contract used as the implementation for the Signalling and Rage Quit
-    ///     instances of the Escrows managed by the DualGovernance contract.
-    IEscrow public immutable ESCROW_MASTER_COPY;
 
     // ---
     // Aspects
@@ -140,28 +145,36 @@ contract DualGovernance is IDualGovernance {
     // Constructor
     // ---
 
-    constructor(ExternalDependencies memory dependencies, SanityCheckParams memory sanityCheckParams) {
+    constructor(
+        DualGovernanceComponents memory components,
+        SignallingTokens memory signallingTokens,
+        SanityCheckParams memory sanityCheckParams
+    ) {
         if (sanityCheckParams.minTiebreakerActivationTimeout > sanityCheckParams.maxTiebreakerActivationTimeout) {
-            revert InvalidTiebreakerActivationTimeoutBounds();
+            revert InvalidTiebreakerActivationTimeoutBounds(
+                sanityCheckParams.minTiebreakerActivationTimeout, sanityCheckParams.maxTiebreakerActivationTimeout
+            );
         }
 
-        TIMELOCK = dependencies.timelock;
+        TIMELOCK = components.timelock;
 
         MIN_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.minTiebreakerActivationTimeout;
         MAX_TIEBREAKER_ACTIVATION_TIMEOUT = sanityCheckParams.maxTiebreakerActivationTimeout;
         MAX_SEALABLE_WITHDRAWAL_BLOCKERS_COUNT = sanityCheckParams.maxSealableWithdrawalBlockersCount;
 
-        ESCROW_MASTER_COPY = new Escrow({
+        IEscrowBase escrowMasterCopy = new Escrow({
             dualGovernance: this,
-            stETH: dependencies.stETH,
-            wstETH: dependencies.wstETH,
-            withdrawalQueue: dependencies.withdrawalQueue,
-            minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize
+            stETH: signallingTokens.stETH,
+            wstETH: signallingTokens.wstETH,
+            withdrawalQueue: signallingTokens.withdrawalQueue,
+            minWithdrawalsBatchSize: sanityCheckParams.minWithdrawalsBatchSize,
+            maxMinAssetsLockDuration: sanityCheckParams.maxMinAssetsLockDuration
         });
-        emit EscrowMasterCopyDeployed(ESCROW_MASTER_COPY);
 
-        _stateMachine.initialize(dependencies.configProvider, ESCROW_MASTER_COPY);
-        _resealer.setResealManager(address(dependencies.resealManager));
+        emit EscrowMasterCopyDeployed(escrowMasterCopy);
+
+        _stateMachine.initialize(components.configProvider, escrowMasterCopy);
+        _resealer.setResealManager(components.resealManager);
     }
 
     // ---
@@ -183,12 +196,14 @@ contract DualGovernance is IDualGovernance {
         ExternalCall[] calldata calls,
         string calldata metadata
     ) external returns (uint256 proposalId) {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         if (!_stateMachine.canSubmitProposal({useEffectiveState: false})) {
             revert ProposalSubmissionBlocked();
         }
         Proposers.Proposer memory proposer = _proposers.getProposer(msg.sender);
-        proposalId = TIMELOCK.submit(proposer.account, proposer.executor, calls, metadata);
+        proposalId = TIMELOCK.submit(proposer.executor, calls);
+
+        emit ProposalSubmitted(proposer.account, proposalId, metadata);
     }
 
     /// @notice Schedules a previously submitted proposal for execution in the Dual Governance system.
@@ -198,7 +213,7 @@ contract DualGovernance is IDualGovernance {
     /// @param proposalId The unique identifier of the proposal to be scheduled. This ID is obtained when the proposal
     ///     is initially submitted to the Dual Governance system.
     function scheduleProposal(uint256 proposalId) external {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         Timestamp proposalSubmittedAt = TIMELOCK.getProposalDetails(proposalId).submittedAt;
         if (!_stateMachine.canScheduleProposal({useEffectiveState: false, proposalSubmittedAt: proposalSubmittedAt})) {
             revert ProposalSchedulingBlocked(proposalId);
@@ -211,10 +226,10 @@ contract DualGovernance is IDualGovernance {
     ///     or `VetoSignallingDeactivation` state.
     /// @dev If the Dual Governance state is not `VetoSignalling` or `VetoSignallingDeactivation`, the function will
     ///     exit early, emitting the `CancelAllPendingProposalsSkipped` event without canceling any proposals.
-    /// @return isProposalsCancelled A boolean indicating whether the proposals were successfully canceled (`true`)
+    /// @return isProposalsCancelled A boolean indicating whether the proposals were successfully cancelled (`true`)
     ///     or the cancellation was skipped due to an inappropriate state (`false`).
     function cancelAllPendingProposals() external returns (bool) {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
 
         if (msg.sender != _proposalsCanceller) {
             revert CallerIsNotProposalsCanceller(msg.sender);
@@ -222,10 +237,10 @@ contract DualGovernance is IDualGovernance {
 
         if (!_stateMachine.canCancelAllPendingProposals({useEffectiveState: false})) {
             /// @dev Some proposer contracts, like Aragon Voting, may not support canceling decisions that have already
-            ///     reached consensus. This could lead to a situation where a proposer’s cancelAllPendingProposals() call
+            ///     reached consensus. This could lead to a situation where a cancelAllPendingProposals() call
             ///     becomes unexecutable if the Dual Governance state changes. However, it might become executable again if
             ///     the system state shifts back to VetoSignalling or VetoSignallingDeactivation.
-            ///     To avoid such a scenario, an early return is used instead of a revert when proposals cannot be canceled
+            ///     To avoid such a scenario, an early return is used instead of a revert when proposals cannot be cancelled
             ///     due to an unsuitable Dual Governance state.
             emit CancelAllPendingProposalsSkipped();
             return false;
@@ -237,7 +252,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     /// @notice Returns whether proposal submission is allowed based on the current `effective` state of the Dual Governance system.
-    /// @dev Proposal submission is forbidden in the `VetoSignalling` and `VetoSignallingDeactivation` states.
+    /// @dev Proposal submission is forbidden in the `VetoCooldown` and `VetoSignallingDeactivation` states.
     /// @return canSubmitProposal A boolean value indicating whether proposal submission is allowed (`true`) or not (`false`)
     ///     based on the current `effective` state of the Dual Governance system.
     function canSubmitProposal() external view returns (bool) {
@@ -248,9 +263,9 @@ contract DualGovernance is IDualGovernance {
     ///     state of the Dual Governance system, the proposal's submission time, and its current status.
     /// @dev Proposal scheduling is allowed only if all the following conditions are met:
     ///     - The Dual Governance system is in the `Normal` or `VetoCooldown` state.
-    ///     - If the system is in the `VetoCooldown` state, the proposal must have been submitted before the system
-    ///         last entered the `VetoSignalling` state.
-    ///     - The proposal has not already been scheduled, canceled, or executed.
+    ///     - If the system is in the `VetoCooldown` state, the proposal must have been submitted no later than
+    ///         when the system last entered the `VetoSignalling` state.
+    ///     - The proposal has not already been scheduled, cancelled, or executed.
     ///     - The required delay period, as defined by `ITimelock.getAfterSubmitDelay()`, has elapsed since the proposal
     ///         was submitted.
     /// @param proposalId The unique identifier of the proposal to check.
@@ -267,9 +282,9 @@ contract DualGovernance is IDualGovernance {
     ///     `DualGovernance.cancelAllPendingProposals()` method.
     /// @dev Proposal cancellation is only allowed when the Dual Governance system is in the `VetoSignalling` or
     ///     `VetoSignallingDeactivation` states. In any other state, the cancellation will be skipped and no proposals
-    ///     will be canceled.
+    ///     will be cancelled.
     /// @return canCancelAllPendingProposals A boolean value indicating whether the pending proposals can be
-    ///     canceled (`true`) or not (`false`) based on the current `effective` state of the Dual Governance system.
+    ///     cancelled (`true`) or not (`false`) based on the current `effective` state of the Dual Governance system.
     function canCancelAllPendingProposals() external view returns (bool) {
         return _stateMachine.canCancelAllPendingProposals({useEffectiveState: true});
     }
@@ -282,11 +297,11 @@ contract DualGovernance is IDualGovernance {
     /// @dev This function should be called when the `persisted` and `effective` states of the system are not equal.
     ///     If the states are already synchronized, the function will complete without making any changes to the system state.
     function activateNextState() external {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
     }
 
-    /// @notice Updates the address of the configuration provider for the Dual Governance system.
-    /// @param newConfigProvider The address of the new configuration provider contract.
+    /// @notice Sets the configuration provider for the Dual Governance system.
+    /// @param newConfigProvider The contract implementing the `IDualGovernanceConfigProvider` interface.
     function setConfigProvider(IDualGovernanceConfigProvider newConfigProvider) external {
         _checkCallerIsAdminExecutor();
         _stateMachine.setConfigProvider(newConfigProvider);
@@ -305,14 +320,14 @@ contract DualGovernance is IDualGovernance {
         emit ProposalsCancellerSet(newProposalsCanceller);
     }
 
-    /// @notice Retrieves the current proposals canceller address.
+    /// @notice Returns the current proposals canceller address.
     /// @return address The address of the current proposals canceller.
     function getProposalsCanceller() external view returns (address) {
         return _proposalsCanceller;
     }
 
-    /// @notice Returns the current configuration provider address for the Dual Governance system.
-    /// @return configProvider The address of the current configuration provider contract.
+    /// @notice Returns the current configuration provider for the Dual Governance system.
+    /// @return configProvider The contract implementing the `IDualGovernanceConfigProvider` interface.
     function getConfigProvider() external view returns (IDualGovernanceConfigProvider) {
         return _stateMachine.configProvider;
     }
@@ -376,13 +391,13 @@ contract DualGovernance is IDualGovernance {
     /// @dev Ensures that at least one proposer remains assigned to the `adminExecutor` following the update.
     ///     Reverts if updating the proposer’s executor would leave the `adminExecutor` without any associated proposer.
     /// @param proposerAccount The address of the proposer whose executor is being updated.
-    /// @param executor The new executor address to assign to the proposer.
-    function setProposerExecutor(address proposerAccount, address executor) external {
+    /// @param newExecutor The new executor address to assign to the proposer.
+    function setProposerExecutor(address proposerAccount, address newExecutor) external {
         _checkCallerIsAdminExecutor();
-        _proposers.setProposerExecutor(proposerAccount, executor);
+        _proposers.setProposerExecutor(proposerAccount, newExecutor);
 
         /// @dev after update of the proposer, check that admin executor still belongs to some proposer
-        _proposers.checkRegisteredExecutor(TIMELOCK.getAdminExecutor());
+        _proposers.checkRegisteredExecutor(msg.sender);
     }
 
     /// @notice Unregisters a proposer from the system.
@@ -398,7 +413,7 @@ contract DualGovernance is IDualGovernance {
     }
 
     /// @notice Returns the proposer data if the given `proposerAccount` is a registered proposer.
-    /// @param proposerAccount The address of the proposer to retrieve information for.
+    /// @param proposerAccount The address of the proposer to return information for.
     /// @return proposer A Proposer struct containing the data of the registered proposer, including:
     ///     - `account`: The address of the registered proposer.
     ///     - `executor`: The address of the executor associated with the proposer.
@@ -412,19 +427,19 @@ contract DualGovernance is IDualGovernance {
         proposers = _proposers.getAllProposers();
     }
 
-    /// @notice Checks whether the given `proposerAccount` is a registered proposer.
+    /// @notice Returns whether the given `proposerAccount` is a registered proposer.
     /// @param proposerAccount The address to check.
     /// @return isProposer A boolean value indicating whether the `proposerAccount` is a registered
     ///     proposer (`true`) or not (`false`).
-    function isRegisteredProposer(address proposerAccount) external view returns (bool) {
+    function isProposer(address proposerAccount) external view returns (bool) {
         return _proposers.isRegisteredProposer(proposerAccount);
     }
 
-    /// @notice Checks whether the given `executor` address is associated with an executor contract in the system.
+    /// @notice Returns whether the given `executor` address is associated with an executor contract in the system.
     /// @param executor The address to check.
     /// @return isExecutor A boolean value indicating whether the `executor` is a registered
     ///     executor (`true`) or not (`false`).
-    function isRegisteredExecutor(address executor) external view returns (bool) {
+    function isExecutor(address executor) external view returns (bool) {
         return _proposers.isRegisteredExecutor(executor);
     }
 
@@ -450,21 +465,21 @@ contract DualGovernance is IDualGovernance {
     }
 
     /// @notice Sets the new address of the tiebreaker committee in the system.
-    /// @param tiebreakerCommittee The address of the new tiebreaker committee.
-    function setTiebreakerCommittee(address tiebreakerCommittee) external {
+    /// @param newTiebreakerCommittee The address of the new tiebreaker committee.
+    function setTiebreakerCommittee(address newTiebreakerCommittee) external {
         _checkCallerIsAdminExecutor();
-        _tiebreaker.setTiebreakerCommittee(tiebreakerCommittee);
+        _tiebreaker.setTiebreakerCommittee(newTiebreakerCommittee);
     }
 
     /// @notice Sets the new value for the tiebreaker activation timeout.
     /// @dev If the Dual Governance system remains out of the `Normal` or `VetoCooldown` state for longer than
     ///     the `tiebreakerActivationTimeout` duration, the tiebreaker committee is allowed to schedule
     ///     submitted proposals.
-    /// @param tiebreakerActivationTimeout The new duration for the tiebreaker activation timeout.
-    function setTiebreakerActivationTimeout(Duration tiebreakerActivationTimeout) external {
+    /// @param newTiebreakerActivationTimeout The new duration for the tiebreaker activation timeout.
+    function setTiebreakerActivationTimeout(Duration newTiebreakerActivationTimeout) external {
         _checkCallerIsAdminExecutor();
         _tiebreaker.setTiebreakerActivationTimeout(
-            MIN_TIEBREAKER_ACTIVATION_TIMEOUT, tiebreakerActivationTimeout, MAX_TIEBREAKER_ACTIVATION_TIMEOUT
+            MIN_TIEBREAKER_ACTIVATION_TIMEOUT, newTiebreakerActivationTimeout, MAX_TIEBREAKER_ACTIVATION_TIMEOUT
         );
     }
 
@@ -472,7 +487,7 @@ contract DualGovernance is IDualGovernance {
     /// @param sealable The address of the sealable contract to be resumed.
     function tiebreakerResumeSealable(address sealable) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         _tiebreaker.checkTie(_stateMachine.getPersistedState(), _stateMachine.normalOrVetoCooldownExitedAt);
         _resealer.resealManager.resume(sealable);
     }
@@ -482,7 +497,7 @@ contract DualGovernance is IDualGovernance {
     /// @param proposalId The unique identifier of the proposal to be scheduled.
     function tiebreakerScheduleProposal(uint256 proposalId) external {
         _tiebreaker.checkCallerIsTiebreakerCommittee();
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         _tiebreaker.checkTie(_stateMachine.getPersistedState(), _stateMachine.normalOrVetoCooldownExitedAt);
         TIMELOCK.schedule(proposalId);
     }
@@ -507,7 +522,7 @@ contract DualGovernance is IDualGovernance {
     ///     the ResealManager contract.
     /// @param sealable The address of the sealable contract to be resealed.
     function resealSealable(address sealable) external {
-        _stateMachine.activateNextState(ESCROW_MASTER_COPY);
+        _stateMachine.activateNextState();
         if (_stateMachine.getPersistedState() == State.Normal) {
             revert ResealIsNotAllowedInNormalState();
         }
@@ -516,26 +531,26 @@ contract DualGovernance is IDualGovernance {
     }
 
     /// @notice Sets the address of the reseal committee.
-    /// @param resealCommittee The address of the new reseal committee.
-    function setResealCommittee(address resealCommittee) external {
+    /// @param newResealCommittee The address of the new reseal committee.
+    function setResealCommittee(address newResealCommittee) external {
         _checkCallerIsAdminExecutor();
-        _resealer.setResealCommittee(resealCommittee);
+        _resealer.setResealCommittee(newResealCommittee);
     }
 
-    /// @notice Sets the address of the Reseal Manager.
-    /// @param resealManager The address of the new Reseal Manager.
-    function setResealManager(address resealManager) external {
+    /// @notice Sets the address of the Reseal Manager contract.
+    /// @param newResealManager The contract implementing the `IResealManager` interface.
+    function setResealManager(IResealManager newResealManager) external {
         _checkCallerIsAdminExecutor();
-        _resealer.setResealManager(resealManager);
+        _resealer.setResealManager(newResealManager);
     }
 
-    /// @notice Gets the address of the Reseal Manager.
-    /// @return resealManager The address of the Reseal Manager.
+    /// @notice Returns the address of the Reseal Manager contract.
+    /// @return resealManager The contract implementing the `IResealManager` interface.
     function getResealManager() external view returns (IResealManager) {
         return _resealer.resealManager;
     }
 
-    /// @notice Gets the address of the reseal committee.
+    /// @notice Returns the address of the reseal committee.
     /// @return resealCommittee The address of the reseal committee.
     function getResealCommittee() external view returns (address) {
         return _resealer.resealCommittee;

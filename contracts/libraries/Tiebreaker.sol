@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -222,7 +223,8 @@ library Tiebreaker {
     /// @dev Retrieves the tiebreaker context from the storage.
     /// @param self The context of the Tiebreaker library.
     /// @param stateDetails A struct containing detailed information about the current state of the Dual Governance system
-    /// @return context The tiebreaker context containing the tiebreaker committee, tiebreaker activation timeout, and sealable withdrawal blockers.
+    /// @return context The tiebreaker context, including whether a tie exists, the tiebreaker committee, tiebreaker activation timeout,
+    ///     and sealable withdrawal blockers.
     function getTiebreakerDetails(
         Context storage self,
         IDualGovernance.StateDetails memory stateDetails

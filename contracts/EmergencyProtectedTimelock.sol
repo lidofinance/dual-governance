@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -12,10 +13,26 @@ import {TimelockState} from "./libraries/TimelockState.sol";
 import {ExecutableProposals} from "./libraries/ExecutableProposals.sol";
 import {EmergencyProtection} from "./libraries/EmergencyProtection.sol";
 
-/// @title EmergencyProtectedTimelock
-/// @dev A timelock contract with emergency protection functionality. The contract allows for submitting, scheduling,
-///     and executing proposals, while providing emergency protection features to prevent unauthorized execution during
-///     emergency situations.
+/// @notice Timelock contract facilitating the submission, scheduling, and execution of governance proposals.
+///     It provides time-limited Emergency Protection to prevent the execution of proposals submitted by
+///     a compromised or misbehaving (including those caused by code vulnerabilities) governance entity.
+/// @dev The proposal lifecycle:
+///
+///                                                                MIN_EXECUTION_DELAY and
+///                                         afterSubmitDelay         afterScheduleDelay
+///                                              passed                    passed
+///     ┌──────────┐            ┌───────────┐              ┌───────────┐             ╔══════════╗
+///     │ NotExist ├ submit() ─>│ Submitted ├ schedule() ─>│ Scheduled ├ execute() ─>║ Executed ║
+///     └──────────┘            └────────┬──┘              └──┬────────┘             ╚══════════╝
+///                                  cancelAllNonExecutedProposals()
+///                                      │   ╔═══════════╗    │
+///                                      └──>║ Cancelled ║<───┘
+///                                          ╚═══════════╝
+///
+///     The afterSubmit and afterSchedule delays should be configured appropriately to provide the Emergency Activation
+///     Committee sufficient time to activate Emergency Mode if a malicious proposal has been submitted or was
+///     unexpectedly scheduled for execution due to governance capture or a vulnerability in the governance contract.
+///     While Emergency Mode is active, the execution of proposals is restricted to the Emergency Execution Committee.
 contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     using TimelockState for TimelockState.Context;
     using ExecutableProposals for ExecutableProposals.Context;
@@ -102,19 +119,12 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // ---
 
     /// @notice Submits a new proposal to execute a series of calls through an executor.
-    /// @param proposer The address of the proposer submitting the proposal.
     /// @param executor The address of the executor contract that will execute the calls.
     /// @param calls An array of `ExternalCall` structs representing the calls to be executed.
-    /// @param metadata A string containing additional information about the proposal.
     /// @return newProposalId The id of the newly created proposal.
-    function submit(
-        address proposer,
-        address executor,
-        ExternalCall[] calldata calls,
-        string calldata metadata
-    ) external returns (uint256 newProposalId) {
+    function submit(address executor, ExternalCall[] calldata calls) external returns (uint256 newProposalId) {
         _timelockState.checkCallerIsGovernance();
-        newProposalId = _proposals.submit(proposer, executor, calls, metadata);
+        newProposalId = _proposals.submit(executor, calls);
     }
 
     /// @notice Schedules a proposal for execution after a specified delay.
@@ -128,7 +138,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @param proposalId The id of the proposal to be executed.
     function execute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyMode({isActive: false});
-        _proposals.execute(proposalId, _timelockState.getAfterScheduleDelay());
+        _proposals.execute(proposalId, _timelockState.getAfterScheduleDelay(), MIN_EXECUTION_DELAY);
     }
 
     /// @notice Cancels all non-executed proposals, preventing them from being executed in the future.
@@ -141,7 +151,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // Timelock Management
     // ---
 
-    /// @notice Updates the address of the governance contract.
+    /// @notice Updates the address of the governance contract  and cancels all non-executed proposals.
     /// @param newGovernance The address of the new governance contract to be set.
     function setGovernance(address newGovernance) external {
         _timelockState.checkCallerIsAdminExecutor();
@@ -180,40 +190,40 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     // ---
 
     /// @notice Sets the emergency activation committee address.
-    /// @param emergencyActivationCommittee The address of the emergency activation committee.
-    function setEmergencyProtectionActivationCommittee(address emergencyActivationCommittee) external {
+    /// @param newEmergencyActivationCommittee The address of the emergency activation committee.
+    function setEmergencyProtectionActivationCommittee(address newEmergencyActivationCommittee) external {
         _timelockState.checkCallerIsAdminExecutor();
-        _emergencyProtection.setEmergencyActivationCommittee(emergencyActivationCommittee);
+        _emergencyProtection.setEmergencyActivationCommittee(newEmergencyActivationCommittee);
     }
 
     /// @notice Sets the emergency execution committee address.
-    /// @param emergencyExecutionCommittee The address of the emergency execution committee.
-    function setEmergencyProtectionExecutionCommittee(address emergencyExecutionCommittee) external {
+    /// @param newEmergencyExecutionCommittee The address of the emergency execution committee.
+    function setEmergencyProtectionExecutionCommittee(address newEmergencyExecutionCommittee) external {
         _timelockState.checkCallerIsAdminExecutor();
-        _emergencyProtection.setEmergencyExecutionCommittee(emergencyExecutionCommittee);
+        _emergencyProtection.setEmergencyExecutionCommittee(newEmergencyExecutionCommittee);
     }
 
     /// @notice Sets the emergency protection end date.
-    /// @param emergencyProtectionEndDate The timestamp of the emergency protection end date.
-    function setEmergencyProtectionEndDate(Timestamp emergencyProtectionEndDate) external {
+    /// @param newEmergencyProtectionEndDate The timestamp of the emergency protection end date.
+    function setEmergencyProtectionEndDate(Timestamp newEmergencyProtectionEndDate) external {
         _timelockState.checkCallerIsAdminExecutor();
         _emergencyProtection.setEmergencyProtectionEndDate(
-            emergencyProtectionEndDate, MAX_EMERGENCY_PROTECTION_DURATION
+            newEmergencyProtectionEndDate, MAX_EMERGENCY_PROTECTION_DURATION
         );
     }
 
     /// @notice Sets the emergency mode duration.
-    /// @param emergencyModeDuration The duration of the emergency mode.
-    function setEmergencyModeDuration(Duration emergencyModeDuration) external {
+    /// @param newEmergencyModeDuration The duration of the emergency mode.
+    function setEmergencyModeDuration(Duration newEmergencyModeDuration) external {
         _timelockState.checkCallerIsAdminExecutor();
-        _emergencyProtection.setEmergencyModeDuration(emergencyModeDuration, MAX_EMERGENCY_MODE_DURATION);
+        _emergencyProtection.setEmergencyModeDuration(newEmergencyModeDuration, MAX_EMERGENCY_MODE_DURATION);
     }
 
     /// @notice Sets the emergency governance address.
-    /// @param emergencyGovernance The address of the emergency governance.
-    function setEmergencyGovernance(address emergencyGovernance) external {
+    /// @param newEmergencyGovernance The address of the emergency governance.
+    function setEmergencyGovernance(address newEmergencyGovernance) external {
         _timelockState.checkCallerIsAdminExecutor();
-        _emergencyProtection.setEmergencyGovernance(emergencyGovernance);
+        _emergencyProtection.setEmergencyGovernance(newEmergencyGovernance);
     }
 
     /// @notice Activates the emergency mode.
@@ -228,7 +238,11 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     function emergencyExecute(uint256 proposalId) external {
         _emergencyProtection.checkEmergencyMode({isActive: true});
         _emergencyProtection.checkCallerIsEmergencyExecutionCommittee();
-        _proposals.execute({proposalId: proposalId, afterScheduleDelay: Duration.wrap(0)});
+        _proposals.execute({
+            proposalId: proposalId,
+            afterScheduleDelay: Durations.ZERO,
+            minExecutionDelay: Durations.ZERO
+        });
     }
 
     /// @notice Deactivates the emergency mode.
@@ -258,7 +272,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     }
 
     /// @notice Returns whether the emergency mode is active.
-    /// @return isEmergencyModeActive A boolean indicating whether the emergency protection is enabled.
+    /// @return isEmergencyModeActive A boolean indicating whether the emergency mode is active.
     function isEmergencyModeActive() external view returns (bool) {
         return _emergencyProtection.isEmergencyModeActive();
     }
@@ -315,7 +329,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         return _timelockState.getAfterScheduleDelay();
     }
 
-    /// @notice Retrieves the details of a proposal.
+    /// @notice Returns the details of a proposal.
     /// @param proposalId The id of the proposal.
     /// @return proposalDetails The Proposal struct containing the details of the proposal.
     /// @return calls An array of ExternalCall structs representing the sequence of calls to be executed for the proposal.
@@ -328,33 +342,32 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
         calls = _proposals.getProposalCalls(proposalId);
     }
 
-    /// @notice Retrieves information about a proposal, excluding the external calls associated with it.
-    /// @param proposalId The id of the proposal to retrieve information for.
+    /// @notice Returns information about a proposal, excluding the external calls associated with it.
+    /// @param proposalId The id of the proposal to return information for.
     /// @return proposalDetails A ProposalDetails struct containing the details of the proposal, with the following data:
     ///     - `id`: The id of the proposal.
+    ///     - `executor`: The address of the executor responsible for executing the proposal's external calls.
+    ///     - `submittedAt`: The timestamp when the proposal was submitted.
+    ///     - `scheduledAt`: The timestamp when the proposal was scheduled for execution. Equals 0 if the proposal
+    ///            was submitted but not yet scheduled.
     ///     - `status`: The current status of the proposal. Possible values are:
-    ///         0 - The proposal does not exist.
     ///         1 - The proposal was submitted but not scheduled.
     ///         2 - The proposal was submitted and scheduled but not yet executed.
     ///         3 - The proposal was submitted, scheduled, and executed. This is the final state of the proposal lifecycle.
     ///         4 - The proposal was cancelled via cancelAllNonExecutedProposals() and cannot be scheduled or executed anymore.
     ///             This is the final state of the proposal.
-    ///     - `executor`: The address of the executor responsible for executing the proposal's external calls.
-    ///     - `submittedAt`: The timestamp when the proposal was submitted.
-    ///     - `scheduledAt`: The timestamp when the proposal was scheduled for execution. Equals 0 if the proposal
-    ///            was submitted but not yet scheduled.
     function getProposalDetails(uint256 proposalId) external view returns (ProposalDetails memory proposalDetails) {
         return _proposals.getProposalDetails(proposalId);
     }
 
-    /// @notice Retrieves the external calls associated with the specified proposal.
-    /// @param proposalId The id of the proposal to retrieve external calls for.
+    /// @notice Returns the external calls associated with the specified proposal.
+    /// @param proposalId The id of the proposal to return external calls for.
     /// @return calls An array of ExternalCall structs representing the sequence of calls to be executed for the proposal.
     function getProposalCalls(uint256 proposalId) external view returns (ExternalCall[] memory calls) {
         calls = _proposals.getProposalCalls(proposalId);
     }
 
-    /// @notice Retrieves the total number of proposals.
+    /// @notice Returns the total number of proposals.
     /// @return count The total number of proposals.
     function getProposalsCount() external view returns (uint256 count) {
         count = _proposals.getProposalsCount();
@@ -365,7 +378,7 @@ contract EmergencyProtectedTimelock is IEmergencyProtectedTimelock {
     /// @return A boolean indicating if the proposal can be executed.
     function canExecute(uint256 proposalId) external view returns (bool) {
         return !_emergencyProtection.isEmergencyModeActive()
-            && _proposals.canExecute(proposalId, _timelockState.getAfterScheduleDelay());
+            && _proposals.canExecute(proposalId, _timelockState.getAfterScheduleDelay(), MIN_EXECUTION_DELAY);
     }
 
     /// @notice Checks if a proposal can be scheduled.

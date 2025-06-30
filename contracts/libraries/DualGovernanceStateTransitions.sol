@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Lido <info@lido.fi>
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
@@ -8,7 +9,25 @@ import {DualGovernanceConfig} from "./DualGovernanceConfig.sol";
 import {State, DualGovernanceStateMachine} from "./DualGovernanceStateMachine.sol";
 
 /// @title Dual Governance State Transitions Library
-/// @notice Library containing the transitions logic for the Dual Governance system
+/// @notice Library containing the transition logic for the Dual Governance system.
+/// @dev The graph of the state transitions:
+///
+///        ┌─────────────┐     ┌──────────────────┐
+///        │    Normal   ├────>│  VetoSignalling  │<───────┐
+///     ┌─>│  [SUB, EXE] │     │      [SUB]       │<────┐  │
+///     │  └─────────────┘     │ ┌──────────────┐ │     │  │
+///     │                   ┌──┼─┤ Deactivation ├─┼──┐  │  │
+///     │                   │  │ │     [ ]      │ │  │  │  │
+///     │                   │  │ └──────────────┘ │  │  │  │
+///     │                   │  └──────────────────┘  │  │  │
+///     │  ┌──────────────┐ │     ┌──────────┐       │  │  │
+///     └──┤ VetoCooldown │<┘     │ RageQuit │<──────┘  │  │
+///        │     [EXE]    │<──────┤   [SUB]  │<─────────┘  │
+///        └──────┬───────┘       └──────────┘             │
+///               └────────────────────────────────────────┘
+///
+///     SUB - Allows proposals submission while the state is active.
+///     EXE - Allows scheduling proposals for execution while the state is active.
 library DualGovernanceStateTransitions {
     using DualGovernanceConfig for DualGovernanceConfig.Context;
 
@@ -48,7 +67,7 @@ library DualGovernanceStateTransitions {
         DualGovernanceStateMachine.Context storage self,
         DualGovernanceConfig.Context memory config
     ) private view returns (State) {
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
+        return config.isFirstSealRageQuitSupportReached(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
             : State.Normal;
     }
@@ -63,7 +82,7 @@ library DualGovernanceStateTransitions {
             return State.VetoSignalling;
         }
 
-        if (config.isSecondSealRageQuitSupportCrossed(rageQuitSupport)) {
+        if (config.isSecondSealRageQuitSupportReached(rageQuitSupport)) {
             return State.RageQuit;
         }
 
@@ -82,7 +101,7 @@ library DualGovernanceStateTransitions {
             return State.VetoSignalling;
         }
 
-        if (config.isSecondSealRageQuitSupportCrossed(rageQuitSupport)) {
+        if (config.isSecondSealRageQuitSupportReached(rageQuitSupport)) {
             return State.RageQuit;
         }
 
@@ -100,7 +119,7 @@ library DualGovernanceStateTransitions {
         if (!config.isVetoCooldownDurationPassed(self.enteredAt)) {
             return State.VetoCooldown;
         }
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
+        return config.isFirstSealRageQuitSupportReached(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
             : State.Normal;
     }
@@ -112,7 +131,7 @@ library DualGovernanceStateTransitions {
         if (!self.rageQuitEscrow.isRageQuitFinalized()) {
             return State.RageQuit;
         }
-        return config.isFirstSealRageQuitSupportCrossed(self.signallingEscrow.getRageQuitSupport())
+        return config.isFirstSealRageQuitSupportReached(self.signallingEscrow.getRageQuitSupport())
             ? State.VetoSignalling
             : State.VetoCooldown;
     }
