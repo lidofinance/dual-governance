@@ -24,7 +24,6 @@ uint256 constant POOL_ACCUMULATED_ERROR = 1000 wei;
 uint256 constant MAX_WITHDRAWALS_REQUESTS_ITERATIONS = 1000;
 uint256 constant WITHDRAWALS_BATCH_SIZE = 128;
 uint256 constant MIN_LOCKABLE_AMOUNT = 1000 wei;
-uint256 constant MAX_RAGE_QUIT_ROUNDS = 6;
 
 uint256 constant MIN_REBASE_BP = 99_90;
 uint256 constant MAX_REBASE_BP = 100_25;
@@ -64,19 +63,23 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         console.log("Using random seed:", randomSeed);
     }
 
+    function testFork_RageQuit_HappyPath_SingleRound() external {
+        _runRageQuitRounds({rageQuitRounds: 1});
+    }
+
     function testFork_RageQuitExodus_HappyPath_MultipleRounds() external {
-        uint256[] memory rebaseDeltaPercents = new uint256[](MAX_RAGE_QUIT_ROUNDS);
-        for (uint256 i = 0; i < MAX_RAGE_QUIT_ROUNDS; ++i) {
-            rebaseDeltaPercents[i] = Random.nextUint256(_random, MIN_REBASE_BP, MAX_REBASE_BP);
+        if (!vm.envOr("ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT", false)) {
+            vm.skip(
+                true,
+                "To enable this test set the env variable ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true and FORK_BLOCK_NUMBER=22732744"
+            );
+            return;
         }
 
-        // TODO: the below operation freeze the test passing at the LidoUtils._handleOracleReport()
-        // method. Seems like bug in the forge, but need to be investigated properly. Keeping it commented
-        // for now.
-        // vm.pauseGasMetering();
-        console.log("-------------------------");
-        _rebaseDeltaPercents = rebaseDeltaPercents;
+        _runRageQuitRounds({rageQuitRounds: 6});
+    }
 
+    function _runRageQuitRounds(uint256 rageQuitRounds) internal {
         if (
             (block.chainid == MAINNET_CHAIN_ID && address(_lido.stETH) != MAINNET_ST_ETH)
                 || (block.chainid == HOLESKY_CHAIN_ID && address(_lido.stETH) != HOLESKY_ST_ETH)
@@ -86,14 +89,19 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             return;
         }
 
-        if (!vm.envOr("ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT", false)) {
-            vm.skip(
-                true,
-                "To enable this test set the env variable ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true and FORK_BLOCK_NUMBER=22732744"
-            );
-            return;
+        // TODO: the below operation freeze the test passing at the LidoUtils._handleOracleReport()
+        // method. Seems like bug in the forge, but need to be investigated properly. Keeping it commented
+        // for now.
+        // vm.pauseGasMetering();
+
+        uint256[] memory rebaseDeltaPercents = new uint256[](rageQuitRounds);
+        for (uint256 i = 0; i < rageQuitRounds; ++i) {
+            rebaseDeltaPercents[i] = Random.nextUint256(_random, MIN_REBASE_BP, MAX_REBASE_BP);
         }
 
+        console.log("-------------------------");
+
+        _rebaseDeltaPercents = rebaseDeltaPercents;
         _allVetoers = _loadAllVetoers(
             _vetoersFilePath(
                 vm.envOr("REGRESSION_TEST_COMPLETE_RAGE_QUIT_STETH_VETOERS_FILENAME", string("steth_vetoers.json"))
@@ -113,7 +121,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         uint256 stEthRQAmount = 0;
         address[] memory vetoers;
 
-        for (; _round <= MAX_RAGE_QUIT_ROUNDS; ++_round) {
+        for (; _round <= rageQuitRounds; ++_round) {
             stEthRQAmount = _getStEthAmountForRageQuit(_round);
 
             console.log("stEth will be locked for RQ:", stEthRQAmount.formatEther());

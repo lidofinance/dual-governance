@@ -3,6 +3,16 @@ const { writeFile } = require('node:fs/promises');
 const MAX_ITERATIONS = 200;
 const DELAY_BETWEEN_QUERIES = 2000;
 
+// --------------------------------
+// HTTP requests retries settings
+// --------------------------------
+const REQUEST_TIMEOUT = 30000; // Max response wait time for single request; 30s
+const DELAY_BETWEEN_RETRIES_INITIAL = 1000; // 1s
+const DELAY_MULTIPLIER_BASE = 2; // Actual Delay between retries = DELAY_MULTIPLIER_BASE ^ (attempt number) * DELAY_BETWEEN_RETRIES_INITIAL
+const MAX_RETRIES_COUNT = 5;
+// Given the constants above values 30000, 1000, 2, 5 the waiting sequence for a single query will look the next:
+// [30 + 1, 30 + 2, 30 + 8, 30 + 16, 30 + 32] => The single request may take 3 minutes and 29 seconds max.
+
 const supportedNetworkPrefixes = {
     MAINNET: "eth",
     HOLESKY: "eth-holesky",
@@ -119,16 +129,66 @@ async function getLatestBlockNumber(url) {
     return (data.items && data.items[0] && data.items[0]?.height) || 0;
 }
 
-async function loadData(url) {
-    const dataRaw = await fetch(url);
-    const text = await dataRaw.text();
+async function loadData(url, responseProcessor = getCorrectJsonResponse) {
+    const dataProvider = () => fetch(url, {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+    });
+
+    const jsonData = await loadDataWithRetries(dataProvider, responseProcessor);
+
+    return jsonData;
+}
+
+/**
+ * 
+ * @param {Response} response 
+ * @returns {Promise<Record<string, unknown> | undefined>}
+ */
+async function getCorrectJsonResponse(response) {
+    if (!response.ok) {
+        console.error("HTTP Error", response.status);
+        return undefined;
+    }
+    // Response status ~=200
+
+    let responseText;
+    try {
+        responseText = await response.text();
+    } catch (e) {
+        console.error("Error getting response", e);
+        return undefined;
+    }
+    // Response body received as text
+
     let jsonData;
     try {
-        jsonData = JSON.parse(text);
-    } catch(e) {
-        console.log("Error parsing JSON", e);
-        return {};
+        jsonData = JSON.parse(responseText);
+    } catch (e) {
+        console.error("Error parsing JSON", e);
+        return undefined;
     }
+    // Response body is correct JSON
+
+    return jsonData;
+}
+
+/**
+ * 
+ * @param {Response} response 
+ * @returns {Promise<Record<string, unknown> | undefined>}
+ */
+async function getCorrectHoldersDataResponse(response) {
+    const jsonData = await getCorrectJsonResponse(response);
+
+    if (jsonData === undefined) {
+        return undefined;
+    }
+
+    if (jsonData.message != "OK") {
+        console.error("Invalid data format", jsonData);
+        return undefined;
+    }
+
     return jsonData;
 }
 
@@ -140,7 +200,7 @@ async function loadTokenInfo(url) {
 async function loadHoldersChunk(baseUrl, page, chunkAddressesAmount) {
     const url = makeUrl(baseUrl, page, chunkAddressesAmount);
     console.log("Loading", url);
-    return loadData(url);
+    return loadData(url, getCorrectHoldersDataResponse);
 }
 
 async function loadBlocksData(url) {
@@ -162,6 +222,33 @@ function checkNetworkName(name) {
     if (!networkUrlPrefix(name)) {
         throw new Error(`Unsupported network: '${name}'. Allowed: ${Object.keys(supportedNetworkPrefixes)}`);
     }
+}
+
+/**
+ * 
+ * @param {() => Promise<Response>} dataLoader
+ * @param {(response: Response) => Promise<Record<string, unknown> | undefined>} responseProcessor 
+ * @returns {Promise<Record<string, unknown>}
+ */
+async function loadDataWithRetries(dataLoader, responseProcessor) {
+    for (let tryIdx = 0; tryIdx < MAX_RETRIES_COUNT; tryIdx++) {
+        try {
+            const response = await dataLoader();
+            const data = await responseProcessor(response);
+            if (data !== undefined) {
+                return data;
+            }
+            console.log("Incorrect response returned on retry #", tryIdx + 1);
+        } catch (error) {
+            console.error("Error on retry #", tryIdx + 1, error);
+        }
+
+        const actualPauseMs = Math.pow(DELAY_MULTIPLIER_BASE, tryIdx) * DELAY_BETWEEN_RETRIES_INITIAL;
+        console.log("Wait", actualPauseMs, "ms");
+        await delay(actualPauseMs);
+    }
+
+    throw new Error(`Retry attempts exhausted after ${MAX_RETRIES_COUNT} tries`);
 }
 
 
