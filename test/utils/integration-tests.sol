@@ -1063,6 +1063,7 @@ contract DGRegressionTestSetup is DGScenarioTestSetup {
         uint256 chainId = deployArtifacts.deployConfig.chainId;
         console.log("CHAIN ID:", chainId);
         _setupFork(chainId, _getEnvForkBlockNumberOrDefault(chainId));
+        console.log("Block Number:", block.number);
 
         _setDGDeployConfig(deployArtifacts.deployConfig);
         _dgDeployedContracts = deployArtifacts.deployedContracts;
