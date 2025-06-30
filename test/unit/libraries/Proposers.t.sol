@@ -38,19 +38,19 @@ contract ProposersLibraryUnitTests is UnitTest {
 
     function test_register_RevertOn_InvalidProposerAccount() external {
         vm.expectRevert(abi.encodeWithSelector(Proposers.InvalidProposerAccount.selector, address(0)));
-        _proposers.register(address(0), _ADMIN_EXECUTOR);
+        this.external__register(address(0), _ADMIN_EXECUTOR);
     }
 
     function test_register_RevertOn_InvalidExecutor() external {
         vm.expectRevert(abi.encodeWithSelector(Proposers.InvalidExecutor.selector, address(0)));
-        _proposers.register(_ADMIN_PROPOSER, address(0));
+        this.external__register(_ADMIN_PROPOSER, address(0));
     }
 
     function test_register_RevertOn_ProposerAlreadyRegistered() external {
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerAlreadyRegistered.selector, _ADMIN_PROPOSER));
-        _proposers.register(_ADMIN_PROPOSER, _DEFAULT_EXECUTOR);
+        this.external__register(_ADMIN_PROPOSER, _DEFAULT_EXECUTOR);
     }
 
     function test_register_Emit_ProposerRegistered() external {
@@ -136,7 +136,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         assertFalse(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
-        _proposers.unregister(_DEFAULT_PROPOSER);
+        this.external__unregister(_DEFAULT_PROPOSER);
 
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
 
@@ -144,7 +144,7 @@ contract ProposersLibraryUnitTests is UnitTest {
         assertTrue(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
-        _proposers.unregister(_DEFAULT_PROPOSER);
+        this.external__unregister(_DEFAULT_PROPOSER);
     }
 
     function test_uregister_Emit_ProposerUnregistered() external {
@@ -181,14 +181,14 @@ contract ProposersLibraryUnitTests is UnitTest {
         assertFalse(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
-        _proposers.getProposer(_DEFAULT_PROPOSER);
+        this.external__getProposer(_DEFAULT_PROPOSER);
 
         _proposers.register(_ADMIN_PROPOSER, _ADMIN_EXECUTOR);
         assertTrue(_proposers.isRegisteredProposer(_ADMIN_PROPOSER));
         assertFalse(_proposers.isRegisteredProposer(_DEFAULT_PROPOSER));
 
         vm.expectRevert(abi.encodeWithSelector(Proposers.ProposerNotRegistered.selector, _DEFAULT_PROPOSER));
-        _proposers.getProposer(_DEFAULT_PROPOSER);
+        this.external__getProposer(_DEFAULT_PROPOSER);
     }
 
     // ---
@@ -388,7 +388,19 @@ contract ProposersLibraryUnitTests is UnitTest {
         _proposers.setProposerExecutor(proposer, executor);
     }
 
-    function external__checkRegisteredExecutor(address executor) external {
+    function external__checkRegisteredExecutor(address executor) external view {
         _proposers.checkRegisteredExecutor(executor);
+    }
+
+    function external__register(address proposerAccount, address executor) external {
+        _proposers.register(proposerAccount, executor);
+    }
+
+    function external__unregister(address proposerAccount) external {
+        _proposers.unregister(proposerAccount);
+    }
+
+    function external__getProposer(address proposerAccount) external view {
+        _proposers.getProposer(proposerAccount);
     }
 }

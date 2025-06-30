@@ -12,7 +12,7 @@ import {Timestamp, Timestamps} from "../types/Timestamp.sol";
 /// @param SignallingEscrow In this state, the Escrow contract functions as an on-chain oracle for measuring stakers' disagreement
 ///     with DAO decisions. Users are allowed to lock and unlock funds in the Escrow contract in this state.
 /// @param RageQuitEscrow The final state of the Escrow contract. In this state, the Escrow instance acts as an accumulator
-///     for withdrawn funds locked during the VetoSignalling phase.
+///     for withdrawn funds locked during the SignallingEscrow state.
 enum State {
     NotInitialized,
     SignallingEscrow,
@@ -52,6 +52,9 @@ library EscrowState {
     /// @param rageQuitExtensionPeriodDuration The period of time that starts after all withdrawal batches are formed,
     ///     which delays the exit from the RageQuit state of the DualGovernance. The main purpose of the rage quit
     ///     extension period is to provide enough time for users who locked their unstETH to claim it.
+    /// @param rageQuitExtensionPeriodStartedAt The timestamp when the rage quit extension period started.
+    /// @param rageQuitEthWithdrawalsDelay The waiting period after the Rage Quit process is finalized before vetoers
+    ///     can withdraw ETH from the Escrow.
     struct Context {
         /// @dev slot0: [0..7]
         State state;
@@ -167,14 +170,14 @@ library EscrowState {
     // Getters
     // ---
 
-    /// @notice Returns whether if the rage quit extension period has started.
+    /// @notice Returns whether the rage quit extension period has started.
     /// @param self The context of the Escrow State library.
     /// @return bool `true` if the rage quit extension period has started, `false` otherwise.
     function isRageQuitExtensionPeriodStarted(Context storage self) internal view returns (bool) {
         return self.rageQuitExtensionPeriodStartedAt.isNotZero();
     }
 
-    /// @notice Returns whether if the rage quit extension period has passed.
+    /// @notice Returns whether the rage quit extension period has passed.
     /// @param self The context of the Escrow State library.
     /// @return bool `true` if the rage quit extension period has passed, `false` otherwise.
     function isRageQuitExtensionPeriodPassed(Context storage self) internal view returns (bool) {

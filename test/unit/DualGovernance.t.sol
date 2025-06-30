@@ -33,6 +33,7 @@ import {IEscrowBase} from "contracts/interfaces/IEscrowBase.sol";
 
 import {UnitTest} from "test/utils/unit-test.sol";
 import {StETHMock} from "test/mocks/StETHMock.sol";
+import {WstETHMock} from "test/mocks/WstETHMock.sol";
 import {TimelockMock} from "test/mocks/TimelockMock.sol";
 import {WithdrawalQueueMock} from "test/mocks/WithdrawalQueueMock.sol";
 import {SealableMock} from "test/mocks/SealableMock.sol";
@@ -46,10 +47,9 @@ contract DualGovernanceUnitTests is UnitTest {
     address private proposalsCanceller = makeAddr("proposalsCanceller");
 
     StETHMock private immutable _STETH_MOCK = new StETHMock();
+    WstETHMock private immutable _WSTETH_MOCK = new WstETHMock(_STETH_MOCK);
     IWithdrawalQueue private immutable _WITHDRAWAL_QUEUE_MOCK = new WithdrawalQueueMock(_STETH_MOCK);
 
-    // TODO: Replace with mocks
-    IWstETH private immutable _WSTETH_STUB = IWstETH(makeAddr("WSTETH_STUB"));
     IResealManager private immutable _RESEAL_MANAGER_STUB = IResealManager(makeAddr("RESEAL_MANAGER_STUB"));
 
     TimelockMock internal _timelock = new TimelockMock(address(_executor));
@@ -76,7 +76,7 @@ contract DualGovernanceUnitTests is UnitTest {
 
     DualGovernance.SignallingTokens internal _signallingTokens = DualGovernance.SignallingTokens({
         stETH: _STETH_MOCK,
-        wstETH: _WSTETH_STUB,
+        wstETH: _WSTETH_MOCK,
         withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK
     });
 
@@ -197,7 +197,7 @@ contract DualGovernanceUnitTests is UnitTest {
             }),
             signallingTokens: DualGovernance.SignallingTokens({
                 stETH: _STETH_MOCK,
-                wstETH: _WSTETH_STUB,
+                wstETH: _WSTETH_MOCK,
                 withdrawalQueue: _WITHDRAWAL_QUEUE_MOCK
             }),
             sanityCheckParams: DualGovernance.SanityCheckParams({

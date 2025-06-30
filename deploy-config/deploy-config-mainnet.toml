@@ -1,0 +1,183 @@
+chain_id = 1
+
+# ======================
+# DUAL GOVERNANCE CONFIG
+# ======================
+
+[dual_governance]
+
+# Admin proposer and proposals canceller is DAO voting contract
+admin_proposer = "0x2e59A20f205bB85a89C53f1936454680651E618e"                 # DAO Voting *
+proposals_canceller = "0x2e59A20f205bB85a89C53f1936454680651E618e"            # DAO Voting *
+
+# Pause of next contracts should be handled by Dual Governance 
+# to prevent deadlock in case of emergency situation
+sealable_withdrawal_blockers = [
+    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",                             # Withdrawal queue *
+    "0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e"                              # VEBO *
+    ]
+
+# Committee that can extend the pause of sealable withdrawal blockers 
+# to permanent pause if it were paused by the GateSeal committee before
+reseal_committee = "0xFFe21561251c49AdccFad065C94Fb4931dF49081"               # Gnosis Multisig TBD ***
+
+# Delay of tiebreaker activation after governance locking
+tiebreaker_activation_timeout = 31536000                                      # 1 year **
+
+[dual_governance.signalling_tokens]
+
+# Signalling tokens for the Dual Governance
+st_eth = "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"                         # stETH token *
+wst_eth = "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"                        # wstETH *
+withdrawal_queue = "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1"               # Withdrawal queue *
+
+[dual_governance.sanity_check_params]
+
+# Max allowed period for assets lock duration to prevent DAO from locking user assets for a long time
+max_min_assets_lock_duration = 4147200                                        # 48 days ****
+
+# The upper bound for the number of sealable withdrawal blockers allowed to be
+# registered in the Dual Governance. This parameter prevents filling the sealable withdrawal blockers
+# with so many items that tiebreaker calls would revert due to out-of-gas errors.
+max_sealable_withdrawal_blockers_count = 255                                  # ****
+
+# The lower and upper bound for the time the Dual Governance must spend in the "locked" state
+# before the tiebreaker committee is allowed to schedule proposals.
+max_tiebreaker_activation_timeout = 63072000                                  # 2 years ****
+min_tiebreaker_activation_timeout = 15768000                                  # 6 months ****
+
+# The minimum number of withdrawal requests allowed to create during a single call of
+# the `Escrow.requestNextWithdrawalsBatch(batchSize)` method.
+min_withdrawals_batch_size = 4                                                # ****
+
+[dual_governance_config_provider]
+
+# The percentage of the total stETH supply that must be reached in the Signalling
+# Escrow to transition Dual Governance from Normal, VetoCooldown and RageQuit states to the VetoSignalling state.
+first_seal_rage_quit_support = 100                                            # 1% **
+
+# The percentage of the total stETH supply that must be reached in the
+# Signalling Escrow to transition Dual Governance into the RageQuit state.
+second_seal_rage_quit_support = 1000                                          # 10% **
+
+# The minimum duration that assets must remain locked in the Signalling Escrow contract
+# before unlocking is permitted.
+min_assets_lock_duration = 18000                                              # 5 hours **
+
+# The incremental growth of the ETH withdrawal delay with each "continuous"
+# Rage Quit (a Rage Quit is considered continuous if, between two Rage Quits, Dual Governance has not re-entered
+# the Normal state).
+rage_quit_eth_withdrawals_delay_growth = 1296000                              # 15 days **
+
+# The maximum and minimum delay for ETH withdrawals after the Rage Quit process completes.
+rage_quit_eth_withdrawals_min_delay = 5184000                                 # 60 days **
+rage_quit_eth_withdrawals_max_delay = 15552000                                # 180 days **
+
+# The duration of the Rage Quit Extension Period to allow ntf holders to withdraw their assets
+rage_quit_extension_period_duration = 604800                                  # 7 days **
+
+# The duration of the VetoCooldown state.
+veto_cooldown_duration = 18000                                                # 5 hours **
+
+# The maximum duration of the VetoSignallingDeactivation state.
+veto_signalling_deactivation_max_duration = 259200                            # 3 days **
+
+# The minimum duration of the VetoSignalling state before it can be exited.
+veto_signalling_min_active_duration = 18000                                   # 5 hours **
+
+# The maximum and minimum duration of the VetoSignalling state.
+veto_signalling_min_duration =  432000                                        # 5 days ****
+veto_signalling_max_duration = 3888000                                        # 45 days****
+
+# ======================
+# EMERGENCY PROTECTED TIMELOCK CONFIG
+# ======================
+
+[timelock]
+# Delays required for proposal scheduling and execution
+after_submit_delay = 259200                                                   # 3 days ****
+after_schedule_delay = 86400                                                  # 1 days ****
+
+[timelock.sanity_check_params]
+
+# Represents the minimum allowed time that must pass between the submission of a proposal and its execution.
+min_execution_delay = 259200                                                  # 3 days **
+
+# The upper bound for the delays required for proposal scheduling and execution.
+max_after_submit_delay = 2592000                                              # 30 days ****
+max_after_schedule_delay = 864000                                             # 10 days ****
+
+# The upper bound for the time the timelock can remain in emergency mode.
+max_emergency_mode_duration = 31536000                                        # 1 year ****
+
+# The upper bound for the time the emergency protection mechanism can be activated.
+max_emergency_protection_duration = 94608000                                  # 3 years ****
+
+[timelock.emergency_protection]
+
+# Committee that can activate the emergency protection mechanism
+emergency_activation_committee = "0x8B7854488Fde088d686Ea672B6ba1A5242515f45" # Gnosis Multisig 4 of 7 ***
+
+# Committee that can execute proposals during the emergency protection or reset governance to emergency governance
+emergency_execution_committee = "0xC7792b3F2B399bB0EdF53fECDceCeB97FBEB18AF"  # Gnosis Multisig 5 of 7 ***
+
+# The address of the proposer that can make proposals during if emergency governance is activated
+emergency_governance_proposer = "0xdd778153c3d0AE1B70fe81E0219b5D2C3e3951C2"  # Gnosis Multisig for Dry run 3 of 5 ***
+
+# Duration of the emergency mode in seconds
+emergency_mode_duration = 2592000                                             # 1 month
+
+# This parameter defines the end timestamp (in seconds since the Unix epoch) for the emergency protection period,
+# during which the Emergency Activation Committee retains its powers.
+emergency_protection_end_date = 1781913600                                    # Sat Jun 20 2026 00:00:00 GMT+0000 ****
+
+# ======================
+# TIEBREAKER CONFIG
+# ======================
+
+[tiebreaker]
+execution_delay = 2592000                                                     # 1 month **
+committees_count = 3                                                          # ***
+quorum = 2                                                                    # ***
+
+[[tiebreaker.committees]] # Builders
+members = [
+    "0x805fa0f79dc0ddcd73dcbc23487d2d5bd77de598",
+    "0x49769c3443c74f144991ca560ba5f635581b8176",
+    "0x9A921867EbB579D137184b397E7D087f1ae716fd",
+    "0x81000e270B4f66B8666544E8FEc073e0a23FFf00",
+    "0xD8a9072D82a28307279aC0aD3c97Cb61bEe67952"
+    ]
+quorum = 3
+
+[[tiebreaker.committees]] # Node Operators
+members = [
+    "0x9837b0Db0b733DED04D96a0A25Ba1E414A6C4c08",
+    "0xDBD124e898839ec8C829d806C0328f069d1bB810",
+    "0xf8Bfa395744Cb25fa4368Ffe2344Dc35546092d9",
+    "0x8103E9eDC04d87F6DA24A3a0c7778daE689E9D63",
+    "0xfcd02c040cea45dc6cec3e24f1d3946fce7077b0",
+    "0xD7cABE01709c7E36e9D1fb3248A19b525578a1Fc",
+    "0x8ed4dfd3A610CCF1FB45e797bf5D8e0f93084F22"
+    ]
+quorum = 5
+
+[[tiebreaker.committees]] # Ethereum Ecosystem
+members = [
+    "0x80B2D9FA613c35Ec52B0dA5D84e6A819bcc5e369",
+    "0xEC7ABf73f339361ecCA951E1746C90a3e6205BFC",
+    "0xb04b6fb471e766d7f21a6aa0e4e25b2aea0a75ab",
+    "0x60BDa95a40d5536303BFcf84D679ca461A23398d",
+    "0x5d60F5d653Cc318d1f0ABacd83eD4feeAa6e5804"
+    ]
+quorum = 3
+
+# ======================
+# DAO TIMELOCKED GOVERNANCE
+# ======================
+
+[timelocked_governance]
+
+# The address of the DAO Voting contract that will be use as proposer in case of emergency reset
+governance="0x2e59A20f205bB85a89C53f1936454680651E618e"                       # DAO Voting *
+timelock="0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316"
