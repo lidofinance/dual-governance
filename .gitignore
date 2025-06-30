@@ -19,8 +19,11 @@ out/
 /kout
 
 # Deploy configs
-
 deploy-config/*
 !deploy-config/deploy-config-holesky.toml
 !deploy-config/deploy-config-mainnet.toml
 !deploy-config/deploy-config-hoodi.toml
+
+
+# Permissions transition output
+/scripts/permissions-transition/transition-plans/*.md

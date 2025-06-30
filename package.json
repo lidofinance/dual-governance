@@ -28,10 +28,14 @@
     ]
   },
   "devDependencies": {
+    "dotenv": "^17.0.0",
+    "ethers": "^6.14.4",
     "husky": "^9.0.10",
     "lint-staged": "^15.2.2",
+    "node-fetch": "^2.7.0",
     "solhint": "^4.1.1",
-    "solhint-plugin-lido": "^0.0.4"
+    "solhint-plugin-lido": "^0.0.4",
+    "ts-node": "^10.9.2"
   },
   "packageManager": "npm@11.0.0+sha512.11dff29565d2297c74e7c594a9762581bde969f0aa5cbe6f5b3644bf008a16c065ece61094d9ffbb81125be38df8e1ba43eb8244b3d30c61eb797e9a2440e3ec"
 }
