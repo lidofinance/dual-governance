@@ -43,10 +43,8 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     using DecimalsFormatting for uint256;
     using DecimalsFormatting for PercentD16;
 
-    address private _stEthAccumulator = makeAddr("stEthAccumulator");
     uint8 private _round = 1;
     uint256 private _lastVetoerIndex;
-    uint256 private _lockedStEthSharesForCurrentRound;
     address[] private _allVetoers;
     mapping(address vetoer => uint256[] unStEthIds) private _lockedUnStEthIds;
     uint256[] private _allVetoersUnstEthIds;
@@ -71,7 +69,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         if (!vm.envOr("ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT", false)) {
             vm.skip(
                 true,
-                "To enable this test set the env variable ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true and FORK_BLOCK_NUMBER=22732744"
+                "To enable this test set the env variable ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=true and MAINNET_FORK_BLOCK_NUMBER=22732744"
             );
             return;
         }
@@ -230,7 +228,6 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             _assertNormalState();
             ISignallingEscrow vsEscrow = _getVetoSignallingEscrow();
             vm.label(address(vsEscrow), "VetoSignallingEscrow");
-            uint256 escrowInitialSharesBalance = _lido.stETH.sharesOf(address(vsEscrow));
 
             for (uint256 i = 0; i < vetoers.length; ++i) {
                 uint256 vetoerStEthBalance = _lido.stETH.balanceOf(vetoers[i]);
@@ -272,7 +269,6 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                         : _vetoersUnStEthShares[vetoers[i]] - lockedUnStEthShares;
                 }
             }
-            _lockedStEthSharesForCurrentRound = _lido.stETH.sharesOf(address(vsEscrow)) - escrowInitialSharesBalance;
 
             console.log("RQ support(%):", vsEscrow.getRageQuitSupport().toUint256() / 10 ** 16);
 
@@ -299,7 +295,6 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             _assertRageQuitState();
         }
 
-        uint256 beforeFinalizationShareRate = _lido.stETH.getPooledEthByShares(10 ** 27);
         _stepMsg("5. Claiming withdrawals.");
         {
             IRageQuitEscrow rqEscrow = _getRageQuitEscrow();
@@ -357,16 +352,17 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                 }
 
                 if (vetoersStEthSharesBefore[i] > 0) {
+                    ISignallingEscrow.SignallingEscrowDetails memory escrowDetails =
+                        ISignallingEscrow(address(rqEscrow)).getSignallingEscrowDetails();
                     uint256 vetoerETHBalanceBefore = vetoers[i].balance;
                     _withdrawEthByVetoerStEth(vetoers[i], rqEscrow);
 
                     assertApproxEqAbs(_lido.stETH.balanceOf(vetoers[i]), 0, MIN_LOCKABLE_AMOUNT + ACCURACY);
                     assertLe(_lido.wstETH.getStETHByWstETH(_lido.wstETH.balanceOf(vetoers[i])), MIN_LOCKABLE_AMOUNT);
 
-                    // Calculating balance using share rate before the finalization of the requests. During request finalization
-                    // share rate may change a bit, what will lead to diff in balance if StETH.getPooledEthByShares() will be used
-                    uint256 expectedVetoerBalance =
-                        vetoerETHBalanceBefore + beforeFinalizationShareRate * vetoersStEthSharesBefore[i] / 10 ** 27;
+                    uint256 expectedVetoerBalance = vetoerETHBalanceBefore
+                        + vetoersStEthSharesBefore[i] * escrowDetails.totalStETHClaimedETH.toUint256()
+                            / escrowDetails.totalStETHLockedShares.toUint256();
 
                     assertApproxEqAbs(
                         vetoers[i].balance,
