@@ -456,6 +456,8 @@ library LidoUtils {
         }
 
         {
+            // TODO: temporarily added 1 gwei to fix OutOfFunds error. Need to fix it properly in a separate PR.
+            vm.deal(self.withdrawalVault, self.withdrawalVault.balance + 1 gwei);
             vm.startPrank(address(self.accountingOracle));
             _handleOracleReport(
                 self,
