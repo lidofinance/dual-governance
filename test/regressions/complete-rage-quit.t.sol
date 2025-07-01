@@ -387,6 +387,11 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     }
 
     function _prepareVetoer(address vetoerCandidate, uint256 index) internal returns (address[] memory vetoers) {
+        if (vetoerCandidate == address(_getVetoSignallingEscrow()) || vetoerCandidate == address(_getRageQuitEscrow()))
+        {
+            return vetoers;
+        }
+
         // solhint-disable-next-line var-name-mixedcase
         uint256 VETOER_MAX_BALANCE_THRESHOLD = (_lido.stETH.totalSupply() * 5) / 100;
 
@@ -567,6 +572,9 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
 
         uint256 holdersHaveStEthActualShares;
         for (uint256 i = startPos; i < vetoers.length; ++i) {
+            if (vetoers[i] == address(_getVetoSignallingEscrow()) || vetoers[i] == address(_getRageQuitEscrow())) {
+                continue;
+            }
             uint256 vetoerStEthShares = _lido.stETH.sharesOf(vetoers[i]) + _lido.wstETH.balanceOf(vetoers[i])
                 + _vetoersUnStEthShares[vetoers[i]];
             holdersHaveStEthActualShares += vetoerStEthShares;
@@ -657,10 +665,13 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             return;
         }
 
+        _vetoersUnStEthShares[vetoer] = 0;
+
         for (uint256 i = 0; i < _allVetoersUnstEthIds.length; ++i) {
             if (!allStatuses[i].isFinalized && !allStatuses[i].isClaimed && allStatuses[i].owner == vetoer) {
                 vm.prank(vetoer);
                 _lido.withdrawalQueue.transferFrom(vetoer, to, _allVetoersUnstEthIds[i]);
+                _vetoersUnStEthShares[to] += allStatuses[i].amountOfShares;
             }
         }
     }
