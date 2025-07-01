@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Vm} from "forge-std/Vm.sol";
-import {stdJson} from "forge-std/stdJson.sol";
+import {stdJson} from "forge-std/StdJson.sol";
 import {stdToml} from "forge-std/StdToml.sol";
 
 import {Duration, Durations} from "contracts/types/Duration.sol";
