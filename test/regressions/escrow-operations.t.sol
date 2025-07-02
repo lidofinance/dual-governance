@@ -361,6 +361,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                 2 * ACCURACY
             );
 
+            // TODO: temporarily using assertApproxEqAbs. Need to fix it properly in a separate PR
             assertApproxEqAbs(
                 escrow.getRageQuitSupport().toUint256(),
                 PercentsD16.fromFraction({
@@ -368,6 +369,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                         + _lido.stETH.getPooledEthByShares(wstETHAmount + _initialLockedShares + _initialLockedUnStETHShares),
                     denominator: _lido.stETH.totalSupply()
                 }).toUint256(),
+                // TODO: temporarily increased delta to 10 * ACCURACY to fix possible rounding error. Need to fix it properly in a separate PR.
                 10 * ACCURACY
             );
         }
@@ -411,6 +413,7 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                     numerator: supportAmount,
                     denominator: _lido.stETH.totalSupply() + ethAmountFinalized
                 }).toUint256(),
+                // TODO: temporarily increased delta to 10 * ACCURACY to fix possible rounding error. Need to fix it properly in a separate PR.
                 10 * ACCURACY
             );
         }
