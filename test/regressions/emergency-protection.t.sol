@@ -32,7 +32,7 @@ contract EmergencyProtectionRegressionTest is DGRegressionTestSetup {
             bytes32 runScriptRole = _lido.agent.RUN_SCRIPT_ROLE();
 
             if (!_lido.acl.hasPermission(adminExecutor, agent, runScriptRole)) {
-                vm.startPrank(voting);
+                vm.startPrank(_lido.acl.getPermissionManager(agent, runScriptRole));
                 {
                     _lido.acl.grantPermission(adminExecutor, agent, runScriptRole);
                     _lido.acl.revokePermission(voting, agent, runScriptRole);
