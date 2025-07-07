@@ -288,6 +288,12 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
                 vm.stopPrank();
             }
 
+            if (!_lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())) {
+                vm.startPrank(address(_lido.voting));
+                _lido.acl.grantPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE());
+                vm.stopPrank();
+            }
+
             address executeRoleManager =
                 _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.EXECUTE_ROLE());
 
@@ -298,6 +304,12 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
                         address(_lido.voting), address(_lido.agent), _lido.agent.EXECUTE_ROLE()
                     );
                 }
+                vm.stopPrank();
+            }
+
+            if (!_lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.EXECUTE_ROLE())) {
+                vm.startPrank(address(_lido.voting));
+                _lido.acl.grantPermission(address(_lido.voting), address(_lido.agent), _lido.agent.EXECUTE_ROLE());
                 vm.stopPrank();
             }
         }
