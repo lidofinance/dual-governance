@@ -126,6 +126,35 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
             dgStateVerifier = new MockDGStateVerifier();
         }
 
+        _step("7.1 Prepare Voting Permissions");
+        {
+            address runScriptRoleManager =
+                _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE());
+
+            if (runScriptRoleManager != address(_lido.voting)) {
+                vm.startPrank(runScriptRoleManager);
+                {
+                    _lido.acl.setPermissionManager(
+                        address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                    );
+                }
+                vm.stopPrank();
+            }
+
+            address executeRoleManager =
+                _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.EXECUTE_ROLE());
+
+            if (executeRoleManager != address(_lido.voting)) {
+                vm.startPrank(executeRoleManager);
+                {
+                    _lido.acl.setPermissionManager(
+                        address(_lido.voting), address(_lido.agent), _lido.agent.EXECUTE_ROLE()
+                    );
+                }
+                vm.stopPrank();
+            }
+        }
+
         _step("8. Activate Dual Governance with DAO Voting");
         {
             CallsScriptBuilder.Context memory voteScriptBuilder = CallsScriptBuilder.create();
@@ -242,6 +271,47 @@ contract DGLaunchStrategiesScenarioTest is DGScenarioTestSetup {
         _step("1. Validate The DG Initial State After Deployment");
         {
             DeployVerification.verify(_deployArtifact);
+        }
+
+        _step("1.1 Prepare Voting Permissions");
+        {
+            address runScriptRoleManager =
+                _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE());
+
+            if (runScriptRoleManager != address(_lido.voting)) {
+                vm.startPrank(runScriptRoleManager);
+                {
+                    _lido.acl.setPermissionManager(
+                        address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE()
+                    );
+                }
+                vm.stopPrank();
+            }
+
+            if (!_lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE())) {
+                vm.startPrank(address(_lido.voting));
+                _lido.acl.grantPermission(address(_lido.voting), address(_lido.agent), _lido.agent.RUN_SCRIPT_ROLE());
+                vm.stopPrank();
+            }
+
+            address executeRoleManager =
+                _lido.acl.getPermissionManager(address(_lido.agent), _lido.agent.EXECUTE_ROLE());
+
+            if (executeRoleManager != address(_lido.voting)) {
+                vm.startPrank(executeRoleManager);
+                {
+                    _lido.acl.setPermissionManager(
+                        address(_lido.voting), address(_lido.agent), _lido.agent.EXECUTE_ROLE()
+                    );
+                }
+                vm.stopPrank();
+            }
+
+            if (!_lido.acl.hasPermission(address(_lido.voting), address(_lido.agent), _lido.agent.EXECUTE_ROLE())) {
+                vm.startPrank(address(_lido.voting));
+                _lido.acl.grantPermission(address(_lido.voting), address(_lido.agent), _lido.agent.EXECUTE_ROLE());
+                vm.stopPrank();
+            }
         }
 
         _step("2. Activate Emergency Mode");
