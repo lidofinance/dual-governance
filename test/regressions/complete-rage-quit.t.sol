@@ -39,6 +39,7 @@ enum VetoerTokenType {
 }
 
 contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
+    using Random for Random.Context;
     using LidoUtils for LidoUtils.Context;
     using DecimalsFormatting for uint256;
     using DecimalsFormatting for PercentD16;
@@ -47,9 +48,8 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     uint256 private _lastVetoerIndex;
     address[] private _allVetoers;
     mapping(address vetoer => uint256[] unStEthIds) private _lockedUnStEthIds;
-    uint256[] private _allVetoersUnstEthIds;
+    mapping(address vetoer => uint256[] unStEthIds) private _allVetoersUnstEthIds;
     mapping(address vetoer => uint256 totalClaimedETH) private _vetoersClaimedETH;
-    mapping(address vetoer => uint256 shares) private _vetoersUnStEthShares;
     Random.Context internal _random;
     uint256[] private _rebaseDeltaPercents;
 
@@ -232,7 +232,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             for (uint256 i = 0; i < vetoers.length; ++i) {
                 uint256 vetoerStEthBalance = _lido.stETH.balanceOf(vetoers[i]);
                 uint256 vetoerWStEthBalance = _lido.wstETH.balanceOf(vetoers[i]);
-                uint256 vetoerUnStEthShares = _vetoersUnStEthShares[vetoers[i]];
+                (, uint256 vetoerUnStEthBalance) = _getVetoerUnStEthBalances(vetoers[i]);
 
                 if (vetoerStEthBalance < MIN_LOCKABLE_AMOUNT) {
                     vetoerStEthBalance = 0;
@@ -242,8 +242,8 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                     vetoerWStEthBalance = 0;
                 }
 
-                if (vetoerUnStEthShares < _lido.stETH.getSharesByPooledEth(MIN_LOCKABLE_AMOUNT)) {
-                    vetoerUnStEthShares = 0;
+                if (vetoerUnStEthBalance < MIN_LOCKABLE_AMOUNT) {
+                    vetoerUnStEthBalance = 0;
                 }
 
                 vetoersBalancesBefore[i] = vetoers[i].balance;
@@ -259,14 +259,13 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
                     _lockWstETH(vetoers[i], vetoerWStEthBalance);
                 }
 
-                if (vetoerUnStEthShares > 0) {
-                    (uint256[] memory unStEthIds, uint256 lockedUnStEthShares) =
-                        _getVetoerLockableUnStEthIds(vetoers[i]);
-                    _lockUnstETH(vetoers[i], unStEthIds);
-                    _lockedUnStEthIds[vetoers[i]] = unStEthIds;
-                    _vetoersUnStEthShares[vetoers[i]] = _vetoersUnStEthShares[vetoers[i]] < lockedUnStEthShares
-                        ? 0
-                        : _vetoersUnStEthShares[vetoers[i]] - lockedUnStEthShares;
+                if (vetoerUnStEthBalance > 0) {
+                    uint256[] memory unStEthIds = _getVetoerLockableUnStEthIds(vetoers[i]);
+
+                    if (unStEthIds.length > 0) {
+                        _lockUnstETH(vetoers[i], unStEthIds);
+                        _lockedUnStEthIds[vetoers[i]] = unStEthIds;
+                    }
                 }
             }
 
@@ -408,7 +407,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
 
         uint256 totalStEthEquivalent = _lido.stETH.balanceOf(vetoerCandidate);
         uint256 vetoerWStEthBalance = _lido.wstETH.balanceOf(vetoerCandidate);
-        uint256 vetoerUnStEthBalance = _lido.stETH.getPooledEthByShares(_vetoersUnStEthShares[vetoerCandidate]);
+        (, uint256 vetoerUnStEthBalance) = _getVetoerUnStEthBalances(vetoerCandidate);
 
         if (vetoerWStEthBalance > 0) {
             totalStEthEquivalent += _lido.wstETH.getStETHByWstETH(vetoerWStEthBalance);
@@ -530,6 +529,7 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             allVetoers[last + i] = stEthHolders.addresses[i];
         }
         last += stEthHolders.addresses.length;
+        allVetoers = _shuffleVetoersPart(allVetoers, unstEthHolders.addresses.length);
     }
 
     function _loadUnStEthVetoers() internal returns (VetoersFile memory addrsData) {
@@ -542,21 +542,21 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             return addrsData;
         }
 
-        _allVetoersUnstEthIds = new uint256[](lastRequestId - lastFinalizedId);
-        for (uint256 i = 0; i < _allVetoersUnstEthIds.length; ++i) {
-            _allVetoersUnstEthIds[i] = lastFinalizedId + 1 + i;
+        uint256[] memory allUnstEthIds = new uint256[](lastRequestId - lastFinalizedId);
+        for (uint256 i = 0; i < allUnstEthIds.length; ++i) {
+            allUnstEthIds[i] = lastFinalizedId + 1 + i;
         }
 
         IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalStatuses =
-            _lido.withdrawalQueue.getWithdrawalStatus(_allVetoersUnstEthIds);
+            _lido.withdrawalQueue.getWithdrawalStatus(allUnstEthIds);
 
         uint256 uniqueOwnersCount = 0;
-        address[] memory allOwners = new address[](_allVetoersUnstEthIds.length);
-        for (uint256 i = 0; i < _allVetoersUnstEthIds.length; ++i) {
-            if (_vetoersUnStEthShares[withdrawalStatuses[i].owner] == 0) {
+        address[] memory allOwners = new address[](allUnstEthIds.length);
+        for (uint256 i = 0; i < allUnstEthIds.length; ++i) {
+            if (_allVetoersUnstEthIds[withdrawalStatuses[i].owner].length == 0) {
                 uniqueOwnersCount++;
             }
-            _vetoersUnStEthShares[withdrawalStatuses[i].owner] += withdrawalStatuses[i].amountOfShares;
+            _allVetoersUnstEthIds[withdrawalStatuses[i].owner].push(allUnstEthIds[i]);
             allOwners[i] = withdrawalStatuses[i].owner;
         }
 
@@ -575,8 +575,9 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
             if (vetoers[i] == address(_getVetoSignallingEscrow()) || vetoers[i] == address(_getRageQuitEscrow())) {
                 continue;
             }
-            uint256 vetoerStEthShares = _lido.stETH.sharesOf(vetoers[i]) + _lido.wstETH.balanceOf(vetoers[i])
-                + _vetoersUnStEthShares[vetoers[i]];
+            (uint256 vetoerUnStEthShares,) = _getVetoerUnStEthBalances(vetoers[i]);
+            uint256 vetoerStEthShares =
+                _lido.stETH.sharesOf(vetoers[i]) + _lido.wstETH.balanceOf(vetoers[i]) + vetoerUnStEthShares;
             holdersHaveStEthActualShares += vetoerStEthShares;
             if (holdersHaveStEthActualShares >= stEthRQShares) {
                 console.log("RQ possible:", stEthRQShares < holdersHaveStEthActualShares);
@@ -627,17 +628,31 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         }
     }
 
-    function _getVetoerLockableUnStEthIds(address vetoer)
-        internal
-        view
-        returns (uint256[] memory unStEthIds, uint256 shares)
-    {
-        IWithdrawalQueue.WithdrawalRequestStatus[] memory allStatuses =
-            _lido.withdrawalQueue.getWithdrawalStatus(_allVetoersUnstEthIds);
+    function _shuffleVetoersPart(
+        address[] memory vetoers,
+        uint256 startIndex
+    ) internal returns (address[] memory shuffledVetoers) {
+        uint256[] memory randomIndicesPermutation = _random.nextPermutation(vetoers.length - startIndex, startIndex);
+
+        shuffledVetoers = new address[](vetoers.length);
+        for (uint256 i = 0; i < vetoers.length; ++i) {
+            shuffledVetoers[i] = vetoers[i];
+        }
+        for (uint256 i = startIndex; i < vetoers.length; ++i) {
+            shuffledVetoers[i] = vetoers[randomIndicesPermutation[i - startIndex]];
+        }
+    }
+
+    function _getVetoerLockableUnStEthIds(address vetoer) internal view returns (uint256[] memory unStEthIds) {
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory vetoerUnstEthStatuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(_allVetoersUnstEthIds[vetoer]);
 
         uint256 lockableUnStEthsCount = 0;
-        for (uint256 i = 0; i < _allVetoersUnstEthIds.length; ++i) {
-            if (!allStatuses[i].isFinalized && !allStatuses[i].isClaimed && allStatuses[i].owner == vetoer) {
+        for (uint256 i = 0; i < vetoerUnstEthStatuses.length; ++i) {
+            if (
+                !vetoerUnstEthStatuses[i].isFinalized && !vetoerUnstEthStatuses[i].isClaimed
+                    && vetoerUnstEthStatuses[i].owner == vetoer
+            ) {
                 lockableUnStEthsCount++;
             }
         }
@@ -645,35 +660,36 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
         unStEthIds = new uint256[](lockableUnStEthsCount);
 
         if (lockableUnStEthsCount == 0) {
-            return (unStEthIds, shares);
+            return unStEthIds;
         }
 
         uint256 lastUnStEthIndex = 0;
-        for (uint256 i = 0; i < _allVetoersUnstEthIds.length; ++i) {
-            if (!allStatuses[i].isFinalized && !allStatuses[i].isClaimed && allStatuses[i].owner == vetoer) {
-                unStEthIds[lastUnStEthIndex] = _allVetoersUnstEthIds[i];
+        for (uint256 i = 0; i < vetoerUnstEthStatuses.length; ++i) {
+            if (
+                !vetoerUnstEthStatuses[i].isFinalized && !vetoerUnstEthStatuses[i].isClaimed
+                    && vetoerUnstEthStatuses[i].owner == vetoer
+            ) {
+                unStEthIds[lastUnStEthIndex] = _allVetoersUnstEthIds[vetoer][i];
                 lastUnStEthIndex++;
-                shares += allStatuses[i].amountOfShares;
             }
         }
     }
 
     function _transferVetoerContractNonZeroUnStEthsTo(address vetoer, address to) internal {
-        IWithdrawalQueue.WithdrawalRequestStatus[] memory allStatuses =
-            _lido.withdrawalQueue.getWithdrawalStatus(_allVetoersUnstEthIds);
-        if (_vetoersUnStEthShares[vetoer] == 0) {
-            return;
-        }
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory vetoerUnstEthStatuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(_allVetoersUnstEthIds[vetoer]);
 
-        _vetoersUnStEthShares[vetoer] = 0;
-
-        for (uint256 i = 0; i < _allVetoersUnstEthIds.length; ++i) {
-            if (!allStatuses[i].isFinalized && !allStatuses[i].isClaimed && allStatuses[i].owner == vetoer) {
+        for (uint256 i = 0; i < vetoerUnstEthStatuses.length; ++i) {
+            if (
+                !vetoerUnstEthStatuses[i].isFinalized && !vetoerUnstEthStatuses[i].isClaimed
+                    && vetoerUnstEthStatuses[i].owner == vetoer
+            ) {
                 vm.prank(vetoer);
-                _lido.withdrawalQueue.transferFrom(vetoer, to, _allVetoersUnstEthIds[i]);
-                _vetoersUnStEthShares[to] += allStatuses[i].amountOfShares;
+                _lido.withdrawalQueue.transferFrom(vetoer, to, _allVetoersUnstEthIds[vetoer][i]);
+                _allVetoersUnstEthIds[to].push(_allVetoersUnstEthIds[vetoer][i]);
             }
         }
+        delete _allVetoersUnstEthIds[vetoer];
     }
 
     function _claimUnstEths(address vetoer, IRageQuitEscrow rqEscrow) internal {
@@ -734,6 +750,22 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
 
             uint256 vetoerETHAfter = vetoer.balance;
             assertEq(vetoerETHAfter - vetoerETHBefore, _vetoersClaimedETH[vetoer]);
+        }
+    }
+
+    function _getVetoerUnStEthBalances(address vetoer) internal view returns (uint256 shares, uint256 stEthAmount) {
+        uint256[] memory ids = _allVetoersUnstEthIds[vetoer];
+        IWithdrawalQueue.WithdrawalRequestStatus[] memory withdrawalStatuses =
+            _lido.withdrawalQueue.getWithdrawalStatus(ids);
+
+        for (uint256 i = 0; i < withdrawalStatuses.length; ++i) {
+            if (
+                !withdrawalStatuses[i].isFinalized && !withdrawalStatuses[i].isClaimed
+                    && withdrawalStatuses[i].owner == vetoer
+            ) {
+                shares += withdrawalStatuses[i].amountOfShares;
+                stEthAmount += withdrawalStatuses[i].amountOfStETH;
+            }
         }
     }
 
