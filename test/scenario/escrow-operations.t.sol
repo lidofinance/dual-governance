@@ -356,6 +356,107 @@ contract EscrowOperationsScenarioTest is DGScenarioTestSetup {
         }
     }
 
+    function testFork_startRageQuitExtensionPeriod_MayBeCalledOnlyOnce() external {
+        _step("1. Lock enough funds to enter RageQuit");
+        {
+            _lockStETH(_VETOER_1, _lido.stETH.balanceOf(_VETOER_1));
+            _lockStETH(_VETOER_2, _lido.stETH.balanceOf(_VETOER_2));
+            _lockWstETH(_VETOER_2, _lido.wstETH.balanceOf(_VETOER_2));
+
+            _assertVetoSignalingState();
+            assertTrue(_getCurrentRageQuitSupport() >= _getSecondSealRageQuitSupport());
+        }
+
+        _step("2. Wait full VetoSignallingDuration and enter RageQuit state");
+        {
+            _wait(_getVetoSignallingMaxDuration().plusSeconds(1));
+
+            _activateNextState();
+            _assertRageQuitState();
+        }
+
+        uint256 batchSizeLimit = 16;
+        Escrow rqEscrow = Escrow(payable(address(_getRageQuitEscrow())));
+        _step("3. Requesting Withdrawal Batches");
+        {
+            while (!rqEscrow.isWithdrawalsBatchesClosed()) {
+                rqEscrow.requestNextWithdrawalsBatch(batchSizeLimit);
+            }
+        }
+
+        _step("4. Finalizing Withdrawal Batches");
+        {
+            _finalizeWithdrawalQueue();
+        }
+
+        _step("5. Claiming Withdrawal Batches");
+        {
+            while (rqEscrow.getUnclaimedUnstETHIdsCount() > 0) {
+                rqEscrow.claimNextWithdrawalsBatch(batchSizeLimit);
+            }
+        }
+
+        _step("6. Start Rage Quit Extension Period");
+        {
+            assertFalse(rqEscrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
+            assertTrue(rqEscrow.getRageQuitEscrowDetails().rageQuitExtensionPeriodStartedAt == Timestamps.ZERO);
+
+            rqEscrow.startRageQuitExtensionPeriod();
+
+            assertTrue(rqEscrow.getRageQuitEscrowDetails().isRageQuitExtensionPeriodStarted);
+            assertTrue(rqEscrow.getRageQuitEscrowDetails().rageQuitExtensionPeriodStartedAt == Timestamps.now());
+        }
+
+        _step("7. Attempt to call startRageQuitExtensionPeriod second time fails");
+        {
+            vm.expectRevert(abi.encodeWithSelector(EscrowState.RageQuitExtensionPeriodAlreadyStarted.selector));
+            rqEscrow.startRageQuitExtensionPeriod();
+        }
+
+        _step("8. Wait Rage Quit Extension Period has passed");
+        {
+            assertFalse(escrow.isRageQuitFinalized());
+            _wait(_RAGE_QUIT_EXTRA_TIMELOCK.plusSeconds(1));
+            assertTrue(escrow.isRageQuitFinalized());
+        }
+
+        _step("9. DG enters VetoCooldown state");
+        {
+            _assertRageQuitState();
+            _activateNextState();
+            _assertVetoCooldownState();
+        }
+
+        _step("10. Wait Rage Quit ETH Withdrawals Delay has passed");
+        {
+            _wait(rqEscrow.getRageQuitEscrowDetails().rageQuitEthWithdrawalsDelay.plusSeconds(1));
+        }
+
+        _step("11. Rage Quit may be successfully finalized");
+        {
+            vm.startPrank(_VETOER_1);
+            {
+                uint256 vetoer1ETHBalanceBefore = _VETOER_1.balance;
+                escrow.withdrawETH();
+                uint256 vetoer1ETHBalanceAfter = _VETOER_1.balance;
+                assertTrue(vetoer1ETHBalanceAfter > vetoer1ETHBalanceBefore);
+            }
+            vm.stopPrank();
+
+            vm.expectRevert(abi.encodeWithSelector(EscrowState.RageQuitExtensionPeriodAlreadyStarted.selector));
+            rqEscrow.startRageQuitExtensionPeriod();
+
+            vm.startPrank(_VETOER_2);
+            {
+                uint256 vetoer2ETHBalanceBefore = _VETOER_2.balance;
+                escrow.withdrawETH();
+                uint256 vetoer2ETHBalanceAfter = _VETOER_2.balance;
+                assertTrue(vetoer2ETHBalanceAfter > vetoer2ETHBalanceBefore);
+            }
+            vm.stopPrank();
+        }
+    }
+
     function testFork_CreationAndClaimingBatchesInParallel_HappyPath() external {
         uint256 vetoer1LockedShares;
         uint256 vetoer2LockedShares;

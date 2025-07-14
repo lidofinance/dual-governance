@@ -1096,6 +1096,21 @@ contract EscrowUnitTests is UnitTest {
         _escrow.startRageQuitExtensionPeriod();
     }
 
+    function test_startRageQuitExtensionPeriod_RevertOn_RepeatedCalls() external {
+        _transitToRageQuit();
+
+        _ensureWithdrawalsBatchesQueueClosed();
+
+        assertEq(_escrow.getRageQuitEscrowDetails().rageQuitExtensionPeriodStartedAt, Timestamps.ZERO);
+
+        _ensureRageQuitExtensionPeriodStartedNow();
+
+        assertEq(_escrow.getRageQuitEscrowDetails().rageQuitExtensionPeriodStartedAt, Timestamps.now());
+
+        vm.expectRevert(abi.encodeWithSelector(EscrowStateLib.RageQuitExtensionPeriodAlreadyStarted.selector));
+        _escrow.startRageQuitExtensionPeriod();
+    }
+
     // ---
     // claimUnstETH()
     // ---

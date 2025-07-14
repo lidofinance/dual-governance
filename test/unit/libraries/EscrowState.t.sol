@@ -113,19 +113,71 @@ contract EscrowStateUnitTests is UnitTest {
     // startRageQuitExtensionPeriod()
     // ---
 
-    function test_startRageQuitExtensionPeriod_happyPath() external {
+    function testFuzz_startRageQuitExtensionPeriod_HappyPath(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration,
+        Duration rageQuitExtensionPeriodDuration,
+        Duration rageQuitEthWithdrawalsDelay
+    ) external {
+        vm.assume(minAssetsLockDuration > D0);
+        vm.assume(maxMinAssetsLockDuration >= minAssetsLockDuration);
+
+        _context.initialize(minAssetsLockDuration, maxMinAssetsLockDuration);
+        _context.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
+
+        assertTrue(_context.state == State.RageQuitEscrow);
+
+        assertEq(_context.rageQuitExtensionPeriodStartedAt, Timestamps.ZERO);
+
         vm.expectEmit();
         emit EscrowState.RageQuitExtensionPeriodStarted(Timestamps.now());
-
-        EscrowState.startRageQuitExtensionPeriod(_context);
+        this.external__startRageQuitExtensionPeriod();
 
         checkContext({
-            state: State.NotInitialized,
-            minAssetsLockDuration: D0,
-            rageQuitExtensionPeriodDuration: D0,
-            rageQuitEthWithdrawalsDelay: D0,
+            state: State.RageQuitEscrow,
+            minAssetsLockDuration: minAssetsLockDuration,
+            rageQuitExtensionPeriodDuration: rageQuitExtensionPeriodDuration,
+            rageQuitEthWithdrawalsDelay: rageQuitEthWithdrawalsDelay,
             rageQuitExtensionPeriodStartedAt: Timestamps.now()
         });
+    }
+
+    function test_startRageQuitExtensionPeriod_RevertOn_RepeatedCalls(
+        Duration minAssetsLockDuration,
+        Duration maxMinAssetsLockDuration,
+        Duration rageQuitExtensionPeriodDuration,
+        Duration rageQuitEthWithdrawalsDelay,
+        uint32 timeskip
+    ) external {
+        vm.assume(minAssetsLockDuration > D0);
+        vm.assume(maxMinAssetsLockDuration >= minAssetsLockDuration);
+
+        _context.initialize(minAssetsLockDuration, maxMinAssetsLockDuration);
+        _context.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
+
+        assertTrue(_context.state == State.RageQuitEscrow);
+
+        assertEq(_context.rageQuitExtensionPeriodStartedAt, Timestamps.ZERO);
+
+        vm.expectEmit();
+        emit EscrowState.RageQuitExtensionPeriodStarted(Timestamps.now());
+        this.external__startRageQuitExtensionPeriod();
+
+        checkContext({
+            state: State.RageQuitEscrow,
+            minAssetsLockDuration: minAssetsLockDuration,
+            rageQuitExtensionPeriodDuration: rageQuitExtensionPeriodDuration,
+            rageQuitEthWithdrawalsDelay: rageQuitEthWithdrawalsDelay,
+            rageQuitExtensionPeriodStartedAt: Timestamps.now()
+        });
+
+        vm.expectRevert();
+        this.external__startRageQuitExtensionPeriod();
+
+        vm.warp(block.timestamp + timeskip);
+
+        vm.expectRevert();
+        this.external__startRageQuitExtensionPeriod();
     }
 
     // ---
@@ -397,6 +449,10 @@ contract EscrowStateUnitTests is UnitTest {
         Duration rageQuitEthWithdrawalsDelay
     ) external {
         _context.startRageQuit(rageQuitExtensionPeriodDuration, rageQuitEthWithdrawalsDelay);
+    }
+
+    function external__startRageQuitExtensionPeriod() external {
+        _context.startRageQuitExtensionPeriod();
     }
 
     function external__setMinAssetsLockDuration(
