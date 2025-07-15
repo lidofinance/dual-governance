@@ -1,0 +1,35 @@
+name: DualGovernance push tests
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: ['**']
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    concurrency:
+      group: unit-${{ github.ref }}
+      cancel-in-progress: true
+
+    env:
+      NODE_VERSION: '22.x'
+      FORGE_VERSION: 'v1.0.0'
+
+    steps:
+
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup repository
+        uses: ./.github/actions/repo-setup
+
+      - name: Run unit tests
+        run: npm run test:unit

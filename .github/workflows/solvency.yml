@@ -1,0 +1,39 @@
+name: DualGovernance solvency
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: solvency-simulation
+    runs-on: ubuntu-latest
+    timeout-minutes: 600
+
+    concurrency:
+      group: solvency-simulation-${{ github.ref }}
+      cancel-in-progress: true
+
+    env:
+      NODE_VERSION: '22.x'
+      FORGE_VERSION: 'v1.0.0'
+      MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup repository
+        uses: ./.github/actions/repo-setup
+
+      - name: Run solvency-simulation tests
+        shell: bash
+        run: npm run test:solvency-simulation -- --load-accounts
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          DEPLOY_ARTIFACT_FILE_NAME: deploy-artifact-mainnet.toml
