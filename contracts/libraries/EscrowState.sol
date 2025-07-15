@@ -106,7 +106,7 @@ library EscrowState {
     /// @notice Starts the rage quit extension period.
     /// @param self The context of the Escrow State library.
     function startRageQuitExtensionPeriod(Context storage self) internal {
-        if (self.rageQuitExtensionPeriodStartedAt != Timestamps.ZERO) {
+        if (self.rageQuitExtensionPeriodStartedAt.isNotZero()) {
             revert RageQuitExtensionPeriodAlreadyStarted();
         }
         self.rageQuitExtensionPeriodStartedAt = Timestamps.now();
