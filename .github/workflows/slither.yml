@@ -2,9 +2,10 @@ name: Slither Analysis
 
 on:
   push:
-    branches: [develop, master]
+    branches: [develop, main]
   pull_request:
-    branches: [develop, master]
+    branches: [develop, main]
+  workflow_dispatch:
 
 jobs:
   analyze:
@@ -12,26 +13,43 @@ jobs:
     permissions:
       contents: read
       security-events: write
+
+    env:
+      FORGE_VERSION: 'v1.0.0'
+      SLITHER_VERSION: '0.11.1'
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Slither
-        uses: crytic/slither-action@v0.4.0
-        id: slither
+      - uses: actions/setup-python@v4
         with:
-          sarif: results.sarif
-          fail-on: none
+          python-version: '3.x'
+          cache: 'pip'
+
+      - name: Install Slither
+        run: pip install slither-analyzer==${{ env.SLITHER_VERSION }}
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FORGE_VERSION }}
+
+      - name: Run Slither
+        continue-on-error: true
+        run: |
+          slither . --sarif results.sarif
 
       - name: Check results.sarif presence
-        id: results
-        if: always()
-        shell: bash
-        run: >
-          test -f results.sarif &&
-          echo 'value=present' >> $GITHUB_OUTPUT ||
-          echo 'value=not' >> $GITHUB_OUTPUT
-      
+        id: sarif_check
+        run: |
+          if [ -s results.sarif ]; then
+            echo "present=true" >> $GITHUB_OUTPUT
+          else
+            echo "present=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload SARIF file
+        if: steps.sarif_check.outputs.present == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ${{ steps.slither.outputs.sarif }}
+          sarif_file: results.sarif
