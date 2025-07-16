@@ -3,8 +3,8 @@ pragma solidity 0.8.26;
 
 import {CallsScriptBuilder} from "scripts/utils/CallsScriptBuilder.sol";
 
-import {IVoting} from "./interfaces/IVoting.sol";
-import {IForwarder} from "./interfaces/IForwarder.sol";
+import {IVoting} from "../launch/interfaces/IVoting.sol";
+import {IForwarder} from "../launch/interfaces/IForwarder.sol";
 
 /// @title OmnibusBase
 /// @notice Abstract base contract for creating votes for the Aragon Voting.

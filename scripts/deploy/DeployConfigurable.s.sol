@@ -13,7 +13,7 @@ import {
 } from "../utils/contracts-deployment.sol";
 import {DeployVerification} from "../utils/DeployVerification.sol";
 
-import {DeployFiles} from "../utils/deploy-files.sol";
+import {DeployFiles} from "../utils/DeployFiles.sol";
 
 contract DeployConfigurable is Script {
     using DGSetupDeployConfig for DGSetupDeployConfig.Context;

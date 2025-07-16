@@ -27,8 +27,8 @@ import {ImmutableDualGovernanceConfigProvider} from "contracts/ImmutableDualGove
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
-import {DeployFiles} from "./deploy-files.sol";
-import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "./config-files.sol";
+import {DeployFiles} from "./DeployFiles.sol";
+import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "./ConfigFiles.sol";
 
 import {IVotingProvider} from "./interfaces/IVotingProvider.sol";
 
@@ -612,6 +612,7 @@ library DGSetupDeployedContracts {
 
     function print(Context memory ctx) internal pure {
         console.log("DualGovernance address", address(ctx.dualGovernance));
+        console.log("DualGovernanceConfigProvider address", address(ctx.dualGovernanceConfigProvider));
         console.log("EscrowMasterCopy address", address(ctx.escrowMasterCopy));
         console.log("ResealManager address", address(ctx.resealManager));
         console.log("TiebreakerCoreCommittee address", address(ctx.tiebreakerCoreCommittee));
@@ -625,6 +626,8 @@ library DGSetupDeployedContracts {
         console.log("AdminExecutor address", address(ctx.adminExecutor));
         console.log("EmergencyProtectedTimelock address", address(ctx.timelock));
         console.log("EmergencyGovernance address", address(ctx.emergencyGovernance));
+
+        console.log("\n");
     }
 
     function _getTiebreakerSubCommitteeAddresses(Context memory ctx)
@@ -663,6 +666,139 @@ library DGSetupDeployArtifacts {
     {
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
         return DGLaunchConfig.load(deployArtifactFilePath);
+    }
+
+    function validate(Context memory ctx) internal pure {
+        ctx.deployConfig.validate();
+    }
+
+    function save(Context memory ctx, string memory fileName) internal {
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+
+        // forgefmt: disable-next-item
+        configBuilder
+            .set("deploy_config", ctx.deployConfig.toJSON())
+            .set("deployed_contracts", ctx.deployedContracts.toJSON())
+            .write(DeployFiles.resolveDeployArtifact(fileName));
+    }
+}
+
+library TiebreakerDeployConfig {
+    using ConfigFileReader for ConfigFileReader.Context;
+    using TiebreakerContractDeployConfig for TiebreakerContractDeployConfig.Context;
+
+    struct Context {
+        uint256 chainId;
+        address owner;
+        address dualGovernance;
+        TiebreakerContractDeployConfig.Context config;
+    }
+
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
+        string memory $ = configRootKey.root();
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+
+        ctx.chainId = file.readUint($.key("chain_id"));
+        ctx.owner = file.readAddress($.key("tiebreaker.owner"));
+        ctx.dualGovernance = file.readAddress($.key("tiebreaker.dual_governance"));
+        ctx.config = TiebreakerContractDeployConfig.load(configFilePath, $.key("tiebreaker"));
+    }
+
+    function validate(Context memory ctx) internal pure {
+        if (ctx.owner == address(0)) {
+            revert InvalidParameter("owner");
+        }
+        if (ctx.dualGovernance == address(0)) {
+            revert InvalidParameter("dualGovernance");
+        }
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("chain_id", ctx.chainId);
+
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+        configBuilder.set("owner", ctx.owner);
+        configBuilder.set("dual_governance", ctx.dualGovernance);
+
+        builder.set("tiebreaker", configBuilder.content);
+        builder.set("tiebreaker", ctx.config.toJSON());
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("Tiebreaker owner", ctx.owner);
+        console.log("Tiebreaker dual governance", ctx.dualGovernance);
+        ctx.config.print();
+    }
+}
+
+library TiebreakerDeployedContracts {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        TiebreakerCoreCommittee tiebreakerCoreCommittee;
+        TiebreakerSubCommittee[] tiebreakerSubCommittees;
+    }
+
+    function load(
+        string memory deployedContractsFilePath,
+        string memory prefix
+    ) internal view returns (Context memory ctx) {
+        string memory $ = prefix.root();
+        ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
+
+        ctx.tiebreakerCoreCommittee =
+            TiebreakerCoreCommittee(deployedContract.readAddress($.key("tiebreaker_core_committee")));
+
+        address[] memory subCommittees = deployedContract.readAddressArray($.key("tiebreaker_sub_committees"));
+        ctx.tiebreakerSubCommittees = new TiebreakerSubCommittee[](subCommittees.length);
+        for (uint256 i = 0; i < subCommittees.length; ++i) {
+            ctx.tiebreakerSubCommittees[i] = TiebreakerSubCommittee(subCommittees[i]);
+        }
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("tiebreaker_core_committee", address(ctx.tiebreakerCoreCommittee));
+
+        address[] memory subCommittees = new address[](ctx.tiebreakerSubCommittees.length);
+        for (uint256 i = 0; i < ctx.tiebreakerSubCommittees.length; ++i) {
+            subCommittees[i] = address(ctx.tiebreakerSubCommittees[i]);
+        }
+        builder.set("tiebreaker_sub_committees", subCommittees);
+
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("TiebreakerCoreCommittee address", address(ctx.tiebreakerCoreCommittee));
+
+        for (uint256 i = 0; i < ctx.tiebreakerSubCommittees.length; ++i) {
+            console.log("TiebreakerSubCommittee[%d] address %x", i, address(ctx.tiebreakerSubCommittees[i]));
+        }
+    }
+}
+
+library TiebreakerDeployArtifacts {
+    using ConfigFileBuilder for ConfigFileBuilder.Context;
+    using TiebreakerDeployConfig for TiebreakerDeployConfig.Context;
+    using TiebreakerDeployedContracts for TiebreakerDeployedContracts.Context;
+
+    struct Context {
+        TiebreakerDeployConfig.Context deployConfig;
+        TiebreakerDeployedContracts.Context deployedContracts;
+    }
+
+    function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
+        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
+        ctx.deployConfig = TiebreakerDeployConfig.load(deployArtifactFilePath, "deploy_config");
+        ctx.deployedContracts = TiebreakerDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
     }
 
     function validate(Context memory ctx) internal pure {
@@ -926,6 +1062,33 @@ library ContractsDeployment {
                 tiebreakerCoreCommittee: address(tiebreakerCoreCommittee)
             });
         }
+    }
+
+    function deployTiebreaker(
+        TiebreakerDeployConfig.Context memory tiebreakerConfig,
+        address deployer
+    ) internal returns (TiebreakerDeployedContracts.Context memory deployedContracts) {
+        deployedContracts.tiebreakerCoreCommittee = deployEmptyTiebreakerCoreCommittee({
+            owner: deployer,
+            dualGovernance: tiebreakerConfig.dualGovernance,
+            executionDelay: tiebreakerConfig.config.executionDelay
+        });
+
+        deployedContracts.tiebreakerSubCommittees = deployTiebreakerSubCommittees(
+            tiebreakerConfig.owner, deployedContracts.tiebreakerCoreCommittee, tiebreakerConfig.config.committees
+        );
+
+        address[] memory coreCommitteeMemberAddresses = new address[](deployedContracts.tiebreakerSubCommittees.length);
+
+        for (uint256 i = 0; i < coreCommitteeMemberAddresses.length; ++i) {
+            coreCommitteeMemberAddresses[i] = address(deployedContracts.tiebreakerSubCommittees[i]);
+        }
+
+        deployedContracts.tiebreakerCoreCommittee.addMembers(
+            coreCommitteeMemberAddresses, tiebreakerConfig.config.quorum
+        );
+
+        deployedContracts.tiebreakerCoreCommittee.transferOwnership(tiebreakerConfig.owner);
     }
 
     function deployTiebreakerSubCommittee(
