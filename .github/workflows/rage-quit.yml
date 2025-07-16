@@ -33,6 +33,6 @@ jobs:
 
       - name: Run complete-rage-quit tests
         shell: bash
-        run: npm run test:complete-rage-quit
+        run: npm run test:complete-rage-quit -- --load-accounts
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
