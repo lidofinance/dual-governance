@@ -1,0 +1,53 @@
+name: "Setup DualGovernance repository"
+
+runs:
+  using: composite
+
+  steps:
+
+    ################################################################
+    # Set up toolchain
+    ################################################################
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: package-lock.json
+
+
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: ${{ env.FORGE_VERSION }}
+
+    ################################################################
+    # Use cache for dependencies
+    ################################################################
+
+    - name: Cache Forge dependencies
+      uses: actions/cache@v4
+      with:
+        path: lib
+        key: forge-${{ hashFiles('foundry.toml') }}
+        restore-keys: forge-
+
+    - name: Cache npm for dual-governance
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: npm-${{ hashFiles('package-lock.json') }}
+        restore-keys: npm-
+
+    ################################################################
+    # Install dependencies
+    ################################################################
+
+    - name: Install Node.js dependencies for dual-governance
+      shell: bash
+      run: npm ci
+
+    - name: Install Forge dependencies
+      shell: bash
+      run: forge install
