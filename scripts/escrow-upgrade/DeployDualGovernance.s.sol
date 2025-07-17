@@ -21,14 +21,10 @@ import {
     ContractsDeployment,
     DGSetupDeployedContracts
 } from "../utils/contracts-deployment.sol";
-import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "../utils/ConfigFiles.sol";
-import {DeployFiles} from "scripts/utils/DeployFiles.sol";
 
 contract DeployDualGovernance is Script {
     using DualGovernanceContractDeployConfig for DualGovernanceContractDeployConfig.Context;
-    using JsonKeys for string;
     using TiebreakerDeployConfig for TiebreakerDeployConfig.Context;
-    using TiebreakerDeployedContracts for TiebreakerDeployedContracts.Context;
     using DGSetupDeployArtifacts for DGSetupDeployArtifacts.Context;
     using DGSetupDeployedContracts for DGSetupDeployedContracts.Context;
 
@@ -44,12 +40,7 @@ contract DeployDualGovernance is Script {
         TiebreakerDeployConfig.Context tiebreakerConfig;
     }
 
-    struct DeployedContracts {
-        DualGovernance dualGovernance;
-        TiebreakerDeployedContracts.Context tiebreakerDeployedContracts;
-    }
-
-    function run() public {
+    function run() public returns (DGSetupDeployedContracts.Context memory) {
         DGSetupDeployArtifacts.Context memory _deployArtifact;
         DeployConfig memory _deployConfig;
 
@@ -129,5 +120,7 @@ contract DeployDualGovernance is Script {
         console.log("=================================================");
         console.log("Saving deploy artifact to: %s", deployArtifactFileName);
         _deployArtifact.save(deployArtifactFileName);
+
+        return _deployArtifact.deployedContracts;
     }
 }

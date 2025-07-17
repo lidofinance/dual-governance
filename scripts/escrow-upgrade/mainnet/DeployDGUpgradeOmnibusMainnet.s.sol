@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 /* solhint-disable no-console */
+import {console} from "forge-std/console.sol";
 
 import {Duration} from "contracts/types/Duration.sol";
 
@@ -11,19 +12,18 @@ import {DGLaunchConfig} from "scripts/utils/contracts-deployment.sol";
 
 import {DGUpgradeOmnibus} from "../DGUpgradeOmnibus.sol";
 import {DGUpgradeStateVerifier} from "../DGUpgradeStateVerifier.sol";
-
-import {console} from "forge-std/console.sol";
+import {LidoUtils} from "test/utils/lido-utils.sol";
 
 contract DeployDGUpgradeOmnibusMainnet is DGDeployArtifactLoader {
-    address constant VOTING = 0x2e59A20f205bB85a89C53f1936454680651E618e;
-
     function run() public {
+        LidoUtils.Context memory _lidoUtils = LidoUtils.mainnet();
+
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
 
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
 
-        address dualGovernance = address(_deployArtifact.deployedContracts.dualGovernance);
+        address newDualGovernance = address(_deployArtifact.deployedContracts.dualGovernance);
         address timelock = address(_deployArtifact.deployedContracts.timelock);
         address adminExecutor = address(_deployArtifact.deployedContracts.adminExecutor);
         address tiebreakerCoreCommittee = address(_deployArtifact.deployedContracts.tiebreakerCoreCommittee);
@@ -31,6 +31,8 @@ contract DeployDGUpgradeOmnibusMainnet is DGDeployArtifactLoader {
         address accountingOracle = _deployArtifact.deployConfig.dualGovernance.sealableWithdrawalBlockers[0];
         address validatorsExitBusOracle = _deployArtifact.deployConfig.dualGovernance.sealableWithdrawalBlockers[1];
         address resealManager = address(_deployArtifact.deployedContracts.resealManager);
+        address voting = address(_lidoUtils.voting);
+        address dualGovernance = address(_lidoUtils.dualGovernance);
 
         console.log("=====================================");
         console.log("Chain ID:", block.chainid);
@@ -38,8 +40,9 @@ contract DeployDGUpgradeOmnibusMainnet is DGDeployArtifactLoader {
         console.log("=====================================");
         console.log("Deploying omnibus builder contract with the following params:\n");
         console.log("=====================================");
-        console.log("Voting:", VOTING);
+        console.log("Voting:", voting);
         console.log("Dual Governance:", dualGovernance);
+        console.log("New Dual Governance:", newDualGovernance);
         console.log("Timelock:", timelock);
         console.log("Admin Executor:", adminExecutor);
         console.log("Tiebreaker Core Committee:", tiebreakerCoreCommittee);
@@ -52,8 +55,8 @@ contract DeployDGUpgradeOmnibusMainnet is DGDeployArtifactLoader {
 
         vm.startBroadcast();
         DGUpgradeStateVerifier dgUpgradeStateVerifier = new DGUpgradeStateVerifier(
-            VOTING,
-            dualGovernance,
+            voting,
+            newDualGovernance,
             timelock,
             adminExecutor,
             tiebreakerCoreCommittee,
@@ -66,8 +69,9 @@ contract DeployDGUpgradeOmnibusMainnet is DGDeployArtifactLoader {
         console.log("DGUpgradeStateVerifier deployed successfully at ", address(dgUpgradeStateVerifier));
 
         DGUpgradeOmnibus dgUpgradeOmnibus = new DGUpgradeOmnibus(
-            VOTING,
+            voting,
             dualGovernance,
+            newDualGovernance,
             timelock,
             adminExecutor,
             tiebreakerCoreCommittee,

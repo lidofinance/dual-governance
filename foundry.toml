@@ -7,15 +7,16 @@ libs = ['node_modules', 'lib']
 test = 'test'
 cache_path = 'cache_forge'
 # solc-version = "0.8.26"
-optimizer=true
+optimizer = true
 no-match-path = 'test/kontrol/*'
 fs_permissions = [
-    { access = "read", path = "./test/regressions"},
-    { access = "read-write", path = "./deploy-config"},
-    { access = "read-write", path = "./deploy-artifacts"}
+    { access = "read", path = "./test/regressions" },
+    { access = "read-write", path = "./deploy-config" },
+    { access = "read-write", path = "./deploy-artifacts" },
 ]
 gas_limit = "18446744073709551615"
 memory_limit = 17179869184 # 16gb
+script_execution_protection = false
 
 ignored_warnings_from = ["test/kontrol"]
 

@@ -1,0 +1,108 @@
+[deploy_config]
+chain_id = 1
+
+[deploy_config.dual_governance]
+admin_proposer = "0x2e59A20f205bB85a89C53f1936454680651E618e"
+proposals_canceller = "0x2e59A20f205bB85a89C53f1936454680651E618e"
+reseal_committee = "0xFFe21561251c49AdccFad065C94Fb4931dF49081"
+sealable_withdrawal_blockers = [
+    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+    "0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e",
+]
+tiebreaker_activation_timeout = 31536000
+
+[deploy_config.dual_governance.sanity_check_params]
+max_min_assets_lock_duration = 4147200
+max_sealable_withdrawal_blockers_count = 255
+max_tiebreaker_activation_timeout = 63072000
+min_tiebreaker_activation_timeout = 15768000
+min_withdrawals_batch_size = 4
+
+[deploy_config.dual_governance.signalling_tokens]
+st_eth = "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+withdrawal_queue = "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1"
+wst_eth = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+
+[deploy_config.dual_governance_config_provider]
+first_seal_rage_quit_support = 100
+min_assets_lock_duration = 18000
+rage_quit_eth_withdrawals_delay_growth = 1296000
+rage_quit_eth_withdrawals_max_delay = 15552000
+rage_quit_eth_withdrawals_min_delay = 5184000
+rage_quit_extension_period_duration = 604800
+second_seal_rage_quit_support = 1000
+veto_cooldown_duration = 18000
+veto_signalling_deactivation_max_duration = 259200
+veto_signalling_max_duration = 3888000
+veto_signalling_min_active_duration = 18000
+veto_signalling_min_duration = 432000
+
+[deploy_config.tiebreaker]
+committees_count = 3
+execution_delay = 2592000
+quorum = 2
+
+[[deploy_config.tiebreaker.committees]]
+members = [
+    "0x805fa0f79DC0DDCD73dCBc23487d2D5bd77de598",
+    "0x49769C3443c74f144991cA560ba5F635581B8176",
+    "0x9A921867EbB579D137184b397E7D087f1ae716fd",
+    "0x81000e270B4f66B8666544E8FEc073e0a23FFf00",
+    "0xD8a9072D82a28307279aC0aD3c97Cb61bEe67952",
+]
+quorum = 3
+
+[[deploy_config.tiebreaker.committees]]
+members = [
+    "0x9837b0Db0b733DED04D96a0A25Ba1E414A6C4c08",
+    "0xDBD124e898839ec8C829d806C0328f069d1bB810",
+    "0xf8Bfa395744Cb25fa4368Ffe2344Dc35546092d9",
+    "0x8103E9eDC04d87F6DA24A3a0c7778daE689E9D63",
+    "0xFCD02C040ceA45DC6CEC3E24F1D3946FCE7077b0",
+    "0xD7cABE01709c7E36e9D1fb3248A19b525578a1Fc",
+    "0x8ed4dfd3A610CCF1FB45e797bf5D8e0f93084F22",
+]
+quorum = 5
+
+[[deploy_config.tiebreaker.committees]]
+members = [
+    "0x80B2D9FA613c35Ec52B0dA5D84e6A819bcc5e369",
+    "0xEC7ABf73f339361ecCA951E1746C90a3e6205BFC",
+    "0xb04b6fB471E766D7F21A6AA0E4E25B2AEA0a75AB",
+    "0x60BDa95a40d5536303BFcf84D679ca461A23398d",
+    "0x5d60F5d653Cc318d1f0ABacd83eD4feeAa6e5804",
+]
+quorum = 3
+
+[deploy_config.timelock]
+after_schedule_delay = 86400
+after_submit_delay = 259200
+
+[deploy_config.timelock.emergency_protection]
+emergency_activation_committee = "0x8B7854488Fde088d686Ea672B6ba1A5242515f45"
+emergency_execution_committee = "0xC7792b3F2B399bB0EdF53fECDceCeB97FBEB18AF"
+emergency_governance_proposer = "0x2e59A20f205bB85a89C53f1936454680651E618e"
+emergency_mode_duration = 2592000
+emergency_protection_end_date = 1781913600
+
+[deploy_config.timelock.sanity_check_params]
+max_after_schedule_delay = 864000
+max_after_submit_delay = 2592000
+max_emergency_mode_duration = 31536000
+max_emergency_protection_duration = 94608000
+min_execution_delay = 259200
+
+[deployed_contracts]
+admin_executor = "0x23E0B465633FF5178808F4A75186E2F2F9537021"
+dual_governance = "0xcdF49b058D606AD34c5789FD8c3BF8B3E54bA2db"
+dual_governance_config_provider = "0xa1692Af6FDfdD1030E4E9c4Bc429986FA64CB5EF"
+emergency_governance = "0x553337946F2FAb8911774b20025fa776B76a7CcE"
+escrow_master_copy = "0xb84317C0E142D8911A0d69Dc32c48d87753B8d1C"
+reseal_manager = "0x7914b5a1539b97Bd0bbd155757F25FD79A522d24"
+tiebreaker_core_committee = "0x175742c3DDD88B0192df3EcF98f180A79cb259D0"
+tiebreaker_sub_committees = [
+    "0x74836470337Ba5d2a92fe16E44AD862E28fcf9B3",
+    "0xb9d82E1A49f6a66E8a07260BA05Cf9Ac8a938B1C",
+    "0x7dAdae4e1a0DB43F6bcfA75295666fc044605679",
+]
+timelock = "0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316"
