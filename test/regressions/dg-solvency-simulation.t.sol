@@ -325,6 +325,12 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
     bool internal LIMIT_FINALIZATION_PHASE;
 
     function setUp() external {
+        // Note: simulation test may take significant time to pass
+        if (!vm.envOr("RUN_SOLVENCY_SIMULATION_TEST", false)) {
+            vm.skip(true, "To enable this test set the env variable RUN_SOLVENCY_SIMULATION_TEST=true");
+            return;
+        }
+
         _loadOrDeployDGSetup();
         _random = Random.create(block.timestamp);
         _nextFrameStart = _lido.getReportTimeElapsed().nextFrameStart;
@@ -352,12 +358,6 @@ contract EscrowSolvencyTest is DGRegressionTestSetup {
 
     function testFork_SolvencySimulation() external {
         {
-            // Note: simulation test may take significant time to pass
-            if (!vm.envOr("RUN_SOLVENCY_SIMULATION_TEST", false)) {
-                vm.skip(true, "To enable this test set the env variable RUN_SOLVENCY_SIMULATION_TEST=true");
-                return;
-            }
-
             if (vm.envOr("LIMIT_FINALIZATION_PHASE", false)) {
                 LIMIT_FINALIZATION_PHASE = true;
                 console.log(">>> Finalization phase is limited to 10_000 iterations");
