@@ -39,28 +39,28 @@ contract DGUpgradeOmnibus is OmnibusBase {
 
     constructor(
         address _voting,
-        address dualGovernance,
-        address newDualGovernance,
-        address timelock,
-        address adminExecutor,
-        address tiebreakerCoreCommittee,
-        Duration tiebreakerActivationTimeout,
-        address accountingOracle,
-        address validatorsExitBusOracle,
-        address resealCommittee,
-        address dgUpgradeStateVerifier
+        address _dualGovernance,
+        address _adminExecutor,
+        address _timelock,
+        address _newDualGovernance,
+        address _newTiebreakerCoreCommittee,
+        Duration _newTiebreakerActivationTimeout,
+        address _accountingOracle,
+        address _validatorsExitBusOracle,
+        address _resealCommittee,
+        address _dgUpgradeStateVerifier
     ) OmnibusBase(_voting) {
         VOTING = _voting;
-        NEW_DUAL_GOVERNANCE = newDualGovernance;
-        TIEBREAKER_CORE_COMMITTEE = tiebreakerCoreCommittee;
-        TIEBREAKER_ACTIVATION_TIMEOUT = tiebreakerActivationTimeout;
-        DUAL_GOVERNANCE = dualGovernance;
-        TIMELOCK = timelock;
-        ADMIN_EXECUTOR = adminExecutor;
-        RESEAL_COMMITTEE = resealCommittee;
-        ACCOUNTING_ORACLE = accountingOracle;
-        VALIDATORS_EXIT_BUS_ORACLE = validatorsExitBusOracle;
-        DG_UPGRADE_STATE_VERIFIER = dgUpgradeStateVerifier;
+        DUAL_GOVERNANCE = _dualGovernance;
+        NEW_DUAL_GOVERNANCE = _newDualGovernance;
+        TIEBREAKER_CORE_COMMITTEE = _newTiebreakerCoreCommittee;
+        TIEBREAKER_ACTIVATION_TIMEOUT = _newTiebreakerActivationTimeout;
+        TIMELOCK = _timelock;
+        ADMIN_EXECUTOR = _adminExecutor;
+        RESEAL_COMMITTEE = _resealCommittee;
+        ACCOUNTING_ORACLE = _accountingOracle;
+        VALIDATORS_EXIT_BUS_ORACLE = _validatorsExitBusOracle;
+        DG_UPGRADE_STATE_VERIFIER = _dgUpgradeStateVerifier;
     }
 
     function getVoteItems() public view override returns (VoteItem[] memory voteItems) {
@@ -71,46 +71,46 @@ contract DGUpgradeOmnibus is OmnibusBase {
             ExternalCallsBuilder.Context memory dgProposalCallsBuilder =
                 ExternalCallsBuilder.create({callsCount: DG_PROPOSAL_CALLS_COUNT});
 
-            // 1. Set Emergency Protected Timelock governance to new Dual Governance contract
-            dgProposalCallsBuilder.addCall(TIMELOCK, abi.encodeCall(ITimelock.setGovernance, (NEW_DUAL_GOVERNANCE)));
-
-            // 2. Set Tiebreaker activation timeout
+            // 1. Set Tiebreaker activation timeout
             dgProposalCallsBuilder.addCall(
                 NEW_DUAL_GOVERNANCE,
                 abi.encodeCall(ITiebreaker.setTiebreakerActivationTimeout, TIEBREAKER_ACTIVATION_TIMEOUT)
             );
 
-            // 3. Set Tiebreaker committee
+            // 2. Set Tiebreaker committee
             dgProposalCallsBuilder.addCall(
                 NEW_DUAL_GOVERNANCE, abi.encodeCall(ITiebreaker.setTiebreakerCommittee, TIEBREAKER_CORE_COMMITTEE)
             );
 
-            // 4. Add Accounting Oracle as Tiebreaker withdrawal blocker
+            // 3. Add Accounting Oracle as Tiebreaker withdrawal blocker
             dgProposalCallsBuilder.addCall(
                 NEW_DUAL_GOVERNANCE,
                 abi.encodeCall(ITiebreaker.addTiebreakerSealableWithdrawalBlocker, ACCOUNTING_ORACLE)
             );
 
-            // 5. Add Validators Exit Bus Oracle as Tiebreaker withdrawal blocker
+            // 4. Add Validators Exit Bus Oracle as Tiebreaker withdrawal blocker
             dgProposalCallsBuilder.addCall(
                 NEW_DUAL_GOVERNANCE,
                 abi.encodeCall(ITiebreaker.addTiebreakerSealableWithdrawalBlocker, VALIDATORS_EXIT_BUS_ORACLE)
             );
 
-            // 6. Register Aragon Voting as admin proposer
+            // 5. Register Aragon Voting as admin proposer
             dgProposalCallsBuilder.addCall(
                 NEW_DUAL_GOVERNANCE, abi.encodeCall(IDualGovernance.registerProposer, (VOTING, ADMIN_EXECUTOR))
             );
 
-            // 7. Set Aragon Voting as proposals canceller
+            // 6. Set Aragon Voting as proposals canceller
             dgProposalCallsBuilder.addCall(
                 NEW_DUAL_GOVERNANCE, abi.encodeCall(IDualGovernance.setProposalsCanceller, VOTING)
             );
 
-            // 8. Set reseal committee
+            // 7. Set reseal committee
             dgProposalCallsBuilder.addCall(
                 NEW_DUAL_GOVERNANCE, abi.encodeCall(IDualGovernance.setResealCommittee, RESEAL_COMMITTEE)
             );
+
+            // 8. Set Emergency Protected Timelock governance to new Dual Governance contract
+            dgProposalCallsBuilder.addCall(TIMELOCK, abi.encodeCall(ITimelock.setGovernance, (NEW_DUAL_GOVERNANCE)));
 
             // 9. Verify Dual Governance state
             dgProposalCallsBuilder.addCall(DG_UPGRADE_STATE_VERIFIER, abi.encodeCall(IDGLaunchVerifier.verify, ()));

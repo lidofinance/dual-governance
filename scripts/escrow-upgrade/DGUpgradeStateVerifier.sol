@@ -18,6 +18,7 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
     error InvalidProposerExecutor(address expectedValue, address actualValue);
     error InvalidProposalsCanceller(address expectedValue, address actualValue);
     error InvalidResealCommittee(address expectedValue, address actualValue);
+    error InvalidProposesCount(uint256 expectedValue, uint256 actualValue);
 
     event DGUpgradeConfigurationValidated();
 
@@ -55,71 +56,59 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
 
     function verify() external {
         if (IEmergencyProtectedTimelock(TIMELOCK).getGovernance() != DUAL_GOVERNANCE) {
-            revert InvalidDualGovernanceAddress({
-                expectedValue: DUAL_GOVERNANCE,
-                actualValue: IEmergencyProtectedTimelock(TIMELOCK).getGovernance()
-            });
+            revert InvalidDualGovernanceAddress(DUAL_GOVERNANCE, IEmergencyProtectedTimelock(TIMELOCK).getGovernance());
         }
 
         ITiebreaker.TiebreakerDetails memory tiebreakerDetails = ITiebreaker(DUAL_GOVERNANCE).getTiebreakerDetails();
 
         if (tiebreakerDetails.tiebreakerActivationTimeout != TIEBREAKER_ACTIVATION_TIMEOUT) {
-            revert InvalidTiebreakerActivationTimeout({
-                expectedValue: TIEBREAKER_ACTIVATION_TIMEOUT,
-                actualValue: tiebreakerDetails.tiebreakerActivationTimeout
-            });
+            revert InvalidTiebreakerActivationTimeout(
+                TIEBREAKER_ACTIVATION_TIMEOUT, tiebreakerDetails.tiebreakerActivationTimeout
+            );
         }
 
         if (tiebreakerDetails.tiebreakerCommittee != TIEBREAKER_CORE_COMMITTEE) {
-            revert InvalidTiebreakerCommittee({
-                expectedValue: TIEBREAKER_CORE_COMMITTEE,
-                actualValue: tiebreakerDetails.tiebreakerCommittee
-            });
+            revert InvalidTiebreakerCommittee(TIEBREAKER_CORE_COMMITTEE, tiebreakerDetails.tiebreakerCommittee);
         }
 
         if (tiebreakerDetails.sealableWithdrawalBlockers.length != 2) {
-            revert InvalidTiebreakerSealableWithdrawalBlockersCount({
-                expectedValue: 2,
-                actualValue: tiebreakerDetails.sealableWithdrawalBlockers.length
-            });
+            revert InvalidTiebreakerSealableWithdrawalBlockersCount(
+                2, tiebreakerDetails.sealableWithdrawalBlockers.length
+            );
         }
 
         if (tiebreakerDetails.sealableWithdrawalBlockers[0] != ACCOUNTING_ORACLE) {
-            revert InvalidTiebreakerSealableWithdrawalBlockers({
-                expectedValue: ACCOUNTING_ORACLE,
-                actualValue: tiebreakerDetails.sealableWithdrawalBlockers[0]
-            });
+            revert InvalidTiebreakerSealableWithdrawalBlockers(
+                ACCOUNTING_ORACLE, tiebreakerDetails.sealableWithdrawalBlockers[0]
+            );
         }
 
         if (tiebreakerDetails.sealableWithdrawalBlockers[1] != VALIDATORS_EXIT_BUS_ORACLE) {
-            revert InvalidTiebreakerSealableWithdrawalBlockers({
-                expectedValue: VALIDATORS_EXIT_BUS_ORACLE,
-                actualValue: tiebreakerDetails.sealableWithdrawalBlockers[1]
-            });
+            revert InvalidTiebreakerSealableWithdrawalBlockers(
+                VALIDATORS_EXIT_BUS_ORACLE, tiebreakerDetails.sealableWithdrawalBlockers[1]
+            );
         }
 
         Proposers.Proposer memory proposerDetails = IDualGovernance(DUAL_GOVERNANCE).getProposer(VOTING);
 
         if (proposerDetails.account != VOTING) {
-            revert InvalidProposer({expectedValue: VOTING, actualValue: proposerDetails.account});
+            revert InvalidProposer(VOTING, proposerDetails.account);
         }
 
         if (proposerDetails.executor != ADMIN_EXECUTOR) {
-            revert InvalidProposerExecutor({expectedValue: ADMIN_EXECUTOR, actualValue: proposerDetails.executor});
+            revert InvalidProposerExecutor(ADMIN_EXECUTOR, proposerDetails.executor);
+        }
+
+        if (IDualGovernance(DUAL_GOVERNANCE).getProposers().length != 1) {
+            revert InvalidProposesCount(1, IDualGovernance(DUAL_GOVERNANCE).getProposers().length);
         }
 
         if (IDualGovernance(DUAL_GOVERNANCE).getProposalsCanceller() != VOTING) {
-            revert InvalidProposalsCanceller({
-                expectedValue: VOTING,
-                actualValue: IDualGovernance(DUAL_GOVERNANCE).getProposalsCanceller()
-            });
+            revert InvalidProposalsCanceller(VOTING, IDualGovernance(DUAL_GOVERNANCE).getProposalsCanceller());
         }
 
         if (IDualGovernance(DUAL_GOVERNANCE).getResealCommittee() != RESEAL_COMMITTEE) {
-            revert InvalidResealCommittee({
-                expectedValue: RESEAL_COMMITTEE,
-                actualValue: IDualGovernance(DUAL_GOVERNANCE).getResealCommittee()
-            });
+            revert InvalidResealCommittee(RESEAL_COMMITTEE, IDualGovernance(DUAL_GOVERNANCE).getResealCommittee());
         }
 
         emit DGUpgradeConfigurationValidated();

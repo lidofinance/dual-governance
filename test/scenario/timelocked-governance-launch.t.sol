@@ -19,6 +19,8 @@ import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBui
 contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenarioTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
+    address internal immutable _VETOER = makeAddr("VETOER");
+
     function setUp() external {
         _deployTGSetup({isEmergencyProtectionEnabled: true});
     }
