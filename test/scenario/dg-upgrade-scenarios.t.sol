@@ -6,6 +6,7 @@ import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries
 import {DualGovernance} from "contracts/DualGovernance.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
+import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 
 import {
     Duration, Durations, Timestamps, ContractsDeployment, DGRegressionTestSetup
@@ -38,12 +39,12 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
         lidoUtils = LidoUtils.mainnet();
     }
 
-    function testFork_DualGovernanceUpgradeWithEmergencyMode() external {
-        _step(unicode"1. DAO operates as usually");
+    function testFork_DualGovernanceUpgradeInNormalMode() external {
+        _step("1. DAO operates as usual");
         {
             ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
             uint256 proposalId = _submitProposalByAdminProposer(
-                regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
+                regularStaffCalls, "DAO performs regular stuff on a potentially dangerous contract"
             );
 
             _assertProposalSubmitted(proposalId);
@@ -64,13 +65,179 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
         }
 
-        _step(unicode"2. Vetoer vetoes 50% of the 1st seal");
+        _step("2. Vetoer vetoes 50% of the 1st seal");
         {
             _lockStETHUpTo(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.fromBasisPoints(10));
         }
 
-        // Emergency committee activates emergency mode and
-        _step(unicode"3. Activate emergency mode");
+        _step("3. Deploy new Dual Governance");
+
+        DGSetupDeployArtifacts.Context memory deployArtifact =
+            DGSetupDeployArtifacts.load(vm.envString("DEPLOY_ARTIFACT_FILE_NAME"));
+        {
+            // Deploy new Dual Governance
+            DualGovernance.DualGovernanceComponents memory components = DualGovernance.DualGovernanceComponents({
+                timelock: deployArtifact.deployedContracts.timelock,
+                resealManager: deployArtifact.deployedContracts.resealManager,
+                configProvider: deployArtifact.deployedContracts.dualGovernanceConfigProvider
+            });
+
+            DualGovernance dualGovernance = new DualGovernance(
+                components,
+                deployArtifact.deployConfig.dualGovernance.signallingTokens,
+                deployArtifact.deployConfig.dualGovernance.sanityCheckParams
+            );
+
+            deployArtifact.deployedContracts.dualGovernance = dualGovernance;
+
+            TiebreakerDeployConfig.Context memory tiebreakerConfig;
+            tiebreakerConfig.chainId = deployArtifact.deployConfig.chainId;
+            tiebreakerConfig.owner = address(deployArtifact.deployedContracts.adminExecutor);
+            tiebreakerConfig.dualGovernance = address(dualGovernance);
+
+            tiebreakerConfig.config = deployArtifact.deployConfig.tiebreaker;
+
+            // Deploying Tiebreaker
+            TiebreakerDeployedContracts.Context memory tiebreakerDeployedContracts =
+                ContractsDeployment.deployTiebreaker(tiebreakerConfig, address(this));
+
+            deployArtifact.deployedContracts.tiebreakerCoreCommittee =
+                tiebreakerDeployedContracts.tiebreakerCoreCommittee;
+            deployArtifact.deployedContracts.tiebreakerSubCommittees =
+                tiebreakerDeployedContracts.tiebreakerSubCommittees;
+        }
+
+        _step("4. DAO proposes to upgrade the Dual Governance");
+
+        {
+            ExternalCallsBuilder.Context memory upgradeDGCallsBuilder = ExternalCallsBuilder.create({callsCount: 8});
+
+            // 1. Set Tiebreaker activation timeout
+            upgradeDGCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.dualGovernance),
+                abi.encodeCall(
+                    ITiebreaker.setTiebreakerActivationTimeout,
+                    deployArtifact.deployConfig.dualGovernance.tiebreakerActivationTimeout
+                )
+            );
+
+            // 2. Set Tiebreaker committee
+            upgradeDGCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.dualGovernance),
+                abi.encodeCall(
+                    ITiebreaker.setTiebreakerCommittee,
+                    address(deployArtifact.deployedContracts.tiebreakerCoreCommittee)
+                )
+            );
+
+            // 3. Add Accounting Oracle as Tiebreaker withdrawal blocker
+            upgradeDGCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.dualGovernance),
+                abi.encodeCall(
+                    ITiebreaker.addTiebreakerSealableWithdrawalBlocker,
+                    deployArtifact.deployConfig.dualGovernance.sealableWithdrawalBlockers[0]
+                )
+            );
+
+            // 4. Add Validators Exit Bus Oracle as Tiebreaker withdrawal blocker
+            upgradeDGCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.dualGovernance),
+                abi.encodeCall(
+                    ITiebreaker.addTiebreakerSealableWithdrawalBlocker,
+                    deployArtifact.deployConfig.dualGovernance.sealableWithdrawalBlockers[1]
+                )
+            );
+
+            // 5. Register Aragon Voting as admin proposer
+            upgradeDGCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.dualGovernance),
+                abi.encodeCall(
+                    IDualGovernance.registerProposer,
+                    (address(lidoUtils.voting), address(deployArtifact.deployedContracts.adminExecutor))
+                )
+            );
+
+            // 6. Set Aragon Voting as proposals canceller
+            upgradeDGCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.dualGovernance),
+                abi.encodeCall(IDualGovernance.setProposalsCanceller, address(lidoUtils.voting))
+            );
+
+            // 7. Set reseal committee
+            upgradeDGCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.dualGovernance),
+                abi.encodeCall(
+                    IDualGovernance.setResealCommittee,
+                    address(deployArtifact.deployConfig.dualGovernance.resealCommittee)
+                )
+            );
+
+            // 8. Upgrade Dual Governance
+            upgradeDGCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.timelock),
+                abi.encodeCall(ITimelock.setGovernance, address(deployArtifact.deployedContracts.dualGovernance))
+            );
+
+            uint256 proposalId =
+                _submitProposalByAdminProposer(upgradeDGCallsBuilder.getResult(), "Upgrade Dual Governance");
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, upgradeDGCallsBuilder.getResult());
+
+            _wait(_getAfterSubmitDelay());
+
+            _assertCanSchedule(proposalId, true);
+            _scheduleProposal(proposalId);
+
+            _wait(_getAfterScheduleDelay());
+
+            _executeProposal(proposalId);
+            _assertProposalExecuted(proposalId);
+
+            // Check emergency protection
+            assertTrue(_timelock.isEmergencyProtectionEnabled());
+            assertFalse(_timelock.isEmergencyModeActive());
+        }
+
+        _step("5. Emergency Committee activates emergency mode if needed");
+        {
+            _activateEmergencyMode();
+            assertTrue(_timelock.isEmergencyModeActive());
+        }
+    }
+
+    function testFork_DualGovernanceUpgradeWithEmergencyMode() external {
+        _step("1. DAO operates as usual");
+        {
+            ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
+            uint256 proposalId = _submitProposalByAdminProposer(
+                regularStaffCalls, "DAO performs regular stuff on a potentially dangerous contract"
+            );
+
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStaffCalls);
+            _assertCanSchedule(proposalId, false);
+
+            _wait(_getAfterSubmitDelay());
+
+            _assertCanSchedule(proposalId, true);
+            _scheduleProposal(proposalId);
+            _assertProposalScheduled(proposalId);
+
+            _wait(_getAfterScheduleDelay());
+
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
+
+            _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
+        }
+
+        _step("2. Vetoer vetoes 50% of the 1st seal");
+        {
+            _lockStETHUpTo(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.fromBasisPoints(10));
+        }
+
+        // Emergency committee activates emergency mode
+        _step("3. Activate emergency mode");
         {
             _activateEmergencyMode();
             assertTrue(_timelock.isEmergencyModeActive());
@@ -102,7 +269,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
 
             tiebreakerConfig.config = deployArtifact.deployConfig.tiebreaker;
 
-            //Deploying Tiebreaker
+            // Deploying Tiebreaker
             TiebreakerDeployedContracts.Context memory tiebreakerDeployedContracts =
                 ContractsDeployment.deployTiebreaker(tiebreakerConfig, address(this));
 
@@ -120,38 +287,38 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             Timestamp emergencyModeEndsAfter = Timestamps.from(block.timestamp + 365 days);
             Duration emergencyModeDuration = Durations.from(30 days);
 
-            ExternalCallsBuilder.Context memory extendEmergencyProtectionCallsBuilder =
-                ExternalCallsBuilder.create({callsCount: 12});
+            ExternalCallsBuilder.Context memory upgradeDGAndExtendEmergencyProtectionCallsBuilder =
+                ExternalCallsBuilder.create({callsCount: 13});
 
             // 1. Deactivate emergency mode
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock), abi.encodeCall(_timelock.deactivateEmergencyMode, ())
             );
 
             // 2. Set emergency protection end date
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock), abi.encodeCall(_timelock.setEmergencyProtectionEndDate, (emergencyModeEndsAfter))
             );
 
             // 3. Set emergency mode duration for a year
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock), abi.encodeCall(_timelock.setEmergencyModeDuration, (emergencyModeDuration))
             );
 
             // 4. Set emergency protection activation committee
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock),
                 abi.encodeCall(_timelock.setEmergencyProtectionActivationCommittee, (emergencyActivationCommittee))
             );
 
             // 5. Set emergency protection execution committee
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock),
                 abi.encodeCall(_timelock.setEmergencyProtectionExecutionCommittee, (emergencyExecutionCommittee))
             );
 
             // 6. Set Tiebreaker activation timeout
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(deployArtifact.deployedContracts.dualGovernance),
                 abi.encodeCall(
                     ITiebreaker.setTiebreakerActivationTimeout,
@@ -160,7 +327,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             );
 
             // 7. Set Tiebreaker committee
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(deployArtifact.deployedContracts.dualGovernance),
                 abi.encodeCall(
                     ITiebreaker.setTiebreakerCommittee,
@@ -169,7 +336,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             );
 
             // 8. Add Accounting Oracle as Tiebreaker withdrawal blocker
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(deployArtifact.deployedContracts.dualGovernance),
                 abi.encodeCall(
                     ITiebreaker.addTiebreakerSealableWithdrawalBlocker,
@@ -178,7 +345,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             );
 
             // 9. Add Validators Exit Bus Oracle as Tiebreaker withdrawal blocker
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(deployArtifact.deployedContracts.dualGovernance),
                 abi.encodeCall(
                     ITiebreaker.addTiebreakerSealableWithdrawalBlocker,
@@ -187,7 +354,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             );
 
             // 10. Register Aragon Voting as admin proposer
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(deployArtifact.deployedContracts.dualGovernance),
                 abi.encodeCall(
                     IDualGovernance.registerProposer,
@@ -196,13 +363,13 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             );
 
             // 11. Set Aragon Voting as proposals canceller
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(deployArtifact.deployedContracts.dualGovernance),
                 abi.encodeCall(IDualGovernance.setProposalsCanceller, address(lidoUtils.voting))
             );
 
             // 12. Set reseal committee
-            extendEmergencyProtectionCallsBuilder.addCall(
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
                 address(deployArtifact.deployedContracts.dualGovernance),
                 abi.encodeCall(
                     IDualGovernance.setResealCommittee,
@@ -210,11 +377,18 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
                 )
             );
 
+            // 13. Upgrade Dual Governance
+            upgradeDGAndExtendEmergencyProtectionCallsBuilder.addCall(
+                address(deployArtifact.deployedContracts.timelock),
+                abi.encodeCall(ITimelock.setGovernance, address(deployArtifact.deployedContracts.dualGovernance))
+            );
+
             uint256 proposalId = _submitProposalByAdminProposer(
-                extendEmergencyProtectionCallsBuilder.getResult(), "Extend emergency protection"
+                upgradeDGAndExtendEmergencyProtectionCallsBuilder.getResult(),
+                "Upgrade Dual Governance and extend emergency protection"
             );
             _assertProposalSubmitted(proposalId);
-            _assertSubmittedProposalData(proposalId, extendEmergencyProtectionCallsBuilder.getResult());
+            _assertSubmittedProposalData(proposalId, upgradeDGAndExtendEmergencyProtectionCallsBuilder.getResult());
 
             _wait(_getAfterSubmitDelay());
 
@@ -238,7 +412,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             assertFalse(_timelock.isEmergencyModeActive());
         }
 
-        _step(unicode"5. Emergency Committee activates emergency mode if needed");
+        _step("6. Emergency Committee activates emergency mode if needed");
         {
             _activateEmergencyMode();
             assertTrue(_timelock.isEmergencyModeActive());
@@ -246,11 +420,11 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
     }
 
     function testFork_ActivationAndExtensionOfEmergencyProtection() external {
-        _step("1. DAO operates as usually");
+        _step("1. DAO operates as usual");
         {
             ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
             uint256 proposalId = _submitProposalByAdminProposer(
-                regularStaffCalls, "DAO does regular staff on potentially dangerous contract"
+                regularStaffCalls, "DAO performs regular stuff on a potentially dangerous contract"
             );
 
             _assertProposalSubmitted(proposalId);
@@ -276,7 +450,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _lockStETHUpTo(_VETOER, _getFirstSealRageQuitSupport() - PercentsD16.fromBasisPoints(10));
         }
 
-        // Emergency committee activates emergency mode and
+        // Emergency committee activates emergency mode
         _step("3. Activate emergency mode");
         {
             _activateEmergencyMode();
@@ -309,7 +483,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _executeProposal(maliciousProposalId);
         }
 
-        _step("4. Emergency committee lifetime is up to end. DAO extends the emergency protection");
+        _step("5. Emergency committee lifetime is up to end. DAO extends the emergency protection");
         {
             address emergencyActivationCommittee = _timelock.getEmergencyActivationCommittee();
             address emergencyExecutionCommittee = _timelock.getEmergencyExecutionCommittee();
@@ -374,7 +548,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _assertProposalCancelled(maliciousProposalId);
         }
 
-        _step("5. Emergency Committee activates emergency mode if needed");
+        _step("6. Emergency Committee activates emergency mode if needed");
         {
             _activateEmergencyMode();
             assertTrue(_timelock.isEmergencyModeActive());
