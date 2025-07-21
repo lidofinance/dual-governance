@@ -201,6 +201,54 @@ contract TiebreakerCoreUnitTest is UnitTest {
         assertEq(newNonce, nonce + 1);
     }
 
+    function test_getSealableResumeState_HappyPath() external {
+        uint256 nonce = tiebreakerCore.getSealableResumeNonce(sealable);
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp + 1000);
+
+        (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) =
+            tiebreakerCore.getSealableResumeState(sealable, nonce);
+        assertEq(support, 0);
+        assertEq(executionQuorum, quorum);
+        assertEq(quorumAt, Timestamp.wrap(0));
+        assertFalse(isExecuted);
+
+        vm.prank(committeeMembers[0]);
+        tiebreakerCore.sealableResume(sealable, nonce);
+
+        (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getSealableResumeState(sealable, nonce);
+        assertEq(support, 1);
+        assertEq(executionQuorum, quorum);
+        assertEq(quorumAt, Timestamp.wrap(0));
+        assertFalse(isExecuted);
+
+        vm.prank(committeeMembers[1]);
+        tiebreakerCore.sealableResume(sealable, nonce);
+
+        (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getSealableResumeState(sealable, nonce);
+        Timestamp quorumAtExpected = Timestamp.wrap(uint40(block.timestamp));
+        assertEq(support, quorum);
+        assertEq(executionQuorum, quorum);
+        assertEq(quorumAt, quorumAtExpected);
+        assertFalse(isExecuted);
+
+        _wait(timelock);
+
+        (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getSealableResumeState(sealable, nonce);
+        assertEq(support, quorum);
+        assertEq(executionQuorum, quorum);
+        assertEq(quorumAt, quorumAtExpected);
+        assertFalse(isExecuted);
+
+        vm.prank(committeeMembers[2]);
+        tiebreakerCore.executeSealableResume(sealable);
+
+        (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getSealableResumeState(sealable, nonce);
+        assertEq(support, quorum);
+        assertEq(executionQuorum, quorum);
+        assertEq(quorumAt, quorumAtExpected);
+        assertTrue(isExecuted);
+    }
+
     function test_getScheduleProposalState_HappyPath() external {
         (uint256 support, uint256 executionQuorum, Timestamp quorumAt, bool isExecuted) =
             tiebreakerCore.getScheduleProposalState(proposalId);
