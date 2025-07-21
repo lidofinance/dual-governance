@@ -2,6 +2,8 @@ name: DualGovernance PR tests
 
 permissions:
   contents: read
+  pull-requests: write
+  security-events: write
 
 on:
   pull_request:
@@ -55,3 +57,9 @@ jobs:
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           DEPLOY_ARTIFACT_FILE_NAME: ${{ matrix.deployArtifact }}
+
+      - name: Notify PR author on test failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.github/actions/failure-comment
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}

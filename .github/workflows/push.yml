@@ -2,6 +2,8 @@ name: DualGovernance push tests
 
 permissions:
   contents: read
+  pull-requests: write
+  security-events: write
 
 on:
   push:
@@ -33,3 +35,9 @@ jobs:
 
       - name: Run unit tests
         run: npm run test:unit
+
+      - name: Notify PR author on test failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.github/actions/failure-comment
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
