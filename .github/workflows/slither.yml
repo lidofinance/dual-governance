@@ -16,18 +16,24 @@ jobs:
 
     env:
       FORGE_VERSION: 'v1.0.0'
-      SLITHER_VERSION: '0.11.1'
+      PYTHON_VERSION: '3.10'
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-          cache: 'pip'
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Install Slither
-        run: pip install slither-analyzer==${{ env.SLITHER_VERSION }}
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'poetry'
+
+      - name: Install Python dependencies with Poetry
+        run: poetry install
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -37,7 +43,7 @@ jobs:
       - name: Run Slither
         continue-on-error: true
         run: |
-          slither . --sarif results.sarif
+          poetry run slither . --sarif results.sarif
 
       - name: Check results.sarif presence
         id: sarif_check
