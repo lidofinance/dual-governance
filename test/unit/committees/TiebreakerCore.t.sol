@@ -240,11 +240,79 @@ contract TiebreakerCoreUnitTest is UnitTest {
         assertTrue(isExecuted);
     }
 
+    function testFuzz_checkProposalExists_HappyPath(uint256 existentProposalId) external {
+        vm.assume(existentProposalId > 0);
+
+        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(existentProposalId);
+        this.external__checkProposalExists(existentProposalId);
+    }
+
+    function testFuzz_checkProposalExists_RevertOn_ProposalDoesNotExist(uint256 notExistentProposalId) external {
+        vm.assume(notExistentProposalId > 0);
+
+        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(0);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(TiebreakerCoreCommittee.ProposalDoesNotExist.selector, notExistentProposalId)
+        );
+        this.external__checkProposalExists(notExistentProposalId);
+    }
+
+    function test_checkProposalExists_RevertOn_ZeroProposalId() external {
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.ProposalDoesNotExist.selector, 0));
+        this.external__checkProposalExists(0);
+    }
+
+    function testFuzz_checkSealableIsPaused_HappyPath(
+        Timestamp currentTimestamp,
+        Timestamp resumeSinceTimestamp
+    ) external {
+        vm.assume(currentTimestamp.toSeconds() >= 0);
+        vm.assume(currentTimestamp.toSeconds() < resumeSinceTimestamp.toSeconds());
+
+        vm.warp(currentTimestamp.toSeconds());
+
+        _mockSealableResumeSinceTimestamp(sealable, resumeSinceTimestamp.toSeconds());
+        this.external__checkSealableIsPaused(sealable);
+    }
+
+    function test_checkSealableIsPaused_RevertOn_ZeroAddress() external {
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.InvalidSealable.selector, address(0)));
+        this.external__checkSealableIsPaused(address(0));
+    }
+
+    function testFuzz_checkSealableIsPaused_RevertOn_SealableNotPaused(
+        Timestamp currentTimestamp,
+        Timestamp resumeSinceTimestamp
+    ) external {
+        vm.assume(resumeSinceTimestamp.toSeconds() >= 0);
+        vm.assume(currentTimestamp.toSeconds() > resumeSinceTimestamp.toSeconds());
+
+        vm.warp(currentTimestamp.toSeconds());
+        _mockSealableResumeSinceTimestamp(sealable, resumeSinceTimestamp.toSeconds());
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.SealableIsNotPaused.selector, sealable));
+        this.external__checkSealableIsPaused(sealable);
+    }
+
+    function test__checkSealableIsPaused_RevertOn_SealableNotPaused_CurrentBlock() external {
+        _mockSealableResumeSinceTimestamp(sealable, block.timestamp);
+        vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.SealableIsNotPaused.selector, sealable));
+        this.external__checkSealableIsPaused(sealable);
+    }
+
     function _mockSealableResumeSinceTimestamp(address sealableAddress, uint256 resumeSinceTimestamp) internal {
         vm.mockCall(
             sealableAddress,
             abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
             abi.encode(resumeSinceTimestamp)
         );
+    }
+
+    function external__checkSealableIsPaused(address sealableContract) public view {
+        tiebreakerCore.checkSealableIsPaused(sealableContract);
+    }
+
+    function external__checkProposalExists(uint256 proposal) public view {
+        tiebreakerCore.checkProposalExists(proposal);
     }
 }
