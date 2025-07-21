@@ -21,6 +21,7 @@ jobs:
     env:
       NODE_VERSION: '22.x'
       FORGE_VERSION: 'v1.0.0'
+      FUZZ_RUNS: 512
 
     steps:
 
@@ -37,7 +38,7 @@ jobs:
         run: npm run test:unit
 
       - name: Notify PR author on test failure
-        if: failure() && github.event_name == 'pull_request'
+        if: failure() && github.event_name == 'push'
         uses: ./.github/actions/failure-comment
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -17,7 +17,7 @@ runs:
         script: |
           const author = context.payload.pull_request.user.login;
           const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-          const message = `🚨 Unit tests failed. @${author}, please review the results here: ${runUrl}`;
+          const message = `🚨 Tests failed. @${author}, please review the results here: ${runUrl}`;
 
           await github.rest.issues.createComment({
             issue_number: context.payload.pull_request.number,
