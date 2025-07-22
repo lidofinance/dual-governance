@@ -832,11 +832,19 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             assertTrue(_timelock.isEmergencyModeActive());
 
             ExternalCallsBuilder.Context memory extendEmergencyProtectionCallsBuilder =
-                ExternalCallsBuilder.create({callsCount: 5});
+                ExternalCallsBuilder.create({callsCount: 6});
 
+            // Deactivate emergency mode
             extendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock), abi.encodeCall(_timelock.deactivateEmergencyMode, ())
             );
+
+            // Set emergency governance as governance to disable Dual Governance until the decision is made
+            extendEmergencyProtectionCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(_timelock.setGovernance, (_timelock.getEmergencyGovernance()))
+            );
+
+            // Set emergency protection end date
             extendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock), abi.encodeCall(_timelock.setEmergencyProtectionEndDate, (emergencyModeEndsAfter))
             );
@@ -846,10 +854,13 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
                 address(_timelock), abi.encodeCall(_timelock.setEmergencyModeDuration, (emergencyModeDuration))
             );
 
+            // Reset emergency protection committees
             extendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock),
                 abi.encodeCall(_timelock.setEmergencyProtectionActivationCommittee, (emergencyActivationCommittee))
             );
+
+            // Reset emergency protection execution committee
             extendEmergencyProtectionCallsBuilder.addCall(
                 address(_timelock),
                 abi.encodeCall(_timelock.setEmergencyProtectionExecutionCommittee, (emergencyExecutionCommittee))
