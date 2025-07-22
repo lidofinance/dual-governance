@@ -4,9 +4,9 @@ chain_id = 560048
 [dual_governance_config_provider]
 first_seal_rage_quit_support = 9999
 min_assets_lock_duration = 1
-rage_quit_eth_withdrawals_delay_growth = 1200
-rage_quit_eth_withdrawals_max_delay = 3600
-rage_quit_eth_withdrawals_min_delay = 600
+rage_quit_eth_withdrawals_delay_growth = 0
+rage_quit_eth_withdrawals_max_delay = 0
+rage_quit_eth_withdrawals_min_delay = 0
 rage_quit_extension_period_duration = 0
 second_seal_rage_quit_support = 10000
 veto_cooldown_duration = 180
