@@ -40,7 +40,7 @@ contract DGUpgradeAcceptance is DGDeployArtifactLoader {
         DGUpgradeStateVerifier dgUpgradeStateVerifier;
         DGUpgradeOmnibus dgUpgradeOmnibus;
 
-        LidoUtils.Context memory _lidoUtils = LidoUtils.mainnet();
+        LidoUtils.Context memory _lidoUtils = LidoUtils.hoodi();
         DGSetupDeployArtifacts.Context memory _deployArtifact = _loadEnv();
         DGSetupDeployArtifacts.Context memory _upgradeArtifact;
 
@@ -103,6 +103,8 @@ contract DGUpgradeAcceptance is DGDeployArtifactLoader {
                 tiebreakerDeployedContracts.tiebreakerCoreCommittee;
             _upgradeArtifact.deployedContracts.tiebreakerSubCommittees =
                 tiebreakerDeployedContracts.tiebreakerSubCommittees;
+
+            // TODO: deploy ImmutableDualGovernanceConfigProvider for old Dual Governance
         } else {
             console.log("STEP 0b: Loading upgrade contracts addresses from artifact");
             string memory upgradeDeployArtifactFileName = vm.envString("UPGRADE_DEPLOY_ARTIFACT_FILE_NAME");
@@ -141,8 +143,6 @@ contract DGUpgradeAcceptance is DGDeployArtifactLoader {
                 address(dgUpgradeStateVerifier)
             );
             vm.label(address(dgUpgradeOmnibus), "DG_UPGRADE_OMNIBUS");
-
-            // TODO: deploy ImmutableDualGovernanceConfigProvider for old Dual Governance
         } else {
             console.log("STEP 1b: Loading omnibus contract");
 

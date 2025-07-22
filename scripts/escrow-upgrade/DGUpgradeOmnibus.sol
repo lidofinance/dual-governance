@@ -6,6 +6,7 @@ import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
+import {IDualGovernanceConfigProvider} from "contracts/interfaces/IDualGovernanceConfigProvider.sol";
 
 import {IDGLaunchVerifier} from "scripts/launch/interfaces/IDGLaunchVerifier.sol";
 
@@ -14,28 +15,40 @@ import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 import {OmnibusBase} from "../utils/OmnibusBase.sol";
 
 /// @title DGUpgradeOmnibus
-/// @notice This script provides a proposal calldata and a vote verifier for
-///upgrade escrow master copy of Dual Governance
+/// @notice Contains vote items for execution via Dual Governance to upgrade Dual Governance contract.
+/// Provides a mechanism for validating an Aragon vote against the actions in this contract, by passing the vote ID.
 ///
-/// @dev TODO: add natspecs
+/// @dev This contract defines the complete set of governance actions required to upgrade Dual Governance contract.
+///
+/// It provides:
+/// - A list of 10 vote items that must be submitted and executed through an Aragon vote to perform the upgrade.
+/// - Includes:
+///     1. setting new Dual Governance contract with Tiebreaker configuration
+///     2. setting new Dual Governance contract with reseal committee
+///     3. setting new Dual Governance contract with Proposals canceller
+///     4. connecting new Dual Governance contract to the Emergency Protected Timelock
+///     5. setting config provider for old Dual Governance contract to prevent it from being used in Rage Quit
+///     6. verifying Dual Governance state
 contract DGUpgradeOmnibus is OmnibusBase {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     uint256 public constant VOTE_ITEMS_COUNT = 1;
-    uint256 public constant DG_PROPOSAL_CALLS_COUNT = 9;
+    uint256 public constant DG_PROPOSAL_CALLS_COUNT = 10;
 
     address public immutable VOTING;
     address public immutable DUAL_GOVERNANCE;
 
     address public immutable NEW_DUAL_GOVERNANCE;
+    address public immutable NEW_TIEBREAKER_CORE_COMMITTEE;
+
+    Duration public immutable TIEBREAKER_ACTIVATION_TIMEOUT;
     address public immutable ACCOUNTING_ORACLE;
     address public immutable VALIDATORS_EXIT_BUS_ORACLE;
     address public immutable RESEAL_COMMITTEE;
     address public immutable ADMIN_EXECUTOR;
     address public immutable DG_UPGRADE_STATE_VERIFIER;
     address public immutable TIMELOCK;
-    address public immutable TIEBREAKER_CORE_COMMITTEE;
-    Duration public immutable TIEBREAKER_ACTIVATION_TIMEOUT;
+    address public immutable CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE;
 
     constructor(
         address _voting,
@@ -44,23 +57,25 @@ contract DGUpgradeOmnibus is OmnibusBase {
         address _timelock,
         address _newDualGovernance,
         address _newTiebreakerCoreCommittee,
-        Duration _newTiebreakerActivationTimeout,
+        Duration _tiebreakerActivationTimeout,
         address _accountingOracle,
         address _validatorsExitBusOracle,
         address _resealCommittee,
+        address _configProviderForOldDualGovernance,
         address _dgUpgradeStateVerifier
     ) OmnibusBase(_voting) {
         VOTING = _voting;
         DUAL_GOVERNANCE = _dualGovernance;
         NEW_DUAL_GOVERNANCE = _newDualGovernance;
-        TIEBREAKER_CORE_COMMITTEE = _newTiebreakerCoreCommittee;
-        TIEBREAKER_ACTIVATION_TIMEOUT = _newTiebreakerActivationTimeout;
+        NEW_TIEBREAKER_CORE_COMMITTEE = _newTiebreakerCoreCommittee;
+        TIEBREAKER_ACTIVATION_TIMEOUT = _tiebreakerActivationTimeout;
         TIMELOCK = _timelock;
         ADMIN_EXECUTOR = _adminExecutor;
         RESEAL_COMMITTEE = _resealCommittee;
         ACCOUNTING_ORACLE = _accountingOracle;
         VALIDATORS_EXIT_BUS_ORACLE = _validatorsExitBusOracle;
         DG_UPGRADE_STATE_VERIFIER = _dgUpgradeStateVerifier;
+        CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE = _configProviderForOldDualGovernance;
     }
 
     function getVoteItems() public view override returns (VoteItem[] memory voteItems) {
@@ -79,7 +94,7 @@ contract DGUpgradeOmnibus is OmnibusBase {
 
             // 2. Set Tiebreaker committee
             dgProposalCallsBuilder.addCall(
-                NEW_DUAL_GOVERNANCE, abi.encodeCall(ITiebreaker.setTiebreakerCommittee, TIEBREAKER_CORE_COMMITTEE)
+                NEW_DUAL_GOVERNANCE, abi.encodeCall(ITiebreaker.setTiebreakerCommittee, NEW_TIEBREAKER_CORE_COMMITTEE)
             );
 
             // 3. Add Accounting Oracle as Tiebreaker withdrawal blocker
@@ -112,7 +127,16 @@ contract DGUpgradeOmnibus is OmnibusBase {
             // 8. Set Emergency Protected Timelock governance to new Dual Governance contract
             dgProposalCallsBuilder.addCall(TIMELOCK, abi.encodeCall(ITimelock.setGovernance, (NEW_DUAL_GOVERNANCE)));
 
-            // 9. Verify Dual Governance state
+            // 9. Set config provider for old Dual Governance contract
+            dgProposalCallsBuilder.addCall(
+                DUAL_GOVERNANCE,
+                abi.encodeCall(
+                    IDualGovernance.setConfigProvider,
+                    (IDualGovernanceConfigProvider(CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE))
+                )
+            );
+
+            // 10. Verify Dual Governance state
             dgProposalCallsBuilder.addCall(DG_UPGRADE_STATE_VERIFIER, abi.encodeCall(IDGLaunchVerifier.verify, ()));
 
             voteItems[0] = VoteItem({

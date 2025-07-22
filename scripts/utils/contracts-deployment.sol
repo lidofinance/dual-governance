@@ -910,6 +910,116 @@ library TimelockedGovernanceDeployedContracts {
     }
 }
 
+library ImmutableDualGovernanceConfigProviderDeployConfig {
+    using ConfigFileReader for ConfigFileReader.Context;
+    using DualGovernanceConfigProviderContractDeployConfig for DualGovernanceConfig.Context;
+
+    struct Context {
+        uint256 chainId;
+        DualGovernanceConfig.Context config;
+    }
+
+    function load(
+        string memory configFilePath,
+        string memory configRootKey
+    ) internal view returns (Context memory ctx) {
+        string memory $ = configRootKey.root();
+        ConfigFileReader.Context memory file = ConfigFileReader.load(configFilePath);
+
+        ctx.chainId = file.readUint($.key("chain_id"));
+        ctx.config = DualGovernanceConfigProviderContractDeployConfig.load(
+            configFilePath, $.key("dual_governance_config_provider")
+        );
+    }
+
+    function validate(Context memory ctx) internal view {
+        if (ctx.chainId != block.chainid) {
+            revert InvalidChainId({actual: block.chainid, expected: ctx.chainId});
+        }
+        ctx.config.validate();
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+
+        builder.set("chain_id", ctx.chainId);
+
+        builder.set("dual_governance_config_provider", ctx.config.toJSON());
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        ctx.config.print();
+    }
+}
+
+library ImmutableDualGovernanceConfigProviderDeployedContracts {
+    using ConfigFileReader for ConfigFileReader.Context;
+
+    struct Context {
+        ImmutableDualGovernanceConfigProvider dualGovernanceConfigProvider;
+    }
+
+    function load(
+        string memory deployedContractsFilePath,
+        string memory prefix
+    ) internal view returns (Context memory ctx) {
+        string memory $ = prefix.root();
+        ConfigFileReader.Context memory deployedContract = ConfigFileReader.load(deployedContractsFilePath);
+
+        ctx.dualGovernanceConfigProvider = ImmutableDualGovernanceConfigProvider(
+            deployedContract.readAddress($.key("dual_governance_config_provider"))
+        );
+    }
+
+    function toJSON(Context memory ctx) internal returns (string memory) {
+        ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
+        builder.set("dual_governance_config_provider", address(ctx.dualGovernanceConfigProvider));
+        return builder.content;
+    }
+
+    function print(Context memory ctx) internal pure {
+        console.log("ImmutableDualGovernanceConfigProvider address", address(ctx.dualGovernanceConfigProvider));
+    }
+}
+
+library ImmutableDualGovernanceConfigProviderDeployArtifacts {
+    using ConfigFileBuilder for ConfigFileBuilder.Context;
+    using
+    ImmutableDualGovernanceConfigProviderDeployConfig
+    for ImmutableDualGovernanceConfigProviderDeployConfig.Context;
+    using
+    ImmutableDualGovernanceConfigProviderDeployedContracts
+    for ImmutableDualGovernanceConfigProviderDeployedContracts.Context;
+
+    struct Context {
+        ImmutableDualGovernanceConfigProviderDeployConfig.Context deployConfig;
+        ImmutableDualGovernanceConfigProviderDeployedContracts.Context deployedContracts;
+    }
+
+    function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
+        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
+        ctx.deployConfig =
+            ImmutableDualGovernanceConfigProviderDeployConfig.load(deployArtifactFilePath, "deploy_config");
+        ctx.deployedContracts =
+            ImmutableDualGovernanceConfigProviderDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
+    }
+
+    function validate(Context memory ctx) internal view {
+        ctx.deployConfig.validate();
+    }
+
+    function save(Context memory ctx, string memory fileName) internal {
+        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+
+        // forgefmt: disable-next-item
+        configBuilder
+            .set("deploy_config", ctx.deployConfig.toJSON())
+            .set("deployed_contracts", ctx.deployedContracts.toJSON())
+            .write(DeployFiles.resolveDeployArtifact(fileName));
+    }
+}
+
 library ContractsDeployment {
     function deployTGSetup(
         address deployer,

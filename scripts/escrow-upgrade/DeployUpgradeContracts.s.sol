@@ -22,7 +22,7 @@ import {
     DGSetupDeployedContracts
 } from "../utils/contracts-deployment.sol";
 
-contract DeployDualGovernance is Script {
+contract DeployUpgradeContracts is Script {
     using DualGovernanceContractDeployConfig for DualGovernanceContractDeployConfig.Context;
     using TiebreakerDeployConfig for TiebreakerDeployConfig.Context;
     using DGSetupDeployArtifacts for DGSetupDeployArtifacts.Context;

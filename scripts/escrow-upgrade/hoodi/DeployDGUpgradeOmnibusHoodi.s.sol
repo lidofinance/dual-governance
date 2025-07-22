@@ -16,9 +16,9 @@ import {
     ImmutableDualGovernanceConfigProviderDeployArtifacts
 } from "scripts/utils/contracts-deployment.sol";
 
-contract DeployDGUpgradeOmnibusMainnet is Script {
+contract DeployDGUpgradeOmnibusHoodi is Script {
     function run() public {
-        LidoUtils.Context memory _lidoUtils = LidoUtils.mainnet();
+        LidoUtils.Context memory _lidoUtils = LidoUtils.hoodi();
 
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");

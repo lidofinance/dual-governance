@@ -19,6 +19,7 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
     error InvalidProposalsCanceller(address expectedValue, address actualValue);
     error InvalidResealCommittee(address expectedValue, address actualValue);
     error InvalidProposesCount(uint256 expectedValue, uint256 actualValue);
+    error InvalidConfigProviderForOldDualGovernance(address expectedValue, address actualValue);
 
     event DGUpgradeConfigurationValidated();
 
@@ -31,6 +32,7 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
     address public immutable ACCOUNTING_ORACLE;
     address public immutable VALIDATORS_EXIT_BUS_ORACLE;
     address public immutable RESEAL_COMMITTEE;
+    address public immutable CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE;
 
     constructor(
         address _voting,
@@ -41,7 +43,8 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
         Duration _tiebreakerActivationTimeout,
         address _accountingOracle,
         address _validatorsExitBusOracle,
-        address _resealCommittee
+        address _resealCommittee,
+        address _configProviderForOldDualGovernance
     ) {
         VOTING = _voting;
         DUAL_GOVERNANCE = _dualGovernance;
@@ -52,6 +55,7 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
         ACCOUNTING_ORACLE = _accountingOracle;
         VALIDATORS_EXIT_BUS_ORACLE = _validatorsExitBusOracle;
         RESEAL_COMMITTEE = _resealCommittee;
+        CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE = _configProviderForOldDualGovernance;
     }
 
     function verify() external {
@@ -109,6 +113,12 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
 
         if (IDualGovernance(DUAL_GOVERNANCE).getResealCommittee() != RESEAL_COMMITTEE) {
             revert InvalidResealCommittee(RESEAL_COMMITTEE, IDualGovernance(DUAL_GOVERNANCE).getResealCommittee());
+        }
+
+        if (address(IDualGovernance(DUAL_GOVERNANCE).getConfigProvider()) != CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE) {
+            revert InvalidConfigProviderForOldDualGovernance(
+                CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE, address(IDualGovernance(DUAL_GOVERNANCE).getConfigProvider())
+            );
         }
 
         emit DGUpgradeConfigurationValidated();

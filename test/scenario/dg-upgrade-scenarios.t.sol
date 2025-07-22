@@ -1,20 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {console} from "forge-std/console.sol";
+
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
+import {
+    ImmutableDualGovernanceConfigProvider,
+    DualGovernanceConfig
+} from "contracts/ImmutableDualGovernanceConfigProvider.sol";
+import {Escrow} from "contracts/Escrow.sol";
+import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
+import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
+
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 
-import {
-    Duration, Durations, Timestamps, ContractsDeployment, DGRegressionTestSetup
-} from "../utils/integration-tests.sol";
+import {Proposers} from "contracts/libraries/Proposers.sol";
 
-import {PercentsD16, PercentD16} from "contracts/types/PercentD16.sol";
+import {PercentsD16, PercentD16, HUNDRED_PERCENT_D16} from "contracts/types/PercentD16.sol";
 import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
+import {Duration, Durations} from "contracts/types/Duration.sol";
 
+import {ContractsDeployment, DGRegressionTestSetup} from "test/utils/integration-tests.sol";
 import {ExternalCallsBuilder, ExternalCall} from "scripts/utils/ExternalCallsBuilder.sol";
 import {
     DGSetupDeployArtifacts,
@@ -22,10 +32,6 @@ import {
     TiebreakerDeployConfig,
     TiebreakerDeployedContracts
 } from "scripts/utils/contracts-deployment.sol";
-import {Proposers} from "contracts/libraries/Proposers.sol";
-
-import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
-import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommittee.sol";
 
 contract DGUpgradeScenarioTest is DGRegressionTestSetup {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
@@ -215,6 +221,250 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
                 newDualGovernance.getResealCommittee(), address(previousDGDeployConfig.dualGovernance.resealCommittee)
             );
             assertEq(_timelock.getGovernance(), address(newDualGovernance));
+        }
+
+        _step("5. DAO operates as usually");
+        {
+            ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
+            uint256 proposalId = _submitProposalByAdminProposer(regularStaffCalls, "DAO performs regular stuff");
+
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStaffCalls);
+            _assertCanSchedule(proposalId, false);
+
+            _wait(_getAfterSubmitDelay());
+
+            _assertCanSchedule(proposalId, true);
+            _scheduleProposal(proposalId);
+            _assertProposalScheduled(proposalId);
+
+            _wait(_getAfterScheduleDelay());
+
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
+
+            _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
+        }
+
+        _step("6. Emergency Committee activates emergency mode if needed");
+        {
+            _activateEmergencyMode();
+            assertTrue(_timelock.isEmergencyModeActive());
+        }
+    }
+
+    function testFork_DualGovernanceUpgradeAndNewConfigForOldDualGovernanceInNormalMode() external {
+        _step("1. DAO operates as usual");
+        {
+            ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
+            uint256 proposalId = _submitProposalByAdminProposer(
+                regularStaffCalls, "DAO performs regular stuff on a potentially dangerous contract"
+            );
+
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, regularStaffCalls);
+            _assertCanSchedule(proposalId, false);
+
+            _wait(_getAfterSubmitDelay());
+
+            _assertCanSchedule(proposalId, true);
+            _scheduleProposal(proposalId);
+            _assertProposalScheduled(proposalId);
+
+            _wait(_getAfterScheduleDelay());
+
+            _assertCanExecute(proposalId, true);
+            _executeProposal(proposalId);
+
+            _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
+        }
+
+        _step("2. Vetoer vetoes 50% of the 1st seal");
+        {
+            _lockStETHUpTo(_VETOER, PercentsD16.fromBasisPoints(50));
+        }
+
+        _step("3. Deploy new Dual Governance and Tiebreaker");
+        DualGovernance newDualGovernance;
+        TiebreakerCoreCommittee newTiebreakerCoreCommittee;
+        DGSetupDeployConfig.Context memory previousDGDeployConfig;
+        ImmutableDualGovernanceConfigProvider newImmutableDualGovernanceConfigProvider;
+        {
+            DGSetupDeployArtifacts.Context memory deployArtifact =
+                DGSetupDeployArtifacts.load(vm.envString("DEPLOY_ARTIFACT_FILE_NAME"));
+
+            previousDGDeployConfig = deployArtifact.deployConfig;
+
+            // Deploy new Dual Governance
+            DualGovernance.DualGovernanceComponents memory components = DualGovernance.DualGovernanceComponents({
+                timelock: deployArtifact.deployedContracts.timelock,
+                resealManager: deployArtifact.deployedContracts.resealManager,
+                configProvider: deployArtifact.deployedContracts.dualGovernanceConfigProvider
+            });
+
+            newDualGovernance = new DualGovernance(
+                components,
+                previousDGDeployConfig.dualGovernance.signallingTokens,
+                previousDGDeployConfig.dualGovernance.sanityCheckParams
+            );
+
+            TiebreakerDeployConfig.Context memory tiebreakerConfig;
+            tiebreakerConfig.chainId = deployArtifact.deployConfig.chainId;
+            tiebreakerConfig.owner = address(deployArtifact.deployedContracts.adminExecutor);
+            tiebreakerConfig.dualGovernance = address(newDualGovernance);
+
+            tiebreakerConfig.config = deployArtifact.deployConfig.tiebreaker;
+
+            // Deploying new Tiebreaker
+            TiebreakerDeployedContracts.Context memory tiebreakerDeployedContracts =
+                ContractsDeployment.deployTiebreaker(tiebreakerConfig, address(this));
+
+            newTiebreakerCoreCommittee = tiebreakerDeployedContracts.tiebreakerCoreCommittee;
+
+            // Deploying new ImmutableDualGovernanceConfigProvider with thresholds set to 100%
+            DualGovernanceConfig.Context memory newDualGovernanceConfigForOldDualGovernance = DualGovernanceConfig
+                .Context({
+                firstSealRageQuitSupport: PercentsD16.from(HUNDRED_PERCENT_D16 - 1),
+                secondSealRageQuitSupport: PercentsD16.from(HUNDRED_PERCENT_D16),
+                minAssetsLockDuration: Durations.from(1),
+                vetoSignallingMinDuration: Durations.from(0),
+                vetoSignallingMaxDuration: Durations.from(1),
+                vetoSignallingMinActiveDuration: Durations.from(0),
+                vetoSignallingDeactivationMaxDuration: Durations.from(0),
+                vetoCooldownDuration: Durations.from(0),
+                rageQuitExtensionPeriodDuration: Durations.from(0),
+                rageQuitEthWithdrawalsMinDelay: Durations.from(0),
+                rageQuitEthWithdrawalsMaxDelay: Durations.from(0),
+                rageQuitEthWithdrawalsDelayGrowth: Durations.from(0)
+            });
+
+            newImmutableDualGovernanceConfigProvider =
+                new ImmutableDualGovernanceConfigProvider(newDualGovernanceConfigForOldDualGovernance);
+        }
+
+        _step("4. DAO proposes to upgrade the Dual Governance");
+
+        {
+            ExternalCallsBuilder.Context memory upgradeDGCallsBuilder = ExternalCallsBuilder.create({callsCount: 9});
+
+            // 1. Set Tiebreaker activation timeout
+            upgradeDGCallsBuilder.addCall(
+                address(newDualGovernance),
+                abi.encodeCall(
+                    ITiebreaker.setTiebreakerActivationTimeout,
+                    previousDGDeployConfig.dualGovernance.tiebreakerActivationTimeout
+                )
+            );
+
+            // 2. Set Tiebreaker committee
+            upgradeDGCallsBuilder.addCall(
+                address(newDualGovernance),
+                abi.encodeCall(ITiebreaker.setTiebreakerCommittee, address(newTiebreakerCoreCommittee))
+            );
+
+            // 3. Add Accounting Oracle as Tiebreaker withdrawal blocker
+            upgradeDGCallsBuilder.addCall(
+                address(newDualGovernance),
+                abi.encodeCall(
+                    ITiebreaker.addTiebreakerSealableWithdrawalBlocker,
+                    previousDGDeployConfig.dualGovernance.sealableWithdrawalBlockers[0]
+                )
+            );
+
+            // 4. Add Validators Exit Bus Oracle as Tiebreaker withdrawal blocker
+            upgradeDGCallsBuilder.addCall(
+                address(newDualGovernance),
+                abi.encodeCall(
+                    ITiebreaker.addTiebreakerSealableWithdrawalBlocker,
+                    previousDGDeployConfig.dualGovernance.sealableWithdrawalBlockers[1]
+                )
+            );
+
+            // 5. Register Aragon Voting as admin proposer
+            upgradeDGCallsBuilder.addCall(
+                address(newDualGovernance),
+                abi.encodeCall(IDualGovernance.registerProposer, (address(_lido.voting), _getAdminExecutor()))
+            );
+
+            // 6. Set Aragon Voting as proposals canceller
+            upgradeDGCallsBuilder.addCall(
+                address(newDualGovernance), abi.encodeCall(IDualGovernance.setProposalsCanceller, address(_lido.voting))
+            );
+
+            // 7. Set reseal committee
+            upgradeDGCallsBuilder.addCall(
+                address(newDualGovernance),
+                abi.encodeCall(
+                    IDualGovernance.setResealCommittee, address(previousDGDeployConfig.dualGovernance.resealCommittee)
+                )
+            );
+
+            // 8. Upgrade Dual Governance
+            upgradeDGCallsBuilder.addCall(
+                address(_timelock), abi.encodeCall(ITimelock.setGovernance, address(newDualGovernance))
+            );
+
+            // 9. Set new ImmutableDualGovernanceConfigProvider
+            upgradeDGCallsBuilder.addCall(
+                address(_dgDeployedContracts.dualGovernance),
+                abi.encodeCall(IDualGovernance.setConfigProvider, newImmutableDualGovernanceConfigProvider)
+            );
+
+            uint256 proposalId =
+                _submitProposalByAdminProposer(upgradeDGCallsBuilder.getResult(), "Upgrade Dual Governance");
+            _assertProposalSubmitted(proposalId);
+            _assertSubmittedProposalData(proposalId, upgradeDGCallsBuilder.getResult());
+
+            _wait(_getAfterSubmitDelay());
+
+            _assertCanSchedule(proposalId, true);
+            _scheduleProposal(proposalId);
+
+            _wait(_getAfterScheduleDelay());
+
+            _executeProposal(proposalId);
+            _assertProposalExecuted(proposalId);
+
+            // Check emergency protection
+            assertTrue(_timelock.isEmergencyProtectionEnabled());
+            assertFalse(_timelock.isEmergencyModeActive());
+
+            // Check governance set correctly
+            ITiebreaker.TiebreakerDetails memory tiebreakerDetails = newDualGovernance.getTiebreakerDetails();
+            assertEq(
+                tiebreakerDetails.tiebreakerActivationTimeout,
+                previousDGDeployConfig.dualGovernance.tiebreakerActivationTimeout
+            );
+            assertEq(tiebreakerDetails.tiebreakerCommittee, address(newTiebreakerCoreCommittee));
+            assertEq(tiebreakerDetails.sealableWithdrawalBlockers.length, 2);
+            assertEq(
+                tiebreakerDetails.sealableWithdrawalBlockers[0],
+                previousDGDeployConfig.dualGovernance.sealableWithdrawalBlockers[0]
+            );
+            assertEq(
+                tiebreakerDetails.sealableWithdrawalBlockers[1],
+                previousDGDeployConfig.dualGovernance.sealableWithdrawalBlockers[1]
+            );
+
+            assertEq(newDualGovernance.getProposers().length, 1);
+            Proposers.Proposer memory proposer = newDualGovernance.getProposer(address(_lido.voting));
+            assertEq(proposer.executor, _getAdminExecutor());
+            assertEq(proposer.account, address(_lido.voting));
+
+            assertEq(newDualGovernance.getProposalsCanceller(), address(_lido.voting));
+
+            assertEq(
+                newDualGovernance.getResealCommittee(), address(previousDGDeployConfig.dualGovernance.resealCommittee)
+            );
+            assertEq(_timelock.getGovernance(), address(newDualGovernance));
+
+            assertEq(
+                address(_dgDeployedContracts.dualGovernance.getConfigProvider()),
+                address(newImmutableDualGovernanceConfigProvider)
+            );
+
+            Escrow oldEscrow = Escrow(payable(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow()));
+            assertEq(oldEscrow.getMinAssetsLockDuration(), Durations.from(1));
         }
 
         _step("5. DAO operates as usually");
