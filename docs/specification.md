@@ -1301,6 +1301,7 @@ Initiates the `RageQuitExtensionPeriod` once all withdrawal batches have been cl
 - All withdrawal batches MUST be formed using the `Escrow.requestNextWithdrawalsBatch`.
 - The last unstETH NFT in the `WithdrawalQueue` at the time of the `Escrow.startRageQuit` call MUST be finalized.
 - All withdrawal batches generated during `Escrow.requestNextWithdrawalsBatch` MUST be claimed.
+- The `RageQuitExtensionPeriod` MUST NOT have already been started.
 
 ---
 
