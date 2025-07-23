@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {TiebreakerCoreCommittee} from "contracts/committees/TiebreakerCoreCommittee.sol";
 import {HashConsensus} from "contracts/committees/HashConsensus.sol";
 import {Durations, Duration} from "contracts/types/Duration.sol";
-import {Timestamp} from "contracts/types/Timestamp.sol";
+import {Timestamps, Timestamp} from "contracts/types/Timestamp.sol";
 
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
@@ -73,7 +73,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
             tiebreakerCore.getScheduleProposalState(proposalId);
         assertEq(support, quorum);
         assertEq(executionQuorum, quorum);
-        assertEq(quorumAt, Timestamp.wrap(uint40(block.timestamp)));
+        assertEq(quorumAt, Timestamps.now());
         assertFalse(isExecuted);
     }
 
@@ -141,7 +141,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
             tiebreakerCore.getSealableResumeState(sealable, nonce);
         assertEq(support, quorum);
         assertEq(executionQuorum, quorum);
-        assertEq(quorumAt, Timestamp.wrap(uint40(block.timestamp)));
+        assertEq(quorumAt, Timestamps.now());
         assertFalse(isExecuted);
     }
 
@@ -209,7 +209,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
             tiebreakerCore.getSealableResumeState(sealable, nonce);
         assertEq(support, 0);
         assertEq(executionQuorum, quorum);
-        assertEq(quorumAt, Timestamp.wrap(0));
+        assertEq(quorumAt, Timestamps.ZERO);
         assertFalse(isExecuted);
 
         vm.prank(committeeMembers[0]);
@@ -218,14 +218,16 @@ contract TiebreakerCoreUnitTest is UnitTest {
         (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getSealableResumeState(sealable, nonce);
         assertEq(support, 1);
         assertEq(executionQuorum, quorum);
-        assertEq(quorumAt, Timestamp.wrap(0));
+        assertEq(quorumAt, Timestamps.ZERO);
         assertFalse(isExecuted);
 
         vm.prank(committeeMembers[1]);
         tiebreakerCore.sealableResume(sealable, nonce);
 
+        assertEq(quorum, 2);
+
         (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getSealableResumeState(sealable, nonce);
-        Timestamp quorumAtExpected = Timestamp.wrap(uint40(block.timestamp));
+        Timestamp quorumAtExpected = Timestamps.now();
         assertEq(support, quorum);
         assertEq(executionQuorum, quorum);
         assertEq(quorumAt, quorumAtExpected);
@@ -247,6 +249,16 @@ contract TiebreakerCoreUnitTest is UnitTest {
         assertEq(executionQuorum, quorum);
         assertEq(quorumAt, quorumAtExpected);
         assertTrue(isExecuted);
+
+        uint256 newQuorum = committeeMembers.length;
+
+        vm.prank(owner);
+        tiebreakerCore.setQuorum(newQuorum);
+        assertEq(tiebreakerCore.getQuorum(), newQuorum);
+
+        (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getSealableResumeState(sealable, nonce);
+        assertEq(support, quorum);
+        assertEq(executionQuorum, quorum);
     }
 
     function test_getScheduleProposalState_HappyPath() external {
@@ -254,7 +266,7 @@ contract TiebreakerCoreUnitTest is UnitTest {
             tiebreakerCore.getScheduleProposalState(proposalId);
         assertEq(support, 0);
         assertEq(executionQuorum, quorum);
-        assertEq(quorumAt, Timestamp.wrap(0));
+        assertEq(quorumAt, Timestamps.ZERO);
         assertFalse(isExecuted);
 
         vm.prank(committeeMembers[0]);
@@ -263,14 +275,14 @@ contract TiebreakerCoreUnitTest is UnitTest {
         (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getScheduleProposalState(proposalId);
         assertEq(support, 1);
         assertEq(executionQuorum, quorum);
-        assertEq(quorumAt, Timestamp.wrap(0));
+        assertEq(quorumAt, Timestamps.ZERO);
         assertFalse(isExecuted);
 
         vm.prank(committeeMembers[1]);
         tiebreakerCore.scheduleProposal(proposalId);
 
         (support, executionQuorum, quorumAt, isExecuted) = tiebreakerCore.getScheduleProposalState(proposalId);
-        Timestamp quorumAtExpected = Timestamp.wrap(uint40(block.timestamp));
+        Timestamp quorumAtExpected = Timestamps.now();
         assertEq(support, quorum);
         assertEq(executionQuorum, quorum);
         assertEq(quorumAt, quorumAtExpected);
@@ -288,64 +300,69 @@ contract TiebreakerCoreUnitTest is UnitTest {
         assertTrue(isExecuted);
     }
 
-    function testFuzz_checkProposalExists_HappyPath(uint256 existentProposalId) external {
-        vm.assume(existentProposalId > 0);
+    function testFuzz_checkProposalExists_HappyPath(uint256 existentProposalId, uint256 proposalsCount) external {
+        vm.assume(existentProposalId > 0 && proposalsCount > 0);
+        vm.assume(existentProposalId <= proposalsCount);
 
-        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(existentProposalId);
-        this.external__checkProposalExists(existentProposalId);
+        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(proposalsCount);
+        tiebreakerCore.checkProposalExists(existentProposalId);
     }
 
-    function testFuzz_checkProposalExists_RevertOn_ProposalDoesNotExist(uint256 notExistentProposalId) external {
-        vm.assume(notExistentProposalId > 0);
+    function testFuzz_checkProposalExists_RevertOn_ProposalDoesNotExist(
+        uint256 notExistentProposalId,
+        uint256 proposalsCount
+    ) external {
+        vm.assume(notExistentProposalId > 0 && proposalsCount > 0);
+        vm.assume(notExistentProposalId > proposalsCount);
 
-        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(0);
+        EmergencyProtectedTimelockMock(payable(emergencyProtectedTimelock)).setProposalsCount(proposalsCount);
 
         vm.expectRevert(
             abi.encodeWithSelector(TiebreakerCoreCommittee.ProposalDoesNotExist.selector, notExistentProposalId)
         );
-        this.external__checkProposalExists(notExistentProposalId);
+        tiebreakerCore.checkProposalExists(notExistentProposalId);
     }
 
     function test_checkProposalExists_RevertOn_ZeroProposalId() external {
         vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.ProposalDoesNotExist.selector, 0));
-        this.external__checkProposalExists(0);
+        tiebreakerCore.checkProposalExists(0);
     }
 
     function testFuzz_checkSealableIsPaused_HappyPath(
         Timestamp currentTimestamp,
         Timestamp resumeSinceTimestamp
     ) external {
-        vm.assume(currentTimestamp.toSeconds() >= 0);
-        vm.assume(currentTimestamp.toSeconds() < resumeSinceTimestamp.toSeconds());
+        vm.assume(currentTimestamp.isNotZero());
+        vm.assume(currentTimestamp < resumeSinceTimestamp);
 
         vm.warp(currentTimestamp.toSeconds());
 
         _mockSealableResumeSinceTimestamp(sealable, resumeSinceTimestamp.toSeconds());
-        this.external__checkSealableIsPaused(sealable);
+        tiebreakerCore.checkSealableIsPaused(sealable);
     }
 
     function test_checkSealableIsPaused_RevertOn_ZeroAddress() external {
         vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.InvalidSealable.selector, address(0)));
-        this.external__checkSealableIsPaused(address(0));
+        tiebreakerCore.checkSealableIsPaused(address(0));
     }
 
     function testFuzz_checkSealableIsPaused_RevertOn_SealableNotPaused(
         Timestamp currentTimestamp,
         Timestamp resumeSinceTimestamp
     ) external {
-        vm.assume(resumeSinceTimestamp.toSeconds() >= 0);
-        vm.assume(currentTimestamp.toSeconds() > resumeSinceTimestamp.toSeconds());
+        vm.assume(resumeSinceTimestamp.isNotZero());
+        vm.assume(currentTimestamp > resumeSinceTimestamp);
 
         vm.warp(currentTimestamp.toSeconds());
         _mockSealableResumeSinceTimestamp(sealable, resumeSinceTimestamp.toSeconds());
         vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.SealableIsNotPaused.selector, sealable));
-        this.external__checkSealableIsPaused(sealable);
+        tiebreakerCore.checkSealableIsPaused(sealable);
     }
 
-    function test__checkSealableIsPaused_RevertOn_SealableNotPaused_CurrentBlock() external {
+    function test_checkSealableIsPaused_RevertOn_SealableNotPaused_CurrentBlock() external {
         _mockSealableResumeSinceTimestamp(sealable, block.timestamp);
         vm.expectRevert(abi.encodeWithSelector(TiebreakerCoreCommittee.SealableIsNotPaused.selector, sealable));
-        this.external__checkSealableIsPaused(sealable);
+        tiebreakerCore.checkSealableIsPaused(sealable);
     }
 
     function _mockSealableResumeSinceTimestamp(address sealableAddress, uint256 resumeSinceTimestamp) internal {
@@ -354,13 +371,5 @@ contract TiebreakerCoreUnitTest is UnitTest {
             abi.encodeWithSelector(ISealable.getResumeSinceTimestamp.selector),
             abi.encode(resumeSinceTimestamp)
         );
-    }
-
-    function external__checkSealableIsPaused(address sealableContract) public view {
-        tiebreakerCore.checkSealableIsPaused(sealableContract);
-    }
-
-    function external__checkProposalExists(uint256 proposal) public view {
-        tiebreakerCore.checkProposalExists(proposal);
     }
 }
