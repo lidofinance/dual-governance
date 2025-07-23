@@ -1011,12 +1011,16 @@ library ImmutableDualGovernanceConfigProviderDeployArtifacts {
 
     function save(Context memory ctx, string memory fileName) internal {
         ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
+        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(fileName);
 
         // forgefmt: disable-next-item
         configBuilder
             .set("deploy_config", ctx.deployConfig.toJSON())
             .set("deployed_contracts", ctx.deployedContracts.toJSON())
-            .write(DeployFiles.resolveDeployArtifact(fileName));
+            .write(deployArtifactFilePath);
+
+        console.log("\n");
+        console.log("Deploy artifact saved to: %s", deployArtifactFilePath);
     }
 }
 
