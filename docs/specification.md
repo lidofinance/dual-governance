@@ -260,6 +260,7 @@ Returns the id of the successfully registered proposal.
 
 - The calling address MUST be [registered as a proposer](#Function-DualGovernanceregisterProposer).
 - The current governance state MUST be either of: `Normal`, `VetoSignalling`, `RageQuit`.
+- The number of EVM calls MUST be greater than zero.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
@@ -604,12 +605,14 @@ Sets a new value for the tiebreaker activation timeout. If the Dual Governance s
 function tiebreakerResumeSealable(address sealable)
 ```
 
-Allows the [Tiebreaker committee](#Tiebreaker-committee) to resume a paused sealable contract when the system is in a tie state.
+Allows the [Tiebreaker committee](#Tiebreaker-committee) to resume a paused `sealable` contract when the system is in a tie state.
 
 #### Preconditions
 
 - MUST be called by the [Tiebreaker committee](#Tiebreaker-committee) address.
 - Either **Tiebreaker Condition A** or **Tiebreaker Condition B** MUST be met (see the [mechanism design document][mech design - tiebreaker]).
+- The `sealable` instance MUST currently be paused.
+- The `resealManager` MUST have the permissions required to resume the specified `sealable` instance.
 
 Triggers a transition of the [global governance state](#Governance-state), if one is possible, before checking the tie state.
 
@@ -630,7 +633,9 @@ Allows the [Tiebreaker committee](#Tiebreaker-committee) to instruct the [`Emerg
 - MUST be called by the [Tiebreaker committee](#Tiebreaker-committee) address.
 - Either **Tiebreaker Condition A** or **Tiebreaker Condition B** MUST be met (see the [mechanism design document][mech design - tiebreaker]).
 - The proposal with the given id MUST have been previously submitted using the `DualGovernance.submitProposal` call.
-- The proposal MUST NOT be cancelled.
+- The required delay since submission (`EmergencyProtectedTimelock.getAfterSubmitDelay`) MUST have elapsed.
+- The proposal MUST NOT already be scheduled.
+- The proposal MUST NOT have been cancelled.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
@@ -664,8 +669,8 @@ Allows the reseal committee to "reseal" (pause indefinitely) an instance of a se
 - The system MUST NOT be in the `Normal` state.
 - The caller MUST be the `resealCommittee` address.
 - The `sealable` address MUST implement the `ISealable` interface.
+- The `sealable` instance MUST be paused for a limited duration with a future resume timestamp, and not indefinitely.
 - The `resealManager` MUST have the permissions required to pause and resume the specified `sealable` instance.
-- The `sealable`'s `getResumeSinceTimestamp` MUST be a future timestamp and less than `type(uint256).max`.
 
 Triggers a transition of the current governance state (if one is possible) before checking the preconditions.
 
@@ -728,6 +733,8 @@ Handles calls resulting from governance proposals' execution. Every protocol per
 
 The system supports multiple instances of this contract, but all instances SHOULD be owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) singleton instance.
 
+This contract extends OpenZeppelin’s `Ownable` contract.
+
 ---
 
 ### Function: `Executor.execute`
@@ -772,10 +779,9 @@ function reseal(address sealable)
 Extends the pause of the specified `sealable` contract indefinitely.
 
 #### Preconditions
-
-- The `ResealManager` MUST have both the `PAUSE_ROLE` and `RESUME_ROLE` for the target contract.
-- The target contract MUST be paused for a limited duration with a future resume timestamp, and not indefinitely.
 - The function MUST be called by the governance address returned by the `EmergencyProtectedTimelock.getGovernance` method.
+- The `ResealManager` MUST have the permissions required to pause and resume the specified `sealable` instance.
+- The `sealable` instance MUST be paused for a limited duration with a future resume timestamp, and not indefinitely.
 
 ---
 
@@ -789,9 +795,9 @@ Resumes the specified `sealable` contract if it is scheduled to resume at a futu
 
 #### Preconditions
 
-- The `ResealManager` MUST have the `RESUME_ROLE` for the target contract.
-- The target contract MUST currently be paused.
 - The function MUST be called by the governance address returned by the `EmergencyProtectedTimelock.getGovernance` method.
+- The `ResealManager` MUST have the permissions required to resume the specified `sealable` instance.
+- The `sealable` instance MUST currently be paused.
 
 ---
 
@@ -898,6 +904,7 @@ The amount of stETH shares locked by the caller during the current method call.
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
 - The caller MUST have an allowance set on the stETH token for the `Escrow` instance equal to or greater than the locked `amount`.
 - The locked `amount` MUST NOT exceed the caller's stETH balance.
+- The locked `amount`, after conversion to stETH shares, MUST be greater than zero.
 - The `DualGovernance` contract MUST NOT have a pending state transition to the `RageQuit` state.
 
 ---
@@ -968,6 +975,7 @@ The amount of stETH shares locked by the caller during the current method call.
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
 - The caller MUST have an allowance set on the wstETH token for the `Escrow` instance equal to or greater than the locked `amount`.
 - The locked `amount` MUST NOT exceed the caller's wstETH balance.
+- The locked `amount`, after unwrapping to stETH and converting to stETH shares, MUST be greater than zero.
 - The `DualGovernance` contract MUST NOT have a pending state transition to the `RageQuit` state.
 
 ---
@@ -1033,9 +1041,10 @@ The method calls the `DualGovernance.activateNextState` function at the beginnin
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
 - The caller MUST be the owner of all withdrawal NFTs with the given ids.
-- The caller MUST grant permission to the `SignallingEscrow` instance to transfer tokens with the given ids (`approve` or `setApprovalForAll`).
-- The passed ids MUST NOT contain the finalized or claimed withdrawal NFTs.
-- The passed ids MUST NOT contain duplicates.
+- The caller MUST grant permission to the `SignallingEscrow` instance to transfer tokens with the given withdrawal NFT ids (`approve` or `setApprovalForAll`).
+- The provided withdrawal NFT ids MUST NOT be empty.
+- The provided withdrawal NFT ids MUST NOT contain the finalized or claimed withdrawal NFTs.
+- The provided withdrawal NFT ids MUST NOT contain duplicates.
 - The `DualGovernance` contract MUST NOT have a pending state transition to the `RageQuit` state.
 
 ---
@@ -1078,8 +1087,10 @@ Additionally, the function triggers the `DualGovernance.activateNextState` funct
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
+- The provided withdrawal NFT ids MUST NOT be empty.
 - Each provided withdrawal NFT MUST have been previously locked by the caller.
 - At least the duration of the `SignallingEscrowMinLockTime` MUST have passed since the caller last invoked any of the methods `Escrow.lockStETH`, `Escrow.lockWstETH`, or `Escrow.lockUnstETH`.
+- The `DualGovernance` contract MUST NOT have a pending state transition to the `RageQuit` state.
 
 ---
 
@@ -1121,7 +1132,9 @@ The method calls the `DualGovernance.activateNextState` function at the beginnin
 
 #### Preconditions
 
+- The provided withdrawal NFT ids MUST NOT be empty.
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
+- The `DualGovernance` contract MUST NOT have a pending state transition to the `RageQuit` state.
 
 ---
 
@@ -1134,7 +1147,7 @@ function startRageQuit(
 )
 ```
 
-Transits the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state. Following this transition, locked funds become unwithdrawable and are accessible to users only as plain ETH after the completion of the full `RageQuit` process, including the `RageQuitExtensionPeriod` and `RageQuitEthWithdrawalsDelay` stages.
+Irreversibly transitions the `Escrow` instance from the `SignallingEscrow` state to the `RageQuitEscrow` state. Following this transition, locked funds become unwithdrawable and are accessible to users only as plain ETH after the completion of the full `RageQuit` process, including the `RageQuitExtensionPeriod` and `RageQuitEthWithdrawalsDelay` stages.
 
 #### Preconditions
 
@@ -1154,7 +1167,8 @@ Sets the minimum duration that must elapse after the last stETH, wstETH, or unst
 #### Preconditions
 
 - Method MUST be called by the `DualGovernance` contract.
-- `newMinAssetsLockDuration` MUST NOT be zero.
+- The `Escrow` instance MUST be in the `SignallingEscrow` state.
+- `newMinAssetsLockDuration` MUST NOT be equal to the curren value.
 - `newMinAssetsLockDuration` MUST NOT exceed `Escrow.MAX_MIN_ASSETS_LOCK_DURATION`.
 
 ---
@@ -1242,6 +1256,10 @@ Retrieves details of locked unstETH records for the specified ids. Each `LockedU
 - `shares`: The number of shares associated with the locked unstETH.
 - `claimableAmount`: The amount of claimable ETH in the unstETH. This value is `0` until the unstETH is finalized or claimed.
 
+#### Preconditions
+
+- All `unstETHIds` MUST be locked in the `Escrow` instance.
+
 ---
 
 ### Function: `Escrow.requestNextWithdrawalsBatch`
@@ -1258,7 +1276,7 @@ Upon execution, the function tracks the ids of the withdrawal requests generated
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The `batchSize` MUST be greater than or equal to `Escrow.MIN_WITHDRAWALS_BATCH_SIZE`.
-- The generation of withdrawal request batches MUST not be concluded
+- The generation of withdrawal request batches MUST not be concluded.
 
 ---
 
@@ -1274,7 +1292,9 @@ This function updates the `stETHTotals.claimedETH` variable to track the total a
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
+- The `RageQuitExtensionPeriod` MUST NOT have already been started.
 - The `fromUnstETHId` MUST be equal to the id of the first unclaimed withdrawal NFT locked in the `Escrow`. The ids of the unclaimed withdrawal NFTs can be retrieved via the `getNextWithdrawalBatch` method.
+- The `hints` array MUST NOT be empty. 
 - There MUST be at least one unclaimed withdrawal NFT.
 
 ---
@@ -1286,6 +1306,13 @@ function claimNextWithdrawalsBatch(uint256 maxUnstETHIdsCount)
 ```
 
 This is an overload version of `Escrow.claimNextWithdrawalsBatch(uint256, uint256[])`. It retrieves hints for processing the withdrawal NFTs on-chain.
+
+#### Preconditions
+
+- The `Escrow` instance MUST be in the `RageQuitEscrow` state.
+- The `RageQuitExtensionPeriod` MUST NOT have already been started.
+- The `maxUnstETHIdsCount` MUST NOT be equal to zero. 
+- There MUST be at least one unclaimed withdrawal NFT.
 
 ---
 
@@ -1301,6 +1328,7 @@ Initiates the `RageQuitExtensionPeriod` once all withdrawal batches have been cl
 - All withdrawal batches MUST be formed using the `Escrow.requestNextWithdrawalsBatch`.
 - The last unstETH NFT in the `WithdrawalQueue` at the time of the `Escrow.startRageQuit` call MUST be finalized.
 - All withdrawal batches generated during `Escrow.requestNextWithdrawalsBatch` MUST be claimed.
+- The `RageQuitExtensionPeriod` MUST NOT have already been started.
 
 ---
 
@@ -1314,10 +1342,13 @@ Allows users to claim the ETH associated with finalized withdrawal NFTs with ids
 
 To safeguard the ETH associated with withdrawal NFTs, this function should be invoked when the `Escrow` is in the `RageQuitEscrow` state and before the `RageQuitExtensionPeriod` ends. The ETH corresponding to unclaimed withdrawal NFTs after this period ends would still be controlled by the code potentially affected by pending and future DAO decisions.
 
+> [!NOTE]
+> This method does not require the caller (`msg.sender`) to be the original owner of the `unstETHIds`. This allows users who previously locked their NFTs in the `Escrow` to have them claimed from a different address.
+
 #### Preconditions
 
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
-- The provided `unstETHIds` MUST only contain finalized but unclaimed withdrawal requests with the owner set to `msg.sender`.
+- The provided `unstETHIds` MUST only contain finalized but unclaimed withdrawal requests.
 
 ---
 
@@ -1355,7 +1386,7 @@ Allows the caller (i.e. `msg.sender`) to withdraw the claimed ETH from the withd
 
 #### Preconditions
 
-- The `unstETHIds` array length MUST be greater than zero.
+- The `unstETHIds` array MUST NOT be empty.
 - The `Escrow` instance MUST be in the `RageQuitEscrow` state.
 - The rage quit process MUST be completed, including the expiration of the `RageQuitExtensionPeriod` duration.
 - The `RageQuitEthWithdrawalsDelay` period MUST be elapsed after the expiration of the `RageQuitExtensionPeriod` duration.
@@ -1456,7 +1487,7 @@ Accepts ETH payments exclusively from the `WithdrawalQueue` contract.
 - The ETH sender MUST be the address of the `WithdrawalQueue` contract.
 
 
-## Contract: EmergencyProtectedTimelock
+## Contract: `EmergencyProtectedTimelock`
 
 `EmergencyProtectedTimelock` is the singleton instance storing proposals approved by DAO voting systems and submitted to the Dual Governance. It allows for setting up time-bound **Emergency Activation Committee** and **Emergency Execution Committee**, acting as safeguards for the case of zero-day vulnerability in Dual Governance contracts.
 
@@ -1548,7 +1579,7 @@ The id of the successfully registered proposal.
 #### Preconditions
 
 - MUST be called by the `governance` address.
-- The `calls` array length MUST be greater than zero.
+- The `calls` array MUST NOT be empty.
 
 ---
 
@@ -1563,7 +1594,9 @@ Schedules a previously submitted and non-cancelled proposal for execution after 
 #### Preconditions
 
 - MUST be called by the `governance` address.
-- The proposal MUST already be submitted.
+- The proposal MUST have been previously submitted.
+- The proposal MUST NOT have been cancelled.
+- The proposal MUST NOT already be scheduled.
 - The post-submit timelock MUST have elapsed since the proposal submission.
 
 ---
@@ -1578,10 +1611,11 @@ Instructs the executor contract associated with the proposal to issue the propos
 
 #### Preconditions
 
-- Emergency mode MUST NOT be active.
+- Emergency Mode MUST NOT be active.
 - The proposal MUST be already submitted & scheduled for execution.
+- The proposal MUST NOT have been cancelled.
 - `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY` MUST have elapsed since the proposal’s submission.
-- The emergency protection delay MUST already elapse since the moment the proposal was scheduled.
+- The `afterScheduleDelay` MUST have elapsed since the moment the proposal was scheduled.
 
 ---
 
@@ -1753,7 +1787,8 @@ Activates the Emergency Mode.
 #### Preconditions
 
 - MUST be called by the Emergency Activation Committee address.
-- The Emergency Mode MUST NOT be active.
+- Emergency Mode MUST NOT already be active.
+- Emergency Protection MUST NOT be expired.
 
 ---
 
@@ -1767,8 +1802,8 @@ Executes the scheduled proposal, bypassing the post-schedule delay.
 
 #### Preconditions
 
-- MUST be called by the Emergency Execution Committee address.
 - The Emergency Mode MUST be active.
+- MUST be called by the Emergency Execution Committee address.
 
 ---
 
@@ -1778,7 +1813,7 @@ Executes the scheduled proposal, bypassing the post-schedule delay.
 function deactivateEmergencyMode()
 ```
 
-Deactivates the Emergency Activation and Emergency Execution Committees (setting their addresses to `0x00`), cancels all unexecuted proposals, and disables the [Protected deployment mode](#Proposal-execution-and-deployment-modes).
+Deactivates the Emergency Activation and Emergency Execution Committees (setting their addresses to zero), cancels all unexecuted proposals, and disables the [Protected deployment mode](#Proposal-execution-and-deployment-modes).
 
 #### Preconditions
 
@@ -1793,12 +1828,13 @@ Deactivates the Emergency Activation and Emergency Execution Committees (setting
 function emergencyReset()
 ```
 
-Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in the configuration, cancels all unexecuted proposals, and disables the [Protected deployment mode](#Proposal-execution-and-deployment-modes).
+Resets the `governance` address to the `EmergencyProtectedTimelock.getEmergencyGovernance()` value, cancels all unexecuted proposals, and disables the [Protected deployment mode](#Proposal-execution-and-deployment-modes).
 
 #### Preconditions
 
 - The Emergency Mode MUST be active.
 - MUST be called by the Emergency Execution Committee address.
+- The current `governance` address MUST NOT already equal `EmergencyProtectedTimelock.getEmergencyGovernance()`
 
 ---
 
@@ -2017,6 +2053,14 @@ Sets a new address for the admin executor contract.
 
 `ImmutableDualGovernanceConfigProvider` is a smart contract that stores all the constants used in the Dual Governance system and provides an interface for accessing them. It implements the `IDualGovernanceConfigProvider` interface.
 
+During deployment, the contract validates that the provided values satisfy the following conditions:
+  - `firstSealRageQuitSupport` MUST be less than `secondSealRageQuitSupport`.
+  - `secondSealRageQuitSupport` MUST be less than or equal to 100%, represented as a percentage with 16 decimal places of precision.
+  - `vetoSignallingMinDuration` MUST be less than `vetoSignallingMaxDuration`.
+  - `rageQuitEthWithdrawalsMinDelay` MUST be less than or equal to `rageQuitEthWithdrawalsMaxDelay`.
+  - `minAssetsLockDuration` MUST NOT be zero.
+  - `minAssetsLockDuration` MUST NOT exceed `Escrow.MAX_MIN_ASSETS_LOCK_DURATION`.
+
 ---
 
 ### Function: `ImmutableDualGovernanceConfigProvider.getDualGovernanceConfig`
@@ -2056,6 +2100,10 @@ function getProposals(uint256 offset, uint256 limit) view returns (Proposal[] me
 
 Returns a list of `Proposal` objects starting from the specified `offset`, with the number of proposals limited by the `limit` parameter.
 
+#### Preconditions
+
+- `offset` MUST be less than the total number of proposals.
+
 ---
 
 ### Function: `ProposalsList.getProposalAt`
@@ -2066,6 +2114,10 @@ function getProposalAt(uint256 index) view returns (Proposal memory)
 
 Returns the `Proposal` located at the specified `index` in the proposals list.
 
+#### Preconditions
+
+- `index` MUST be less than total number of proposals.
+
 ---
 
 ### Function: `ProposalsList.getProposal`
@@ -2075,6 +2127,10 @@ function getProposal(bytes32 key) view returns (Proposal memory)
 ```
 
 Returns the `Proposal` identified by its unique `key`.
+
+#### Preconditions
+
+- A proposal with the given `key` MUST have been previously registered.
 
 ---
 
@@ -2096,11 +2152,17 @@ function getOrderedKeys(uint256 offset, uint256 limit) view returns (bytes32[] m
 
 Returns an ordered list of `Proposal` keys with the given `offset` and `limit` for pagination.
 
+#### Preconditions
+
+- `offset` MUST be less than the total number of proposals.
+
 ---
 
 ## Contract: `HashConsensus`
 
 `HashConsensus` is an abstract contract that allows for consensus-based decision-making among a set of members. The consensus is achieved by members voting on a specific hash, and decisions can only be executed if a quorum is reached and a timelock period has elapsed.
+
+This contract extends OpenZeppelin’s `Ownable` contract.
 
 ---
 
@@ -2114,8 +2176,9 @@ Adds new members and updates the quorum.
 
 #### Preconditions
 
-- Only the owner can call this function.
-- Members MUST NOT be part of the set.
+- MUST be called by the contract owner.
+- All `newMembers` MUST NOT already be part of the committee.
+- `newMembers` MUST NOT contain zero addresses.
 - `newQuorum` MUST be greater than 0 and less than or equal to the number of members.
 
 ---
@@ -2130,8 +2193,8 @@ Removes members and updates the quorum.
 
 #### Preconditions
 
-- Only the owner can call this function.
-- Members MUST be part of the set.
+- MUST be called by the contract owner.
+- All `membersToRemove` MUST be members of the committee.
 - `newQuorum` MUST be greater than 0 and less than or equal to the number of remaining members.
 
 ---
@@ -2156,6 +2219,16 @@ Returns if an address is a member.
 
 ---
 
+### Function `HashConsensus.getTimelockDuration`
+
+```solidity
+function getTimelockDuration() view returns (Duration)
+```
+
+Returns the timelock duration that must elapse after a hash is scheduled and before it can be marked as used.
+
+---
+
 ### Function: `HashConsensus.setTimelockDuration`
 
 ```solidity
@@ -2166,8 +2239,19 @@ Sets the timelock duration.
 
 #### Preconditions
 
-- Only the owner can call this function.
-- The new `timelock` value MUST not be equal to the current one
+- MUST be called by the contract owner.
+- The new `timelock` value MUST not be equal to the current one.
+
+
+---
+
+### Function: `HashConsensus.getQuorum`
+
+```solidity
+function getQuorum() view returns (uint256) 
+```
+
+Returns the current quorum value required to schedule a proposal for execution.
 
 ---
 
@@ -2181,10 +2265,26 @@ Sets the quorum required for decision execution.
 
 #### Preconditions
 
-- Only the owner can call this function.
+- MUST be called by the contract owner.
 - `newQuorum` MUST be greater than 0, less than or equal to the number of members, and not equal to the current `quorum` value.
 
 ---
+
+### Function: `HashConsensus.schedule`
+
+```solidity
+function schedule(bytes32 hash)
+```
+
+Schedules a proposal for execution if quorum is reached and it has not yet been scheduled.
+
+#### Preconditions
+- Proposal with given `hash` MUST NOT have been scheduled before.
+- The current execution quorum MUST be greater than zero.
+- The current support for the proposal MUST be greater than or equal to the execution quorum.
+
+---
+
 
 ## Contract: `TiebreakerCoreCommittee`
 
@@ -2198,12 +2298,13 @@ Sets the quorum required for decision execution.
 function scheduleProposal(uint256 proposalId)
 ```
 
-Schedules a proposal for execution by voting on it and adding it to the proposal list.
+Allows committee members to vote on scheduling a proposal, previously submitted to the `EmergencyProtectedTimelock`, for execution.
 
 #### Preconditions
 
-- MUST be called by a member.
-- Proposal with the given id MUST be submitted into `EmergencyProtectedTimelock`
+- MUST be called by a committee member.
+- Proposal with the given `proposalId` MUST have been submitted to the `EmergencyProtectedTimelock`.
+- The quorum required to schedule the proposal for execution in the `EmergencyProtectedTimelock` MUST NOT have been reached previously
 
 ---
 
@@ -2215,7 +2316,12 @@ function getScheduleProposalState(uint256 proposalId)
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
 
-Returns the state of a scheduled proposal including support count, quorum, and execution status.
+Returns the state of the scheduling request for the `EmergencyProtectedTimelock` proposal with the given `proposalId`. The returned tuple contains:
+
+- `support` - The number of votes in support of scheduling the proposal.
+- `executionQuorum` - The number of votes required to reach the execution quorum.
+- `quorumAt` - The timestamp when the quorum was reached.
+- `isExecuted` - Whether the proposal has already been scheduled for execution.
 
 ---
 
@@ -2225,11 +2331,14 @@ Returns the state of a scheduled proposal including support count, quorum, and e
 function executeScheduleProposal(uint256 proposalId)
 ```
 
-Executes a scheduled proposal by calling the `tiebreakerScheduleProposal` function on the `DualGovernance` contract.
+Calls `DualGovernance.tiebreakerScheduleProposal` to schedule the proposal for execution in the `EmergencyProtectedTimelock`, once the required quorum of committee members has been reached and the timelock duration since reaching quorum has elapsed.
 
 #### Preconditions
 
-- Proposal MUST be scheduled for execution and passed the timelock duration.
+- The quorum required to schedule the proposal for execution in the `EmergencyProtectedTimelock` MUST have been reached.
+- The `executeScheduleProposal` function MUST NOT have been called for the given `proposalId` previously.
+- The required timelock duration since the quorum was reached MUST have elapsed.
+- The preconditions of `DualGovernance.tiebreakerScheduleProposal` MUST be satisfied.
 
 ---
 
@@ -2239,7 +2348,7 @@ Executes a scheduled proposal by calling the `tiebreakerScheduleProposal` functi
 function checkProposalExists(uint256 proposalId) public view
 ```
 
-Checks if the specified proposal exists, otherwise reverts.
+Checks whether the specified proposal exists in the `EmergencyProtectedTimelock` and reverts if it does not.
 
 ---
 
@@ -2259,13 +2368,14 @@ Returns the current nonce for resuming operations of a sealable contract.
 function sealableResume(address sealable, uint256 nonce)
 ```
 
-Submits a request to resume operations of a sealable contract by voting on it and adding it to the proposal list.
+Allows committee members to vote on resuming operations of a paused `sealable` contract.
 
 #### Preconditions
 
-- MUST be called by a member.
+- MUST be called by a committee member.
 - The `sealable` address MUST be in `Paused` state.
-- The provided nonce MUST match the current nonce of the sealable contract.
+- The provided nonce MUST match the current nonce of the `sealable` contract.
+- The quorum required to resume operations of the `sealable` contract for the given `nonce` MUST NOT have been reached previously.
 
 ---
 
@@ -2276,8 +2386,12 @@ function getSealableResumeState(address sealable, uint256 nonce)
     view
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
+Returns the current state of the sealable resume request. The returned tuple includes:
 
-Returns the state of sealable resume request including support count, quorum, and execution status.
+- `support` - The number of votes in support of resuming the sealable contract.
+- `executionQuorum` - The number of votes required to reach the execution quorum.
+- `quorumAt` - The timestamp when the quorum was reached.
+- `isExecuted` - Whether the request to resume the sealable contract has already been executed.
 
 ---
 
@@ -2287,11 +2401,14 @@ Returns the state of sealable resume request including support count, quorum, an
 function executeSealableResume(address sealable)
 ```
 
-Executes a sealable resume request by calling the `tiebreakerResumeSealable` function on the `DualGovernance` contract and increments the nonce.
+Calls `DualGovernance.tiebreakerResumeSealable` to resume a paused `sealable` contract once the required quorum of committee members has been reached and the timelock duration since reaching quorum has elapsed. Increments the resume nonce for the given sealable upon successful execution.
 
 #### Preconditions
 
-- Resume request MUST have reached quorum and passed the timelock duration.
+- The quorum required to resume operations of the sealable contract MUST have been reached.
+- The `executeSealableResume` function MUST NOT have been called before for the given `sealable` and the current `TiebreakerCoreCommittee.getSealableResumeNonce()`.
+- The required timelock duration since the quorum was reached MUST have elapsed.
+- The preconditions of `DualGovernance.executeSealableResume` MUST be satisfied.
 
 ---
 
@@ -2316,11 +2433,13 @@ Checks if the specified sealable address is not a zero address and that it is pa
 function scheduleProposal(uint256 proposalId)
 ```
 
-Schedules a proposal for execution by voting on it and adding it to the proposal list.
+Allows committee members to vote on scheduling a proposal (previously submitted to the `EmergencyProtectedTimelock`) for execution, by triggering a call to `TiebreakerCoreCommittee.scheduleProposal` once quorum is reached.
 
 #### Preconditions
-- MUST be called by a member.
-- Proposal with the given id MUST be submitted into `EmergencyProtectedTimelock`
+
+- MUST be called by a committee member.
+- Proposal with the given `proposalId` MUST have been submitted to the `EmergencyProtectedTimelock`.
+- The quorum required to vote on scheduling the proposal for execution in the `EmergencyProtectedTimelock` MUST NOT have been reached previously.
 
 ---
 
@@ -2332,7 +2451,12 @@ function getScheduleProposalState(uint256 proposalId)
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
 
-Returns the state of a scheduled proposal including support count, quorum, and execution status.
+Returns the state of the request to call `TiebreakerCoreCommittee.scheduleProposal` for scheduling the `EmergencyProtectedTimelock` proposal with the given `proposalId`. The returned tuple contains:
+
+- `support` - The number of votes in support of scheduling the proposal.
+- `executionQuorum` - The number of votes required to reach the execution quorum.
+- `quorumAt` - The timestamp when the quorum was reached.
+- `isExecuted` - Whether the proposal has already been submitted to the `TiebreakerCoreCommittee`.
 
 ---
 
@@ -2342,11 +2466,14 @@ Returns the state of a scheduled proposal including support count, quorum, and e
 function executeScheduleProposal(uint256 proposalId)
 ```
 
-Executes a scheduled proposal by calling the scheduleProposal function on the `TiebreakerCoreCommittee` contract.
+Calls `TiebreakerCoreCommittee.scheduleProposal` to vote on scheduling the proposal for execution in the `EmergencyProtectedTimelock`, once the required quorum of subcommittee members has been reached and the required timelock period has elapsed.
 
 #### Preconditions
 
-- Proposal MUST have reached quorum and passed the timelock duration.
+- The quorum required to call `TiebreakerCoreCommittee.scheduleProposal` for the given `proposalId` MUST have been reached.
+- This function MUST NOT have been executed previously for the given `proposalId`.
+- The required timelock duration since the quorum was reached MUST have elapsed.
+- The preconditions of `TiebreakerCoreCommittee.scheduleProposal` MUST be satisfied.
 
 ---
 
@@ -2356,12 +2483,15 @@ Executes a scheduled proposal by calling the scheduleProposal function on the `T
 function sealableResume(address sealable)
 ```
 
-Submits a request to resume operations of a sealable contract by voting on it and adding it to the proposal list.
+Allows committee members to vote on calling `TiebreakerCoreCommittee.sealableResume` to request the resumption of a paused `sealable` contract.
 
 #### Preconditions
 
-- MUST be called by a member.
-- The `sealable` address MUST be in `Paused` state.
+- MUST be called by a committee member.
+- The `sealable` contract MUST be in the `Paused` state.
+- The quorum required to call `TiebreakerCoreCommittee.sealableResume` for the given sealable and the current value of `TiebreakerCoreCommittee.getSealableResumeNonce(sealable)` MUST NOT have been reached previously.
+
+---
 
 ### Function: `TiebreakerSubCommittee.getSealableResumeState`
 
@@ -2371,7 +2501,12 @@ function getSealableResumeState(address sealable)
     returns (uint256 support, uint256 executionQuorum, bool isExecuted)
 ```
 
-Returns the state of current sealable resume request including support count, quorum, and execution status.
+Returns the state of the request to call `TiebreakerCoreCommittee.sealableResume` for the specified `sealable` contract. The returned tuple contains:
+
+- `support` - Number of votes in support of calling the `TiebreakerCoreCommittee.sealableResume` method.
+- `executionQuorum` - Number of votes required to reach quorum.
+- `quorumAt` - Timestamp when quorum was reached.
+- `isExecuted` - Whether the call to `TiebreakerCoreCommittee.sealableResume` for the given `sealable` and the current value of `TiebreakerCoreCommittee.getSealableResumeNonce(sealable)` has already been made.
 
 ---
 
@@ -2381,11 +2516,14 @@ Returns the state of current sealable resume request including support count, qu
 function executeSealableResume(address sealable) external
 ```
 
-Executes a sealable resume request by calling the sealableResume function on the `TiebreakerCoreCommittee` contract and increments the nonce.
+Calls `TiebreakerCoreCommittee.sealableResume` to submit a resume request for the specified sealable contract, once the required quorum of subcommittee members has been reached and the timelock duration has elapsed.
 
 #### Preconditions
 
-- Resume request MUST have reached quorum and passed the timelock duration.
+- The quorum required to call `TiebreakerCoreCommittee.sealableResume` for the given sealable and the current value of `TiebreakerCoreCommittee.getSealableResumeNonce(sealable)` MUST have been reached.
+- This function MUST NOT have been called previously for the given sealable and the current value of `TiebreakerCoreCommittee.getSealableResumeNonce(sealable)`.
+- The required timelock duration since quorum was reached MUST have elapsed.
+- The preconditions of `TiebreakerCoreCommittee.sealableResume` MUST be satisfied.
 
 ---
 
