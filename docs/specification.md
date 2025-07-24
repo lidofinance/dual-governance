@@ -1168,7 +1168,7 @@ Sets the minimum duration that must elapse after the last stETH, wstETH, or unst
 
 - Method MUST be called by the `DualGovernance` contract.
 - The `Escrow` instance MUST be in the `SignallingEscrow` state.
-- `newMinAssetsLockDuration` MUST NOT be equal to the curren value.
+- `newMinAssetsLockDuration` MUST NOT be equal to the current value.
 - `newMinAssetsLockDuration` MUST NOT exceed `Escrow.MAX_MIN_ASSETS_LOCK_DURATION`.
 
 ---
@@ -1597,7 +1597,7 @@ Schedules a previously submitted and non-cancelled proposal for execution after 
 - The proposal MUST have been previously submitted.
 - The proposal MUST NOT have been cancelled.
 - The proposal MUST NOT already be scheduled.
-- The post-submit timelock MUST have elapsed since the proposal submission.
+- `EmergencyProtectedTimelock.getAfterSubmitDelay` MUST have elapsed since the proposal submission.
 
 ---
 
@@ -1615,7 +1615,7 @@ Instructs the executor contract associated with the proposal to issue the propos
 - The proposal MUST be already submitted & scheduled for execution.
 - The proposal MUST NOT have been cancelled.
 - `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY` MUST have elapsed since the proposal’s submission.
-- The `afterScheduleDelay` MUST have elapsed since the moment the proposal was scheduled.
+- `EmergencyProtectedTimelock.getAfterScheduleDelay` MUST have elapsed since the proposal was scheduled for execution.
 
 ---
 
@@ -2348,7 +2348,7 @@ Calls `DualGovernance.tiebreakerScheduleProposal` to schedule the proposal for e
 function checkProposalExists(uint256 proposalId) public view
 ```
 
-Checks whether the specified proposal exists in the `EmergencyProtectedTimelock` and reverts if it does not.
+Checks whether the specified proposal exists in the `EmergencyProtectedTimelock` and reverts if not.
 
 ---
 
