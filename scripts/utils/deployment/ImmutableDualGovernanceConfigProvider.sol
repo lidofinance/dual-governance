@@ -11,7 +11,7 @@ import {ImmutableDualGovernanceConfigProvider} from "contracts/ImmutableDualGove
 import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "../ConfigFiles.sol";
 import {DeployFiles} from "../DeployFiles.sol";
 import {DecimalsFormatting} from "test/utils/formatting.sol";
-import {PercentD16} from "contracts/types/PercentD16.sol";
+import {PercentD16, PercentsD16} from "contracts/types/PercentD16.sol";
 
 using JsonKeys for string;
 using ConfigFileReader for ConfigFileReader.Context;
@@ -35,8 +35,8 @@ library ImmutableDualGovernanceConfigProviderDeployConfig {
         string memory $ = configRootKey.root();
 
         return DualGovernanceConfig.Context({
-            firstSealRageQuitSupport: file.readPercentD16BP($.key("first_seal_rage_quit_support")),
-            secondSealRageQuitSupport: file.readPercentD16BP($.key("second_seal_rage_quit_support")),
+            firstSealRageQuitSupport: PercentsD16.from(file.readUint($.key("first_seal_rage_quit_support"))),
+            secondSealRageQuitSupport: PercentsD16.from(file.readUint($.key("second_seal_rage_quit_support"))),
             minAssetsLockDuration: file.readDuration($.key("min_assets_lock_duration")),
             vetoSignallingMinDuration: file.readDuration($.key("veto_signalling_min_duration")),
             vetoSignallingMinActiveDuration: file.readDuration($.key("veto_signalling_min_active_duration")),
@@ -56,13 +56,10 @@ library ImmutableDualGovernanceConfigProviderDeployConfig {
 
     function toJSON(DualGovernanceConfig.Context memory ctx) internal returns (string memory) {
         ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
-
-        uint256 percentD16BasisPointsDivider = 1e14; // = HUNDRED_PERCENT_D16 / HUNDRED_PERCENT_BP
-
         // forgefmt: disable-next-item
         {
-            builder.set("first_seal_rage_quit_support", ctx.firstSealRageQuitSupport.toUint256() / percentD16BasisPointsDivider);
-            builder.set("second_seal_rage_quit_support", ctx.secondSealRageQuitSupport.toUint256() / percentD16BasisPointsDivider);
+            builder.set("first_seal_rage_quit_support", ctx.firstSealRageQuitSupport.toUint256());
+            builder.set("second_seal_rage_quit_support", ctx.secondSealRageQuitSupport.toUint256());
 
             builder.set("min_assets_lock_duration", ctx.minAssetsLockDuration);
 

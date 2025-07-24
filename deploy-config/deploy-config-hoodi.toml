@@ -28,8 +28,8 @@ max_tiebreaker_activation_timeout = 1800                                      # 
 min_withdrawals_batch_size = 4
 
 [dual_governance_config_provider]
-first_seal_rage_quit_support = 3_00                                           # 3 %
-second_seal_rage_quit_support = 15_00                                         # 15 %
+first_seal_rage_quit_support = 30000000000000000                              # 3 %
+second_seal_rage_quit_support = 150000000000000000                            # 15 %
 min_assets_lock_duration = 300                                                # 5 minutes
 rage_quit_eth_withdrawals_delay_growth = 1200                                 # 20 minutes
 rage_quit_eth_withdrawals_min_delay = 600                                     # 10 minutes

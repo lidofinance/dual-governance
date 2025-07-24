@@ -54,11 +54,11 @@ min_withdrawals_batch_size = 4                                                # 
 
 # The percentage of the total stETH supply that must be reached in the Signalling
 # Escrow to transition Dual Governance from Normal, VetoCooldown and RageQuit states to the VetoSignalling state.
-first_seal_rage_quit_support = 100                                            # 1% **
+first_seal_rage_quit_support = 10000000000000000                                # 1% **
 
 # The percentage of the total stETH supply that must be reached in the
 # Signalling Escrow to transition Dual Governance into the RageQuit state.
-second_seal_rage_quit_support = 1000                                          # 10% **
+second_seal_rage_quit_support = 100000000000000000                              # 10% **
 
 # The minimum duration that assets must remain locked in the Signalling Escrow contract
 # before unlocking is permitted.

@@ -37,8 +37,6 @@ contract DeployConfigurable is Script {
         console.log("\n");
         deployConfig.print();
 
-        deployConfig.validate();
-
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
 

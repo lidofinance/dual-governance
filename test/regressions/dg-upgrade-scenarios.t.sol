@@ -32,8 +32,7 @@ contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
                     resealManager: _dgDeployedContracts.resealManager,
                     configProvider: _dgDeployedContracts.dualGovernanceConfigProvider
                 }),
-                _dgDeployConfig.dualGovernance.signallingTokens,
-                _dgDeployConfig.dualGovernance.sanityCheckParams
+                _dgDeployConfig.dualGovernance
             );
         }
 
@@ -145,8 +144,7 @@ contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
                     resealManager: _dgDeployedContracts.resealManager,
                     configProvider: _dgDeployedContracts.dualGovernanceConfigProvider
                 }),
-                _dgDeployConfig.dualGovernance.signallingTokens,
-                _dgDeployConfig.dualGovernance.sanityCheckParams
+                _dgDeployConfig.dualGovernance
             );
         }
 

@@ -15,6 +15,7 @@ import {TiebreakerSubCommittee} from "contracts/committees/TiebreakerSubCommitte
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
+import {IDualGovernanceConfigProvider} from "contracts/interfaces/IDualGovernanceConfigProvider.sol";
 
 import {Proposers} from "contracts/libraries/Proposers.sol";
 
@@ -185,6 +186,15 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _executeProposal(proposalId);
             _assertProposalExecuted(proposalId);
 
+            _dgDeployedContracts.dualGovernance = DualGovernance(newDualGovernance);
+            _dgDeployedContracts.tiebreakerCoreCommittee = TiebreakerCoreCommittee(newTiebreakerCoreCommittee);
+            _dgDeployedContracts.escrowMasterCopy = Escrow(
+                payable(address(Escrow(payable(newDualGovernance.getVetoSignallingEscrow())).ESCROW_MASTER_COPY()))
+            );
+        }
+
+        _step("5. Check Dual Governance state");
+        {
             // Check emergency protection
             assertTrue(_timelock.isEmergencyProtectionEnabled());
             assertFalse(_timelock.isEmergencyModeActive());
@@ -219,7 +229,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             assertEq(_timelock.getGovernance(), address(newDualGovernance));
         }
 
-        _step("5. DAO operates as usually");
+        _step("6. DAO operates as usually");
         {
             ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
             uint256 proposalId = _submitProposalByAdminProposer(regularStaffCalls, "DAO performs regular stuff");
@@ -242,7 +252,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
         }
 
-        _step("6. Emergency Committee activates emergency mode if needed");
+        _step("7. Emergency Committee activates emergency mode if needed");
         {
             _activateEmergencyMode();
             assertTrue(_timelock.isEmergencyModeActive());
@@ -337,7 +347,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
         }
 
         _step("4. DAO proposes to upgrade the Dual Governance");
-
+        DualGovernance previousDualGovernance;
         {
             ExternalCallsBuilder.Context memory upgradeDGCallsBuilder = ExternalCallsBuilder.create({callsCount: 9});
 
@@ -419,6 +429,17 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _executeProposal(proposalId);
             _assertProposalExecuted(proposalId);
 
+            previousDualGovernance = _dgDeployedContracts.dualGovernance;
+
+            _dgDeployedContracts.dualGovernance = DualGovernance(newDualGovernance);
+            _dgDeployedContracts.tiebreakerCoreCommittee = TiebreakerCoreCommittee(newTiebreakerCoreCommittee);
+            _dgDeployedContracts.escrowMasterCopy = Escrow(
+                payable(address(Escrow(payable(newDualGovernance.getVetoSignallingEscrow())).ESCROW_MASTER_COPY()))
+            );
+        }
+
+        _step("5. Check Dual Governance state");
+        {
             // Check emergency protection
             assertTrue(_timelock.isEmergencyProtectionEnabled());
             assertFalse(_timelock.isEmergencyModeActive());
@@ -453,15 +474,14 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             assertEq(_timelock.getGovernance(), address(newDualGovernance));
 
             assertEq(
-                address(_dgDeployedContracts.dualGovernance.getConfigProvider()),
-                address(newImmutableDualGovernanceConfigProvider)
+                address(previousDualGovernance.getConfigProvider()), address(newImmutableDualGovernanceConfigProvider)
             );
 
-            Escrow oldEscrow = Escrow(payable(_dgDeployedContracts.dualGovernance.getVetoSignallingEscrow()));
+            Escrow oldEscrow = Escrow(payable(previousDualGovernance.getVetoSignallingEscrow()));
             assertEq(oldEscrow.getMinAssetsLockDuration(), Durations.from(1));
         }
 
-        _step("5. DAO operates as usually");
+        _step("6. DAO operates as usually");
         {
             ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
             uint256 proposalId = _submitProposalByAdminProposer(regularStaffCalls, "DAO performs regular stuff");
@@ -484,7 +504,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
         }
 
-        _step("6. Emergency Committee activates emergency mode if needed");
+        _step("7. Emergency Committee activates emergency mode if needed");
         {
             _activateEmergencyMode();
             assertTrue(_timelock.isEmergencyModeActive());
@@ -565,9 +585,11 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
         }
 
         _step("5. DAO proposes to upgrade the Dual Governance");
+        address emergencyActivationCommittee;
+        address emergencyExecutionCommittee;
         {
-            address emergencyActivationCommittee = _timelock.getEmergencyActivationCommittee();
-            address emergencyExecutionCommittee = _timelock.getEmergencyExecutionCommittee();
+            emergencyActivationCommittee = _timelock.getEmergencyActivationCommittee();
+            emergencyExecutionCommittee = _timelock.getEmergencyExecutionCommittee();
             Timestamp emergencyModeEndsAfter = Timestamps.from(block.timestamp + 365 days);
             Duration emergencyModeDuration = Durations.from(30 days);
 
@@ -680,7 +702,15 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _emergencyExecute(proposalId);
             _assertProposalExecuted(proposalId);
 
-            // Check that emergency protection is extended
+            _dgDeployedContracts.dualGovernance = DualGovernance(newDualGovernance);
+            _dgDeployedContracts.tiebreakerCoreCommittee = TiebreakerCoreCommittee(newTiebreakerCoreCommittee);
+            _dgDeployedContracts.escrowMasterCopy = Escrow(
+                payable(address(Escrow(payable(newDualGovernance.getVetoSignallingEscrow())).ESCROW_MASTER_COPY()))
+            );
+        }
+
+        _step("6. Check Dual Governance state");
+        {
             assertEq(_timelock.getEmergencyActivationCommittee(), emergencyActivationCommittee);
             assertEq(_timelock.getEmergencyExecutionCommittee(), emergencyExecutionCommittee);
             assertTrue(_timelock.isEmergencyProtectionEnabled());
@@ -716,7 +746,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             assertEq(_timelock.getGovernance(), address(newDualGovernance));
         }
 
-        _step("6. DAO operates as usually");
+        _step("7. DAO operates as usually");
         {
             ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
             uint256 proposalId = _submitProposalByAdminProposer(regularStaffCalls, "DAO performs regular stuff");
@@ -739,7 +769,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
         }
 
-        _step("7. Emergency Committee activates emergency mode if needed");
+        _step("8. Emergency Committee activates emergency mode if needed");
         {
             _activateEmergencyMode();
             assertTrue(_timelock.isEmergencyModeActive());
@@ -813,9 +843,12 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
         }
 
         _step("6. Emergency committee lifetime is up to end. DAO extends the emergency protection");
+        address emergencyActivationCommittee;
+        address emergencyExecutionCommittee;
+        address emergencyGovernance;
         {
-            address emergencyActivationCommittee = _timelock.getEmergencyActivationCommittee();
-            address emergencyExecutionCommittee = _timelock.getEmergencyExecutionCommittee();
+            emergencyActivationCommittee = _timelock.getEmergencyActivationCommittee();
+            emergencyExecutionCommittee = _timelock.getEmergencyExecutionCommittee();
             Timestamp emergencyModeEndsAfter = Timestamps.from(block.timestamp + 365 days);
             Duration emergencyModeDuration = Durations.from(365 days);
 
@@ -832,8 +865,9 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             );
 
             // Set emergency governance as governance to disable Dual Governance until the decision is made
+            emergencyGovernance = _timelock.getEmergencyGovernance();
             extendEmergencyProtectionCallsBuilder.addCall(
-                address(_timelock), abi.encodeCall(_timelock.setGovernance, (_timelock.getEmergencyGovernance()))
+                address(_timelock), abi.encodeCall(_timelock.setGovernance, (emergencyGovernance))
             );
 
             // Set emergency protection end date
@@ -878,6 +912,11 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             //Emergency committee executes the proposal
             _emergencyExecute(proposalId);
             _assertProposalExecuted(proposalId);
+        }
+
+        _step("6. Check Dual Governance state");
+        {
+            assertEq(_timelock.getGovernance(), emergencyGovernance);
 
             // Check that emergency protection is extended
             assertEq(_timelock.getEmergencyActivationCommittee(), emergencyActivationCommittee);
@@ -892,7 +931,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
         _step("7. DAO operates as usually");
         {
             ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
-            uint256 proposalId = _submitProposalByAdminProposer(regularStaffCalls, "DAO performs regular stuff");
+            uint256 proposalId = _submitProposal(address(_lido.voting), regularStaffCalls, "DAO performs regular stuff");
 
             _assertProposalSubmitted(proposalId);
             _assertSubmittedProposalData(proposalId, regularStaffCalls);

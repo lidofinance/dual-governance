@@ -65,10 +65,6 @@ library ConfigFileReader {
         return Timestamps.from(readUint(ctx, key));
     }
 
-    function readPercentD16BP(Context memory ctx, string memory key) internal pure returns (PercentD16) {
-        return PercentsD16.fromBasisPoints(readUint(ctx, key));
-    }
-
     function readAddress(Context memory ctx, string memory key) internal pure returns (address) {
         if (ctx.format == ConfigFormat.JSON) return stdJson.readAddress(ctx.content, key);
         if (ctx.format == ConfigFormat.TOML) return stdToml.readAddress(ctx.content, key);

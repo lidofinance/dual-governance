@@ -349,13 +349,6 @@ library DGSetupDeployConfig {
         );
     }
 
-    // TODO: move all validation to the deploy functions
-    function validate(Context memory ctx) internal pure {
-        ctx.timelock.validate();
-        ctx.dualGovernanceConfigProvider.validate();
-        ctx.dualGovernance.validate();
-    }
-
     function toJSON(Context memory ctx) internal returns (string memory) {
         ConfigFileBuilder.Context memory builder = ConfigFileBuilder.create();
 
@@ -490,10 +483,6 @@ library DGSetupDeployArtifacts {
         return DGLaunchConfig.load(deployArtifactFilePath);
     }
 
-    function validate(Context memory ctx) internal view {
-        ctx.deployConfig.validate();
-    }
-
     function save(Context memory ctx, string memory fileName) internal {
         ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
         string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(fileName);
@@ -606,12 +595,7 @@ library ContractsDeployment {
     ) internal returns (TGSetupDeployedContracts.Context memory contracts) {
         contracts.adminExecutor = deployExecutor({owner: deployer});
 
-        contracts.timelock = deployEmergencyProtectedTimelock(
-            contracts.adminExecutor,
-            config.timelock.afterSubmitDelay,
-            config.timelock.afterScheduleDelay,
-            config.timelock.sanityCheckParams
-        );
+        contracts.timelock = deployEmergencyProtectedTimelock(contracts.adminExecutor, config.timelock);
 
         contracts.timelockedGovernance =
             deployTimelockedGovernance({governance: config.governance, timelock: contracts.timelock});
@@ -628,12 +612,7 @@ library ContractsDeployment {
     ) internal returns (DGSetupDeployedContracts.Context memory contracts) {
         contracts.adminExecutor = deployExecutor({owner: deployer});
 
-        contracts.timelock = deployEmergencyProtectedTimelock(
-            contracts.adminExecutor,
-            deployConfig.timelock.afterSubmitDelay,
-            deployConfig.timelock.afterScheduleDelay,
-            deployConfig.timelock.sanityCheckParams
-        );
+        contracts.timelock = deployEmergencyProtectedTimelock(contracts.adminExecutor, deployConfig.timelock);
 
         contracts.resealManager = deployResealManager(contracts.timelock);
 
@@ -646,8 +625,7 @@ library ContractsDeployment {
                 resealManager: contracts.resealManager,
                 configProvider: contracts.dualGovernanceConfigProvider
             }),
-            deployConfig.dualGovernance.signallingTokens,
-            deployConfig.dualGovernance.sanityCheckParams
+            deployConfig.dualGovernance
         );
 
         deployConfig.tiebreaker.owner = address(contracts.adminExecutor);
@@ -690,12 +668,11 @@ library ContractsDeployment {
 
     function deployEmergencyProtectedTimelock(
         Executor adminExecutor,
-        Duration afterSubmitDelay,
-        Duration afterScheduleDelay,
-        EmergencyProtectedTimelock.SanityCheckParams memory sanityCheckParams
+        TimelockContractDeployConfig.Context memory config
     ) internal returns (EmergencyProtectedTimelock) {
+        TimelockContractDeployConfig.validate(config);
         return new EmergencyProtectedTimelock(
-            sanityCheckParams, address(adminExecutor), afterSubmitDelay, afterScheduleDelay
+            config.sanityCheckParams, address(adminExecutor), config.afterSubmitDelay, config.afterScheduleDelay
         );
     }
 
@@ -720,10 +697,11 @@ library ContractsDeployment {
 
     function deployDualGovernance(
         DualGovernance.DualGovernanceComponents memory components,
-        DualGovernance.SignallingTokens memory signallingTokens,
-        DualGovernance.SanityCheckParams memory sanityCheckParams
+        DualGovernanceContractDeployConfig.Context memory dgDeployConfig
     ) internal returns (DualGovernance) {
-        return new DualGovernance(components, signallingTokens, sanityCheckParams);
+        DualGovernanceContractDeployConfig.validate(dgDeployConfig);
+
+        return new DualGovernance(components, dgDeployConfig.signallingTokens, dgDeployConfig.sanityCheckParams);
     }
 
     function deployTiebreaker(

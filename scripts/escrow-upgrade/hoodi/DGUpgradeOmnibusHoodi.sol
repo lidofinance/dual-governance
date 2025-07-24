@@ -55,7 +55,6 @@ contract DGUpgradeOmnibusHoodi is OmnibusBase, UpgradeConstantsHoodi {
     function getVoteItems() public view override returns (VoteItem[] memory voteItems) {
         voteItems = new VoteItem[](VOTE_ITEMS_COUNT);
 
-        // Submit DG proposal to switch Dual Governance contract with new Escrow Master Copy
         {
             ExternalCallsBuilder.Context memory dgProposalCallsBuilder =
                 ExternalCallsBuilder.create({callsCount: DG_PROPOSAL_CALLS_COUNT});
