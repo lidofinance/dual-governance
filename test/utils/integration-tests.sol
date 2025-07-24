@@ -672,6 +672,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         _dgDeployConfig.dualGovernance = config.dualGovernance;
         _dgDeployConfig.dualGovernanceConfigProvider = config.dualGovernanceConfigProvider;
 
+        _dgDeployConfig.tiebreaker.chainId = config.chainId;
         _dgDeployConfig.tiebreaker.quorum = config.tiebreaker.quorum;
         _dgDeployConfig.tiebreaker.executionDelay = config.tiebreaker.executionDelay;
 

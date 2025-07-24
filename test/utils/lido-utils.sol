@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
 import {Vm} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -23,8 +22,6 @@ import {IAragonACL} from "./interfaces/IAragonACL.sol";
 import {IAragonAgent} from "./interfaces/IAragonAgent.sol";
 import {IAragonVoting} from "./interfaces/IAragonVoting.sol";
 import {IAragonForwarder} from "./interfaces/IAragonForwarder.sol";
-
-import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 
 import {CallsScriptBuilder} from "scripts/utils/CallsScriptBuilder.sol";
 import {DecimalsFormatting} from "test/utils/formatting.sol";
@@ -49,7 +46,6 @@ address constant MAINNET_DAO_AGENT = 0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c;
 address constant MAINNET_DAO_VOTING = 0x2e59A20f205bB85a89C53f1936454680651E618e;
 address constant MAINNET_DAO_TOKEN_MANAGER = 0xf73a1260d222f447210581DDf212D915c09a3249;
 
-address constant MAINNET_DUAL_GOVERNANCE = 0xcdF49b058D606AD34c5789FD8c3BF8B3E54bA2db;
 // ---
 // Holesky Addresses
 // ---
@@ -70,8 +66,6 @@ address constant HOLESKY_DAO_AGENT = 0xE92329EC7ddB11D25e25b3c21eeBf11f15eB325d;
 address constant HOLESKY_DAO_VOTING = 0xdA7d2573Df555002503F29aA4003e398d28cc00f;
 address constant HOLESKY_DAO_TOKEN_MANAGER = 0xFaa1692c6eea8eeF534e7819749aD93a1420379A;
 
-address constant HOLESKY_DUAL_GOVERNANCE = 0x490bf377734CA134A8E207525E8576745652212e;
-
 // ---
 // Hoodi Addresses
 // ---
@@ -91,8 +85,6 @@ address constant HOODI_LDO_TOKEN = 0xEf2573966D009CcEA0Fc74451dee2193564198dc;
 address constant HOODI_DAO_AGENT = 0x0534aA41907c9631fae990960bCC72d75fA7cfeD;
 address constant HOODI_DAO_VOTING = 0x49B3512c44891bef83F8967d075121Bd1b07a01B;
 address constant HOODI_DAO_TOKEN_MANAGER = 0x8ab4a56721Ad8e68c6Ad86F9D9929782A78E39E5;
-
-address constant HOODI_DUAL_GOVERNANCE = 0x4d12b9f6aCAB54FF6a3a776BA3b8724D9B77845F;
 
 Vm constant VM = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
@@ -117,7 +109,6 @@ library LidoUtils {
         IAragonAgent agent;
         IAragonVoting voting;
         IAragonForwarder tokenManager;
-        IDualGovernance dualGovernance;
     }
 
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -141,8 +132,6 @@ library LidoUtils {
         ctx.voting = IAragonVoting(MAINNET_DAO_VOTING);
         ctx.ldoToken = IERC20(MAINNET_LDO_TOKEN);
         ctx.tokenManager = IAragonForwarder(MAINNET_DAO_TOKEN_MANAGER);
-
-        ctx.dualGovernance = IDualGovernance(MAINNET_DUAL_GOVERNANCE);
     }
 
     function holesky() internal pure returns (Context memory ctx) {
@@ -162,8 +151,6 @@ library LidoUtils {
         ctx.voting = IAragonVoting(HOLESKY_DAO_VOTING);
         ctx.ldoToken = IERC20(HOLESKY_LDO_TOKEN);
         ctx.tokenManager = IAragonForwarder(HOLESKY_DAO_TOKEN_MANAGER);
-
-        ctx.dualGovernance = IDualGovernance(HOLESKY_DUAL_GOVERNANCE);
     }
 
     function hoodi() internal pure returns (Context memory ctx) {
@@ -183,8 +170,6 @@ library LidoUtils {
         ctx.voting = IAragonVoting(HOODI_DAO_VOTING);
         ctx.ldoToken = IERC20(HOODI_LDO_TOKEN);
         ctx.tokenManager = IAragonForwarder(HOODI_DAO_TOKEN_MANAGER);
-
-        ctx.dualGovernance = IDualGovernance(HOODI_DUAL_GOVERNANCE);
     }
 
     function calcAmountFromPercentageOfTVL(

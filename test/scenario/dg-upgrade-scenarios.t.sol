@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {console} from "forge-std/console.sol";
-
 import {EmergencyProtection} from "contracts/libraries/EmergencyProtection.sol";
 import {ExecutableProposals, Status as ProposalStatus} from "contracts/libraries/ExecutableProposals.sol";
 import {DualGovernance} from "contracts/DualGovernance.sol";
@@ -98,12 +96,10 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
                 previousDGDeployConfig.dualGovernance.sanityCheckParams
             );
 
-            TiebreakerDeployConfig.Context memory tiebreakerConfig;
+            TiebreakerDeployConfig.Context memory tiebreakerConfig = deployArtifact.deployConfig.tiebreaker;
             tiebreakerConfig.chainId = deployArtifact.deployConfig.chainId;
             tiebreakerConfig.owner = address(deployArtifact.deployedContracts.adminExecutor);
             tiebreakerConfig.dualGovernance = address(newDualGovernance);
-
-            tiebreakerConfig.config = deployArtifact.deployConfig.tiebreaker;
 
             // Deploying new Tiebreaker
             TiebreakerDeployedContracts.Context memory tiebreakerDeployedContracts =
@@ -308,12 +304,10 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
                 previousDGDeployConfig.dualGovernance.sanityCheckParams
             );
 
-            TiebreakerDeployConfig.Context memory tiebreakerConfig;
+            TiebreakerDeployConfig.Context memory tiebreakerConfig = deployArtifact.deployConfig.tiebreaker;
             tiebreakerConfig.chainId = deployArtifact.deployConfig.chainId;
             tiebreakerConfig.owner = address(deployArtifact.deployedContracts.adminExecutor);
             tiebreakerConfig.dualGovernance = address(newDualGovernance);
-
-            tiebreakerConfig.config = deployArtifact.deployConfig.tiebreaker;
 
             // Deploying new Tiebreaker
             TiebreakerDeployedContracts.Context memory tiebreakerDeployedContracts =
@@ -558,12 +552,10 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
                 previousDGDeployConfig.dualGovernance.sanityCheckParams
             );
 
-            TiebreakerDeployConfig.Context memory tiebreakerConfig;
+            TiebreakerDeployConfig.Context memory tiebreakerConfig = deployArtifact.deployConfig.tiebreaker;
             tiebreakerConfig.chainId = deployArtifact.deployConfig.chainId;
             tiebreakerConfig.owner = address(deployArtifact.deployedContracts.adminExecutor);
             tiebreakerConfig.dualGovernance = address(newDualGovernance);
-
-            tiebreakerConfig.config = deployArtifact.deployConfig.tiebreaker;
 
             // Deploying new Tiebreaker
             TiebreakerDeployedContracts.Context memory tiebreakerDeployedContracts =
