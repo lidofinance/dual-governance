@@ -23,8 +23,6 @@ deploy-config/*
 !deploy-config/deploy-config-holesky.toml
 !deploy-config/deploy-config-mainnet.toml
 !deploy-config/deploy-config-hoodi.toml
-!deploy-config/deploy-config-hoodi-reset-config-provider.toml
-
 
 # Permissions transition output
 /scripts/permissions-transition/transition-plans/*.md
