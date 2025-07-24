@@ -6,7 +6,7 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {PercentsD16, PercentD16, HUNDRED_PERCENT_D16} from "contracts/types/PercentD16.sol";
+import {PercentsD16, HUNDRED_PERCENT_D16} from "contracts/types/PercentD16.sol";
 import {Durations} from "contracts/types/Duration.sol";
 
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";

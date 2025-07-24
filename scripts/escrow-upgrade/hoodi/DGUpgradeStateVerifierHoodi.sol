@@ -29,13 +29,13 @@ contract DGUpgradeStateVerifierHoodi is IDGLaunchVerifier, UpgradeConstantsHoodi
     address public immutable CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE;
 
     constructor(
-        address _newDualGovernance,
-        address _newTiebreakerCoreCommittee,
-        address _configProviderForDisconnectedDualGovernance
+        address newDualGovernance,
+        address newTiebreakerCoreCommittee,
+        address configProviderForDisconnectedDualGovernance
     ) {
-        NEW_DUAL_GOVERNANCE = _newDualGovernance;
-        NEW_TIEBREAKER_CORE_COMMITTEE = _newTiebreakerCoreCommittee;
-        CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE = _configProviderForDisconnectedDualGovernance;
+        NEW_DUAL_GOVERNANCE = newDualGovernance;
+        NEW_TIEBREAKER_CORE_COMMITTEE = newTiebreakerCoreCommittee;
+        CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE = configProviderForDisconnectedDualGovernance;
     }
 
     function verify() external {

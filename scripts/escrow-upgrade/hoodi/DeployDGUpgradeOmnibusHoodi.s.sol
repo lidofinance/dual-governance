@@ -5,8 +5,6 @@ pragma solidity 0.8.26;
 import {console} from "forge-std/console.sol";
 import {Script} from "forge-std/Script.sol";
 
-import {Duration, Durations} from "contracts/types/Duration.sol";
-
 import {DGUpgradeOmnibusHoodi} from "./DGUpgradeOmnibusHoodi.sol";
 import {DGUpgradeStateVerifierHoodi} from "./DGUpgradeStateVerifierHoodi.sol";
 

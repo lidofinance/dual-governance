@@ -41,15 +41,15 @@ contract DGUpgradeOmnibusHoodi is OmnibusBase, UpgradeConstantsHoodi {
     address public immutable CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE;
 
     constructor(
-        address _dgUpgradeStateVerifier,
-        address _newDualGovernance,
-        address _newTiebreakerCoreCommittee,
-        address _configProviderForDisconnectedDualGovernance
+        address dgUpgradeStateVerifier,
+        address newDualGovernance,
+        address newTiebreakerCoreCommittee,
+        address configProviderForDisconnectedDualGovernance
     ) OmnibusBase(VOTING) {
-        DG_UPGRADE_STATE_VERIFIER = _dgUpgradeStateVerifier;
-        NEW_DUAL_GOVERNANCE = _newDualGovernance;
-        NEW_TIEBREAKER_CORE_COMMITTEE = _newTiebreakerCoreCommittee;
-        CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE = _configProviderForDisconnectedDualGovernance;
+        DG_UPGRADE_STATE_VERIFIER = dgUpgradeStateVerifier;
+        NEW_DUAL_GOVERNANCE = newDualGovernance;
+        NEW_TIEBREAKER_CORE_COMMITTEE = newTiebreakerCoreCommittee;
+        CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE = configProviderForDisconnectedDualGovernance;
     }
 
     function getVoteItems() public view override returns (VoteItem[] memory voteItems) {

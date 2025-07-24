@@ -191,6 +191,17 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _dgDeployedContracts.escrowMasterCopy = Escrow(
                 payable(address(Escrow(payable(newDualGovernance.getVetoSignallingEscrow())).ESCROW_MASTER_COPY()))
             );
+
+            address[] memory tiebreakerSubCommitteesAddresses =
+                _dgDeployedContracts.tiebreakerCoreCommittee.getMembers();
+
+            _dgDeployedContracts.tiebreakerSubCommittees =
+                new TiebreakerSubCommittee[](tiebreakerSubCommitteesAddresses.length);
+
+            for (uint256 i = 0; i < tiebreakerSubCommitteesAddresses.length; ++i) {
+                _dgDeployedContracts.tiebreakerSubCommittees[i] =
+                    TiebreakerSubCommittee(tiebreakerSubCommitteesAddresses[i]);
+            }
         }
 
         _step("5. Check Dual Governance state");
@@ -436,6 +447,17 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _dgDeployedContracts.escrowMasterCopy = Escrow(
                 payable(address(Escrow(payable(newDualGovernance.getVetoSignallingEscrow())).ESCROW_MASTER_COPY()))
             );
+
+            address[] memory tiebreakerSubCommitteesAddresses =
+                _dgDeployedContracts.tiebreakerCoreCommittee.getMembers();
+
+            _dgDeployedContracts.tiebreakerSubCommittees =
+                new TiebreakerSubCommittee[](tiebreakerSubCommitteesAddresses.length);
+
+            for (uint256 i = 0; i < tiebreakerSubCommitteesAddresses.length; ++i) {
+                _dgDeployedContracts.tiebreakerSubCommittees[i] =
+                    TiebreakerSubCommittee(tiebreakerSubCommitteesAddresses[i]);
+            }
         }
 
         _step("5. Check Dual Governance state");
@@ -707,6 +729,17 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _dgDeployedContracts.escrowMasterCopy = Escrow(
                 payable(address(Escrow(payable(newDualGovernance.getVetoSignallingEscrow())).ESCROW_MASTER_COPY()))
             );
+
+            address[] memory tiebreakerSubCommitteesAddresses =
+                _dgDeployedContracts.tiebreakerCoreCommittee.getMembers();
+
+            _dgDeployedContracts.tiebreakerSubCommittees =
+                new TiebreakerSubCommittee[](tiebreakerSubCommitteesAddresses.length);
+
+            for (uint256 i = 0; i < tiebreakerSubCommitteesAddresses.length; ++i) {
+                _dgDeployedContracts.tiebreakerSubCommittees[i] =
+                    TiebreakerSubCommittee(tiebreakerSubCommitteesAddresses[i]);
+            }
         }
 
         _step("6. Check Dual Governance state");
@@ -914,7 +947,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _assertProposalExecuted(proposalId);
         }
 
-        _step("6. Check Dual Governance state");
+        _step("7. Check Dual Governance state");
         {
             assertEq(_timelock.getGovernance(), emergencyGovernance);
 
@@ -928,7 +961,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _assertProposalCancelled(maliciousProposalId);
         }
 
-        _step("7. DAO operates as usually");
+        _step("8. DAO operates as usually");
         {
             ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
             uint256 proposalId = _submitProposal(address(_lido.voting), regularStaffCalls, "DAO performs regular stuff");
@@ -951,7 +984,7 @@ contract DGUpgradeScenarioTest is DGRegressionTestSetup {
             _assertTargetMockCalls(_getAdminExecutor(), regularStaffCalls);
         }
 
-        _step("8. Emergency Committee activates emergency mode if needed");
+        _step("9. Emergency Committee activates emergency mode if needed");
         {
             _activateEmergencyMode();
             assertTrue(_timelock.isEmergencyModeActive());

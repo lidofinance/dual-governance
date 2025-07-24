@@ -55,11 +55,8 @@ contract DeployUpgradeContracts is Script {
 
         console.log("Deploying DualGovernance...");
         vm.startBroadcast();
-        DualGovernance dualGovernance = new DualGovernance(
-            components,
-            _deployArtifact.deployConfig.dualGovernance.signallingTokens,
-            _deployArtifact.deployConfig.dualGovernance.sanityCheckParams
-        );
+        DualGovernance dualGovernance =
+            ContractsDeployment.deployDualGovernance(components, _deployArtifact.deployConfig.dualGovernance);
         vm.stopBroadcast();
 
         _deployArtifact.deployedContracts.dualGovernance = dualGovernance;
@@ -75,8 +72,6 @@ contract DeployUpgradeContracts is Script {
         _deployArtifact.deployConfig.tiebreaker.chainId = block.chainid;
         _deployArtifact.deployConfig.tiebreaker.owner = adminExecutor;
         _deployArtifact.deployConfig.tiebreaker.dualGovernance = address(dualGovernance);
-
-        console.log("Tiebreaker config validated");
 
         _deployArtifact.deployConfig.tiebreaker.print();
         vm.startBroadcast();
