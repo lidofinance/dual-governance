@@ -7,8 +7,9 @@ import {IDGLaunchVerifier} from "scripts/launch/interfaces/IDGLaunchVerifier.sol
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IDualGovernance, Proposers} from "contracts/interfaces/IDualGovernance.sol";
+import {UpgradeConstants} from "./UpgradeConstants.sol";
 
-contract DGUpgradeStateVerifier is IDGLaunchVerifier {
+contract DGUpgradeStateVerifierHoodi is IDGLaunchVerifier, UpgradeConstants {
     error InvalidDualGovernanceAddress(address expectedValue, address actualValue);
     error InvalidTiebreakerActivationTimeout(Duration expectedValue, Duration actualValue);
     error InvalidTiebreakerCommittee(address expectedValue, address actualValue);
@@ -19,51 +20,32 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
     error InvalidProposalsCanceller(address expectedValue, address actualValue);
     error InvalidResealCommittee(address expectedValue, address actualValue);
     error InvalidProposesCount(uint256 expectedValue, uint256 actualValue);
-    error InvalidConfigProviderForOldDualGovernance(address expectedValue, address actualValue);
+    error InvalidConfigProviderForDisconnectedDualGovernance(address expectedValue, address actualValue);
 
     event DGUpgradeConfigurationValidated();
 
-    address public immutable VOTING;
-    address public immutable DUAL_GOVERNANCE;
-    address public immutable TIMELOCK;
-    address public immutable ADMIN_EXECUTOR;
-    address public immutable TIEBREAKER_CORE_COMMITTEE;
-    Duration public immutable TIEBREAKER_ACTIVATION_TIMEOUT;
-    address public immutable ACCOUNTING_ORACLE;
-    address public immutable VALIDATORS_EXIT_BUS_ORACLE;
-    address public immutable RESEAL_COMMITTEE;
-    address public immutable CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE;
+    address public immutable NEW_DUAL_GOVERNANCE;
+    address public immutable NEW_TIEBREAKER_CORE_COMMITTEE;
+    address public immutable CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE;
 
     constructor(
-        address _voting,
-        address _dualGovernance,
-        address _timelock,
-        address _adminExecutor,
-        address _tiebreakerCoreCommittee,
-        Duration _tiebreakerActivationTimeout,
-        address _accountingOracle,
-        address _validatorsExitBusOracle,
-        address _resealCommittee,
-        address _configProviderForOldDualGovernance
+        address _newDualGovernance,
+        address _newTiebreakerCoreCommittee,
+        address _configProviderForDisconnectedDualGovernance
     ) {
-        VOTING = _voting;
-        DUAL_GOVERNANCE = _dualGovernance;
-        TIMELOCK = _timelock;
-        ADMIN_EXECUTOR = _adminExecutor;
-        TIEBREAKER_CORE_COMMITTEE = _tiebreakerCoreCommittee;
-        TIEBREAKER_ACTIVATION_TIMEOUT = _tiebreakerActivationTimeout;
-        ACCOUNTING_ORACLE = _accountingOracle;
-        VALIDATORS_EXIT_BUS_ORACLE = _validatorsExitBusOracle;
-        RESEAL_COMMITTEE = _resealCommittee;
-        CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE = _configProviderForOldDualGovernance;
+        NEW_DUAL_GOVERNANCE = _newDualGovernance;
+        NEW_TIEBREAKER_CORE_COMMITTEE = _newTiebreakerCoreCommittee;
+        CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE = _configProviderForDisconnectedDualGovernance;
     }
 
     function verify() external {
-        if (IEmergencyProtectedTimelock(TIMELOCK).getGovernance() != DUAL_GOVERNANCE) {
-            revert InvalidDualGovernanceAddress(DUAL_GOVERNANCE, IEmergencyProtectedTimelock(TIMELOCK).getGovernance());
+        if (IEmergencyProtectedTimelock(TIMELOCK).getGovernance() != NEW_DUAL_GOVERNANCE) {
+            revert InvalidDualGovernanceAddress(
+                NEW_DUAL_GOVERNANCE, IEmergencyProtectedTimelock(TIMELOCK).getGovernance()
+            );
         }
 
-        ITiebreaker.TiebreakerDetails memory tiebreakerDetails = ITiebreaker(DUAL_GOVERNANCE).getTiebreakerDetails();
+        ITiebreaker.TiebreakerDetails memory tiebreakerDetails = ITiebreaker(NEW_DUAL_GOVERNANCE).getTiebreakerDetails();
 
         if (tiebreakerDetails.tiebreakerActivationTimeout != TIEBREAKER_ACTIVATION_TIMEOUT) {
             revert InvalidTiebreakerActivationTimeout(
@@ -71,19 +53,19 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
             );
         }
 
-        if (tiebreakerDetails.tiebreakerCommittee != TIEBREAKER_CORE_COMMITTEE) {
-            revert InvalidTiebreakerCommittee(TIEBREAKER_CORE_COMMITTEE, tiebreakerDetails.tiebreakerCommittee);
+        if (tiebreakerDetails.tiebreakerCommittee != NEW_TIEBREAKER_CORE_COMMITTEE) {
+            revert InvalidTiebreakerCommittee(NEW_TIEBREAKER_CORE_COMMITTEE, tiebreakerDetails.tiebreakerCommittee);
         }
 
-        if (tiebreakerDetails.sealableWithdrawalBlockers.length != 2) {
+        if (tiebreakerDetails.sealableWithdrawalBlockers.length != 3) {
             revert InvalidTiebreakerSealableWithdrawalBlockersCount(
-                2, tiebreakerDetails.sealableWithdrawalBlockers.length
+                3, tiebreakerDetails.sealableWithdrawalBlockers.length
             );
         }
 
-        if (tiebreakerDetails.sealableWithdrawalBlockers[0] != ACCOUNTING_ORACLE) {
+        if (tiebreakerDetails.sealableWithdrawalBlockers[0] != WITHDRAWAL_QUEUE) {
             revert InvalidTiebreakerSealableWithdrawalBlockers(
-                ACCOUNTING_ORACLE, tiebreakerDetails.sealableWithdrawalBlockers[0]
+                WITHDRAWAL_QUEUE, tiebreakerDetails.sealableWithdrawalBlockers[0]
             );
         }
 
@@ -93,31 +75,41 @@ contract DGUpgradeStateVerifier is IDGLaunchVerifier {
             );
         }
 
-        Proposers.Proposer memory proposerDetails = IDualGovernance(DUAL_GOVERNANCE).getProposer(VOTING);
-
-        if (proposerDetails.account != VOTING) {
-            revert InvalidProposer(VOTING, proposerDetails.account);
+        if (tiebreakerDetails.sealableWithdrawalBlockers[2] != TRIGGERABLE_WITHDRAWALS_GATEWAY) {
+            revert InvalidTiebreakerSealableWithdrawalBlockers(
+                TRIGGERABLE_WITHDRAWALS_GATEWAY, tiebreakerDetails.sealableWithdrawalBlockers[2]
+            );
         }
 
-        if (proposerDetails.executor != ADMIN_EXECUTOR) {
-            revert InvalidProposerExecutor(ADMIN_EXECUTOR, proposerDetails.executor);
+        Proposers.Proposer[] memory proposers = IDualGovernance(NEW_DUAL_GOVERNANCE).getProposers();
+
+        if (proposers.length != 1) {
+            revert InvalidProposesCount(1, proposers.length);
         }
 
-        if (IDualGovernance(DUAL_GOVERNANCE).getProposers().length != 1) {
-            revert InvalidProposesCount(1, IDualGovernance(DUAL_GOVERNANCE).getProposers().length);
+        if (proposers[0].account != VOTING) {
+            revert InvalidProposer(VOTING, proposers[0].account);
         }
 
-        if (IDualGovernance(DUAL_GOVERNANCE).getProposalsCanceller() != VOTING) {
-            revert InvalidProposalsCanceller(VOTING, IDualGovernance(DUAL_GOVERNANCE).getProposalsCanceller());
+        if (proposers[0].executor != ADMIN_EXECUTOR) {
+            revert InvalidProposerExecutor(ADMIN_EXECUTOR, proposers[0].executor);
         }
 
-        if (IDualGovernance(DUAL_GOVERNANCE).getResealCommittee() != RESEAL_COMMITTEE) {
-            revert InvalidResealCommittee(RESEAL_COMMITTEE, IDualGovernance(DUAL_GOVERNANCE).getResealCommittee());
+        if (IDualGovernance(NEW_DUAL_GOVERNANCE).getProposalsCanceller() != VOTING) {
+            revert InvalidProposalsCanceller(VOTING, IDualGovernance(NEW_DUAL_GOVERNANCE).getProposalsCanceller());
         }
 
-        if (address(IDualGovernance(DUAL_GOVERNANCE).getConfigProvider()) != CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE) {
-            revert InvalidConfigProviderForOldDualGovernance(
-                CONFIG_PROVIDER_FOR_OLD_DUAL_GOVERNANCE, address(IDualGovernance(DUAL_GOVERNANCE).getConfigProvider())
+        if (IDualGovernance(NEW_DUAL_GOVERNANCE).getResealCommittee() != RESEAL_COMMITTEE) {
+            revert InvalidResealCommittee(RESEAL_COMMITTEE, IDualGovernance(NEW_DUAL_GOVERNANCE).getResealCommittee());
+        }
+
+        if (
+            address(IDualGovernance(DUAL_GOVERNANCE).getConfigProvider())
+                != CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE
+        ) {
+            revert InvalidConfigProviderForDisconnectedDualGovernance(
+                CONFIG_PROVIDER_FOR_DISCONNECTED_DUAL_GOVERNANCE,
+                address(IDualGovernance(DUAL_GOVERNANCE).getConfigProvider())
             );
         }
 

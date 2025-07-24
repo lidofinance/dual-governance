@@ -7,21 +7,20 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {PercentsD16, PercentD16, HUNDRED_PERCENT_D16} from "contracts/types/PercentD16.sol";
-import {Duration, Durations} from "contracts/types/Duration.sol";
+import {Durations} from "contracts/types/Duration.sol";
 
 import {DualGovernanceConfig} from "contracts/libraries/DualGovernanceConfig.sol";
 
 import {
     ImmutableDualGovernanceConfigProviderDeployConfig,
     ImmutableDualGovernanceConfigProviderDeployArtifacts,
-    ImmutableDualGovernanceConfigProviderDeployedContracts,
-    ContractsDeployment
-} from "../utils/contracts-deployment.sol";
+    ImmutableDualGovernanceConfigProviderDeployedContracts
+} from "../utils/deployment/ImmutableDualGovernanceConfigProvider.sol";
+
+import {ContractsDeployment} from "../utils/contracts-deployment.sol";
 
 contract DeployDisconnectedDGConfigProvider is Script {
-    using
-    ImmutableDualGovernanceConfigProviderDeployConfig
-    for ImmutableDualGovernanceConfigProviderDeployConfig.Context;
+    using ImmutableDualGovernanceConfigProviderDeployConfig for DualGovernanceConfig.Context;
     using
     ImmutableDualGovernanceConfigProviderDeployArtifacts
     for ImmutableDualGovernanceConfigProviderDeployArtifacts.Context;
@@ -29,12 +28,10 @@ contract DeployDisconnectedDGConfigProvider is Script {
     ImmutableDualGovernanceConfigProviderDeployedContracts
     for ImmutableDualGovernanceConfigProviderDeployedContracts.Context;
 
-    error ChainIdMismatch(uint256 actual, uint256 expected);
-
-    ImmutableDualGovernanceConfigProviderDeployArtifacts.Context internal _deployArtifact;
-
     function run() public {
-        _deployArtifact.deployConfig.config = DualGovernanceConfig.Context({
+        ImmutableDualGovernanceConfigProviderDeployArtifacts.Context memory deployArtifact;
+
+        deployArtifact.deployConfig = DualGovernanceConfig.Context({
             firstSealRageQuitSupport: PercentsD16.from(HUNDRED_PERCENT_D16 - 1),
             secondSealRageQuitSupport: PercentsD16.from(HUNDRED_PERCENT_D16),
             minAssetsLockDuration: Durations.from(1),
@@ -49,9 +46,7 @@ contract DeployDisconnectedDGConfigProvider is Script {
             rageQuitEthWithdrawalsDelayGrowth: Durations.from(0)
         });
 
-        _deployArtifact.deployConfig.chainId = block.chainid;
-
-        _deployArtifact.deployConfig.print();
+        deployArtifact.deployConfig.print();
 
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
@@ -59,14 +54,14 @@ contract DeployDisconnectedDGConfigProvider is Script {
 
         vm.startBroadcast();
 
-        _deployArtifact.deployedContracts.dualGovernanceConfigProvider =
-            ContractsDeployment.deployDualGovernanceConfigProvider(_deployArtifact.deployConfig.config);
+        deployArtifact.deployedContracts.dualGovernanceConfigProvider =
+            ContractsDeployment.deployDualGovernanceConfigProvider(deployArtifact.deployConfig);
 
         vm.stopBroadcast();
 
-        console.log("\n");
+        console.log("");
         console.log("Disconnected Dual Governance Config Provider deployed successfully");
-        _deployArtifact.deployedContracts.print();
+        deployArtifact.deployedContracts.print();
 
         string memory deployArtifactFileName = string.concat(
             "deploy-artifact-disconnected-dg-config-provider-",
@@ -76,6 +71,6 @@ contract DeployDisconnectedDGConfigProvider is Script {
             ".toml"
         );
 
-        _deployArtifact.save(deployArtifactFileName);
+        deployArtifact.save(deployArtifactFileName);
     }
 }

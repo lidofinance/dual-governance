@@ -14,76 +14,53 @@ import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 import {Escrow} from "contracts/Escrow.sol";
 
 import {
-    DualGovernanceContractDeployConfig,
-    TiebreakerDeployConfig,
-    DGSetupDeployArtifacts,
-    TiebreakerDeployedContracts,
-    ContractsDeployment,
-    DGSetupDeployedContracts
+    DGSetupDeployArtifacts, ContractsDeployment, DGSetupDeployedContracts
 } from "../utils/contracts-deployment.sol";
 
+import {TiebreakerDeployConfig, TiebreakerDeployedContracts} from "../utils/deployment/Tiebreaker.sol";
+
 contract DeployUpgradeContracts is Script {
-    using DualGovernanceContractDeployConfig for DualGovernanceContractDeployConfig.Context;
-    using TiebreakerDeployConfig for TiebreakerDeployConfig.Context;
     using DGSetupDeployArtifacts for DGSetupDeployArtifacts.Context;
-    using DGSetupDeployedContracts for DGSetupDeployedContracts.Context;
+    using TiebreakerDeployConfig for TiebreakerDeployConfig.Context;
 
     error ChainIdMismatch(uint256 actual, uint256 expected);
     error InvalidAddress(string key);
 
-    struct DeployConfig {
-        uint256 chainId;
-        ITimelock timelock;
-        ResealManager resealManager;
-        ImmutableDualGovernanceConfigProvider configProvider;
-        DualGovernanceContractDeployConfig.Context dualGovernanceConfig;
-        TiebreakerDeployConfig.Context tiebreakerConfig;
-    }
-
-    function run() public returns (DGSetupDeployedContracts.Context memory) {
+    function run() public {
         DGSetupDeployArtifacts.Context memory _deployArtifact;
-        DeployConfig memory _deployConfig;
+
+        string memory deployArtifactFile = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
+        _deployArtifact = DGSetupDeployArtifacts.load(deployArtifactFile);
 
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");
         console.log("Deployer account: %x", deployer);
 
-        string memory artifactFileName = vm.envString("DEPLOY_ARTIFACT_FILE_NAME");
-        console.log("Loading config from artifact file: %s", artifactFileName);
-        console.log("\n");
-        console.log("=================================================");
-
-        _deployArtifact = DGSetupDeployArtifacts.load(artifactFileName);
-
         if (_deployArtifact.deployConfig.chainId != block.chainid) {
             revert ChainIdMismatch({actual: block.chainid, expected: _deployArtifact.deployConfig.chainId});
         }
 
-        _deployConfig.timelock = _deployArtifact.deployedContracts.timelock;
-        _deployConfig.resealManager = _deployArtifact.deployedContracts.resealManager;
-        _deployConfig.configProvider = _deployArtifact.deployedContracts.dualGovernanceConfigProvider;
+        ITimelock timelock = _deployArtifact.deployedContracts.timelock;
+        ResealManager resealManager = _deployArtifact.deployedContracts.resealManager;
+        ImmutableDualGovernanceConfigProvider configProvider =
+            _deployArtifact.deployedContracts.dualGovernanceConfigProvider;
 
-        if (address(_deployConfig.timelock) == address(0)) revert InvalidAddress("timelock");
-        if (address(_deployConfig.resealManager) == address(0)) revert InvalidAddress("reseal_manager");
-        if (address(_deployConfig.configProvider) == address(0)) revert InvalidAddress("config_provider");
-
-        _deployConfig.dualGovernanceConfig = _deployArtifact.deployConfig.dualGovernance;
-        _deployConfig.dualGovernanceConfig.validate();
-
-        _deployConfig.dualGovernanceConfig.print();
+        if (address(timelock) == address(0)) revert InvalidAddress("timelock");
+        if (address(resealManager) == address(0)) revert InvalidAddress("reseal_manager");
+        if (address(configProvider) == address(0)) revert InvalidAddress("config_provider");
 
         DualGovernance.DualGovernanceComponents memory components = DualGovernance.DualGovernanceComponents({
-            timelock: _deployConfig.timelock,
-            resealManager: _deployConfig.resealManager,
-            configProvider: _deployConfig.configProvider
+            timelock: timelock,
+            resealManager: resealManager,
+            configProvider: configProvider
         });
 
         console.log("Deploying DualGovernance...");
         vm.startBroadcast();
         DualGovernance dualGovernance = new DualGovernance(
             components,
-            _deployConfig.dualGovernanceConfig.signallingTokens,
-            _deployConfig.dualGovernanceConfig.sanityCheckParams
+            _deployArtifact.deployConfig.dualGovernance.signallingTokens,
+            _deployArtifact.deployConfig.dualGovernance.sanityCheckParams
         );
         vm.stopBroadcast();
 
@@ -93,34 +70,38 @@ contract DeployUpgradeContracts is Script {
 
         console.log("DualGovernance deployed at: %s", address(_deployArtifact.deployedContracts.dualGovernance));
 
-        _deployConfig.tiebreakerConfig.chainId = _deployArtifact.deployConfig.chainId;
-        _deployConfig.tiebreakerConfig.owner = address(_deployArtifact.deployedContracts.adminExecutor);
-        _deployConfig.tiebreakerConfig.dualGovernance = address(_deployArtifact.deployedContracts.dualGovernance);
-
-        _deployConfig.tiebreakerConfig.config = _deployArtifact.deployConfig.tiebreaker;
-
-        console.log("=================================================");
-
-        _deployConfig.tiebreakerConfig.print();
-
         console.log("Deploying TiebreakerCoreCommittee...");
 
+        address adminExecutor = address(_deployArtifact.deployedContracts.adminExecutor);
+
+        _deployArtifact.deployConfig.tiebreaker.chainId = block.chainid;
+        _deployArtifact.deployConfig.tiebreaker.owner = adminExecutor;
+        _deployArtifact.deployConfig.tiebreaker.dualGovernance = address(dualGovernance);
+
+        console.log("Tiebreaker config validated");
+
+        _deployArtifact.deployConfig.tiebreaker.print();
         vm.startBroadcast();
         TiebreakerDeployedContracts.Context memory tiebreakerDeployedContracts =
-            ContractsDeployment.deployTiebreaker(_deployConfig.tiebreakerConfig, deployer);
+            ContractsDeployment.deployTiebreaker(_deployArtifact.deployConfig.tiebreaker, deployer);
         vm.stopBroadcast();
 
         _deployArtifact.deployedContracts.tiebreakerCoreCommittee = tiebreakerDeployedContracts.tiebreakerCoreCommittee;
         _deployArtifact.deployedContracts.tiebreakerSubCommittees = tiebreakerDeployedContracts.tiebreakerSubCommittees;
 
-        _deployArtifact.deployedContracts.print();
+        console.log("Deployed contracts:");
+        console.log();
+        console.log("DualGovernance: %s", address(_deployArtifact.deployedContracts.dualGovernance));
+        console.log("EscrowMasterCopy: %s", address(_deployArtifact.deployedContracts.escrowMasterCopy));
+        console.log("TiebreakerCoreCommittee: %s", address(_deployArtifact.deployedContracts.tiebreakerCoreCommittee));
+        console.log("TiebreakerSubCommittees:");
+        for (uint256 i = 0; i < _deployArtifact.deployedContracts.tiebreakerSubCommittees.length; i++) {
+            console.log(" - %s", address(_deployArtifact.deployedContracts.tiebreakerSubCommittees[i]));
+        }
 
         string memory deployArtifactFileName =
             string.concat("deploy-artifact-", vm.toString(block.chainid), "-", vm.toString(block.timestamp), ".toml");
-        console.log("=================================================");
-        console.log("Saving deploy artifact to: %s", deployArtifactFileName);
-        _deployArtifact.save(deployArtifactFileName);
 
-        return _deployArtifact.deployedContracts;
+        _deployArtifact.save(deployArtifactFileName);
     }
 }

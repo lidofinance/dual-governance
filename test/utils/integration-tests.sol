@@ -43,10 +43,9 @@ import {
     DGSetupDeployArtifacts,
     DGSetupDeployedContracts,
     DualGovernanceContractDeployConfig,
-    TiebreakerContractDeployConfig,
-    TiebreakerCommitteeDeployConfig,
     TimelockContractDeployConfig
 } from "scripts/utils/contracts-deployment.sol";
+import {TiebreakerDeployConfig, TiebreakerSubCommitteeDeployConfig} from "scripts/utils/deployment/Tiebreaker.sol";
 
 uint256 constant ACCURACY = 2 wei;
 uint256 constant MAINNET_CHAIN_ID = 1;
@@ -458,18 +457,16 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
         internal
         returns (DGSetupDeployConfig.Context memory config)
     {
-        uint256 tiebreakerCommitteesCount = 3;
-        uint256 tiebreakerCommitteeMembersCount = 5;
-        uint256 tiebreakerCommitteeMembersQuorum = 3;
+        TiebreakerDeployConfig.Context memory tiebreakerDeployConfig;
+        tiebreakerDeployConfig.quorum = 3;
+        tiebreakerDeployConfig.executionDelay = Durations.from(30 days);
+        tiebreakerDeployConfig.committees = new TiebreakerSubCommitteeDeployConfig[](3);
 
-        TiebreakerCommitteeDeployConfig[] memory tiebreakerCommitteeConfigs =
-            new TiebreakerCommitteeDeployConfig[](tiebreakerCommitteesCount);
-
-        for (uint256 i = 0; i < tiebreakerCommitteesCount; ++i) {
-            tiebreakerCommitteeConfigs[i].quorum = tiebreakerCommitteeMembersQuorum;
-            tiebreakerCommitteeConfigs[i].members = new address[](tiebreakerCommitteeMembersCount);
-            for (uint256 j = 0; j < tiebreakerCommitteeMembersCount; ++j) {
-                tiebreakerCommitteeConfigs[i].members[j] = vm.randomAddress();
+        for (uint256 i = 0; i < tiebreakerDeployConfig.committees.length; ++i) {
+            tiebreakerDeployConfig.committees[i].quorum = 3;
+            tiebreakerDeployConfig.committees[i].members = new address[](5);
+            for (uint256 j = 0; j < tiebreakerDeployConfig.committees[i].members.length; ++j) {
+                tiebreakerDeployConfig.committees[i].members[j] = vm.randomAddress();
             }
         }
 
@@ -478,12 +475,7 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
         config = DGSetupDeployConfig.Context({
             chainId: 1,
-            tiebreaker: TiebreakerContractDeployConfig.Context({
-                quorum: tiebreakerCommitteesCount,
-                committeesCount: tiebreakerCommitteesCount,
-                executionDelay: Durations.from(30 days),
-                committees: tiebreakerCommitteeConfigs
-            }),
+            tiebreaker: tiebreakerDeployConfig,
             dualGovernanceConfigProvider: DualGovernanceConfig.Context({
                 firstSealRageQuitSupport: PercentsD16.fromBasisPoints(1_00),
                 secondSealRageQuitSupport: PercentsD16.fromBasisPoints(10_00),
@@ -682,7 +674,6 @@ contract DGScenarioTestSetup is GovernedTimelockSetup {
 
         _dgDeployConfig.tiebreaker.quorum = config.tiebreaker.quorum;
         _dgDeployConfig.tiebreaker.executionDelay = config.tiebreaker.executionDelay;
-        _dgDeployConfig.tiebreaker.committeesCount = config.tiebreaker.committeesCount;
 
         // remove previously set committees
         for (uint256 i = 0; i < _dgDeployConfig.tiebreaker.committees.length; ++i) {

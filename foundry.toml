@@ -16,7 +16,6 @@ fs_permissions = [
 ]
 gas_limit = "18446744073709551615"
 memory_limit = 17179869184 # 16gb
-script_execution_protection = false
 
 ignored_warnings_from = ["test/kontrol"]
 

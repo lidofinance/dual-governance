@@ -24,10 +24,10 @@ import {
     DGSetupDeployConfig,
     DGSetupDeployArtifacts,
     DGSetupDeployedContracts,
-    TimelockContractDeployConfig,
-    TiebreakerContractDeployConfig,
-    TiebreakerCommitteeDeployConfig
+    TimelockContractDeployConfig
 } from "../utils/contracts-deployment.sol";
+
+import {TiebreakerDeployConfig, TiebreakerSubCommitteeDeployConfig} from "../utils/deployment/Tiebreaker.sol";
 
 library DeployVerification {
     function verify(DGSetupDeployArtifacts.Context memory deployArtifact) internal view {
@@ -64,14 +64,6 @@ library DeployVerification {
         );
         checkDualGovernanceConfiguration(deployArtifact.deployedContracts, deployArtifact.deployConfig);
         checkTiebreakerCoreCommittee(deployArtifact.deployedContracts, deployArtifact.deployConfig.tiebreaker);
-
-        for (uint256 i = 0; i < deployArtifact.deployedContracts.tiebreakerSubCommittees.length; i++) {
-            checkTiebreakerSubCommittee(
-                deployArtifact.deployedContracts,
-                deployArtifact.deployConfig.tiebreaker.committees[i],
-                deployArtifact.deployedContracts.tiebreakerSubCommittees[i]
-            );
-        }
 
         checkResealCommittee(deployArtifact.deployConfig);
     }
@@ -411,7 +403,7 @@ library DeployVerification {
 
     function checkTiebreakerCoreCommittee(
         DGSetupDeployedContracts.Context memory contracts,
-        TiebreakerContractDeployConfig.Context memory tiebreakerConfig
+        TiebreakerDeployConfig.Context memory tiebreakerConfig
     ) internal view {
         TiebreakerCoreCommittee tcc = contracts.tiebreakerCoreCommittee;
         require(tcc.owner() == address(contracts.adminExecutor), "TiebreakerCoreCommittee owner != adminExecutor");
@@ -429,22 +421,26 @@ library DeployVerification {
 
         require(tcc.getQuorum() == tiebreakerConfig.quorum, "Incorrect quorum in TiebreakerCoreCommittee");
         require(tcc.getProposalsLength() == 0, "Incorrect proposals count in TiebreakerCoreCommittee");
+
+        for (uint256 i = 0; i < contracts.tiebreakerSubCommittees.length; i++) {
+            checkTiebreakerSubCommittee(contracts, tiebreakerConfig.committees[i], contracts.tiebreakerSubCommittees[i]);
+        }
     }
 
     function checkTiebreakerSubCommittee(
         DGSetupDeployedContracts.Context memory contracts,
-        TiebreakerCommitteeDeployConfig memory committeesConfig,
+        TiebreakerSubCommitteeDeployConfig memory tiebreakerSubCommitteeConfig,
         TiebreakerSubCommittee tsc
     ) internal view {
         require(tsc.owner() == address(contracts.adminExecutor), "TiebreakerSubCommittee owner != adminExecutor");
         require(tsc.getTimelockDuration() == Durations.from(0), "TiebreakerSubCommittee timelock should be 0");
 
-        address[] memory members = committeesConfig.members;
+        address[] memory members = tiebreakerSubCommitteeConfig.members;
 
         for (uint256 i = 0; i < members.length; ++i) {
             require(tsc.isMember(members[i]) == true, "Incorrect member of TiebreakerSubCommittee");
         }
-        require(tsc.getQuorum() == committeesConfig.quorum, "Incorrect quorum in TiebreakerSubCommittee");
+        require(tsc.getQuorum() == tiebreakerSubCommitteeConfig.quorum, "Incorrect quorum in TiebreakerSubCommittee");
         require(tsc.getProposalsLength() == 0, "Incorrect proposals count in TiebreakerSubCommittee");
     }
 
