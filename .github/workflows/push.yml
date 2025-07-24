@@ -36,9 +36,3 @@ jobs:
 
       - name: Run unit tests
         run: npm run test:unit
-
-      - name: Notify PR author on test failure
-        if: failure() && github.event_name == 'push'
-        uses: ./.github/actions/failure-comment
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
