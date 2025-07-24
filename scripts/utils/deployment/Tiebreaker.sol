@@ -51,7 +51,14 @@ library TiebreakerDeployConfig {
         ctx.quorum = file.readUint($.key("quorum"));
         ctx.executionDelay = file.readDuration($.key("execution_delay"));
 
-        ctx.committees = abi.decode(file.parseRaw($.key("committees")), (TiebreakerSubCommitteeDeployConfig[]));
+        uint256 committeesCount = file.readUint($.key("committees_count"));
+        ctx.committees = new TiebreakerSubCommitteeDeployConfig[](committeesCount);
+
+        for (uint256 i = 0; i < committeesCount; ++i) {
+            string memory $committees = $.index("committees", i);
+            ctx.committees[i].quorum = file.readUint($committees.key("quorum"));
+            ctx.committees[i].members = file.readAddressArray($committees.key("members"));
+        }
 
         if (file.keyExists($.key("owner"))) {
             ctx.owner = file.readAddress($.key("owner"));
@@ -92,10 +99,11 @@ library TiebreakerDeployConfig {
         builder.set("quorum", ctx.quorum);
         builder.set("execution_delay", ctx.executionDelay);
         builder.set("dual_governance", ctx.dualGovernance);
+        builder.set("committees_count", ctx.committees.length);
 
         string[] memory tiebreakerCommitteesContent = new string[](ctx.committees.length);
 
-        for (uint256 i = 0; i < tiebreakerCommitteesContent.length; ++i) {
+        for (uint256 i = 0; i < ctx.committees.length; ++i) {
             // forgefmt: disable-next-item
             tiebreakerCommitteesContent[i] = ConfigFileBuilder.create()
                 .set("quorum", ctx.committees[i].quorum)
