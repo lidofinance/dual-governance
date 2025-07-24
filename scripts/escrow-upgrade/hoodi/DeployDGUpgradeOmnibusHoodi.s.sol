@@ -14,9 +14,7 @@ import {DGSetupDeployArtifacts} from "scripts/utils/contracts-deployment.sol";
 import {ImmutableDualGovernanceConfigProviderDeployArtifacts} from
     "scripts/utils/deployment/ImmutableDualGovernanceConfigProvider.sol";
 
-import {UpgradeConstants} from "./UpgradeConstants.sol";
-
-contract DeployDGUpgradeOmnibusHoodi is Script, UpgradeConstants {
+contract DeployDGUpgradeOmnibusHoodi is Script {
     function run() public {
         address deployer = msg.sender;
         vm.label(deployer, "DEPLOYER");

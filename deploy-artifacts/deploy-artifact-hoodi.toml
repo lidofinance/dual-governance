@@ -86,8 +86,6 @@ emergency_execution_committee = "0x8E1Ce8995E370222CbD825fFD7Dce2A5BfE1E631"
 # the emergency committee testnet and replaced by Aragon Voting in Dual Governance proposal #1 
 # in tx 0x39863cd481a8a887db9cdedfaf63749f79237472d9d231b52f9b8410927e3a11
 # emergency_governance_proposer = "0x4EdF1162Bd6A52AD119e0f5AC40325Ee01F5A092"
-# New emergency governance proposer was set to Aragon Voting in Dual Governance proposal #1 
-# in tx 0x39863cd481a8a887db9cdedfaf63749f79237472d9d231b52f9b8410927e3a11
 emergency_governance_proposer = "0x49B3512c44891bef83F8967d075121Bd1b07a01B"
 emergency_mode_duration = 86400
 emergency_protection_end_date = 1777975200
@@ -107,8 +105,6 @@ dual_governance_config_provider = "0x2b685e6fB288bBb7A82533BAfb679FfDF6E5bb33"
 # the emergency committee testnet and replaced in Dual Governance proposal #1 
 # in tx 0x39863cd481a8a887db9cdedfaf63749f79237472d9d231b52f9b8410927e3a11
 # emergency_governance = "0xF1Fbb8360C19830228260Ed5Bb432476A9d4897a"
-# New emergency governance was set in Dual Governance proposal #1 
-# in tx 0x39863cd481a8a887db9cdedfaf63749f79237472d9d231b52f9b8410927e3a11
 emergency_governance = "0x69E8e916c4A19F42C13C802abDF2767E1fB4F059"
 escrow_master_copy = "0xD82Ea63b6196dbd100a1067341EEC8aec9eEd4Af"
 reseal_manager = "0x05172CbCDb7307228F781436b327679e4DAE166B"

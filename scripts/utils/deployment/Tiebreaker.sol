@@ -50,6 +50,7 @@ library TiebreakerDeployConfig {
 
         ctx.quorum = file.readUint($.key("quorum"));
         ctx.executionDelay = file.readDuration($.key("execution_delay"));
+
         ctx.committees = abi.decode(file.parseRaw($.key("committees")), (TiebreakerSubCommitteeDeployConfig[]));
 
         if (file.keyExists($.key("owner"))) {
@@ -67,10 +68,6 @@ library TiebreakerDeployConfig {
 
         if (ctx.quorum == 0 || ctx.quorum > ctx.committees.length) {
             revert InvalidParameter("tiebreaker.quorum");
-        }
-
-        if (ctx.committees.length != ctx.committees.length) {
-            revert InvalidParameter("tiebreaker.committees_count");
         }
 
         for (uint256 i = 0; i < ctx.committees.length; ++i) {
@@ -176,36 +173,5 @@ library TiebreakerDeployedContracts {
         for (uint256 i = 0; i < ctx.tiebreakerSubCommittees.length; ++i) {
             console.log("TiebreakerSubCommittee[%d] address %x", i, address(ctx.tiebreakerSubCommittees[i]));
         }
-    }
-}
-
-library TiebreakerDeployArtifacts {
-    using ConfigFileBuilder for ConfigFileBuilder.Context;
-    using TiebreakerDeployConfig for TiebreakerDeployConfig.Context;
-    using TiebreakerDeployedContracts for TiebreakerDeployedContracts.Context;
-
-    struct Context {
-        TiebreakerDeployConfig.Context deployConfig;
-        TiebreakerDeployedContracts.Context deployedContracts;
-    }
-
-    function load(string memory deployArtifactFileName) internal view returns (Context memory ctx) {
-        string memory deployArtifactFilePath = DeployFiles.resolveDeployArtifact(deployArtifactFileName);
-        ctx.deployConfig = TiebreakerDeployConfig.load(deployArtifactFilePath, "deploy_config");
-        ctx.deployedContracts = TiebreakerDeployedContracts.load(deployArtifactFilePath, "deployed_contracts");
-    }
-
-    function validate(Context memory ctx) internal view {
-        ctx.deployConfig.validate();
-    }
-
-    function save(Context memory ctx, string memory fileName) internal {
-        ConfigFileBuilder.Context memory configBuilder = ConfigFileBuilder.create();
-
-        // forgefmt: disable-next-item
-        configBuilder
-            .set("deploy_config", ctx.deployConfig.toJSON())
-            .set("deployed_contracts", ctx.deployedContracts.toJSON())
-            .write(DeployFiles.resolveDeployArtifact(fileName));
     }
 }

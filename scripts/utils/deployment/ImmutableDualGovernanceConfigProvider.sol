@@ -10,6 +10,8 @@ import {ImmutableDualGovernanceConfigProvider} from "contracts/ImmutableDualGove
 
 import {ConfigFileReader, ConfigFileBuilder, JsonKeys} from "../ConfigFiles.sol";
 import {DeployFiles} from "../DeployFiles.sol";
+import {DecimalsFormatting} from "test/utils/formatting.sol";
+import {PercentD16} from "contracts/types/PercentD16.sol";
 
 using JsonKeys for string;
 using ConfigFileReader for ConfigFileReader.Context;
@@ -20,6 +22,7 @@ Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
 library ImmutableDualGovernanceConfigProviderDeployConfig {
     using DualGovernanceConfig for DualGovernanceConfig.Context;
+    using DecimalsFormatting for PercentD16;
 
     error InvalidChainId(uint256 actual, uint256 expected);
 
@@ -80,8 +83,8 @@ library ImmutableDualGovernanceConfigProviderDeployConfig {
 
     function print(DualGovernanceConfig.Context memory ctx) internal pure {
         console.log("===== DualGovernanceConfigProvider");
-        console.log("First seal rage quit support", ctx.firstSealRageQuitSupport.toUint256());
-        console.log("Second seal rage quit support", ctx.secondSealRageQuitSupport.toUint256());
+        console.log("First seal rage quit support", ctx.firstSealRageQuitSupport.format());
+        console.log("Second seal rage quit support", ctx.secondSealRageQuitSupport.format());
         console.log("Min assets lock duration", ctx.minAssetsLockDuration.toSeconds());
         console.log("\n");
         console.log("Rage quit ETH withdrawals delay growth", ctx.rageQuitEthWithdrawalsDelayGrowth.toSeconds());

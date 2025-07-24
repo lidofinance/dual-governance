@@ -7,9 +7,9 @@ import {IDGLaunchVerifier} from "scripts/launch/interfaces/IDGLaunchVerifier.sol
 import {IEmergencyProtectedTimelock} from "contracts/interfaces/IEmergencyProtectedTimelock.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IDualGovernance, Proposers} from "contracts/interfaces/IDualGovernance.sol";
-import {UpgradeConstants} from "./UpgradeConstants.sol";
+import {UpgradeConstantsHoodi} from "./UpgradeConstantsHoodi.sol";
 
-contract DGUpgradeStateVerifierHoodi is IDGLaunchVerifier, UpgradeConstants {
+contract DGUpgradeStateVerifierHoodi is IDGLaunchVerifier, UpgradeConstantsHoodi {
     error InvalidDualGovernanceAddress(address expectedValue, address actualValue);
     error InvalidTiebreakerActivationTimeout(Duration expectedValue, Duration actualValue);
     error InvalidTiebreakerCommittee(address expectedValue, address actualValue);

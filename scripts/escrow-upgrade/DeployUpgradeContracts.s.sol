@@ -13,9 +13,7 @@ import {ImmutableDualGovernanceConfigProvider} from "contracts/ImmutableDualGove
 import {ISignallingEscrow} from "contracts/interfaces/ISignallingEscrow.sol";
 import {Escrow} from "contracts/Escrow.sol";
 
-import {
-    DGSetupDeployArtifacts, ContractsDeployment, DGSetupDeployedContracts
-} from "../utils/contracts-deployment.sol";
+import {DGSetupDeployArtifacts, ContractsDeployment} from "../utils/contracts-deployment.sol";
 
 import {TiebreakerDeployConfig, TiebreakerDeployedContracts} from "../utils/deployment/Tiebreaker.sol";
 

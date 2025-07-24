@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Duration} from "contracts/types/Duration.sol";
 import {ITimelock} from "contracts/interfaces/ITimelock.sol";
 import {IDualGovernance} from "contracts/interfaces/IDualGovernance.sol";
 import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 import {IDualGovernanceConfigProvider} from "contracts/interfaces/IDualGovernanceConfigProvider.sol";
-
 import {IDGLaunchVerifier} from "scripts/launch/interfaces/IDGLaunchVerifier.sol";
 
 import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
-import {UpgradeConstants} from "./UpgradeConstants.sol";
+import {UpgradeConstantsHoodi} from "./UpgradeConstantsHoodi.sol";
 
 import {OmnibusBase} from "../../utils/OmnibusBase.sol";
 
-/// @title DGUpgradeOmnibus
+/// @title DGUpgradeOmnibusHoodi
 /// @notice Contains vote items for execution via Dual Governance to upgrade Dual Governance contract.
 /// Provides a mechanism for validating an Aragon vote against the actions in this contract, by passing the vote ID.
 ///
@@ -30,7 +28,7 @@ import {OmnibusBase} from "../../utils/OmnibusBase.sol";
 ///     4. connecting new Dual Governance contract to the Emergency Protected Timelock
 ///     5. setting config provider for old Dual Governance contract to prevent it from being used in Rage Quit
 ///     6. verifying Dual Governance state
-contract DGUpgradeOmnibusHoodi is OmnibusBase, UpgradeConstants {
+contract DGUpgradeOmnibusHoodi is OmnibusBase, UpgradeConstantsHoodi {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
     uint256 public constant VOTE_ITEMS_COUNT = 1;
@@ -84,6 +82,7 @@ contract DGUpgradeOmnibusHoodi is OmnibusBase, UpgradeConstants {
                 NEW_DUAL_GOVERNANCE,
                 abi.encodeCall(ITiebreaker.addTiebreakerSealableWithdrawalBlocker, VALIDATORS_EXIT_BUS_ORACLE)
             );
+
             // 5. Add Triggerable Withdrawals Gateway as Tiebreaker withdrawal blocker
             dgProposalCallsBuilder.addCall(
                 NEW_DUAL_GOVERNANCE,
@@ -121,7 +120,7 @@ contract DGUpgradeOmnibusHoodi is OmnibusBase, UpgradeConstants {
             dgProposalCallsBuilder.addCall(DG_UPGRADE_STATE_VERIFIER, abi.encodeCall(IDGLaunchVerifier.verify, ()));
 
             voteItems[0] = VoteItem({
-                description: "1. Proposal to upgrade Dual Governance contract on Hoodi testnet (following a weakness reported through Immunefi)",
+                description: "1. Submit Dual Governance proposal to upgrade Dual Governance contract on Hoodi testnet (Immunefi reported vulnerability fix)",
                 call: _votingCall(
                     DUAL_GOVERNANCE,
                     abi.encodeCall(
@@ -129,7 +128,7 @@ contract DGUpgradeOmnibusHoodi is OmnibusBase, UpgradeConstants {
                         (
                             dgProposalCallsBuilder.getResult(),
                             string(
-                                "1.1 - 1.10 Proposal to upgrade Dual Governance contract on Hoodi testnet (following a weakness reported through Immunefi)"
+                                "1.1 - 1.11 Proposal to upgrade Dual Governance contract on Hoodi testnet (Immunefi reported vulnerability fix)"
                             )
                         )
                     )

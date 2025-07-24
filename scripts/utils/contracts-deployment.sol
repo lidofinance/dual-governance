@@ -726,23 +726,6 @@ library ContractsDeployment {
         return new DualGovernance(components, signallingTokens, sanityCheckParams);
     }
 
-    function deployTiebreakerSubCommittees(
-        address owner,
-        address tiebreakerCoreCommittee,
-        TiebreakerSubCommitteeDeployConfig[] memory tiebreakerSubCommitteeConfig
-    ) internal returns (TiebreakerSubCommittee[] memory coreCommitteeMembers) {
-        coreCommitteeMembers = new TiebreakerSubCommittee[](tiebreakerSubCommitteeConfig.length);
-
-        for (uint256 i = 0; i < tiebreakerSubCommitteeConfig.length; ++i) {
-            coreCommitteeMembers[i] = new TiebreakerSubCommittee({
-                owner: owner,
-                executionQuorum: tiebreakerSubCommitteeConfig[i].quorum,
-                committeeMembers: tiebreakerSubCommitteeConfig[i].members,
-                tiebreakerCoreCommittee: tiebreakerCoreCommittee
-            });
-        }
-    }
-
     function deployTiebreaker(
         TiebreakerDeployConfig.Context memory tiebreakerConfig,
         address deployer
@@ -755,9 +738,16 @@ library ContractsDeployment {
             timelock: tiebreakerConfig.executionDelay
         });
 
-        deployedContracts.tiebreakerSubCommittees = deployTiebreakerSubCommittees(
-            tiebreakerConfig.owner, address(deployedContracts.tiebreakerCoreCommittee), tiebreakerConfig.committees
-        );
+        deployedContracts.tiebreakerSubCommittees = new TiebreakerSubCommittee[](tiebreakerConfig.committees.length);
+
+        for (uint256 i = 0; i < tiebreakerConfig.committees.length; ++i) {
+            deployedContracts.tiebreakerSubCommittees[i] = new TiebreakerSubCommittee({
+                owner: deployer,
+                executionQuorum: tiebreakerConfig.committees[i].quorum,
+                committeeMembers: tiebreakerConfig.committees[i].members,
+                tiebreakerCoreCommittee: address(deployedContracts.tiebreakerCoreCommittee)
+            });
+        }
 
         address[] memory coreCommitteeMemberAddresses = new address[](deployedContracts.tiebreakerSubCommittees.length);
 
