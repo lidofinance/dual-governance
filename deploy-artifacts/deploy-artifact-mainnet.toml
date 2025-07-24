@@ -82,9 +82,11 @@ after_submit_delay = 259200
 emergency_activation_committee = "0x8B7854488Fde088d686Ea672B6ba1A5242515f45"
 emergency_execution_committee = "0xC7792b3F2B399bB0EdF53fECDceCeB97FBEB18AF"
 # This contract was used to perform initial Dual Governance configuration while 
-# the emergency committee testnet and replaced by Aragon Voting in Dual Governance proposal #1 at block 22623905
+# the emergency committee testnet and replaced by Aragon Voting in Dual Governance proposal #1 
+# in tx 0x191ec9d2fe34e7c70b1e67e511c71869d1f791be1c91ea4cffb69cb035e0789a
 # emergency_governance_proposer = "0xdd778153c3d0AE1B70fe81E0219b5D2C3e3951C2"
-# New emergency governance proposer was set to Aragon Voting in Dual Governance proposal #1 at block 22623905 
+# New emergency governance proposer was set to Aragon Voting in Dual Governance proposal #1 
+# in tx 0x191ec9d2fe34e7c70b1e67e511c71869d1f791be1c91ea4cffb69cb035e0789a
 emergency_governance_proposer = "0x2e59A20f205bB85a89C53f1936454680651E618e"
 emergency_mode_duration = 2592000
 emergency_protection_end_date = 1781913600
@@ -102,7 +104,8 @@ dual_governance = "0xcdF49b058D606AD34c5789FD8c3BF8B3E54bA2db"
 dual_governance_config_provider = "0xa1692Af6FDfdD1030E4E9c4Bc429986FA64CB5EF"
 # This contract was used to perform initial Dual Governance configuration while the emergency committee testnet
 # emergency_governance = "0x75850938C1Aa50B8cC6eb3c00995759dc1425ae6"
-# New emergency governance was set in Dual Governance proposal #1 at block 22623905 
+# New emergency governance was set in Dual Governance proposal #1 
+# in tx 0x191ec9d2fe34e7c70b1e67e511c71869d1f791be1c91ea4cffb69cb035e0789a 
 emergency_governance = "0x553337946F2FAb8911774b20025fa776B76a7CcE"
 escrow_master_copy = "0xb84317C0E142D8911A0d69Dc32c48d87753B8d1C"
 reseal_manager = "0x7914b5a1539b97Bd0bbd155757F25FD79A522d24"
