@@ -25,67 +25,44 @@ const getHoldersBaseUrl = (networkName, tokenAddress) => `https://${networkUrlPr
 const getBlocksBaseUrl = (networkName) => `https://${networkUrlPrefix(networkName)}.blockscout.com/api/v2/blocks`;
 
 /**
+ * @typedef {Object} TokenHoldersAddresses
+ * @property {Array<string>} addresses
+ */
+
+/**
+ * @typedef {Object} ExcludeHoldersParameters
+ * @property {Set<string>} [addresses] - set of addresses to exclude from token holders list
+ * @property {Set<string>} [percentageCount] - set of addresses to exclude from percentage count, when `totalSupplyPercentage` parameter provided
+ */
+
+/**
  * 
  * @param {string} networkName 
  * @param {string} tokenAddress 
- * @param {number} chunksCount - each chunk contains approximately 300 addresses by default
  * @param {string} holdersFileName - file name where to save downloaded holders' addresses
- * @param {Set<string>} [excludeAddresses]
- * @param {number} [totalSupplyPercentage]
+ * @param {number} totalSupplyPercentage
+ * @param {ExcludeHoldersParameters} [exclude]
  * @param {number} [chunkAddressesAmount]
  */
-async function blockscoutDownloadTokenHolders(networkName, tokenAddress, chunksCount, holdersFileName, excludeAddresses, totalSupplyPercentage, chunkAddressesAmount = 300) {
+async function blockscoutDownloadTokenHolders(
+    networkName,
+    tokenAddress,
+    holdersFileName,
+    totalSupplyPercentage,
+    exclude,
+    chunkAddressesAmount = 300,
+) {
     checkNetworkName(networkName);
 
-    const holders = {
-        addresses: []
-    };
-
-    let desiredHoldersValue;
+    if (totalSupplyPercentage > 100 || totalSupplyPercentage < 0.1) {
+        throw new Error(`Invalid totalSupplyPercentage: ${totalSupplyPercentage} - should be between 0.1 and 100%`);
+    }
 
     const startBlockNumber = await getLatestBlockNumber(getBlocksBaseUrl(networkName));
 
-    await delay(DELAY_BETWEEN_QUERIES);
-
-    if (totalSupplyPercentage !== undefined) {
-        if (totalSupplyPercentage > 100) {
-            throw new Error(`Invalid totalSupplyPercentage: ${totalSupplyPercentage} - should not exceed 100%`);
-        }
-
-        const tokenInfo = await loadTokenInfo(getTokenInfoBaseUrl(networkName, tokenAddress));
-        console.log("Token total_supply", tokenInfo.total_supply);
-        const totalSupply = BigInt(tokenInfo.total_supply);
-
-        desiredHoldersValue = totalSupply * BigInt(totalSupplyPercentage) / BigInt(100);
-        console.log("desiredHoldersValue", desiredHoldersValue.toString());
-    }
-
-    if (desiredHoldersValue !== undefined) {
-        let holdersValueAcc = BigInt(0);
-        let iter = 0;
-        while (holdersValueAcc < desiredHoldersValue && iter < MAX_ITERATIONS) {
-            const chunk = await loadHoldersChunk(getHoldersBaseUrl(networkName, tokenAddress), iter + 1, chunkAddressesAmount);
-
-            holdersValueAcc += processHoldersChunk(holders, chunk, excludeAddresses);
-            iter++;
-            await delay(DELAY_BETWEEN_QUERIES);
-        }
-
-        if (iter >= MAX_ITERATIONS) {
-            console.log("Iterations limit reached, consider increasing MAX_ITERATIONS or decreasing totalSupplyPercentage");
-        }
-    } else {
-        for (let i = 0; i < chunksCount; ++i) {
-            const chunk = await loadHoldersChunk(getHoldersBaseUrl(networkName, tokenAddress), i + 1, chunkAddressesAmount);
-
-            processHoldersChunk(holders, chunk, excludeAddresses);
-            await delay(DELAY_BETWEEN_QUERIES);
-        }
-    }
+    const holders = await loadHoldersByPercentage(networkName, tokenAddress, totalSupplyPercentage, chunkAddressesAmount, exclude || {});
 
     console.log("Total addresses", holders.addresses.length);
-
-    await delay(DELAY_BETWEEN_QUERIES);
 
     try {
         const endBlockNumber = await getLatestBlockNumber(getBlocksBaseUrl(networkName));
@@ -107,7 +84,56 @@ async function blockscoutDownloadTokenHolders(networkName, tokenAddress, chunksC
     }
 }
 
-function processHoldersChunk(acc, chunk, excludeAddresses) {
+/**
+ * @param {string} networkName 
+ * @param {string} tokenAddress 
+ * @param {number} totalSupplyPercentage
+ * @param {number} addressesPerChunk 
+ * @param {ExcludeHoldersParameters} exclude 
+ * @returns {Promise<TokenHoldersAddresses>}
+ */
+async function loadHoldersByPercentage(
+    networkName,
+    tokenAddress,
+    totalSupplyPercentage,
+    addressesPerChunk,
+    exclude
+) {
+    /** @type {TokenHoldersAddresses} */
+    const holders = {
+        addresses: []
+    };
+
+    const tokenInfo = await loadTokenInfo(getTokenInfoBaseUrl(networkName, tokenAddress));
+    console.log("Token total_supply", tokenInfo.total_supply);
+    const totalSupply = BigInt(tokenInfo.total_supply);
+
+    const desiredHoldersValue = totalSupply * BigInt(totalSupplyPercentage) / BigInt(100);
+    console.log("desiredHoldersValue", desiredHoldersValue.toString(), `(${totalSupplyPercentage}%)`);
+
+    let holdersValueAcc = BigInt(0);
+    let iter = 0;
+    while (holdersValueAcc < desiredHoldersValue && iter < MAX_ITERATIONS) {
+        const chunk = await loadHoldersChunk(getHoldersBaseUrl(networkName, tokenAddress), iter + 1, addressesPerChunk);
+
+        holdersValueAcc += processHoldersChunk(holders, chunk, exclude);
+        iter++;
+    }
+
+    if (iter >= MAX_ITERATIONS) {
+        console.log("Iterations limit reached, consider increasing MAX_ITERATIONS or decreasing totalSupplyPercentage");
+    }
+
+    return holders;
+}
+
+/**
+ * @param {TokenHoldersAddresses} acc 
+ * @param {Record<string, unknown>} chunk 
+ * @param {ExcludeHoldersParameters} exclude 
+ * @returns {bigint}
+ */
+function processHoldersChunk(acc, chunk, exclude) {
     if (chunk.message != "OK") {
         console.log(chunk);
         throw new Error("Invalid data format", chunk);
@@ -116,26 +142,37 @@ function processHoldersChunk(acc, chunk, excludeAddresses) {
     let chunkValue = BigInt(0);
     const items = chunk.result;
     for (let i = 0; i < items.length; i++) {
-        if (!excludeAddresses || !excludeAddresses.has(items[i].address.toLowerCase())) {
+        if (!exclude || !exclude.addresses || !exclude.addresses.has(items[i].address.toLowerCase())) {
             acc.addresses.push(items[i].address);
+        }
+        if (!exclude || !exclude.percentageCount || !exclude.percentageCount.has(items[i].address.toLowerCase())) {
             chunkValue += BigInt(items[i].value);
         }
     }
     return chunkValue;
 }
 
+/**
+ * @param {string} url 
+ * @returns {Promise<number>}
+ */
 async function getLatestBlockNumber(url) {
     const data = await loadBlocksData(url);
     return (data.items && data.items[0] && data.items[0]?.height) || 0;
 }
 
+/**
+ * @param {string} url 
+ * @param {(response: Response) => Promise<Record<string, unknown> | undefined>} responseProcessor 
+ * @returns {Record<string, unknown>}
+ */
 async function loadData(url, responseProcessor = getCorrectJsonResponse) {
     const dataProvider = () => fetch(url, {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT),
     });
 
     const jsonData = await loadDataWithRetries(dataProvider, responseProcessor);
-
+    await delay(DELAY_BETWEEN_QUERIES);
     return jsonData;
 }
 
@@ -192,32 +229,59 @@ async function getCorrectHoldersDataResponse(response) {
     return jsonData;
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<Record<string, unknown>>}
+ */
 async function loadTokenInfo(url) {
     console.log("Loading token info", url);
     return loadData(url);
 }
 
+/**
+ * @param {string} baseUrl
+ * @param {number} page
+ * @param {number} chunkAddressesAmount
+ * @returns {Promise<Record<string, unknown>>}
+ */
 async function loadHoldersChunk(baseUrl, page, chunkAddressesAmount) {
-    const url = makeUrl(baseUrl, page, chunkAddressesAmount);
+    const url = makeHoldersChunkUrl(baseUrl, page, chunkAddressesAmount);
     console.log("Loading", url);
     return loadData(url, getCorrectHoldersDataResponse);
 }
 
+/**
+ * @param {string} url 
+ * @returns {Promise<Record<string, unknown>>}
+ */
 async function loadBlocksData(url) {
     console.log("Loading blocks data", url);
     return loadData(url);
 }
 
-function makeUrl(baseUrl, page, chunkAddressesAmount) {
+/**
+ * @param {string} baseUrl
+ * @param {number} page
+ * @param {number} chunkAddressesAmount
+ * @returns {string}
+ */
+function makeHoldersChunkUrl(baseUrl, page, chunkAddressesAmount) {
     return `${baseUrl}&page=${page}&offset=${chunkAddressesAmount}`;
 }
 
+/**
+ * @param {number} duration 
+ * @returns {Promise<void>}
+ */
 async function delay(duration) {
     return new Promise((resolve) => {
         setTimeout(resolve, duration);
     });
 }
 
+/**
+ * @param {string} name 
+ */
 function checkNetworkName(name) {
     if (!networkUrlPrefix(name)) {
         throw new Error(`Unsupported network: '${name}'. Allowed: ${Object.keys(supportedNetworkPrefixes)}`);
