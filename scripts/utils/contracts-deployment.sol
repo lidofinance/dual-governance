@@ -720,7 +720,7 @@ library ContractsDeployment {
 
         for (uint256 i = 0; i < tiebreakerConfig.committees.length; ++i) {
             deployedContracts.tiebreakerSubCommittees[i] = new TiebreakerSubCommittee({
-                owner: deployer,
+                owner: tiebreakerConfig.owner,
                 executionQuorum: tiebreakerConfig.committees[i].quorum,
                 committeeMembers: tiebreakerConfig.committees[i].members,
                 tiebreakerCoreCommittee: address(deployedContracts.tiebreakerCoreCommittee)
