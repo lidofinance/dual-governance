@@ -2,12 +2,10 @@ name: DualGovernance PR tests
 
 permissions:
   contents: read
-  pull-requests: write
-  security-events: write
 
 on:
   pull_request:
-    branches: ['**']
+    branches: ['main', 'develop']
 
 jobs:
   tests:
@@ -22,9 +20,13 @@ jobs:
             command: "npm run test:regressions -- --load-accounts"
             deployArtifact: "deploy-artifact-mainnet.toml"
 
-          - id: scenario
-            display: "scenario"
-            command: "npm run test:scenario"
+          - id: integration
+            display: "integration"
+            command: "npm run test:integration"
+
+          - id: unit
+            display: "unit"
+            command: "npm run test:unit"
 
     name: ${{ matrix.display }}
 
