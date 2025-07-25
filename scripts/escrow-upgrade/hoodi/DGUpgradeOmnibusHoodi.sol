@@ -22,12 +22,12 @@ import {OmnibusBase} from "../../utils/OmnibusBase.sol";
 /// It provides:
 /// - A list of 11 vote items that must be submitted and executed through an Aragon vote to perform the upgrade.
 /// - Includes:
-///     1. setting new Dual Governance contract with Tiebreaker configuration
-///     2. setting new Dual Governance contract with reseal committee
-///     3. setting new Dual Governance contract with Proposals canceller
-///     4. connecting new Dual Governance contract to the Emergency Protected Timelock
-///     5. setting config provider for old Dual Governance contract to prevent it from being used in Rage Quit
-///     6. verifying Dual Governance state
+///     - Setting new Dual Governance contract with Tiebreaker configuration
+///     - Setting new Dual Governance contract with reseal committee
+///     - Setting new Dual Governance contract with Proposals canceller
+///     - Connecting new Dual Governance contract to the Emergency Protected Timelock
+///     - Setting config provider for old Dual Governance contract to prevent it from being used in Rage Quit
+///     - Verifying Dual Governance state
 contract DGUpgradeOmnibusHoodi is OmnibusBase, UpgradeConstantsHoodi {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
