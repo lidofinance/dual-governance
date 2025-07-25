@@ -314,6 +314,9 @@ function activateNextState()
 
 Triggers a transition of the [global governance state](#Governance-state), if one is possible; does nothing otherwise.
 
+> [!NOTE]
+> This is a permissionless function intended to be called when the `persisted` and `effective` states are not equal, in order to apply the next pending Dual Governance state transition.
+
 ---
 
 ### Function: `DualGovernance.setConfigProvider`
