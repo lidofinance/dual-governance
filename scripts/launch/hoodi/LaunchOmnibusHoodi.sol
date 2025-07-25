@@ -15,7 +15,7 @@ import {IOZ} from "../interfaces/IOZ.sol";
 import {IACL} from "../interfaces/IACL.sol";
 
 import {LidoAddressesHoodi} from "./LidoAddressesHoodi.sol";
-import {OmnibusBase} from "../OmnibusBase.sol";
+import {OmnibusBase} from "scripts/utils/OmnibusBase.sol";
 
 /// @title LaunchOmnibusHoodi
 /// @notice Script for migrating Lido to Dual Governance on Hoodi testnet

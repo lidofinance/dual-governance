@@ -12,7 +12,7 @@ import {
 } from "test/utils/integration-tests.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
-import {OmnibusBase} from "scripts/launch/OmnibusBase.sol";
+import {OmnibusBase} from "scripts/utils/OmnibusBase.sol";
 import {TimeConstraints} from "scripts/launch/TimeConstraints.sol";
 import {DGLaunchStateVerifier} from "scripts/launch/DGLaunchStateVerifier.sol";
 import {DGLaunchOmnibusMainnet} from "scripts/launch/mainnet/DGLaunchOmnibusMainnet.sol";

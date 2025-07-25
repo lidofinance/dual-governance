@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
 import {Vm} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";

@@ -100,15 +100,14 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
             _dgDeployedContracts.dualGovernanceConfigProvider =
                 ContractsDeployment.deployDualGovernanceConfigProvider(_dgDeployConfig.dualGovernanceConfigProvider);
 
-            _dgDeployedContracts.dualGovernance = ContractsDeployment.deployDualGovernance({
-                components: DualGovernance.DualGovernanceComponents({
+            _dgDeployedContracts.dualGovernance = ContractsDeployment.deployDualGovernance(
+                DualGovernance.DualGovernanceComponents({
                     timelock: _timelock,
                     resealManager: _dgDeployedContracts.resealManager,
                     configProvider: _dgDeployedContracts.dualGovernanceConfigProvider
                 }),
-                signallingTokens: _dgDeployConfig.dualGovernance.signallingTokens,
-                sanityCheckParams: _dgDeployConfig.dualGovernance.sanityCheckParams
-            });
+                _dgDeployConfig.dualGovernance
+            );
 
             ExternalCallsBuilder.Context memory dgLaunchCallsBuilder = ExternalCallsBuilder.create({callsCount: 7});
 
@@ -212,15 +211,14 @@ contract TimelockedGovernanceLaunchScenarioTest is TGScenarioTestSetup, DGScenar
             // some time later, the major Dual Governance update release is ready to be launched
             _wait(Durations.from(365 days));
 
-            DualGovernance dualGovernanceV2 = ContractsDeployment.deployDualGovernance({
-                components: DualGovernance.DualGovernanceComponents({
+            DualGovernance dualGovernanceV2 = ContractsDeployment.deployDualGovernance(
+                DualGovernance.DualGovernanceComponents({
                     timelock: _timelock,
                     resealManager: _dgDeployedContracts.resealManager,
                     configProvider: _dgDeployedContracts.dualGovernanceConfigProvider
                 }),
-                signallingTokens: _dgDeployConfig.dualGovernance.signallingTokens,
-                sanityCheckParams: _dgDeployConfig.dualGovernance.sanityCheckParams
-            });
+                _dgDeployConfig.dualGovernance
+            );
 
             ExternalCallsBuilder.Context memory dualGovernanceUpdateCallsBuilder =
                 ExternalCallsBuilder.create({callsCount: 4});

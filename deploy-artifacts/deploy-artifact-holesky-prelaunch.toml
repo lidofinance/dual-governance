@@ -24,13 +24,13 @@ withdrawal_queue = "0xc7cc160b58F8Bb0baC94b80847E2CF2800565C50"
 wst_eth = "0x8d09a4502Cc8Cf1547aD300E066060D043f6982D"
 
 [deploy_config.dual_governance_config_provider]
-first_seal_rage_quit_support = 300
+first_seal_rage_quit_support = 3_0000000000000000
 min_assets_lock_duration = 300
 rage_quit_eth_withdrawals_delay_growth = 1200
 rage_quit_eth_withdrawals_max_delay = 3600
 rage_quit_eth_withdrawals_min_delay = 600
 rage_quit_extension_period_duration = 180
-second_seal_rage_quit_support = 1500
+second_seal_rage_quit_support = 15_0000000000000000
 veto_cooldown_duration = 180
 veto_signalling_deactivation_max_duration = 300
 veto_signalling_max_duration = 1800

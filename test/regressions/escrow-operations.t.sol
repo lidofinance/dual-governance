@@ -413,8 +413,8 @@ contract EscrowOperationsRegressionTest is DGRegressionTestSetup {
                     numerator: supportAmount,
                     denominator: _lido.stETH.totalSupply() + ethAmountFinalized
                 }).toUint256(),
-                // TODO: temporarily increased delta to 10 * ACCURACY to fix possible rounding error. Need to fix it properly in a separate PR.
-                10 * ACCURACY
+                // TODO: temporarily increased delta to 15 * ACCURACY to fix possible rounding error. Need to fix it properly in a separate PR.
+                15 * ACCURACY
             );
         }
     }

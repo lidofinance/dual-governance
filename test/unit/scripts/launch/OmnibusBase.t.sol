@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {OmnibusBase} from "scripts/launch/OmnibusBase.sol";
+import {OmnibusBase} from "scripts/utils/OmnibusBase.sol";
 import {ExternalCall} from "contracts/libraries/ExternalCalls.sol";
 import {IForwarder} from "scripts/launch/interfaces/IForwarder.sol";
 import {IVoting} from "scripts/launch/interfaces/IVoting.sol";

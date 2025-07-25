@@ -1,0 +1,18 @@
+chain_id = "560048"
+
+[deploy_config]
+first_seal_rage_quit_support = 999999999999999999
+min_assets_lock_duration = 1
+rage_quit_eth_withdrawals_delay_growth = 0
+rage_quit_eth_withdrawals_max_delay = 0
+rage_quit_eth_withdrawals_min_delay = 0
+rage_quit_extension_period_duration = 0
+second_seal_rage_quit_support = 1000000000000000000
+veto_cooldown_duration = 0
+veto_signalling_deactivation_max_duration = 0
+veto_signalling_max_duration = 1
+veto_signalling_min_active_duration = 0
+veto_signalling_min_duration = 0
+
+[deployed_contracts]
+dual_governance_config_provider = "0x7E3041218cc33727DF2B469bdB70fC07016Ff3C0"

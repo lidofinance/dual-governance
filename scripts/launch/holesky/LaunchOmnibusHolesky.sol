@@ -13,7 +13,7 @@ import {IOZ} from "../interfaces/IOZ.sol";
 import {IACL} from "../interfaces/IACL.sol";
 
 import {LidoAddressesHolesky} from "./LidoAddressesHolesky.sol";
-import {OmnibusBase} from "../OmnibusBase.sol";
+import {OmnibusBase} from "scripts/utils/OmnibusBase.sol";
 
 import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 
