@@ -10,7 +10,8 @@ import {PercentD16} from "contracts/types/PercentD16.sol";
 import {Random} from "../utils/random.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ISignallingEscrow, UnstETHRecordStatus} from "contracts/interfaces/ISignallingEscrow.sol";
-import {DGRegressionTestSetup, ExternalCall, MAINNET_CHAIN_ID, HOLESKY_CHAIN_ID} from "../utils/integration-tests.sol";
+import {IWithdrawalQueue} from "contracts/interfaces/IWithdrawalQueue.sol";
+import {DGRegressionTestSetup, ExternalCall, MAINNET_CHAIN_ID} from "../utils/integration-tests.sol";
 import {DecimalsFormatting} from "../utils/formatting.sol";
 
 struct VetoersFile {
@@ -38,8 +39,8 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
     uint256[] internal _unfinalizedUnstETHIds;
     uint256 internal _nextUnstETHIdIndex;
 
-    mapping(address vetoer => bool) _vetoersLockedStETH;
-    mapping(address vetoer => bool) _vetoersLockedWstETH;
+    mapping(address vetoer => bool) internal _vetoersLockedStETH;
+    mapping(address vetoer => bool) internal _vetoersLockedWstETH;
 
     function setUp() external {
         _loadOrDeployDGSetup();
@@ -65,11 +66,22 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
             uint256 lastRequestId = _lido.withdrawalQueue.getLastRequestId();
             uint256 lastFinalizedRequestId = _lido.withdrawalQueue.getLastFinalizedRequestId();
 
-            uint256[] memory shuffledRequestIds =
-                _random.nextPermutation(lastRequestId - lastFinalizedRequestId, lastFinalizedRequestId + 1);
+            if (lastRequestId > lastFinalizedRequestId) {
+                uint256[] memory shuffledRequestIds =
+                    _random.nextPermutation(lastRequestId - lastFinalizedRequestId, lastFinalizedRequestId + 1);
 
-            for (uint256 i = 0; i < shuffledRequestIds.length; ++i) {
-                _unfinalizedUnstETHIds.push(shuffledRequestIds[i]);
+                IWithdrawalQueue.WithdrawalRequestStatus[] memory requestStatuses =
+                    _lido.withdrawalQueue.getWithdrawalStatus(shuffledRequestIds);
+
+                for (uint256 i = 0; i < shuffledRequestIds.length; ++i) {
+                    if (
+                        requestStatuses[i].owner == address(_getVetoSignallingEscrow())
+                            || requestStatuses[i].owner == address(_getRageQuitEscrow())
+                    ) {
+                        continue;
+                    }
+                    _unfinalizedUnstETHIds.push(shuffledRequestIds[i]);
+                }
             }
 
             console.log("Collected %d unfinalized unstETH ids", lastRequestId - lastFinalizedRequestId);
@@ -227,22 +239,24 @@ contract VetoSignallingDeEscalation is DGRegressionTestSetup {
         }
     }
 
-    function _getNextStETHVetoer() internal returns (address, uint256) {
+    function _getNextStETHVetoer() internal view returns (address, uint256) {
         for (uint256 i = 0; i < _stETHVetoers.length; ++i) {
             uint256 balance = _lido.stETH.balanceOf(_stETHVetoers[i]);
             if (balance >= MIN_LOCKABLE_STETH_AMOUNT) {
                 return (_stETHVetoers[i], balance);
             }
         }
+        return (address(0), 0);
     }
 
-    function _getNextWstETHVetoer() internal returns (address, uint256) {
+    function _getNextWstETHVetoer() internal view returns (address, uint256) {
         for (uint256 i = 0; i < _wstETHVetoers.length; ++i) {
             uint256 balance = _lido.wstETH.balanceOf(_wstETHVetoers[i]);
             if (balance >= MIN_LOCKABLE_WSTETH_AMOUNT) {
                 return (_wstETHVetoers[i], balance);
             }
         }
+        return (address(0), 0);
     }
 
     function _getNextUnstETHId() internal returns (uint256 unstETHId) {

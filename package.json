@@ -19,7 +19,8 @@
     "test:regressions": "./commands/run-regressions-tests.sh",
     "test:integration": "./commands/run-integration-tests.sh",
     "test:solvency-simulation": "./commands/run-solvency-simulation-test.sh",
-    "test:complete-rage-quit": "./commands/run-complete-rage-quit-test.sh"
+    "test:complete-rage-quit": "./commands/run-complete-rage-quit-test.sh",
+    "forge:script": "./commands/run-forge-script.sh"
   },
   "lint-staged": {
     "*.sol": [

@@ -109,7 +109,8 @@ contract ExecutorOwnershipTransferRegressionTest is DGRegressionTestSetup {
                 address(_oldAdminExecutor), abi.encodeCall(_oldAdminExecutor.transferOwnership, (address(_timelock)))
             );
             dgManageOperationsCallsBuilder.addCall(
-                address(_timelock), abi.encodeCall(_timelock.setAfterSubmitDelay, (Durations.from(5 days)))
+                address(_timelock),
+                abi.encodeCall(_timelock.setAfterSubmitDelay, (_timelock.MAX_AFTER_SUBMIT_DELAY().minusSeconds(1)))
             );
             dgManageOperationsCallsBuilder.addCall(
                 address(_timelock), abi.encodeCall(_timelock.setAfterScheduleDelay, (Durations.ZERO))

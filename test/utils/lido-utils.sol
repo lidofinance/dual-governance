@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 /* solhint-disable no-console */
 
 import {Vm} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -456,6 +455,8 @@ library LidoUtils {
         }
 
         {
+            // TODO: temporarily added 1 gwei to fix OutOfFunds error. Need to fix it properly in a separate PR.
+            vm.deal(self.withdrawalVault, self.withdrawalVault.balance + 1 gwei);
             vm.startPrank(address(self.accountingOracle));
             _handleOracleReport(
                 self,

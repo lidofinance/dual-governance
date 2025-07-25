@@ -148,8 +148,7 @@ contract TimelockedGovernanceScenario is TGScenarioTestSetup, DGScenarioTestSetu
                     resealManager: _dgDeployedContracts.resealManager,
                     configProvider: _dgDeployedContracts.dualGovernanceConfigProvider
                 }),
-                _dgDeployConfig.dualGovernance.signallingTokens,
-                _dgDeployConfig.dualGovernance.sanityCheckParams
+                _dgDeployConfig.dualGovernance
             );
 
             ExternalCallsBuilder.Context memory upgradeCallsBuilder = ExternalCallsBuilder.create({callsCount: 2});

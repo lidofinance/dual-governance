@@ -226,7 +226,7 @@ The id of the successfully registered proposal.
 #### Preconditions
 
 - MUST be called by the `governance` address.
-- The `calls` array length MUST be greater than zero.
+- The `calls` array MUST NOT be empty.
 
 ---
 
@@ -241,9 +241,10 @@ Schedules a previously submitted and non-cancelled proposal for execution after 
 #### Preconditions
 
 - MUST be called by the `governance` address.
-- The proposal MUST already be submitted.
-- `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY` MUST have elapsed since the proposal’s submission.
-- The post-submit timelock MUST have elapsed since the proposal submission.
+- The proposal MUST have been previously submitted.
+- The proposal MUST NOT have been cancelled.
+- The proposal MUST NOT already be scheduled.
+- `EmergencyProtectedTimelock.getAfterSubmitDelay` MUST have elapsed since the proposal submission.
 
 ---
 
@@ -257,9 +258,11 @@ Instructs the executor contract associated with the proposal to issue the propos
 
 #### Preconditions
 
-- Emergency mode MUST NOT be active.
+- Emergency Mode MUST NOT be active.
 - The proposal MUST be already submitted & scheduled for execution.
-- The emergency protection delay MUST already elapse since the moment the proposal was scheduled.
+- The proposal MUST NOT have been cancelled.
+- `EmergencyProtectedTimelock.MIN_EXECUTION_DELAY` MUST have elapsed since the proposal’s submission.
+- `EmergencyProtectedTimelock.getAfterScheduleDelay` MUST have elapsed since the proposal was scheduled for execution.
 
 ---
 
@@ -431,7 +434,8 @@ Activates the Emergency Mode.
 #### Preconditions
 
 - MUST be called by the Emergency Activation Committee address.
-- The Emergency Mode MUST NOT be active.
+- Emergency Mode MUST NOT already be active.
+- Emergency Protection MUST NOT be expired.
 
 ---
 
@@ -445,8 +449,8 @@ Executes the scheduled proposal, bypassing the post-schedule delay.
 
 #### Preconditions
 
-- MUST be called by the Emergency Execution Committee address.
 - The Emergency Mode MUST be active.
+- MUST be called by the Emergency Execution Committee address.
 
 ---
 
@@ -456,7 +460,7 @@ Executes the scheduled proposal, bypassing the post-schedule delay.
 function deactivateEmergencyMode()
 ```
 
-Deactivates the Emergency Activation and Emergency Execution Committees (setting their addresses to `0x00`), cancels all unexecuted proposals, and disables the [Protected deployment mode](#Proposal-execution-and-deployment-modes).
+Deactivates the Emergency Activation and Emergency Execution Committees (setting their addresses to zero), cancels all unexecuted proposals, and disables the [Protected deployment mode](#Proposal-execution-and-deployment-modes).
 
 #### Preconditions
 
@@ -471,12 +475,13 @@ Deactivates the Emergency Activation and Emergency Execution Committees (setting
 function emergencyReset()
 ```
 
-Resets the `governance` address to the `EMERGENCY_GOVERNANCE` value defined in the configuration, cancels all unexecuted proposals, and disables the [Protected deployment mode](#Proposal-execution-and-deployment-modes).
+Resets the `governance` address to the `EmergencyProtectedTimelock.getEmergencyGovernance()` value, cancels all unexecuted proposals, and disables the [Protected deployment mode](#Proposal-execution-and-deployment-modes).
 
 #### Preconditions
 
 - The Emergency Mode MUST be active.
 - MUST be called by the Emergency Execution Committee address.
+- The current `governance` address MUST NOT already equal `EmergencyProtectedTimelock.getEmergencyGovernance()`
 
 ---
 
@@ -686,6 +691,9 @@ Sets a new address for the admin executor contract.
 - The `newAdminExecutor` address MUST NOT be the zero address.
 - The `newAdminExecutor` address MUST NOT be the same as the current value.
 
+> [!CAUTION]
+> There is a risk of misconfiguration if the new executor address is not assigned to a proposer within Dual Governance. To eliminate this risk, any proposal updating the admin executor MUST include a validation check as the final action, ensuring that the new admin executor is properly assigned as a Dual Governance proposer.
+
 ---
 
 ## Contract: `Executor`
@@ -693,6 +701,8 @@ Sets a new address for the admin executor contract.
 Handles calls resulting from governance proposals' execution. Every protocol permission or role protected by the TG, as well as the permission to manage these roles or permissions, must be controlled exclusively by instances of this contract.
 
 The timelocked governance setup is designed to use a single admin instance of the `Executor`, which is owned by the [`EmergencyProtectedTimelock`](#Contract-EmergencyProtectedTimelock) singleton instance.
+
+This contract extends OpenZeppelin’s `Ownable` contract.
 
 ---
 

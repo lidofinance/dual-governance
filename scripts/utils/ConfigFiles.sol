@@ -65,10 +65,6 @@ library ConfigFileReader {
         return Timestamps.from(readUint(ctx, key));
     }
 
-    function readPercentD16BP(Context memory ctx, string memory key) internal pure returns (PercentD16) {
-        return PercentsD16.fromBasisPoints(readUint(ctx, key));
-    }
-
     function readAddress(Context memory ctx, string memory key) internal pure returns (address) {
         if (ctx.format == ConfigFormat.JSON) return stdJson.readAddress(ctx.content, key);
         if (ctx.format == ConfigFormat.TOML) return stdToml.readAddress(ctx.content, key);
@@ -81,9 +77,9 @@ library ConfigFileReader {
         revert InvalidConfigFormat(uint256(ctx.format));
     }
 
-    function readBytes(Context memory ctx, string memory key) internal pure returns (bytes memory) {
-        if (ctx.format == ConfigFormat.JSON) return stdJson.readBytes(ctx.content, key);
-        if (ctx.format == ConfigFormat.TOML) return stdToml.readBytes(ctx.content, key);
+    function keyExists(Context memory ctx, string memory key) internal view returns (bool) {
+        if (ctx.format == ConfigFormat.JSON) return stdJson.keyExists(ctx.content, key);
+        if (ctx.format == ConfigFormat.TOML) return stdToml.keyExists(ctx.content, key);
         revert InvalidConfigFormat(uint256(ctx.format));
     }
 }
@@ -150,9 +146,9 @@ library ConfigFileBuilder {
     function _nextId() private returns (string memory id) {
         bytes32 slot = keccak256("config-files.storage.counter");
 
-        uint256 count = uint256(vm.load(address(this), slot)) + 1;
-        vm.store(address(this), slot, bytes32(count));
-        return string(abi.encodePacked(address(this), count));
+        uint256 count = uint256(vm.load(address(0), slot)) + 1;
+        vm.store(address(0), slot, bytes32(count));
+        return string(abi.encodePacked(address(0), count));
     }
 }
 

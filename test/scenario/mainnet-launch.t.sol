@@ -12,7 +12,7 @@ import {
 } from "test/utils/integration-tests.sol";
 import {LidoUtils} from "test/utils/lido-utils.sol";
 
-import {OmnibusBase} from "scripts/launch/OmnibusBase.sol";
+import {OmnibusBase} from "scripts/utils/OmnibusBase.sol";
 import {TimeConstraints} from "scripts/launch/TimeConstraints.sol";
 import {DGLaunchStateVerifier} from "scripts/launch/DGLaunchStateVerifier.sol";
 import {DGLaunchOmnibusMainnet} from "scripts/launch/mainnet/DGLaunchOmnibusMainnet.sol";
@@ -54,9 +54,13 @@ contract MainnetLaunch is DGScenarioTestSetup, LidoAddressesMainnet {
     bytes32 internal REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE = keccak256("REMOVE_TOKEN_FROM_ALLOWED_LIST_ROLE");
     bytes32 internal CHANGE_PERIOD_ROLE = keccak256("CHANGE_PERIOD_ROLE");
     bytes32 internal CHANGE_BUDGETS_ROLE = keccak256("CHANGE_BUDGETS_ROLE");
+    uint256 internal constant VOTE_EXECUTION_BLOCK = 22817714;
 
     function setUp() external {
         _deployDGSetup({isEmergencyProtectionEnabled: true, chainId: MAINNET_CHAIN_ID});
+        if (block.number >= VOTE_EXECUTION_BLOCK) {
+            vm.skip(true, "Skipping launch test. Vote already executed.");
+        }
 
         TimeConstraints timeConstraints = new TimeConstraints();
         DGLaunchStateVerifier launchVerifier = new DGLaunchStateVerifier(

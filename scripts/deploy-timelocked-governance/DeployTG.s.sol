@@ -7,7 +7,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {TimelockedGovernance} from "contracts/TimelockedGovernance.sol";
 import {TimelockedGovernanceDeployConfig} from "../utils/contracts-deployment.sol";
-import {DeployFiles} from "../utils/deploy-files.sol";
+import {DeployFiles} from "../utils/DeployFiles.sol";
 
 contract DeployTG is Script {
     using TimelockedGovernanceDeployConfig for TimelockedGovernanceDeployConfig.Context;

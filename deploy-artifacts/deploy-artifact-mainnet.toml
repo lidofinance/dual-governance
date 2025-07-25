@@ -24,13 +24,13 @@ withdrawal_queue = "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1"
 wst_eth = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
 
 [deploy_config.dual_governance_config_provider]
-first_seal_rage_quit_support = 100
+first_seal_rage_quit_support = 1_0000000000000000
 min_assets_lock_duration = 18000
 rage_quit_eth_withdrawals_delay_growth = 1296000
 rage_quit_eth_withdrawals_max_delay = 15552000
 rage_quit_eth_withdrawals_min_delay = 5184000
 rage_quit_extension_period_duration = 604800
-second_seal_rage_quit_support = 1000
+second_seal_rage_quit_support = 10_0000000000000000
 veto_cooldown_duration = 18000
 veto_signalling_deactivation_max_duration = 259200
 veto_signalling_max_duration = 3888000
@@ -81,7 +81,11 @@ after_submit_delay = 259200
 [deploy_config.timelock.emergency_protection]
 emergency_activation_committee = "0x8B7854488Fde088d686Ea672B6ba1A5242515f45"
 emergency_execution_committee = "0xC7792b3F2B399bB0EdF53fECDceCeB97FBEB18AF"
-emergency_governance_proposer = "0xdd778153c3d0AE1B70fe81E0219b5D2C3e3951C2"
+# This contract was used to perform initial Dual Governance configuration while 
+# the emergency committee testnet and replaced by Aragon Voting in Dual Governance proposal #1 
+# in tx 0x191ec9d2fe34e7c70b1e67e511c71869d1f791be1c91ea4cffb69cb035e0789a
+# emergency_governance_proposer = "0xdd778153c3d0AE1B70fe81E0219b5D2C3e3951C2"
+emergency_governance_proposer = "0x2e59A20f205bB85a89C53f1936454680651E618e"
 emergency_mode_duration = 2592000
 emergency_protection_end_date = 1781913600
 
@@ -96,7 +100,11 @@ min_execution_delay = 259200
 admin_executor = "0x23E0B465633FF5178808F4A75186E2F2F9537021"
 dual_governance = "0xcdF49b058D606AD34c5789FD8c3BF8B3E54bA2db"
 dual_governance_config_provider = "0xa1692Af6FDfdD1030E4E9c4Bc429986FA64CB5EF"
-emergency_governance = "0x75850938C1Aa50B8cC6eb3c00995759dc1425ae6"
+# This contract was used to perform initial Dual Governance configuration while the 
+# emergency committee testnet emergency_governance = "0x75850938C1Aa50B8cC6eb3c00995759dc1425ae6"
+# New emergency governance was set in Dual Governance proposal #1 
+# in tx 0x191ec9d2fe34e7c70b1e67e511c71869d1f791be1c91ea4cffb69cb035e0789a 
+emergency_governance = "0x553337946F2FAb8911774b20025fa776B76a7CcE"
 escrow_master_copy = "0xb84317C0E142D8911A0d69Dc32c48d87753B8d1C"
 reseal_manager = "0x7914b5a1539b97Bd0bbd155757F25FD79A522d24"
 tiebreaker_core_committee = "0x175742c3DDD88B0192df3EcF98f180A79cb259D0"
