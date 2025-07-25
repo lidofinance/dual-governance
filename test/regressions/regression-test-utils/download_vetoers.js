@@ -22,7 +22,7 @@ async function main() {
         NETWORK_NAME,
         {
             stEthAddress: ST_ETH_ADDRESS,
-            desiredPercentage: 80,
+            desiredPercentage: 90,
             addressesPerChunk: 1000,
             excludeAddresses: ST_ETH_HOLDERS_EXCLUDE_ADDRESSES,
             excludeAddressesFromPercentageCount: ST_ETH_HOLDERS_EXCLUDE_ADDRESSES_FROM_PERCENTAGE_COUNT,
