@@ -3,11 +3,13 @@ pragma solidity 0.8.26;
 
 import {Duration} from "contracts/types/Duration.sol";
 
-// @title UpgradeConstantsMainnet
-// @notice This contract contains constants for Dual Governance upgrade on Mainnet
+/// @title UpgradeConstantsMainnet
+/// @notice This contract contains constants for the omnibus to upgrade Dual Governance on Mainnet and
+/// transfer MATIC tokens from the DAO treasury to the Lido Labs BORG Foundation
 contract UpgradeConstantsMainnet {
     address public constant VOTING = 0x2e59A20f205bB85a89C53f1936454680651E618e;
     address public constant AGENT = 0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c;
+    address public constant FINANCE = 0xB9E5CBB9CA5b0d659238807E84D0176930753d86;
     address public constant DUAL_GOVERNANCE = 0xcdF49b058D606AD34c5789FD8c3BF8B3E54bA2db;
     address public constant TIMELOCK = 0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316;
     address public constant ADMIN_EXECUTOR = 0x23E0B465633FF5178808F4A75186E2F2F9537021;
@@ -17,4 +19,5 @@ contract UpgradeConstantsMainnet {
     Duration public constant TIEBREAKER_ACTIVATION_TIMEOUT = Duration.wrap(31536000 seconds);
     address public constant MATIC_TOKEN = 0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0;
     address public constant LABS_BORG_FOUNDATION = 0x95B521B4F55a447DB89f6a27f951713fC2035f3F;
+    uint256 public constant MATIC_AMOUNT = 508_106_165781175837137177;
 }

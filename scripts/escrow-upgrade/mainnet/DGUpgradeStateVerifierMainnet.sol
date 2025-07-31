@@ -14,12 +14,12 @@ contract DGUpgradeStateVerifierMainnet is IDGLaunchVerifier, UpgradeConstantsMai
     error InvalidTiebreakerActivationTimeout(Duration expectedValue, Duration actualValue);
     error InvalidTiebreakerCommittee(address expectedValue, address actualValue);
     error InvalidTiebreakerSealableWithdrawalBlockersCount(uint256 expectedValue, uint256 actualValue);
-    error InvalidTiebreakerSealableWithdrawalBlockers(address expectedValue, address actualValue);
+    error InvalidTiebreakerSealableWithdrawalBlocker(address expectedValue, address actualValue);
+    error InvalidProposersCount(uint256 expectedValue, uint256 actualValue);
     error InvalidProposer(address expectedValue, address actualValue);
     error InvalidProposerExecutor(address expectedValue, address actualValue);
     error InvalidProposalsCanceller(address expectedValue, address actualValue);
     error InvalidResealCommittee(address expectedValue, address actualValue);
-    error InvalidProposesCount(uint256 expectedValue, uint256 actualValue);
     error InvalidConfigProviderForDisconnectedDualGovernance(address expectedValue, address actualValue);
 
     event DGUpgradeConfigurationValidated();
@@ -64,13 +64,13 @@ contract DGUpgradeStateVerifierMainnet is IDGLaunchVerifier, UpgradeConstantsMai
         }
 
         if (tiebreakerDetails.sealableWithdrawalBlockers[0] != WITHDRAWAL_QUEUE) {
-            revert InvalidTiebreakerSealableWithdrawalBlockers(
+            revert InvalidTiebreakerSealableWithdrawalBlocker(
                 WITHDRAWAL_QUEUE, tiebreakerDetails.sealableWithdrawalBlockers[0]
             );
         }
 
         if (tiebreakerDetails.sealableWithdrawalBlockers[1] != VALIDATORS_EXIT_BUS_ORACLE) {
-            revert InvalidTiebreakerSealableWithdrawalBlockers(
+            revert InvalidTiebreakerSealableWithdrawalBlocker(
                 VALIDATORS_EXIT_BUS_ORACLE, tiebreakerDetails.sealableWithdrawalBlockers[1]
             );
         }
@@ -78,7 +78,7 @@ contract DGUpgradeStateVerifierMainnet is IDGLaunchVerifier, UpgradeConstantsMai
         Proposers.Proposer[] memory proposers = IDualGovernance(NEW_DUAL_GOVERNANCE).getProposers();
 
         if (proposers.length != 1) {
-            revert InvalidProposesCount(1, proposers.length);
+            revert InvalidProposersCount(1, proposers.length);
         }
 
         if (proposers[0].account != VOTING) {
