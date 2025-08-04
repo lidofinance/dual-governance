@@ -7,7 +7,6 @@ import {ITiebreaker} from "contracts/interfaces/ITiebreaker.sol";
 import {IGovernance} from "contracts/interfaces/IGovernance.sol";
 import {IDualGovernanceConfigProvider} from "contracts/interfaces/IDualGovernanceConfigProvider.sol";
 import {IDGLaunchVerifier} from "scripts/launch/interfaces/IDGLaunchVerifier.sol";
-import {IFinance} from "scripts/escrow-upgrade/interfaces/IFinance.sol";
 
 import {ExternalCallsBuilder} from "scripts/utils/ExternalCallsBuilder.sol";
 import {UpgradeConstantsMainnet} from "./UpgradeConstantsMainnet.sol";
@@ -23,8 +22,8 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 /// @dev This contract defines the complete set of governance actions required to upgrade Dual Governance contract.
 ///
 /// It provides:
-/// - A list of 11 vote items that must be submitted and executed through an Aragon vote to perform the upgrade
-/// of the Dual Governance system and treasury token management.
+/// - A list of 10 vote items that must be submitted and executed through an Aragon vote to perform the upgrade
+/// of the Dual Governance system.
 /// - Includes:
 ///     - Setting new Dual Governance contract with Tiebreaker configuration
 ///     - Setting new Dual Governance contract with reseal committee
@@ -32,11 +31,10 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 ///     - Connecting new Dual Governance contract to the Emergency Protected Timelock
 ///     - Setting config provider for old Dual Governance contract to prevent it from being used in Rage Quit
 ///     - Verifying Dual Governance state
-///     - Transferring MATIC tokens from DAO treasury to the Lido Labs BORG Foundation (0x95B521B4F55a447DB89f6a27f951713fC2035f3F)
 contract DGUpgradeOmnibusMainnet is OmnibusBase, UpgradeConstantsMainnet {
     using ExternalCallsBuilder for ExternalCallsBuilder.Context;
 
-    uint256 public constant VOTE_ITEMS_COUNT = 2;
+    uint256 public constant VOTE_ITEMS_COUNT = 1;
     uint256 public constant DG_PROPOSAL_CALLS_COUNT = 10;
 
     address public immutable NEW_DUAL_GOVERNANCE;
@@ -125,25 +123,7 @@ contract DGUpgradeOmnibusMainnet is OmnibusBase, UpgradeConstantsMainnet {
                         IGovernance.submitProposal,
                         (
                             dgProposalCallsBuilder.getResult(),
-                            string(
-                                "1.1 - 1.10 Proposal to upgrade Dual Governance contract on Mainnet (Immunefi reported vulnerability fix)"
-                            )
-                        )
-                    )
-                )
-            });
-
-            voteItems[1] = VoteItem({
-                description: "2. Transfer 508106.165781175837137177 MATIC tokens from DAO treasury to the Lido Labs BORG Foundation (0x95B521B4F55a447DB89f6a27f951713fC2035f3F)",
-                call: _votingCall(
-                    FINANCE,
-                    abi.encodeCall(
-                        IFinance.newImmediatePayment,
-                        (
-                            MATIC_TOKEN,
-                            LABS_BORG_FOUNDATION,
-                            MATIC_AMOUNT,
-                            "Transfer MATIC tokens from DAO treasury to the Lido Labs BORG Foundation"
+                            "1.1 - 1.10 Proposal to upgrade Dual Governance contract on Mainnet (Immunefi reported vulnerability fix)"
                         )
                     )
                 )
