@@ -1,0 +1,40 @@
+name: DualGovernance complete rage quit
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: complete-rage-quit
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    concurrency:
+      group: complete-rage-quit-${{ github.ref }}
+      cancel-in-progress: true
+
+    env:
+      NODE_VERSION: '20.16.0'
+      FORGE_VERSION: 'v1.0.0'
+      MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+      DEPLOY_ARTIFACT_FILE_NAME: "deploy-artifact-mainnet.toml"
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup repository
+        uses: ./.github/actions/repo-setup
+
+      - name: Run complete-rage-quit tests
+        shell: bash
+        run: npm run test:complete-rage-quit -- --load-accounts
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          DEPLOY_ARTIFACT_FILE_NAME: ${{ env.DEPLOY_ARTIFACT_FILE_NAME }}

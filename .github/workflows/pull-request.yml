@@ -1,0 +1,59 @@
+name: DualGovernance PR tests
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      matrix:
+        include:
+          - id: regressions
+            display: "regressions"
+            command: "npm run test:regressions -- --load-accounts"
+            deployArtifact: "deploy-artifact-mainnet.toml"
+
+          - id: integration
+            display: "integration"
+            command: "npm run test:integration -- --load-accounts"
+            deployArtifact: "deploy-artifact-mainnet.toml"
+
+          - id: unit
+            display: "unit"
+            command: "npm run test:unit"
+
+    name: ${{ matrix.display }}
+
+    concurrency:
+      group: ${{ matrix.id }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    env:
+      NODE_VERSION: '20.16.0'
+      FORGE_VERSION: 'v1.0.0'
+      MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+      FUZZ_RUNS: 256
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup repository
+        uses: ./.github/actions/repo-setup
+
+      - name: Run tests
+        shell: bash
+        run: ${{ matrix.command }}
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          DEPLOY_ARTIFACT_FILE_NAME: ${{ matrix.deployArtifact }}

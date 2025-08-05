@@ -69,11 +69,6 @@ The following commands can be used to run different types of tests:
     npm run test:unit
     ```
 
-- **Run integration and regression tests on a newly deployed setup of the Dual Governance**
-    ```sh
-    npm run test:integration
-    ```
-
 - **Run only scenario tests on a newly deployed setup of the Dual Governance**
     ```sh
     npm run test:scenario
@@ -83,6 +78,19 @@ The following commands can be used to run different types of tests:
     ```sh
     npm run test:regressions
     ```
+    > **_NOTE:_** Use flag `--load-accounts` to update list of stETH and wstETH holders before the test:
+    >```sh
+    >npm run test:regressions -- --load-accounts
+    >```
+
+- **Run integration and regression tests on a newly deployed setup of the Dual Governance**
+    ```sh
+    npm run test:integration
+    ```
+    > **_NOTE:_** Use flag `--load-accounts` to update list of stETH and wstETH holders before the test:
+    >```sh
+    >npm run test:integration -- --load-accounts
+    >```
 
 - **Run solvency test exclusively on a forked setup of Dual Governance** _(Note: test is very time consuming)_
     ```sh
