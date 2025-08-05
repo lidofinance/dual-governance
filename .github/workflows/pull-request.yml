@@ -5,7 +5,7 @@ permissions:
 
 on:
   pull_request:
-    branches: ['main', 'develop']
+    branches: ["**"]
 
 jobs:
   tests:
@@ -22,7 +22,8 @@ jobs:
 
           - id: integration
             display: "integration"
-            command: "npm run test:integration"
+            command: "npm run test:integration -- --load-accounts"
+            deployArtifact: "deploy-artifact-mainnet.toml"
 
           - id: unit
             display: "unit"
@@ -35,7 +36,7 @@ jobs:
       cancel-in-progress: true
 
     env:
-      NODE_VERSION: '22.x'
+      NODE_VERSION: '20.16.0'
       FORGE_VERSION: 'v1.0.0'
       MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
       FUZZ_RUNS: 256

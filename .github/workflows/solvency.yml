@@ -10,14 +10,14 @@ jobs:
   tests:
     name: solvency-simulation
     runs-on: ubuntu-latest
-    timeout-minutes: 600
+    timeout-minutes: 180
 
     concurrency:
       group: solvency-simulation-${{ github.ref }}
       cancel-in-progress: true
 
     env:
-      NODE_VERSION: '22.x'
+      NODE_VERSION: '20.16.0'
       FORGE_VERSION: 'v1.0.0'
       MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
       DEPLOY_ARTIFACT_FILE_NAME: "deploy-artifact-mainnet.toml"
