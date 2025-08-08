@@ -138,3 +138,9 @@ dg_launch_verifier = "0xd48c2fc419569537Bb069BAD2165dC0cEB160CEC"
 roles_validator = "0x31534e3aFE219B609da3715a00a1479D2A2d7981"
 time_constraints = "0x2a30F5aC03187674553024296bed35Aa49749DDa"
 omnibus_contract = "0xcD7d0c2f0aEFF8cBD17702bfa9505421253edE54"
+
+
+[dg_upgrade]
+# Contracts deployed after Immunefi vulnerability report
+dg_escrow_upgrade_state_verifier="0x487b764a2085ffd595D9141BAec0A766B7904786"
+dg_escrow_upgrade_omnibus_contract="0x67988077f29FbA661911d9567E05cc52C51ca1B0"
