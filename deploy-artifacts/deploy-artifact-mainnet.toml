@@ -96,24 +96,41 @@ max_emergency_mode_duration = 31536000
 max_emergency_protection_duration = 94608000
 min_execution_delay = 259200
 
+# Contracts deployed after Immunefi vulnerability report
 [deployed_contracts]
 admin_executor = "0x23E0B465633FF5178808F4A75186E2F2F9537021"
-dual_governance = "0xcdF49b058D606AD34c5789FD8c3BF8B3E54bA2db"
+dual_governance = "0xC1db28B3301331277e307FDCfF8DE28242A4486E"
 dual_governance_config_provider = "0xa1692Af6FDfdD1030E4E9c4Bc429986FA64CB5EF"
+emergency_governance = "0x553337946F2FAb8911774b20025fa776B76a7CcE"
+escrow_master_copy = "0xd6A67636c05BeB5B4a5c90D408b03A63c4e39426"
+reseal_manager = "0x7914b5a1539b97Bd0bbd155757F25FD79A522d24"
+tiebreaker_core_committee = "0xf65614d73952Be91ce0aE7Dd9cFf25Ba15bEE2f5"
+tiebreaker_sub_committees = [
+    "0x3D3ba54D54bbFF40F2Dfa2A8e27bD4dE3dab2951",
+    "0xDBfa0B8A15a503f25224fcA5F84a3853230A715C",
+    "0xBF048f2111497B6Df5E062811f5fC422804D4baE",
+]
+timelock = "0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316"
+
+# Deprecated list of the contracts due to upgrade after Immunefi vulnerability report
+# [deployed_contracts]
+# admin_executor = "0x23E0B465633FF5178808F4A75186E2F2F9537021"
+# dual_governance = "0xcdF49b058D606AD34c5789FD8c3BF8B3E54bA2db"
+# dual_governance_config_provider = "0xa1692Af6FDfdD1030E4E9c4Bc429986FA64CB5EF"
 # This contract was used to perform initial Dual Governance configuration while the 
 # emergency committee testnet emergency_governance = "0x75850938C1Aa50B8cC6eb3c00995759dc1425ae6"
 # New emergency governance was set in Dual Governance proposal #1 
 # in tx 0x191ec9d2fe34e7c70b1e67e511c71869d1f791be1c91ea4cffb69cb035e0789a 
-emergency_governance = "0x553337946F2FAb8911774b20025fa776B76a7CcE"
-escrow_master_copy = "0xb84317C0E142D8911A0d69Dc32c48d87753B8d1C"
-reseal_manager = "0x7914b5a1539b97Bd0bbd155757F25FD79A522d24"
-tiebreaker_core_committee = "0x175742c3DDD88B0192df3EcF98f180A79cb259D0"
-tiebreaker_sub_committees = [
-    "0x74836470337Ba5d2a92fe16E44AD862E28fcf9B3",
-    "0xb9d82E1A49f6a66E8a07260BA05Cf9Ac8a938B1C",
-    "0x7dAdae4e1a0DB43F6bcfA75295666fc044605679",
-]
-timelock = "0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316"
+# emergency_governance = "0x553337946F2FAb8911774b20025fa776B76a7CcE"
+# escrow_master_copy = "0xb84317C0E142D8911A0d69Dc32c48d87753B8d1C"
+# reseal_manager = "0x7914b5a1539b97Bd0bbd155757F25FD79A522d24"
+# tiebreaker_core_committee = "0x175742c3DDD88B0192df3EcF98f180A79cb259D0"
+# tiebreaker_sub_committees = [
+#     "0x74836470337Ba5d2a92fe16E44AD862E28fcf9B3",
+#     "0xb9d82E1A49f6a66E8a07260BA05Cf9Ac8a938B1C",
+#     "0x7dAdae4e1a0DB43F6bcfA75295666fc044605679",
+# ]
+# timelock = "0xCE0425301C85c5Ea2A0873A2dEe44d78E02D2316"
 
 [dg_launch]
 dao_emergency_governance = "0x553337946F2FAb8911774b20025fa776B76a7CcE"
