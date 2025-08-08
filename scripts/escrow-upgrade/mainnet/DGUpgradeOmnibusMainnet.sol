@@ -13,8 +13,6 @@ import {UpgradeConstantsMainnet} from "./UpgradeConstantsMainnet.sol";
 
 import {OmnibusBase} from "scripts/utils/OmnibusBase.sol";
 
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-
 /// @title DGUpgradeOmnibusMainnet
 /// @notice Contains vote items for execution via Dual Governance to upgrade Dual Governance contract.
 /// Provides a mechanism for validating an Aragon vote against the actions in this contract, by passing the vote ID.
@@ -22,12 +20,13 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 /// @dev This contract defines the complete set of governance actions required to upgrade Dual Governance contract.
 ///
 /// It provides:
-/// - A list of 10 vote items that must be submitted and executed through an Aragon vote to perform the upgrade
+/// - A list of 10 vote items to be submitted and executed through Dual Governance to perform the upgrade
 /// of the Dual Governance system.
 /// - Includes:
-///     - Setting new Dual Governance contract with Tiebreaker configuration
-///     - Setting new Dual Governance contract with reseal committee
+///     - Setting new Dual Governance contract with Tiebreaker configuration (actions 1-4)
+///     - Registering Aragon Voting as admin proposer
 ///     - Setting new Dual Governance contract with Proposals canceller
+///     - Setting new Dual Governance contract with reseal committee
 ///     - Connecting new Dual Governance contract to the Emergency Protected Timelock
 ///     - Setting config provider for old Dual Governance contract to prevent it from being used in Rage Quit
 ///     - Verifying Dual Governance state
@@ -116,14 +115,14 @@ contract DGUpgradeOmnibusMainnet is OmnibusBase, UpgradeConstantsMainnet {
             dgProposalCallsBuilder.addCall(DG_UPGRADE_STATE_VERIFIER, abi.encodeCall(IDGLaunchVerifier.verify, ()));
 
             voteItems[0] = VoteItem({
-                description: "1. Submit Dual Governance proposal to upgrade Dual Governance contract on Mainnet (Immunefi reported vulnerability fix)",
+                description: "1. Submit a Dual Governance proposal to upgrade the Dual Governance contract (fix for RageQuit ETH withdrawal delay)",
                 call: _votingCall(
                     DUAL_GOVERNANCE,
                     abi.encodeCall(
                         IGovernance.submitProposal,
                         (
                             dgProposalCallsBuilder.getResult(),
-                            "1.1 - 1.10 Proposal to upgrade Dual Governance contract on Mainnet (Immunefi reported vulnerability fix)"
+                            "Upgrade the Dual Governance contract: fix for RageQuit ETH withdrawal delay"
                         )
                     )
                 )
