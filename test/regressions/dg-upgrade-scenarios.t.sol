@@ -45,6 +45,10 @@ contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
     address internal immutable _VETOER = makeAddr("VETOER");
 
     function setUp() external {
+        if (vm.envOr("DG_DISABLE_REGRESSION_TESTS_FOR_SCRATCH_DEPLOY", false)) {
+            vm.skip(true, "This test doesn't work in scratch deploy environment");
+            return;
+        }
         _loadOrDeployDGSetup();
         _setupStETHBalance(_VETOER, PercentsD16.fromBasisPoints(30_00));
     }

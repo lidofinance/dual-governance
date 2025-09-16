@@ -62,6 +62,11 @@ contract CompleteRageQuitRegressionTest is DGRegressionTestSetup {
     }
 
     function testFork_RageQuit_HappyPath_SingleRound() external {
+        if (vm.envOr("DG_DISABLE_REGRESSION_TESTS_FOR_SCRATCH_DEPLOY", false)) {
+            vm.skip(true, "This test doesn't work in scratch deploy environment");
+            return;
+        }
+
         _runRageQuitRounds({rageQuitRounds: 1});
     }
 

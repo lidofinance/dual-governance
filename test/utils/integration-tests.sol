@@ -90,6 +90,7 @@ abstract contract ForkTestSetup is Test {
                 vm.envAddress("DG_TESTS_LIDO_WITHDRAWAL_QUEUE"),
                 vm.envAddress("DG_TESTS_LIDO_ACCOUNTING_ORACLE"),
                 vm.envAddress("DG_TESTS_LIDO_ORACLE_REPORT_SANITY_CHECKER"),
+                vm.envAddress("DG_TESTS_LIDO_STAKING_ROUTER"),
                 vm.envAddress("DG_TESTS_LIDO_EL_REWARDS_VAULT"),
                 vm.envAddress("DG_TESTS_LIDO_WITHDRAWAL_VAULT"),
                 vm.envAddress("DG_TESTS_LIDO_DAO_ACL"),
