@@ -183,6 +183,40 @@ library LidoUtils {
         ctx.tokenManager = IAragonForwarder(HOODI_DAO_TOKEN_MANAGER);
     }
 
+    function devnetDeployment(
+        address stEth,
+        address wstETH,
+        address burner,
+        address hashConsensus,
+        address withdrawalQueue,
+        address accountingOracle,
+        address oracleReportSanityChecker,
+        address elRewardsVault,
+        address withdrawalVault,
+        address daoAcl,
+        address daoAgent,
+        address voting,
+        address ldoToken,
+        address daoTokenManager
+    ) internal pure returns (Context memory ctx) {
+        ctx.stETH = IStETH(stEth);
+        ctx.wstETH = IWstETH(wstETH);
+        ctx.burner = IBurner(burner);
+        ctx.hashConsensus = IHashConsensus(hashConsensus);
+        ctx.withdrawalQueue = IWithdrawalQueue(withdrawalQueue);
+        ctx.accountingOracle = IAccountingOracle(accountingOracle);
+        ctx.oracleReportSanityChecker = IOracleReportSanityChecker(oracleReportSanityChecker);
+
+        ctx.elRewardsVault = elRewardsVault;
+        ctx.withdrawalVault = withdrawalVault;
+
+        ctx.acl = IAragonACL(daoAcl);
+        ctx.agent = IAragonAgent(daoAgent);
+        ctx.voting = IAragonVoting(voting);
+        ctx.ldoToken = IERC20(ldoToken);
+        ctx.tokenManager = IAragonForwarder(daoTokenManager);
+    }
+
     function calcAmountFromPercentageOfTVL(
         Context memory self,
         PercentD16 percentage

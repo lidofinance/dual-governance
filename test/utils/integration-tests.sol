@@ -81,8 +81,25 @@ abstract contract ForkTestSetup is Test {
             vm.createSelectFork(vm.envString("HOODI_RPC_URL"));
             _lido = LidoUtils.hoodi();
         } else {
-            revert UnsupportedChainId(chainId);
+            vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+            _lido = LidoUtils.devnetDeployment(
+                vm.envAddress("DG_TESTS_LIDO_ST_ETH"),
+                vm.envAddress("DG_TESTS_LIDO_WST_ETH"),
+                vm.envAddress("DG_TESTS_LIDO_BURNER"),
+                vm.envAddress("DG_TESTS_LIDO_HASH_CONSENSUS"),
+                vm.envAddress("DG_TESTS_LIDO_WITHDRAWAL_QUEUE"),
+                vm.envAddress("DG_TESTS_LIDO_ACCOUNTING_ORACLE"),
+                vm.envAddress("DG_TESTS_LIDO_ORACLE_REPORT_SANITY_CHECKER"),
+                vm.envAddress("DG_TESTS_LIDO_EL_REWARDS_VAULT"),
+                vm.envAddress("DG_TESTS_LIDO_WITHDRAWAL_VAULT"),
+                vm.envAddress("DG_TESTS_LIDO_DAO_ACL"),
+                vm.envAddress("DG_TESTS_LIDO_DAO_AGENT"),
+                vm.envAddress("DG_TESTS_LIDO_DAO_VOTING"),
+                vm.envAddress("DG_TESTS_LIDO_LDO_TOKEN"),
+                vm.envAddress("DG_TESTS_LIDO_DAO_TOKEN_MANAGER")
+            );
         }
+
         if (blockNumber != LATEST_FORK_BLOCK_NUMBER) {
             vm.rollFork(blockNumber);
         }
@@ -97,7 +114,7 @@ abstract contract ForkTestSetup is Test {
         } else if (chainId == HOODI_CHAIN_ID) {
             return _readBlockNumberFromEnvOrDefault("HOODI_FORK_BLOCK_NUMBER", DEFAULT_HOODI_FORK_BLOCK_NUMBER);
         }
-        revert UnsupportedChainId(chainId);
+        return _readBlockNumberFromEnvOrDefault("DG_DEVNET_FORK_BLOCK_NUMBER", DEFAULT_MAINNET_FORK_BLOCK_NUMBER);
     }
 
     function _readBlockNumberFromEnvOrDefault(
