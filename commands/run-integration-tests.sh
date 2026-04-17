@@ -16,7 +16,9 @@ fi
 export GRANT_REQUIRED_PERMISSIONS=true
 export RUN_SOLVENCY_SIMULATION_TEST=false
 export ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=false
+export FOUNDRY_FORK_RETRIES=15 
+export FOUNDRY_FORK_RETRY_BACKOFF=2000
 
 FUZZ_RUNS="${FUZZ_RUNS:-256}"
 
-forge test -vv --match-path "test/{regressions,scenario}/*" --fuzz-runs $FUZZ_RUNS
+forge test -vv --match-path "test/{regressions,scenario}/*" --fuzz-runs $FUZZ_RUNS --compute-units-per-second 280
