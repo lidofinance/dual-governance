@@ -63,7 +63,6 @@ jobs:
             --retries 20 \
             --timeout 120000 \
             --fork-retry-backoff 2000 \
-            --compute-units-per-second 280 \
             > anvil.log 2>&1 &
 
           for i in {1..60}; do
