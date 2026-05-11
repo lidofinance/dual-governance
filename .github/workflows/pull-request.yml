@@ -59,11 +59,7 @@ jobs:
           nohup anvil \
             --fork-url "$MAINNET_RPC_URL" \
             --port 8545 \
-            --chain-id 1 \
-            --retries 20 \
-            --timeout 120000 \
-            --fork-retry-backoff 2000 \
-            > anvil.log 2>&1 &
+            --chain-id 1 > anvil.log 2>&1 &
 
           for i in {1..60}; do
             if curl -sS -X POST "$ANVIL_RPC_URL" \
