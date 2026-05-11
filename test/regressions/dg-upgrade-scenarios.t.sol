@@ -1051,12 +1051,13 @@ contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
         address emergencyExecutionCommittee;
         address emergencyGovernance;
         {
+            _wait(_getEmergencyProtectionDuration().minusSeconds(5 days));
+
             emergencyActivationCommittee = _timelock.getEmergencyActivationCommittee();
             emergencyExecutionCommittee = _timelock.getEmergencyExecutionCommittee();
-            Timestamp emergencyModeEndsAfter = Timestamps.from(block.timestamp + 365 days);
+            Timestamp emergencyProtectionEndsAfter = Timestamps.from(block.timestamp + 365 days);
             Duration emergencyModeDuration = _timelock.MAX_EMERGENCY_MODE_DURATION().minusSeconds(1);
 
-            _wait(_getEmergencyProtectionDuration().minusSeconds(5 days));
             assertTrue(_timelock.isEmergencyProtectionEnabled());
             assertTrue(_timelock.isEmergencyModeActive());
 
@@ -1076,7 +1077,8 @@ contract DualGovernanceUpgradeScenariosRegressionTest is DGRegressionTestSetup {
 
             // Set emergency protection end date
             extendEmergencyProtectionCallsBuilder.addCall(
-                address(_timelock), abi.encodeCall(_timelock.setEmergencyProtectionEndDate, (emergencyModeEndsAfter))
+                address(_timelock),
+                abi.encodeCall(_timelock.setEmergencyProtectionEndDate, (emergencyProtectionEndsAfter))
             );
 
             // Set new emergency mode duration for a year

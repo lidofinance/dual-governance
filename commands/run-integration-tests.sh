@@ -19,4 +19,8 @@ export ENABLE_REGRESSION_TEST_COMPLETE_RAGE_QUIT=false
 
 FUZZ_RUNS="${FUZZ_RUNS:-256}"
 
-forge test -vv --match-path "test/{regressions,scenario}/*" --fuzz-runs $FUZZ_RUNS
+FOUNDRY_ETH_RPC_TIMEOUT="${FOUNDRY_ETH_RPC_TIMEOUT:-120}" \
+forge test -vv \
+    --threads "${FOUNDRY_THREADS:-1}" \
+    --match-path "test/{regressions,scenario}/*" \
+    --fuzz-runs "$FUZZ_RUNS"

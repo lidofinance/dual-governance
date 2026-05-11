@@ -20,4 +20,8 @@ export RUN_DISCONNECTED_DG_SETUP_TEST=false
 
 FUZZ_RUNS="${FUZZ_RUNS:-256}"
 
-forge test -vv --match-path "test/regressions/*" --fuzz-runs $FUZZ_RUNS
+FOUNDRY_ETH_RPC_TIMEOUT="${FOUNDRY_ETH_RPC_TIMEOUT:-120}" \
+forge test -vv \
+    --threads "${FOUNDRY_THREADS:-1}" \
+    --match-path "test/regressions/*" \
+    --fuzz-runs "$FUZZ_RUNS"
