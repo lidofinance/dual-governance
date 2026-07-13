@@ -31,6 +31,16 @@ interface IStETH is IStETHBase {
         view
         returns (uint256 depositedValidators, uint256 beaconValidators, uint256 beaconBalance);
 
+    function getBalanceStats()
+        external
+        view
+        returns (
+            uint256 clValidatorsBalanceAtLastReport,
+            uint256 clPendingBalanceAtLastReport,
+            uint256 depositedSinceLastReport,
+            uint256 depositedForCurrentReport
+        );
+
     /**
      * @notice Updates accounting stats, collects EL rewards and distributes collected rewards
      *         if beacon balance increased, performs withdrawal requests finalization

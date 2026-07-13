@@ -5,8 +5,8 @@ interface IAccounting {
     struct ReportValues {
         uint256 timestamp;
         uint256 timeElapsed;
-        uint256 clValidators;
-        uint256 clBalance;
+        uint256 clValidatorsBalance;
+        uint256 clPendingBalance;
         uint256 withdrawalVaultBalance;
         uint256 elRewardsVaultBalance;
         uint256 sharesRequestedToBurn;
