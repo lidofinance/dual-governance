@@ -99,12 +99,14 @@ address constant HOODI_DAO_VOTING = 0x49B3512c44891bef83F8967d075121Bd1b07a01B;
 address constant HOODI_DAO_TOKEN_MANAGER = 0x8ab4a56721Ad8e68c6Ad86F9D9929782A78E39E5;
 
 // ---
-// Lido V3 Storage Slots
+// SRV3 Storage Slots
 // ---
 
-bytes32 constant CL_BALANCE_AND_CL_VALIDATORS_SLOT = keccak256("lido.Lido.clBalanceAndClValidators");
-bytes32 constant BUFFERED_ETHER_AND_DEPOSITED_VALIDATORS_SLOT =
-    keccak256("lido.Lido.bufferedEtherAndDepositedValidators");
+bytes32 constant CL_VALIDATORS_BALANCE_AND_CL_PENDING_BALANCE_SLOT =
+    keccak256("lido.Lido.clValidatorsBalanceAndClPendingBalance");
+bytes32 constant BUFFERED_ETHER_AND_DEPOSITED_POST_REPORT_SLOT =
+    keccak256("lido.Lido.bufferedEtherAndDepositedPostReport");
+bytes32 constant SANITY_CHECKER_LAST_VAULT_BALANCE_AFTER_TRANSFER_SLOT = bytes32(uint256(4));
 
 library LidoUtils {
     using DecimalsFormatting for uint256;
@@ -382,6 +384,7 @@ library LidoUtils {
         vm.deal(self.elRewardsVault, 0);
         // Ignore untracked withdrawals for test simplicity
         vm.deal(self.withdrawalVault, 0);
+        vm.store(address(self.oracleReportSanityChecker), SANITY_CHECKER_LAST_VAULT_BALANCE_AFTER_TRANSFER_SLOT, 0);
 
         uint256 clBalance = _sweepBufferedEther(self);
 
@@ -459,21 +462,30 @@ library LidoUtils {
         );
     }
 
-    function _sweepBufferedEther(Context memory self) internal returns (uint256 clBalance) {
-        clBalance = getLowUint128(address(self.stETH), CL_BALANCE_AND_CL_VALIDATORS_SLOT);
-        uint256 bufferedEther = getLowUint128(address(self.stETH), BUFFERED_ETHER_AND_DEPOSITED_VALIDATORS_SLOT);
+    function _sweepBufferedEther(Context memory self) internal returns (uint256 fullClBalance) {
+        uint256 clValidatorsBalance =
+            getLowUint128(address(self.stETH), CL_VALIDATORS_BALANCE_AND_CL_PENDING_BALANCE_SLOT);
+        uint256 clPendingBalance =
+            getHighUint128(address(self.stETH), CL_VALIDATORS_BALANCE_AND_CL_PENDING_BALANCE_SLOT);
+        uint256 bufferedEther = getLowUint128(address(self.stETH), BUFFERED_ETHER_AND_DEPOSITED_POST_REPORT_SLOT);
 
         require(bufferedEther == address(self.stETH).balance, "Buffered Ether mismatch");
 
+        fullClBalance = clValidatorsBalance + clPendingBalance;
+
         if (bufferedEther > 0) {
             vm.deal(address(self.stETH), 0);
-            clBalance += bufferedEther;
+            fullClBalance += bufferedEther;
 
-            setLowUint128(address(self.stETH), CL_BALANCE_AND_CL_VALIDATORS_SLOT, clBalance);
-            setLowUint128(address(self.stETH), BUFFERED_ETHER_AND_DEPOSITED_VALIDATORS_SLOT, 0);
+            setLowUint128(
+                address(self.stETH),
+                CL_VALIDATORS_BALANCE_AND_CL_PENDING_BALANCE_SLOT,
+                clValidatorsBalance + bufferedEther
+            );
+            setLowUint128(address(self.stETH), BUFFERED_ETHER_AND_DEPOSITED_POST_REPORT_SLOT, 0);
 
-            (,, uint256 updatedCLBalance) = self.stETH.getBeaconStat();
-            require(updatedCLBalance == clBalance, "Unexpected CL balance");
+            (uint256 updatedClValidatorsBalance, uint256 updatedClPendingBalance,,) = self.stETH.getBalanceStats();
+            require(updatedClValidatorsBalance + updatedClPendingBalance == fullClBalance, "Unexpected CL balance");
             require(self.stETH.getBufferedEther() == 0, "Non-zero buffered ether");
         }
     }
@@ -485,9 +497,16 @@ library LidoUtils {
         uint256 targetShareRate
     ) internal {
         Uint256ArrayBuilder.Context memory withdrawalBatches;
-        (, uint256 beaconValidators, uint256 oldCLBalance) = self.stETH.getBeaconStat();
-
-        uint256 newCLBalance = uint256(int256(oldCLBalance) + clBalanceChange);
+        uint256 preClPendingBalance;
+        uint256 reportClPendingBalance;
+        uint256 newCLBalance;
+        {
+            (uint256 clValidatorsBalance, uint256 clPendingBalance,, uint256 depositedForCurrentReport) =
+                self.stETH.getBalanceStats();
+            preClPendingBalance = clPendingBalance;
+            reportClPendingBalance = clPendingBalance + depositedForCurrentReport;
+            newCLBalance = uint256(int256(clValidatorsBalance + clPendingBalance) + clBalanceChange);
+        }
 
         if (lastUnstETHIdToFinalize > self.withdrawalQueue.getLastFinalizedRequestId()) {
             IWithdrawalQueue.BatchesCalculationState memory batchesState = getFinalizationBatches(
@@ -518,8 +537,8 @@ library LidoUtils {
                         IAccounting.ReportValues({
                             timestamp: block.timestamp,
                             timeElapsed: 1 days,
-                            clValidators: beaconValidators,
-                            clBalance: 0,
+                            clValidatorsBalance: 0,
+                            clPendingBalance: 0,
                             withdrawalVaultBalance: self.withdrawalVault.balance,
                             elRewardsVaultBalance: self.elRewardsVault.balance,
                             sharesRequestedToBurn: 0,
@@ -551,8 +570,8 @@ library LidoUtils {
             IAccounting.ReportValues({
                 timestamp: block.timestamp - 1,
                 timeElapsed: 1 days,
-                clValidators: beaconValidators,
-                clBalance: newCLBalance,
+                clValidatorsBalance: newCLBalance - preClPendingBalance,
+                clPendingBalance: reportClPendingBalance,
                 withdrawalVaultBalance: self.withdrawalVault.balance,
                 elRewardsVaultBalance: self.elRewardsVault.balance,
                 sharesRequestedToBurn: 0,
@@ -700,11 +719,15 @@ library LidoUtils {
     }
 
     // ---
-    // Lido V3 Compact Unstructured Storage Helpers
+    // SRV3 Compact Unstructured Storage Helpers
     // ---
 
     function getLowUint128(address contractAddress, bytes32 position) internal view returns (uint256) {
         return uint256(vm.load(contractAddress, position)) & UINT128_LOW_MASK;
+    }
+
+    function getHighUint128(address contractAddress, bytes32 position) internal view returns (uint256) {
+        return uint256(vm.load(contractAddress, position)) >> 128;
     }
 
     function setLowUint128(address contractAddress, bytes32 position, uint256 data) internal {
