@@ -21,6 +21,17 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
         _loadOrDeployDGSetup();
     }
 
+    function testFork_DualGovernanceSetup_MatchesDeployArtifact() external view {
+        assertEq(
+            address(_dgDeployedContracts.dualGovernance.getConfigProvider()),
+            address(_dgDeployedContracts.dualGovernanceConfigProvider)
+        );
+        assertEq(
+            address(_dgDeployedContracts.dualGovernance.getResealManager()), address(_dgDeployedContracts.resealManager)
+        );
+        assertEq(_getAdminExecutor(), address(_dgDeployedContracts.adminExecutor));
+    }
+
     function testFork_ProposalLifecycle_HappyPath_MultipleCalls() external {
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls(3);
 
@@ -110,11 +121,10 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
         agentForwardingCalls[1].target = address(_lido.agent);
         agentForwardingCalls[1].payload = abi.encodeCall(
             _lido.agent.forward,
-            (
-                CallsScriptBuilder.create(
-                    address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doControversialStaff, ())
-                ).getResult()
-            )
+            (CallsScriptBuilder.create(
+                        address(_targetMock), abi.encodeCall(IPotentiallyDangerousContract.doControversialStaff, ())
+                    )
+                    .getResult())
         );
 
         uint256 proposalId = _submitProposalByAdminProposer(agentForwardingCalls, "Make calls via Agent forwarding");
@@ -163,6 +173,7 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
             _dgDeployedContracts.dualGovernance.getProposer(address(_lido.voting));
 
         assertTrue(_dgDeployedContracts.dualGovernance.isExecutor(votingProposer.executor));
+        assertEq(votingProposer.executor, address(_dgDeployedContracts.adminExecutor));
 
         uint256 proposalId;
         ExternalCall[] memory regularStaffCalls = _getMockTargetRegularStaffCalls();
@@ -241,6 +252,7 @@ contract DGProposalOperationsRegressionTest is DGRegressionTestSetup {
 
         _step("4. DAO cancels suspicious proposal");
         {
+            assertEq(_getProposalsCanceller(), address(_lido.voting));
             bool cancelled = _cancelAllPendingProposalsByProposalsCanceller();
             assertTrue(cancelled);
         }
